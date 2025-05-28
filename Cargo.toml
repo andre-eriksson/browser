@@ -1,3 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["browser-core", "css-parser", "html-parser", "main", "network", "ui"]
+members = ["browser-core", "css-parser", "html-parser", "main", "network", "shared_types", "ui"]
