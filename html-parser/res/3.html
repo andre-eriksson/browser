@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Edge Cases</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+    <h1>Edge Case Tests</h1>
+
+    <!-- Self-closing tags -->
+    <input type="text" name="username">
+    <img src="photo.jpg" alt="User photo">
+
+    <!-- Tags with unusual attributes -->
+    <div data-custom="value" aria-label="Accessible" hidden></div>
+
+    <!-- Special characters in text and attributes -->
+    <p>Text with &lt;html&gt; entities &amp; special "characters"</p>
+    <a href="/search?q=test&sort=desc">Link with query params</a>
+
+    <!-- Malformed HTML that browsers tolerate -->
+    <p>Unclosed paragraph
+    <div>Div inside unclosed paragraph</div>
+
+    <!-- Nested lists -->
+    <ul>
+        <li>Item 1
+        <li>Item 2
+            <ol>
+                <li>Subitem 1
+                <li>Subitem 2
+            </ol>
+        </li>
+    </ul>
+
+    <!-- Void elements with content (invalid but might appear) -->
+    <br>Content after br</br>
+    <hr>Content after hr</hr>
+
+    <!-- Script and style tags as text -->
+    <pre>
+        &lt;script&gt;alert('test');&lt;/script&gt;
+        &lt;style&gt;body { color: red; }&lt;/style&gt;
+    </pre>
+
+    <!-- HTML5 semantic elements -->
+    <details>
+        <summary>Click me</summary>
+        <p>Hidden content</p>
+    </details>
+</body>
+
+</html>
