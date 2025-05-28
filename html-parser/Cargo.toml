@@ -7,3 +7,4 @@ include = ["src/**/*.rs", "res/**/*"]
 [dependencies]
 logos = "0.15.0"
 regex = "1.11.1"
+shared_types = { path = "../shared_types" }
