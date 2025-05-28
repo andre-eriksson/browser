@@ -2,5 +2,8 @@
 name = "html-parser"
 version = "0.1.0"
 edition = "2024"
+include = ["src/**/*.rs", "res/**/*"]
 
 [dependencies]
+logos = "0.15.0"
+regex = "1.11.1"

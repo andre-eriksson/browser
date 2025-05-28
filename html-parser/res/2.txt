@@ -1,0 +1,375 @@
+Document(
+    [
+        Doctype(
+            DoctypeDeclaration {
+                name: "html",
+                public_id: None,
+                system_id: None,
+            },
+        ),
+        Element(
+            Element {
+                tag_name: "html",
+                attributes: {
+                    "lang": "en",
+                },
+                children: [
+                    Element(
+                        Element {
+                            tag_name: "head",
+                            attributes: {},
+                            children: [
+                                Element(
+                                    Element {
+                                        tag_name: "title",
+                                        attributes: {},
+                                        children: [
+                                            Text(
+                                                "Complex HTML",
+                                            ),
+                                        ],
+                                    },
+                                ),
+                                Element(
+                                    Element {
+                                        tag_name: "meta",
+                                        attributes: {
+                                            "content": "Sample page",
+                                            "name": "description",
+                                        },
+                                        children: [],
+                                    },
+                                ),
+                                Element(
+                                    Element {
+                                        tag_name: "meta",
+                                        attributes: {
+                                            "content": "HTML, parser, test",
+                                            "name": "keywords",
+                                        },
+                                        children: [],
+                                    },
+                                ),
+                                Element(
+                                    Element {
+                                        tag_name: "base",
+                                        attributes: {
+                                            "href": "https://example.com/",
+                                        },
+                                        children: [],
+                                    },
+                                ),
+                            ],
+                        },
+                    ),
+                    Element(
+                        Element {
+                            tag_name: "body",
+                            attributes: {},
+                            children: [
+                                Element(
+                                    Element {
+                                        tag_name: "header",
+                                        attributes: {},
+                                        children: [
+                                            Element(
+                                                Element {
+                                                    tag_name: "nav",
+                                                    attributes: {},
+                                                    children: [
+                                                        Element(
+                                                            Element {
+                                                                tag_name: "ul",
+                                                                attributes: {},
+                                                                children: [
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "li",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "a",
+                                                                                        attributes: {
+                                                                                            "href": "/",
+                                                                                        },
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "Home",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "li",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "a",
+                                                                                        attributes: {
+                                                                                            "href": "about.html",
+                                                                                        },
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "About",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "li",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "a",
+                                                                                        attributes: {
+                                                                                            "href": "contact.html",
+                                                                                        },
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "Contact",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                    ],
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                ),
+                                Element(
+                                    Element {
+                                        tag_name: "main",
+                                        attributes: {},
+                                        children: [
+                                            Element(
+                                                Element {
+                                                    tag_name: "article",
+                                                    attributes: {},
+                                                    children: [
+                                                        Element(
+                                                            Element {
+                                                                tag_name: "h2",
+                                                                attributes: {},
+                                                                children: [
+                                                                    Text(
+                                                                        "Article Title",
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                        Element(
+                                                            Element {
+                                                                tag_name: "section",
+                                                                attributes: {},
+                                                                children: [
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "h3",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Text(
+                                                                                    "Section 1",
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "p",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Text(
+                                                                                    "Text with ",
+                                                                                ),
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "strong",
+                                                                                        attributes: {},
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "strong",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                                Text(
+                                                                                    " and ",
+                                                                                ),
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "code",
+                                                                                        attributes: {},
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "code",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                                Text(
+                                                                                    " elements.",
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "pre",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Text(
+                                                                                    "Preformatted text\r\nwith multiple lines",
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                    ],
+                                                },
+                                            ),
+                                            Element(
+                                                Element {
+                                                    tag_name: "table",
+                                                    attributes: {
+                                                        "border": "1",
+                                                    },
+                                                    children: [
+                                                        Element(
+                                                            Element {
+                                                                tag_name: "caption",
+                                                                attributes: {},
+                                                                children: [
+                                                                    Text(
+                                                                        "Sample Table",
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                        Element(
+                                                            Element {
+                                                                tag_name: "thead",
+                                                                attributes: {},
+                                                                children: [
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "tr",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "th",
+                                                                                        attributes: {},
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "Header 1",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "th",
+                                                                                        attributes: {},
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "Header 2",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                        Element(
+                                                            Element {
+                                                                tag_name: "tbody",
+                                                                attributes: {},
+                                                                children: [
+                                                                    Element(
+                                                                        Element {
+                                                                            tag_name: "tr",
+                                                                            attributes: {},
+                                                                            children: [
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "td",
+                                                                                        attributes: {},
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "Data 1",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                                Element(
+                                                                                    Element {
+                                                                                        tag_name: "td",
+                                                                                        attributes: {},
+                                                                                        children: [
+                                                                                            Text(
+                                                                                                "Data 2",
+                                                                                            ),
+                                                                                        ],
+                                                                                    },
+                                                                                ),
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                ],
+                                                            },
+                                                        ),
+                                                    ],
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                ),
+                                Element(
+                                    Element {
+                                        tag_name: "footer",
+                                        attributes: {},
+                                        children: [
+                                            Element(
+                                                Element {
+                                                    tag_name: "p",
+                                                    attributes: {},
+                                                    children: [
+                                                        Text(
+                                                            "© 2023 Company Name",
+                                                        ),
+                                                    ],
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                ),
+                            ],
+                        },
+                    ),
+                ],
+            },
+        ),
+  
