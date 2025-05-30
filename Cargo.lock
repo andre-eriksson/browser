@@ -1385,6 +1385,7 @@ name = "html-parser"
 version = "0.1.0"
 dependencies = [
  "logos",
+ "once_cell",
  "regex",
  "shared_types",
 ]
@@ -2976,6 +2977,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "html-parser",
  "shared_types",
 ]
 
