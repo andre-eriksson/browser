@@ -1,14 +1,12 @@
-use shared_types::dom::{DomNode, Element};
+pub fn should_auto_close(current_tag: &str, new_tag: &str) -> bool {
+    let current_lower = current_tag;
+    let new_lower = new_tag;
 
-fn should_auto_close(current_tag: &str, new_tag: &str) -> bool {
-    let current_lower = current_tag.to_lowercase();
-    let new_lower = new_tag.to_lowercase();
-
-    match current_lower.as_str() {
+    match current_lower {
         "p" => {
             // Automatically close <p> when encountering block-level elements
             matches!(
-                new_lower.as_str(),
+                new_lower,
                 "div"
                     | "p"
                     | "h1"
@@ -44,50 +42,17 @@ fn should_auto_close(current_tag: &str, new_tag: &str) -> bool {
         }
         "dd" | "dt" => {
             // Automatically close <dd> or <dt> when encountering another <dd> or <dt>
-            matches!(new_lower.as_str(), "dd" | "dt")
+            matches!(new_lower, "dd" | "dt")
         }
         "option" => {
             // Automatically close <option> when encountering another <option> or <optgroup>
-            matches!(new_lower.as_str(), "option" | "optgroup")
+            matches!(new_lower, "option" | "optgroup")
         }
-        "tr" => &new_lower == "tr",
+        "tr" => new_lower == "tr",
         "td" | "th" => {
             // Automatically close <td> or <th> when encountering another <td> or <th>
-            matches!(new_lower.as_str(), "td" | "th" | "tr")
+            matches!(new_lower, "td" | "th" | "tr")
         }
         _ => false,
-    }
-}
-
-pub fn auto_close_elements(
-    element_stack: &mut Vec<Element>,
-    document_children: &mut Vec<DomNode>,
-    new_tag: &str,
-) {
-    let mut elements_to_close: Vec<usize> = Vec::new();
-
-    for (i, element) in element_stack.iter().enumerate().rev() {
-        if should_auto_close(&element.tag_name, new_tag) {
-            elements_to_close.push(i);
-        } else {
-            // Stop closing elements if we reach one that doesn't need to be closed
-            break;
-        }
-    }
-
-    for &index in elements_to_close.iter().rev() {
-        if let Some(element) = element_stack.get(index).cloned() {
-            element_stack.remove(index);
-
-            if element_stack.is_empty() {
-                document_children.push(DomNode::Element(element));
-            } else {
-                if let Some(parent_element) = element_stack.last_mut() {
-                    parent_element.children.push(DomNode::Element(element));
-                } else {
-                    document_children.push(DomNode::Element(element));
-                }
-            }
-        }
     }
 }

@@ -1,3 +1,4 @@
+/// https://html.spec.whatwg.org/#void-elements
 pub fn is_void_element(tag_name: &str) -> bool {
     matches!(
         tag_name.to_lowercase().as_str(),
