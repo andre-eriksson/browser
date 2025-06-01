@@ -1,15 +1,17 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
+pub type SharedDomNode = Rc<RefCell<DomNode>>;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Element {
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
-    pub children: Vec<DomNode>,
+    pub children: Vec<SharedDomNode>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DomNode {
-    Document(Vec<DomNode>),
+    Document(Vec<SharedDomNode>),
     Element(Element),
     Text(String),
     Comment(String),
