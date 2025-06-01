@@ -1,10 +1,13 @@
 use std::fs;
 
-use html_parser::parser::Parser;
+use html_parser::parser::streaming::StreamingParser;
 
 fn main() {
-    let full_time = std::time::Instant::now();
-    let val = &"easy";
+    streaming();
+}
+
+fn streaming() {
+    let val = &"edge_cases";
     let file = fs::read_to_string(format!("resources/html/{}.html", val));
     let content = match file {
         Ok(content) => content,
@@ -14,19 +17,14 @@ fn main() {
         }
     };
 
-    let lexing_start_time = std::time::Instant::now();
-    let mut parser = Parser::new(&content, Some(100_000 as usize));
-    println!("Lexing time: {:?}", lexing_start_time.elapsed());
-
-    // Initialize regexes
-    let parser_start_time = std::time::Instant::now();
-    let result = parser.parse_document();
+    let total_time = std::time::Instant::now();
+    let mut parser = StreamingParser::new(content.as_bytes(), None);
+    let result = parser.parse();
 
     match result {
         Ok(dom) => {
             //println!("Parsed DOM: {:#?}", dom);
-
-            println!("Parsing completed in: {:?}", parser_start_time.elapsed());
+            println!("Parsing completed in: {:?}", total_time.elapsed());
             std::fs::write(
                 format!("resources/html/output/{}.txt", val),
                 format!("{:#?}", dom),
@@ -37,6 +35,4 @@ fn main() {
             eprintln!("Error parsing document: {}", e);
         }
     }
-
-    println!("Total time: {:?}", full_time.elapsed());
 }

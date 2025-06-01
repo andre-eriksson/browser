@@ -1,39 +1,93 @@
 use std::collections::HashMap;
 
-use crate::patterns::patterns;
-
 pub fn extract_attributes(tag_slice: &str) -> HashMap<String, String> {
     let mut attributes = HashMap::new();
+    let chars: Vec<char> = tag_slice.chars().collect();
+    let len = chars.len();
+    let mut i = 0;
 
-    let attr_regex = patterns::ATTR_REGEX
-        .get()
-        .expect("ATTR_REGEX not initialized");
+    while i < len {
+        // Skip whitespace
+        while i < len && chars[i].is_whitespace() {
+            i += 1;
+        }
 
-    let bool_attr_regex = patterns::BOOL_ATTR_REGEX
-        .get()
-        .expect("BOOL_ATTR_REGEX not initialized");
+        if i >= len {
+            break; // End of string
+        }
 
-    // Process attributes with values
-    for cap in attr_regex.captures_iter(tag_slice) {
-        let name = cap.get(1).unwrap().as_str().to_string();
-        let value = cap
-            .get(2)
-            .or_else(|| cap.get(3))
-            .or_else(|| cap.get(4))
-            .map(|m| m.as_str())
-            .unwrap_or("")
-            .to_string();
+        // Read attribute name
+        let name_start = i;
+        while i < len
+            && (chars[i].is_ascii_alphanumeric()
+                || chars[i] == '-'
+                || chars[i] == '_'
+                || chars[i] == ':'
+                || chars[i] == '.')
+        {
+            i += 1;
+        }
 
-        attributes.insert(name, value);
-    }
+        if i == name_start {
+            i += 1;
+            continue;
+        }
 
-    // Process boolean attributes without values
-    for cap in bool_attr_regex.captures_iter(tag_slice) {
-        if let Some(name) = cap.get(1) {
-            let attr_name = name.as_str().to_string();
-            if !attributes.contains_key(&attr_name) {
-                attributes.insert(attr_name, "".to_string());
+        let name = chars[name_start..i].iter().collect::<String>();
+
+        while i < len && chars[i].is_whitespace() {
+            i += 1; // Skip whitespace after attribute name
+        }
+
+        if i < len && chars[i] == '=' {
+            i += 1;
+
+            while i < len && chars[i].is_whitespace() {
+                i += 1; // Skip whitespace after '='
             }
+
+            if i >= len {
+                // Treat as boolean attribute if no value is provided
+                attributes.insert(name, String::new());
+                break;
+            }
+
+            let value = if chars[i] == '"' {
+                i += 1;
+
+                let value_start = i;
+                while i < len && chars[i] != '"' {
+                    i += 1;
+                }
+                let value = chars[value_start..i].iter().collect::<String>();
+                if i < len {
+                    i += 1;
+                }
+                value
+            } else if chars[i] == '\'' {
+                i += 1;
+
+                let value_start = i;
+                while i < len && chars[i] != '\'' {
+                    i += 1;
+                }
+                let value = chars[value_start..i].iter().collect::<String>();
+                if i < len {
+                    i += 1;
+                }
+                value
+            } else {
+                let value_start = i;
+                while i < len && !chars[i].is_whitespace() && chars[i] != '>' && chars[i] != '=' {
+                    i += 1;
+                }
+                chars[value_start..i].iter().collect::<String>()
+            };
+
+            attributes.insert(name, value);
+        } else {
+            // If no '=' is found, treat as a boolean attribute
+            attributes.insert(name, String::new());
         }
     }
 

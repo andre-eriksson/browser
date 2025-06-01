@@ -262,6 +262,14 @@ impl<'a> Decoder<'a> {
                     match self.try_decode(chars.clone()) {
                         Ok(decoded_char) => {
                             output.push(decoded_char);
+                            while let Some(&next_char) = chars.peek() {
+                                if next_char == ';' {
+                                    chars.next(); // consume ';'
+                                    break;
+                                } else {
+                                    chars.next(); // consume the character
+                                }
+                            }
                         }
                         Err(_) => {
                             // If decoding fails, we assume it's not a valid entity and push the '&' back
