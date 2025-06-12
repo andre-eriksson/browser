@@ -1,13 +1,13 @@
 use std::fs;
 
-use html_parser::parser::streaming::StreamingParser;
+use html_parser::parser::{options::ParserOptions, streaming::StreamingParser};
 
 fn main() {
     streaming();
 }
 
 fn streaming() {
-    let val = &"edge_cases";
+    let val = &"book";
     let file = fs::read_to_string(format!("resources/html/{}.html", val));
     let content = match file {
         Ok(content) => content,
@@ -17,17 +17,21 @@ fn streaming() {
         }
     };
 
+    let mut parser =
+        StreamingParser::new_with_options(content.as_bytes(), None, ParserOptions::default());
+
     let total_time = std::time::Instant::now();
-    let mut parser = StreamingParser::new(content.as_bytes(), None);
     let result = parser.parse();
 
     match result {
-        Ok(dom) => {
-            //println!("Parsed DOM: {:#?}", dom);
-            println!("Parsing completed in: {:?}", total_time.elapsed());
+        Ok(result) => {
+            println!("Parsed DOM successfully.");
+            println!("Total time taken: {:?}", total_time.elapsed());
+            //println!("Parsed DOM: {:#?}", result.dom_tree);
+
             std::fs::write(
                 format!("resources/html/output/{}.txt", val),
-                format!("{:#?}", dom),
+                format!("{:#?}", result.dom_tree),
             )
             .expect("Unable to write to file");
         }
