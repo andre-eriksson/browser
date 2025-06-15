@@ -128,7 +128,7 @@ impl ContentSecurityPolicy {
         csp
     }
 
-    pub fn is_blocked(&self, element: &str, url: &str) -> bool {
+    pub fn is_blocked(&self, source_url: &str, element: &str, request_url: &str) -> bool {
         let sources = match element {
             "child" => self.child_src.as_ref(),
             "connect" => self.connect_src.as_ref(),
@@ -152,11 +152,25 @@ impl ContentSecurityPolicy {
         let sources = sources.or(self.default_src.as_ref());
 
         if let Some(sources) = sources {
-            !sources
-                .iter()
-                .any(|source| source == "*" || url.starts_with(source) || source == url)
+            !sources.iter().any(|source| match source.as_str() {
+                "*" => true,
+                "'self'" => self.is_same_origin(source_url, request_url),
+                _ => request_url.starts_with(source) || source == request_url,
+            })
         } else {
             true
+        }
+    }
+
+    fn is_same_origin(&self, source_url: &str, request_url: &str) -> bool {
+        if let (Ok(source_parsed), Ok(request_parsed)) =
+            (url::Url::parse(source_url), url::Url::parse(request_url))
+        {
+            source_parsed.scheme() == request_parsed.scheme()
+                && source_parsed.host() == request_parsed.host()
+                && source_parsed.port() == request_parsed.port()
+        } else {
+            false
         }
     }
 }
