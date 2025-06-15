@@ -16,11 +16,29 @@ use crate::{
 
 use super::options::{ParseMetadata, ParserOptions};
 
+/// Represents the result of parsing an HTML document.
+///
+/// # Fields
+/// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
+/// * `metadata` - Optional metadata collected during parsing, such as ID and class mappings, and external resources.
 pub struct ParseResult {
     pub dom_tree: Vec<SharedDomNode>,
     pub metadata: Option<ParseMetadata>,
 }
 
+/// A streaming HTML parser that reads from a buffered reader and builds a DOM tree incrementally.
+///
+/// # Type Parameters
+/// `R` - The type of the buffered reader, which must implement `BufRead`.
+///
+/// # Fields
+/// * `reader` - The buffered reader from which HTML content is read.
+/// * `buffer` - A string buffer to accumulate text content between reads.
+/// * `buffer_size` - The size of the buffer used for reading data.
+/// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
+/// * `open_elements` - A stack of currently open elements to manage the DOM tree structure.
+/// * `options` - Optional parser options that control behavior such as collecting IDs, classes, and external resources.
+/// * `byte_buffer` - A buffer for handling incomplete UTF-8 sequences across reads.
 pub struct StreamingParser<R: BufRead> {
     reader: R,
     buffer: String,
@@ -28,10 +46,19 @@ pub struct StreamingParser<R: BufRead> {
     dom_tree: Vec<SharedDomNode>,
     open_elements: Vec<SharedDomNode>,
     options: Option<ParserOptions>,
-    byte_buffer: Vec<u8>, // Buffer for incomplete UTF-8 sequences
+    byte_buffer: Vec<u8>,
 }
 
 impl<R: BufRead> StreamingParser<R> {
+    /// Creates a new `StreamingParser` with the specified reader, buffer size, and parser options.
+    ///
+    /// # Arguments
+    /// * `reader` - A buffered reader that implements the `BufRead` trait.
+    /// * `buffer_size` - An optional size for the internal buffer; if `None`, defaults to 8192 bytes.
+    /// * `options` - Parser options that control behavior such as collecting IDs, classes, and external resources.
+    ///
+    /// # Returns
+    /// A new instance of `StreamingParser` initialized with the provided reader, buffer size, and options.
     pub fn new_with_options(reader: R, buffer_size: Option<usize>, options: ParserOptions) -> Self {
         let buffer_size = buffer_size.unwrap_or(1024 * 8);
         let dom_tree = Vec::new();
@@ -47,6 +74,15 @@ impl<R: BufRead> StreamingParser<R> {
             byte_buffer: Vec::new(),
         }
     }
+
+    /// Creates a new `StreamingParser` with the specified reader and an optional buffer size.
+    ///
+    /// # Arguments
+    /// * `reader` - A buffered reader that implements the `BufRead` trait.
+    /// * `buffer_size` - An optional size for the internal buffer; if `None`, defaults to 8192 bytes.
+    ///
+    /// # Returns
+    /// A new instance of `StreamingParser` initialized with the provided reader and buffer size.
     pub fn new(reader: R, buffer_size: Option<usize>) -> Self {
         let buffer_size = buffer_size.unwrap_or(1024 * 8);
         Self {
@@ -60,6 +96,10 @@ impl<R: BufRead> StreamingParser<R> {
         }
     }
 
+    /// Initiates the parsing process, reading from the buffered reader and building the DOM tree, by streaming the HTML content.
+    ///
+    /// # Returns
+    /// A `Result` containing a `ParseResult` with the DOM tree and metadata if successful, or an error message if parsing fails.
     pub fn parse(&mut self) -> Result<ParseResult, String> {
         let mut buf = vec![0u8; self.buffer_size];
         let mut id_map: Option<HashMap<String, SharedDomNode>> = self
@@ -166,6 +206,16 @@ impl<R: BufRead> StreamingParser<R> {
         })
     }
 
+    /// Processes a chunk of HTML content, extracting tokens and building the DOM tree.
+    ///
+    /// # Arguments
+    /// * `chunk` - A string slice containing the HTML content to process.
+    /// * `id_map` - An optional mutable reference to a map for collecting IDs.
+    /// * `class_map` - An optional mutable reference to a map for collecting class names.
+    /// * `external_resources` - An optional mutable reference to a map for collecting external resources.
+    ///
+    /// # Returns
+    /// A `Result` indicating success or an error message if parsing fails.
     fn process_chunk(
         &mut self,
         chunk: &str,
@@ -371,6 +421,14 @@ impl<R: BufRead> StreamingParser<R> {
         Ok(())
     }
 
+    /// Attempts to decode a byte slice as UTF-8, handling incomplete sequences and invalid bytes.
+    ///
+    /// # Arguments
+    /// * `bytes` - A slice of bytes to decode.
+    ///
+    /// # Returns
+    /// A `Result` containing a tuple of the decoded string and any remaining bytes that could not be decoded,
+    /// or an error message if decoding fails.
     fn try_decode_utf8(&self, bytes: &[u8]) -> Result<(String, Vec<u8>), String> {
         match str::from_utf8(bytes) {
             Ok(text) => Ok((text.to_string(), Vec::new())),
@@ -411,6 +469,13 @@ impl<R: BufRead> StreamingParser<R> {
         }
     }
 
+    /// Checks if the given byte slice could be the start of an incomplete UTF-8 sequence.
+    ///
+    /// # Arguments
+    /// * `bytes` - A slice of bytes to check.
+    ///
+    /// # Returns
+    /// A boolean indicating whether the byte slice could be an incomplete UTF-8 sequence.
     fn could_be_incomplete_utf8(&self, bytes: &[u8]) -> bool {
         if bytes.is_empty() {
             return false;

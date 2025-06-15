@@ -1,3 +1,12 @@
+/// Content Security Policy (CSP) implementation
+/// This struct represents the Content Security Policy directives that can be applied to a web page.
+/// it parses the `Content-Security-Policy` header string and provides methods to check if a resource is blocked by the policy.
+///
+/// # Directives
+/// * [Fetch Directives](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy#fetch_directives)
+/// * [Document Directives](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy#document_directives)
+/// * [Navigation Directives](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy#navigation_directives)
+/// * [Reporting Directives](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy#reporting_directives)
 #[derive(Debug, Clone, Default)]
 pub struct ContentSecurityPolicy {
     // Fetch directives
@@ -36,6 +45,7 @@ pub struct ContentSecurityPolicy {
 }
 
 impl ContentSecurityPolicy {
+    /// Create a new `ContentSecurityPolicy` instance with default values.
     pub fn new() -> Self {
         ContentSecurityPolicy {
             child_src: None,
@@ -69,6 +79,13 @@ impl ContentSecurityPolicy {
         }
     }
 
+    /// Create a new `ContentSecurityPolicy` instance from a `Content-Security-Policy` header string.
+    ///
+    /// # Arguments
+    /// * `header` - A string slice representing the `Content-Security-Policy` header value.
+    ///
+    /// # Returns
+    /// A new `ContentSecurityPolicy` instance populated with the directives parsed from the header string.
     pub fn from_header_string(header: &str) -> Self {
         let mut csp = ContentSecurityPolicy::new();
 
@@ -128,8 +145,17 @@ impl ContentSecurityPolicy {
         csp
     }
 
-    pub fn is_blocked(&self, source_url: &str, element: &str, request_url: &str) -> bool {
-        let sources = match element {
+    /// Check if a resource is blocked by the Content Security Policy.
+    ///
+    /// # Arguments
+    /// * `source_url` - The URL of the page where the resource is being requested.
+    /// * `tag` - The type of tag being requested (e.g., "script", "img", "style").
+    /// * `request_url` - The URL of the resource being requested.
+    ///
+    /// # Returns
+    /// A boolean indicating whether the resource is blocked by the CSP.
+    pub fn is_blocked(&self, source_url: &str, tag: &str, request_url: &str) -> bool {
+        let sources = match tag {
             "child" => self.child_src.as_ref(),
             "connect" => self.connect_src.as_ref(),
             "font" => self.font_src.as_ref(),
@@ -162,6 +188,14 @@ impl ContentSecurityPolicy {
         }
     }
 
+    /// A utility function to check if two URLs are of the same origin.
+    ///
+    /// # Arguments
+    /// * `source_url` - The URL of the source page.
+    /// * `request_url` - The URL of the resource being requested.
+    ///
+    /// # Returns
+    /// A boolean indicating whether the two URLs are of the same origin.
     fn is_same_origin(&self, source_url: &str, request_url: &str) -> bool {
         if let (Ok(source_parsed), Ok(request_parsed)) =
             (url::Url::parse(source_url), url::Url::parse(request_url))

@@ -2,6 +2,13 @@ use shared_types::dom;
 
 use crate::patterns::Patterns;
 
+/// Extracts a doctype declaration from a given tag slice.
+///
+/// # Arguments
+/// * `tag_slice` - A string slice representing the doctype declaration.
+///
+/// # Returns
+/// A `DoctypeDeclaration` struct containing the name, public ID, and system ID.
 pub fn extract_doctype_declaration(tag_slice: &str) -> dom::DoctypeDeclaration {
     let doctype_regex = Patterns::doctype_regex();
 
@@ -24,6 +31,13 @@ pub fn extract_doctype_declaration(tag_slice: &str) -> dom::DoctypeDeclaration {
     }
 }
 
+/// Extracts an XML declaration from a given tag slice.
+///
+/// # Arguments
+/// * `tag_slice` - A string slice representing the XML declaration.
+///
+/// # Returns
+/// An `XmlDeclaration` struct containing the version, encoding, and standalone attributes.
 pub fn extract_xml_declaration(tag_slice: &str) -> dom::XmlDeclaration {
     let xml_regex = Patterns::xml_declaration_regex();
     if let Some(caps) = xml_regex.captures(tag_slice) {
