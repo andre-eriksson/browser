@@ -14,4 +14,5 @@ pub struct ParserOptions {
 pub struct ParseMetadata {
     pub id_map: Option<HashMap<String, SharedDomNode>>,
     pub class_map: Option<HashMap<String, Vec<SharedDomNode>>>,
+    pub external_resources: Option<HashMap<String, Vec<String>>>,
 }

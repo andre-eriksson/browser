@@ -2090,8 +2090,10 @@ dependencies = [
 name = "network"
 version = "0.1.0"
 dependencies = [
+ "html-parser",
  "reqwest",
  "tokio",
+ "url",
 ]
 
 [[package]]

@@ -72,6 +72,11 @@ impl<R: BufRead> StreamingParser<R> {
             .as_ref()
             .filter(|opts| opts.collect_classes)
             .map(|_| HashMap::new());
+        let mut external_resources: Option<HashMap<String, Vec<String>>> = self
+            .options
+            .as_ref()
+            .filter(|opts| opts.collect_external_resources)
+            .map(|_| HashMap::new());
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
             if bytes_read == 0 {
@@ -96,7 +101,12 @@ impl<R: BufRead> StreamingParser<R> {
                 let full_chunk = format!("{}{}", self.buffer, chunk);
                 self.buffer.clear();
 
-                self.process_chunk(&full_chunk, &mut id_map, &mut class_map)?;
+                self.process_chunk(
+                    &full_chunk,
+                    &mut id_map,
+                    &mut class_map,
+                    &mut external_resources,
+                )?;
             }
         }
 
@@ -106,7 +116,12 @@ impl<R: BufRead> StreamingParser<R> {
             if !remaining_text.is_empty() {
                 let full_chunk = format!("{}{}", self.buffer, remaining_text);
                 self.buffer.clear();
-                self.process_chunk(&full_chunk, &mut id_map, &mut class_map)?;
+                self.process_chunk(
+                    &full_chunk,
+                    &mut id_map,
+                    &mut class_map,
+                    &mut external_resources,
+                )?;
             }
         }
 
@@ -139,6 +154,11 @@ impl<R: BufRead> StreamingParser<R> {
                     } else {
                         None
                     },
+                    external_resources: if options.collect_external_resources {
+                        external_resources
+                    } else {
+                        None
+                    },
                 })
             } else {
                 None
@@ -151,6 +171,7 @@ impl<R: BufRead> StreamingParser<R> {
         chunk: &str,
         id_map: &mut Option<HashMap<String, SharedDomNode>>,
         class_map: &mut Option<HashMap<String, Vec<SharedDomNode>>>,
+        external_resources: &mut Option<HashMap<String, Vec<String>>>,
     ) -> Result<(), String> {
         let mut lexer = Token::lexer(chunk);
 
@@ -191,6 +212,25 @@ impl<R: BufRead> StreamingParser<R> {
                     let tag_name = extract_tag_name(slice);
                     let mut attributes = extract_attributes(slice);
                     attributes.remove(tag_name);
+
+                    if let Some(external_resources) = external_resources {
+                        if let Some(src) = attributes.get("src") {
+                            external_resources
+                                .entry(tag_name.to_string())
+                                .or_insert_with(Vec::new)
+                                .push(src.to_string());
+                        }
+                        if let Some(href) = attributes.get("href") {
+                            if tag_name.eq_ignore_ascii_case("a") {
+                                continue; // Skip anchor tags for external resources
+                            }
+
+                            external_resources
+                                .entry(tag_name.to_string())
+                                .or_insert_with(Vec::new)
+                                .push(href.to_string());
+                        }
+                    }
 
                     let id: String = attributes
                         .get("id")
