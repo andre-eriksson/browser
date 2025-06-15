@@ -1,5 +1,12 @@
 use std::collections::HashMap;
 
+/// A utility function to extract attributes from an HTML tag slice.
+///
+/// # Arguments
+/// * `tag_slice` - A string slice representing the attributes of an HTML tag.
+///
+/// # Returns
+/// A `HashMap<String, String>` where keys are attribute names and values are attribute values.
 pub fn extract_attributes(tag_slice: &str) -> HashMap<String, String> {
     let mut attributes = HashMap::new();
     let chars: Vec<char> = tag_slice.chars().collect();

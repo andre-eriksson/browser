@@ -1,3 +1,10 @@
+/// Extracts the tag name from a given HTML tag slice.
+///
+/// # Arguments
+/// * `tag_slice` - A string slice representing the HTML tag, e.g., `<div class="example">`.
+///
+/// # Returns
+/// A string slice containing the tag name, e.g., `div` for `<div>`, or `span` for `<span class="example">`.
 pub fn extract_tag_name(tag_slice: &str) -> &str {
     let tag_name_end = tag_slice
         .find(|c: char| c.is_whitespace() || c == '>')

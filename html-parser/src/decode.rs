@@ -1,14 +1,27 @@
 use std::iter::Peekable;
 
+/// A simple HTML entity decoder that decodes named and numeric character references in HTML.
+/// /// This decoder supports both named entities (like `&amp;`, `&lt;`, etc.) and numeric character references
+/// (like `&#38;`, `&#60;`, `&#x26;`, etc.). It can handle both decimal and hexadecimal numeric references.
+///
+/// [Specification](https://html.spec.whatwg.org/multipage/named-characters.html#named-character-references)
 pub struct Decoder<'input> {
     input: &'input str,
 }
 
 impl<'a> Decoder<'a> {
+    /// Creates a new `Decoder` instance with the given input string.
+    ///
+    /// # Arguments
+    /// * `input` - A string slice containing the HTML input to decode.
+    ///
+    /// # Returns
+    /// A new `Decoder` instance initialized with the provided input string.
     pub fn new(input: &'a str) -> Self {
         Decoder { input }
     }
 
+    /// Attempts to decode a character reference from the input string.
     fn try_decode(&self, mut chars: Peekable<std::str::Chars<'_>>) -> Result<char, String> {
         if let Some(&next) = chars.peek() {
             if next == '#' {
@@ -244,6 +257,10 @@ impl<'a> Decoder<'a> {
         }
     }
 
+    /// Decodes the input string, replacing all character references with their corresponding characters.
+    ///
+    /// # Returns
+    /// A `Result` containing the decoded string if successful, or an error message if decoding fails.
     pub fn decode(&self) -> Result<String, String> {
         if self.input.is_empty() {
             return Ok(String::new());
