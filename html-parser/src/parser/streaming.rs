@@ -129,13 +129,17 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// # Arguments
     /// * `chunk` - A string slice containing the HTML content to be processed.
     fn process_chunk(&mut self, chunk: &str, builder: &mut DomTreeBuilder<C>) {
-        let tokenizer = Tokenizer::new(chunk.to_string());
+        if builder.pending_malformed_tag.is_some() {
+            let remaining_content = builder.build_malformed(chunk);
 
-        let remaining_content = builder.build(tokenizer.tokenize());
+            if let Some(remaining_content) = remaining_content {
+                // If there is remaining content after processing malformed tag, append it to the buffer
+                self.buffer.push_str(&remaining_content);
+            }
+        } else {
+            let tokenizer = Tokenizer::new(chunk.to_string());
 
-        // If there is any remaining content that could not be parsed, store it in the buffer for the next iteration
-        if !remaining_content.is_empty() {
-            self.buffer.push_str(&remaining_content);
+            builder.build(tokenizer.tokenize());
         }
     }
 

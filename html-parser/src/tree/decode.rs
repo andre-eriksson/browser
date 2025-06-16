@@ -38,7 +38,9 @@ impl<'a> Decoder<'a> {
                 while let Some(&digit) = chars.peek() {
                     if (is_hex && digit.is_ascii_hexdigit()) || (!is_hex && digit.is_ascii_digit())
                     {
-                        num_str.push(chars.next().unwrap());
+                        if let Some(c) = chars.next() {
+                            num_str.push(c);
+                        }
                     } else {
                         break;
                     }
@@ -61,7 +63,9 @@ impl<'a> Decoder<'a> {
                 let mut entity_name = String::new();
                 while let Some(&next_char) = chars.peek() {
                     if next_char.is_alphanumeric() || next_char == '_' || next_char == '-' {
-                        entity_name.push(chars.next().unwrap());
+                        if let Some(c) = chars.next() {
+                            entity_name.push(c);
+                        }
                     } else {
                         break;
                     }
