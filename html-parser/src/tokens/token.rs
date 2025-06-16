@@ -39,6 +39,6 @@ pub enum Token {
     #[regex(r"[^<]+", priority = 1)]
     Text,
 
-    #[regex(r".", priority = 0)]
-    Unknown,
+    #[regex(r"<[^>]*", priority = 0)]
+    MalformedTag,
 }

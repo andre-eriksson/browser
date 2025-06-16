@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use api::collector::DefaultCollector;
 use html_parser::parser::streaming::HtmlStreamParser;
 use network::page::Page;
@@ -16,7 +18,11 @@ async fn main() {
     let parser = HtmlStreamParser::builder(content.as_bytes())
         .collector(DefaultCollector::default())
         .build();
+
+    let start_time = Instant::now();
     let parser_result = parser.parse();
+    let elapsed_time = start_time.elapsed();
+    println!("Parsing took: {:.2?}", elapsed_time);
 
     if let Err(e) = parser_result {
         eprintln!("Error parsing document: {}", e);
@@ -38,7 +44,7 @@ async fn main() {
 async fn fetch_from_url(url: &str) -> Result<String, String> {
     let client = Client::builder()
         .user_agent(format!(
-            "{}/{}-dev (testing; Rust 1.28.2; reqwest 0.12.18) andreeriksson444@gmail.com",
+            "browser-{}/{}-dev (testing; Rust 1.28.2; reqwest 0.12.18) andreeriksson444@gmail.com",
             env!("CARGO_PKG_NAME"),
             env!("CARGO_PKG_VERSION"),
         ))
