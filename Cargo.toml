@@ -4,8 +4,7 @@ members = [
     "browser-core",
     "css-parser",
     "html-parser",
-    "main",
+    "engine",
     "network",
-    "shared_types",
-    "ui",
+    "api",
 ]
