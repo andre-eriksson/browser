@@ -1,17 +1,28 @@
 # Rust powered Browser
 
-A side-project to learn Rust, creating and displaying HTML content via a UI, mostly from scratch. Perhaps I can use CSS and hopefully JS (in the future 😶). Not aiming to be fully HTML5 spec compliant just enough to display simple content.
+A browser (kinda) project to learn Rust, creating and displaying HTML content via a UI, mostly from scratch. Perhaps I can use CSS and hopefully JS (in the future 😶). Not aiming to be fully HTML5 spec compliant just enough to display simple content.
 
 ## Features
-- [x] HTML Parser
+- [ ] Engine
+  - [ ] Delegate tasks
+  - [ ] Multithreaded?
+  - [ ] Event queue
+- [ ] HTML Parser
   - [x] Basic DOM-tree builder
+  - [x] Handling malformed tags
+  - [x] Parses a decent amount of .html files correctly
+  - [ ] Handling of more exceptions
 - [ ] CSS Parser
+  - [ ] Basic CSSOM builder
   - [ ] Cascading support
 - [ ] UI rendered
   - [ ] Rendering the DOM-tree
   - [ ] Applying basic CSS
+  - [ ] Drawing images
 - [ ] Networking
-  - [ ] Able to fetch a single .html file from a URL
+  - [x] Able to fetch a single .html file from a URL
+  - [x] Handling of Content-Security-Policy header
+  - [ ] Handle POST, PUT, PATCH, DELETE, and other methods
 
 
 ## License
