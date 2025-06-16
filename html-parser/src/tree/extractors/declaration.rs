@@ -1,4 +1,4 @@
-use shared_types::dom;
+use api::dom;
 
 use crate::patterns::Patterns;
 

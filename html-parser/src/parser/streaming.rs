@@ -1,122 +1,85 @@
-use logos::Logos;
-use std::{cell::RefCell, collections::HashMap, io::BufRead, rc::Rc};
-
-use shared_types::dom::{DomNode, Element, SharedDomNode};
+use api::{collector::Collector, dom::SharedDomNode};
+use std::io::BufRead;
 
 use crate::{
-    decode::Decoder,
-    extractors::{
-        attributes::extract_attributes,
-        declaration::{extract_doctype_declaration, extract_xml_declaration},
-        tags::extract_tag_name,
-    },
-    rules::{auto_close::should_auto_close, void_elements::is_void_element},
-    token::Token,
+    parser::builder::HtmlStreamParserBuilder, tokens::tokenizer::Tokenizer,
+    tree::builder::DomTreeBuilder,
 };
-
-use super::options::{ParseMetadata, ParserOptions};
 
 /// Represents the result of parsing an HTML document.
 ///
 /// # Fields
 /// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
-/// * `metadata` - Optional metadata collected during parsing, such as ID and class mappings, and external resources.
-pub struct ParseResult {
+/// * `metadata` - The metadata collected during parsing, which is of type `M`.
+pub struct ParseResult<M> {
     pub dom_tree: Vec<SharedDomNode>,
-    pub metadata: Option<ParseMetadata>,
+    pub metadata: M,
 }
 
-/// A streaming HTML parser that reads from a buffered reader and builds a DOM tree incrementally.
+/// A streaming HTML parser that reads HTML content from a buffered reader and builds a DOM tree incrementally.
 ///
 /// # Type Parameters
 /// `R` - The type of the buffered reader, which must implement `BufRead`.
+/// `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
 ///
 /// # Fields
-/// * `reader` - The buffered reader from which HTML content is read.
-/// * `buffer` - A string buffer to accumulate text content between reads.
-/// * `buffer_size` - The size of the buffer used for reading data.
-/// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
-/// * `open_elements` - A stack of currently open elements to manage the DOM tree structure.
-/// * `options` - Optional parser options that control behavior such as collecting IDs, classes, and external resources.
-/// * `byte_buffer` - A buffer for handling incomplete UTF-8 sequences across reads.
-pub struct StreamingParser<R: BufRead> {
+/// * `reader` - A buffered reader that provides the HTML content to be parsed.
+/// * `collector` - An instance of the collector used to gather metadata during parsing.
+/// * `buffer` - A string buffer that temporarily holds HTML content between reads.
+/// * `buffer_size` - The size of the internal buffer used for reading HTML content.
+/// * `byte_buffer` - A vector of bytes that holds any incomplete UTF-8 sequences between reads.
+/// * `builder` - An instance of `DomTreeBuilder` that constructs the DOM tree from the parsed tokens.
+pub struct HtmlStreamParser<R: BufRead, C: Collector> {
     reader: R,
+    collector: C,
     buffer: String,
     buffer_size: usize,
-    dom_tree: Vec<SharedDomNode>,
-    open_elements: Vec<SharedDomNode>,
-    options: Option<ParserOptions>,
     byte_buffer: Vec<u8>,
 }
 
-impl<R: BufRead> StreamingParser<R> {
-    /// Creates a new `StreamingParser` with the specified reader, buffer size, and parser options.
+impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
+    /// Creates a new `StreamingParser` with the specified reader, collector, and an optional buffer size.
     ///
     /// # Arguments
     /// * `reader` - A buffered reader that implements the `BufRead` trait.
+    /// * `collector` - An instance of the collector used to gather metadata during parsing.
     /// * `buffer_size` - An optional size for the internal buffer; if `None`, defaults to 8192 bytes.
-    /// * `options` - Parser options that control behavior such as collecting IDs, classes, and external resources.
     ///
     /// # Returns
-    /// A new instance of `StreamingParser` initialized with the provided reader, buffer size, and options.
-    pub fn new_with_options(reader: R, buffer_size: Option<usize>, options: ParserOptions) -> Self {
+    /// A new instance of `StreamingParser` initialized with the provided reader, collector, and buffer size.
+    pub fn with_collector(reader: R, collector: C, buffer_size: Option<usize>) -> Self {
         let buffer_size = buffer_size.unwrap_or(1024 * 8);
-        let dom_tree = Vec::new();
-        let open_elements = Vec::new();
-
         Self {
             reader,
+            collector,
             buffer: String::with_capacity(buffer_size),
-            buffer_size,
-            dom_tree,
-            open_elements,
-            options: Some(options),
+            buffer_size: buffer_size,
             byte_buffer: Vec::new(),
         }
     }
 
-    /// Creates a new `StreamingParser` with the specified reader and an optional buffer size.
+    /// Initializes a new `StreamingParserBuilder` with the specified buffered reader and a default collector.
     ///
     /// # Arguments
     /// * `reader` - A buffered reader that implements the `BufRead` trait.
-    /// * `buffer_size` - An optional size for the internal buffer; if `None`, defaults to 8192 bytes.
     ///
     /// # Returns
-    /// A new instance of `StreamingParser` initialized with the provided reader and buffer size.
-    pub fn new(reader: R, buffer_size: Option<usize>) -> Self {
-        let buffer_size = buffer_size.unwrap_or(1024 * 8);
-        Self {
+    /// A new instance of `StreamingParserBuilder` initialized with the provided reader and a default collector.
+    pub fn builder(reader: R) -> HtmlStreamParserBuilder<R, C> {
+        HtmlStreamParserBuilder {
             reader,
-            buffer: String::with_capacity(buffer_size),
-            buffer_size: buffer_size,
-            dom_tree: Vec::new(),
-            open_elements: Vec::new(),
-            options: Some(ParserOptions::default()),
-            byte_buffer: Vec::new(),
+            collector: C::default(),
+            buffer_size: None,
         }
     }
 
     /// Initiates the parsing process, reading from the buffered reader and building the DOM tree, by streaming the HTML content.
     ///
     /// # Returns
-    /// A `Result` containing a `ParseResult` with the DOM tree and metadata if successful, or an error message if parsing fails.
-    pub fn parse(&mut self) -> Result<ParseResult, String> {
+    /// A `Result` containing a `ParseResult` with the DOM tree and collected metadata, or an error message if parsing fails.
+    pub fn parse(mut self) -> Result<ParseResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
-        let mut id_map: Option<HashMap<String, SharedDomNode>> = self
-            .options
-            .as_ref()
-            .filter(|opts| opts.collect_ids)
-            .map(|_| HashMap::new());
-        let mut class_map: Option<HashMap<String, Vec<SharedDomNode>>> = self
-            .options
-            .as_ref()
-            .filter(|opts| opts.collect_classes)
-            .map(|_| HashMap::new());
-        let mut external_resources: Option<HashMap<String, Vec<String>>> = self
-            .options
-            .as_ref()
-            .filter(|opts| opts.collect_external_resources)
-            .map(|_| HashMap::new());
+        let mut builder = DomTreeBuilder::<C>::new();
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
             if bytes_read == 0 {
@@ -141,12 +104,7 @@ impl<R: BufRead> StreamingParser<R> {
                 let full_chunk = format!("{}{}", self.buffer, chunk);
                 self.buffer.clear();
 
-                self.process_chunk(
-                    &full_chunk,
-                    &mut id_map,
-                    &mut class_map,
-                    &mut external_resources,
-                )?;
+                self.process_chunk(&full_chunk, &mut builder);
             }
         }
 
@@ -156,269 +114,29 @@ impl<R: BufRead> StreamingParser<R> {
             if !remaining_text.is_empty() {
                 let full_chunk = format!("{}{}", self.buffer, remaining_text);
                 self.buffer.clear();
-                self.process_chunk(
-                    &full_chunk,
-                    &mut id_map,
-                    &mut class_map,
-                    &mut external_resources,
-                )?;
+                self.process_chunk(&full_chunk, &mut builder);
             }
-        }
-
-        if !self.open_elements.is_empty() {
-            return Err(format!(
-                "Unclosed elements: {}",
-                self.open_elements
-                    .iter()
-                    .map(|node| {
-                        if let DomNode::Element(ref element) = *node.borrow() {
-                            element.tag_name.clone()
-                        } else {
-                            "Unknown".to_string()
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ));
         }
 
         Ok(ParseResult {
-            dom_tree: vec![Rc::new(RefCell::new(DomNode::Document(
-                self.dom_tree.clone(),
-            )))],
-            metadata: if let Some(options) = &self.options {
-                Some(ParseMetadata {
-                    id_map,
-                    class_map: if options.collect_classes {
-                        class_map
-                    } else {
-                        None
-                    },
-                    external_resources: if options.collect_external_resources {
-                        external_resources
-                    } else {
-                        None
-                    },
-                })
-            } else {
-                None
-            },
+            dom_tree: builder.dom_tree.clone(),
+            metadata: self.collector.into_result(),
         })
     }
 
-    /// Processes a chunk of HTML content, extracting tokens and building the DOM tree.
+    /// Processes a chunk of HTML content, tokenizing it and building the DOM tree.
     ///
     /// # Arguments
-    /// * `chunk` - A string slice containing the HTML content to process.
-    /// * `id_map` - An optional mutable reference to a map for collecting IDs.
-    /// * `class_map` - An optional mutable reference to a map for collecting class names.
-    /// * `external_resources` - An optional mutable reference to a map for collecting external resources.
-    ///
-    /// # Returns
-    /// A `Result` indicating success or an error message if parsing fails.
-    fn process_chunk(
-        &mut self,
-        chunk: &str,
-        id_map: &mut Option<HashMap<String, SharedDomNode>>,
-        class_map: &mut Option<HashMap<String, Vec<SharedDomNode>>>,
-        external_resources: &mut Option<HashMap<String, Vec<String>>>,
-    ) -> Result<(), String> {
-        let mut lexer = Token::lexer(chunk);
+    /// * `chunk` - A string slice containing the HTML content to be processed.
+    fn process_chunk(&mut self, chunk: &str, builder: &mut DomTreeBuilder<C>) {
+        let tokenizer = Tokenizer::new(chunk.to_string());
 
-        while let Some(token) = lexer.next() {
-            match token {
-                Ok(Token::Doctype) => {
-                    let doctype_declaration = extract_doctype_declaration(lexer.slice());
+        let remaining_content = builder.build(tokenizer.tokenize());
 
-                    self.dom_tree
-                        .push(Rc::new(RefCell::new(DomNode::Doctype(doctype_declaration))));
-                }
-
-                Ok(Token::XmlDeclaration) => {
-                    let xml_declaration = extract_xml_declaration(lexer.slice());
-
-                    self.dom_tree
-                        .push(Rc::new(RefCell::new(DomNode::XmlDeclaration(
-                            xml_declaration,
-                        ))));
-                }
-
-                Ok(Token::StartTag) | Ok(Token::StartTagWithAttributes) => {
-                    let inside_script = if let Some(last_open) = self.open_elements.last() {
-                        if let DomNode::Element(ref last_element) = *last_open.borrow() {
-                            last_element.tag_name.eq_ignore_ascii_case("script")
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    };
-
-                    if inside_script {
-                        continue;
-                    }
-
-                    let slice = lexer.slice();
-                    let tag_name = extract_tag_name(slice);
-                    let mut attributes = extract_attributes(slice);
-                    attributes.remove(tag_name);
-
-                    if let Some(external_resources) = external_resources {
-                        if let Some(src) = attributes.get("src") {
-                            external_resources
-                                .entry(tag_name.to_string())
-                                .or_insert_with(Vec::new)
-                                .push(src.to_string());
-                        }
-                        if let Some(href) = attributes.get("href") {
-                            if tag_name.eq_ignore_ascii_case("a") {
-                                continue; // Skip anchor tags for external resources
-                            }
-
-                            external_resources
-                                .entry(tag_name.to_string())
-                                .or_insert_with(Vec::new)
-                                .push(href.to_string());
-                        }
-                    }
-
-                    let id: String = attributes
-                        .get("id")
-                        .cloned()
-                        .unwrap_or_else(|| String::new());
-                    let class_names = attributes
-                        .get("class")
-                        .cloned()
-                        .map(|s| s.split_whitespace().map(String::from).collect::<Vec<_>>())
-                        .unwrap_or_else(Vec::new);
-
-                    let element = Element {
-                        tag_name: tag_name.to_string(),
-                        attributes,
-                        children: Vec::new(),
-                    };
-
-                    let new_node = Rc::new(RefCell::new(DomNode::Element(element)));
-
-                    if let Some(id_map) = id_map {
-                        if !id.is_empty() {
-                            id_map.insert(id, Rc::clone(&new_node));
-                        }
-                    }
-
-                    if let Some(class_map) = class_map {
-                        for class in class_names {
-                            class_map
-                                .entry(class)
-                                .or_insert_with(Vec::new)
-                                .push(Rc::clone(&new_node));
-                        }
-                    }
-
-                    let should_close = if let Some(last_open) = self.open_elements.last() {
-                        if let DomNode::Element(ref last_element) = *last_open.borrow() {
-                            should_auto_close(&last_element.tag_name, &tag_name)
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    };
-
-                    if should_close {
-                        self.open_elements.pop();
-                    }
-
-                    if let Some(parent) = self.open_elements.last() {
-                        if let DomNode::Element(ref mut element) = *parent.borrow_mut() {
-                            element.children.push(Rc::clone(&new_node));
-                        }
-                    } else {
-                        self.dom_tree.push(Rc::clone(&new_node));
-                    }
-
-                    if !is_void_element(&tag_name) {
-                        self.open_elements.push(Rc::clone(&new_node));
-                    }
-                }
-
-                Ok(Token::EndTag) => {
-                    let tag_name = extract_tag_name(lexer.slice());
-                    let inside_script = if let Some(last_open) = self.open_elements.last() {
-                        if let DomNode::Element(ref last_element) = *last_open.borrow() {
-                            last_element.tag_name.eq_ignore_ascii_case("script")
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    };
-
-                    if inside_script && !tag_name.eq_ignore_ascii_case("script") {
-                        continue;
-                    }
-
-                    if is_void_element(&tag_name) {
-                        continue;
-                    }
-
-                    if let Some(last_open) = self.open_elements.pop() {
-                        if let DomNode::Element(ref element) = *last_open.borrow() {
-                            if element.tag_name == tag_name {
-                                continue;
-                            }
-
-                            if !is_void_element(&tag_name) {
-                                self.open_elements.pop();
-                            }
-                        } else {
-                            return Err("Expected an element to close".to_string());
-                        }
-                    } else {
-                        return Err(format!("Unexpected end tag: </{}>", tag_name));
-                    }
-                }
-
-                Ok(Token::Text) => {
-                    let mut text_content = lexer.slice().to_string();
-                    if !text_content.trim().is_empty() {
-                        if text_content.contains('&') {
-                            let decoder = Decoder::new(text_content.as_str());
-                            text_content = decoder
-                                .decode()
-                                .map_err(|e| format!("Decoding error: {}", e))?;
-                        }
-
-                        let text_node =
-                            Rc::new(RefCell::new(DomNode::Text(text_content.trim().to_string())));
-                        if let Some(parent) = self.open_elements.last() {
-                            if let DomNode::Element(ref mut element) = *parent.borrow_mut() {
-                                element.children.push(Rc::clone(&text_node));
-                            }
-                        } else {
-                            self.dom_tree.push(Rc::clone(&text_node));
-                        }
-                    }
-                }
-
-                Ok(Token::Unknown) => {
-                    self.buffer.push_str(lexer.slice());
-                }
-
-                Ok(Token::Comment) => {
-                    // No need to handle comments currently
-                }
-
-                Err(_) => {
-                    let slice = lexer.slice();
-
-                    self.buffer.push_str(slice);
-                    continue;
-                }
-            }
+        // If there is any remaining content that could not be parsed, store it in the buffer for the next iteration
+        if !remaining_content.is_empty() {
+            self.buffer.push_str(&remaining_content);
         }
-
-        Ok(())
     }
 
     /// Attempts to decode a byte slice as UTF-8, handling incomplete sequences and invalid bytes.
