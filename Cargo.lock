@@ -707,6 +707,7 @@ name = "network"
 version = "0.1.0"
 dependencies = [
  "html-parser",
+ "http",
  "reqwest",
  "tokio",
  "url",
