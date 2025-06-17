@@ -2,12 +2,12 @@ use std::time::Instant;
 
 use api::collector::DefaultCollector;
 use html_parser::parser::streaming::HtmlStreamParser;
-use network::page::Page;
+use network::web::client::WebClient;
 use reqwest::Client;
 
 #[tokio::main]
 async fn main() {
-    let content = fetch_from_file("medie");
+    let content = fetch_from_url("https://docs.rs/").await;
 
     if let Err(e) = content {
         eprintln!("Error fetching file: {}", e);
@@ -51,9 +51,9 @@ async fn fetch_from_url(url: &str) -> Result<String, String> {
         .build()
         .expect("Failed to build HTTP client");
 
-    let mut page = Page::new(client, url);
+    let mut web_client = WebClient::builder(client).with_url(url).build();
 
-    let result = page.fetch().await;
+    let result = web_client.setup_client().await;
 
     if let Err(e) = result {
         eprintln!("Error fetching URL: {}", e);
@@ -61,7 +61,7 @@ async fn fetch_from_url(url: &str) -> Result<String, String> {
     }
     let response = result.unwrap();
 
-    Ok(response.body)
+    Ok(response)
 }
 
 #[allow(dead_code)]
