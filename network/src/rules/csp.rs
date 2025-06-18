@@ -1,20 +1,9 @@
 use std::collections::HashMap;
 
-use http::{HeaderMap, HeaderValue};
+use http::{HeaderMap, HeaderValue, header::CONTENT_SECURITY_POLICY};
 use url::Origin;
 
-#[derive(Debug, PartialEq)]
-pub enum SourceType {
-    Frame,
-    Script,
-    Style,
-    Image,
-    Font,
-    Media,
-    Worker,
-    Manifest,
-    Fetch,
-}
+use crate::util::source::{SourceType, get_source_from_tag};
 
 #[derive(Default)]
 struct CSPFallback {
@@ -51,6 +40,28 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
         let allowed_sources = parts[1].split_whitespace();
 
         match directive_name.as_str() {
+            "connect-src" => {
+                if source_type != SourceType::Fetch {
+                    continue; // Skip if not a connect request
+                }
+
+                if allowed_sources.clone().count() == 0 {
+                    if allowed_sources.clone().count() == 0 {
+                        return fallback_to_default_src(&mut csp_fallback, request_origin);
+                    }
+                }
+
+                for source in allowed_sources {
+                    if matches!(source, "'none'" | "none") {
+                        return Err("CSP blocks script execution".to_string());
+                    }
+
+                    if source == request_origin.unicode_serialization() || source == "*" {
+                        return Ok(()); // Allowed
+                    }
+                }
+            }
+
             "default-src" => {
                 // Fallback for all other directives
                 for source in allowed_sources {
@@ -59,6 +70,26 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                         .entry("default-src".to_string())
                         .or_default()
                         .push(source.to_string());
+                }
+            }
+
+            "font-src" => {
+                if source_type != SourceType::Font {
+                    continue; // Skip if not a font request
+                }
+
+                if allowed_sources.clone().count() == 0 {
+                    return fallback_to_default_src(&mut csp_fallback, request_origin);
+                }
+
+                for source in allowed_sources {
+                    if matches!(source, "'none'" | "none") {
+                        return Err("CSP blocks script execution".to_string());
+                    }
+
+                    if source == request_origin.unicode_serialization() || source == "*" {
+                        return Ok(()); // Allowed
+                    }
                 }
             }
 
@@ -72,8 +103,8 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 for source in allowed_sources {
-                    if source == "none" {
-                        return Err("CSP blocks script execution".to_string());
+                    if matches!(source, "'none'" | "none") {
+                        return Err("CSP blocks frame execution".to_string());
                     }
 
                     if source == request_origin.unicode_serialization() || source == "*" {
@@ -101,7 +132,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                         .or_default()
                         .push(source.to_string());
 
-                    if source == "none" {
+                    if matches!(source, "'none'" | "none") {
                         return Err("CSP blocks script execution".to_string());
                     }
 
@@ -123,7 +154,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 for source in allowed_sources {
-                    if source == "none" {
+                    if matches!(source, "'none'" | "none") {
                         return Err("CSP blocks script execution".to_string());
                     }
 
@@ -145,7 +176,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 for source in allowed_sources {
-                    if source == "none" {
+                    if matches!(source, "'none'" | "none") {
                         return Err("CSP blocks script execution".to_string());
                     }
 
@@ -174,7 +205,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                         .or_default()
                         .push(source.to_string());
 
-                    if source == "none" {
+                    if matches!(source, "'none'" | "none") {
                         return Err("CSP blocks script execution".to_string());
                     }
 
@@ -195,20 +226,10 @@ pub fn handle_csp(
     headers: &HeaderMap<HeaderValue>,
     tag_name: &str,
     request_origin: &Origin,
-) -> Option<Result<String, String>> {
-    let source_type = match tag_name {
-        "frame" => SourceType::Frame,
-        "script" => SourceType::Script,
-        "style" => SourceType::Style,
-        "img" => SourceType::Image,
-        "font" => SourceType::Font,
-        "media" => SourceType::Media,
-        "worker" => SourceType::Worker,
-        "manifest" => SourceType::Manifest,
-        _ => SourceType::Fetch,
-    };
+) -> Result<(), String> {
+    let source_type = get_source_from_tag(tag_name);
 
-    let csp = headers.get("Content-Security-Policy");
+    let csp = headers.get(CONTENT_SECURITY_POLICY);
     let csp_test = test_csp(
         csp.unwrap_or(&HeaderValue::from_static(""))
             .to_str()
@@ -218,7 +239,8 @@ pub fn handle_csp(
     );
 
     if let Err(e) = csp_test {
-        return Some(Err(format!("CSP violation: {}", e)));
+        return Err(format!("CSP violation: {}", e));
     }
-    None
+
+    Ok(())
 }

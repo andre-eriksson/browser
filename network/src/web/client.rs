@@ -1,9 +1,23 @@
-use http::{HeaderMap, HeaderValue, Method};
+use http::{
+    HeaderMap, HeaderValue, Method,
+    header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
+};
 use reqwest::Client;
 use url::Origin;
 
-use crate::{headers::csp::handle_csp, web::builder::WebClientBuilder};
+use crate::{
+    rules::{cors::validate_cors_preflight, csp::handle_csp, simple::is_simple_request},
+    web::builder::WebClientBuilder,
+};
 
+/// A web client for making HTTP requests with CORS and CSP handling.
+/// This client is designed to work with a specific origin and can handle preflight requests for CORS.
+/// It also checks Content Security Policy (CSP) rules before making requests.
+///
+/// # Fields
+/// * `client`: The underlying HTTP client used for making requests.
+/// * `origin`: The origin of the web client, used for CORS and CSP checks.
+/// * `headers`: Base headers from the origin when calling `setup_client`, to get the CSP rules among others.
 pub struct WebClient {
     pub client: Client,
     pub origin: Origin,
@@ -25,6 +39,53 @@ impl WebClient {
             origin: Origin::new_opaque(),
             headers: HeaderMap::new(),
         }
+    }
+
+    async fn handle_preflight(
+        &self,
+        request_origin: &Origin,
+        method: Method,
+        headers: HeaderMap<HeaderValue>,
+        path: &str,
+    ) -> Result<(), String> {
+        let res = self
+            .client
+            .request(
+                Method::OPTIONS,
+                request_origin.unicode_serialization() + path,
+            )
+            .header(ORIGIN, self.origin.unicode_serialization())
+            .header(ACCESS_CONTROL_REQUEST_METHOD, method.as_str())
+            .header(
+                ACCESS_CONTROL_REQUEST_HEADERS,
+                headers
+                    .iter()
+                    .map(|(k, _)| k.as_str())
+                    .collect::<Vec<&str>>()
+                    .join(", "),
+            )
+            .build();
+
+        if let Err(e) = res {
+            return Err(format!("Failed to build preflight request: {}", e));
+        }
+
+        let response = self.client.execute(res.unwrap()).await;
+
+        if let Err(e) = response {
+            return Err(format!("Failed to execute preflight request: {}", e));
+        }
+
+        let resp = response.unwrap();
+
+        if !resp.status().is_success() {
+            return Err(format!(
+                "Preflight request failed with status: {}",
+                resp.status()
+            ));
+        }
+
+        return validate_cors_preflight(&resp.headers(), request_origin, &method, &headers);
     }
 
     /// Initialize the origin by sending a GET request to the specified URL. Will set the headers
@@ -78,21 +139,37 @@ impl WebClient {
         headers: Option<HeaderMap<HeaderValue>>,
         body: Option<String>,
     ) -> Result<String, String> {
-        if let Some(csp_violation) = handle_csp(
-            &self.headers.as_ref().unwrap_or(&HeaderMap::new()),
+        let csp_test = handle_csp(
+            &self.headers.clone().unwrap_or_default(),
             tag_name,
             request_origin,
-        ) {
-            return csp_violation;
+        );
+
+        if let Err(e) = csp_test {
+            return Err(format!("CSP violation: {}", e));
+        }
+
+        let headers = headers
+            .or_else(|| self.headers.clone())
+            .unwrap_or_else(HeaderMap::new);
+
+        let http_method = http_method.unwrap_or(Method::GET);
+
+        if !is_simple_request(headers.clone(), http_method.clone())
+            && self.origin != request_origin.clone()
+        {
+            if let Err(e) = self
+                .handle_preflight(request_origin, http_method.clone(), headers.clone(), path)
+                .await
+            {
+                return Err(format!("Preflight request failed: {}", e));
+            }
         }
 
         let res = self
             .client
-            .request(
-                http_method.unwrap_or(Method::GET),
-                request_origin.unicode_serialization() + path,
-            )
-            .headers(headers.unwrap_or_else(|| HeaderMap::new()))
+            .request(http_method, request_origin.unicode_serialization() + path)
+            .headers(headers)
             .body(body.unwrap_or(String::new()))
             .build();
 
