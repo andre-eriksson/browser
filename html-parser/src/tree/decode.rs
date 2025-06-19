@@ -22,6 +22,9 @@ impl<'a> Decoder<'a> {
     }
 
     /// Attempts to decode a character reference from the input string.
+    ///
+    /// # Arguments
+    /// * `chars` - A `Peekable` iterator over the characters in the input string.
     fn try_decode(&self, mut chars: Peekable<std::str::Chars<'_>>) -> Result<char, String> {
         if let Some(&next) = chars.peek() {
             if next == '#' {

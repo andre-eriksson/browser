@@ -1,8 +1,8 @@
-use api::{collector::Collector, dom::SharedDomNode};
+use api::{collector::Collector, dom::DomNode};
 use std::io::BufRead;
 
 use crate::{
-    parser::builder::HtmlStreamParserBuilder, tokens::tokenizer::Tokenizer,
+    parser::builder::HtmlStreamParserBuilder, tokens::tokenizer::HtmlTokenizer,
     tree::builder::DomTreeBuilder,
 };
 
@@ -12,7 +12,7 @@ use crate::{
 /// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
 /// * `metadata` - The metadata collected during parsing, which is of type `M`.
 pub struct ParseResult<M> {
-    pub dom_tree: Vec<SharedDomNode>,
+    pub dom_tree: DomNode,
     pub metadata: M,
 }
 
@@ -79,7 +79,9 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// A `Result` containing a `ParseResult` with the DOM tree and collected metadata, or an error message if parsing fails.
     pub fn parse(mut self) -> Result<ParseResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
-        let mut builder = DomTreeBuilder::<C>::new();
+
+        let mut tokenizer = HtmlTokenizer::new();
+        let mut builder: DomTreeBuilder<C> = DomTreeBuilder::new();
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
             if bytes_read == 0 {
@@ -104,7 +106,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                 let full_chunk = format!("{}{}", self.buffer, chunk);
                 self.buffer.clear();
 
-                self.process_chunk(&full_chunk, &mut builder);
+                self.process_chunk(&full_chunk, &mut tokenizer, &mut builder);
             }
         }
 
@@ -114,12 +116,12 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
             if !remaining_text.is_empty() {
                 let full_chunk = format!("{}{}", self.buffer, remaining_text);
                 self.buffer.clear();
-                self.process_chunk(&full_chunk, &mut builder);
+                self.process_chunk(&full_chunk, &mut tokenizer, &mut builder);
             }
         }
 
         Ok(ParseResult {
-            dom_tree: builder.dom_tree.clone(),
+            dom_tree: DomNode::Document(builder.dom_tree),
             metadata: self.collector.into_result(),
         })
     }
@@ -128,19 +130,17 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     ///
     /// # Arguments
     /// * `chunk` - A string slice containing the HTML content to be processed.
-    fn process_chunk(&mut self, chunk: &str, builder: &mut DomTreeBuilder<C>) {
-        if builder.pending_malformed_tag.is_some() {
-            let remaining_content = builder.build_malformed(chunk);
+    /// * `tokenizer` - A mutable reference to the `HtmlTokenizer` used for tokenizing the HTML content.
+    /// * `builder` - A mutable reference to the `DomTreeBuilder` used for constructing the DOM tree.
+    fn process_chunk(
+        &mut self,
+        chunk: &str,
+        tokenizer: &mut HtmlTokenizer,
+        builder: &mut DomTreeBuilder<C>,
+    ) {
+        let tokens = tokenizer.tokenize(chunk.as_bytes());
 
-            if let Some(remaining_content) = remaining_content {
-                // If there is remaining content after processing malformed tag, append it to the buffer
-                self.buffer.push_str(&remaining_content);
-            }
-        } else {
-            let tokenizer = Tokenizer::new(chunk.to_string());
-
-            builder.build(tokenizer.tokenize());
-        }
+        builder.build_from_tokens(tokens);
     }
 
     /// Attempts to decode a byte slice as UTF-8, handling incomplete sequences and invalid bytes.
