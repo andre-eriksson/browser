@@ -1,2 +1,2 @@
-pub mod streaming;
 pub mod builder;
+pub mod streaming;
