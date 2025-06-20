@@ -9,3 +9,10 @@ reqwest = { version = "0.12.18", features = ["json"] }
 tokio = { version = "1.44", features = ["full"] }
 html-parser = { path = "../html-parser" }
 network = { path = "../network" }
+
+[dev-dependencies]
+criterion = "0.6"
+
+[[bench]]
+name = "engine"
+harness = false
