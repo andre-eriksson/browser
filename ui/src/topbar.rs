@@ -1,9 +1,9 @@
-use std::sync::{Arc, Mutex};
-
 use api::{collector::DefaultCollector, dom::AtomicDomNode, sender::NetworkMessage};
 use egui::{Color32, Margin, TopBottomPanel};
 use html_parser::parser::streaming::HtmlStreamParser;
+use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
+use tracing::error;
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
 pub fn render_top_bar(
@@ -43,8 +43,6 @@ pub fn render_top_bar(
                 if button.clicked() {
                     let (response_tx, response_rx) = oneshot::channel();
 
-                    println!("Loading URL: {}", url);
-
                     network_sender
                         .send(NetworkMessage::InitializePage {
                             full_url: url.clone(),
@@ -79,18 +77,14 @@ pub fn render_top_bar(
                                     }
 
                                     *status_code_clone.lock().unwrap() = "200 OK".to_string();
-                                    println!("Page loaded successfully.");
                                 }
                                 Err(err) => {
                                     *status_code_clone.lock().unwrap() = err.to_string();
-                                    eprintln!("Failed to load page: {}", err);
                                 }
                             },
 
                             Err(_) => {
-                                eprintln!(
-                                    "Response channel was closed before receiving a response."
-                                );
+                                error!("Failed to receive response from network thread.");
                             }
                         }
                     });
