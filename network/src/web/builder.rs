@@ -7,17 +7,22 @@ use crate::web::client::WebClient;
 pub struct WebClientBuilder {
     pub client: Client,
     pub origin: Origin,
-    pub headers: HeaderMap<HeaderValue>,
+    pub client_headers: HeaderMap<HeaderValue>,
 }
 
 impl WebClientBuilder {
     pub fn new(client: Client, origin: Origin) -> Self {
-        let headers = HeaderMap::new();
+        let client_headers = HeaderMap::new();
         WebClientBuilder {
             client,
             origin,
-            headers,
+            client_headers,
         }
+    }
+
+    pub fn with_headers(mut self, headers: HeaderMap<HeaderValue>) -> Self {
+        self.client_headers = headers;
+        self
     }
 
     /// Set the origin based on a URL.
@@ -39,10 +44,6 @@ impl WebClientBuilder {
 
     /// Finalizes the builder and returns a `WebClient` instance.
     pub fn build(self) -> WebClient {
-        WebClient {
-            client: self.client,
-            origin: self.origin,
-            headers: Some(self.headers),
-        }
+        WebClient::new(self.client, self.origin, self.client_headers)
     }
 }
