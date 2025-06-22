@@ -18,6 +18,13 @@ pub struct Element {
     pub children: Vec<SharedDomNode>,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct AtomicElement {
+    pub tag_name: String,
+    pub attributes: HashMap<String, String>,
+    pub children: Vec<AtomicDomNode>,
+}
+
 /// Represents a node in the DOM tree.
 /// This enum can represent different types of nodes, including documents, elements, text nodes, comments, doctype declarations, and XML declarations.
 /// Each variant corresponds to a specific type of node, allowing for a flexible and extensible representation of the DOM structure.
@@ -37,6 +44,54 @@ pub enum DomNode {
     Comment(String),
     Doctype(DoctypeDeclaration),
     XmlDeclaration(XmlDeclaration),
+}
+
+impl Default for DomNode {
+    fn default() -> Self {
+        DomNode::Document(Vec::new())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum AtomicDomNode {
+    Document(Vec<AtomicDomNode>),
+    Element(AtomicElement),
+    Text(String),
+    Comment(String),
+    Doctype(DoctypeDeclaration),
+    XmlDeclaration(XmlDeclaration),
+}
+
+impl Default for AtomicDomNode {
+    fn default() -> Self {
+        AtomicDomNode::Document(Vec::new())
+    }
+}
+
+impl From<&DomNode> for AtomicDomNode {
+    fn from(node: &DomNode) -> Self {
+        match node {
+            DomNode::Document(children) => AtomicDomNode::Document(
+                children
+                    .iter()
+                    .map(|child| AtomicDomNode::from(&*child.borrow()))
+                    .collect(),
+            ),
+            DomNode::Element(el) => AtomicDomNode::Element(AtomicElement {
+                tag_name: el.tag_name.clone(),
+                attributes: el.attributes.clone(),
+                children: el
+                    .children
+                    .iter()
+                    .map(|child| AtomicDomNode::from(&*child.borrow()))
+                    .collect(),
+            }),
+            DomNode::Text(t) => AtomicDomNode::Text(t.clone()),
+            DomNode::Comment(c) => AtomicDomNode::Comment(c.clone()),
+            DomNode::Doctype(d) => AtomicDomNode::Doctype(d.clone()),
+            DomNode::XmlDeclaration(x) => AtomicDomNode::XmlDeclaration(x.clone()),
+        }
+    }
 }
 
 /// Represents a doctype declaration in the DOM tree.
