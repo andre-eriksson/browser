@@ -16,8 +16,8 @@ A browser (kinda) project to learn Rust, creating and displaying HTML content vi
   - [ ] Basic CSSOM builder
   - [ ] Cascading support
 - [ ] UI rendered
-  - [ ] Rendering the DOM-tree
-  - [ ] Applying basic CSS
+  - [x] Rendering the DOM-tree
+  - [x] Applying basic CSS
   - [ ] Drawing images
 - [ ] Networking
   - [x] Able to fetch a single .html file from a URL
