@@ -22,6 +22,36 @@ impl HtmlTokenizer {
             tokens: VecDeque::new(),
         }
     }
+    /// Preserve significant whitespace in text content:
+    /// - Keep whitespace that appears between tags (significant for layout)
+    /// - Collapse only excessive internal whitespace within text runs
+    /// - Preserve single spaces that separate words
+    fn preserve_significant_whitespace(&self, text: &str) -> String {
+        // If the text is only whitespace, preserve it as a single space
+        // This is important for whitespace between tags like "</span> world"
+        if text.trim().is_empty() && !text.is_empty() {
+            return " ".to_string();
+        }
+
+        // For text with actual content, do minimal normalization
+        // Replace sequences of whitespace within the text with single spaces
+        // but preserve leading/trailing whitespace as single spaces if present
+        let has_leading_ws = text.starts_with(char::is_whitespace);
+        let has_trailing_ws = text.ends_with(char::is_whitespace);
+
+        let normalized_middle = text.trim().split_whitespace().collect::<Vec<_>>().join(" ");
+
+        let mut result = String::new();
+        if has_leading_ws && !normalized_middle.is_empty() {
+            result.push(' ');
+        }
+        result.push_str(&normalized_middle);
+        if has_trailing_ws && !normalized_middle.is_empty() {
+            result.push(' ');
+        }
+
+        result
+    }
 
     pub fn tokenize(&mut self, chunk: &[u8]) -> Vec<Token> {
         for &current_byte in chunk {
@@ -73,7 +103,6 @@ impl HtmlTokenizer {
 
         self.tokens.drain(..).collect()
     }
-
     fn handle_data_state(&mut self, byte: u8) {
         match byte {
             b'<' => {
@@ -82,7 +111,7 @@ impl HtmlTokenizer {
                     self.tokens.push_back(Token {
                         kind: TokenKind::Text,
                         attributes: HashMap::new(),
-                        data: self.temporary_buffer.clone(),
+                        data: self.preserve_significant_whitespace(&self.temporary_buffer),
                     });
                     self.temporary_buffer.clear();
                 }
