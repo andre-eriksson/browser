@@ -1,87 +1,89 @@
-use std::time::Instant;
-
-use api::collector::DefaultCollector;
-use html_parser::parser::streaming::HtmlStreamParser;
+use api::sender::NetworkMessage;
+use engine::util::constants::{
+    ACCEPT_ENCODING_HEADER, ACCEPT_HEADER, ACCEPT_LANGUAGE_HEADER, CONNECTION_HEADER,
+    UPGRADE_INSECURE_REQUESTS_HEADER, USER_AGENT_HEADER,
+};
 use network::web::client::WebClient;
-use reqwest::Client;
+use reqwest::{
+    Client,
+    header::{
+        ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CONNECTION, HeaderMap, UPGRADE_INSECURE_REQUESTS,
+    },
+    redirect::Policy,
+};
+use std::thread;
+use tokio::sync::mpsc::{self};
+use ui::browser::Browser;
+
+fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkMessage> {
+    let (sender, mut receiver) = mpsc::unbounded_channel::<NetworkMessage>();
+
+    thread::spawn(move || {
+        let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+
+        runtime.block_on(async move {
+            println!("Network thread started");
+
+            while let Some(msg) = receiver.recv().await {
+                match msg {
+                    NetworkMessage::InitializePage { full_url, response } => {
+                        println!("Received SetupClient message",);
+
+                        let result = client.setup_client_from_url(&full_url).await;
+
+                        let _ = response.send(result);
+                    }
+
+                    NetworkMessage::FetchContent {
+                        url,
+                        headers,
+                        method,
+                        body,
+                        tag_name,
+                        response,
+                    } => {
+                        println!("Received FetchContent message",);
+
+                        let result = client
+                            .fetch(&tag_name, &client.origin, &url, method, headers, body)
+                            .await;
+
+                        let _ = response.send(result);
+                    }
+
+                    NetworkMessage::Shutdown => {
+                        println!("Network thread shutting down");
+                        break;
+                    }
+                }
+            }
+        })
+    });
+
+    sender
+}
 
 #[tokio::main]
 async fn main() {
-    let content = fetch_from_url("https://docs.rs/").await;
-
-    if let Err(e) = content {
-        eprintln!("Error fetching file: {}", e);
-        return;
-    }
-    let content = content.unwrap();
-
-    let parser = HtmlStreamParser::builder(content.as_bytes())
-        .collector(DefaultCollector::default())
-        .build();
-
-    let start_time = Instant::now();
-    let parser_result = parser.parse();
-    let elapsed_time = start_time.elapsed();
-    println!("Parsing took: {:.2?}", elapsed_time);
-
-    if let Err(e) = parser_result {
-        eprintln!("Error parsing document: {}", e);
-        return;
-    }
-
-    println!("Document parsed successfully.");
-    let parse_result = parser_result.unwrap();
-    let dom_tree = parse_result.dom_tree;
-
-    std::fs::write(
-        "resources/html/output/output.txt",
-        format!("{:#?}", dom_tree),
-    )
-    .expect("Unable to write to file");
-}
-
-#[allow(dead_code)]
-async fn fetch_from_url(url: &str) -> Result<String, String> {
     let client = Client::builder()
-        .user_agent(format!(
-            "browser-{}/{}-dev (testing; Rust 1.28.2; reqwest 0.12.18) andreeriksson444@gmail.com",
-            env!("CARGO_PKG_NAME"),
-            env!("CARGO_PKG_VERSION"),
-        ))
+        .user_agent(USER_AGENT_HEADER)
+        .redirect(Policy::limited(10))
         .build()
         .expect("Failed to build HTTP client");
 
-    let mut web_client = WebClient::builder(client).with_url(url).build();
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, ACCEPT_HEADER.parse().unwrap());
+    headers.insert(ACCEPT_LANGUAGE, ACCEPT_LANGUAGE_HEADER.parse().unwrap());
+    headers.insert(ACCEPT_ENCODING, ACCEPT_ENCODING_HEADER.parse().unwrap());
+    headers.insert(CONNECTION, CONNECTION_HEADER.parse().unwrap());
+    headers.insert(
+        UPGRADE_INSECURE_REQUESTS,
+        UPGRADE_INSECURE_REQUESTS_HEADER.parse().unwrap(),
+    );
 
-    let result = web_client.setup_client().await;
+    let web_client = WebClient::builder(client).with_headers(headers).build();
 
-    if let Err(e) = result {
-        eprintln!("Error fetching URL: {}", e);
-        return Err(e);
-    }
-    let response = result.unwrap();
-
-    Ok(response)
-}
-
-#[allow(dead_code)]
-fn fetch_from_file(html_file: &str) -> Result<String, std::io::Error> {
-    use std::fs;
-
-    let file = fs::read_to_string(format!("resources/html/{}.html", html_file));
-    if let Err(e) = file {
-        eprintln!("Error reading file: {}", e);
-        return Err(e);
-    }
-    let content = file.unwrap();
-
-    if content.is_empty() {
-        eprintln!("File is empty or not found: {}", html_file);
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "File not found or empty",
-        ));
-    }
-
-    Ok(content)
+    let network_sender = spawn_network_thread(web_client);
+    let browser = Browser::new(network_sender);
+    browser.start();
 }
