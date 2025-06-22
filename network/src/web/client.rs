@@ -3,7 +3,7 @@ use http::{
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::Client;
-use url::Origin;
+use url::{Origin, Url};
 
 use crate::{
     rules::{cors::validate_cors_preflight, csp::handle_csp, simple::is_simple_request},
@@ -21,15 +21,17 @@ use crate::{
 pub struct WebClient {
     pub client: Client,
     pub origin: Origin,
-    pub headers: Option<HeaderMap<HeaderValue>>,
+    pub client_header: HeaderMap<HeaderValue>,
+    origin_headers: Option<HeaderMap<HeaderValue>>,
 }
 
 impl WebClient {
-    pub fn new(client: Client, origin: Origin) -> Self {
+    pub fn new(client: Client, origin: Origin, client_header: HeaderMap<HeaderValue>) -> Self {
         WebClient {
             client,
             origin,
-            headers: None,
+            client_header,
+            origin_headers: None,
         }
     }
 
@@ -37,7 +39,7 @@ impl WebClient {
         WebClientBuilder {
             client,
             origin: Origin::new_opaque(),
-            headers: HeaderMap::new(),
+            client_headers: HeaderMap::new(),
         }
     }
 
@@ -93,17 +95,19 @@ impl WebClient {
     ///
     /// # Returns
     /// A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
-    pub async fn setup_client(&mut self) -> Result<String, String> {
+    pub async fn setup_client(&mut self, path: &str) -> Result<String, String> {
         let res = self
             .client
-            .get(self.origin.unicode_serialization())
+            .get(self.origin.unicode_serialization() + path)
             .send()
             .await;
 
         match res {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    self.headers = Some(resp.headers().clone());
+                    self.origin_headers = Some(resp.headers().clone());
+
+                    println!("Success | Status: {}", resp.status());
 
                     match resp.text().await {
                         Ok(content) => Ok(content),
@@ -112,11 +116,38 @@ impl WebClient {
                         }
                     }
                 } else {
-                    Err(format!("Request failed with status: {}", resp.status()))
+                    Err(format!("{}", resp.status()))
                 }
             }
             Err(e) => Err(format!("Failed to execute request: {}", e)),
         }
+    }
+
+    /// Set up the client using a URL string. This will parse the URL and set the origin accordingly.
+    ///
+    ///  # Arguments
+    /// * `url`: A string slice that holds the URL to set as the origin.
+    ///
+    ///  # Returns
+    ///  A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
+    pub async fn setup_client_from_url(&mut self, url: &str) -> Result<String, String> {
+        let parsed_url = Url::parse(url);
+        if let Err(e) = parsed_url {
+            return Err(format!("Failed to parse URL: {}", e));
+        }
+        let url = parsed_url.unwrap();
+
+        self.origin = Origin::Tuple(
+            url.scheme().to_string(),
+            url::Host::Domain(
+                url.host_str()
+                    .map_or_else(|| String::new(), |s| s.to_string()),
+            ),
+            url.port_or_known_default().unwrap_or(80),
+        );
+        self.setup_client(&url.path())
+            .await
+            .map_err(|e| format!("{}", e))
     }
 
     /// Fetch content from a specific tag with optional headers and body. E.g. `src` attribute of a `<script>` tag.
@@ -125,7 +156,7 @@ impl WebClient {
     /// * `tag_name`: The name of the tag to fetch content from (e.g., "script", "link").
     /// * `request_origin`: The origin of the request, which is used to check against Content Security Policy (CSP).
     /// * `http_method`: Optional HTTP method to use for the request (e.g., GET, POST).
-    /// * `headers`: Optional headers to include in the request.
+    /// * `additional_headers`: Optional headers to include in the request.
     /// * `body`: Optional body content for the request, used for methods like POST.
     ///
     /// # Returns
@@ -136,11 +167,11 @@ impl WebClient {
         request_origin: &Origin,
         path: &str,
         http_method: Option<Method>,
-        headers: Option<HeaderMap<HeaderValue>>,
+        additional_headers: Option<HeaderMap<HeaderValue>>,
         body: Option<String>,
     ) -> Result<String, String> {
         let csp_test = handle_csp(
-            &self.headers.clone().unwrap_or_default(),
+            &self.origin_headers.clone().unwrap_or_default(),
             tag_name,
             request_origin,
         );
@@ -149,9 +180,13 @@ impl WebClient {
             return Err(format!("CSP violation: {}", e));
         }
 
-        let headers = headers
-            .or_else(|| self.headers.clone())
-            .unwrap_or_else(HeaderMap::new);
+        // Combine the client headers with the provided headers
+        let mut headers = self.client_header.clone();
+        if let Some(additional_header) = additional_headers {
+            for (key, value) in additional_header.iter() {
+                headers.insert(key.clone(), value.clone());
+            }
+        }
 
         let http_method = http_method.unwrap_or(Method::GET);
 
@@ -200,7 +235,7 @@ impl WebClient {
     /// * `tag_name`: The name of the tag to fetch content from (e.g., "script", "link").
     /// * `path`: The path to fetch from the origin.
     /// * `http_method`: Optional HTTP method to use for the request (e.g., GET, POST).
-    /// * `headers`: Optional headers to include in the request.
+    /// * `additional_headers`: Optional headers to include in the request.
     /// * `body`: Optional body content for the request, used for methods like POST.
     ///
     /// # Returns
@@ -210,10 +245,17 @@ impl WebClient {
         tag_name: &str,
         path: &str,
         http_method: Option<Method>,
-        headers: Option<HeaderMap<HeaderValue>>,
+        additional_headers: Option<HeaderMap<HeaderValue>>,
         body: Option<String>,
     ) -> Result<String, String> {
-        self.fetch(tag_name, &self.origin, path, http_method, headers, body)
-            .await
+        self.fetch(
+            tag_name,
+            &self.origin,
+            path,
+            http_method,
+            additional_headers,
+            body,
+        )
+        .await
     }
 }
