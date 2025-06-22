@@ -3,6 +3,7 @@ use http::{
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::Client;
+use tracing::{error, info, info_span, instrument};
 use url::{Origin, Url};
 
 use crate::{
@@ -18,6 +19,7 @@ use crate::{
 /// * `client`: The underlying HTTP client used for making requests.
 /// * `origin`: The origin of the web client, used for CORS and CSP checks.
 /// * `headers`: Base headers from the origin when calling `setup_client`, to get the CSP rules among others.
+#[derive(Debug)]
 pub struct WebClient {
     pub client: Client,
     pub origin: Origin,
@@ -27,6 +29,9 @@ pub struct WebClient {
 
 impl WebClient {
     pub fn new(client: Client, origin: Origin, client_header: HeaderMap<HeaderValue>) -> Self {
+        let span = info_span!("WebClient", origin = %origin.unicode_serialization());
+        let _guard = span.enter();
+
         WebClient {
             client,
             origin,
@@ -95,7 +100,7 @@ impl WebClient {
     ///
     /// # Returns
     /// A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
-    pub async fn setup_client(&mut self, path: &str) -> Result<String, String> {
+    async fn setup_client(&mut self, path: &str) -> Result<String, String> {
         let res = self
             .client
             .get(self.origin.unicode_serialization() + path)
@@ -107,7 +112,7 @@ impl WebClient {
                 if resp.status().is_success() {
                     self.origin_headers = Some(resp.headers().clone());
 
-                    println!("Success | Status: {}", resp.status());
+                    info!("{}", resp.status());
 
                     match resp.text().await {
                         Ok(content) => Ok(content),
@@ -116,6 +121,7 @@ impl WebClient {
                         }
                     }
                 } else {
+                    error!("{}", resp.status());
                     Err(format!("{}", resp.status()))
                 }
             }
@@ -130,6 +136,7 @@ impl WebClient {
     ///
     ///  # Returns
     ///  A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
+    #[instrument(skip(self), level = "info")]
     pub async fn setup_client_from_url(&mut self, url: &str) -> Result<String, String> {
         let parsed_url = Url::parse(url);
         if let Err(e) = parsed_url {

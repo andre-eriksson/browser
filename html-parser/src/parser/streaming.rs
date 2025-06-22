@@ -1,5 +1,6 @@
 use api::{collector::Collector, dom::DomNode};
 use std::io::BufRead;
+use tracing::debug;
 
 use crate::{
     parser::builder::HtmlStreamParserBuilder, tokens::tokenizer::HtmlTokenizer,
@@ -79,9 +80,9 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// A `Result` containing a `ParseResult` with the DOM tree and collected metadata, or an error message if parsing fails.
     pub fn parse(mut self) -> Result<ParseResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
-
         let mut tokenizer = HtmlTokenizer::new();
         let mut builder: DomTreeBuilder<C> = DomTreeBuilder::new();
+        let start_time = std::time::Instant::now();
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
             if bytes_read == 0 {
@@ -119,6 +120,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                 self.process_chunk(&full_chunk, &mut tokenizer, &mut builder);
             }
         }
+
+        debug!(
+            "HTML parsing completed in {} ms",
+            start_time.elapsed().as_millis()
+        );
 
         Ok(ParseResult {
             dom_tree: DomNode::Document(builder.dom_tree),

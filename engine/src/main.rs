@@ -13,6 +13,7 @@ use reqwest::{
 };
 use std::thread;
 use tokio::sync::mpsc::{self};
+use tracing::{debug, error, info};
 use ui::browser::Browser;
 
 fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkMessage> {
@@ -22,12 +23,15 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
         let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
 
         runtime.block_on(async move {
-            println!("Network thread started");
+            info!("[Network Thread] Starting network thread");
 
             while let Some(msg) = receiver.recv().await {
                 match msg {
                     NetworkMessage::InitializePage { full_url, response } => {
-                        println!("Received SetupClient message",);
+                        debug!(
+                            "[Network Thread] Received InitializePage message with URL: {}",
+                            full_url
+                        );
 
                         let result = client.setup_client_from_url(&full_url).await;
 
@@ -42,7 +46,10 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
                         tag_name,
                         response,
                     } => {
-                        println!("Received FetchContent message",);
+                        debug!(
+                            "[Network Thread] Received FetchContent message for URL: {}",
+                            url
+                        );
 
                         let result = client
                             .fetch(&tag_name, &client.origin, &url, method, headers, body)
@@ -52,7 +59,7 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
                     }
 
                     NetworkMessage::Shutdown => {
-                        println!("Network thread shutting down");
+                        info!("[Network Thread] Received Shutdown message");
                         break;
                     }
                 }
@@ -65,11 +72,19 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
 
 #[tokio::main]
 async fn main() {
-    let client = Client::builder()
+    tracing_subscriber::fmt().init();
+
+    let client_result = Client::builder()
         .user_agent(USER_AGENT_HEADER)
         .redirect(Policy::limited(10))
-        .build()
-        .expect("Failed to build HTTP client");
+        .build();
+
+    if let Err(e) = client_result {
+        error!("Failed to create HTTP client: {}", e);
+        return;
+    }
+
+    let client = client_result.unwrap();
 
     let mut headers = HeaderMap::new();
     headers.insert(ACCEPT, ACCEPT_HEADER.parse().unwrap());
