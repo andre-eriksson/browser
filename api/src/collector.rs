@@ -9,6 +9,7 @@ use crate::dom::SharedDomNode;
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
 /// * `attributes` - A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
 /// * `dom_node` - A reference to a shared DOM node that represents the tag in the DOM tree. This allows collectors to access the full context of the tag within the document structure.
+#[derive(Debug)]
 pub struct TagInfo<'a> {
     pub tag_name: &'a str,
     pub attributes: &'a HashMap<String, String>,
@@ -56,6 +57,10 @@ impl Collector for DefaultCollector {
     );
 
     fn collect(&mut self, tag: &TagInfo) {
+        if tag.attributes.is_empty() {
+            return;
+        }
+
         if let Some(id_map) = &mut self.id_map {
             if let Some(id) = tag.attributes.get("id") {
                 id_map

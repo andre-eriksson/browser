@@ -2,10 +2,7 @@ use api::{collector::Collector, dom::DomNode};
 use std::io::BufRead;
 use tracing::debug;
 
-use crate::{
-    parser::builder::HtmlStreamParserBuilder, tokens::tokenizer::HtmlTokenizer,
-    tree::builder::DomTreeBuilder,
-};
+use crate::{tokens::tokenizer::HtmlTokenizer, tree::builder::DomTreeBuilder};
 
 /// Represents the result of parsing an HTML document.
 ///
@@ -20,68 +17,56 @@ pub struct ParseResult<M> {
 /// A streaming HTML parser that reads HTML content from a buffered reader and builds a DOM tree incrementally.
 ///
 /// # Type Parameters
-/// `R` - The type of the buffered reader, which must implement `BufRead`.
-/// `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
+/// * `R` - The type of the buffered reader, which must implement `BufRead`.
 ///
 /// # Fields
 /// * `reader` - A buffered reader that provides the HTML content to be parsed.
-/// * `collector` - An instance of the collector used to gather metadata during parsing.
 /// * `buffer` - A string buffer that temporarily holds HTML content between reads.
 /// * `buffer_size` - The size of the internal buffer used for reading HTML content.
 /// * `byte_buffer` - A vector of bytes that holds any incomplete UTF-8 sequences between reads.
-/// * `builder` - An instance of `DomTreeBuilder` that constructs the DOM tree from the parsed tokens.
-pub struct HtmlStreamParser<R: BufRead, C: Collector> {
+pub struct HtmlStreamParser<R: BufRead> {
     reader: R,
-    collector: C,
     buffer: String,
     buffer_size: usize,
     byte_buffer: Vec<u8>,
 }
 
-impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
+impl<R: BufRead> HtmlStreamParser<R> {
     /// Creates a new `StreamingParser` with the specified reader, collector, and an optional buffer size.
     ///
     /// # Arguments
     /// * `reader` - A buffered reader that implements the `BufRead` trait.
-    /// * `collector` - An instance of the collector used to gather metadata during parsing.
     /// * `buffer_size` - An optional size for the internal buffer; if `None`, defaults to 8192 bytes.
     ///
     /// # Returns
     /// A new instance of `StreamingParser` initialized with the provided reader, collector, and buffer size.
-    pub fn with_collector(reader: R, collector: C, buffer_size: Option<usize>) -> Self {
+    pub fn new(reader: R, buffer_size: Option<usize>) -> Self {
         let buffer_size = buffer_size.unwrap_or(1024 * 8);
         Self {
             reader,
-            collector,
             buffer: String::with_capacity(buffer_size),
             buffer_size: buffer_size,
             byte_buffer: Vec::new(),
         }
     }
 
-    /// Initializes a new `StreamingParserBuilder` with the specified buffered reader and a default collector.
+    /// Initiates the parsing process, reading from the buffered reader and building the DOM tree, by streaming the HTML content.
+    ///
+    /// # Type Parameters
+    /// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
     ///
     /// # Arguments
-    /// * `reader` - A buffered reader that implements the `BufRead` trait.
-    ///
-    /// # Returns
-    /// A new instance of `StreamingParserBuilder` initialized with the provided reader and a default collector.
-    pub fn builder(reader: R) -> HtmlStreamParserBuilder<R, C> {
-        HtmlStreamParserBuilder {
-            reader,
-            collector: C::default(),
-            buffer_size: None,
-        }
-    }
-
-    /// Initiates the parsing process, reading from the buffered reader and building the DOM tree, by streaming the HTML content.
+    /// * `collector` - An optional collector instance that implements the `Collector` trait. If `None`, a default collector is used.
     ///
     /// # Returns
     /// A `Result` containing a `ParseResult` with the DOM tree and collected metadata, or an error message if parsing fails.
-    pub fn parse(mut self) -> Result<ParseResult<C::Output>, String> {
+    pub fn parse<C: Collector + Default>(
+        mut self,
+        collector: Option<C>,
+    ) -> Result<ParseResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
         let mut tokenizer = HtmlTokenizer::new();
-        let mut builder: DomTreeBuilder<C> = DomTreeBuilder::new();
+        let mut builder = DomTreeBuilder::new(Some(collector.unwrap_or_default()));
         let start_time = std::time::Instant::now();
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
@@ -128,17 +113,20 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
         Ok(ParseResult {
             dom_tree: DomNode::Document(builder.dom_tree),
-            metadata: self.collector.into_result(),
+            metadata: builder.collector.into_result(),
         })
     }
 
     /// Processes a chunk of HTML content, tokenizing it and building the DOM tree.
     ///
+    /// # Type Parameters
+    /// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
+    ///
     /// # Arguments
     /// * `chunk` - A string slice containing the HTML content to be processed.
     /// * `tokenizer` - A mutable reference to the `HtmlTokenizer` used for tokenizing the HTML content.
     /// * `builder` - A mutable reference to the `DomTreeBuilder` used for constructing the DOM tree.
-    fn process_chunk(
+    fn process_chunk<C: Collector + Default>(
         &mut self,
         chunk: &str,
         tokenizer: &mut HtmlTokenizer,

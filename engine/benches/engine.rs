@@ -64,10 +64,8 @@ pub fn parse_benchmark(c: &mut Criterion) {
 
     c.bench_function("parse_html", |b| {
         b.iter(|| {
-            let parser = HtmlStreamParser::builder(content.as_bytes())
-                .collector(DefaultCollector::default())
-                .build();
-            let parser_result = black_box(parser.parse());
+            let parser = HtmlStreamParser::new(content.as_bytes(), None);
+            let parser_result = black_box(parser.parse::<DefaultCollector>(None));
             if let Err(e) = &parser_result {
                 eprintln!("Error parsing document: {}", e);
             }
