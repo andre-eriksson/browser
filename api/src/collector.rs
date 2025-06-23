@@ -46,14 +46,14 @@ pub trait Collector {
 pub struct DefaultCollector {
     pub id_map: Option<HashMap<String, SharedDomNode>>,
     pub class_map: Option<HashMap<String, Vec<SharedDomNode>>>,
-    pub external_resources: Option<HashMap<String, Vec<String>>>,
+    pub external_resources: Option<HashMap<String, Vec<SharedDomNode>>>,
 }
 
 impl Collector for DefaultCollector {
     type Output = (
         Option<HashMap<String, SharedDomNode>>,
         Option<HashMap<String, Vec<SharedDomNode>>>,
-        Option<HashMap<String, Vec<String>>>,
+        Option<HashMap<String, Vec<SharedDomNode>>>,
     );
 
     fn collect(&mut self, tag: &TagInfo) {
@@ -89,14 +89,14 @@ impl Collector for DefaultCollector {
                 external_resources
                     .entry(href.to_string())
                     .or_default()
-                    .push(tag.tag_name.to_string());
+                    .push(tag.dom_node.clone());
             }
 
             if let Some(src) = tag.attributes.get("src") {
                 external_resources
                     .entry(src.to_string())
                     .or_default()
-                    .push(tag.tag_name.to_string());
+                    .push(tag.dom_node.clone());
             }
         }
     }
