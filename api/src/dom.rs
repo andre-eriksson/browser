@@ -1,8 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 /// Represents a shared DOM node that can be used in a tree structure.
 /// This type is a reference-counted pointer to a `RefCell<DomNode>`, allowing for mutable access to the DOM node while sharing ownership.
-pub type SharedDomNode = Rc<RefCell<DomNode>>;
+pub type SharedDomNode = Arc<Mutex<DomNode>>;
 
 /// Represents an HTML element in the DOM tree.
 /// It contains the tag name, attributes, and children nodes.
@@ -11,18 +14,11 @@ pub type SharedDomNode = Rc<RefCell<DomNode>>;
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
 /// * `attributes` - A map of attribute names to their values for the element (e.g., `{"class": "my-class
 /// * `children` - A vector of shared DOM nodes representing the child elements or text nodes contained within this element.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub struct Element {
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
     pub children: Vec<SharedDomNode>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AtomicElement {
-    pub tag_name: String,
-    pub attributes: HashMap<String, String>,
-    pub children: Vec<AtomicDomNode>,
 }
 
 /// Represents a node in the DOM tree.
@@ -36,7 +32,7 @@ pub struct AtomicElement {
 /// * `Comment` - Represents an HTML comment node containing the comment text.
 /// * `Doctype` - Represents a doctype declaration, which includes the name, public ID, and system ID.
 /// * `XmlDeclaration` - Represents an XML declaration, which includes the version, encoding, and standalone status.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub enum DomNode {
     Document(Vec<SharedDomNode>),
     Element(Element),
@@ -49,48 +45,6 @@ pub enum DomNode {
 impl Default for DomNode {
     fn default() -> Self {
         DomNode::Document(Vec::new())
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum AtomicDomNode {
-    Document(Vec<AtomicDomNode>),
-    Element(AtomicElement),
-    Text(String),
-    Comment(String),
-    Doctype(DoctypeDeclaration),
-    XmlDeclaration(XmlDeclaration),
-}
-
-impl Default for AtomicDomNode {
-    fn default() -> Self {
-        AtomicDomNode::Document(Vec::new())
-    }
-}
-
-impl From<&DomNode> for AtomicDomNode {
-    fn from(node: &DomNode) -> Self {
-        match node {
-            DomNode::Document(children) => AtomicDomNode::Document(
-                children
-                    .iter()
-                    .map(|child| AtomicDomNode::from(&*child.borrow()))
-                    .collect(),
-            ),
-            DomNode::Element(el) => AtomicDomNode::Element(AtomicElement {
-                tag_name: el.tag_name.clone(),
-                attributes: el.attributes.clone(),
-                children: el
-                    .children
-                    .iter()
-                    .map(|child| AtomicDomNode::from(&*child.borrow()))
-                    .collect(),
-            }),
-            DomNode::Text(t) => AtomicDomNode::Text(t.clone()),
-            DomNode::Comment(c) => AtomicDomNode::Comment(c.clone()),
-            DomNode::Doctype(d) => AtomicDomNode::Doctype(d.clone()),
-            DomNode::XmlDeclaration(x) => AtomicDomNode::XmlDeclaration(x.clone()),
-        }
     }
 }
 

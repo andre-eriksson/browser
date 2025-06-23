@@ -1,4 +1,4 @@
-use api::{dom::AtomicDomNode, sender::NetworkMessage};
+use api::{dom::SharedDomNode, sender::NetworkMessage};
 use eframe::{HardwareAcceleration, NativeOptions, egui, run_simple_native};
 use egui::{FontDefinitions, ThemePreference, ViewportBuilder};
 use std::sync::{Arc, Mutex};
@@ -31,7 +31,7 @@ impl Browser {
 
         let mut url = "http://localhost:8000/basic.html".to_string(); // Default URL
         let mut status_code = Arc::new(Mutex::new("200 OK".to_string()));
-        let html_content = Arc::new(Mutex::new(AtomicDomNode::default()));
+        let html_content = SharedDomNode::default();
         let network_sender = self.network_sender.clone();
 
         let _ = run_simple_native("Browser", options, move |ctx, _frame| {
