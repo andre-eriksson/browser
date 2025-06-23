@@ -58,15 +58,17 @@ pub fn render_top_bar(
                         match response_rx.await {
                             Ok(network_response) => match network_response {
                                 Ok(html) => {
-                                    let parser = HtmlStreamParser::builder(html.as_bytes())
-                                        .collector(DefaultCollector::default())
-                                        .build();
+                                    let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
-                                    let parsed = parser.parse();
+                                    let parsed = parser.parse(Some(DefaultCollector {
+                                        external_resources: Some(Default::default()),
+                                        ..Default::default()
+                                    }));
 
                                     match parsed {
                                         Ok(result) => {
                                             let dom_tree = result.dom_tree;
+                                            println!("Metadata: {:?}", result.metadata);
                                             let mut html_content =
                                                 html_content_clone.lock().unwrap();
                                             *html_content = dom_tree;

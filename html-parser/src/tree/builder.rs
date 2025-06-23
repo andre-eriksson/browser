@@ -15,14 +15,14 @@ use api::{
 /// A builder for constructing a DOM tree from HTML tokens.
 ///
 /// # Type Parameters
-/// `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
+/// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
 ///
 /// # Fields
 /// * `collector` - An instance of the collector used to gather metadata during parsing.
 /// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
 /// * `open_elements` - A stack of currently open elements, used to manage the hierarchy of the DOM tree.
 pub struct DomTreeBuilder<C: Collector> {
-    collector: C,
+    pub collector: C,
     pub dom_tree: Vec<SharedDomNode>,
     open_elements: Vec<SharedDomNode>,
 }
@@ -30,11 +30,14 @@ pub struct DomTreeBuilder<C: Collector> {
 impl<C: Collector + Default> DomTreeBuilder<C> {
     /// Creates a new `DomTreeBuilder` instance with a default collector.
     ///
+    /// # Arguments
+    /// * `collector` - An optional instance of the collector used to gather metadata during parsing. If `None`, a default collector will be used.
+    ///
     /// # Returns
     /// A new instance of `DomTreeBuilder` initialized with an empty DOM tree and no open elements.
-    pub fn new() -> Self {
+    pub fn new(collector: Option<C>) -> Self {
         DomTreeBuilder {
-            collector: C::default(),
+            collector: collector.unwrap_or_default(),
             dom_tree: Vec::new(),
             open_elements: Vec::with_capacity(16),
         }
