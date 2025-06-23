@@ -1,4 +1,4 @@
-use api::dom::AtomicElement;
+use api::dom::{Element};
 use egui::RichText;
 
 use crate::html::{
@@ -7,7 +7,7 @@ use crate::html::{
 };
 
 /// Displays an element as a block, breaking to a new line
-pub fn display_element_block(ui: &mut egui::Ui, element: &AtomicElement, current_depth: usize) {
+pub fn display_element_block(ui: &mut egui::Ui, element: &Element, current_depth: usize) {
     if current_depth > MAX_DEPTH {
         ui.label(format!("{}... (depth limit reached)", element.tag_name));
         return;

@@ -1,4 +1,4 @@
-use api::{collector::DefaultCollector, dom::AtomicDomNode, sender::NetworkMessage};
+use api::{collector::DefaultCollector, dom::DomNode, sender::NetworkMessage};
 use egui::{Color32, Margin, TopBottomPanel};
 use html_parser::parser::streaming::HtmlStreamParser;
 use std::sync::{Arc, Mutex};
@@ -9,7 +9,7 @@ use tracing::error;
 pub fn render_top_bar(
     url: &mut String,
     status_code: &mut Arc<Mutex<String>>,
-    html_content: &Arc<Mutex<AtomicDomNode>>,
+    html_content: &Arc<Mutex<DomNode>>,
     network_sender: &mpsc::UnboundedSender<NetworkMessage>,
     ctx: &egui::Context,
 ) {
@@ -69,7 +69,7 @@ pub fn render_top_bar(
                                             let dom_tree = result.dom_tree;
                                             let mut html_content =
                                                 html_content_clone.lock().unwrap();
-                                            *html_content = AtomicDomNode::from(&dom_tree);
+                                            *html_content = dom_tree;
                                         }
                                         Err(err) => {
                                             eprintln!("Parsing error: {}", err);

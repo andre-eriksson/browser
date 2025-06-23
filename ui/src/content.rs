@@ -1,11 +1,11 @@
-use api::dom::AtomicDomNode;
+use api::dom::DomNode;
 use egui::{CentralPanel, Color32, Margin, ScrollArea, Stroke};
 use std::sync::{Arc, Mutex};
 
 use crate::html::ui::{display_body, find_and_display_body};
 
 /// Renders the main content area of the browser UI, displaying HTML content.
-pub fn render_content(html_content: &Arc<Mutex<AtomicDomNode>>, ctx: &egui::Context) {
+pub fn render_content(html_content: &Arc<Mutex<DomNode>>, ctx: &egui::Context) {
     CentralPanel::default()
         .frame(
             egui::Frame::new()
@@ -21,17 +21,17 @@ pub fn render_content(html_content: &Arc<Mutex<AtomicDomNode>>, ctx: &egui::Cont
                     .auto_shrink(false)
                     .drag_to_scroll(false)
                     .show(ui, |ui| match &*html {
-                        AtomicDomNode::Document(children) => {
+                        DomNode::Document(children) => {
                             // Look for the body element specifically
                             let mut found_body = false;
                             for child in children {
-                                match child {
-                                    AtomicDomNode::Element(element) => {
+                                match child.lock().unwrap().clone() {
+                                    DomNode::Element(element) => {
                                         if element.tag_name.as_str() == "html" {
-                                            find_and_display_body(ui, element);
+                                            find_and_display_body(ui, &element);
                                             found_body = true;
                                         } else if element.tag_name.as_str() == "body" {
-                                            display_body(ui, element, 0);
+                                            display_body(ui, &element, 0);
                                             found_body = true;
                                         }
                                     }

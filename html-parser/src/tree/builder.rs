@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, Mutex};
 
 use crate::{
     tokens::state::{Token, TokenKind},
@@ -78,7 +78,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `node` - A shared reference to the `DomNode` to be inserted into the DOM tree.
     fn insert_new_node(&mut self, node: SharedDomNode) {
         if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(parent) = &mut *last.borrow_mut() {
+            if let DomNode::Element(parent) = &mut *last.lock().unwrap() {
                 parent.children.push(node);
             }
         } else {
@@ -92,7 +92,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `new_tag_name` - The name of the new tag being processed, which may trigger auto-closing of previous tags.
     fn handle_auto_close(&mut self, new_tag_name: &str) {
         let should_pop = if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(ref parent) = *last.borrow() {
+            if let DomNode::Element(ref parent) = *last.lock().unwrap() {
                 should_auto_close(&parent.tag_name, new_tag_name)
             } else {
                 false
@@ -123,10 +123,10 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         self.collector.collect(&TagInfo {
             tag_name: tag_name,
             attributes: &token.attributes,
-            dom_node: &Rc::new(RefCell::new(DomNode::Element(element.clone()))),
+            dom_node: &Arc::new(Mutex::new(DomNode::Element(element.clone()))),
         });
 
-        let new_node = Rc::new(RefCell::new(DomNode::Element(element)));
+        let new_node = Arc::new(Mutex::new(DomNode::Element(element)));
 
         // Handle auto-closing of previous tags if necessary
         self.handle_auto_close(tag_name);
@@ -148,7 +148,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         let tag_name = &token.data;
 
         let should_close = if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(ref parent) = last.borrow().clone() {
+            if let DomNode::Element(ref parent) = *last.lock().unwrap() {
                 parent.tag_name == *tag_name
             } else {
                 false
@@ -218,10 +218,10 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         }
 
         if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(parent) = &mut *last.borrow_mut() {
+            if let DomNode::Element(parent) = &mut *last.lock().unwrap() {
                 parent
                     .children
-                    .push(Rc::new(RefCell::new(DomNode::Text(text_content))));
+                    .push(Arc::new(Mutex::new(DomNode::Text(text_content))));
             }
         }
 

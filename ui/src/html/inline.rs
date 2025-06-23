@@ -1,4 +1,4 @@
-use api::dom::{AtomicDomNode, AtomicElement};
+use api::dom::{DomNode, Element};
 use egui::{Color32, RichText};
 
 use crate::html::ui::collect_text_content;
@@ -21,7 +21,7 @@ pub struct InlineSegment {
 }
 
 /// Displays inline elements on the same line using egui's horizontal layout
-pub fn display_inline_elements(ui: &mut egui::Ui, elements: &[&AtomicElement]) {
+pub fn display_inline_elements(ui: &mut egui::Ui, elements: &[&Element]) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0; // Remove spacing between elements
         for element in elements {
@@ -62,17 +62,17 @@ pub fn display_inline_elements(ui: &mut egui::Ui, elements: &[&AtomicElement]) {
 }
 
 /// Checks if an element contains only inline content
-pub fn has_only_inline_children(element: &AtomicElement) -> bool {
+pub fn has_only_inline_children(element: &Element) -> bool {
     for child in &element.children {
-        match child {
-            AtomicDomNode::Element(child_element) => {
+        match child.lock().unwrap().clone() {
+            DomNode::Element(child_element) => {
                 match child_element.tag_name.as_str() {
                     "span" | "a" | "strong" | "em" | "b" | "i" | "sup" => continue,
                     "style" | "script" | "link" | "meta" | "noscript" => continue,
                     _ => return false, // Found a non-inline element
                 }
             }
-            AtomicDomNode::Text(_) => continue,
+            DomNode::Text(_) => continue,
             _ => {}
         }
     }
@@ -80,14 +80,14 @@ pub fn has_only_inline_children(element: &AtomicElement) -> bool {
 }
 
 /// Collects all inline segments from an element, preserving formatting
-pub fn collect_inline_segments(element: &AtomicElement) -> Vec<InlineSegment> {
+pub fn collect_inline_segments(element: &Element) -> Vec<InlineSegment> {
     let mut segments = Vec::new();
     collect_inline_segments_recursive(element, &mut segments, false, false, false, false);
     segments
 }
 
 fn collect_inline_segments_recursive(
-    element: &AtomicElement,
+    element: &Element,
     segments: &mut Vec<InlineSegment>,
     is_link: bool,
     is_bold: bool,
@@ -95,12 +95,12 @@ fn collect_inline_segments_recursive(
     is_superscript: bool,
 ) {
     for child in &element.children {
-        match child {
-            AtomicDomNode::Element(child_element) => {
+        match child.lock().unwrap().clone() {
+            DomNode::Element(child_element) => {
                 match child_element.tag_name.as_str() {
                     "a" => {
                         collect_inline_segments_recursive(
-                            child_element,
+                            &child_element,
                             segments,
                             true,
                             is_bold,
@@ -110,7 +110,7 @@ fn collect_inline_segments_recursive(
                     }
                     "strong" | "b" => {
                         collect_inline_segments_recursive(
-                            child_element,
+                            &child_element,
                             segments,
                             is_link,
                             true,
@@ -120,7 +120,7 @@ fn collect_inline_segments_recursive(
                     }
                     "em" | "i" => {
                         collect_inline_segments_recursive(
-                            child_element,
+                            &child_element,
                             segments,
                             is_link,
                             is_bold,
@@ -130,7 +130,7 @@ fn collect_inline_segments_recursive(
                     }
                     "sup" => {
                         collect_inline_segments_recursive(
-                            child_element,
+                            &child_element,
                             segments,
                             is_link,
                             is_bold,
@@ -145,7 +145,7 @@ fn collect_inline_segments_recursive(
                     _ => {
                         // For other elements like span, continue with current formatting
                         collect_inline_segments_recursive(
-                            child_element,
+                            &child_element,
                             segments,
                             is_link,
                             is_bold,
@@ -155,7 +155,7 @@ fn collect_inline_segments_recursive(
                     }
                 }
             }
-            AtomicDomNode::Text(text) => {
+            DomNode::Text(text) => {
                 if !text.is_empty() {
                     segments.push(InlineSegment {
                         text: text.clone(),
@@ -254,13 +254,13 @@ pub fn display_inline_segments(
 }
 
 /// Checks if an element has mixed inline content (text + inline elements)
-pub fn has_mixed_inline_content(element: &AtomicElement) -> bool {
+pub fn has_mixed_inline_content(element: &Element) -> bool {
     let mut has_text = false;
     let mut has_inline_elements = false;
 
     for child in &element.children {
-        match child {
-            AtomicDomNode::Element(child_element) => {
+        match child.lock().unwrap().clone() {
+            DomNode::Element(child_element) => {
                 match child_element.tag_name.as_str() {
                     "span" | "a" | "strong" | "em" | "b" | "i" | "sup" => {
                         has_inline_elements = true;
@@ -271,7 +271,7 @@ pub fn has_mixed_inline_content(element: &AtomicElement) -> bool {
                     _ => return false, // Found a block element
                 }
             }
-            AtomicDomNode::Text(text) => {
+            DomNode::Text(text) => {
                 if !text.trim().is_empty() {
                     has_text = true;
                 }

@@ -1,10 +1,10 @@
-use api::dom::AtomicElement;
+use api::dom::Element;
 use egui::{Color32, RichText};
 
 use crate::html::ui::collect_text_content;
 
 /// Displays a link element
-pub fn display_link(ui: &mut egui::Ui, element: &AtomicElement) {
+pub fn display_link(ui: &mut egui::Ui, element: &Element) {
     let mut text_content = String::new();
     collect_text_content(&mut text_content, element);
     let trimmed = text_content.trim();
