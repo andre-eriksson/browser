@@ -13,8 +13,41 @@ use reqwest::{
 };
 use std::thread;
 use tokio::sync::mpsc::{self};
-use tracing::{debug, error, info};
+use tracing::{Level, debug, error, info};
 use ui::browser::Browser;
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+
+    let client_result = Client::builder()
+        .user_agent(USER_AGENT_HEADER)
+        .redirect(Policy::limited(10))
+        .build();
+
+    if let Err(e) = client_result {
+        error!("Failed to create HTTP client: {}", e);
+        return;
+    }
+
+    let client = client_result.unwrap();
+
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, ACCEPT_HEADER.parse().unwrap());
+    headers.insert(ACCEPT_LANGUAGE, ACCEPT_LANGUAGE_HEADER.parse().unwrap());
+    headers.insert(ACCEPT_ENCODING, ACCEPT_ENCODING_HEADER.parse().unwrap());
+    headers.insert(CONNECTION, CONNECTION_HEADER.parse().unwrap());
+    headers.insert(
+        UPGRADE_INSECURE_REQUESTS,
+        UPGRADE_INSECURE_REQUESTS_HEADER.parse().unwrap(),
+    );
+
+    let web_client = WebClient::builder(client).with_headers(headers).build();
+
+    let network_sender = spawn_network_thread(web_client);
+    let browser = Browser::new(network_sender);
+    browser.start();
+}
 
 fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkMessage> {
     let (sender, mut receiver) = mpsc::unbounded_channel::<NetworkMessage>();
@@ -59,7 +92,7 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
                     }
 
                     NetworkMessage::Shutdown => {
-                        info!("[Network Thread] Received Shutdown message");
+                        info!("[Network Thread] Shutting down network thread");
                         break;
                     }
                 }
@@ -68,37 +101,4 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
     });
 
     sender
-}
-
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt().init();
-
-    let client_result = Client::builder()
-        .user_agent(USER_AGENT_HEADER)
-        .redirect(Policy::limited(10))
-        .build();
-
-    if let Err(e) = client_result {
-        error!("Failed to create HTTP client: {}", e);
-        return;
-    }
-
-    let client = client_result.unwrap();
-
-    let mut headers = HeaderMap::new();
-    headers.insert(ACCEPT, ACCEPT_HEADER.parse().unwrap());
-    headers.insert(ACCEPT_LANGUAGE, ACCEPT_LANGUAGE_HEADER.parse().unwrap());
-    headers.insert(ACCEPT_ENCODING, ACCEPT_ENCODING_HEADER.parse().unwrap());
-    headers.insert(CONNECTION, CONNECTION_HEADER.parse().unwrap());
-    headers.insert(
-        UPGRADE_INSECURE_REQUESTS,
-        UPGRADE_INSECURE_REQUESTS_HEADER.parse().unwrap(),
-    );
-
-    let web_client = WebClient::builder(client).with_headers(headers).build();
-
-    let network_sender = spawn_network_thread(web_client);
-    let browser = Browser::new(network_sender);
-    browser.start();
 }
