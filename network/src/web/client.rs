@@ -1,9 +1,11 @@
+use std::time::Instant;
+
 use http::{
     HeaderMap, HeaderValue, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::Client;
-use tracing::{error, info, info_span, instrument};
+use tracing::{debug, error, info, info_span, instrument};
 use url::{Origin, Url};
 
 use crate::{
@@ -138,6 +140,7 @@ impl WebClient {
     ///  A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
     #[instrument(skip(self), level = "info")]
     pub async fn setup_client_from_url(&mut self, url: &str) -> Result<String, String> {
+        let start_time = Instant::now();
         let parsed_url = Url::parse(url);
         if let Err(e) = parsed_url {
             return Err(format!("Failed to parse URL: {}", e));
@@ -152,9 +155,18 @@ impl WebClient {
             ),
             url.port_or_known_default().unwrap_or(80),
         );
-        self.setup_client(&url.path())
+
+        let response_result = self
+            .setup_client(&url.path())
             .await
-            .map_err(|e| format!("{}", e))
+            .map_err(|e| format!("{}", e));
+
+        debug!(
+            "WebClient setup took: {} ms",
+            start_time.elapsed().as_millis()
+        );
+
+        response_result
     }
 
     /// Fetch content from a specific tag with optional headers and body. E.g. `src` attribute of a `<script>` tag.
