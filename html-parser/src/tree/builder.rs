@@ -222,9 +222,15 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
 
         if let Some(last) = self.open_elements.last() {
             if let DomNode::Element(parent) = &mut *last.lock().unwrap() {
-                parent
-                    .children
-                    .push(Arc::new(Mutex::new(DomNode::Text(text_content))));
+                let text_node = Arc::new(Mutex::new(DomNode::Text(text_content)));
+
+                self.collector.collect(&TagInfo {
+                    tag_name: &parent.tag_name,
+                    attributes: &parent.attributes,
+                    dom_node: &text_node.clone(),
+                });
+
+                parent.children.push(text_node);
             }
         }
 
