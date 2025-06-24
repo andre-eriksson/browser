@@ -4,7 +4,10 @@ use egui::{FontDefinitions, ThemePreference, ViewportBuilder};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
-use crate::{content::render_content, topbar::render_top_bar};
+use crate::{
+    content::render_content,
+    topbar::{BrowserTab, render_top_bar},
+};
 
 /// Represents a simple web browser application using EGUI for the UI and Tokio for asynchronous networking.
 ///
@@ -29,23 +32,25 @@ impl Browser {
             ..Default::default()
         };
 
-        let mut url = "http://localhost:8000/basic.html".to_string(); // Default URL
-        let mut status_code = Arc::new(Mutex::new("200 OK".to_string()));
+        let url = "http://localhost:8000/attributes.html".to_string(); // Default URL
+        let status_code = Arc::new(Mutex::new("200 OK".to_string()));
+        let title = Arc::new(Mutex::new("Browser".to_string()));
         let html_content = SharedDomNode::default();
         let network_sender = self.network_sender.clone();
+
+        let mut tab = BrowserTab {
+            url,
+            status_code,
+            title,
+            html_content: html_content.clone(),
+        };
 
         let _ = run_simple_native("Browser", options, move |ctx, _frame| {
             initialize_fonts(ctx);
 
             ctx.set_theme(ThemePreference::Light);
 
-            render_top_bar(
-                &mut url,
-                &mut status_code,
-                &html_content,
-                &network_sender,
-                ctx,
-            );
+            render_top_bar(&mut tab, &network_sender, ctx);
             render_content(&html_content, ctx);
         });
 

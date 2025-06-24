@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 eframe = "0.31"
-egui = "0.31"
+egui = { version = "0.31", default-features = false }
 tokio = "1.44"
 tracing = "0.1"
 html-parser = { path = "../html-parser" }
