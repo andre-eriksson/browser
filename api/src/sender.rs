@@ -1,5 +1,5 @@
 use reqwest::{
-    Method,
+    Method, Response,
     header::{HeaderMap, HeaderValue},
 };
 use tokio::sync::oneshot;
@@ -16,7 +16,7 @@ pub enum NetworkMessage {
         method: Option<Method>,
         body: Option<String>,
         tag_name: String,
-        response: oneshot::Sender<Result<String, String>>,
+        response: oneshot::Sender<Result<Response, String>>,
     },
     Shutdown,
 }
