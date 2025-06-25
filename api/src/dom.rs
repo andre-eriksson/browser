@@ -16,6 +16,7 @@ pub type SharedDomNode = Arc<Mutex<DomNode>>;
 /// * `children` - A vector of shared DOM nodes representing the child elements or text nodes contained within this element.
 #[derive(Debug, Clone)]
 pub struct Element {
+    pub id: u32, // Unique identifier for the element, a way to compare elements
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
     pub children: Vec<SharedDomNode>,
