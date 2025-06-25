@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     content::render_content,
+    network::loader::NetworkLoader,
     topbar::{BrowserTab, render_top_bar},
 };
 
@@ -32,26 +33,30 @@ impl Browser {
             ..Default::default()
         };
 
-        let url = "http://localhost:8000/attributes.html".to_string(); // Default URL
+        let url = "http://localhost:8000/image.html".to_string(); // Default URL
         let status_code = Arc::new(Mutex::new("200 OK".to_string()));
-        let title = Arc::new(Mutex::new("Browser".to_string()));
         let html_content = SharedDomNode::default();
         let network_sender = self.network_sender.clone();
+        let cache = Arc::new(Mutex::new(Default::default()));
 
         let mut tab = BrowserTab {
             url,
             status_code,
-            title,
             html_content: html_content.clone(),
+            metadata: Default::default(),
         };
 
         let _ = run_simple_native("Browser", options, move |ctx, _frame| {
             initialize_fonts(ctx);
-
             ctx.set_theme(ThemePreference::Light);
 
-            render_top_bar(&mut tab, &network_sender, ctx);
-            render_content(&html_content, ctx);
+            ctx.add_image_loader(Arc::new(NetworkLoader {
+                network_sender: network_sender.clone(),
+                cache: cache.clone(),
+            }));
+
+            render_top_bar(ctx, &mut tab, &network_sender);
+            render_content(ctx, &mut tab);
         });
 
         self.network_sender

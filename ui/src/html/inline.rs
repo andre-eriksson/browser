@@ -1,7 +1,10 @@
 use api::dom::{DomNode, Element};
 use egui::{Color32, RichText};
 
-use crate::html::ui::collect_text_content;
+use crate::{
+    html::{img::display_image, ui::collect_text_content},
+    topbar::TabMetadata,
+};
 
 /// Collects inline content with formatting information
 ///
@@ -21,31 +24,73 @@ pub struct InlineSegment {
 }
 
 /// Displays inline elements on the same line using egui's horizontal layout
-pub fn display_inline_elements(ui: &mut egui::Ui, elements: &[&Element]) {
+pub fn display_inline_elements(ui: &mut egui::Ui, metadata: &TabMetadata, elements: &[&Element]) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0; // Remove spacing between elements
         for element in elements {
             match element.tag_name.as_str() {
                 "a" => {
-                    let mut text_content = String::new();
-                    collect_text_content(&mut text_content, element);
-                    let trimmed = text_content.trim();
-                    if !trimmed.is_empty() {
-                        ui.label(RichText::new(trimmed).color(Color32::BLUE).underline());
+                    // Check if this link contains an image
+                    let has_img = element.children.iter().any(|child| {
+                        matches!(child.lock().unwrap().clone(), DomNode::Element(ref e) if e.tag_name == "img")
+                    });
+                    
+                    if has_img {
+                        // Handle image links - display images with link styling/behavior
+                        for child in &element.children {
+                            match child.lock().unwrap().clone() {
+                                DomNode::Element(child_element) => {
+                                    if child_element.tag_name == "img" {
+                                        display_image(ui, metadata, &child_element);
+                                    } else {
+                                        // Handle other inline elements within links
+                                        display_inline_elements(ui, metadata, &[&child_element]);
+                                    }
+                                }
+                                DomNode::Text(text) => {
+                                    let trimmed = text.trim();
+                                    if !trimmed.is_empty() {
+                                        ui.label(RichText::new(trimmed).color(Color32::BLUE).underline());
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    } else {
+                        // Handle text-only links as before
+                        let mut text_content = String::new();
+                        collect_text_content(&mut text_content, element);
+                        let trimmed = text_content.trim();
+                        if !trimmed.is_empty() {
+                            ui.label(RichText::new(trimmed).color(Color32::BLUE).underline());
+                        }
                     }
                 }
-                "span" | "strong" | "em" | "b" | "i" | "sup" => {
-                    let mut text_content = String::new();
-                    collect_text_content(&mut text_content, element);
-                    let trimmed = text_content.trim();
-                    if !trimmed.is_empty() {
-                        let text = match element.tag_name.as_str() {
-                            "strong" | "b" => RichText::new(trimmed).strong(),
-                            "em" | "i" => RichText::new(trimmed).italics(),
-                            "sup" => RichText::new(trimmed).size(10.0),
-                            _ => RichText::new(trimmed),
-                        };
-                        ui.label(text);
+                "img" => {
+                    display_image(ui, metadata, element);
+                }                "span" | "strong" | "em" | "b" | "i" | "sup" => {
+                    // Always handle children recursively for these formatting elements
+                    // This ensures nested images in links are properly rendered
+                    for child in &element.children {
+                        match child.lock().unwrap().clone() {
+                            DomNode::Element(child_element) => {
+                                // Recursively handle any nested inline elements (including images, links with images, etc.)
+                                display_inline_elements(ui, metadata, &[&child_element]);
+                            }
+                            DomNode::Text(text) => {
+                                let trimmed = text.trim();
+                                if !trimmed.is_empty() {
+                                    let rich_text = match element.tag_name.as_str() {
+                                        "strong" | "b" => RichText::new(trimmed).strong(),
+                                        "em" | "i" => RichText::new(trimmed).italics(),
+                                        "sup" => RichText::new(trimmed).size(10.0),
+                                        _ => RichText::new(trimmed),
+                                    };
+                                    ui.label(rich_text);
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 _ => {
@@ -65,9 +110,8 @@ pub fn display_inline_elements(ui: &mut egui::Ui, elements: &[&Element]) {
 pub fn has_only_inline_children(element: &Element) -> bool {
     for child in &element.children {
         match child.lock().unwrap().clone() {
-            DomNode::Element(child_element) => {
-                match child_element.tag_name.as_str() {
-                    "span" | "a" | "strong" | "em" | "b" | "i" | "sup" => continue,
+            DomNode::Element(child_element) => {                match child_element.tag_name.as_str() {
+                    "span" | "a" | "strong" | "em" | "b" | "i" | "sup" | "img" => continue,
                     "style" | "script" | "link" | "meta" | "noscript" => continue,
                     _ => return false, // Found a non-inline element
                 }
@@ -86,6 +130,7 @@ pub fn collect_inline_segments(element: &Element) -> Vec<InlineSegment> {
     segments
 }
 
+/// Recursively collects inline segments from an element and its children
 fn collect_inline_segments_recursive(
     element: &Element,
     segments: &mut Vec<InlineSegment>,
@@ -137,6 +182,19 @@ fn collect_inline_segments_recursive(
                             is_italic,
                             true,
                         );
+                    }                    "img" => {
+                        // For images, we'll add a placeholder text segment
+                        // The actual image rendering will be handled elsewhere
+                        let alt_text = child_element.attributes.get("alt")
+                            .map(|s| s.as_str())
+                            .unwrap_or("[Image]");
+                        segments.push(InlineSegment {
+                            text: format!("[{}]", alt_text),
+                            is_link,
+                            is_bold,
+                            is_italic,
+                            is_superscript,
+                        });
                     }
                     "style" | "script" | "link" | "meta" | "noscript" => {
                         // Skip non-content elements
@@ -259,10 +317,9 @@ pub fn has_mixed_inline_content(element: &Element) -> bool {
     let mut has_inline_elements = false;
 
     for child in &element.children {
-        match child.lock().unwrap().clone() {
-            DomNode::Element(child_element) => {
+        match child.lock().unwrap().clone() {            DomNode::Element(child_element) => {
                 match child_element.tag_name.as_str() {
-                    "span" | "a" | "strong" | "em" | "b" | "i" | "sup" => {
+                    "span" | "a" | "strong" | "em" | "b" | "i" | "sup" | "img" => {
                         has_inline_elements = true;
                     }
                     "style" | "script" | "link" | "meta" | "noscript" => {

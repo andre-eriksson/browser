@@ -1,23 +1,27 @@
 use api::dom::{DomNode, Element};
 
-use crate::html::{
-    block::display_element_block,
-    div::display_div,
-    inline::{display_inline_elements, has_only_inline_children},
-    link::display_link,
-    list::display_list,
+use crate::{
+    html::{
+        block::display_element_block,
+        div::display_div,
+        img::display_image,
+        inline::{display_inline_elements, has_only_inline_children},
+        link::display_link,
+        list::display_list,
+    },
+    topbar::TabMetadata,
 };
 
 pub const MAX_DEPTH: usize = 25;
 
 /// Finds the body element within the HTML document and displays it.
-pub fn find_and_display_body(ui: &mut egui::Ui, element: &Element) {
+pub fn find_and_display_body(ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
     // Look for body element within html element
     for child in &element.children {
         match child.lock().unwrap().clone() {
             DomNode::Element(child_element) => {
                 if child_element.tag_name.as_str() == "body" {
-                    display_body(ui, &child_element, 0);
+                    display_body(ui, metadata, &child_element, 0);
                     return;
                 }
             }
@@ -27,7 +31,12 @@ pub fn find_and_display_body(ui: &mut egui::Ui, element: &Element) {
 }
 
 /// Displays the body element and its children, handling depth limits
-pub fn display_body(ui: &mut egui::Ui, element: &Element, current_depth: usize) {
+pub fn display_body(
+    ui: &mut egui::Ui,
+    metadata: &TabMetadata,
+    element: &Element,
+    current_depth: usize,
+) {
     if current_depth > MAX_DEPTH {
         ui.label(format!("{}... (depth limit reached)", element.tag_name));
         return;
@@ -40,13 +49,13 @@ pub fn display_body(ui: &mut egui::Ui, element: &Element, current_depth: usize) 
     for child in &element.children {
         match child.lock().unwrap().clone() {
             DomNode::Element(child_element) => match child_element.tag_name.as_str() {
-                "div" => display_div(ui, &child_element, current_depth + 1),
+                "div" => display_div(ui, metadata, &child_element, current_depth + 1),
                 "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                    display_element_block(ui, &child_element, current_depth + 1);
+                    display_element_block(ui, metadata, &child_element, current_depth + 1);
                 }
                 "header" | "main" | "nav" | "section" | "article" | "aside" | "footer" => {
                     // Handle semantic HTML elements
-                    display_element(ui, &child_element, current_depth + 1);
+                    display_element(ui, metadata, &child_element, current_depth + 1);
                 }
                 "ul" | "ol" => {
                     display_list(ui, &child_element, current_depth + 1);
@@ -54,11 +63,15 @@ pub fn display_body(ui: &mut egui::Ui, element: &Element, current_depth: usize) 
                 "a" => {
                     display_link(ui, &child_element);
                 }
+                "img" => {
+                    // Display the image with a fallback alt text
+                    display_image(ui, metadata, &child_element);
+                }
                 "style" | "script" | "link" | "meta" | "noscript" => {
                     // Skip non-content elements
                     continue;
                 }
-                _ => display_element(ui, &child_element, current_depth + 1),
+                _ => display_element(ui, metadata, &child_element, current_depth + 1),
             },
             DomNode::Text(text) => {
                 let trimmed = text.trim();
@@ -102,7 +115,12 @@ pub fn collect_text_content(text_content: &mut String, element: &Element) {
 }
 
 /// Displays an HTML element, handling different types of elements and depth limits
-pub fn display_element(ui: &mut egui::Ui, element: &Element, current_depth: usize) {
+pub fn display_element(
+    ui: &mut egui::Ui,
+    metadata: &TabMetadata,
+    element: &Element,
+    current_depth: usize,
+) {
     if current_depth > MAX_DEPTH {
         ui.label(format!("{}... (depth limit reached)", element.tag_name));
         return;
@@ -110,7 +128,7 @@ pub fn display_element(ui: &mut egui::Ui, element: &Element, current_depth: usiz
 
     // Handle body elements specially
     if element.tag_name.as_str() == "body" {
-        display_body(ui, element, current_depth);
+        display_body(ui, metadata, element, current_depth);
         return;
     }
 
@@ -130,7 +148,7 @@ pub fn display_element(ui: &mut egui::Ui, element: &Element, current_depth: usiz
 
         if !inline_elements.is_empty() {
             let inline_element_refs: Vec<&Element> = inline_elements.iter().collect();
-            display_inline_elements(ui, &inline_element_refs);
+            display_inline_elements(ui, metadata, &inline_element_refs);
         }
 
         // Also handle any text nodes
@@ -150,14 +168,14 @@ pub fn display_element(ui: &mut egui::Ui, element: &Element, current_depth: usiz
             match child.lock().unwrap().clone() {
                 DomNode::Element(child_element) => {
                     match child_element.tag_name.as_str() {
-                        "body" => display_body(ui, &child_element, current_depth + 1),
-                        "div" => display_div(ui, &child_element, current_depth + 1),
+                        "body" => display_body(ui, metadata, &child_element, current_depth + 1),
+                        "div" => display_div(ui, metadata, &child_element, current_depth + 1),
                         "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                            display_element_block(ui, &child_element, current_depth + 1);
+                            display_element_block(ui, metadata, &child_element, current_depth + 1);
                         }
                         "header" | "main" | "nav" | "section" | "article" | "aside" | "footer" => {
                             // Handle semantic HTML elements recursively
-                            display_element(ui, &child_element, current_depth + 1);
+                            display_element(ui, metadata, &child_element, current_depth + 1);
                         }
                         "ul" | "ol" => {
                             display_list(ui, &child_element, current_depth + 1);
@@ -168,6 +186,9 @@ pub fn display_element(ui: &mut egui::Ui, element: &Element, current_depth: usiz
                         "style" | "script" | "link" | "meta" | "noscript" => {
                             // Skip non-content elements
                             continue;
+                        }
+                        "img" => {
+                            display_image(ui, metadata, &child_element);
                         }
                         "span" | "strong" | "em" | "b" | "i" | "sup" => {
                             // Inline elements should only be handled within their parent context
@@ -181,7 +202,7 @@ pub fn display_element(ui: &mut egui::Ui, element: &Element, current_depth: usiz
                         }
                         _ => {
                             //ui.label(format!("<{}>", child_element.tag_name));
-                            display_element(ui, &child_element, current_depth + 1);
+                            display_element(ui, metadata, &child_element, current_depth + 1);
                         }
                     }
                 }
