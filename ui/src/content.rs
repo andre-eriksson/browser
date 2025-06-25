@@ -1,11 +1,13 @@
 use api::dom::DomNode;
 use egui::{CentralPanel, Color32, Margin, ScrollArea, Stroke};
-use std::sync::{Arc, Mutex};
 
-use crate::html::ui::{display_body, find_and_display_body};
+use crate::{
+    html::ui::{display_body, find_and_display_body},
+    topbar::BrowserTab,
+};
 
 /// Renders the main content area of the browser UI, displaying HTML content.
-pub fn render_content(html_content: &Arc<Mutex<DomNode>>, ctx: &egui::Context) {
+pub fn render_content(ctx: &egui::Context, tab: &mut BrowserTab) {
     CentralPanel::default()
         .frame(
             egui::Frame::new()
@@ -14,8 +16,9 @@ pub fn render_content(html_content: &Arc<Mutex<DomNode>>, ctx: &egui::Context) {
                 .inner_margin(Margin::same(10)),
         )
         .show(ctx, |ui| {
-            // show_html(ui, &url);                    // Display HTML content
-            if let Ok(html) = html_content.lock() {
+            let metadata_clone = tab.metadata.clone();
+
+            if let Ok(html) = tab.html_content.lock() {
                 // Scrollable area for HTML content
                 ScrollArea::vertical()
                     .auto_shrink(false)
@@ -28,10 +31,10 @@ pub fn render_content(html_content: &Arc<Mutex<DomNode>>, ctx: &egui::Context) {
                                 match child.lock().unwrap().clone() {
                                     DomNode::Element(element) => {
                                         if element.tag_name.as_str() == "html" {
-                                            find_and_display_body(ui, &element);
+                                            find_and_display_body(ui, &metadata_clone, &element);
                                             found_body = true;
                                         } else if element.tag_name.as_str() == "body" {
-                                            display_body(ui, &element, 0);
+                                            display_body(ui, &metadata_clone, &element, 0);
                                             found_body = true;
                                         }
                                     }

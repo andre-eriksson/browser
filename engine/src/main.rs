@@ -45,6 +45,7 @@ async fn main() {
     let web_client = WebClient::builder(client).with_headers(headers).build();
 
     let network_sender = spawn_network_thread(web_client);
+
     let browser = Browser::new(network_sender);
     browser.start();
 }
@@ -56,7 +57,7 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
         let runtime = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
 
         runtime.block_on(async move {
-            info!("[Network Thread] Starting network thread");
+            info!("[Network Thread] Starting");
 
             while let Some(msg) = receiver.recv().await {
                 match msg {
@@ -92,7 +93,7 @@ fn spawn_network_thread(mut client: WebClient) -> mpsc::UnboundedSender<NetworkM
                     }
 
                     NetworkMessage::Shutdown => {
-                        info!("[Network Thread] Shutting down network thread");
+                        info!("[Network Thread] Shutting down");
                         break;
                     }
                 }

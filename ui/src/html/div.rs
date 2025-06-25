@@ -1,15 +1,24 @@
 use api::dom::{DomNode, Element};
 use egui::{Color32, RichText};
 
-use crate::html::{
-    block::display_element_block,
-    link::display_link,
-    list::display_list,
-    ui::{MAX_DEPTH, display_element},
+use crate::{
+    html::{
+        block::display_element_block,
+        img::display_image,
+        link::display_link,
+        list::display_list,
+        ui::{MAX_DEPTH, display_element},
+    },
+    topbar::TabMetadata,
 };
 
 /// Display a div element with its children
-pub fn display_div(ui: &mut egui::Ui, element: &Element, current_depth: usize) {
+pub fn display_div(
+    ui: &mut egui::Ui,
+    metadata: &TabMetadata,
+    element: &Element,
+    current_depth: usize,
+) {
     if current_depth > MAX_DEPTH {
         ui.label(format!("{}... (depth limit reached)", element.tag_name));
         return;
@@ -20,13 +29,12 @@ pub fn display_div(ui: &mut egui::Ui, element: &Element, current_depth: usize) {
             DomNode::Element(child_element) => {
                 match child_element.tag_name.as_str() {
                     "div" => {
-                        display_div(ui, &child_element, current_depth + 1);
-                    }
-                    "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                        display_element_block(ui, &child_element, current_depth + 1);
+                        display_div(ui, metadata, &child_element, current_depth + 1);
+                    }                    "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                        display_element_block(ui, metadata, &child_element, current_depth + 1);
                     }
                     "header" | "main" | "nav" | "section" | "article" | "aside" | "footer" => {
-                        display_element(ui, &child_element, current_depth + 1);
+                        display_element(ui, metadata, &child_element, current_depth + 1);
                     }
                     "ul" | "ol" => {
                         display_list(ui, &child_element, current_depth + 1);
@@ -34,12 +42,15 @@ pub fn display_div(ui: &mut egui::Ui, element: &Element, current_depth: usize) {
                     "a" => {
                         display_link(ui, &child_element);
                     }
+                    "img" => {
+                        display_image(ui, metadata, &child_element);
+                    }
                     "style" | "script" | "link" | "meta" | "noscript" => {
                         // Skip non-content elements
                         continue;
                     }
                     _ => {
-                        display_element(ui, &child_element, current_depth + 1);
+                        display_element(ui, metadata, &child_element, current_depth + 1);
                     }
                 }
             }
