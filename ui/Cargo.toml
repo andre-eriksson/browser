@@ -6,7 +6,9 @@ edition = "2024"
 [dependencies]
 eframe = "0.31"
 egui = { version = "0.31", default-features = false }
+url = "2.5.4"
 tokio = "1.44"
+image = "0.25"
 tracing = "0.1"
 html-parser = { path = "../html-parser" }
 api = { path = "../api" }
