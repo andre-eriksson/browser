@@ -6,6 +6,7 @@ This project utilizes the following third-party libraries, each governed by its 
 * [eframe (MIT License)](#eframe-mit-license)
 * [egui (MIT License)](#egui-mit-license)
 * [http (MIT License)](#http-mit-license)
+* [image (MIT License)](#image-mit-license)
 * [OpenSans (SIL Open Font License)](#opensans-sil-open-font-license)
 * [reqwest (MIT License)](#reqwest-mit-license)
 * [rust-url (MIT License)](#rust-url-mit-license)
