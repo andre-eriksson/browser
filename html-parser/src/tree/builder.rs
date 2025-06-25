@@ -22,6 +22,7 @@ use api::{
 /// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
 /// * `open_elements` - A stack of currently open elements, used to manage the hierarchy of the DOM tree.
 pub struct DomTreeBuilder<C: Collector> {
+    pub current_id: u32,
     pub collector: C,
     pub dom_tree: Vec<SharedDomNode>,
     open_elements: Vec<SharedDomNode>,
@@ -37,6 +38,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// A new instance of `DomTreeBuilder` initialized with an empty DOM tree and no open elements.
     pub fn new(collector: Option<C>) -> Self {
         DomTreeBuilder {
+            current_id: 0,
             collector: collector.unwrap_or_default(),
             dom_tree: Vec::new(),
             open_elements: Vec::with_capacity(16),
@@ -116,8 +118,10 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     fn handle_start_tag(&mut self, token: &Token) {
         let tag_name = &token.data;
         let attributes = &token.attributes;
+        self.current_id += 1;
 
         let element = Element {
+            id: self.current_id,
             tag_name: tag_name.to_string(),
             attributes: attributes.clone(),
             children: Vec::new(),
