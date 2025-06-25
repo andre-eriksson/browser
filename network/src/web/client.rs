@@ -4,7 +4,7 @@ use http::{
     HeaderMap, HeaderValue, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
-use reqwest::Client;
+use reqwest::{Client, Response};
 use tracing::{debug, error, info, info_span, instrument};
 use url::{Origin, Url};
 
@@ -184,11 +184,11 @@ impl WebClient {
         &self,
         tag_name: &str,
         request_origin: &Origin,
-        path: &str,
+        full_url: &str,
         http_method: Option<Method>,
         additional_headers: Option<HeaderMap<HeaderValue>>,
-        body: Option<String>,
-    ) -> Result<String, String> {
+        _body: Option<String>,
+    ) -> Result<Response, String> {
         let csp_test = handle_csp(
             &self.origin_headers.clone().unwrap_or_default(),
             tag_name,
@@ -196,7 +196,8 @@ impl WebClient {
         );
 
         if let Err(e) = csp_test {
-            return Err(format!("CSP violation: {}", e));
+            error!("CSP violation for tag '{}': {}", tag_name, e);
+            return Err(format!("CSP violation for tag '{}': {}", tag_name, e));
         }
 
         // Combine the client headers with the provided headers
@@ -213,39 +214,37 @@ impl WebClient {
             && self.origin != request_origin.clone()
         {
             if let Err(e) = self
-                .handle_preflight(request_origin, http_method.clone(), headers.clone(), path)
+                .handle_preflight(
+                    request_origin,
+                    http_method.clone(),
+                    headers.clone(),
+                    full_url,
+                )
                 .await
             {
+                error!("Preflight request failed: {}", e);
                 return Err(format!("Preflight request failed: {}", e));
             }
         }
 
         let res = self
             .client
-            .request(http_method, request_origin.unicode_serialization() + path)
+            .request(http_method, full_url)
             .headers(headers)
-            .body(body.unwrap_or(String::new()))
             .build();
 
         if let Err(e) = res {
             return Err(format!("Failed to build request: {}", e));
         }
 
-        let response = self.client.execute(res.unwrap()).await;
-        match response {
-            Ok(resp) => {
-                if resp.status().is_success() {
-                    let text = resp.text().await;
-                    match text {
-                        Ok(content) => Ok(content),
-                        Err(e) => Err(format!("Failed to read response body: {}", e)),
-                    }
-                } else {
-                    Err(format!("Request failed with status: {}", resp.status()))
-                }
-            }
-            Err(e) => Err(format!("Failed to execute request: {}", e)),
+        let response_result = self.client.execute(res.unwrap()).await;
+
+        if let Err(e) = response_result {
+            error!("Failed to execute request: {}", e);
+            return Err(format!("Failed to execute request: {}", e));
         }
+
+        return Ok(response_result.unwrap());
     }
 
     /// Fetch content from the origin with optional headers and body.
@@ -266,7 +265,7 @@ impl WebClient {
         http_method: Option<Method>,
         additional_headers: Option<HeaderMap<HeaderValue>>,
         body: Option<String>,
-    ) -> Result<String, String> {
+    ) -> Result<Response, String> {
         self.fetch(
             tag_name,
             &self.origin,
