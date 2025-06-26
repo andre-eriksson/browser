@@ -16,6 +16,11 @@ pub struct TagInfo<'a> {
     pub dom_node: &'a SharedDomNode,
 }
 
+/// A trait that defines a collector for metadata extracted from HTML tags during parsing.
+/// Collectors implement this trait to gather specific information about HTML tags, such as IDs, classes, and external resources.
+/// The collected metadata can then be used for various purposes, such as indexing, analysis, or further processing.
+///
+/// `Collector::collect` will be called for each start tag encountered during parsing and when parsing text content.
 pub trait Collector {
     /// The output type of the collector, which is returned when `into_result` is called.
     /// This type should encapsulate the metadata collected during parsing.
@@ -50,11 +55,7 @@ pub struct DefaultCollector {
 }
 
 impl Collector for DefaultCollector {
-    type Output = (
-        Option<HashMap<String, SharedDomNode>>,
-        Option<HashMap<String, Vec<SharedDomNode>>>,
-        Option<HashMap<String, Vec<SharedDomNode>>>,
-    );
+    type Output = Self;
 
     fn collect(&mut self, tag: &TagInfo) {
         if tag.attributes.is_empty() {
@@ -102,6 +103,10 @@ impl Collector for DefaultCollector {
     }
 
     fn into_result(self) -> Self::Output {
-        (self.id_map, self.class_map, self.external_resources)
+        Self {
+            id_map: self.id_map,
+            class_map: self.class_map,
+            external_resources: self.external_resources,
+        }
     }
 }

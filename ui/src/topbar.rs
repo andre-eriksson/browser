@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 
-pub type TabMetadata = Arc<Mutex<(Option<String>, Option<Vec<(SharedDomNode, Arc<str>)>>)>>;
+pub type TabMetadata = Arc<Mutex<TabCollector>>;
 
 /// A collector that gathers metadata from HTML tags in a browser tab.
 ///
@@ -25,7 +25,7 @@ pub struct TabCollector {
 }
 
 impl Collector for TabCollector {
-    type Output = (Option<String>, Option<Vec<(SharedDomNode, Arc<str>)>>);
+    type Output = Self;
 
     fn collect(&mut self, tag: &TagInfo) {
         if let Some(external_resources) = &mut self.external_resources {
@@ -88,7 +88,11 @@ impl Collector for TabCollector {
     }
 
     fn into_result(self) -> Self::Output {
-        (self.title, self.external_resources)
+        Self {
+            url: self.url,
+            title: self.title,
+            external_resources: self.external_resources,
+        }
     }
 }
 
@@ -103,7 +107,7 @@ pub struct BrowserTab {
     pub url: String,
     pub status_code: Arc<Mutex<String>>,
     pub html_content: SharedDomNode,
-    pub metadata: TabMetadata,
+    pub metadata: Arc<Mutex<TabCollector>>,
 }
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
@@ -133,7 +137,7 @@ pub fn render_top_bar(
                     tab.metadata
                         .lock()
                         .unwrap()
-                        .0
+                        .title
                         .clone()
                         .unwrap_or_else(|| "Blank".to_string()),
                 );

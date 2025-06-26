@@ -9,7 +9,7 @@ use crate::{html::inline::display_inline_elements, topbar::TabMetadata};
 pub fn display_image(ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
     // Get the full url from the metadata 1 hashmap element
     let metadata = metadata.lock().unwrap();
-    let external_resources = &metadata.1;
+    let external_resources = &metadata.external_resources;
     let mut full_src = "";
 
     let width = element
