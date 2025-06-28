@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 
+use crate::html::ui::HtmlRenderer;
+
 pub type TabMetadata = Arc<Mutex<TabCollector>>;
 
 /// A collector that gathers metadata from HTML tags in a browser tab.
@@ -108,6 +110,7 @@ pub struct BrowserTab {
     pub status_code: Arc<Mutex<String>>,
     pub html_content: SharedDomNode,
     pub metadata: Arc<Mutex<TabCollector>>,
+    pub renderer: Arc<Mutex<HtmlRenderer>>,
 }
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
