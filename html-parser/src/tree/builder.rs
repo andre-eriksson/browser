@@ -116,7 +116,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the start tag to be processed.
     fn handle_start_tag(&mut self, token: &Token) {
-        let tag_name = &token.data;
+        let tag_name = &token.data.to_lowercase();
         let attributes = &token.attributes;
         self.current_id += 1;
 
@@ -152,7 +152,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
     fn handle_end_tag(&mut self, token: &Token) {
-        let tag_name = &token.data;
+        let tag_name = &token.data.to_lowercase();
 
         let should_close = if let Some(last) = self.open_elements.last() {
             if let DomNode::Element(ref parent) = *last.lock().unwrap() {
