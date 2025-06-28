@@ -4,13 +4,14 @@ use std::{
 };
 
 /// Represents a shared DOM node that can be used in a tree structure.
-/// This type is a reference-counted pointer to a `RefCell<DomNode>`, allowing for mutable access to the DOM node while sharing ownership.
+/// This type is a thread-safe reference-counted pointer to a `DomNode` wrapped in a mutex.
 pub type SharedDomNode = Arc<Mutex<DomNode>>;
 
 /// Represents an HTML element in the DOM tree.
 /// It contains the tag name, attributes, and children nodes.
 ///
 /// # Fields
+/// * `id` - A unique identifier for the element, used to compare elements.
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
 /// * `attributes` - A map of attribute names to their values for the element (e.g., `{"class": "my-class
 /// * `children` - A vector of shared DOM nodes representing the child elements or text nodes contained within this element.
@@ -20,6 +21,17 @@ pub struct Element {
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
     pub children: Vec<SharedDomNode>,
+}
+
+impl Default for Element {
+    fn default() -> Self {
+        Element {
+            id: 0,
+            tag_name: String::new(),
+            attributes: HashMap::new(),
+            children: Vec::new(),
+        }
+    }
 }
 
 /// Represents a node in the DOM tree.
