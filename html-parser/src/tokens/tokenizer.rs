@@ -85,6 +85,14 @@ impl HtmlTokenizer {
 
     /// Preserves significant whitespace in the text.
     fn preserve_significant_whitespace(&self, text: &str) -> String {
+        // Check if we're inside a <pre> or <code> tag by looking at current token context
+        let preserve_exact = self.is_in_preformatted_context();
+
+        if preserve_exact {
+            // For preformatted content, preserve all whitespace exactly including \r\n
+            return text.to_string();
+        }
+
         // If the text is only whitespace, preserve it as a single space
         // This is important for whitespace between tags like "</span> world"
         if text.trim().is_empty() && !text.is_empty() {
@@ -109,6 +117,19 @@ impl HtmlTokenizer {
         }
 
         result
+    }
+
+    /// Checks if the current context is within a preformatted tag, like <pre>, <code>, or <textarea>.
+    /// This is used to determine if whitespace should be preserved exactly.
+    fn is_in_preformatted_context(&self) -> bool {
+        if self.tokens.back().is_some() {
+            if let Some(token) = self.tokens.back() {
+                return matches!(token.kind, TokenKind::StartTag | TokenKind::EndTag)
+                    && (token.data == "pre" || token.data == "code" || token.data == "textarea");
+            }
+        }
+
+        false
     }
 
     fn handle_data_state(&mut self, ch: char) {
