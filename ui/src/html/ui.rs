@@ -1,219 +1,288 @@
 use api::dom::{DomNode, Element};
 
-use crate::{
-    html::{
-        block::display_element_block,
-        div::display_div,
-        img::display_image,
-        inline::{display_inline_elements, has_only_inline_children},
-        link::display_link,
-        list::display_list,
-    },
-    topbar::TabMetadata,
-};
+use crate::topbar::TabMetadata;
 
-pub const MAX_DEPTH: usize = 25;
-
-/// Finds the body element within the HTML document and displays it.
-pub fn find_and_display_body(ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
-    // Look for body element within html element
-    for child in &element.children {
-        match child.lock().unwrap().clone() {
-            DomNode::Element(child_element) => {
-                if child_element.tag_name.as_str() == "body" {
-                    display_body(ui, metadata, &child_element, 0);
-                    return;
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-/// Displays the body element and its children, handling depth limits
-pub fn display_body(
-    ui: &mut egui::Ui,
-    metadata: &TabMetadata,
-    element: &Element,
+/// A renderer for displaying HTML elements in a structured format using egui.
+///
+/// # Fields
+/// * `max_depth` - The maximum depth to render HTML elements.
+/// * `current_depth` - The current depth of the rendering process, used to limit recursion depth.
+/// * `inline_buffer` - A buffer to collect inline elements before rendering them, due to egui's limitations in rendering inline elements directly.
+/// * `debug` - A flag to enable debug mode, which provides additional information about the rendering process.
+pub struct HtmlRenderer {
+    max_depth: usize,
     current_depth: usize,
-) {
-    if current_depth > MAX_DEPTH {
-        ui.label(format!("{}... (depth limit reached)", element.tag_name));
-        return;
-    }
+    inline_buffer: Vec<Element>,
+    debug: bool,
+}
 
-    // Only render if this is a body element
-    if element.tag_name.as_str() != "body" {
-        return;
-    }
-    for child in &element.children {
-        match child.lock().unwrap().clone() {
-            DomNode::Element(child_element) => match child_element.tag_name.as_str() {
-                "div" => display_div(ui, metadata, &child_element, current_depth + 1),
-                "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                    display_element_block(ui, metadata, &child_element, current_depth + 1);
-                }
-                "header" | "main" | "nav" | "section" | "article" | "aside" | "footer" => {
-                    // Handle semantic HTML elements
-                    display_element(ui, metadata, &child_element, current_depth + 1);
-                }
-                "ul" | "ol" => {
-                    display_list(ui, &child_element, current_depth + 1);
-                }
-                "a" => {
-                    display_link(ui, &child_element);
-                }
-                "img" => {
-                    // Display the image with a fallback alt text
-                    display_image(ui, metadata, &child_element);
-                }
-                "style" | "script" | "link" | "meta" | "noscript" => {
-                    // Skip non-content elements
-                    continue;
-                }
-                _ => display_element(ui, metadata, &child_element, current_depth + 1),
-            },
-            DomNode::Text(text) => {
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    ui.label(trimmed);
-                }
-            }
-            _ => {}
+impl Default for HtmlRenderer {
+    fn default() -> Self {
+        HtmlRenderer {
+            max_depth: 100,
+            current_depth: 0,
+            inline_buffer: Vec::new(),
+            debug: false,
         }
     }
 }
 
-/// Recursively collects all text content from an element and its inline children
-pub fn collect_text_content(text_content: &mut String, element: &Element) {
-    for child in &element.children {
-        match child.lock().unwrap().clone() {
-            DomNode::Element(child_element) => {
-                match child_element.tag_name.as_str() {
-                    // For inline elements, collect their text content
-                    "span" | "a" | "strong" | "em" | "b" | "i" | "sup" => {
-                        collect_text_content(text_content, &child_element);
-                    }
-                    "style" | "script" | "link" | "meta" | "noscript" => {
-                        // Skip non-content elements
-                        continue;
-                    }
-                    // For block elements, they should be handled separately
-                    "div" | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {}
-                    _ => {
-                        // For other elements, collect their text content
-                        collect_text_content(text_content, &child_element);
+impl HtmlRenderer {
+    /// Creates a new `HtmlRenderer` with the specified maximum depth and debug mode.
+    ///
+    /// # Arguments
+    /// * `max_depth` - The maximum depth to render HTML elements.
+    /// * `debug` - If true, enables debug mode which displays additional information about the rendering process.
+    pub fn new(max_depth: usize, debug: bool) -> Self {
+        HtmlRenderer {
+            max_depth,
+            current_depth: 0,
+            inline_buffer: Vec::new(),
+            debug,
+        }
+    }
+
+    /// Displays the HTML content of a tab
+    pub fn display(&mut self, ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
+        self.current_depth = 0; // Reset depth for each new element
+        self.inline_buffer.clear(); // Clear inline buffer for each new element
+        self.display_body(ui, metadata, element);
+    }
+
+    fn display_body(&mut self, ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
+        self.initialize_block_context(ui, metadata, element);
+    }
+
+    fn display_element(&mut self, ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
+        if self.current_depth > self.max_depth {
+            ui.label(format!("{}... (depth limit reached)", element.tag_name));
+            return;
+        }
+
+        self.current_depth += 1;
+
+        match element.tag_name.as_str() {
+            "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
+            | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+                if !self.inline_buffer.is_empty() {
+                    self.render_inline_elements(ui);
+                }
+
+                self.initialize_block_context(ui, metadata, element);
+            }
+            "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup" => {
+                self.collect_inline_elements(ui, element);
+            }
+            "script" | "style" => {
+                // Skip script and style tags in the rendering
+                if self.debug {
+                    ui.label(format!(
+                        "Skipping: <{}> (depth: {})",
+                        element.tag_name, self.current_depth
+                    ));
+                }
+            }
+            _ => {
+                // Handle unrecognized elements
+                if self.debug {
+                    ui.label(format!(
+                        "E: <{}> (depth: {})",
+                        element.tag_name, self.current_depth
+                    ));
+                }
+
+                // Process children of unrecognized elements
+                for child in &element.children {
+                    match child.lock().unwrap().clone() {
+                        DomNode::Element(child_element) => {
+                            self.display_element(ui, metadata, &child_element);
+                        }
+                        DomNode::Text(text) => {
+                            if !self.inline_buffer.is_empty() {
+                                self.render_inline_elements(ui);
+                            }
+                            ui.label(text);
+                        }
+                        _ => {}
                     }
                 }
             }
-            DomNode::Text(text) => {
-                text_content.push_str(text.as_str());
+        }
+
+        self.current_depth -= 1;
+    }
+
+    fn initialize_block_context(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        element: &Element,
+    ) {
+        if self.current_depth > self.max_depth {
+            ui.label(format!("{}... (depth limit reached)", element.tag_name));
+            return;
+        }
+
+        let color = if self.debug {
+            // Use a color based on the current depth for debug mode, easily distinguishable
+            get_depth_color(self.current_depth)
+        } else {
+            egui::Color32::from_rgb(255, 255, 255) // Default white for normal mode
+        };
+
+        // TODO: Adjust margin based on element type
+        let margin = if element.tag_name == "body" {
+            egui::Margin::same(8)
+        } else {
+            // Base margin for other block elements
+            if self.debug {
+                // More visible margin in debug mode to highlight structure via colors
+                egui::Margin::same(8)
+            } else {
+                egui::Margin::symmetric(0, 4)
             }
-            _ => {}
-        }
-    }
-}
+        };
 
-/// Displays an HTML element, handling different types of elements and depth limits
-pub fn display_element(
-    ui: &mut egui::Ui,
-    metadata: &TabMetadata,
-    element: &Element,
-    current_depth: usize,
-) {
-    if current_depth > MAX_DEPTH {
-        ui.label(format!("{}... (depth limit reached)", element.tag_name));
-        return;
-    }
+        egui::Frame::new()
+            .outer_margin(margin)
+            .fill(color)
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.spacing_mut().item_spacing.x = 0.0;
 
-    // Handle body elements specially
-    if element.tag_name.as_str() == "body" {
-        display_body(ui, metadata, element, current_depth);
-        return;
-    }
+                // Check if element has any n+1 text nodes
 
-    // Check if this element contains only inline children and should be rendered horizontally
-    if has_only_inline_children(element) {
-        let inline_elements: Vec<Element> = element
-            .children
-            .iter()
-            .filter_map(|child| match child.lock().unwrap().clone() {
-                DomNode::Element(child_element) => match child_element.tag_name.as_str() {
-                    "style" | "script" | "link" | "meta" | "noscript" => None,
-                    _ => Some(child_element),
-                },
-                _ => None,
-            })
-            .collect();
+                // Semantic elements that don't "generally" contain text nodes should be rendered in regards to their children, i.e. vertically.
+                // Such as <body>, <div>, <header>, <footer>, etc.
+                // TODO: Handle semantic elements with text nodes that don't utilize given text elements (e.g., <p> with text nodes)
+                let has_text_nodes = element
+                    .children
+                    .iter()
+                    .any(|child| matches!(child.lock().unwrap().clone(), DomNode::Text(_)));
 
-        if !inline_elements.is_empty() {
-            let inline_element_refs: Vec<&Element> = inline_elements.iter().collect();
-            display_inline_elements(ui, metadata, &inline_element_refs);
-        }
-
-        // Also handle any text nodes
-        for child in &element.children {
-            if let DomNode::Text(text) = child.lock().unwrap().clone() {
-                let trimmed = text.trim();
-                if !trimmed.is_empty() {
-                    ui.label(trimmed);
+                if element.tag_name == "body" || !has_text_nodes {
+                    ui.vertical(|ui| {
+                        self.render_block_element(ui, metadata, element);
+                    });
+                } else {
+                    ui.horizontal(|ui| {
+                        self.render_block_element(ui, metadata, element);
+                    });
                 }
-            }
-        }
-        return;
+            });
     }
 
-    if !element.children.is_empty() {
+    fn render_block_element(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        element: &Element,
+    ) {
+        if self.current_depth > self.max_depth {
+            ui.label(format!("{}... (depth limit reached)", element.tag_name));
+            return;
+        }
+
+        if self.debug {
+            ui.label(format!(
+                "B: <{}> (depth: {})",
+                element.tag_name, self.current_depth
+            ));
+        }
+
+        // Recursively display child elements
         for child in &element.children {
             match child.lock().unwrap().clone() {
                 DomNode::Element(child_element) => {
-                    match child_element.tag_name.as_str() {
-                        "body" => display_body(ui, metadata, &child_element, current_depth + 1),
-                        "div" => display_div(ui, metadata, &child_element, current_depth + 1),
-                        "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
-                            display_element_block(ui, metadata, &child_element, current_depth + 1);
-                        }
-                        "header" | "main" | "nav" | "section" | "article" | "aside" | "footer" => {
-                            // Handle semantic HTML elements recursively
-                            display_element(ui, metadata, &child_element, current_depth + 1);
-                        }
-                        "ul" | "ol" => {
-                            display_list(ui, &child_element, current_depth + 1);
-                        }
-                        "a" => {
-                            display_link(ui, &child_element);
-                        }
-                        "style" | "script" | "link" | "meta" | "noscript" => {
-                            // Skip non-content elements
-                            continue;
-                        }
-                        "img" => {
-                            display_image(ui, metadata, &child_element);
-                        }
-                        "span" | "strong" | "em" | "b" | "i" | "sup" => {
-                            // Inline elements should only be handled within their parent context
-                            // If we reach here, treat them as having their text content
-                            let mut text_content = String::new();
-                            collect_text_content(&mut text_content, &child_element);
-                            let trimmed = text_content.trim();
-                            if !trimmed.is_empty() {
-                                ui.label(trimmed);
-                            }
-                        }
-                        _ => {
-                            //ui.label(format!("<{}>", child_element.tag_name));
-                            display_element(ui, metadata, &child_element, current_depth + 1);
-                        }
+                    if is_inline_element(&child_element.tag_name) {
+                        self.collect_inline_elements(ui, &child_element);
+                    } else {
+                        self.display_element(ui, metadata, &child_element);
                     }
                 }
                 DomNode::Text(text) => {
-                    let trimmed = text.trim();
-                    if !trimmed.is_empty() {
-                        ui.label(trimmed);
+                    // Render any inline elements collected so far before rendering text
+                    // For example, <p> -> TEXT -> <span> TEXT </span> -> TEXT </p>
+                    if !self.inline_buffer.is_empty() {
+                        self.render_inline_elements(ui);
                     }
+                    ui.label(text);
+                }
+                _ => {}
+            }
+        }
+
+        // Render any inline elements collected so far
+        // This ensures that inline elements are rendered after certain block elements such as <pre> -> <code>
+        if !self.inline_buffer.is_empty() {
+            self.render_inline_elements(ui);
+        }
+    }
+
+    fn collect_inline_elements(&mut self, ui: &mut egui::Ui, element: &Element) {
+        if self.current_depth > self.max_depth {
+            ui.label(format!("{}... (depth limit reached)", element.tag_name));
+            return;
+        }
+
+        // Collect inline elements into a buffer and render them later due to egui limitations in rendering
+        self.inline_buffer.push(element.clone());
+    }
+
+    fn render_inline_elements(&mut self, ui: &mut egui::Ui) {
+        if self.inline_buffer.is_empty() {
+            return;
+        }
+
+        let color = if self.debug {
+            egui::Color32::from_rgb(240, 240, 240) // Light gray for debug mode
+        } else {
+            egui::Color32::from_rgb(255, 255, 255) // White for normal mode
+        };
+
+        egui::Frame::new().fill(color).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for inline_element in &self.inline_buffer {
+                    self.render_inline_element(ui, inline_element);
+                }
+            });
+        });
+
+        // Clear the buffer after rendering
+        self.inline_buffer.clear();
+    }
+
+    fn render_inline_element(&self, ui: &mut egui::Ui, element: &Element) {
+        for child in &element.children {
+            match child.lock().unwrap().clone() {
+                DomNode::Element(child_element) => {
+                    self.render_inline_element(ui, &child_element);
+                }
+                DomNode::Text(text) => {
+                    ui.label(text);
                 }
                 _ => {}
             }
         }
     }
+}
+
+fn is_inline_element(tag_name: &str) -> bool {
+    matches!(
+        tag_name.to_lowercase().as_str(),
+        "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "small" | "sub" | "sup"
+    )
+}
+
+fn get_depth_color(depth: usize) -> egui::Color32 {
+    // Generate a color based on the depth, cycling through a palette
+    let colors = [
+        egui::Color32::from_rgb(255, 100, 100), // Bright red
+        egui::Color32::from_rgb(100, 255, 100), // Bright green
+        egui::Color32::from_rgb(100, 150, 255), // Bright blue
+        egui::Color32::from_rgb(255, 200, 100), // Orange
+        egui::Color32::from_rgb(100, 255, 255), // Cyan
+        egui::Color32::from_rgb(200, 100, 255), // Purple
+    ];
+    colors[depth % colors.len()]
 }

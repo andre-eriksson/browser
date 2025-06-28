@@ -1,22 +1,20 @@
+use std::sync::{Arc, Mutex};
+
 use api::dom::DomNode;
-use egui::{CentralPanel, Color32, Margin, ScrollArea, Stroke};
+use egui::{CentralPanel, Color32, ScrollArea};
 
 use crate::{
-    html::ui::{display_body, find_and_display_body},
-    topbar::BrowserTab,
+    html::ui::HtmlRenderer,
+    topbar::{BrowserTab, TabCollector},
 };
 
 /// Renders the main content area of the browser UI, displaying HTML content.
 pub fn render_content(ctx: &egui::Context, tab: &mut BrowserTab) {
     CentralPanel::default()
-        .frame(
-            egui::Frame::new()
-                .fill(Color32::from_rgb(255, 255, 255))
-                .stroke(Stroke::new(1.0, Color32::from_rgb(200, 200, 200)))
-                .inner_margin(Margin::same(10)),
-        )
+        .frame(egui::Frame::new().fill(Color32::from_rgb(255, 255, 255)))
         .show(ctx, |ui| {
             let metadata_clone = tab.metadata.clone();
+            let renderer_clone = tab.renderer.clone();
 
             if let Ok(html) = tab.html_content.lock() {
                 // Scrollable area for HTML content
@@ -25,26 +23,7 @@ pub fn render_content(ctx: &egui::Context, tab: &mut BrowserTab) {
                     .drag_to_scroll(false)
                     .show(ui, |ui| match &*html {
                         DomNode::Document(children) => {
-                            // Look for the body element specifically
-                            let mut found_body = false;
-                            for child in children {
-                                match child.lock().unwrap().clone() {
-                                    DomNode::Element(element) => {
-                                        if element.tag_name.as_str() == "html" {
-                                            find_and_display_body(ui, &metadata_clone, &element);
-                                            found_body = true;
-                                        } else if element.tag_name.as_str() == "body" {
-                                            display_body(ui, &metadata_clone, &element, 0);
-                                            found_body = true;
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                            }
-
-                            if !found_body {
-                                ui.label("No body element found in HTML document.");
-                            }
+                            display_child_elements(metadata_clone, ui, children, renderer_clone);
                         }
                         _ => {
                             ui.label("No HTML content loaded.");
@@ -54,4 +33,28 @@ pub fn render_content(ctx: &egui::Context, tab: &mut BrowserTab) {
                 ui.label("HTML content would be displayed here.");
             }
         });
+}
+
+fn display_child_elements(
+    metadata_clone: Arc<Mutex<TabCollector>>,
+    ui: &mut egui::Ui,
+    children: &Vec<Arc<Mutex<DomNode>>>,
+    renderer: Arc<Mutex<HtmlRenderer>>,
+) {
+    for child in children {
+        match child.lock().unwrap().clone() {
+            DomNode::Element(element) => {
+                if element.tag_name.eq_ignore_ascii_case("html") {
+                    display_child_elements(metadata_clone, ui, &element.children, renderer.clone());
+                    break;
+                }
+
+                if element.tag_name.eq_ignore_ascii_case("body") {
+                    let mut renderer = renderer.lock().unwrap();
+                    renderer.display(ui, &metadata_clone, &element);
+                }
+            }
+            _ => {}
+        }
+    }
 }
