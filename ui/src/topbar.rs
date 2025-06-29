@@ -1,123 +1,19 @@
-use api::{
-    collector::{Collector, TagInfo},
-    dom::{DomNode, SharedDomNode},
-    sender::NetworkMessage,
-};
+use std::sync::{Arc, Mutex};
+
+use api::sender::NetworkMessage;
 use egui::{Color32, Margin, TopBottomPanel};
 use html_parser::parser::streaming::HtmlStreamParser;
-use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 
-use crate::html::ui::HtmlRenderer;
-
-pub type TabMetadata = Arc<Mutex<TabCollector>>;
-
-/// A collector that gathers metadata from HTML tags in a browser tab.
-///
-/// # Fields
-/// * `url` - The URL of the page being collected.
-/// * `title` - The title of the page, if available.
-/// * `external_resources` - A vector of tuples containing DOM nodes and their associated resource URLs (e.g., scripts, stylesheets).
-#[derive(Default)]
-pub struct TabCollector {
-    url: String,
-    pub title: Option<String>,
-    pub external_resources: Option<Vec<(SharedDomNode, Arc<str>)>>,
-}
-
-impl Collector for TabCollector {
-    type Output = Self;
-
-    fn collect(&mut self, tag: &TagInfo) {
-        if let Some(external_resources) = &mut self.external_resources {
-            if let Some(href) = tag.attributes.get("href") {
-                if tag.tag_name == "a" {
-                    return; // Skip anchor tags for href collection
-                }
-
-                external_resources.push((tag.dom_node.clone(), Arc::from(href.as_str())));
-            }
-
-            if let Some(src) = tag.attributes.get("src") {
-                let resolved_src = if src.starts_with("http://") || src.starts_with("https://") {
-                    // Absolute URL
-                    src.clone()
-                } else if src.starts_with("//") {
-                    // Protocol-relative URL
-                    if let Ok(parsed_url) = url::Url::parse(&self.url) {
-                        format!("{}:{}", parsed_url.scheme(), src)
-                    } else {
-                        format!("http:{}", src) // Fallback to http
-                    }
-                } else if src.starts_with('/') {
-                    // Absolute path
-                    if let Ok(parsed_url) = url::Url::parse(&self.url) {
-                        let mut base = format!(
-                            "{}://{}",
-                            parsed_url.scheme(),
-                            parsed_url.host_str().unwrap_or("")
-                        );
-                        if let Some(port) = parsed_url.port() {
-                            base.push_str(&format!(":{}", port));
-                        }
-                        format!("{}{}", base, src)
-                    } else {
-                        format!("{}{}", self.url, src)
-                    }
-                } else {
-                    // Relative path
-                    if let Ok(parsed_url) = url::Url::parse(&self.url) {
-                        if let Ok(resolved) = parsed_url.join(src) {
-                            resolved.to_string()
-                        } else {
-                            format!("{}/{}", self.url.trim_end_matches('/'), src)
-                        }
-                    } else {
-                        format!("{}/{}", self.url.trim_end_matches('/'), src)
-                    }
-                };
-
-                external_resources.push((tag.dom_node.clone(), Arc::from(resolved_src)));
-            }
-        }
-
-        if tag.tag_name == "title" {
-            if let DomNode::Text(ref text) = *tag.dom_node.lock().unwrap() {
-                self.title = Some(text.clone());
-            }
-        }
-    }
-
-    fn into_result(self) -> Self::Output {
-        Self {
-            url: self.url,
-            title: self.title,
-            external_resources: self.external_resources,
-        }
-    }
-}
-
-/// Represents a browser tab with its URL, status code, HTML content, and metadata.
-///
-/// # Fields
-/// * `url` - The URL of the page loaded in the tab.
-/// * `status_code` - A mutex-protected string representing the HTTP status code of the page.
-/// * `html_content` - A shared DOM node containing the parsed HTML content of the page.
-/// * `metadata` - Metadata about the tab, including the title and external resources.
-pub struct BrowserTab {
-    pub url: String,
-    pub status_code: Arc<Mutex<String>>,
-    pub html_content: SharedDomNode,
-    pub metadata: Arc<Mutex<TabCollector>>,
-    pub renderer: Arc<Mutex<HtmlRenderer>>,
-}
+use crate::api::tabs::{BrowserTab, TabCollector};
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
 pub fn render_top_bar(
     ctx: &egui::Context,
-    tab: &mut BrowserTab,
     network_sender: &mpsc::UnboundedSender<NetworkMessage>,
+    tabs: &mut Vec<BrowserTab>,
+    current_tab: &mut usize,
 ) {
     TopBottomPanel::top("browser_top_panel")
         .frame(
@@ -136,18 +32,47 @@ pub fn render_top_bar(
             // Tabs
             ui.horizontal(|ui| {
                 // TODO: Render tabs, and <head> content like title, meta tags, etc.
-                let _ = ui.button(
-                    tab.metadata
-                        .lock()
-                        .unwrap()
-                        .title
-                        .clone()
-                        .unwrap_or_else(|| "Blank".to_string()),
-                );
+                for (i, tab) in tabs.iter_mut().enumerate() {
+                    let tab_label = if let Some(title) = &tab.metadata.lock().unwrap().title {
+                        title.clone()
+                    } else {
+                        "Untitled".to_string()
+                    };
+
+                    let color = if *current_tab == i {
+                        Color32::from_rgb(200, 200, 255) // Highlight the current tab
+                    } else {
+                        Color32::from_rgb(220, 220, 220) // Default color for other tabs
+                    };
+
+                    let tab_button = ui.add(
+                        egui::Button::new(tab_label)
+                            .fill(color)
+                            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(180, 180, 180))),
+                    );
+
+                    if tab_button.clicked() {
+                        *current_tab = i; // Update the current tab index
+                    }
+                }
+
                 ui.separator();
-                let _ = ui.button("+");
+                let new_tab = ui.button("+");
+                if new_tab.clicked() {
+                    // Create a new tab with a default URL
+                    let new_browser_tab = BrowserTab {
+                        url: "http://localhost:8000/test.html".to_string(),
+                        status_code: Arc::new(Mutex::new("200 OK".to_string())),
+                        html_content: Default::default(),
+                        metadata: Default::default(),
+                    };
+                    tabs.push(new_browser_tab);
+                }
             });
 
+            ui.separator();
+
+            let tab = &mut tabs[*current_tab];
             // URL input field
             ui.horizontal(|ui| {
                 ui.add_sized(
@@ -216,13 +141,5 @@ pub fn render_top_bar(
                     });
                 }
             });
-
-            let status = tab.status_code.lock().unwrap();
-            if *status != "200 OK" && !status.is_empty() {
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.label(format!("Status Code: {}", status));
-                });
-            }
         });
 }

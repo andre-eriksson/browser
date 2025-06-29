@@ -1,6 +1,6 @@
 use api::dom::{DomNode, Element};
 
-use crate::topbar::TabMetadata;
+use crate::api::tabs::TabMetadata;
 
 /// A renderer for displaying HTML elements in a structured format using egui.
 ///

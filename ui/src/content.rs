@@ -4,17 +4,21 @@ use api::dom::DomNode;
 use egui::{CentralPanel, Color32, ScrollArea};
 
 use crate::{
+    api::tabs::{BrowserTab, TabCollector},
     html::ui::HtmlRenderer,
-    topbar::{BrowserTab, TabCollector},
 };
 
 /// Renders the main content area of the browser UI, displaying HTML content.
-pub fn render_content(ctx: &egui::Context, tab: &mut BrowserTab) {
+pub fn render_content(
+    ctx: &egui::Context,
+    renderer: &Arc<Mutex<HtmlRenderer>>,
+    tab: &mut BrowserTab,
+) {
     CentralPanel::default()
         .frame(egui::Frame::new().fill(Color32::from_rgb(255, 255, 255)))
         .show(ctx, |ui| {
             let metadata_clone = tab.metadata.clone();
-            let renderer_clone = tab.renderer.clone();
+            let renderer = renderer.clone();
 
             if let Ok(html) = tab.html_content.lock() {
                 // Scrollable area for HTML content
@@ -23,7 +27,7 @@ pub fn render_content(ctx: &egui::Context, tab: &mut BrowserTab) {
                     .drag_to_scroll(false)
                     .show(ui, |ui| match &*html {
                         DomNode::Document(children) => {
-                            display_child_elements(metadata_clone, ui, children, renderer_clone);
+                            display_child_elements(metadata_clone, ui, children, renderer);
                         }
                         _ => {
                             ui.label("No HTML content loaded.");
