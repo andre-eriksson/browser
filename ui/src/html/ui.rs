@@ -63,7 +63,7 @@ impl HtmlRenderer {
 
         match element.tag_name.as_str() {
             "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
-            | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => {
+            | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" => {
                 if !self.inline_buffer.is_empty() {
                     self.render_inline_elements(ui);
                 }
@@ -123,23 +123,28 @@ impl HtmlRenderer {
             return;
         }
 
-        let color = if self.debug {
-            // Use a color based on the current depth for debug mode, easily distinguishable
-            get_depth_color(self.current_depth)
-        } else {
-            egui::Color32::from_rgb(255, 255, 255) // Default white for normal mode
+        let color = match self.debug {
+            true => get_depth_color(self.current_depth), // Use a color based on the current depth for debug mode
+            false => egui::Color32::from_rgb(255, 255, 255), // Default white for normal mode
         };
 
         // TODO: Adjust margin based on element type
-        let margin = if element.tag_name == "body" {
-            egui::Margin::same(8)
-        } else {
-            // Base margin for other block elements
-            if self.debug {
-                // More visible margin in debug mode to highlight structure via colors
-                egui::Margin::same(8)
-            } else {
-                egui::Margin::symmetric(0, 4)
+        let margin = match element.tag_name.as_str() {
+            "body" => egui::Margin::same(8),
+            "h1" => egui::Margin::symmetric(0, 8),
+            "h2" => egui::Margin::symmetric(0, 7),
+            "h3" => egui::Margin::symmetric(0, 6),
+            "h4" => egui::Margin::symmetric(0, 7),
+            "h5" => egui::Margin::symmetric(0, 8),
+            "h6" => egui::Margin::symmetric(0, 9),
+            _ => {
+                // Base margin for other block elements
+                if self.debug {
+                    // More visible margin in debug mode to highlight structure via colors
+                    egui::Margin::same(8)
+                } else {
+                    egui::Margin::symmetric(0, 4)
+                }
             }
         };
 
@@ -190,6 +195,12 @@ impl HtmlRenderer {
             ));
         }
 
+        if element.tag_name == "hr" {
+            // Render horizontal rule with a line
+            ui.separator();
+            return;
+        }
+
         // Recursively display child elements
         for child in &element.children {
             match child.lock().unwrap().clone() {
@@ -206,7 +217,16 @@ impl HtmlRenderer {
                     if !self.inline_buffer.is_empty() {
                         self.render_inline_elements(ui);
                     }
-                    ui.label(text);
+
+                    match element.tag_name.as_str() {
+                        "h1" => ui.label(egui::RichText::new(text).strong().size(32.0)),
+                        "h2" => ui.label(egui::RichText::new(text).strong().size(24.0)),
+                        "h3" => ui.label(egui::RichText::new(text).strong().size(20.0)),
+                        "h4" => ui.label(egui::RichText::new(text).strong()),
+                        "h5" => ui.label(egui::RichText::new(text).strong().size(10.0)),
+                        "h6" => ui.label(egui::RichText::new(text).strong().size(8.0)),
+                        _ => ui.label(text),
+                    };
                 }
                 _ => {}
             }
@@ -258,9 +278,14 @@ impl HtmlRenderer {
                 DomNode::Element(child_element) => {
                     self.render_inline_element(ui, &child_element);
                 }
-                DomNode::Text(text) => {
-                    ui.label(text);
-                }
+                DomNode::Text(text) => match element.tag_name.as_str() {
+                    "code" | "pre" => {
+                        ui.label(egui::RichText::new(text).monospace());
+                    }
+                    _ => {
+                        ui.label(text);
+                    }
+                },
                 _ => {}
             }
         }

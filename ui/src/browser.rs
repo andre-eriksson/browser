@@ -75,11 +75,25 @@ fn initialize_fonts(ctx: &egui::Context) {
         egui::FontData::from_static(include_bytes!("../../resources/fonts/OpenSans-Regular.ttf"))
             .into(),
     );
+    fonts.font_data.insert(
+        "Roboto Mono".to_owned(),
+        egui::FontData::from_static(include_bytes!(
+            "../../resources/fonts/RobotoMono-Regular.ttf"
+        ))
+            .into(),
+    );
 
     fonts
         .families
         .get_mut(&egui::FontFamily::Proportional)
         .unwrap()
         .insert(0, "Open Sans".to_owned());
+
+    fonts
+        .families
+        .get_mut(&egui::FontFamily::Monospace)
+        .unwrap()
+        .insert(0, "Roboto Mono".to_owned());
+
     ctx.set_fonts(fonts);
 }
