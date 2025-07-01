@@ -16,6 +16,9 @@ use crate::{
 ///
 /// # Fields
 /// * `network_sender` - An unbounded sender for sending network messages to the backend.
+/// * `renderer` - An Arc-wrapped mutex for the HTML renderer, responsible for rendering HTML content.
+/// * `tabs` - An Arc-wrapped mutex containing a vector of `BrowserTab`, representing the open tabs in the browser.
+/// * `current_tab` - An Arc-wrapped mutex holding the index of the currently active tab.
 pub struct Browser {
     network_sender: mpsc::UnboundedSender<NetworkMessage>,
     renderer: Arc<Mutex<HtmlRenderer>>,
@@ -24,6 +27,10 @@ pub struct Browser {
 }
 
 impl Browser {
+    /// Creates a new instance of the `Browser` with a default starting tab.
+    ///
+    /// # Arguments
+    /// * `network_sender` - An unbounded sender for sending network messages.
     pub fn new(network_sender: mpsc::UnboundedSender<NetworkMessage>) -> Self {
         let start_tab = BrowserTab {
             url: "http://localhost:8000/basic.html".to_string(), // Default URL
