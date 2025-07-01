@@ -5,8 +5,11 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use crate::{
-    api::tabs::BrowserTab, content::render_content, html::ui::HtmlRenderer,
-    network::loader::NetworkLoader, topbar::render_top_bar,
+    api::tabs::BrowserTab,
+    content::render_content,
+    html::ui::{HtmlRenderer, RendererDebugMode},
+    network::loader::NetworkLoader,
+    topbar::render_top_bar,
 };
 
 /// Represents a simple web browser application using EGUI for the UI and Tokio for asynchronous networking.
@@ -31,7 +34,7 @@ impl Browser {
 
         Browser {
             network_sender,
-            renderer: Arc::new(Mutex::new(HtmlRenderer::new(100, false))),
+            renderer: Arc::new(Mutex::new(HtmlRenderer::new(100, RendererDebugMode::None))),
             tabs: Arc::new(Mutex::new(vec![start_tab])),
             current_tab: Arc::new(Mutex::new(0)), // Start with the first tab
         }
