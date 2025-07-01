@@ -32,14 +32,14 @@ pub struct HtmlStreamParser<R: BufRead> {
 }
 
 impl<R: BufRead> HtmlStreamParser<R> {
-    /// Creates a new `StreamingParser` with the specified reader, collector, and an optional buffer size.
+    /// Creates a new `StreamingParser` with the specified reader, and an optional buffer size.
     ///
     /// # Arguments
     /// * `reader` - A buffered reader that implements the `BufRead` trait.
     /// * `buffer_size` - An optional size for the internal buffer; if `None`, defaults to 8192 bytes.
     ///
     /// # Returns
-    /// A new instance of `StreamingParser` initialized with the provided reader, collector, and buffer size.
+    /// A new instance of `StreamingParser` initialized with the provided reader, and buffer size.
     pub fn new(reader: R, buffer_size: Option<usize>) -> Self {
         let buffer_size = buffer_size.unwrap_or(1024 * 8);
         Self {
