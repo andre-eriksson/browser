@@ -2,6 +2,22 @@ use api::dom::{DomNode, Element};
 
 use crate::api::tabs::TabMetadata;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum RendererDebugMode {
+    /// Renders all elements with color backgrounds and text labels for debugging.
+    /// This mode is useful for visualizing the structure of HTML elements.
+    Full,
+
+    /// Renders the structure of HTML elements with colors, but without text labels.
+    Colors,
+
+    /// Renders only the text content of HTML elements without any additional styling.
+    ElementText,
+
+    /// Disables all debugging features, rendering elements as they would normally appear.
+    None,
+}
+
 /// A renderer for displaying HTML elements in a structured format using egui.
 ///
 /// # Fields
@@ -13,7 +29,7 @@ pub struct HtmlRenderer {
     max_depth: usize,
     current_depth: usize,
     inline_buffer: Vec<Element>,
-    debug: bool,
+    debug: RendererDebugMode,
 }
 
 impl Default for HtmlRenderer {
@@ -22,7 +38,7 @@ impl Default for HtmlRenderer {
             max_depth: 100,
             current_depth: 0,
             inline_buffer: Vec::new(),
-            debug: false,
+            debug: RendererDebugMode::None,
         }
     }
 }
@@ -33,7 +49,7 @@ impl HtmlRenderer {
     /// # Arguments
     /// * `max_depth` - The maximum depth to render HTML elements.
     /// * `debug` - If true, enables debug mode which displays additional information about the rendering process.
-    pub fn new(max_depth: usize, debug: bool) -> Self {
+    pub fn new(max_depth: usize, debug: RendererDebugMode) -> Self {
         HtmlRenderer {
             max_depth,
             current_depth: 0,
@@ -75,7 +91,9 @@ impl HtmlRenderer {
             }
             "script" | "style" => {
                 // Skip script and style tags in the rendering
-                if self.debug {
+                if self.debug == RendererDebugMode::Full
+                    || self.debug == RendererDebugMode::ElementText
+                {
                     ui.label(format!(
                         "Skipping: <{}> (depth: {})",
                         element.tag_name, self.current_depth
@@ -84,7 +102,9 @@ impl HtmlRenderer {
             }
             _ => {
                 // Handle unrecognized elements
-                if self.debug {
+                if self.debug == RendererDebugMode::Full
+                    || self.debug == RendererDebugMode::ElementText
+                {
                     ui.label(format!(
                         "E: <{}> (depth: {})",
                         element.tag_name, self.current_depth
@@ -124,8 +144,10 @@ impl HtmlRenderer {
         }
 
         let color = match self.debug {
-            true => get_depth_color(self.current_depth), // Use a color based on the current depth for debug mode
-            false => egui::Color32::from_rgb(255, 255, 255), // Default white for normal mode
+            RendererDebugMode::Full | RendererDebugMode::Colors => {
+                get_depth_color(self.current_depth)
+            } // Use a color based on the current depth for debug mode
+            _ => egui::Color32::from_rgb(255, 255, 255), // Default white for normal mode
         };
 
         // TODO: Adjust margin based on element type
@@ -188,7 +210,7 @@ impl HtmlRenderer {
             return;
         }
 
-        if self.debug {
+        if self.debug == RendererDebugMode::Full || self.debug == RendererDebugMode::ElementText {
             ui.label(format!(
                 "B: <{}> (depth: {})",
                 element.tag_name, self.current_depth
@@ -254,7 +276,8 @@ impl HtmlRenderer {
             return;
         }
 
-        let color = if self.debug {
+        let color =
+            if self.debug == RendererDebugMode::Full || self.debug == RendererDebugMode::Colors {
             egui::Color32::from_rgb(240, 240, 240) // Light gray for debug mode
         } else {
             egui::Color32::from_rgb(255, 255, 255) // White for normal mode
