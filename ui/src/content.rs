@@ -18,6 +18,7 @@ pub fn render_content(
         .frame(egui::Frame::new().fill(Color32::from_rgb(255, 255, 255)))
         .show(ctx, |ui| {
             let metadata_clone = tab.metadata.clone();
+            let url = tab.url.clone();
             let renderer = renderer.clone();
 
             if let Ok(html) = tab.html_content.lock() {
@@ -27,7 +28,7 @@ pub fn render_content(
                     .drag_to_scroll(false)
                     .show(ui, |ui| match &*html {
                         ConcurrentDomNode::Document(children) => {
-                            display_child_elements(metadata_clone, ui, children, renderer);
+                            display_child_elements(metadata_clone, ui, children, renderer, url);
                         }
                         _ => {
                             ui.label("No HTML content loaded.");
@@ -44,18 +45,25 @@ fn display_child_elements(
     ui: &mut egui::Ui,
     children: &Vec<Arc<Mutex<ConcurrentDomNode>>>,
     renderer: Arc<Mutex<HtmlRenderer>>,
+    url: String,
 ) {
     for child in children {
         match child.lock().unwrap().clone() {
             ConcurrentDomNode::Element(element) => {
                 if element.tag_name.eq_ignore_ascii_case("html") {
-                    display_child_elements(metadata_clone, ui, &element.children, renderer.clone());
+                    display_child_elements(
+                        metadata_clone,
+                        ui,
+                        &element.children,
+                        renderer.clone(),
+                        url.clone(),
+                    );
                     break;
                 }
 
                 if element.tag_name.eq_ignore_ascii_case("body") {
                     let mut renderer = renderer.lock().unwrap();
-                    renderer.display(ui, &metadata_clone, &element);
+                    renderer.display(ui, &metadata_clone, &element, url.as_str());
                 }
             }
             _ => {}
