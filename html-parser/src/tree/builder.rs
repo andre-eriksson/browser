@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use crate::{
     tokens::state::{Token, TokenKind},
     tree::{
@@ -9,8 +7,9 @@ use crate::{
 };
 use api::{
     collector::{Collector, TagInfo},
-    dom::{DomNode, Element, SharedDomNode},
+    dom::{DomNode, Element, RefDomNode},
 };
+use std::{cell::RefCell, rc::Rc};
 
 /// A builder for constructing a DOM tree from HTML tokens.
 ///
@@ -24,8 +23,8 @@ use api::{
 pub struct DomTreeBuilder<C: Collector> {
     pub current_id: u32,
     pub collector: C,
-    pub dom_tree: Vec<SharedDomNode>,
-    open_elements: Vec<SharedDomNode>,
+    dom_tree: Vec<RefDomNode>,
+    open_elements: Vec<RefDomNode>,
 }
 
 impl<C: Collector + Default> DomTreeBuilder<C> {
@@ -43,6 +42,12 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             dom_tree: Vec::new(),
             open_elements: Vec::with_capacity(16),
         }
+    }
+
+    /// A getter for the DOM tree, returning a reference to the root document node.
+    /// This method allows access to the entire DOM structure built by the parser.
+    pub fn get_dom_tree(&self) -> RefDomNode {
+        Rc::new(RefCell::new(DomNode::Document(self.dom_tree.clone())))
     }
 
     /// Builds the DOM tree from a vector of HTML tokens.
@@ -81,9 +86,9 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `node` - A shared reference to the `DomNode` to be inserted into the DOM tree.
-    fn insert_new_node(&mut self, node: SharedDomNode) {
+    fn insert_new_node(&mut self, node: RefDomNode) {
         if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(parent) = &mut *last.lock().unwrap() {
+            if let DomNode::Element(parent) = &mut *last.borrow_mut() {
                 parent.children.push(node);
             }
         } else {
@@ -97,7 +102,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `new_tag_name` - The name of the new tag being processed, which may trigger auto-closing of previous tags.
     fn handle_auto_close(&mut self, new_tag_name: &str) {
         let should_pop = if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(ref parent) = *last.lock().unwrap() {
+            if let DomNode::Element(ref parent) = *last.borrow() {
                 should_auto_close(&parent.tag_name, new_tag_name)
             } else {
                 false
@@ -130,10 +135,10 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         self.collector.collect(&TagInfo {
             tag_name: tag_name,
             attributes: &token.attributes,
-            dom_node: &Arc::new(Mutex::new(DomNode::Element(element.clone()))),
+            dom_node: &Rc::new(RefCell::new(DomNode::Element(element.clone()))),
         });
 
-        let new_node = Arc::new(Mutex::new(DomNode::Element(element)));
+        let new_node = Rc::new(RefCell::new(DomNode::Element(element)));
 
         // Handle auto-closing of previous tags if necessary
         self.handle_auto_close(tag_name);
@@ -155,7 +160,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         let tag_name = &token.data.to_lowercase();
 
         let should_close = if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(ref parent) = *last.lock().unwrap() {
+            if let DomNode::Element(ref parent) = *last.borrow() {
                 parent.tag_name == *tag_name
             } else {
                 false
@@ -225,8 +230,8 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         }
 
         if let Some(last) = self.open_elements.last() {
-            if let DomNode::Element(parent) = &mut *last.lock().unwrap() {
-                let text_node = Arc::new(Mutex::new(DomNode::Text(text_content)));
+            if let DomNode::Element(parent) = &mut *last.borrow_mut() {
+                let text_node = Rc::new(RefCell::new(DomNode::Text(text_content)));
 
                 self.collector.collect(&TagInfo {
                     tag_name: &parent.tag_name,

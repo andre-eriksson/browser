@@ -1,4 +1,4 @@
-use api::{collector::Collector, dom::DomNode};
+use api::{collector::Collector, dom::RefDomNode};
 use std::io::BufRead;
 use tracing::debug;
 
@@ -10,7 +10,7 @@ use crate::{tokens::tokenizer::HtmlTokenizer, tree::builder::DomTreeBuilder};
 /// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
 /// * `metadata` - The metadata collected during parsing, which is of type `M`.
 pub struct ParseResult<M> {
-    pub dom_tree: DomNode,
+    pub dom_tree: RefDomNode,
     pub metadata: M,
 }
 
@@ -112,7 +112,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
         );
 
         Ok(ParseResult {
-            dom_tree: DomNode::Document(builder.dom_tree),
+            dom_tree: builder.get_dom_tree(),
             metadata: builder.collector.into_result(),
         })
     }

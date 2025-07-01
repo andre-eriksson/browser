@@ -1,4 +1,4 @@
-use api::{dom::SharedDomNode, sender::NetworkMessage};
+use api::{dom::ArcDomNode, sender::NetworkMessage};
 use eframe::{HardwareAcceleration, NativeOptions, egui, run_simple_native};
 use egui::{FontDefinitions, ThemePreference, ViewportBuilder};
 use std::sync::{Arc, Mutex};
@@ -26,9 +26,9 @@ pub struct Browser {
 impl Browser {
     pub fn new(network_sender: mpsc::UnboundedSender<NetworkMessage>) -> Self {
         let start_tab = BrowserTab {
-            url: "http://localhost:8000/test.html".to_string(), // Default URL
+            url: "http://localhost:8000/basic.html".to_string(), // Default URL
             status_code: Arc::new(Mutex::new("200 OK".to_string())),
-            html_content: SharedDomNode::default(),
+            html_content: ArcDomNode::default(),
             metadata: Default::default(),
         };
 

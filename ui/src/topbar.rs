@@ -1,8 +1,10 @@
-use std::sync::{Arc, Mutex};
-
-use api::sender::NetworkMessage;
+use api::{
+    dom::{ArcDomNode, ConvertDom},
+    sender::NetworkMessage,
+};
 use egui::{Color32, Margin, TopBottomPanel};
 use html_parser::parser::streaming::HtmlStreamParser;
+use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 
@@ -92,7 +94,7 @@ pub fn render_top_bar(
 
                     // TODO: Improve performance here, viewport scrolling, etc.
                     let url_clone = tab.url.clone();
-                    let html_content_clone = tab.html_content.clone();
+                    let html_content_clone: ArcDomNode = tab.html_content.clone();
                     let status_code_clone = tab.status_code.clone();
                     let metadata_clone = tab.metadata.clone();
 
@@ -118,9 +120,8 @@ pub fn render_top_bar(
                                             let mut metadata = metadata_clone.lock().unwrap();
                                             *metadata = result.metadata;
 
-                                            let mut html_content =
-                                                html_content_clone.lock().unwrap();
-                                            *html_content = dom_tree;
+                                            let mut html_content = html_content_clone.lock().unwrap();
+                                            *html_content = dom_tree.convert().lock().unwrap().clone();
                                         }
                                         Err(err) => {
                                             eprintln!("Parsing error: {}", err);
