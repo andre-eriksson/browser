@@ -6,7 +6,7 @@ use http::{
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::{Client, Response};
-use tracing::{info, info_span, instrument, trace, warn};
+use tracing::{error, info, info_span, instrument, trace, warn};
 use url::{Origin, Url};
 
 use crate::{
@@ -120,6 +120,7 @@ impl WebClient {
                     match resp.text().await {
                         Ok(content) => Ok(content),
                         Err(e) => {
+                            error!("Failed to read response body: {}", e);
                             return Err(format!("Failed to read response body: {}", e));
                         }
                     }
@@ -128,7 +129,10 @@ impl WebClient {
                     Err(format!("{}:{}", STATUS_CODE, resp.status()))
                 }
             }
-            Err(e) => Err(format!("{}", e)),
+            Err(e) => {
+                error!("Failed to send request: {}", e);
+                Err(format!("{}", e))
+            }
         }
     }
 
@@ -180,11 +184,15 @@ impl WebClient {
     ///
     /// # Returns
     /// A `Result` containing the fetched content as a `String` if successful, or an error message if the request fails or is blocked by CSP.
+    #[instrument(
+        skip(self, request_origin, additional_headers, _body, http_method),
+        level = "info"
+    )]
     pub async fn fetch(
         &self,
         tag_name: &str,
         request_origin: &Origin,
-        full_url: &str,
+        url: &str,
         http_method: Option<Method>,
         additional_headers: Option<HeaderMap<HeaderValue>>,
         _body: Option<String>,
@@ -214,12 +222,7 @@ impl WebClient {
             && self.origin != request_origin.clone()
         {
             if let Err(e) = self
-                .handle_preflight(
-                    request_origin,
-                    http_method.clone(),
-                    headers.clone(),
-                    full_url,
-                )
+                .handle_preflight(request_origin, http_method.clone(), headers.clone(), url)
                 .await
             {
                 warn!("Preflight request failed: {}", e);
@@ -229,11 +232,12 @@ impl WebClient {
 
         let res = self
             .client
-            .request(http_method, full_url)
+            .request(http_method, url)
             .headers(headers)
             .build();
 
         if let Err(e) = res {
+            error!("Failed to build request: {}", e);
             return Err(format!("Failed to build request: {}", e));
         }
 
@@ -243,8 +247,14 @@ impl WebClient {
             warn!("Failed to execute request: {}", e);
             return Err(format!("Failed to execute request: {}", e));
         }
+        let response = response_result.unwrap();
+        if response.status().is_success() {
+            info!({STATUS_CODE} = ?response.status());
+        } else {
+            warn!({STATUS_CODE} = ?response.status());
+        }
 
-        return Ok(response_result.unwrap());
+        return Ok(response);
     }
 
     /// Fetch content from the origin with optional headers and body.

@@ -158,8 +158,8 @@ impl ImageLoader for NetworkLoader {
                         }
                     }
                     Err(err) => {
-                        error!(
-                            "[NetworkLoader] Failed to fetch image for URI {}: {}",
+                        debug!(
+                            "[NetworkLoader] Failed to fetch image for URI {}: {}, removing from cache",
                             uri_str, err
                         );
                         let mut cache = cache_clone.lock().unwrap();
