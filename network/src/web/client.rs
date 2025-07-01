@@ -1,11 +1,12 @@
 use std::time::Instant;
 
+use api::logging::{DURATION_MS, STATUS_CODE};
 use http::{
     HeaderMap, HeaderValue, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::{Client, Response};
-use tracing::{debug, error, info, info_span, instrument};
+use tracing::{info, info_span, instrument, trace, warn};
 use url::{Origin, Url};
 
 use crate::{
@@ -114,7 +115,7 @@ impl WebClient {
                 if resp.status().is_success() {
                     self.origin_headers = Some(resp.headers().clone());
 
-                    info!("{}", resp.status());
+                    info!({STATUS_CODE} = ?resp.status());
 
                     match resp.text().await {
                         Ok(content) => Ok(content),
@@ -123,7 +124,7 @@ impl WebClient {
                         }
                     }
                 } else {
-                    error!("{}", resp.status());
+                    warn!({STATUS_CODE} = ?resp.status());
                     Err(format!("{}", resp.status()))
                 }
             }
@@ -161,10 +162,9 @@ impl WebClient {
             .await
             .map_err(|e| format!("{}", e));
 
-        debug!(
-            "WebClient setup took: {} ms",
-            start_time.elapsed().as_millis()
-        );
+        trace!(
+            {DURATION_MS} = ?start_time.elapsed(),
+            "WebClient setup complete");
 
         response_result
     }
@@ -196,7 +196,7 @@ impl WebClient {
         );
 
         if let Err(e) = csp_test {
-            error!("CSP violation for tag '{}': {}", tag_name, e);
+            warn!("CSP violation for tag '{}': {}", tag_name, e);
             return Err(format!("CSP violation for tag '{}': {}", tag_name, e));
         }
 
@@ -222,7 +222,7 @@ impl WebClient {
                 )
                 .await
             {
-                error!("Preflight request failed: {}", e);
+                warn!("Preflight request failed: {}", e);
                 return Err(format!("Preflight request failed: {}", e));
             }
         }
@@ -240,7 +240,7 @@ impl WebClient {
         let response_result = self.client.execute(res.unwrap()).await;
 
         if let Err(e) = response_result {
-            error!("Failed to execute request: {}", e);
+            warn!("Failed to execute request: {}", e);
             return Err(format!("Failed to execute request: {}", e));
         }
 
