@@ -137,7 +137,7 @@ impl HtmlTokenizer {
     fn handle_data_state(&mut self, ch: char) {
         match ch {
             '<' => {
-                if self.temporary_buffer.len() > 0 {
+                if self.temporary_buffer.len() > 0 && !self.temporary_buffer.trim().is_empty() {
                     // Emit the data token if there's accumulated data
                     self.tokens.push_back(Token {
                         kind: TokenKind::Text,
@@ -241,7 +241,23 @@ impl HtmlTokenizer {
                 self.state = ParserState::Data; // Return to Data state
             }
             _ => {
-                panic!("Unexpected character in SelfClosingTagStart state: {}", ch);
+                panic!(
+                    "Unexpected character in SelfClosingTagStart state: '{}', previous_token_data: '{:?}' '{}' current_token_data: '{:?}' '{}', buffer: '{}'",
+                    ch,
+                    self.tokens
+                        .back()
+                        .map_or(TokenKind::Comment, |t| t.kind.clone()),
+                    self.tokens
+                        .back()
+                        .map_or("None".to_string(), |t| t.data.clone()),
+                    self.current_token
+                        .as_ref()
+                        .map_or(TokenKind::Comment, |t| t.kind.clone()),
+                    self.current_token
+                        .as_ref()
+                        .map_or("None".to_string(), |t| t.data.clone()),
+                    self.temporary_buffer
+                );
             }
         }
     }
@@ -253,10 +269,17 @@ impl HtmlTokenizer {
             }
             '>' => {
                 // Emit the start tag token
+
                 if let Some(token) = self.current_token.take() {
+                    if token.data == "script" {
+                        // If the tag is a script tag, switch to ScriptData state
+                        self.state = ParserState::ScriptData;
+                    } else {
+                        self.state = ParserState::Data; // Return to Data state
+                    }
+
                     self.tokens.push_back(token);
                 }
-                self.state = ParserState::Data; // Return to Data state
             }
             '/' => {
                 self.state = ParserState::SelfClosingTagStart; // Transition to SelfClosingTagStart state
@@ -347,6 +370,9 @@ impl HtmlTokenizer {
                     self.tokens.push_back(token);
                 }
                 self.state = ParserState::Data; // Return to Data state
+            }
+            '/' => {
+                self.state = ParserState::SelfClosingTagStart; // Transition to SelfClosingTagStart state
             }
             '=' => {
                 self.state = ParserState::BeforeAttributeValue; // Transition to BeforeAttributeValue state
@@ -468,9 +494,15 @@ impl HtmlTokenizer {
                     self.current_attribute_name.clear();
                     self.current_attribute_value.clear();
 
+                    if token.data == "script" {
+                        // If the tag is a script tag, switch to ScriptData state
+                        self.state = ParserState::ScriptData;
+                    } else {
+                        self.state = ParserState::Data; // Return to Data state
+                    }
+
                     self.tokens.push_back(token);
                 }
-                self.state = ParserState::Data; // Return to Data state
             }
             '/' => {
                 self.state = ParserState::SelfClosingTagStart; // Transition to SelfClosingTagStart state
@@ -642,15 +674,12 @@ impl HtmlTokenizer {
         match ch {
             '<' => {
                 // Handle the start of a script end tag
+                self.temporary_buffer.clear();
+                self.temporary_buffer.push(ch);
                 self.state = ParserState::ScriptDataEndTagOpen;
             }
             _ => {
                 if let Some(token) = self.current_token.as_mut() {
-                    if !self.temporary_buffer.is_empty() {
-                        token.data.push_str(&self.temporary_buffer);
-                        self.temporary_buffer.clear();
-                    }
-
                     token.data.push(ch);
                 } else {
                     self.current_token = Some(Token {
@@ -664,21 +693,49 @@ impl HtmlTokenizer {
     }
 
     fn handle_script_data_end_tag_open_state(&mut self, ch: char) {
+        let expected = "</script>";
         match ch {
             '>' => {
-                if !self.temporary_buffer.eq_ignore_ascii_case("script") {
+                self.temporary_buffer.push('>'); // Complete the end tag
+                if self.temporary_buffer == expected {
+                    if let Some(token) = self.current_token.take() {
+                        // Emit the script start tag token
+                        self.tokens.push_back(token);
+                    }
+
+                    // Emit a script end tag token
+                    self.tokens.push_back(Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "script".to_string(),
+                    });
+
+                    self.temporary_buffer.clear();
+                    self.state = ParserState::Data; // Return to Data state
+                } else {
+                    if let Some(token) = self.current_token.as_mut() {
+                        self.temporary_buffer.push(ch);
+                        token.data.push_str(&self.temporary_buffer);
+                    }
+                    self.temporary_buffer.clear();
                     self.state = ParserState::ScriptData; // Return to ScriptData state
                 }
             }
+            ch if ch.is_whitespace() => {
+                // Ignore whitespace in script end tag open state
+            }
             _ => {
-                if self.temporary_buffer.eq_ignore_ascii_case("script") {
-                    // If the tag is a script end tag, emit the token
-                    if let Some(token) = self.current_token.take() {
-                        self.tokens.push_back(token);
+                if self.temporary_buffer.len() == expected.len() {
+                    if self.temporary_buffer != expected {
+                        // If we have accumulated enough characters, emit the current token
+                        if let Some(token) = self.current_token.as_mut() {
+                            token.data.push_str(&self.temporary_buffer);
+                            self.state = ParserState::ScriptData; // Return to ScriptData state
+                            self.temporary_buffer.clear();
+                        }
                     }
-                    self.state = ParserState::Data; // Return to Data state
                 } else {
-                    // Otherwise, continue accumulating the tag name
+                    // Continue accumulating characters for the script end tag
                     self.temporary_buffer.push(ch);
                 }
             }
