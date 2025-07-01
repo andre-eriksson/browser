@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use api::{
     collector::{Collector, TagInfo},
-    dom::{DomNode, SharedDomNode},
+    dom::{ArcDomNode, ConvertDom, DomNode},
 };
 
 /// A collector that gathers metadata from HTML tags in a browser tab.
@@ -15,7 +15,7 @@ use api::{
 pub struct TabCollector {
     pub url: String,
     pub title: Option<String>,
-    pub external_resources: Option<Vec<(SharedDomNode, Arc<str>)>>,
+    pub external_resources: Option<Vec<(ArcDomNode, Arc<str>)>>,
 }
 
 impl Collector for TabCollector {
@@ -28,7 +28,7 @@ impl Collector for TabCollector {
                     return; // Skip anchor tags for href collection
                 }
 
-                external_resources.push((tag.dom_node.clone(), Arc::from(href.as_str())));
+                external_resources.push((tag.dom_node.clone().convert(), Arc::from(href.as_str())));
             }
 
             if let Some(src) = tag.attributes.get("src") {
@@ -70,12 +70,12 @@ impl Collector for TabCollector {
                     }
                 };
 
-                external_resources.push((tag.dom_node.clone(), Arc::from(resolved_src)));
+                external_resources.push((tag.dom_node.clone().convert(), Arc::from(resolved_src)));
             }
         }
 
         if tag.tag_name == "title" {
-            if let DomNode::Text(ref text) = *tag.dom_node.lock().unwrap() {
+            if let DomNode::Text(ref text) = *tag.dom_node.borrow() {
                 self.title = Some(text.clone());
             }
         }
@@ -102,6 +102,6 @@ pub type TabMetadata = Arc<Mutex<TabCollector>>;
 pub struct BrowserTab {
     pub url: String,
     pub status_code: Arc<Mutex<String>>,
-    pub html_content: SharedDomNode,
+    pub html_content: ArcDomNode,
     pub metadata: Arc<Mutex<TabCollector>>,
 }

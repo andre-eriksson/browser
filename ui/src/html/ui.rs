@@ -1,4 +1,4 @@
-use api::dom::{DomNode, Element};
+use api::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::api::tabs::TabMetadata;
 
@@ -28,7 +28,7 @@ pub enum RendererDebugMode {
 pub struct HtmlRenderer {
     max_depth: usize,
     current_depth: usize,
-    inline_buffer: Vec<Element>,
+    inline_buffer: Vec<ConcurrentElement>,
     debug: RendererDebugMode,
 }
 
@@ -59,17 +59,32 @@ impl HtmlRenderer {
     }
 
     /// Displays the HTML content of a tab
-    pub fn display(&mut self, ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
+    pub fn display(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        element: &ConcurrentElement,
+    ) {
         self.current_depth = 0; // Reset depth for each new element
         self.inline_buffer.clear(); // Clear inline buffer for each new element
         self.display_body(ui, metadata, element);
     }
 
-    fn display_body(&mut self, ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
+    fn display_body(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        element: &ConcurrentElement,
+    ) {
         self.initialize_block_context(ui, metadata, element);
     }
 
-    fn display_element(&mut self, ui: &mut egui::Ui, metadata: &TabMetadata, element: &Element) {
+    fn display_element(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        element: &ConcurrentElement,
+    ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
             return;
@@ -114,10 +129,10 @@ impl HtmlRenderer {
                 // Process children of unrecognized elements
                 for child in &element.children {
                     match child.lock().unwrap().clone() {
-                        DomNode::Element(child_element) => {
+                        ConcurrentDomNode::Element(child_element) => {
                             self.display_element(ui, metadata, &child_element);
                         }
-                        DomNode::Text(text) => {
+                        ConcurrentDomNode::Text(text) => {
                             if !self.inline_buffer.is_empty() {
                                 self.render_inline_elements(ui);
                             }
@@ -136,7 +151,7 @@ impl HtmlRenderer {
         &mut self,
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
-        element: &Element,
+        element: &ConcurrentElement,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -159,14 +174,10 @@ impl HtmlRenderer {
             "h4" => egui::Margin::symmetric(0, 7),
             "h5" => egui::Margin::symmetric(0, 8),
             "h6" => egui::Margin::symmetric(0, 9),
+            "div" => egui::Margin::same(0),
             _ => {
                 // Base margin for other block elements
-                if self.debug {
-                    // More visible margin in debug mode to highlight structure via colors
-                    egui::Margin::same(8)
-                } else {
-                    egui::Margin::symmetric(0, 4)
-                }
+                egui::Margin::symmetric(0, 4)
             }
         };
 
@@ -182,10 +193,9 @@ impl HtmlRenderer {
                 // Semantic elements that don't "generally" contain text nodes should be rendered in regards to their children, i.e. vertically.
                 // Such as <body>, <div>, <header>, <footer>, etc.
                 // TODO: Handle semantic elements with text nodes that don't utilize given text elements (e.g., <p> with text nodes)
-                let has_text_nodes = element
-                    .children
-                    .iter()
-                    .any(|child| matches!(child.lock().unwrap().clone(), DomNode::Text(_)));
+                let has_text_nodes = element.children.iter().any(|child| {
+                    matches!(child.lock().unwrap().clone(), ConcurrentDomNode::Text(_))
+                });
 
                 if element.tag_name == "body" || !has_text_nodes {
                     ui.vertical(|ui| {
@@ -203,7 +213,7 @@ impl HtmlRenderer {
         &mut self,
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
-        element: &Element,
+        element: &ConcurrentElement,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -226,14 +236,14 @@ impl HtmlRenderer {
         // Recursively display child elements
         for child in &element.children {
             match child.lock().unwrap().clone() {
-                DomNode::Element(child_element) => {
+                ConcurrentDomNode::Element(child_element) => {
                     if is_inline_element(&child_element.tag_name) {
                         self.collect_inline_elements(ui, &child_element);
                     } else {
                         self.display_element(ui, metadata, &child_element);
                     }
                 }
-                DomNode::Text(text) => {
+                ConcurrentDomNode::Text(text) => {
                     // Render any inline elements collected so far before rendering text
                     // For example, <p> -> TEXT -> <span> TEXT </span> -> TEXT </p>
                     if !self.inline_buffer.is_empty() {
@@ -261,7 +271,7 @@ impl HtmlRenderer {
         }
     }
 
-    fn collect_inline_elements(&mut self, ui: &mut egui::Ui, element: &Element) {
+    fn collect_inline_elements(&mut self, ui: &mut egui::Ui, element: &ConcurrentElement) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
             return;
@@ -278,10 +288,10 @@ impl HtmlRenderer {
 
         let color =
             if self.debug == RendererDebugMode::Full || self.debug == RendererDebugMode::Colors {
-            egui::Color32::from_rgb(240, 240, 240) // Light gray for debug mode
-        } else {
-            egui::Color32::from_rgb(255, 255, 255) // White for normal mode
-        };
+                egui::Color32::from_rgb(240, 240, 240) // Light gray for debug mode
+            } else {
+                egui::Color32::from_rgb(255, 255, 255) // White for normal mode
+            };
 
         egui::Frame::new().fill(color).show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -295,13 +305,13 @@ impl HtmlRenderer {
         self.inline_buffer.clear();
     }
 
-    fn render_inline_element(&self, ui: &mut egui::Ui, element: &Element) {
+    fn render_inline_element(&self, ui: &mut egui::Ui, element: &ConcurrentElement) {
         for child in &element.children {
             match child.lock().unwrap().clone() {
-                DomNode::Element(child_element) => {
+                ConcurrentDomNode::Element(child_element) => {
                     self.render_inline_element(ui, &child_element);
                 }
-                DomNode::Text(text) => match element.tag_name.as_str() {
+                ConcurrentDomNode::Text(text) => match element.tag_name.as_str() {
                     "code" | "pre" => {
                         ui.label(egui::RichText::new(text).monospace());
                     }

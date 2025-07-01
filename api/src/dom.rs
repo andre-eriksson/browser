@@ -1,26 +1,86 @@
 use std::{
+    cell::RefCell,
     collections::HashMap,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 
-/// Represents a shared DOM node that can be used in a tree structure.
-/// This type is a thread-safe reference-counted pointer to a `DomNode` wrapped in a mutex.
-pub type SharedDomNode = Arc<Mutex<DomNode>>;
+// --- Multi Threaded  DOM Node ---
+// Should be used in multi-threaded contexts, e.g. tokio tasks
 
-/// Represents an HTML element in the DOM tree.
-/// It contains the tag name, attributes, and children nodes.
+/// Represents a multi-threaded DOM element.
 ///
 /// # Fields
-/// * `id` - A unique identifier for the element, used to compare elements.
+/// * `id` - A unique identifier for the element, useful for tracking and comparing elements.
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
-/// * `attributes` - A map of attribute names to their values for the element (e.g., `{"class": "my-class
-/// * `children` - A vector of shared DOM nodes representing the child elements or text nodes contained within this element.
+/// * `attributes` - A map of attribute names and their values for the element.
+/// * `children` - A vector of child nodes, which can be other elements, text nodes, etc.
 #[derive(Debug, Clone)]
-pub struct Element {
-    pub id: u32, // Unique identifier for the element, a way to compare elements
+pub struct ConcurrentElement {
+    pub id: u32,
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
-    pub children: Vec<SharedDomNode>,
+    pub children: Vec<ArcDomNode>,
+}
+
+impl Default for ConcurrentElement {
+    fn default() -> Self {
+        ConcurrentElement {
+            id: 0,
+            tag_name: String::new(),
+            attributes: HashMap::new(),
+            children: Vec::new(),
+        }
+    }
+}
+
+/// Represents an Arc-wrapped, multi-threaded DOM node.
+/// This type is used to allow shared ownership of DOM nodes in a multi-threaded context.
+/// It is wrapped in a `Mutex` to allow safe concurrent access.
+pub type ArcDomNode = Arc<Mutex<ConcurrentDomNode>>;
+
+/// Represents a multi-threaded DOM node.
+/// It can be a document, element, text node, comment, doctype declaration, or XML declaration.
+///
+/// # Variants
+/// * `Document(Vec<ArcDomNode>)` - Represents the root document node containing child nodes.
+/// * `Element(ConcurrentElement)` - Represents an HTML element with its attributes and children.
+/// * `Text(String)` - Represents a text node containing plain text.
+/// * `Comment(String)` - Represents a comment node containing comment text.
+/// * `Doctype(DoctypeDeclaration)` - Represents a doctype declaration, which defines the document type.
+/// * `XmlDeclaration(XmlDeclaration)` - Represents an XML declaration, which specifies the XML version
+#[derive(Debug, Clone)]
+pub enum ConcurrentDomNode {
+    Document(Vec<ArcDomNode>),
+    Element(ConcurrentElement),
+    Text(String),
+    Comment(String),
+    Doctype(DoctypeDeclaration),
+    XmlDeclaration(XmlDeclaration),
+}
+
+impl Default for ConcurrentDomNode {
+    fn default() -> Self {
+        ConcurrentDomNode::Document(Vec::new())
+    }
+}
+
+// --- Single Threaded DOM Node ---
+// Used in single-threaded contexts, e.g. parsing HTML.
+
+/// Represents a single-threaded DOM element.
+///
+/// # Fields
+/// * `id` - A unique identifier for the element, useful for tracking and comparing elements.
+/// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
+/// * `attributes` - A map of attribute names and their values for the element.
+/// * `children` - A vector of child nodes, which can be other elements, text nodes, etc.
+#[derive(Debug, Clone)]
+pub struct Element {
+    pub id: u32,
+    pub tag_name: String,
+    pub attributes: HashMap<String, String>,
+    pub children: Vec<RefDomNode>,
 }
 
 impl Default for Element {
@@ -34,20 +94,19 @@ impl Default for Element {
     }
 }
 
-/// Represents a node in the DOM tree.
-/// This enum can represent different types of nodes, including documents, elements, text nodes, comments, doctype declarations, and XML declarations.
-/// Each variant corresponds to a specific type of node, allowing for a flexible and extensible representation of the DOM structure.
+/// Represents a single-threaded DOM node.
+/// It can be a document, element, text node, comment, doctype declaration, or XML declaration.
 ///
 /// # Variants
-/// * `Document` - Represents the root of the DOM tree, containing a vector of shared DOM nodes.
-/// * `Element` - Represents an HTML element with a tag name, attributes, and children nodes.
-/// * `Text` - Represents a text node containing plain text.
-/// * `Comment` - Represents an HTML comment node containing the comment text.
-/// * `Doctype` - Represents a doctype declaration, which includes the name, public ID, and system ID.
-/// * `XmlDeclaration` - Represents an XML declaration, which includes the version, encoding, and standalone status.
+/// * `Document(Vec<RefDomNode>)` - Represents the root document node containing child nodes.
+/// * `Element(Element)` - Represents an HTML element with its attributes and children.
+/// * `Text(String)` - Represents a text node containing plain text.
+/// * `Comment(String)` - Represents a comment node containing comment text.
+/// * `Doctype(DoctypeDeclaration)` - Represents a doctype declaration, which defines the document type.
+/// * `XmlDeclaration(XmlDeclaration)` - Represents an XML declaration, which specifies the XML version
 #[derive(Debug, Clone)]
 pub enum DomNode {
-    Document(Vec<SharedDomNode>),
+    Document(Vec<RefDomNode>),
     Element(Element),
     Text(String),
     Comment(String),
@@ -58,6 +117,57 @@ pub enum DomNode {
 impl Default for DomNode {
     fn default() -> Self {
         DomNode::Document(Vec::new())
+    }
+}
+
+/// Represents a reference-counted, single-threaded DOM node.
+/// This type is used to allow shared ownership of DOM nodes in a single-threaded context.
+pub type RefDomNode = Rc<RefCell<DomNode>>;
+
+// --- Convert Trait ---
+
+/// A trait which allows the implementor to convert itself into a different type.
+/// Currently, it is used to convert a single-threaded DOM node into a multi-threaded one, via `ArcDomNode`.
+pub trait ConvertDom<T> {
+    fn convert(self) -> T;
+}
+
+impl ConvertDom<ArcDomNode> for RefDomNode {
+    fn convert(self) -> ArcDomNode {
+        let borrowed = self.borrow();
+
+        let converted_node = match &*borrowed {
+            DomNode::Document(children) => {
+                let converted_children: Vec<ArcDomNode> = children
+                    .iter()
+                    .map(|child| child.clone().convert())
+                    .collect();
+
+                ConcurrentDomNode::Document(converted_children)
+            }
+            DomNode::Element(element) => {
+                let converted_children: Vec<ArcDomNode> = element
+                    .children
+                    .iter()
+                    .map(|child| child.clone().convert())
+                    .collect();
+
+                ConcurrentDomNode::Element(ConcurrentElement {
+                    id: element.id,
+                    tag_name: element.tag_name.clone(),
+                    attributes: element.attributes.clone(),
+                    children: converted_children,
+                })
+            }
+            DomNode::Text(text) => ConcurrentDomNode::Text(text.clone()),
+            DomNode::Comment(comment) => ConcurrentDomNode::Comment(comment.clone()),
+            DomNode::Doctype(doctype) => ConcurrentDomNode::Doctype(doctype.clone()),
+            DomNode::XmlDeclaration(xml_decl) => {
+                ConcurrentDomNode::XmlDeclaration(xml_decl.clone())
+            }
+        };
+
+        Arc::new(Mutex::new(converted_node))
     }
 }
 

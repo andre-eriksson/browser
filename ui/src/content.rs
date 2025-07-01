@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use api::dom::DomNode;
+use api::dom::ConcurrentDomNode;
 use egui::{CentralPanel, Color32, ScrollArea};
 
 use crate::{
@@ -26,7 +26,7 @@ pub fn render_content(
                     .auto_shrink(false)
                     .drag_to_scroll(false)
                     .show(ui, |ui| match &*html {
-                        DomNode::Document(children) => {
+                        ConcurrentDomNode::Document(children) => {
                             display_child_elements(metadata_clone, ui, children, renderer);
                         }
                         _ => {
@@ -42,12 +42,12 @@ pub fn render_content(
 fn display_child_elements(
     metadata_clone: Arc<Mutex<TabCollector>>,
     ui: &mut egui::Ui,
-    children: &Vec<Arc<Mutex<DomNode>>>,
+    children: &Vec<Arc<Mutex<ConcurrentDomNode>>>,
     renderer: Arc<Mutex<HtmlRenderer>>,
 ) {
     for child in children {
         match child.lock().unwrap().clone() {
-            DomNode::Element(element) => {
+            ConcurrentDomNode::Element(element) => {
                 if element.tag_name.eq_ignore_ascii_case("html") {
                     display_child_elements(metadata_clone, ui, &element.children, renderer.clone());
                     break;
