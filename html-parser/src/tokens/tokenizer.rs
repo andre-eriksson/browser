@@ -104,15 +104,17 @@ impl HtmlTokenizer {
         // but preserve leading/trailing whitespace as single spaces if present
         let has_leading_ws = text.starts_with(char::is_whitespace);
         let has_trailing_ws = text.ends_with(char::is_whitespace);
+        let has_leading_newline = text.starts_with('\n') || text.starts_with('\r');
+        let has_trailing_newline = text.ends_with('\n') || text.ends_with('\r');
 
         let normalized_middle = text.trim().split_whitespace().collect::<Vec<_>>().join(" ");
 
         let mut result = String::new();
-        if has_leading_ws && !normalized_middle.is_empty() {
+        if has_leading_ws && !normalized_middle.is_empty() && !has_leading_newline {
             result.push(' ');
         }
         result.push_str(&normalized_middle);
-        if has_trailing_ws && !normalized_middle.is_empty() {
+        if has_trailing_ws && !normalized_middle.is_empty() && !has_trailing_newline {
             result.push(' ');
         }
 
