@@ -144,7 +144,7 @@ pub fn render_top_bar(
                                                 dom_tree.convert().lock().unwrap().clone();
                                         }
                                         Err(err) => {
-                                            eprintln!("Parsing error: {}", err);
+                                            error!("Parsing error: {}", err);
                                         }
                                     }
 
