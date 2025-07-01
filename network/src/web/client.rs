@@ -125,10 +125,10 @@ impl WebClient {
                     }
                 } else {
                     warn!({STATUS_CODE} = ?resp.status());
-                    Err(format!("{}", resp.status()))
+                    Err(format!("{}:{}", STATUS_CODE, resp.status()))
                 }
             }
-            Err(e) => Err(format!("Failed to execute request: {}", e)),
+            Err(e) => Err(format!("{}", e)),
         }
     }
 
