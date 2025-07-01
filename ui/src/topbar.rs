@@ -1,12 +1,13 @@
 use api::{
     dom::{ArcDomNode, ConvertDom},
+    logging::STATUS_CODE,
     sender::NetworkMessage,
 };
 use egui::{Color32, Margin, TopBottomPanel};
 use html_parser::parser::streaming::HtmlStreamParser;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::api::tabs::{BrowserTab, TabCollector};
 
@@ -113,7 +114,6 @@ pub fn render_top_bar(
                     // TODO: Improve performance here, viewport scrolling, etc.
                     let url_clone = tab.url.clone();
                     let html_content_clone: ArcDomNode = tab.html_content.clone();
-                    let status_code_clone = tab.status_code.clone();
                     let metadata_clone = tab.metadata.clone();
 
                     tokio::spawn(async move {
@@ -147,11 +147,15 @@ pub fn render_top_bar(
                                             error!("Parsing error: {}", err);
                                         }
                                     }
-
-                                    *status_code_clone.lock().unwrap() = "200 OK".to_string();
                                 }
                                 Err(err) => {
-                                    *status_code_clone.lock().unwrap() = err.to_string();
+                                    if err.starts_with(STATUS_CODE) {
+                                        // TODO: Render an appropriate error page based on the status code.
+                                        warn!("Unable to access the page: {}", err);
+                                    } else {
+                                        // TODO: Render a generic error page for website that don't exist.
+                                        warn!("Failed to initialize page: {} (website doesn't exist?)", err);
+                                    }
                                 }
                             },
 
