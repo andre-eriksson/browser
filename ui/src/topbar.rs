@@ -5,9 +5,8 @@ use api::{
 };
 use egui::{Color32, Margin, TopBottomPanel};
 use html_parser::parser::streaming::HtmlStreamParser;
-use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
-use tracing::{error, warn};
+use tracing::error;
 
 use crate::api::tabs::{BrowserTab, TabCollector};
 
@@ -79,7 +78,6 @@ pub fn render_top_bar(
                     // Create a new tab with a default URL
                     let new_browser_tab = BrowserTab {
                         url: "http://localhost:8000/test.html".to_string(),
-                        status_code: Arc::new(Mutex::new("200 OK".to_string())),
                         html_content: Default::default(),
                         metadata: Default::default(),
                     };
@@ -151,10 +149,10 @@ pub fn render_top_bar(
                                 Err(err) => {
                                     if err.starts_with(STATUS_CODE) {
                                         // TODO: Render an appropriate error page based on the status code.
-                                        warn!("Unable to access the page: {}", err);
+                                        //warn!("Unable to access the page: {}", err);
                                     } else {
                                         // TODO: Render a generic error page for website that don't exist.
-                                        warn!("Failed to initialize page: {} (website doesn't exist?)", err);
+                                        //warn!("Failed to initialize page: {} (website doesn't exist?)", err);
                                     }
                                 }
                             },

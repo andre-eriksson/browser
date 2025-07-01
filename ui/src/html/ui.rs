@@ -64,10 +64,11 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
+        url: &str,
     ) {
         self.current_depth = 0; // Reset depth for each new element
         self.inline_buffer.clear(); // Clear inline buffer for each new element
-        self.display_body(ui, metadata, element);
+        self.display_body(ui, metadata, element, url);
     }
 
     fn display_body(
@@ -75,8 +76,9 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
+        url: &str,
     ) {
-        self.initialize_block_context(ui, metadata, element);
+        self.initialize_block_context(ui, metadata, element, url);
     }
 
     fn display_element(
@@ -84,6 +86,7 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
+        url: &str,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -96,12 +99,13 @@ impl HtmlRenderer {
             "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
             | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" => {
                 if !self.inline_buffer.is_empty() {
-                    self.render_inline_elements(ui);
+                    self.render_inline_elements(ui, url);
                 }
 
-                self.initialize_block_context(ui, metadata, element);
+                self.initialize_block_context(ui, metadata, element, url);
             }
-            "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup" => {
+            "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup"
+            | "img" => {
                 self.collect_inline_elements(ui, element);
             }
             "script" | "style" => {
@@ -128,14 +132,18 @@ impl HtmlRenderer {
 
                 // Process children of unrecognized elements
                 for child in &element.children {
+                    if !is_inline_element(&element.tag_name) {
+                        // If the current element is not an inline element, render any collected inline elements
+                        if !self.inline_buffer.is_empty() {
+                            self.render_inline_elements(ui, url);
+                        }
+                    }
+
                     match child.lock().unwrap().clone() {
                         ConcurrentDomNode::Element(child_element) => {
-                            self.display_element(ui, metadata, &child_element);
+                            self.display_element(ui, metadata, &child_element, url);
                         }
                         ConcurrentDomNode::Text(text) => {
-                            if !self.inline_buffer.is_empty() {
-                                self.render_inline_elements(ui);
-                            }
                             ui.label(text);
                         }
                         _ => {}
@@ -152,6 +160,7 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
+        url: &str,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -199,11 +208,11 @@ impl HtmlRenderer {
 
                 if element.tag_name == "body" || !has_text_nodes {
                     ui.vertical(|ui| {
-                        self.render_block_element(ui, metadata, element);
+                        self.render_block_element(ui, metadata, element, url);
                     });
                 } else {
                     ui.horizontal(|ui| {
-                        self.render_block_element(ui, metadata, element);
+                        self.render_block_element(ui, metadata, element, url);
                     });
                 }
             });
@@ -214,6 +223,7 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
+        url: &str,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -240,16 +250,17 @@ impl HtmlRenderer {
                     if is_inline_element(&child_element.tag_name) {
                         self.collect_inline_elements(ui, &child_element);
                     } else {
-                        self.display_element(ui, metadata, &child_element);
+                        // Render any inline elements collected so far before rendering text
+                        // For example, <p> -> TEXT -> <span> TEXT </span> -> TEXT </p>
+                        // If the current element is not an inline element, render any collected inline elements
+                        if !self.inline_buffer.is_empty() {
+                            self.render_inline_elements(ui, url);
+                        }
+
+                        self.display_element(ui, metadata, &child_element, url);
                     }
                 }
                 ConcurrentDomNode::Text(text) => {
-                    // Render any inline elements collected so far before rendering text
-                    // For example, <p> -> TEXT -> <span> TEXT </span> -> TEXT </p>
-                    if !self.inline_buffer.is_empty() {
-                        self.render_inline_elements(ui);
-                    }
-
                     match element.tag_name.as_str() {
                         "h1" => ui.label(egui::RichText::new(text).strong().size(32.0)),
                         "h2" => ui.label(egui::RichText::new(text).strong().size(24.0)),
@@ -267,7 +278,7 @@ impl HtmlRenderer {
         // Render any inline elements collected so far
         // This ensures that inline elements are rendered after certain block elements such as <pre> -> <code>
         if !self.inline_buffer.is_empty() {
-            self.render_inline_elements(ui);
+            self.render_inline_elements(ui, url);
         }
     }
 
@@ -281,7 +292,7 @@ impl HtmlRenderer {
         self.inline_buffer.push(element.clone());
     }
 
-    fn render_inline_elements(&mut self, ui: &mut egui::Ui) {
+    fn render_inline_elements(&mut self, ui: &mut egui::Ui, url: &str) {
         if self.inline_buffer.is_empty() {
             return;
         }
@@ -296,7 +307,7 @@ impl HtmlRenderer {
         egui::Frame::new().fill(color).show(ui, |ui| {
             ui.horizontal(|ui| {
                 for inline_element in &self.inline_buffer {
-                    self.render_inline_element(ui, inline_element);
+                    self.render_inline_element(ui, inline_element, url);
                 }
             });
         });
@@ -305,16 +316,48 @@ impl HtmlRenderer {
         self.inline_buffer.clear();
     }
 
-    fn render_inline_element(&self, ui: &mut egui::Ui, element: &ConcurrentElement) {
+    fn render_inline_element(&self, ui: &mut egui::Ui, element: &ConcurrentElement, url: &str) {
+        // Handle self-closing or empty inline elements
+        if element.children.is_empty() {
+            match element.tag_name.as_str() {
+                "img" => {
+                    self.render_image(ui, element, url);
+                }
+                _ => {
+                    // For other empty inline elements, you might want to render some placeholder or skip
+                }
+            }
+            return;
+        }
+
         for child in &element.children {
             match child.lock().unwrap().clone() {
                 ConcurrentDomNode::Element(child_element) => {
-                    self.render_inline_element(ui, &child_element);
+                    match child_element.tag_name.as_str() {
+                        "img" => {
+                            self.render_image(ui, &child_element, url);
+                        }
+                        "script" | "style" => {
+                            // Skip script and style tags in the rendering
+                            if self.debug == RendererDebugMode::Full
+                                || self.debug == RendererDebugMode::ElementText
+                            {
+                                ui.label(format!(
+                                    "Skipping: <{}> (depth: {})",
+                                    child_element.tag_name, self.current_depth
+                                ));
+                            }
+                        }
+                        _ => {
+                            self.render_inline_element(ui, &child_element, url);
+                        }
+                    }
                 }
                 ConcurrentDomNode::Text(text) => match element.tag_name.as_str() {
                     "code" | "pre" => {
                         ui.label(egui::RichText::new(text).monospace());
                     }
+
                     _ => {
                         ui.label(text);
                     }
@@ -323,12 +366,79 @@ impl HtmlRenderer {
             }
         }
     }
+
+    fn render_image(&self, ui: &mut egui::Ui, element: &ConcurrentElement, url: &str) {
+        let src = element.attributes.get("src");
+
+        if src.is_none() {
+            return;
+        }
+
+        let image_url = resolve_image_path(url, src.unwrap());
+
+        let width = element
+            .attributes
+            .get("width")
+            .and_then(|w| w.parse::<f32>().ok());
+        let height = element
+            .attributes
+            .get("height")
+            .and_then(|h| h.parse::<f32>().ok());
+        let alt = element.attributes.get("alt").cloned().unwrap_or_default();
+
+        // Add some spacing between images to act like text spacing
+        ui.spacing_mut().item_spacing.x = 4.0;
+        let mut image = egui::Image::new(image_url);
+
+        image = image.alt_text(alt.clone());
+
+        image = image.fit_to_exact_size(egui::Vec2::new(
+            width.unwrap_or(100.0),  // Default width if not specified
+            height.unwrap_or(100.0), // Default height if not specified
+        ));
+
+        ui.add(image).on_hover_ui(|ui| {
+            ui.label(egui::RichText::new(alt).color(egui::Color32::BLACK));
+        });
+    }
+}
+
+fn resolve_image_path(url: &str, src_value: &String) -> String {
+    let image_url = if src_value.starts_with("http") {
+        src_value.to_string()
+    } else if src_value.starts_with('/') {
+        // Absolute path relative to domain
+        let base_url = if let Some(pos) = url.find("://") {
+            if let Some(domain_end) = url[pos + 3..].find('/') {
+                &url[..pos + 3 + domain_end]
+            } else {
+                url
+            }
+        } else {
+            url
+        };
+        format!("{}{}", base_url, src_value)
+    } else {
+        // Relative path
+        let base_url = if url.ends_with('/') {
+            url.to_string()
+        } else {
+            // Remove filename from URL to get directory
+            if let Some(last_slash) = url.rfind('/') {
+                format!("{}/", &url[..last_slash])
+            } else {
+                format!("{}/", url)
+            }
+        };
+        format!("{}{}", base_url, src_value)
+    };
+    image_url
 }
 
 fn is_inline_element(tag_name: &str) -> bool {
     matches!(
         tag_name.to_lowercase().as_str(),
-        "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "small" | "sub" | "sup"
+        "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "small" | "sub" | "sup" | "code" | "img"
     )
 }
 

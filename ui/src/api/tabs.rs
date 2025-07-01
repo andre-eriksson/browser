@@ -101,7 +101,6 @@ pub type TabMetadata = Arc<Mutex<TabCollector>>;
 /// * `metadata` - Metadata about the tab, including the title and external resources.
 pub struct BrowserTab {
     pub url: String,
-    pub status_code: Arc<Mutex<String>>,
     pub html_content: ArcDomNode,
     pub metadata: Arc<Mutex<TabCollector>>,
 }

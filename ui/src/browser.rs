@@ -33,8 +33,7 @@ impl Browser {
     /// * `network_sender` - An unbounded sender for sending network messages.
     pub fn new(network_sender: mpsc::UnboundedSender<NetworkMessage>) -> Self {
         let start_tab = BrowserTab {
-            url: "http://localhost:8000/basic.html".to_string(), // Default URL
-            status_code: Arc::new(Mutex::new("200 OK".to_string())),
+            url: "http://localhost:8000/test.html".to_string(), // Default URL
             html_content: ArcDomNode::default(),
             metadata: Default::default(),
         };
