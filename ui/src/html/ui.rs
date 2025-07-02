@@ -407,7 +407,14 @@ impl HtmlRenderer {
             return;
         }
 
-        let image_url = resolve_image_path(url, src.unwrap());
+        let src = src.unwrap();
+
+        if src.contains(".svg") {
+            // TODO: Handle SVG images.
+            return;
+        }
+
+        let image_url = resolve_image_path(url, src);
 
         let width = element
             .attributes

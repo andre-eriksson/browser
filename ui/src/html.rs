@@ -1,2 +1,2 @@
 pub mod ui;
-mod util;
+pub mod util;

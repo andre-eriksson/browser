@@ -1,10 +1,19 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
-use api::logging::{EVENT, EVENT_NEW_TAB, EVENT_TAB_CLOSED};
-use egui::{Color32, Margin, TopBottomPanel};
+use api::{
+    dom::ConcurrentDomNode,
+    logging::{EVENT, EVENT_NEW_TAB, EVENT_TAB_CLOSED},
+};
+use egui::{Color32, Margin, TopBottomPanel, Vec2};
 use tracing::info;
 
-use crate::{api::tabs::BrowserTab, network::client::setup_new_client};
+use crate::{
+    api::tabs::BrowserTab, html::util::resolve_image_path, network::client::setup_new_client,
+};
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
 pub fn render_top_bar(
@@ -36,6 +45,8 @@ pub fn render_top_bar(
 
                 // TODO: Render tabs, and <head> content like title, meta tags, etc.
                 for (i, tab) in tabs_guard.iter_mut().enumerate() {
+                    let favicon_url = get_favicon_url(tab);
+
                     let tab_label = if let Some(title) = &tab.metadata.lock().unwrap().title {
                         title.clone()
                     } else {
@@ -48,11 +59,26 @@ pub fn render_top_bar(
                         Color32::from_rgb(220, 220, 220) // Default color for other tabs
                     };
 
-                    let tab_button = ui.add(
-                        egui::Button::new(tab_label)
+                    let tab_button = if favicon_url.is_some() {
+                        let resolve_image_path =
+                            resolve_image_path(&tab.url, &favicon_url.as_ref().unwrap().1);
+
+                        ui.add(
+                            egui::Button::image_and_text(
+                                egui::Image::from_uri(Cow::Borrowed(resolve_image_path.as_str()))
+                                    .fit_to_exact_size(Vec2::new(16.0, 16.0)),
+                                tab_label,
+                            )
                             .fill(color)
                             .stroke(egui::Stroke::new(1.0, Color32::from_rgb(180, 180, 180))),
-                    );
+                        )
+                    } else {
+                        ui.add(
+                            egui::Button::new(tab_label)
+                                .fill(color)
+                                .stroke(egui::Stroke::new(1.0, Color32::from_rgb(180, 180, 180))),
+                        )
+                    };
 
                     if tab_button.clicked() {
                         *current_tab_guard = i; // Update the current tab index
@@ -114,4 +140,71 @@ pub fn render_top_bar(
                 }
             });
         });
+}
+
+fn get_favicon_url(
+    tab: &mut BrowserTab,
+) -> Option<(Arc<Mutex<api::dom::ConcurrentDomNode>>, String)> {
+    let favicons = &tab.metadata.lock().unwrap().favicons;
+
+    if favicons.is_empty() {
+        return None; // No favicons available
+    }
+
+    let mut favicons_priority: HashMap<usize, (Arc<Mutex<api::dom::ConcurrentDomNode>>, String)> =
+        HashMap::new();
+
+    for (favicon_node, favicon_url) in favicons.iter() {
+        let node = favicon_node.lock().unwrap();
+        if let ConcurrentDomNode::Element(ref element) = *node {
+            // Check for rel="icon" or rel="shortcut icon"
+            if let Some(rel) = element.attributes.get("rel") {
+                if rel != "icon" && rel != "shortcut icon" {
+                    continue; // Skip if not a favicon
+                }
+
+                // Get type and sizes attributes
+                let icon_type = element
+                    .attributes
+                    .get("type")
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
+                let sizes = element
+                    .attributes
+                    .get("sizes")
+                    .map(|s| s.as_str())
+                    .unwrap_or("");
+
+                // Calculate priority score (higher is better)
+                let mut priority = 0;
+
+                // Type priority: png > ico
+                if icon_type.contains("png") {
+                    priority += 100;
+                } else if icon_type.contains("ico") {
+                    priority += 50;
+                }
+
+                // Size priority: 32x32 > 16x16 > any
+                if sizes.contains("32x32") {
+                    priority += 60;
+                } else if sizes.contains("16x16") {
+                    priority += 40;
+                } else if !sizes.is_empty() {
+                    priority += 20;
+                }
+
+                favicons_priority.insert(priority, (favicon_node.clone(), favicon_url.clone()));
+            }
+        }
+    }
+
+    if let Some((_, (favicon_node, favicon_url))) = favicons_priority
+        .into_iter()
+        .max_by_key(|(priority, _)| *priority)
+    {
+        return Some((favicon_node, favicon_url));
+    }
+
+    None
 }

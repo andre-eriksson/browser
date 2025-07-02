@@ -20,64 +20,47 @@ use crate::network::{client::setup_new_client, thread::spawn_network_thread};
 /// * `external_resources` - A vector of tuples containing DOM nodes and their associated resource URLs (e.g., scripts, stylesheets).
 #[derive(Default)]
 pub struct TabCollector {
+    in_head: bool,
     pub url: String,
     pub title: Option<String>,
-    pub external_resources: Option<Vec<(ArcDomNode, Arc<str>)>>,
+    pub favicons: Vec<(ArcDomNode, String)>,
 }
 
 impl Collector for TabCollector {
     type Output = Self;
 
     fn collect(&mut self, tag: &TagInfo) {
-        if let Some(external_resources) = &mut self.external_resources {
-            if let Some(href) = tag.attributes.get("href") {
-                if tag.tag_name == "a" {
-                    return; // Skip anchor tags for href collection
+        if tag.tag_name == "head" {
+            self.in_head = true;
+            return;
+        }
+
+        if tag.tag_name == "body" {
+            self.in_head = false;
+            return;
+        }
+
+        if !self.in_head {
+            return;
+        }
+
+        if tag.tag_name == "link" {
+            if let Some(rel) = tag.attributes.get("rel") {
+                if rel != "icon" && rel != "shortcut icon" {
+                    return;
                 }
 
-                external_resources.push((tag.dom_node.clone().convert(), Arc::from(href.as_str())));
-            }
+                let type_attr = tag.attributes.get("type").cloned().unwrap_or_default();
 
-            if let Some(src) = tag.attributes.get("src") {
-                let resolved_src = if src.starts_with("http://") || src.starts_with("https://") {
-                    // Absolute URL
-                    src.clone()
-                } else if src.starts_with("//") {
-                    // Protocol-relative URL
-                    if let Ok(parsed_url) = url::Url::parse(&self.url) {
-                        format!("{}:{}", parsed_url.scheme(), src)
-                    } else {
-                        format!("http:{}", src) // Fallback to http
-                    }
-                } else if src.starts_with('/') {
-                    // Absolute path
-                    if let Ok(parsed_url) = url::Url::parse(&self.url) {
-                        let mut base = format!(
-                            "{}://{}",
-                            parsed_url.scheme(),
-                            parsed_url.host_str().unwrap_or("")
-                        );
-                        if let Some(port) = parsed_url.port() {
-                            base.push_str(&format!(":{}", port));
-                        }
-                        format!("{}{}", base, src)
-                    } else {
-                        format!("{}{}", self.url, src)
-                    }
-                } else {
-                    // Relative path
-                    if let Ok(parsed_url) = url::Url::parse(&self.url) {
-                        if let Ok(resolved) = parsed_url.join(src) {
-                            resolved.to_string()
-                        } else {
-                            format!("{}/{}", self.url.trim_end_matches('/'), src)
-                        }
-                    } else {
-                        format!("{}/{}", self.url.trim_end_matches('/'), src)
-                    }
-                };
+                if type_attr == "image/svg+xml" {
+                    // TODO: Handle SVG favicons, for now skip them.
+                    return;
+                }
 
-                external_resources.push((tag.dom_node.clone().convert(), Arc::from(resolved_src)));
+                if let Some(href) = tag.attributes.get("href") {
+                    let href = href.to_string();
+                    self.favicons.push((tag.dom_node.clone().convert(), href));
+                }
             }
         }
 
@@ -90,9 +73,10 @@ impl Collector for TabCollector {
 
     fn into_result(self) -> Self::Output {
         Self {
+            in_head: self.in_head,
             url: self.url,
             title: self.title,
-            external_resources: self.external_resources,
+            favicons: self.favicons,
         }
     }
 }
@@ -171,9 +155,10 @@ impl BrowserTab {
                         let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
                         let parsed = parser.parse(Some(TabCollector {
+                            in_head: false,
                             url: url_clone,
                             title: Some("Blank".to_string()),
-                            external_resources: Some(Vec::new()),
+                            favicons: Vec::new(),
                         }));
 
                         match parsed {
