@@ -234,7 +234,7 @@ impl WebClient {
             .build();
 
         if let Err(e) = res {
-            error!("Failed to build request: {}", e);
+            error!("Failed to build request for URI {} | error {}", url, e);
             return Err(format!("Failed to build request: {}", e));
         }
 

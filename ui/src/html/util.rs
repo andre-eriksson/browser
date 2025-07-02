@@ -2,6 +2,14 @@ pub fn resolve_image_path(url: &str, src_value: &String) -> String {
     let image_url = if src_value.starts_with("http") {
         src_value.to_string()
     } else if src_value.starts_with('/') {
+        if src_value.starts_with("//") {
+            if url.starts_with("https") {
+                return format!("https:{}", src_value);
+            } else {
+                return format!("http:{}", src_value);
+            }
+        }
+
         // Absolute path relative to domain
         let base_url = if let Some(pos) = url.find("://") {
             if let Some(domain_end) = url[pos + 3..].find('/') {
