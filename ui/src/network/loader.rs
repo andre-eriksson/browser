@@ -25,7 +25,8 @@ pub struct NetworkLoader {
 
 /// Loads an image from raw bytes and converts it to a `ColorImage`.
 fn load_image_from_bytes(bytes: &[u8]) -> Result<ColorImage, String> {
-    let image = image::load_from_memory(bytes).expect("Failed to load image from bytes");
+    let image = image::load_from_memory(bytes)
+        .map_err(|e| format!("Failed to load image from bytes: {:?}", e))?;
 
     let rgba_image = image.to_rgba8();
     let size = [rgba_image.width() as usize, rgba_image.height() as usize];
@@ -48,20 +49,9 @@ impl ImageLoader for NetworkLoader {
         uri: &str,
         _size_hint: egui::SizeHint,
     ) -> egui::load::ImageLoadResult {
-        {
-            let cache = self.cache.lock().unwrap();
-            debug!(
-                "[NetworkLoader] Cache contents for URI '{}': {:?}",
-                uri,
-                cache.keys().collect::<Vec<_>>()
-            );
-            debug!("[NetworkLoader] Looking for exact key: '{}'", uri);
-            debug!("[NetworkLoader] Cache contains {} items", cache.len());
-        }
         let mut cache = self.cache.lock().unwrap();
 
         if cache.get(&format!("error:{}", uri)).is_some() {
-            debug!("[NetworkLoader] Using error image for URI: {}", uri);
             return ImageLoadResult::Err(egui::load::LoadError::NotSupported);
         }
 
