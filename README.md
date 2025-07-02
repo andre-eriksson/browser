@@ -5,9 +5,9 @@ A browser (kinda) project to learn Rust, creating and displaying HTML content vi
 ## Features
 - [ ] Engine
   - [ ] Delegate tasks
-  - [ ] Multithreaded?
+  - [x] Multithreaded?
   - [ ] Event queue
-- [ ] HTML Parser
+- [x] HTML Parser
   - [x] Basic DOM-tree builder
   - [x] Handling malformed tags
   - [x] Parses a decent amount of .html files correctly
@@ -15,15 +15,19 @@ A browser (kinda) project to learn Rust, creating and displaying HTML content vi
 - [ ] CSS Parser
   - [ ] Basic CSSOM builder
   - [ ] Cascading support
-- [ ] UI rendered
+- [x] UI rendered
   - [x] Rendering the DOM-tree
   - [x] Applying basic CSS
-  - [ ] Drawing images
+  - [x] Drawing images
 - [ ] Networking
   - [x] Able to fetch a single .html file from a URL
   - [x] Handling of Content-Security-Policy header
   - [ ] Handle POST, PUT, PATCH, DELETE, and other methods
 
+
+## Preview
+
+<img src="./docs/preview.webp" alt="A screenshot of 'https://developer.mozilla.org/en-US/' from the current build alongside YouTube and Amazon tabs">
 
 ## License
 
