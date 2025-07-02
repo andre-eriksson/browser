@@ -2,6 +2,10 @@
 
 A browser (kinda) project to learn Rust, creating and displaying HTML content via a UI, mostly from scratch. Perhaps I can use CSS and hopefully JS (in the future 😶). Not aiming to be fully HTML5 spec compliant just enough to display simple content.
 
+## Preview
+
+<img src="./docs/preview.webp" alt="A screenshot of 'https://developer.mozilla.org/en-US/' from the current build alongside YouTube and Amazon tabs">
+
 ## Features
 - [ ] Engine
   - [ ] Delegate tasks
@@ -24,10 +28,12 @@ A browser (kinda) project to learn Rust, creating and displaying HTML content vi
   - [x] Handling of Content-Security-Policy header
   - [ ] Handle POST, PUT, PATCH, DELETE, and other methods
 
-
-## Preview
-
-<img src="./docs/preview.webp" alt="A screenshot of 'https://developer.mozilla.org/en-US/' from the current build alongside YouTube and Amazon tabs">
+## How to Run
+1. Install Rust (https://www.rust-lang.org/tools/install)
+2. Run
+```sh
+> cargo run
+```
 
 ## License
 
