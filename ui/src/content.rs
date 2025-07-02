@@ -1,19 +1,28 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use api::dom::ConcurrentDomNode;
-use egui::{CentralPanel, Color32, ScrollArea};
+use egui::{CentralPanel, Color32, ColorImage, ScrollArea};
 
 use crate::{
     api::tabs::{BrowserTab, TabCollector},
     html::ui::HtmlRenderer,
+    network::loader::NetworkLoader,
 };
 
 /// Renders the main content area of the browser UI, displaying HTML content.
 pub fn render_content(
     ctx: &egui::Context,
+    cache: &Arc<Mutex<HashMap<String, Arc<ColorImage>>>>,
     renderer: &Arc<Mutex<HtmlRenderer>>,
     tab: &mut BrowserTab,
 ) {
+    ctx.add_image_loader(Arc::new(NetworkLoader {
+        network_sender: tab.network_sender.clone(),
+        cache: cache.clone(),
+    }));
     CentralPanel::default()
         .frame(egui::Frame::new().fill(Color32::from_rgb(255, 255, 255)))
         .show(ctx, |ui| {

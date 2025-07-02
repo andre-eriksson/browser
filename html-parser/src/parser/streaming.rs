@@ -1,6 +1,10 @@
-use api::{collector::Collector, dom::RefDomNode, logging::DURATION_MS};
+use api::{
+    collector::Collector,
+    dom::RefDomNode,
+    logging::{DURATION, EVENT, EVENT_HTML_PARSED},
+};
 use std::io::BufRead;
-use tracing::trace;
+use tracing::info;
 
 use crate::{tokens::tokenizer::HtmlTokenizer, tree::builder::DomTreeBuilder};
 
@@ -106,9 +110,9 @@ impl<R: BufRead> HtmlStreamParser<R> {
             }
         }
 
-        trace!(
-            {DURATION_MS} = ?start_time.elapsed(),
-            "HTML parsing completed",
+        info!(
+            {EVENT} = EVENT_HTML_PARSED,
+            {DURATION} = ?start_time.elapsed(),
         );
 
         Ok(ParseResult {
