@@ -100,7 +100,7 @@ impl ImageLoader for NetworkLoader {
                 Ok(result) => match result {
                     Ok(response) => {
                         if !response.status().is_success() {
-                            error!(
+                            debug!(
                                 "NetworkLoader: Failed to fetch image for URI {}: {}",
                                 uri_str,
                                 response.status()
@@ -129,7 +129,7 @@ impl ImageLoader for NetworkLoader {
                                     ctx_clone.request_repaint();
                                 }
                                 Err(err) => {
-                                    error!(
+                                    debug!(
                                         "[NetworkLoader] Failed to decode image for URI {}: {}",
                                         uri_str, err
                                     );
@@ -143,7 +143,7 @@ impl ImageLoader for NetworkLoader {
                                 }
                             },
                             Err(err) => {
-                                error!(
+                                debug!(
                                     "[NetworkLoader] Failed to read bytes for URI {}: {}",
                                     uri_str, err
                                 );

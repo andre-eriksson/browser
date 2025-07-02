@@ -1,6 +1,10 @@
 use api::dom::{ConcurrentDomNode, ConcurrentElement};
+use tracing::warn;
 
-use crate::api::tabs::TabMetadata;
+use crate::{
+    api::tabs::TabMetadata,
+    html::util::{get_depth_color, is_inline_element, resolve_image_path},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum RendererDebugMode {
@@ -243,6 +247,17 @@ impl HtmlRenderer {
             return;
         }
 
+        let has_inline_elements = element.children.iter().any(|child| {
+            matches!(child.lock().unwrap().clone(), ConcurrentDomNode::Element(e) if is_inline_element(&e.tag_name))
+        });
+
+        let has_text_nodes = element
+            .children
+            .iter()
+            .any(|child| matches!(child.lock().unwrap().clone(), ConcurrentDomNode::Text(_)));
+
+        let is_mixed_content = has_inline_elements && has_text_nodes;
+
         // Recursively display child elements
         for child in &element.children {
             match child.lock().unwrap().clone() {
@@ -250,14 +265,14 @@ impl HtmlRenderer {
                     if is_inline_element(&child_element.tag_name) {
                         self.collect_inline_elements(ui, &child_element);
                     } else {
-                        // Render any inline elements collected so far before rendering text
-                        // For example, <p> -> TEXT -> <span> TEXT </span> -> TEXT </p>
-                        // If the current element is not an inline element, render any collected inline elements
                         if !self.inline_buffer.is_empty() {
                             self.render_inline_elements(ui, url);
                         }
 
                         self.display_element(ui, metadata, &child_element, url);
+                    }
+                    if is_mixed_content && !self.inline_buffer.is_empty() {
+                        self.render_inline_elements(ui, url);
                     }
                 }
                 ConcurrentDomNode::Text(text) => {
@@ -357,6 +372,23 @@ impl HtmlRenderer {
                     "code" | "pre" => {
                         ui.label(egui::RichText::new(text).monospace());
                     }
+                    "a" => {
+                        let href = element.attributes.get("href").cloned().unwrap_or_default();
+                        let link_text = if text.is_empty() {
+                            "Link".to_string()
+                        } else {
+                            text.clone()
+                        };
+
+                        let href_clone = href.clone();
+
+                        ui.add(egui::Hyperlink::from_label_and_url(link_text, href))
+                            .on_hover_ui(|ui| {
+                                ui.label(
+                                    egui::RichText::new(href_clone).color(egui::Color32::BLACK),
+                                );
+                            });
+                    }
 
                     _ => {
                         ui.label(text);
@@ -371,6 +403,7 @@ impl HtmlRenderer {
         let src = element.attributes.get("src");
 
         if src.is_none() {
+            warn!("Image element <{}> missing 'src' attribute", element.id);
             return;
         }
 
@@ -401,56 +434,4 @@ impl HtmlRenderer {
             ui.label(egui::RichText::new(alt).color(egui::Color32::BLACK));
         });
     }
-}
-
-fn resolve_image_path(url: &str, src_value: &String) -> String {
-    let image_url = if src_value.starts_with("http") {
-        src_value.to_string()
-    } else if src_value.starts_with('/') {
-        // Absolute path relative to domain
-        let base_url = if let Some(pos) = url.find("://") {
-            if let Some(domain_end) = url[pos + 3..].find('/') {
-                &url[..pos + 3 + domain_end]
-            } else {
-                url
-            }
-        } else {
-            url
-        };
-        format!("{}{}", base_url, src_value)
-    } else {
-        // Relative path
-        let base_url = if url.ends_with('/') {
-            url.to_string()
-        } else {
-            // Remove filename from URL to get directory
-            if let Some(last_slash) = url.rfind('/') {
-                format!("{}/", &url[..last_slash])
-            } else {
-                format!("{}/", url)
-            }
-        };
-        format!("{}{}", base_url, src_value)
-    };
-    image_url
-}
-
-fn is_inline_element(tag_name: &str) -> bool {
-    matches!(
-        tag_name.to_lowercase().as_str(),
-        "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "small" | "sub" | "sup" | "code" | "img"
-    )
-}
-
-fn get_depth_color(depth: usize) -> egui::Color32 {
-    // Generate a color based on the depth, cycling through a palette
-    let colors = [
-        egui::Color32::from_rgb(255, 100, 100), // Bright red
-        egui::Color32::from_rgb(100, 255, 100), // Bright green
-        egui::Color32::from_rgb(100, 150, 255), // Bright blue
-        egui::Color32::from_rgb(255, 200, 100), // Orange
-        egui::Color32::from_rgb(100, 255, 255), // Cyan
-        egui::Color32::from_rgb(200, 100, 255), // Purple
-    ];
-    colors[depth % colors.len()]
 }

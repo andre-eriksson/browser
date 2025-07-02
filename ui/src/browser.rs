@@ -1,48 +1,41 @@
-use api::{dom::ArcDomNode, sender::NetworkMessage};
 use eframe::{HardwareAcceleration, NativeOptions, egui, run_simple_native};
 use egui::{FontDefinitions, ThemePreference, ViewportBuilder};
-use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     api::tabs::BrowserTab,
     content::render_content,
     html::ui::{HtmlRenderer, RendererDebugMode},
-    network::loader::NetworkLoader,
     topbar::render_top_bar,
 };
 
 /// Represents a simple web browser application using EGUI for the UI and Tokio for asynchronous networking.
 ///
 /// # Fields
-/// * `network_sender` - An unbounded sender for sending network messages to the backend.
 /// * `renderer` - An Arc-wrapped mutex for the HTML renderer, responsible for rendering HTML content.
 /// * `tabs` - An Arc-wrapped mutex containing a vector of `BrowserTab`, representing the open tabs in the browser.
 /// * `current_tab` - An Arc-wrapped mutex holding the index of the currently active tab.
+/// * `next_tab_id` - An Arc-wrapped mutex holding the next unique tab ID to assign.
 pub struct Browser {
-    network_sender: mpsc::UnboundedSender<NetworkMessage>,
     renderer: Arc<Mutex<HtmlRenderer>>,
     tabs: Arc<Mutex<Vec<BrowserTab>>>,
     current_tab: Arc<Mutex<usize>>,
+    next_tab_id: Arc<Mutex<usize>>,
 }
 
 impl Browser {
     /// Creates a new instance of the `Browser` with a default starting tab.
-    ///
-    /// # Arguments
-    /// * `network_sender` - An unbounded sender for sending network messages.
-    pub fn new(network_sender: mpsc::UnboundedSender<NetworkMessage>) -> Self {
-        let start_tab = BrowserTab {
-            url: "http://localhost:8000/test.html".to_string(), // Default URL
-            html_content: ArcDomNode::default(),
-            metadata: Default::default(),
-        };
+    pub fn new() -> Self {
+        let start_tab = BrowserTab::new(0, "http://localhost:8000/image.html".to_string());
 
         Browser {
-            network_sender,
             renderer: Arc::new(Mutex::new(HtmlRenderer::new(100, RendererDebugMode::None))),
             tabs: Arc::new(Mutex::new(vec![start_tab])),
             current_tab: Arc::new(Mutex::new(0)), // Start with the first tab
+            next_tab_id: Arc::new(Mutex::new(1)), // Next tab will have ID 1
         }
     }
 
@@ -56,37 +49,47 @@ impl Browser {
             ..Default::default()
         };
 
-        let network_sender = self.network_sender.clone();
-        let cache = Arc::new(Mutex::new(Default::default()));
+        let cache = Arc::new(Mutex::new(HashMap::new()));
         let tabs = self.tabs.clone();
         let current_tab = self.current_tab.clone();
         let renderer = self.renderer.clone();
+        let next_tab_id = self.next_tab_id.clone();
 
         let _ = run_simple_native("Browser", options, move |ctx, _frame| {
             initialize_fonts(ctx);
             ctx.set_theme(ThemePreference::Light);
 
-            ctx.add_image_loader(Arc::new(NetworkLoader {
-                network_sender: network_sender.clone(),
-                cache: cache.clone(),
-            }));
-
             render_top_bar(
                 ctx,
-                &network_sender,
-                &mut tabs.lock().unwrap(),
-                &mut current_tab.lock().unwrap(),
-            );
-            render_content(
-                ctx,
-                &renderer,
-                &mut tabs.lock().unwrap()[*current_tab.lock().unwrap()],
-            );
-        });
+                tabs.clone(),
+                current_tab.clone(),
+                next_tab_id.clone(),
+                &mut |tab_id| {
+                    let mut all_tabs = tabs.lock().unwrap();
+                    if all_tabs.len() <= 1 {
+                        // Do not allow closing the last tab
+                        return;
+                    }
 
-        self.network_sender
-            .send(NetworkMessage::Shutdown)
-            .expect("Failed to send Shutdown message");
+                    if let Some(pos) = all_tabs.iter().position(|t| t.id == tab_id) {
+                        all_tabs[pos].close();
+                        all_tabs.remove(pos);
+                    }
+
+                    // Update the current tab index if necessary
+                    let mut current_tab_guard = current_tab.lock().unwrap();
+                    if *current_tab_guard >= all_tabs.len() {
+                        *current_tab_guard = all_tabs.len().saturating_sub(1); // Adjust current tab index
+                    }
+                },
+            );
+
+            let mut tabs_guard = tabs.lock().unwrap();
+            let current_tab_index = *current_tab.lock().unwrap();
+            if let Some(tab) = tabs_guard.get_mut(current_tab_index) {
+                render_content(ctx, &cache, &renderer, tab);
+            }
+        });
     }
 }
 

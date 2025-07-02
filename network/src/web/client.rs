@@ -1,12 +1,14 @@
 use std::time::Instant;
 
-use api::logging::{DURATION_MS, STATUS_CODE};
+use api::logging::{
+    DURATION, EVENT, EVENT_FETCH_CONTENT, EVENT_PAGE_RETRIEVED, STATUS_CODE, TAG_TYPE, URL,
+};
 use http::{
     HeaderMap, HeaderValue, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::{Client, Response};
-use tracing::{error, info, info_span, instrument, trace, warn};
+use tracing::{debug, error, info, warn};
 use url::{Origin, Url};
 
 use crate::{
@@ -32,9 +34,6 @@ pub struct WebClient {
 
 impl WebClient {
     pub fn new(client: Client, origin: Origin, client_header: HeaderMap<HeaderValue>) -> Self {
-        let span = info_span!("WebClient", origin = %origin.unicode_serialization());
-        let _guard = span.enter();
-
         WebClient {
             client,
             origin,
@@ -115,7 +114,7 @@ impl WebClient {
                 if resp.status().is_success() {
                     self.origin_headers = Some(resp.headers().clone());
 
-                    info!({STATUS_CODE} = ?resp.status());
+                    debug!({STATUS_CODE} = ?resp.status());
 
                     match resp.text().await {
                         Ok(content) => Ok(content),
@@ -143,7 +142,6 @@ impl WebClient {
     ///
     ///  # Returns
     ///  A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
-    #[instrument(skip(self), level = "info")]
     pub async fn setup_client_from_url(&mut self, url: &str) -> Result<String, String> {
         let start_time = Instant::now();
         let parsed_url = Url::parse(url);
@@ -166,9 +164,11 @@ impl WebClient {
             .await
             .map_err(|e| format!("{}", e));
 
-        trace!(
-            {DURATION_MS} = ?start_time.elapsed(),
-            "WebClient setup complete");
+        info!(
+        {EVENT} = EVENT_PAGE_RETRIEVED,
+        {URL} = ?url.as_str(),
+        {DURATION} = ?start_time.elapsed(),
+        );
 
         response_result
     }
@@ -184,10 +184,6 @@ impl WebClient {
     ///
     /// # Returns
     /// A `Result` containing the fetched content as a `String` if successful, or an error message if the request fails or is blocked by CSP.
-    #[instrument(
-        skip(self, request_origin, additional_headers, _body, http_method),
-        level = "info"
-    )]
     pub async fn fetch(
         &self,
         tag_name: &str,
@@ -197,6 +193,7 @@ impl WebClient {
         additional_headers: Option<HeaderMap<HeaderValue>>,
         _body: Option<String>,
     ) -> Result<Response, String> {
+        let start_time = Instant::now();
         let csp_test = handle_csp(
             &self.origin_headers.clone().unwrap_or_default(),
             tag_name,
@@ -248,10 +245,10 @@ impl WebClient {
             return Err(format!("Failed to execute request: {}", e));
         }
         let response = response_result.unwrap();
-        if response.status().is_success() {
-            info!({STATUS_CODE} = ?response.status());
+        if !response.status().is_success() {
+            warn!({EVENT} = {EVENT_FETCH_CONTENT}, {TAG_TYPE} = ?tag_name, {URL} = ?url, {STATUS_CODE} = ?response.status(), {DURATION} = ?start_time.elapsed());
         } else {
-            warn!({STATUS_CODE} = ?response.status());
+            debug!({EVENT} = {EVENT_FETCH_CONTENT}, {TAG_TYPE} = ?tag_name, {URL} = ?url, {STATUS_CODE} = ?response.status(), {DURATION} = ?start_time.elapsed());
         }
 
         return Ok(response);

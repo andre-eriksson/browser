@@ -10,5 +10,7 @@ url = "2.5.4"
 tokio = "1.44"
 image = "0.25"
 tracing = "0.1"
-html-parser = { path = "../html-parser" }
+reqwest = "0.12.18"
 api = { path = "../api" }
+html-parser = { path = "../html-parser" }
+network = { path = "../network" }
