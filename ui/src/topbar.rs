@@ -187,9 +187,9 @@ fn get_favicon_url(
 
                 // Size priority: 32x32 > 16x16 > any
                 if sizes.contains("32x32") {
-                    priority += 60;
-                } else if sizes.contains("16x16") {
                     priority += 40;
+                } else if sizes.contains("16x16") {
+                    priority += 30;
                 } else if !sizes.is_empty() {
                     priority += 20;
                 }
