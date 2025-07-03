@@ -15,6 +15,7 @@ use crate::network::{client::setup_new_client, thread::spawn_network_thread};
 /// A collector that gathers metadata from HTML tags in a browser tab.
 ///
 /// # Fields
+/// * `in_head` - A boolean indicating whether the collector is currently processing the `<head>` section of the HTML document.
 /// * `url` - The URL of the page being collected.
 /// * `title` - The title of the page, if available.
 /// * `external_resources` - A vector of tuples containing DOM nodes and their associated resource URLs (e.g., scripts, stylesheets).
@@ -91,6 +92,7 @@ pub type TabMetadata = Arc<Mutex<TabCollector>>;
 /// * `status_code` - A mutex-protected string representing the HTTP status code of the page.
 /// * `html_content` - A shared DOM node containing the parsed HTML content of the page.
 /// * `metadata` - Metadata about the tab, including the title and external resources.
+#[derive(Clone)]
 pub struct BrowserTab {
     pub id: usize,
     pub network_sender: mpsc::UnboundedSender<NetworkMessage>,
@@ -145,6 +147,7 @@ impl BrowserTab {
         let metadata_clone = self.metadata.clone();
         let span_clone = self.span.clone();
         let start_time = std::time::Instant::now();
+        self.url = url.clone();
 
         tokio::spawn(async move {
             let _enter = span_clone.enter();

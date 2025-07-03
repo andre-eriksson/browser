@@ -27,25 +27,27 @@ pub fn render_content(
         .frame(egui::Frame::new().fill(Color32::from_rgb(255, 255, 255)))
         .show(ctx, |ui| {
             let metadata_clone = tab.metadata.clone();
-            let url = tab.url.clone();
             let renderer = renderer.clone();
 
-            if let Ok(html) = tab.html_content.lock() {
-                // Scrollable area for HTML content
-                ScrollArea::vertical()
-                    .auto_shrink(false)
-                    .drag_to_scroll(false)
-                    .show(ui, |ui| match &*html {
-                        ConcurrentDomNode::Document(children) => {
-                            display_child_elements(metadata_clone, ui, children, renderer, url);
-                        }
-                        _ => {
-                            ui.label("No HTML content loaded.");
-                        }
-                    });
+            // Get the HTML content first to avoid borrowing conflicts
+            let html_content = if let Ok(html) = tab.html_content.lock() {
+                html.clone()
             } else {
-                ui.label("HTML content would be displayed here.");
-            }
+                return; // Exit early if we can't get the HTML content
+            };
+
+            // Scrollable area for HTML content
+            ScrollArea::vertical()
+                .auto_shrink(false)
+                .drag_to_scroll(false)
+                .show(ui, |ui| match &html_content {
+                    ConcurrentDomNode::Document(children) => {
+                        display_child_elements(metadata_clone, ui, children, renderer, tab);
+                    }
+                    _ => {
+                        ui.label("No HTML content loaded.");
+                    }
+                });
         });
 }
 
@@ -54,7 +56,7 @@ fn display_child_elements(
     ui: &mut egui::Ui,
     children: &Vec<Arc<Mutex<ConcurrentDomNode>>>,
     renderer: Arc<Mutex<HtmlRenderer>>,
-    url: String,
+    tab: &mut BrowserTab,
 ) {
     for child in children {
         match child.lock().unwrap().clone() {
@@ -65,14 +67,14 @@ fn display_child_elements(
                         ui,
                         &element.children,
                         renderer.clone(),
-                        url.clone(),
+                        tab,
                     );
                     break;
                 }
 
                 if element.tag_name.eq_ignore_ascii_case("body") {
                     let mut renderer = renderer.lock().unwrap();
-                    renderer.display(ui, &metadata_clone, &element, url.as_str());
+                    renderer.display(ui, &metadata_clone, &element, tab);
                 }
             }
             _ => {}
