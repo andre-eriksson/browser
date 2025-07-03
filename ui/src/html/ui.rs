@@ -2,8 +2,8 @@ use api::dom::{ConcurrentDomNode, ConcurrentElement};
 use tracing::warn;
 
 use crate::{
-    api::tabs::TabMetadata,
-    html::util::{get_depth_color, is_inline_element, resolve_image_path},
+    api::tabs::{BrowserTab, TabMetadata},
+    html::util::{get_depth_color, is_inline_element, resolve_path},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -68,11 +68,11 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
-        url: &str,
+        tab: &mut BrowserTab,
     ) {
         self.current_depth = 0; // Reset depth for each new element
         self.inline_buffer.clear(); // Clear inline buffer for each new element
-        self.display_body(ui, metadata, element, url);
+        self.display_body(ui, metadata, element, tab);
     }
 
     fn display_body(
@@ -80,9 +80,9 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
-        url: &str,
+        tab: &mut BrowserTab,
     ) {
-        self.initialize_block_context(ui, metadata, element, url);
+        self.initialize_block_context(ui, metadata, element, tab);
     }
 
     fn display_element(
@@ -90,7 +90,7 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
-        url: &str,
+        tab: &mut BrowserTab,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -103,10 +103,10 @@ impl HtmlRenderer {
             "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
             | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" => {
                 if !self.inline_buffer.is_empty() {
-                    self.render_inline_elements(ui, url);
+                    self.render_inline_elements(ui, tab);
                 }
 
-                self.initialize_block_context(ui, metadata, element, url);
+                self.initialize_block_context(ui, metadata, element, tab);
             }
             "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup"
             | "img" => {
@@ -139,13 +139,13 @@ impl HtmlRenderer {
                     if !is_inline_element(&element.tag_name) {
                         // If the current element is not an inline element, render any collected inline elements
                         if !self.inline_buffer.is_empty() {
-                            self.render_inline_elements(ui, url);
+                            self.render_inline_elements(ui, tab);
                         }
                     }
 
                     match child.lock().unwrap().clone() {
                         ConcurrentDomNode::Element(child_element) => {
-                            self.display_element(ui, metadata, &child_element, url);
+                            self.display_element(ui, metadata, &child_element, tab);
                         }
                         ConcurrentDomNode::Text(text) => {
                             ui.label(text);
@@ -164,7 +164,7 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
-        url: &str,
+        tab: &mut BrowserTab,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -212,11 +212,11 @@ impl HtmlRenderer {
 
                 if element.tag_name == "body" || !has_text_nodes {
                     ui.vertical(|ui| {
-                        self.render_block_element(ui, metadata, element, url);
+                        self.render_block_element(ui, metadata, element, tab);
                     });
                 } else {
                     ui.horizontal(|ui| {
-                        self.render_block_element(ui, metadata, element, url);
+                        self.render_block_element(ui, metadata, element, tab);
                     });
                 }
             });
@@ -227,7 +227,7 @@ impl HtmlRenderer {
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         element: &ConcurrentElement,
-        url: &str,
+        tab: &mut BrowserTab,
     ) {
         if self.current_depth > self.max_depth {
             ui.label(format!("{}... (depth limit reached)", element.tag_name));
@@ -266,13 +266,13 @@ impl HtmlRenderer {
                         self.collect_inline_elements(ui, &child_element);
                     } else {
                         if !self.inline_buffer.is_empty() {
-                            self.render_inline_elements(ui, url);
+                            self.render_inline_elements(ui, tab);
                         }
 
-                        self.display_element(ui, metadata, &child_element, url);
+                        self.display_element(ui, metadata, &child_element, tab);
                     }
                     if is_mixed_content && !self.inline_buffer.is_empty() {
-                        self.render_inline_elements(ui, url);
+                        self.render_inline_elements(ui, tab);
                     }
                 }
                 ConcurrentDomNode::Text(text) => {
@@ -293,7 +293,7 @@ impl HtmlRenderer {
         // Render any inline elements collected so far
         // This ensures that inline elements are rendered after certain block elements such as <pre> -> <code>
         if !self.inline_buffer.is_empty() {
-            self.render_inline_elements(ui, url);
+            self.render_inline_elements(ui, tab);
         }
     }
 
@@ -307,7 +307,7 @@ impl HtmlRenderer {
         self.inline_buffer.push(element.clone());
     }
 
-    fn render_inline_elements(&mut self, ui: &mut egui::Ui, url: &str) {
+    fn render_inline_elements(&mut self, ui: &mut egui::Ui, tab: &mut BrowserTab) {
         if self.inline_buffer.is_empty() {
             return;
         }
@@ -322,7 +322,7 @@ impl HtmlRenderer {
         egui::Frame::new().fill(color).show(ui, |ui| {
             ui.horizontal(|ui| {
                 for inline_element in &self.inline_buffer {
-                    self.render_inline_element(ui, inline_element, url);
+                    self.render_inline_element(ui, inline_element, tab);
                 }
             });
         });
@@ -331,12 +331,17 @@ impl HtmlRenderer {
         self.inline_buffer.clear();
     }
 
-    fn render_inline_element(&self, ui: &mut egui::Ui, element: &ConcurrentElement, url: &str) {
+    fn render_inline_element(
+        &self,
+        ui: &mut egui::Ui,
+        element: &ConcurrentElement,
+        tab: &mut BrowserTab,
+    ) {
         // Handle self-closing or empty inline elements
         if element.children.is_empty() {
             match element.tag_name.as_str() {
                 "img" => {
-                    self.render_image(ui, element, url);
+                    self.render_image(ui, element, tab.url.as_str());
                 }
                 _ => {
                     // For other empty inline elements, you might want to render some placeholder or skip
@@ -350,7 +355,7 @@ impl HtmlRenderer {
                 ConcurrentDomNode::Element(child_element) => {
                     match child_element.tag_name.as_str() {
                         "img" => {
-                            self.render_image(ui, &child_element, url);
+                            self.render_image(ui, &child_element, tab.url.as_str());
                         }
                         "script" | "style" => {
                             // Skip script and style tags in the rendering
@@ -364,7 +369,7 @@ impl HtmlRenderer {
                             }
                         }
                         _ => {
-                            self.render_inline_element(ui, &child_element, url);
+                            self.render_inline_element(ui, &child_element, tab);
                         }
                     }
                 }
@@ -380,14 +385,33 @@ impl HtmlRenderer {
                             text.clone()
                         };
 
-                        let href_clone = href.clone();
+                        let long_href = resolve_path(&tab.url, &href);
 
-                        ui.add(egui::Hyperlink::from_label_and_url(link_text, href))
-                            .on_hover_ui(|ui| {
+                        let response = ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(link_text)
+                                    .color(egui::Color32::from_rgb(0, 0, 255))
+                                    .underline(),
+                            )
+                            .sense(egui::Sense::click()),
+                        );
+
+                        let clicked = response.clicked();
+
+                        if response.hovered() {
+                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            response.on_hover_ui(|ui| {
                                 ui.label(
-                                    egui::RichText::new(href_clone).color(egui::Color32::BLACK),
+                                    egui::RichText::new(long_href.clone())
+                                        .color(egui::Color32::BLACK),
                                 );
                             });
+                        }
+
+                        if clicked {
+                            // Handle link click
+                            tab.navigate_to(long_href);
+                        }
                     }
 
                     _ => {
@@ -414,7 +438,7 @@ impl HtmlRenderer {
             return;
         }
 
-        let image_url = resolve_image_path(url, src);
+        let image_url = resolve_path(url, src);
 
         let width = element
             .attributes

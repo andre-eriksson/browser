@@ -1,4 +1,4 @@
-pub fn resolve_image_path(url: &str, src_value: &String) -> String {
+pub fn resolve_path(url: &str, src_value: &String) -> String {
     let image_url = if src_value.starts_with("http") {
         src_value.to_string()
     } else if src_value.starts_with('/') {

@@ -11,9 +11,7 @@ use api::{
 use egui::{Color32, Margin, TopBottomPanel, Vec2};
 use tracing::info;
 
-use crate::{
-    api::tabs::BrowserTab, html::util::resolve_image_path, network::client::setup_new_client,
-};
+use crate::{api::tabs::BrowserTab, html::util::resolve_path, network::client::setup_new_client};
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
 pub fn render_top_bar(
@@ -61,7 +59,7 @@ pub fn render_top_bar(
 
                     let tab_button = if favicon_url.is_some() {
                         let resolve_image_path =
-                            resolve_image_path(&tab.url, &favicon_url.as_ref().unwrap().1);
+                            resolve_path(&tab.url, &favicon_url.as_ref().unwrap().1);
 
                         ui.add(
                             egui::Button::image_and_text(
