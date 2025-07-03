@@ -1,0 +1,202 @@
+use api::dom::{ConcurrentDomNode, ConcurrentElement};
+
+use crate::{
+    api::tabs::{BrowserTab, TabMetadata},
+    html::{
+        context::{start_horizontal_context, start_vertical_context},
+        inline::InlineRenderer,
+        layout::{ElementType, get_element_type, get_margin_for_element},
+        text::get_text_style,
+        util::get_depth_color,
+    },
+};
+
+/// Represents the debug mode for the HTML renderer, useful for checking that margins, padding, and other layout properties are applied correctly during rendering.
+///
+/// # Variants
+/// * `Full` - Displays all debug information, including element types and text content.
+/// * `Colors` - Displays debug information with colors based on element depth.
+/// * `ElementText` - Displays only the text content of elements, useful for debugging text rendering.
+/// * `None` - No debug information is displayed, used for normal rendering without additional output.
+#[allow(dead_code)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum RendererDebugMode {
+    Full,
+    Colors,
+    ElementText,
+    None,
+}
+
+/// Represents an HTML renderer that processes and displays HTML content in a structured way.
+/// It handles rendering of HTML elements, including inline and block elements, while respecting the maximum depth to prevent excessive recursion.
+///
+/// # Fields
+/// * `max_depth` - The maximum depth of the HTML document to render, used to prevent excessive recursion.
+/// * `current_depth` - The current depth of the rendering process, used to track how deep into the HTML structure the renderer is.
+/// * `debug_mode` - The debug mode for the renderer, which controls how much information is displayed during rendering.
+/// * `inline_renderer` - An instance of `InlineRenderer` that collects and renders inline elements separately from block elements.
+#[derive(Debug, Clone)]
+pub struct HtmlRenderer {
+    max_depth: usize,
+    current_depth: usize,
+    debug_mode: RendererDebugMode,
+
+    pub inline_renderer: InlineRenderer,
+}
+
+impl HtmlRenderer {
+    /// Creates a new instance of the HTML renderer with specified maximum depth and debug mode.
+    ///
+    /// # Arguments
+    /// * `max_depth` - The maximum depth of the HTML document to render, used to prevent excessive recursion.
+    /// * `debug_mode` - The debug mode for the renderer, which controls how much information is displayed during rendering.
+    pub fn new(max_depth: usize, debug_mode: RendererDebugMode) -> Self {
+        HtmlRenderer {
+            max_depth,
+            current_depth: 0,
+            debug_mode,
+            inline_renderer: InlineRenderer::new(debug_mode),
+        }
+    }
+
+    /// Starts rendering the HTML content for a given element, must contain a body tag.
+    ///
+    /// # Arguments
+    /// * `ui` - The Egui UI context to render the HTML content into.
+    /// * `metadata` - Metadata about the current tab, such as URL and title.
+    /// * `tab` - The current browser tab being rendered.
+    /// * `element` - The root HTML element to start rendering from, typically the `<body>` tag.
+    pub fn display(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        tab: &mut BrowserTab,
+        element: &ConcurrentElement,
+    ) {
+        if self.current_depth >= self.max_depth {
+            ui.label(format!("{}... (depth limit reached)", element.tag_name));
+            return;
+        }
+
+        let color = if self.debug_mode == RendererDebugMode::Full
+            || self.debug_mode == RendererDebugMode::Colors
+        {
+            Some(egui::Color32::from_rgb(240, 240, 240))
+        } else {
+            None
+        };
+
+        let margin = Some(get_margin_for_element(&element.tag_name));
+
+        if element.tag_name == "body" {
+            start_vertical_context(ui, color, margin, |ui| {
+                self.process_child_elements(ui, metadata, tab, element);
+            });
+        }
+    }
+
+    fn process_child_elements(
+        &mut self,
+        ui: &mut egui::Ui,
+        metadata: &TabMetadata,
+        tab: &mut BrowserTab,
+        element: &ConcurrentElement,
+    ) {
+        self.current_depth += 1;
+
+        for child in &element.children {
+            match child.lock().unwrap().clone() {
+                ConcurrentDomNode::Element(child_element) => {
+                    let has_text_nodes = child_element
+                        .children
+                        .iter()
+                        .any(|c| matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Text(_)));
+                    let has_inline_elements = child_element
+                        .children
+                        .iter()
+                        .any(|c| matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Element(e) if get_element_type(&e.tag_name) == ElementType::Inline));
+
+                    let is_mixed_content = has_inline_elements && has_text_nodes;
+
+                    match get_element_type(&child_element.tag_name) {
+                        ElementType::Block => {
+                            // Render any previously collected inline elements before starting a new block
+                            self.inline_renderer.render(ui, tab);
+
+                            let color = if self.debug_mode == RendererDebugMode::Full
+                                || self.debug_mode == RendererDebugMode::Colors
+                            {
+                                Some(get_depth_color(self.current_depth))
+                            } else {
+                                None
+                            };
+
+                            let margin = Some(get_margin_for_element(&child_element.tag_name));
+
+                            if has_text_nodes {
+                                // If there are text nodes, use horizontal context e.g. <p>
+                                start_horizontal_context(ui, color, margin, true, |ui| {
+                                    self.process_child_elements(ui, metadata, tab, &child_element);
+                                });
+                            } else {
+                                // If there are no text nodes, use vertical context e.g. semantic elements (usually)
+                                // NOTE: Might fail for irregular content
+                                start_vertical_context(ui, color, margin, |ui| {
+                                    self.process_child_elements(ui, metadata, tab, &child_element);
+                                });
+                            }
+                        }
+
+                        ElementType::Inline => {
+                            self.inline_renderer.collect_element(&child_element);
+                        }
+
+                        ElementType::Skip => {
+                            if self.debug_mode == RendererDebugMode::Full
+                                || self.debug_mode == RendererDebugMode::ElementText
+                            {
+                                ui.label(format!("Skipping element: <{}>", element.tag_name));
+                            }
+                        }
+
+                        ElementType::Unknown => {
+                            if self.debug_mode == RendererDebugMode::Full
+                                || self.debug_mode == RendererDebugMode::ElementText
+                            {
+                                ui.label(format!("Unknown element: <{}>", element.tag_name));
+                            }
+
+                            // If the element is unknown, we can still render its children
+                            self.process_child_elements(ui, metadata, tab, &child_element);
+                        }
+                    }
+
+                    if is_mixed_content {
+                        // Render any inline elements collected so far
+                        self.inline_renderer.render(ui, tab);
+                    }
+                }
+
+                ConcurrentDomNode::Text(text) => {
+                    if get_element_type(&element.tag_name) != ElementType::Inline {
+                        self.inline_renderer.render(ui, tab);
+                    }
+
+                    let element = get_text_style(&element.tag_name, &text);
+
+                    ui.label(element);
+                }
+
+                _ => continue, // Skip unsupported node types
+            }
+        }
+
+        // Render any remaining inline elements after processing all children
+        self.inline_renderer.render(ui, tab);
+
+        if self.current_depth > 0 {
+            // Decrement current depth only if we are not at the root level
+            self.current_depth -= 1;
+        }
+    }
+}

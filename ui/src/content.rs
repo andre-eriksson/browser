@@ -8,7 +8,7 @@ use egui::{CentralPanel, Color32, ColorImage, ScrollArea};
 
 use crate::{
     api::tabs::{BrowserTab, TabCollector},
-    html::ui::HtmlRenderer,
+    html::renderer::HtmlRenderer,
     network::loader::NetworkLoader,
 };
 
@@ -74,7 +74,7 @@ fn display_child_elements(
 
                 if element.tag_name.eq_ignore_ascii_case("body") {
                     let mut renderer = renderer.lock().unwrap();
-                    renderer.display(ui, &metadata_clone, &element, tab);
+                    renderer.display(ui, &metadata_clone, tab, &element);
                 }
             }
             _ => {}
