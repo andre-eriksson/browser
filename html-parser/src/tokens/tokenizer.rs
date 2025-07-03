@@ -90,7 +90,7 @@ impl HtmlTokenizer {
 
         if preserve_exact {
             // For preformatted content, preserve all whitespace exactly including \r\n
-            return text.to_string();
+            return text.trim_start().trim_end().to_string();
         }
 
         // If the text is only whitespace, preserve it as a single space
