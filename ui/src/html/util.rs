@@ -1,3 +1,25 @@
+/// Resolves a relative or absolute image path based on the current URL and the source value.
+///
+/// # Arguments
+/// * `url` - The current URL of the page.
+/// * `src_value` - The source value of the image, which can be a relative path, absolute path, or full URL.
+///
+/// # Returns
+/// * `String` - The resolved image URL, which can be a full URL or a path relative to the current page.
+///
+/// # Example
+/// ```rust
+/// use crate::html::util::resolve_path;
+///
+/// let current_url = "http://example.com/page";
+/// let relative_path = "images/photo.jpg";
+/// let absolute_path = "/images/photo.jpg";
+/// let full_url = "http://example.com/images/photo.jpg";
+///
+/// assert_eq!(resolve_path(current_url, &relative_path.to_string()), "http://example.com/images/photo.jpg");
+/// assert_eq!(resolve_path(current_url, &absolute_path.to_string()), "http://example.com/page/images/photo.jpg");
+/// assert_eq!(resolve_path(current_url, &full_url.to_string()), "http://example.com/images/photo.jpg");
+/// ```
 pub fn resolve_path(url: &str, src_value: &String) -> String {
     let image_url = if src_value.starts_with("http") {
         src_value.to_string()
@@ -38,13 +60,13 @@ pub fn resolve_path(url: &str, src_value: &String) -> String {
     image_url
 }
 
-pub fn is_inline_element(tag_name: &str) -> bool {
-    matches!(
-        tag_name.to_lowercase().as_str(),
-        "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "small" | "sub" | "sup" | "code" | "img"
-    )
-}
-
+/// Returns a color based on the depth of the HTML element for debugging the rendering.
+///
+/// # Arguments
+/// * `depth` - The depth of the HTML element in the document tree, starting from 0 for the root element.
+///
+/// # Returns
+/// * `egui::Color32` - A color that varies based on the depth, cycling through a predefined palette.
 pub fn get_depth_color(depth: usize) -> egui::Color32 {
     // Generate a color based on the depth, cycling through a palette
     let colors = [
