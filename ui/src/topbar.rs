@@ -126,15 +126,16 @@ pub fn render_top_bar(
             let mut tabs_guard = tabs.lock().unwrap();
             let current_tab_guard = current_tab.lock().unwrap();
             let tab = &mut tabs_guard[*current_tab_guard];
+
             // URL input field
             ui.horizontal(|ui| {
                 ui.add_sized(
                     [ui.available_width() - 50.0, 20.0],
-                    egui::TextEdit::singleline(&mut tab.url),
+                    egui::TextEdit::singleline(&mut tab.temp_url),
                 );
                 let button = ui.add(egui::Button::new("Load"));
                 if button.clicked() {
-                    tab.navigate_to(tab.url.clone());
+                    tab.navigate_to(tab.temp_url.clone());
                 }
             });
         });
