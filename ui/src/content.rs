@@ -26,6 +26,7 @@ pub fn render_content(
     CentralPanel::default()
         .frame(egui::Frame::new().fill(Color32::from_rgb(255, 255, 255)))
         .show(ctx, |ui| {
+            ui.set_width(ui.available_width());
             let metadata_clone = tab.metadata.clone();
             let renderer = renderer.clone();
 
