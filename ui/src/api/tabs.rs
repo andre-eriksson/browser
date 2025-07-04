@@ -98,6 +98,7 @@ pub struct BrowserTab {
     pub id: usize,
     pub web_client: Arc<Mutex<WebClient>>,
     pub network_sender: mpsc::UnboundedSender<NetworkMessage>,
+    pub temp_url: String,
     pub url: String,
     pub html_content: ArcDomNode,
     pub metadata: Arc<Mutex<TabCollector>>,
@@ -122,11 +123,14 @@ impl BrowserTab {
             spawn_network_thread(client.clone(), span.clone())
         };
 
+        let url_clone = url.clone();
+
         BrowserTab {
             id,
             web_client: client,
             network_sender,
             url,
+            temp_url: url_clone,
             html_content: ArcDomNode::default(),
             metadata: Arc::new(Mutex::new(TabCollector::default())),
             span,
