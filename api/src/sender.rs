@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 pub enum NetworkMessage {
     InitializePage {
         full_url: String,
-        response: oneshot::Sender<Result<String, String>>,
+        response: oneshot::Sender<Result<Response, String>>,
     },
     FetchContent {
         url: String,

@@ -8,6 +8,7 @@ use std::{
 use crate::{
     api::tabs::BrowserTab,
     content::render_content,
+    debug::render_devtools,
     html::renderer::{HtmlRenderer, RendererDebugMode},
     topbar::render_top_bar,
 };
@@ -82,6 +83,12 @@ impl Browser {
                         *current_tab_guard = all_tabs.len().saturating_sub(1); // Adjust current tab index
                     }
                 },
+            );
+
+            render_devtools(
+                ctx,
+                &mut tabs.lock().unwrap()[*current_tab.lock().unwrap()],
+                &renderer,
             );
 
             let mut tabs_guard = tabs.lock().unwrap();

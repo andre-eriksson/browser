@@ -199,4 +199,21 @@ impl HtmlRenderer {
             self.current_depth -= 1;
         }
     }
+
+    /// Gets the current debug mode of the renderer.
+    ///
+    /// # Returns
+    /// * The current debug mode of the renderer, which can be used to determine how much information is displayed during rendering.
+    pub fn get_debug_mode(&self) -> RendererDebugMode {
+        self.debug_mode
+    }
+
+    /// Sets the debug mode of the renderer and updates the inline renderer accordingly.
+    ///
+    /// # Arguments
+    /// * `debug_mode` - The new debug mode to set for the renderer.
+    pub fn set_debug_mode(&mut self, debug_mode: RendererDebugMode) {
+        self.debug_mode = debug_mode;
+        self.inline_renderer = InlineRenderer::new(debug_mode);
+    }
 }

@@ -1,23 +1,25 @@
-use std::thread;
-
 use api::{
     logging::{EVENT, EVENT_NETWORK_THREAD_STARTED, EVENT_NETWORK_THREAD_STOPPED},
     sender::NetworkMessage,
 };
 use network::web::client::WebClient;
+use std::{
+    sync::{Arc, Mutex},
+    thread,
+};
 use tokio::sync::mpsc;
 use tracing::{Span, debug, info};
 
 /// Spawns a network thread that handles network requests using the provided `WebClient`.
 ///
 /// # Arguments
-/// * `client` - An instance of `WebClient` that will be used to make network requests.
+/// * `client` - An `Arc<Mutex<WebClient>>` that will be used to make network requests.
 /// * `span` - A tracing `Span` that will be entered when the thread starts.
 ///
 /// # Returns
 /// An `mpsc::UnboundedSender<NetworkMessage>` that can be used to send messages to the network thread.
 pub fn spawn_network_thread(
-    mut client: WebClient,
+    client: Arc<Mutex<WebClient>>,
     span: Span,
 ) -> mpsc::UnboundedSender<NetworkMessage> {
     let (sender, mut receiver) = mpsc::unbounded_channel::<NetworkMessage>();
@@ -34,7 +36,11 @@ pub fn spawn_network_thread(
                     NetworkMessage::InitializePage { full_url, response } => {
                         debug!("Received InitializePage message with URL: {}", full_url);
 
-                        let result = client.setup_client_from_url(&full_url).await;
+                        let result = client
+                            .lock()
+                            .unwrap()
+                            .setup_client_from_url(&full_url)
+                            .await;
 
                         let _ = response.send(result);
                     }
@@ -48,9 +54,12 @@ pub fn spawn_network_thread(
                         response,
                     } => {
                         debug!("Received FetchContent message for URL: {}", url);
+                        let origin = client.lock().unwrap().origin.clone();
 
                         let result = client
-                            .fetch(&tag_name, &client.origin, &url, method, headers, body)
+                            .lock()
+                            .unwrap()
+                            .fetch(&tag_name, &origin, &url, method, headers, body)
                             .await;
 
                         let _ = response.send(result);
