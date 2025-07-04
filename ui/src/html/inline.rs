@@ -125,7 +125,12 @@ impl InlineRenderer {
                 }
                 ConcurrentDomNode::Text(text) => match element.tag_name.as_str() {
                     "code" | "pre" => {
-                        ui.label(egui::RichText::new(text).monospace());
+                        egui::Frame::new()
+                            .fill(egui::Color32::from_rgb(240, 240, 240))
+                            .inner_margin(egui::Margin::same(1))
+                            .show(ui, |ui| {
+                                ui.label(egui::RichText::new(text).monospace());
+                            });
                     }
                     "a" => {
                         let href = element.attributes.get("href").cloned().unwrap_or_default();
@@ -161,6 +166,15 @@ impl InlineRenderer {
                         ui.spacing_mut().item_spacing.x = 4.0;
                         let element = get_text_style(&element.tag_name, &text);
                         ui.label(element);
+                    }
+                    "th" | "td" => {
+                        egui::Frame::new()
+                            .stroke(egui::Stroke::new(1.0, egui::Color32::BLACK))
+                            .outer_margin(egui::Margin::same(1))
+                            .inner_margin(egui::Margin::same(2))
+                            .show(ui, |ui| {
+                                ui.label(get_text_style(&element.tag_name, &text));
+                            });
                     }
                     _ => {
                         let element = get_text_style(&element.tag_name, &text);

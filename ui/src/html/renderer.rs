@@ -5,7 +5,10 @@ use crate::{
     html::{
         context::{start_horizontal_context, start_vertical_context},
         inline::InlineRenderer,
-        layout::{ElementType, get_element_type, get_margin_for_element, get_padding_for_element},
+        layout::{
+            ElementType, get_element_type, get_margin_for_element, get_padding_for_element,
+            get_stroke_for_element,
+        },
         text::get_text_style,
         util::get_depth_color,
     },
@@ -134,11 +137,7 @@ impl HtmlRenderer {
 
                             let margin = Some(get_margin_for_element(&child_element.tag_name));
                             let padding = Some(get_padding_for_element(&child_element.tag_name));
-                            let stroke = if &child_element.tag_name == "fieldset" {
-                                Some(egui::Stroke::new(1.0, egui::Color32::BLACK))
-                            } else {
-                                None
-                            };
+                            let stroke = Some(get_stroke_for_element(&child_element.tag_name));
 
                             if has_text_nodes {
                                 // If there are text nodes, use horizontal context e.g. <p>
@@ -147,7 +146,7 @@ impl HtmlRenderer {
                                     color,
                                     padding,
                                     margin,
-                                    None,
+                                    stroke,
                                     true,
                                     |ui| {
                                         self.process_child_elements(
@@ -168,7 +167,7 @@ impl HtmlRenderer {
                                     color,
                                     padding,
                                     margin,
-                                    None,
+                                    stroke,
                                     true,
                                     |ui| {
                                         if &child_element.tag_name == "li" {
