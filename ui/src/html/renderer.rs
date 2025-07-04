@@ -5,7 +5,7 @@ use crate::{
     html::{
         context::{start_horizontal_context, start_vertical_context},
         inline::InlineRenderer,
-        layout::{ElementType, get_element_type, get_margin_for_element},
+        layout::{ElementType, get_element_type, get_margin_for_element, get_padding_for_element},
         text::get_text_style,
         util::get_depth_color,
     },
@@ -87,9 +87,10 @@ impl HtmlRenderer {
         };
 
         let margin = Some(get_margin_for_element(&element.tag_name));
+        let padding = Some(get_padding_for_element(&element.tag_name));
 
         if element.tag_name == "body" {
-            start_vertical_context(ui, color, margin, |ui| {
+            start_vertical_context(ui, color, padding, margin, None, |ui| {
                 self.process_child_elements(ui, metadata, tab, element);
             });
         }
@@ -132,19 +133,64 @@ impl HtmlRenderer {
                             };
 
                             let margin = Some(get_margin_for_element(&child_element.tag_name));
+                            let padding = Some(get_padding_for_element(&child_element.tag_name));
+                            let stroke = if &child_element.tag_name == "fieldset" {
+                                Some(egui::Stroke::new(1.0, egui::Color32::BLACK))
+                            } else {
+                                None
+                            };
 
                             if has_text_nodes {
                                 // If there are text nodes, use horizontal context e.g. <p>
-                                start_horizontal_context(ui, color, margin, true, |ui| {
-                                    self.process_child_elements(ui, metadata, tab, &child_element);
-                                });
-                            } else {
-                                // If there are no text nodes, use vertical context e.g. semantic elements (usually)
-                                // NOTE: Might fail for irregular content
-                                start_vertical_context(ui, color, margin, |ui| {
-                                    self.process_child_elements(ui, metadata, tab, &child_element);
-                                });
+                                start_horizontal_context(
+                                    ui,
+                                    color,
+                                    padding,
+                                    margin,
+                                    None,
+                                    true,
+                                    |ui| {
+                                        self.process_child_elements(
+                                            ui,
+                                            metadata,
+                                            tab,
+                                            &child_element,
+                                        );
+                                    },
+                                );
+                                continue;
                             }
+
+                            if has_inline_elements {
+                                // If there are inline elements, render them in a horizontal context
+                                start_horizontal_context(
+                                    ui,
+                                    color,
+                                    padding,
+                                    margin,
+                                    None,
+                                    true,
+                                    |ui| {
+                                        if &child_element.tag_name == "li" {
+                                            ui.label(egui::RichText::new(" • ").strong());
+                                        }
+
+                                        self.process_child_elements(
+                                            ui,
+                                            metadata,
+                                            tab,
+                                            &child_element,
+                                        );
+                                    },
+                                );
+                                continue;
+                            }
+
+                            // If there are no text nodes, use vertical context e.g. semantic elements (usually)
+                            // NOTE: Might fail for irregular content
+                            start_vertical_context(ui, color, padding, margin, stroke, |ui| {
+                                self.process_child_elements(ui, metadata, tab, &child_element);
+                            });
                         }
 
                         ElementType::Inline => {
@@ -155,7 +201,13 @@ impl HtmlRenderer {
                             if self.debug_mode == RendererDebugMode::Full
                                 || self.debug_mode == RendererDebugMode::ElementText
                             {
-                                ui.label(format!("Skipping element: <{}>", element.tag_name));
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "Skipping element: <{}>",
+                                        &child_element.tag_name
+                                    ))
+                                    .color(egui::Color32::from_rgb(255, 165, 0)),
+                                );
                             }
                         }
 
@@ -163,7 +215,13 @@ impl HtmlRenderer {
                             if self.debug_mode == RendererDebugMode::Full
                                 || self.debug_mode == RendererDebugMode::ElementText
                             {
-                                ui.label(format!("Unknown element: <{}>", element.tag_name));
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "Unknown element: <{}>",
+                                        &child_element.tag_name
+                                    ))
+                                    .color(egui::Color32::from_rgb(255, 0, 0)),
+                                );
                             }
 
                             // If the element is unknown, we can still render its children
@@ -182,9 +240,9 @@ impl HtmlRenderer {
                         self.inline_renderer.render(ui, tab);
                     }
 
-                    let element = get_text_style(&element.tag_name, &text);
+                    let styled_text = get_text_style(&element.tag_name, &text);
 
-                    ui.label(element);
+                    ui.label(styled_text);
                 }
 
                 _ => continue, // Skip unsupported node types

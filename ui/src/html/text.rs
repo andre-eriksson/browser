@@ -29,6 +29,8 @@ pub fn get_text_style(tag_name: &str, text: &str) -> egui::RichText {
         "a" => egui::RichText::new(text)
             .color(egui::Color32::from_rgb(0, 0, 255))
             .underline(),
+        "li" => egui::RichText::new(format!(" • {}", text)),
+        "legend" => egui::RichText::new(text).strong().size(14.0),
         _ => {
             // Default text style for other tags
             egui::RichText::new(text)
