@@ -25,10 +25,11 @@ pub enum ElementType {
 pub fn get_element_type(tag_name: &str) -> ElementType {
     match tag_name {
         "body" | "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
-        | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" => ElementType::Block,
+        | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" | "address" | "fieldset"
+        | "form" | "legend" | "nav" | "ul" | "details" | "li" => ElementType::Block,
 
         "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup"
-        | "img" => ElementType::Inline,
+        | "img" | "time" | "label" | "abbr" | "input" | "textarea" => ElementType::Inline,
 
         "script" | "style" => ElementType::Skip, // TODO: Handle script/style elements
 
@@ -55,8 +56,16 @@ pub fn get_margin_for_element(tag_name: &str) -> egui::Margin {
         "h4" => egui::Margin::symmetric(0, 7),
         "h5" => egui::Margin::symmetric(0, 8),
         "h6" => egui::Margin::symmetric(0, 9),
-        "div" => egui::Margin::same(0),
+        "div" | "li" => egui::Margin::same(0),
         "pre" => egui::Margin::symmetric(0, 13),
         _ => egui::Margin::symmetric(0, 4),
+    }
+}
+
+
+pub fn get_padding_for_element(tag_name: &str) -> egui::Margin {
+    match tag_name {
+        "fieldset" => egui::Margin::symmetric(8, 4),
+        _ => egui::Margin::default(),
     }
 }

@@ -57,7 +57,7 @@ impl InlineRenderer {
             None
         };
 
-        start_horizontal_context(ui, color, None, false, |ui| {
+        start_horizontal_context(ui, color, None, None, None, false, |ui| {
             for element in &self.buffer {
                 self.render_element(ui, tab, element);
             }
@@ -68,8 +68,38 @@ impl InlineRenderer {
 
     fn render_element(&self, ui: &mut egui::Ui, tab: &mut BrowserTab, element: &ConcurrentElement) {
         if element.children.is_empty() {
-            if element.tag_name.as_str() == "img" {
-                render_image(ui, element, &tab.url);
+            match element.tag_name.as_str() {
+                "img" => {
+                    render_image(ui, element, &tab.url);
+                }
+                "input" => {
+                    let placeholder = element
+                        .attributes
+                        .get("placeholder")
+                        .cloned()
+                        .unwrap_or_default();
+                    ui.add(
+                        egui::TextEdit::singleline(&mut String::new())
+                            .margin(egui::Margin::symmetric(4, 0))
+                            .hint_text(placeholder)
+                            .background_color(egui::Color32::from_rgb(240, 240, 240))
+                            .desired_width(100.0),
+                    );
+                }
+                "textarea" => {
+                    let placeholder = element
+                        .attributes
+                        .get("placeholder")
+                        .cloned()
+                        .unwrap_or_default();
+                    ui.add(
+                        egui::TextEdit::multiline(&mut String::new())
+                            .margin(egui::Margin::symmetric(4, 0))
+                            .hint_text(placeholder)
+                            .background_color(egui::Color32::from_rgb(240, 240, 240)),
+                    );
+                }
+                _ => {}
             }
         }
 
@@ -126,6 +156,11 @@ impl InlineRenderer {
                         if clicked {
                             tab.navigate_to(long_href);
                         }
+                    }
+                    "label" => {
+                        ui.spacing_mut().item_spacing.x = 4.0;
+                        let element = get_text_style(&element.tag_name, &text);
+                        ui.label(element);
                     }
                     _ => {
                         let element = get_text_style(&element.tag_name, &text);
