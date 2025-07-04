@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use api::logging::{
     DURATION, EVENT, EVENT_FETCH_CONTENT, EVENT_PAGE_RETRIEVED, STATUS_CODE, TAG_TYPE, URL,
 };
@@ -8,6 +6,7 @@ use http::{
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::{Client, Response};
+use std::time::Instant;
 use tracing::{debug, error, info, warn};
 use url::{Origin, Url};
 
@@ -16,6 +15,19 @@ use crate::{
     web::builder::WebClientBuilder,
 };
 
+/// DebugResponse is used to store information about the responses received by the WebClient.
+///
+/// # Fields
+/// * `url`: The URL of the request.
+/// * `method`: The HTTP method used for the request (e.g., GET, POST).
+/// * `status_code`: The HTTP status code returned by the server.
+#[derive(Debug, Clone)]
+pub struct DebugResponse {
+    pub url: String,
+    pub method: String,
+    pub status_code: u16,
+}
+
 /// A web client for making HTTP requests with CORS and CSP handling.
 /// This client is designed to work with a specific origin and can handle preflight requests for CORS.
 /// It also checks Content Security Policy (CSP) rules before making requests.
@@ -23,12 +35,15 @@ use crate::{
 /// # Fields
 /// * `client`: The underlying HTTP client used for making requests.
 /// * `origin`: The origin of the web client, used for CORS and CSP checks.
-/// * `headers`: Base headers from the origin when calling `setup_client`, to get the CSP rules among others.
-#[derive(Debug)]
+/// * `client_header`: Headers that will be sent with every request made by this client.
+/// * `responses`: A vector to store the responses received.
+/// * `origin_headers`: Optional headers from the origin response, used for CSP checks.
+#[derive(Debug, Clone)]
 pub struct WebClient {
     pub client: Client,
     pub origin: Origin,
     pub client_header: HeaderMap<HeaderValue>,
+    pub responses: Vec<DebugResponse>,
     origin_headers: Option<HeaderMap<HeaderValue>>,
 }
 
@@ -38,6 +53,7 @@ impl WebClient {
             client,
             origin,
             client_header,
+            responses: Vec::new(),
             origin_headers: None,
         }
     }
@@ -51,7 +67,7 @@ impl WebClient {
     }
 
     async fn handle_preflight(
-        &self,
+        &mut self,
         request_origin: &Origin,
         method: Method,
         headers: HeaderMap<HeaderValue>,
@@ -87,6 +103,12 @@ impl WebClient {
 
         let resp = response.unwrap();
 
+        self.responses.push(DebugResponse {
+            url: request_origin.unicode_serialization() + path,
+            method: "OPTIONS".to_string(),
+            status_code: resp.status().as_u16(),
+        });
+
         if !resp.status().is_success() {
             return Err(format!(
                 "Preflight request failed with status: {}",
@@ -102,7 +124,7 @@ impl WebClient {
     ///
     /// # Returns
     /// A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
-    async fn setup_client(&mut self, path: &str) -> Result<String, String> {
+    async fn setup_client(&mut self, path: &str) -> Result<Response, String> {
         let res = self
             .client
             .get(self.origin.unicode_serialization() + path)
@@ -111,18 +133,17 @@ impl WebClient {
 
         match res {
             Ok(resp) => {
+                self.responses.push(DebugResponse {
+                    url: self.origin.unicode_serialization() + path,
+                    method: "GET".to_string(),
+                    status_code: resp.status().as_u16(),
+                });
+
                 if resp.status().is_success() {
                     self.origin_headers = Some(resp.headers().clone());
 
                     debug!({STATUS_CODE} = ?resp.status());
-
-                    match resp.text().await {
-                        Ok(content) => Ok(content),
-                        Err(e) => {
-                            error!("Failed to read response body: {}", e);
-                            return Err(format!("Failed to read response body: {}", e));
-                        }
-                    }
+                    Ok(resp)
                 } else {
                     warn!({STATUS_CODE} = ?resp.status());
                     Err(format!("{}:{}", STATUS_CODE, resp.status()))
@@ -142,7 +163,7 @@ impl WebClient {
     ///
     ///  # Returns
     ///  A `Result` containing the response body as a `String` if successful, or an error message if the request fails.
-    pub async fn setup_client_from_url(&mut self, url: &str) -> Result<String, String> {
+    pub async fn setup_client_from_url(&mut self, url: &str) -> Result<Response, String> {
         let start_time = Instant::now();
         let parsed_url = Url::parse(url);
         if let Err(e) = parsed_url {
@@ -178,6 +199,7 @@ impl WebClient {
     /// # Arguments
     /// * `tag_name`: The name of the tag to fetch content from (e.g., "script", "link").
     /// * `request_origin`: The origin of the request, which is used to check against Content Security Policy (CSP).
+    /// * `url`: The URL to fetch content from, which should be relative to the origin.
     /// * `http_method`: Optional HTTP method to use for the request (e.g., GET, POST).
     /// * `additional_headers`: Optional headers to include in the request.
     /// * `body`: Optional body content for the request, used for methods like POST.
@@ -185,7 +207,7 @@ impl WebClient {
     /// # Returns
     /// A `Result` containing the fetched content as a `String` if successful, or an error message if the request fails or is blocked by CSP.
     pub async fn fetch(
-        &self,
+        &mut self,
         tag_name: &str,
         request_origin: &Origin,
         url: &str,
@@ -226,6 +248,7 @@ impl WebClient {
                 return Err(format!("Preflight request failed: {}", e));
             }
         }
+        let method = http_method.clone();
 
         let res = self
             .client
@@ -245,6 +268,13 @@ impl WebClient {
             return Err(format!("Failed to execute request: {}", e));
         }
         let response = response_result.unwrap();
+
+        self.responses.push(DebugResponse {
+            url: url.to_string(),
+            method: method.to_string(),
+            status_code: response.status().as_u16(),
+        });
+
         if !response.status().is_success() {
             warn!({EVENT} = {EVENT_FETCH_CONTENT}, {TAG_TYPE} = ?tag_name, {URL} = ?url, {STATUS_CODE} = ?response.status(), {DURATION} = ?start_time.elapsed());
         } else {
@@ -266,16 +296,17 @@ impl WebClient {
     /// # Returns
     /// A `Result` containing the fetched content as a `String` if successful, or an error message if the request fails or is blocked by CSP.
     pub async fn fetch_from_origin(
-        &self,
+        &mut self,
         tag_name: &str,
         path: &str,
         http_method: Option<Method>,
         additional_headers: Option<HeaderMap<HeaderValue>>,
         body: Option<String>,
     ) -> Result<Response, String> {
+        let origin = self.origin.clone();
         self.fetch(
             tag_name,
-            &self.origin,
+            &origin,
             path,
             http_method,
             additional_headers,

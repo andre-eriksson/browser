@@ -7,6 +7,7 @@ use api::{
     sender::NetworkMessage,
 };
 use html_parser::parser::streaming::HtmlStreamParser;
+use network::web::client::WebClient;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{Span, error, info};
 
@@ -95,6 +96,7 @@ pub type TabMetadata = Arc<Mutex<TabCollector>>;
 #[derive(Clone)]
 pub struct BrowserTab {
     pub id: usize,
+    pub web_client: Arc<Mutex<WebClient>>,
     pub network_sender: mpsc::UnboundedSender<NetworkMessage>,
     pub url: String,
     pub html_content: ArcDomNode,
@@ -111,17 +113,18 @@ impl BrowserTab {
             panic!("Failed to create new client");
         }
 
-        let client = client.unwrap();
+        let client = Arc::new(Mutex::new(client.unwrap()));
 
         let span = tracing::info_span!("BrowserTab", id = id);
 
         let network_sender = {
             let _enter = span.enter();
-            spawn_network_thread(client, span.clone())
+            spawn_network_thread(client.clone(), span.clone())
         };
 
         BrowserTab {
             id,
+            web_client: client,
             network_sender,
             url,
             html_content: ArcDomNode::default(),
@@ -154,7 +157,15 @@ impl BrowserTab {
 
             match response_rx.await {
                 Ok(network_response) => match network_response {
-                    Ok(html) => {
+                    Ok(resp) => {
+                        let content = resp.text().await;
+                        if let Err(err) = content {
+                            error!("Failed to read response body: {}", err);
+                            return;
+                        }
+
+                        let html = content.unwrap();
+
                         let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
                         let parsed = parser.parse(Some(TabCollector {
