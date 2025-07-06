@@ -131,22 +131,22 @@ impl HtmlRenderer {
 
                     let is_mixed_content = has_inline_elements && has_text_nodes;
 
+                    let color = if self.debug_mode == RendererDebugMode::Full
+                        || self.debug_mode == RendererDebugMode::Colors
+                    {
+                        Some(get_depth_color(self.current_depth))
+                    } else {
+                        None
+                    };
+
+                    let margin = Some(get_margin_for_element(&child_element.tag_name));
+                    let padding = Some(get_padding_for_element(&child_element.tag_name));
+                    let stroke = Some(get_stroke_for_element(&child_element.tag_name));
+
                     match get_element_type(&child_element.tag_name) {
                         ElementType::Block => {
                             // Render any previously collected inline elements before starting a new block
                             self.inline_renderer.render(ui, tab);
-
-                            let color = if self.debug_mode == RendererDebugMode::Full
-                                || self.debug_mode == RendererDebugMode::Colors
-                            {
-                                Some(get_depth_color(self.current_depth))
-                            } else {
-                                None
-                            };
-
-                            let margin = Some(get_margin_for_element(&child_element.tag_name));
-                            let padding = Some(get_padding_for_element(&child_element.tag_name));
-                            let stroke = Some(get_stroke_for_element(&child_element.tag_name));
 
                             if has_text_nodes {
                                 // If there are text nodes, use horizontal context e.g. <p>
@@ -169,31 +169,6 @@ impl HtmlRenderer {
                                 continue;
                             }
 
-                            if has_inline_elements {
-                                // If there are inline elements, render them in a horizontal context
-                                start_horizontal_context(
-                                    ui,
-                                    color,
-                                    padding,
-                                    margin,
-                                    stroke,
-                                    true,
-                                    |ui| {
-                                        if &child_element.tag_name == "li" {
-                                            ui.label(egui::RichText::new(" • ").strong());
-                                        }
-
-                                        self.process_child_elements(
-                                            ui,
-                                            metadata,
-                                            tab,
-                                            &child_element,
-                                        );
-                                    },
-                                );
-                                continue;
-                            }
-
                             // If there are no text nodes, use vertical context e.g. semantic elements (usually)
                             // NOTE: Might fail for irregular content
                             start_vertical_context(ui, color, padding, margin, stroke, |ui| {
@@ -203,6 +178,30 @@ impl HtmlRenderer {
 
                         ElementType::Inline => {
                             self.inline_renderer.collect_element(&child_element);
+                        }
+
+                        ElementType::ListItem => {
+                            self.inline_renderer.render(ui, tab);
+
+                            start_horizontal_context(
+                                ui,
+                                color,
+                                padding,
+                                margin,
+                                stroke,
+                                true,
+                                |ui| {
+                                    // Add bullet point
+                                    if &child_element.tag_name == "li" {
+                                        ui.label(" • ");
+                                    } else if &child_element.tag_name == "summary" {
+                                        ui.label(" ▶ ");
+                                    }
+
+                                    // Process the content of the <li> element
+                                    self.process_child_elements(ui, metadata, tab, &child_element);
+                                },
+                            );
                         }
 
                         ElementType::Skip => {
