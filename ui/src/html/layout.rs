@@ -11,6 +11,7 @@ use tracing::debug;
 pub enum ElementType {
     Block,
     Inline,
+    ListItem,
     Skip,
     Unknown,
 }
@@ -26,9 +27,9 @@ pub fn get_element_type(tag_name: &str) -> ElementType {
     match tag_name {
         "body" | "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
         | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" | "address" | "fieldset"
-        | "form" | "legend" | "nav" | "ul" | "ol" | "details" | "li" | "table" | "thead"
-        | "tbody" | "tr" | "figcaption" | "dl" | "dt" | "dd" => ElementType::Block,
-
+        | "form" | "legend" | "nav" | "ul" | "ol" | "details" | "table" | "thead" | "tbody"
+        | "tr" | "figcaption" | "dl" | "dt" | "dd" => ElementType::Block,
+        "li" | "summary" => ElementType::ListItem,
         "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup"
         | "img" | "time" | "label" | "abbr" | "input" | "textarea" | "th" | "td" => {
             ElementType::Inline
