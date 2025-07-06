@@ -106,6 +106,15 @@ impl HtmlRenderer {
         tab: &mut BrowserTab,
         element: &ConcurrentElement,
     ) {
+        // Check depth limit before processing
+        if self.current_depth >= self.max_depth {
+            ui.label(format!(
+                "... (depth limit reached for {})",
+                element.tag_name
+            ));
+            return;
+        }
+
         self.current_depth += 1;
 
         for child in &element.children {
