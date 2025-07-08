@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use api::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::{
@@ -10,7 +12,7 @@ use crate::{
             get_stroke_for_element,
         },
         text::get_text_style,
-        util::get_depth_color,
+        util::get_color,
     },
 };
 
@@ -40,8 +42,6 @@ pub enum RendererDebugMode {
 /// * `inline_renderer` - An instance of `InlineRenderer` that collects and renders inline elements separately from block elements.
 #[derive(Debug, Clone)]
 pub struct HtmlRenderer {
-    max_depth: usize,
-    current_depth: usize,
     debug_mode: RendererDebugMode,
 
     pub inline_renderer: InlineRenderer,
@@ -53,10 +53,8 @@ impl HtmlRenderer {
     /// # Arguments
     /// * `max_depth` - The maximum depth of the HTML document to render, used to prevent excessive recursion.
     /// * `debug_mode` - The debug mode for the renderer, which controls how much information is displayed during rendering.
-    pub fn new(max_depth: usize, debug_mode: RendererDebugMode) -> Self {
+    pub fn new(debug_mode: RendererDebugMode) -> Self {
         HtmlRenderer {
-            max_depth,
-            current_depth: 0,
             debug_mode,
             inline_renderer: InlineRenderer::new(debug_mode),
         }
@@ -76,11 +74,6 @@ impl HtmlRenderer {
         tab: &mut BrowserTab,
         element: &ConcurrentElement,
     ) {
-        if self.current_depth >= self.max_depth {
-            ui.label(format!("{}... (depth limit reached)", element.tag_name));
-            return;
-        }
-
         let color = if self.debug_mode == RendererDebugMode::Full
             || self.debug_mode == RendererDebugMode::Colors
         {
@@ -94,37 +87,29 @@ impl HtmlRenderer {
 
         if element.tag_name == "body" {
             start_vertical_context(ui, color, padding, margin, None, |ui| {
-                self.process_child_elements(ui, metadata, tab, element);
+                self.process_dom_children(ui, metadata, tab, &element.children, None);
             });
         }
     }
 
-    fn process_child_elements(
+    pub fn process_dom_children(
         &mut self,
         ui: &mut egui::Ui,
         metadata: &TabMetadata,
         tab: &mut BrowserTab,
-        element: &ConcurrentElement,
+        nodes: &[Arc<Mutex<ConcurrentDomNode>>],
+        parent_element: Option<&ConcurrentElement>,
     ) {
-        // Check depth limit before processing
-        if self.current_depth >= self.max_depth {
-            ui.label(format!(
-                "... (depth limit reached for {})",
-                element.tag_name
-            ));
-            return;
-        }
+        for node_arc in nodes {
+            let node = node_arc.lock().unwrap().clone();
 
-        self.current_depth += 1;
-
-        for child in &element.children {
-            match child.lock().unwrap().clone() {
-                ConcurrentDomNode::Element(child_element) => {
-                    let has_text_nodes = child_element
+            match node {
+                ConcurrentDomNode::Element(element) => {
+                    let has_text_nodes = element
                         .children
                         .iter()
                         .any(|c| matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Text(_)));
-                    let has_inline_elements = child_element
+                    let has_inline_elements = element
                         .children
                         .iter()
                         .any(|c| matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Element(e) if get_element_type(&e.tag_name) == ElementType::Inline));
@@ -134,22 +119,20 @@ impl HtmlRenderer {
                     let color = if self.debug_mode == RendererDebugMode::Full
                         || self.debug_mode == RendererDebugMode::Colors
                     {
-                        Some(get_depth_color(self.current_depth))
+                        Some(get_color(&element))
                     } else {
                         None
                     };
 
-                    let margin = Some(get_margin_for_element(&child_element.tag_name));
-                    let padding = Some(get_padding_for_element(&child_element.tag_name));
-                    let stroke = Some(get_stroke_for_element(&child_element.tag_name));
+                    let margin = Some(get_margin_for_element(&element.tag_name));
+                    let padding = Some(get_padding_for_element(&element.tag_name));
+                    let stroke = Some(get_stroke_for_element(&element.tag_name));
 
-                    match get_element_type(&child_element.tag_name) {
+                    match get_element_type(&element.tag_name) {
                         ElementType::Block => {
-                            // Render any previously collected inline elements before starting a new block
                             self.inline_renderer.render(ui, tab);
 
                             if has_text_nodes {
-                                // If there are text nodes, use horizontal context e.g. <p>
                                 start_horizontal_context(
                                     ui,
                                     color,
@@ -158,11 +141,12 @@ impl HtmlRenderer {
                                     stroke,
                                     true,
                                     |ui| {
-                                        self.process_child_elements(
+                                        self.process_dom_children(
                                             ui,
                                             metadata,
                                             tab,
-                                            &child_element,
+                                            &element.children,
+                                            Some(&element),
                                         );
                                     },
                                 );
@@ -172,12 +156,18 @@ impl HtmlRenderer {
                             // If there are no text nodes, use vertical context e.g. semantic elements (usually)
                             // NOTE: Might fail for irregular content
                             start_vertical_context(ui, color, padding, margin, stroke, |ui| {
-                                self.process_child_elements(ui, metadata, tab, &child_element);
+                                self.process_dom_children(
+                                    ui,
+                                    metadata,
+                                    tab,
+                                    &element.children,
+                                    Some(&element),
+                                );
                             });
                         }
 
                         ElementType::Inline => {
-                            self.inline_renderer.collect_element(&child_element);
+                            self.inline_renderer.collect_element(&element);
                         }
 
                         ElementType::ListItem => {
@@ -191,15 +181,19 @@ impl HtmlRenderer {
                                 stroke,
                                 true,
                                 |ui| {
-                                    // Add bullet point
-                                    if &child_element.tag_name == "li" {
-                                        ui.label(" • ");
-                                    } else if &child_element.tag_name == "summary" {
-                                        ui.label(" ▶ ");
+                                    if &element.tag_name == "li" {
+                                        ui.add(egui::Label::new(" • ").selectable(false));
+                                    } else if &element.tag_name == "summary" {
+                                        ui.add(egui::Label::new(" ▶ ").selectable(false));
                                     }
 
-                                    // Process the content of the <li> element
-                                    self.process_child_elements(ui, metadata, tab, &child_element);
+                                    self.process_dom_children(
+                                        ui,
+                                        metadata,
+                                        tab,
+                                        &element.children,
+                                        Some(&element),
+                                    );
                                 },
                             );
                         }
@@ -211,7 +205,7 @@ impl HtmlRenderer {
                                 ui.label(
                                     egui::RichText::new(format!(
                                         "Skipping element: <{}>",
-                                        &child_element.tag_name
+                                        &element.tag_name
                                     ))
                                     .color(egui::Color32::from_rgb(255, 165, 0)),
                                 );
@@ -225,44 +219,45 @@ impl HtmlRenderer {
                                 ui.label(
                                     egui::RichText::new(format!(
                                         "Unknown element: <{}>",
-                                        &child_element.tag_name
+                                        &element.tag_name
                                     ))
                                     .color(egui::Color32::from_rgb(255, 0, 0)),
                                 );
                             }
 
-                            // If the element is unknown, we can still render its children
-                            self.process_child_elements(ui, metadata, tab, &child_element);
+                            self.process_dom_children(
+                                ui,
+                                metadata,
+                                tab,
+                                &element.children,
+                                Some(&element),
+                            );
                         }
                     }
 
                     if is_mixed_content {
-                        // Render any inline elements collected so far
                         self.inline_renderer.render(ui, tab);
                     }
                 }
 
                 ConcurrentDomNode::Text(text) => {
-                    if get_element_type(&element.tag_name) != ElementType::Inline {
-                        self.inline_renderer.render(ui, tab);
+                    if let Some(parent) = parent_element {
+                        if get_element_type(&parent.tag_name) != ElementType::Inline {
+                            self.inline_renderer.render(ui, tab);
+                        }
+
+                        let styled_text = get_text_style(&parent.tag_name, &text);
+                        ui.label(styled_text);
+                    } else {
+                        ui.label(text);
                     }
-
-                    let styled_text = get_text_style(&element.tag_name, &text);
-
-                    ui.label(styled_text);
                 }
 
-                _ => continue, // Skip unsupported node types
+                _ => {}
             }
         }
 
-        // Render any remaining inline elements after processing all children
         self.inline_renderer.render(ui, tab);
-
-        if self.current_depth > 0 {
-            // Decrement current depth only if we are not at the root level
-            self.current_depth -= 1;
-        }
     }
 
     /// Gets the current debug mode of the renderer.

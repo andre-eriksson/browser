@@ -154,6 +154,7 @@ impl BrowserTab {
         let metadata_clone = self.metadata.clone();
         let span_clone = self.span.clone();
         let start_time = std::time::Instant::now();
+        self.temp_url = url.clone();
         self.url = url.clone();
 
         tokio::spawn(async move {

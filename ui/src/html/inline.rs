@@ -19,8 +19,6 @@ use crate::{
 pub struct InlineRenderer {
     buffer: Vec<ConcurrentElement>,
     debug_mode: RendererDebugMode,
-    current_depth: usize,
-    max_depth: usize,
 }
 
 impl InlineRenderer {
@@ -32,8 +30,6 @@ impl InlineRenderer {
         InlineRenderer {
             buffer: Vec::new(),
             debug_mode,
-            current_depth: 0,
-            max_depth: 50, // Lower depth limit for inline elements
         }
     }
 
@@ -52,7 +48,7 @@ impl InlineRenderer {
     /// * `tab` - A mutable reference to the BrowserTab, which may be used for navigation or other tab-related actions.
     pub fn render(&mut self, ui: &mut egui::Ui, tab: &mut BrowserTab) {
         if self.buffer.is_empty() {
-            return; // Nothing to render
+            return;
         }
 
         let color = if self.debug_mode == RendererDebugMode::Full
@@ -63,16 +59,13 @@ impl InlineRenderer {
             None
         };
 
-        // Reset depth for each render call
-        self.current_depth = 0;
-
         start_horizontal_context(ui, color, None, None, None, false, |ui| {
             for element in &self.buffer.clone() {
                 self.render_element(ui, tab, element);
             }
         });
 
-        self.buffer.clear(); // Clear the buffer after rendering
+        self.buffer.clear();
     }
 
     fn render_element(
@@ -81,16 +74,6 @@ impl InlineRenderer {
         tab: &mut BrowserTab,
         element: &ConcurrentElement,
     ) {
-        // Check depth limit to prevent infinite recursion
-        if self.current_depth >= self.max_depth {
-            ui.label(format!(
-                "... (inline depth limit reached for {})",
-                element.tag_name
-            ));
-            return;
-        }
-
-        self.current_depth += 1;
         if element.children.is_empty() {
             match element.tag_name.as_str() {
                 "img" => {
@@ -208,11 +191,6 @@ impl InlineRenderer {
                 },
                 _ => {}
             }
-        }
-
-        // Decrement depth when leaving this element
-        if self.current_depth > 0 {
-            self.current_depth -= 1;
         }
     }
 }

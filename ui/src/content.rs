@@ -30,11 +30,10 @@ pub fn render_content(
             let metadata_clone = tab.metadata.clone();
             let renderer = renderer.clone();
 
-            // Get the HTML content first to avoid borrowing conflicts
             let html_content = if let Ok(html) = tab.html_content.lock() {
                 html.clone()
             } else {
-                return; // Exit early if we can't get the HTML content
+                return;
             };
 
             // Scrollable area for HTML content
