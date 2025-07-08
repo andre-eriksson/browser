@@ -21,7 +21,7 @@ pub fn start_vertical_context(
         stroke,
         |ui| {
             ui.set_width(ui.available_width());
-            ui.spacing_mut().item_spacing.x = 0.0; // Set horizontal spacing to zero for vertical layout
+            ui.spacing_mut().item_spacing.x = 0.0;
             ui.vertical(add_contents);
         },
     );
@@ -54,7 +54,7 @@ pub fn start_horizontal_context(
             if is_block {
                 ui.set_width(ui.available_width());
             }
-            ui.spacing_mut().item_spacing.x = 0.0; // Set horizontal spacing to zero for horizontal layout
+            ui.spacing_mut().item_spacing.x = 0.0;
             ui.horizontal(add_contents);
         },
     );

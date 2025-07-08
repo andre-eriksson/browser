@@ -1,4 +1,4 @@
-use eframe::{HardwareAcceleration, NativeOptions, egui, run_simple_native};
+use eframe::{HardwareAcceleration, egui, run_simple_native};
 use egui::{FontDefinitions, ThemePreference, ViewportBuilder};
 use std::{
     collections::HashMap,
@@ -30,19 +30,18 @@ pub struct Browser {
 impl Browser {
     /// Creates a new instance of the `Browser` with a default starting tab.
     pub fn new() -> Self {
-        let start_tab = BrowserTab::new(0, "http://localhost:8000/complex.html".to_string());
+        let start_tab = BrowserTab::new(0, "http://localhost:8000/test.html".to_string());
 
         Browser {
-            renderer: Arc::new(Mutex::new(HtmlRenderer::new(100, RendererDebugMode::None))),
+            renderer: Arc::new(Mutex::new(HtmlRenderer::new(RendererDebugMode::None))),
             tabs: Arc::new(Mutex::new(vec![start_tab])),
-            current_tab: Arc::new(Mutex::new(0)), // Start with the first tab
-            next_tab_id: Arc::new(Mutex::new(1)), // Next tab will have ID 1
+            current_tab: Arc::new(Mutex::new(0)),
+            next_tab_id: Arc::new(Mutex::new(1)),
         }
     }
 
-    /// Starts the browser application with a default viewport size and URL.
     pub fn start(&self) {
-        let options = NativeOptions {
+        let options = eframe::NativeOptions {
             viewport: ViewportBuilder::default().with_inner_size([1920.0, 1080.0]),
             centered: true,
             vsync: true,
@@ -68,7 +67,6 @@ impl Browser {
                 &mut |tab_id| {
                     let mut all_tabs = tabs.lock().unwrap();
                     if all_tabs.len() <= 1 {
-                        // Do not allow closing the last tab
                         return;
                     }
 
@@ -77,10 +75,9 @@ impl Browser {
                         all_tabs.remove(pos);
                     }
 
-                    // Update the current tab index if necessary
                     let mut current_tab_guard = current_tab.lock().unwrap();
                     if *current_tab_guard >= all_tabs.len() {
-                        *current_tab_guard = all_tabs.len().saturating_sub(1); // Adjust current tab index
+                        *current_tab_guard = all_tabs.len().saturating_sub(1);
                     }
                 },
             );

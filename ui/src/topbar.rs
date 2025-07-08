@@ -52,9 +52,9 @@ pub fn render_top_bar(
                     };
 
                     let color = if *current_tab_guard == i {
-                        Color32::from_rgb(200, 200, 255) // Highlight the current tab
+                        Color32::from_rgb(200, 200, 255)
                     } else {
-                        Color32::from_rgb(220, 220, 220) // Default color for other tabs
+                        Color32::from_rgb(220, 220, 220)
                     };
 
                     let tab_button = if favicon_url.is_some() {
@@ -79,7 +79,7 @@ pub fn render_top_bar(
                     };
 
                     if tab_button.clicked() {
-                        *current_tab_guard = i; // Update the current tab index
+                        *current_tab_guard = i;
                     }
 
                     if tab_button.secondary_clicked() {
@@ -97,7 +97,6 @@ pub fn render_top_bar(
                         return;
                     }
 
-                    // Get the next unique tab ID
                     let tab_id = {
                         let mut next_id = next_tab_id.lock().unwrap();
                         let id = *next_id;
@@ -110,7 +109,7 @@ pub fn render_top_bar(
 
                     tabs_guard.push(new_browser_tab);
                     if tabs_guard.len() > 0 {
-                        *current_tab_guard = tabs_guard.len() - 1; // Switch to the new tab
+                        *current_tab_guard = tabs_guard.len() - 1;
                     }
                     info!({ EVENT } = EVENT_NEW_TAB, tab_id = tab_id);
                 }

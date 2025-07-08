@@ -1,3 +1,5 @@
+use api::dom::ConcurrentElement;
+
 /// Resolves a relative or absolute image path based on the current URL and the source value.
 ///
 /// # Arguments
@@ -60,15 +62,14 @@ pub fn resolve_path(url: &str, src_value: &String) -> String {
     image_url
 }
 
-/// Returns a color based on the depth of the HTML element for debugging the rendering.
+/// Returns a color for a given `ConcurrentElement` based on its ID.
 ///
 /// # Arguments
-/// * `depth` - The depth of the HTML element in the document tree, starting from 0 for the root element.
+/// * `element` - A reference to the `ConcurrentElement` whose color is to be determined.
 ///
 /// # Returns
-/// * `egui::Color32` - A color that varies based on the depth, cycling through a predefined palette.
-pub fn get_depth_color(depth: usize) -> egui::Color32 {
-    // Generate a color based on the depth, cycling through a palette
+/// * `egui::Color32` - A color corresponding to the element's ID, cycling through a predefined set of colors.
+pub fn get_color(element: &ConcurrentElement) -> egui::Color32 {
     let colors = [
         egui::Color32::from_rgb(255, 100, 100), // Bright red
         egui::Color32::from_rgb(100, 255, 100), // Bright green
@@ -76,6 +77,14 @@ pub fn get_depth_color(depth: usize) -> egui::Color32 {
         egui::Color32::from_rgb(255, 200, 100), // Orange
         egui::Color32::from_rgb(100, 255, 255), // Cyan
         egui::Color32::from_rgb(200, 100, 255), // Purple
+        egui::Color32::from_rgb(255, 150, 150), // Light red
+        egui::Color32::from_rgb(150, 255, 150), // Light green
+        egui::Color32::from_rgb(150, 200, 255), // Light blue
+        egui::Color32::from_rgb(255, 255, 150), // Light yellow
+        egui::Color32::from_rgb(255, 150, 255), // Light magenta
+        egui::Color32::from_rgb(150, 255, 200), // Light cyan
+        egui::Color32::from_rgb(200, 150, 255), // Light purple
+        egui::Color32::from_rgb(255, 200, 150), // Light orange
     ];
-    colors[depth % colors.len()]
+    colors[element.id as usize % colors.len()]
 }
