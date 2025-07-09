@@ -75,24 +75,20 @@ impl<R: BufRead> HtmlStreamParser<R> {
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
             if bytes_read == 0 {
-                break; // EOF
+                break;
             }
 
-            // Combine any leftover bytes from previous chunk with new data
             let mut combined_bytes = self.byte_buffer.clone();
             combined_bytes.extend_from_slice(&buf[..bytes_read]);
 
-            // Try to convert to UTF-8, handling incomplete sequences
             let (chunk, remaining_bytes) = match self.try_decode_utf8(&combined_bytes) {
                 Ok((text, remaining)) => (text, remaining),
                 Err(e) => return Err(e),
             };
 
-            // Store any incomplete bytes for the next iteration
             self.byte_buffer = remaining_bytes;
 
             if !chunk.is_empty() {
-                // Prepend the string buffer to the chunk
                 let full_chunk = format!("{}{}", self.buffer, chunk);
                 self.buffer.clear();
 
@@ -100,7 +96,6 @@ impl<R: BufRead> HtmlStreamParser<R> {
             }
         }
 
-        // Handle any remaining bytes at EOF
         if !self.byte_buffer.is_empty() {
             let remaining_text = String::from_utf8_lossy(&self.byte_buffer);
             if !remaining_text.is_empty() {
@@ -156,26 +151,20 @@ impl<R: BufRead> HtmlStreamParser<R> {
                 let valid_up_to = error.valid_up_to();
 
                 if valid_up_to == 0 && bytes.len() < 4 {
-                    // Might be an incomplete sequence at the start, keep all bytes
                     return Ok((String::new(), bytes.to_vec()));
                 }
 
-                // We have some valid UTF-8, decode up to the error point
                 let valid_text = str::from_utf8(&bytes[..valid_up_to])
                     .map_err(|e| format!("Unexpected UTF-8 error: {}", e))?;
 
-                // Check if we have an incomplete sequence at the end
                 let remaining_bytes = &bytes[valid_up_to..];
 
                 if remaining_bytes.len() < 4 && self.could_be_incomplete_utf8(remaining_bytes) {
-                    // Keep the incomplete bytes for next chunk
                     Ok((valid_text.to_string(), remaining_bytes.to_vec()))
                 } else {
-                    // Invalid UTF-8 sequence, use replacement character
                     let mut result = valid_text.to_string();
-                    result.push('�'); // U+FFFD replacement character
+                    result.push('�');
 
-                    // Skip the invalid byte(s) and continue with remaining
                     let skip_bytes = error.error_len().unwrap_or(1);
                     let remaining = if valid_up_to + skip_bytes < bytes.len() {
                         bytes[valid_up_to + skip_bytes..].to_vec()
@@ -203,7 +192,6 @@ impl<R: BufRead> HtmlStreamParser<R> {
 
         let first_byte = bytes[0];
 
-        // Check if this could be the start of a multi-byte sequence
         if first_byte & 0x80 == 0 {
             false
         } else if first_byte & 0xE0 == 0xC0 {

@@ -5,55 +5,18 @@ use crate::tokens::{
     tokenizer::HtmlTokenizer,
 };
 
-/// Checks if the current context is within a preformatted tag, like <pre> or <textarea>.
-/// This is used to determine if whitespace should be preserved exactly.
-pub fn is_in_preformatted_context(tokenizer: &HtmlTokenizer) -> bool {
-    // Track open tags to determine if we're inside a preformatted context
-    let mut tag_stack = Vec::new();
-
-    for token in &tokenizer.tokens {
-        match &token.kind {
-            TokenKind::StartTag => {
-                if token.data == "pre" || token.data == "textarea" {
-                    tag_stack.push(token.data.clone());
-                }
-            }
-            TokenKind::EndTag => {
-                if token.data == "pre" || token.data == "textarea" {
-                    if let Some(last_tag) = tag_stack.last() {
-                        if last_tag == &token.data {
-                            tag_stack.pop();
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-
-    !tag_stack.is_empty()
-}
-
 /// Preserves significant whitespace in the text.
 pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
     let text = tokenizer.temporary_buffer.clone();
-    // Check if we're inside a <pre> or <code> tag by looking at current token context
-    let preserve_exact = is_in_preformatted_context(tokenizer);
 
-    if preserve_exact {
-        // For preformatted content, preserve all whitespace exactly including \r\n
-        return text.trim_start().trim_end().to_string();
+    if tokenizer.context.inside_preformatted {
+        return text;
     }
 
-    // If the text is only whitespace, preserve it as a single space
-    // This is important for whitespace between tags like "</span> world"
-    if text.trim().is_empty() && !text.is_empty() {
+    if tokenizer.current_token.is_some() && text.trim().is_empty() && !text.is_empty() {
         return " ".to_string();
     }
 
-    // For text with actual content, do minimal normalization
-    // Replace sequences of whitespace within the text with single spaces
-    // but preserve leading/trailing whitespace as single spaces if present
     let has_leading_ws = text.starts_with(char::is_whitespace);
     let has_trailing_ws = text.ends_with(char::is_whitespace);
     let has_leading_newline = text.starts_with('\n') || text.starts_with('\r');
@@ -78,14 +41,51 @@ pub fn handle_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
         '<' => {
             if !tokenizer.temporary_buffer.is_empty() {
                 let processed_text = preserve_significant_whitespace(tokenizer);
-                if !processed_text.is_empty() {
-                    // Emit the data token if there's accumulated data
-                    tokenizer.emit_token(Token {
-                        kind: TokenKind::Text,
-                        attributes: HashMap::new(),
-                        data: processed_text,
-                    });
+
+                if tokenizer.context.inside_preformatted {
+                    let mut current_pos = 0;
+                    let chars: Vec<char> = processed_text.chars().collect();
+
+                    while current_pos < chars.len() {
+                        let mut line = String::new();
+
+                        while current_pos < chars.len() {
+                            let ch = chars[current_pos];
+                            current_pos += 1;
+
+                            if ch == '\n' {
+                                line.push(ch);
+                                break;
+                            } else if ch == '\r' {
+                                line.push(ch);
+                                if current_pos < chars.len() && chars[current_pos] == '\n' {
+                                    line.push(chars[current_pos]);
+                                    current_pos += 1;
+                                }
+                                break;
+                            } else {
+                                line.push(ch);
+                            }
+                        }
+
+                        if !line.is_empty() {
+                            tokenizer.emit_token(Token {
+                                kind: TokenKind::Text,
+                                attributes: HashMap::new(),
+                                data: line,
+                            });
+                        }
+                    }
+                } else {
+                    if !processed_text.is_empty() {
+                        tokenizer.emit_token(Token {
+                            kind: TokenKind::Text,
+                            attributes: HashMap::new(),
+                            data: processed_text,
+                        });
+                    }
                 }
+
                 tokenizer.temporary_buffer.clear();
             }
             tokenizer.state = ParserState::TagOpen;

@@ -26,6 +26,15 @@ use crate::tokens::{
     },
 };
 
+/// Context for the tokenizer that keeps track of the current parsing state between chunks.
+///
+/// # Fields
+/// * `inside_preformatted` - A boolean indicating whether the tokenizer is currently inside a preformatted text block (e.g., `<pre>` tag).
+#[derive(Debug, Default)]
+pub struct TokenizerContext {
+    pub inside_preformatted: bool,
+}
+
 /// A tokenizer for HTML content that processes chunks of HTML and emits tokens.
 /// This tokenizer handles various HTML states, including text, tags, attributes, comments, and declarations.
 ///
@@ -43,6 +52,7 @@ pub struct HtmlTokenizer {
     pub current_attribute_name: String,
     pub current_attribute_value: String,
     pub tokens: VecDeque<Token>,
+    pub context: TokenizerContext,
 }
 
 impl HtmlTokenizer {
@@ -55,6 +65,7 @@ impl HtmlTokenizer {
             current_attribute_name: String::new(),
             current_attribute_value: String::new(),
             tokens: VecDeque::new(),
+            context: TokenizerContext::default(),
         }
     }
 
@@ -114,6 +125,10 @@ impl HtmlTokenizer {
                 }
             }
         }
+
+        //for token in self.tokens.clone() {
+        //    println!("Token emitted: {:?}", token);
+        //}
 
         self.tokens.drain(..).collect()
     }
@@ -374,10 +389,9 @@ mod tests {
         let mut tokenizer = HtmlTokenizer::new();
         let tokens = tokenizer.tokenize(b"<div>   </div>");
 
-        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens.len(), 2);
         assert_token_eq(&tokens[0], TokenKind::StartTag, "div");
-        assert_token_eq(&tokens[1], TokenKind::Text, " ");
-        assert_token_eq(&tokens[2], TokenKind::EndTag, "div");
+        assert_token_eq(&tokens[1], TokenKind::EndTag, "div");
     }
 
     #[test]
@@ -501,7 +515,6 @@ mod tests {
     fn test_chunked_parsing() {
         let mut tokenizer = HtmlTokenizer::new();
 
-        // Parse in chunks to test streaming capability
         let mut all_tokens = Vec::new();
         all_tokens.extend(tokenizer.tokenize(b"<div"));
         all_tokens.extend(tokenizer.tokenize(b" class=\"test\""));
@@ -577,9 +590,6 @@ mod tests {
         let mut tokenizer = HtmlTokenizer::new();
         let tokens = tokenizer.tokenize(b"<>");
 
-        // This should be treated as invalid and likely not produce tokens or produce a text token
-        // The behavior may vary based on implementation - just ensure it doesn't crash
-        // tokens.len() is always >= 0 by definition, so we just check it doesn't panic
         let _len = tokens.len();
     }
 
@@ -589,7 +599,6 @@ mod tests {
         let tokens = tokenizer.tokenize(b"<input value=test=123>");
 
         assert_eq!(tokens.len(), 1);
-        // In unquoted attributes, the tokenizer actually includes everything until whitespace/end
         assert_token_with_attrs(
             &tokens[0],
             TokenKind::StartTag,
@@ -690,9 +699,6 @@ mod tests {
     #[test]
     fn test_tag_with_slash_in_name() {
         let mut tokenizer = HtmlTokenizer::new();
-        // This test has been removed as it causes a panic in the current implementation
-        // Tags with slashes in the middle (not self-closing) are not properly handled
-        // <test/tag> would need special error handling to avoid panic
         let tokens = tokenizer.tokenize(b"<test>");
         assert_eq!(tokens.len(), 1);
         assert_token_eq(&tokens[0], TokenKind::StartTag, "test");
@@ -708,10 +714,8 @@ mod tests {
 </form>"#;
         let tokens = tokenizer.tokenize(html);
 
-        // This test ensures the tokenizer can handle realistic HTML with newlines and attributes
-        assert!(tokens.len() > 10); // Should have many tokens
+        assert_eq!(tokens.len(), 9);
 
-        // Check a few key tokens
         assert_token_with_attrs(
             &tokens[0],
             TokenKind::StartTag,
@@ -719,7 +723,6 @@ mod tests {
             vec![("action", "/submit"), ("method", "post")],
         );
 
-        // Find the input token (should be somewhere in the middle)
         let input_token = tokens
             .iter()
             .find(|t| t.kind == TokenKind::StartTag && t.data == "input")
@@ -731,6 +734,50 @@ mod tests {
         assert_eq!(
             input_token.attributes.get("required"),
             Some(&"".to_string())
-        ); // Boolean attribute
+        );
+    }
+
+    #[test]
+    fn test_preformatted_multiline_text() {
+        let mut tokenizer = HtmlTokenizer::new();
+        let tokens = tokenizer
+            .tokenize(b"<pre>  <span>Some Text</span>\r\n<span>A new line!</span>  </pre>");
+
+        assert_eq!(tokens.len(), 11);
+        assert_token_eq(&tokens[0], TokenKind::StartTag, "pre");
+        assert_token_eq(&tokens[1], TokenKind::Text, "  ");
+        assert_token_eq(&tokens[2], TokenKind::StartTag, "span");
+        assert_token_eq(&tokens[3], TokenKind::Text, "Some Text");
+        assert_token_eq(&tokens[4], TokenKind::EndTag, "span");
+        assert_token_eq(&tokens[5], TokenKind::Text, "\r\n");
+        assert_token_eq(&tokens[6], TokenKind::StartTag, "span");
+        assert_token_eq(&tokens[7], TokenKind::Text, "A new line!");
+        assert_token_eq(&tokens[8], TokenKind::EndTag, "span");
+        assert_token_eq(&tokens[9], TokenKind::Text, "  ");
+        assert_token_eq(&tokens[10], TokenKind::EndTag, "pre");
+    }
+
+    #[test]
+    fn test_preformatted_text_code() {
+        let mut tokenizer = HtmlTokenizer::new();
+        let tokens = tokenizer
+            .tokenize(b"<pre>  <code>\r\n// Sample code block\nfunction test() {\r\n    return \"Hello, World!\";\n}\r\n</code>  </pre>");
+
+        assert_eq!(tokens.len(), 11);
+        assert_token_eq(&tokens[0], TokenKind::StartTag, "pre");
+        assert_token_eq(&tokens[1], TokenKind::Text, "  ");
+        assert_token_eq(&tokens[2], TokenKind::StartTag, "code");
+        assert_token_eq(&tokens[3], TokenKind::Text, "\r\n");
+        assert_token_eq(&tokens[4], TokenKind::Text, "// Sample code block\n");
+        assert_token_eq(&tokens[5], TokenKind::Text, "function test() {\r\n");
+        assert_token_eq(
+            &tokens[6],
+            TokenKind::Text,
+            "    return \"Hello, World!\";\n",
+        );
+        assert_token_eq(&tokens[7], TokenKind::Text, "}\r\n");
+        assert_token_eq(&tokens[8], TokenKind::EndTag, "code");
+        assert_token_eq(&tokens[9], TokenKind::Text, "  ");
+        assert_token_eq(&tokens[10], TokenKind::EndTag, "pre");
     }
 }

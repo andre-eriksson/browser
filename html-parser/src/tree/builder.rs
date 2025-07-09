@@ -140,14 +140,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
 
         let new_node = Rc::new(RefCell::new(DomNode::Element(element)));
 
-        // Handle auto-closing of previous tags if necessary
         self.handle_auto_close(tag_name);
 
         if is_void_element(tag_name) {
             self.insert_new_node(new_node.clone());
             return;
         }
-        // If it's not a void element, we add it to the open elements stack
+
         self.insert_new_node(new_node.clone());
         self.open_elements.push(new_node);
     }
@@ -188,36 +187,6 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `token` - A reference to the `Token` containing the text content to be processed.
     fn handle_text_content(&mut self, token: &Token) {
         let mut text_content = token.data.clone();
-
-        // Skip text content that only contains whitespace characters like \r\n
-        if text_content.trim().is_empty() {
-            return;
-        }
-
-        // Normalize whitespace: collapse multiple whitespace characters into single spaces
-        // and trim leading/trailing whitespace, but preserve at least one space if there was whitespace
-        let trimmed = text_content.trim();
-        if trimmed != text_content {
-            // There was leading or trailing whitespace
-            let has_leading_whitespace = text_content
-                .chars()
-                .next()
-                .map_or(false, |c| c.is_whitespace());
-            let has_trailing_whitespace = text_content
-                .chars()
-                .last()
-                .map_or(false, |c| c.is_whitespace());
-
-            text_content = if has_leading_whitespace && has_trailing_whitespace {
-                format!(" {} ", trimmed)
-            } else if has_leading_whitespace {
-                format!(" {}", trimmed)
-            } else if has_trailing_whitespace {
-                format!("{} ", trimmed)
-            } else {
-                trimmed.to_string()
-            };
-        }
 
         if text_content.contains('&') {
             let decoder = Decoder::new(&text_content);

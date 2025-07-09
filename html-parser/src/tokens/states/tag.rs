@@ -24,7 +24,7 @@ pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                 attributes: HashMap::new(),
                 data: String::new(),
             });
-            tokenizer.state = ParserState::EndTagOpen; // Transition to EndTagOpen state
+            tokenizer.state = ParserState::EndTagOpen;
         }
         ch if ch.is_alphabetic() => {
             tokenizer.current_token = Some(Token {
@@ -32,11 +32,10 @@ pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                 attributes: HashMap::new(),
                 data: ch.to_string(),
             });
-            tokenizer.state = ParserState::TagName; // Transition to TagName state
+            tokenizer.state = ParserState::TagName;
         }
         _ => {
-            // Handle invalid tag opening
-            tokenizer.state = ParserState::Data; // Return to Data state
+            tokenizer.state = ParserState::Data;
         }
     }
 }
@@ -44,16 +43,13 @@ pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
 pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
-            // Handle end tag closing
-
             if let Some(token) = tokenizer.current_token.take() {
                 tokenizer.emit_token(token);
             }
 
-            tokenizer.state = ParserState::Data; // Return to Data state
+            tokenizer.state = ParserState::Data;
         }
         ch if ch.is_alphabetic() => {
-            // Start accumulating the end tag name
             if let Some(token) = tokenizer.current_token.as_mut() {
                 token.data.push(ch);
             } else {
@@ -63,11 +59,10 @@ pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                     data: ch.to_string(),
                 });
             }
-            tokenizer.state = ParserState::TagName; // Transition to TagName state
+            tokenizer.state = ParserState::TagName;
         }
         _ => {
-            // Handle invalid end tag opening
-            tokenizer.state = ParserState::Data; // Return to Data state
+            tokenizer.state = ParserState::Data;
         }
     }
 }
@@ -75,7 +70,6 @@ pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
 pub fn handle_self_closing_tag_start_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
-            // Emit the self-closing tag token
             if let Some(mut token) = tokenizer.current_token.take() {
                 if !tokenizer.current_attribute_name.is_empty() {
                     token.attributes.insert(
@@ -89,7 +83,7 @@ pub fn handle_self_closing_tag_start_state(tokenizer: &mut HtmlTokenizer, ch: ch
 
                 tokenizer.emit_token(token);
             }
-            tokenizer.state = ParserState::Data; // Return to Data state
+            tokenizer.state = ParserState::Data;
         }
         _ => {
             panic!(
@@ -123,24 +117,28 @@ pub fn handle_tag_name_state(tokenizer: &mut HtmlTokenizer, ch: char) {
             tokenizer.state = ParserState::BeforeAttributeName;
         }
         '>' => {
-            // Emit the start tag token
-
             if let Some(token) = tokenizer.current_token.take() {
                 if token.data == "script" {
-                    // If the tag is a script tag, switch to ScriptData state
                     tokenizer.state = ParserState::ScriptData;
                 } else {
-                    tokenizer.state = ParserState::Data; // Return to Data state
+                    if token.data == "pre" {
+                        if token.kind == TokenKind::StartTag {
+                            tokenizer.context.inside_preformatted = true;
+                        } else if token.kind == TokenKind::EndTag {
+                            tokenizer.context.inside_preformatted = false;
+                        }
+                    }
+
+                    tokenizer.state = ParserState::Data;
                 }
 
                 tokenizer.emit_token(token);
             }
         }
         '/' => {
-            tokenizer.state = ParserState::SelfClosingTagStart; // Transition to SelfClosingTagStart state
+            tokenizer.state = ParserState::SelfClosingTagStart;
         }
         _ => {
-            // Continue accumulating the tag name
             if let Some(token) = tokenizer.current_token.as_mut() {
                 token.data.push(ch);
             } else {

@@ -38,7 +38,7 @@ pub fn render_devtools(
             ui.label(egui::RichText::new("Devtools").heading());
             ui.separator();
 
-            // Renderer Debug Mode Controls section
+            // === Renderer Controls ===
             ui.label(
                 egui::RichText::new("Renderer Debug Mode")
                     .monospace()
@@ -82,7 +82,7 @@ pub fn render_devtools(
 
             ui.separator();
 
-            // Network Responses section
+            // === Network Responses ===
             ui.label(
                 egui::RichText::new("Network Responses")
                     .monospace()

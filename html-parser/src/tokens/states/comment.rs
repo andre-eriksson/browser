@@ -8,12 +8,9 @@ use crate::tokens::{
 pub fn handle_bogus_comment_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
-            // End of bogus comment
-            tokenizer.state = ParserState::Data; // Return to Data state
+            tokenizer.state = ParserState::Data;
         }
-        _ => {
-            // Ignore characters in bogus comment
-        }
+        _ => {}
     }
 }
 
@@ -26,10 +23,10 @@ pub fn handle_comment_start_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                 data: String::new(),
             });
 
-            tokenizer.state = ParserState::Comment; // Transition to Comment state
+            tokenizer.state = ParserState::Comment;
         }
         _ => {
-            tokenizer.state = ParserState::BogusComment; // Transition to BogusComment state
+            tokenizer.state = ParserState::BogusComment;
         }
     }
 }
@@ -37,7 +34,7 @@ pub fn handle_comment_start_state(tokenizer: &mut HtmlTokenizer, ch: char) {
 pub fn handle_comment_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '-' => {
-            tokenizer.state = ParserState::CommentEnd; // Transition to CommentEnd state
+            tokenizer.state = ParserState::CommentEnd;
         }
         _ => {
             if let Some(token) = tokenizer.current_token.as_mut() {
@@ -56,19 +53,15 @@ pub fn handle_comment_state(tokenizer: &mut HtmlTokenizer, ch: char) {
 pub fn handle_comment_end_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
-            // End of comment
             if let Some(token) = tokenizer.current_token.take() {
                 tokenizer.emit_token(token);
             }
-            tokenizer.state = ParserState::Data; // Return to Data state
+            tokenizer.state = ParserState::Data;
         }
-        '-' => {
-            // Ignore consecutive dashes in comments
-        }
+        '-' => {}
         _ => {
-            // Handle invalid characters after comment end
             if let Some(token) = tokenizer.current_token.as_mut() {
-                token.data.push('-'); // Add the dash back to the comment data
+                token.data.push('-');
                 token.data.push(ch);
             } else {
                 tokenizer.current_token = Some(Token {
@@ -77,7 +70,7 @@ pub fn handle_comment_end_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                     data: format!("-{}", ch),
                 });
             }
-            tokenizer.state = ParserState::Comment; // Return to Comment state
+            tokenizer.state = ParserState::Comment;
         }
     }
 }

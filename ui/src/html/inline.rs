@@ -3,8 +3,11 @@ use api::dom::{ConcurrentDomNode, ConcurrentElement};
 use crate::{
     api::tabs::BrowserTab,
     html::{
-        context::start_horizontal_context, image::render_image, renderer::RendererDebugMode,
-        text::get_text_style, util::resolve_path,
+        context::{start_horizontal_context, start_vertical_context},
+        image::render_image,
+        renderer::RendererDebugMode,
+        text::get_text_style,
+        util::resolve_path,
     },
 };
 
@@ -17,7 +20,7 @@ use crate::{
 /// * `max_depth` - The maximum depth for inline element rendering.
 #[derive(Debug, Clone)]
 pub struct InlineRenderer {
-    buffer: Vec<ConcurrentElement>,
+    element_buffer: Vec<ConcurrentElement>,
     debug_mode: RendererDebugMode,
 }
 
@@ -28,7 +31,7 @@ impl InlineRenderer {
     /// * `debug_mode` - The debug mode for the renderer, which controls how much information is displayed during rendering.
     pub fn new(debug_mode: RendererDebugMode) -> Self {
         InlineRenderer {
-            buffer: Vec::new(),
+            element_buffer: Vec::new(),
             debug_mode,
         }
     }
@@ -38,7 +41,7 @@ impl InlineRenderer {
     /// # Arguments
     /// * `element` - A reference to the ConcurrentElement to be collected.
     pub fn collect_element(&mut self, element: &ConcurrentElement) {
-        self.buffer.push(element.clone());
+        self.element_buffer.push(element.clone());
     }
 
     /// Renders the collected inline elements into the provided UI context.
@@ -46,8 +49,13 @@ impl InlineRenderer {
     /// # Arguments
     /// * `ui` - The Egui UI context where the elements will be rendered.
     /// * `tab` - A mutable reference to the BrowserTab, which may be used for navigation or other tab-related actions.
-    pub fn render(&mut self, ui: &mut egui::Ui, tab: &mut BrowserTab) {
-        if self.buffer.is_empty() {
+    pub fn render(
+        &mut self,
+        ui: &mut egui::Ui,
+        tab: &mut BrowserTab,
+        parent_element: Option<&ConcurrentElement>,
+    ) {
+        if self.element_buffer.is_empty() {
             return;
         }
 
@@ -59,19 +67,31 @@ impl InlineRenderer {
             None
         };
 
+        if let Some(parent) = parent_element {
+            if parent.tag_name == "pre" && self.element_buffer.iter().any(|e| e.tag_name == "code")
+            {
+                start_vertical_context(ui, color, None, None, None, |ui| {
+                    for element in &self.element_buffer.clone() {
+                        self.render_element(ui, tab, Some(parent), element);
+                    }
+                });
+            }
+        }
+
         start_horizontal_context(ui, color, None, None, None, false, |ui| {
-            for element in &self.buffer.clone() {
-                self.render_element(ui, tab, element);
+            for element in &self.element_buffer.clone() {
+                self.render_element(ui, tab, parent_element, element);
             }
         });
 
-        self.buffer.clear();
+        self.element_buffer.clear();
     }
 
     fn render_element(
         &mut self,
         ui: &mut egui::Ui,
         tab: &mut BrowserTab,
+        parent_element: Option<&ConcurrentElement>,
         element: &ConcurrentElement,
     ) {
         if element.children.is_empty() {
@@ -110,6 +130,13 @@ impl InlineRenderer {
             }
         }
 
+        let is_in_preformatted = parent_element.is_some()
+            && parent_element
+                .as_ref()
+                .unwrap()
+                .tag_name
+                .eq_ignore_ascii_case("pre");
+
         for child in &element.children {
             match child.lock().unwrap().clone() {
                 ConcurrentDomNode::Element(child_element) => {
@@ -118,7 +145,6 @@ impl InlineRenderer {
                             render_image(ui, &child_element, &tab.url);
                         }
                         "script" | "style" => {
-                            // Skip script and style elements
                             if self.debug_mode == RendererDebugMode::Full
                                 || self.debug_mode == RendererDebugMode::ElementText
                             {
@@ -126,17 +152,23 @@ impl InlineRenderer {
                             }
                         }
                         _ => {
-                            self.render_element(ui, tab, &child_element);
+                            self.render_element(ui, tab, parent_element, &child_element);
                         }
                     }
                 }
                 ConcurrentDomNode::Text(text) => match element.tag_name.as_str() {
-                    "code" | "pre" => {
+                    "code" => {
+                        let color = if parent_element.map_or(false, |p| p.tag_name == "pre") {
+                            egui::Color32::from_rgb(255, 255, 255)
+                        } else {
+                            egui::Color32::from_rgb(240, 240, 240)
+                        };
+                        let formatted_text = text.replace('\n', "").replace("\r\n", "");
                         egui::Frame::new()
-                            .fill(egui::Color32::from_rgb(240, 240, 240))
+                            .fill(color)
                             .inner_margin(egui::Margin::same(1))
                             .show(ui, |ui| {
-                                ui.label(egui::RichText::new(text).monospace());
+                                ui.label(egui::RichText::new(formatted_text).monospace());
                             });
                     }
                     "a" => {
@@ -149,7 +181,12 @@ impl InlineRenderer {
 
                         let long_href = resolve_path(&tab.url, &href);
 
-                        let element = get_text_style(&element.tag_name, &link_text);
+                        let mut element = get_text_style(&element.tag_name, &link_text);
+
+                        if is_in_preformatted {
+                            element = element.monospace();
+                        }
+
                         let response =
                             ui.add(egui::Label::new(element).sense(egui::Sense::click()));
 
@@ -184,7 +221,11 @@ impl InlineRenderer {
                             });
                     }
                     _ => {
-                        let element = get_text_style(&element.tag_name, &text);
+                        let mut element = get_text_style(&element.tag_name, &text);
+
+                        if is_in_preformatted {
+                            element = element.monospace();
+                        }
 
                         ui.label(element);
                     }
