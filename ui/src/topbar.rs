@@ -36,7 +36,7 @@ pub fn render_top_bar(
         )
         .show(ctx, |ui| {
             let mut tab_to_close = None;
-            // Tabs
+            // === Tabs ===
             ui.horizontal(|ui| {
                 let mut tabs_guard = tabs.lock().unwrap();
                 let mut current_tab_guard = current_tab.lock().unwrap();
@@ -126,7 +126,7 @@ pub fn render_top_bar(
             let current_tab_guard = current_tab.lock().unwrap();
             let tab = &mut tabs_guard[*current_tab_guard];
 
-            // URL input field
+            // === URL input field ===
             ui.horizontal(|ui| {
                 ui.add_sized(
                     [ui.available_width() - 50.0, 20.0],
@@ -146,7 +146,7 @@ fn get_favicon_url(
     let favicons = &tab.metadata.lock().unwrap().favicons;
 
     if favicons.is_empty() {
-        return None; // No favicons available
+        return None;
     }
 
     let mut favicons_priority: HashMap<usize, (Arc<Mutex<api::dom::ConcurrentDomNode>>, String)> =
@@ -155,13 +155,11 @@ fn get_favicon_url(
     for (favicon_node, favicon_url) in favicons.iter() {
         let node = favicon_node.lock().unwrap();
         if let ConcurrentDomNode::Element(ref element) = *node {
-            // Check for rel="icon" or rel="shortcut icon"
             if let Some(rel) = element.attributes.get("rel") {
                 if rel != "icon" && rel != "shortcut icon" {
-                    continue; // Skip if not a favicon
+                    continue;
                 }
 
-                // Get type and sizes attributes
                 let icon_type = element
                     .attributes
                     .get("type")
@@ -173,17 +171,14 @@ fn get_favicon_url(
                     .map(|s| s.as_str())
                     .unwrap_or("");
 
-                // Calculate priority score (higher is better)
                 let mut priority = 0;
 
-                // Type priority: png > ico
                 if icon_type.contains("png") {
                     priority += 100;
                 } else if icon_type.contains("ico") {
                     priority += 50;
                 }
 
-                // Size priority: 32x32 > 16x16 > any
                 if sizes.contains("32x32") {
                     priority += 40;
                 } else if sizes.contains("16x16") {

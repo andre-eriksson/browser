@@ -30,7 +30,7 @@ pub struct Browser {
 impl Browser {
     /// Creates a new instance of the `Browser` with a default starting tab.
     pub fn new() -> Self {
-        let start_tab = BrowserTab::new(0, "http://localhost:8000/test.html".to_string());
+        let start_tab = BrowserTab::new(0, "http://localhost:8000/complex.html".to_string());
 
         Browser {
             renderer: Arc::new(Mutex::new(HtmlRenderer::new(RendererDebugMode::None))),

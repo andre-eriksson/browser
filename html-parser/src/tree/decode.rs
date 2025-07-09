@@ -28,7 +28,7 @@ impl<'a> Decoder<'a> {
     fn try_decode(&self, mut chars: Peekable<std::str::Chars<'_>>) -> Result<char, String> {
         if let Some(&next) = chars.peek() {
             if next == '#' {
-                chars.next(); // consume '#'
+                chars.next();
                 let mut num_str = String::new();
 
                 let is_hex = if let Some(&'x') | Some(&'X') = chars.peek() {
@@ -288,15 +288,14 @@ impl<'a> Decoder<'a> {
                             output.push(decoded_char);
                             while let Some(&next_char) = chars.peek() {
                                 if next_char == ';' {
-                                    chars.next(); // consume ';'
+                                    chars.next();
                                     break;
                                 } else {
-                                    chars.next(); // consume the character
+                                    chars.next();
                                 }
                             }
                         }
                         Err(_) => {
-                            // If decoding fails, we assume it's not a valid entity and push the '&' back
                             output.push('&');
                             chars = self.input[checkpoint..].chars().peekable();
                             position = checkpoint;

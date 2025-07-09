@@ -34,7 +34,7 @@ pub fn resolve_path(url: &str, src_value: &String) -> String {
             }
         }
 
-        // Absolute path relative to domain
+        // Absolute path
         let base_url = if let Some(pos) = url.find("://") {
             if let Some(domain_end) = url[pos + 3..].find('/') {
                 &url[..pos + 3 + domain_end]

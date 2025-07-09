@@ -36,7 +36,6 @@ pub fn render_content(
                 return;
             };
 
-            // Scrollable area for HTML content
             ScrollArea::vertical()
                 .auto_shrink(false)
                 .drag_to_scroll(false)

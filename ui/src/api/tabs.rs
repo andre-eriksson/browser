@@ -184,7 +184,7 @@ impl BrowserTab {
                             Ok(result) => {
                                 let dom_tree = result.dom_tree;
 
-                                //println!("Parsed DOM Tree: {:?}", dom_tree);
+                                // println!("Parsed DOM Tree: {:?}", dom_tree);
 
                                 // TODO: Process the metadata, e.g. event queue, etc.
                                 let mut metadata = metadata_clone.lock().unwrap();

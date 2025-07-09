@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 
 use api::dom::{ConcurrentDomNode, ConcurrentElement};
 
@@ -8,8 +11,8 @@ use crate::{
         context::{start_horizontal_context, start_vertical_context},
         inline::InlineRenderer,
         layout::{
-            ElementType, get_element_type, get_margin_for_element, get_padding_for_element,
-            get_stroke_for_element,
+            ElementType, get_color_for_element, get_element_type, get_margin_for_element,
+            get_padding_for_element, get_stroke_for_element,
         },
         text::get_text_style,
         util::get_color,
@@ -113,6 +116,7 @@ impl HtmlRenderer {
                         .children
                         .iter()
                         .any(|c| matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Element(e) if get_element_type(&e.tag_name) == ElementType::Inline));
+                    let is_preformatted = &element.tag_name == "pre";
 
                     let is_mixed_content = has_inline_elements && has_text_nodes;
 
@@ -121,8 +125,13 @@ impl HtmlRenderer {
                     {
                         Some(get_color(&element))
                     } else {
-                        None
+                        Some(get_color_for_element(&element.tag_name))
                     };
+
+                    if &element.tag_name == "hr" {
+                        ui.separator();
+                        continue;
+                    }
 
                     let margin = Some(get_margin_for_element(&element.tag_name));
                     let padding = Some(get_padding_for_element(&element.tag_name));
@@ -130,9 +139,9 @@ impl HtmlRenderer {
 
                     match get_element_type(&element.tag_name) {
                         ElementType::Block => {
-                            self.inline_renderer.render(ui, tab);
+                            self.inline_renderer.render(ui, tab, Some(&element));
 
-                            if has_text_nodes {
+                            if has_text_nodes && !is_preformatted {
                                 start_horizontal_context(
                                     ui,
                                     color,
@@ -153,16 +162,19 @@ impl HtmlRenderer {
                                 continue;
                             }
 
-                            // If there are no text nodes, use vertical context e.g. semantic elements (usually)
                             // NOTE: Might fail for irregular content
                             start_vertical_context(ui, color, padding, margin, stroke, |ui| {
-                                self.process_dom_children(
-                                    ui,
-                                    metadata,
-                                    tab,
-                                    &element.children,
-                                    Some(&element),
-                                );
+                                if is_preformatted {
+                                    self.render_preformatted_elements(ui, tab, &element);
+                                } else {
+                                    self.process_dom_children(
+                                        ui,
+                                        metadata,
+                                        tab,
+                                        &element.children,
+                                        Some(&element),
+                                    );
+                                }
                             });
                         }
 
@@ -171,7 +183,7 @@ impl HtmlRenderer {
                         }
 
                         ElementType::ListItem => {
-                            self.inline_renderer.render(ui, tab);
+                            self.inline_renderer.render(ui, tab, Some(&element));
 
                             start_horizontal_context(
                                 ui,
@@ -236,17 +248,18 @@ impl HtmlRenderer {
                     }
 
                     if is_mixed_content {
-                        self.inline_renderer.render(ui, tab);
+                        self.inline_renderer.render(ui, tab, Some(&element));
                     }
                 }
 
                 ConcurrentDomNode::Text(text) => {
                     if let Some(parent) = parent_element {
                         if get_element_type(&parent.tag_name) != ElementType::Inline {
-                            self.inline_renderer.render(ui, tab);
+                            self.inline_renderer.render(ui, tab, Some(&parent));
                         }
 
-                        let styled_text = get_text_style(&parent.tag_name, &text);
+                        let styled_text = get_text_style(&parent.tag_name, text.as_str());
+
                         ui.label(styled_text);
                     } else {
                         ui.label(text);
@@ -257,7 +270,103 @@ impl HtmlRenderer {
             }
         }
 
-        self.inline_renderer.render(ui, tab);
+        self.inline_renderer.render(ui, tab, parent_element);
+    }
+
+    fn render_preformatted_elements(
+        &mut self,
+        ui: &mut egui::Ui,
+        tab: &mut BrowserTab,
+        element: &ConcurrentElement,
+    ) {
+        let mut children: VecDeque<Arc<Mutex<ConcurrentDomNode>>> =
+            element.children.iter().cloned().collect();
+        let mut new_context = true;
+        let mut new_lines: u8 = 0;
+
+        while children.front().is_some() {
+            if new_context {
+                if new_lines == 2 {
+                    ui.label("");
+                    new_lines = 0;
+                }
+                start_horizontal_context(ui, None, None, None, None, false, |ui| {
+                    self.render_children_with_context(
+                        ui,
+                        tab,
+                        element,
+                        &mut new_context,
+                        &mut new_lines,
+                        &mut children,
+                    );
+                });
+            }
+        }
+    }
+
+    fn render_children_with_context(
+        &mut self,
+        ui: &mut egui::Ui,
+        tab: &mut BrowserTab,
+        element: &ConcurrentElement,
+        new_context: &mut bool,
+        new_lines: &mut u8,
+        children: &mut VecDeque<Arc<Mutex<ConcurrentDomNode>>>,
+    ) {
+        while let Some(child) = children.pop_front() {
+            match child.lock().unwrap().clone() {
+                ConcurrentDomNode::Text(text) => {
+                    if text == "\r\n" || text == "\n" {
+                        *new_lines += 1;
+                        *new_context = true;
+                        break;
+                    }
+                    *new_lines = 0;
+                    let styled_text = get_text_style(
+                        &element.tag_name,
+                        text.replace("\r\n", "").replace('\n', "").as_str(),
+                    );
+                    ui.label(styled_text.monospace());
+                    if text.ends_with("\r\n") || text.ends_with('\n') {
+                        *new_context = true;
+                        break;
+                    }
+                }
+                ConcurrentDomNode::Element(child_element) => {
+                    match get_element_type(&child_element.tag_name) {
+                        ElementType::Block => {
+                            if *new_context {
+                                *new_context = false;
+                                *new_lines = 0;
+                            }
+                            self.inline_renderer.render(ui, tab, Some(&child_element));
+                            start_vertical_context(
+                                ui,
+                                None,
+                                Some(get_padding_for_element(&child_element.tag_name)),
+                                Some(get_margin_for_element(&child_element.tag_name)),
+                                Some(get_stroke_for_element(&child_element.tag_name)),
+                                |ui| {
+                                    self.process_dom_children(
+                                        ui,
+                                        &TabMetadata::default(), // Placeholder for metadata
+                                        tab,
+                                        &child_element.children,
+                                        Some(&child_element),
+                                    );
+                                },
+                            );
+                        }
+                        ElementType::Inline => {
+                            self.inline_renderer.collect_element(&child_element);
+                            self.inline_renderer.render(ui, tab, Some(&element));
+                        }
+                        _ => (),
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     /// Gets the current debug mode of the renderer.

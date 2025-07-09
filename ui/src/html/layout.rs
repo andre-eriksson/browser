@@ -44,6 +44,12 @@ pub fn get_element_type(tag_name: &str) -> ElementType {
     }
 }
 
+pub fn get_color_for_element(tag_name: &str) -> egui::Color32 {
+    match tag_name {
+        _ => egui::Color32::from_rgb(255, 255, 255),
+    }
+}
+
 /// Returns the margin for a given HTML element based on its tag name.
 ///
 /// # Arguments
@@ -61,7 +67,7 @@ pub fn get_margin_for_element(tag_name: &str) -> egui::Margin {
         "h5" => egui::Margin::symmetric(0, 8),
         "h6" => egui::Margin::symmetric(0, 9),
         "div" | "li" | "thead" | "tbody" => egui::Margin::same(0),
-        "pre" => egui::Margin::symmetric(0, 13),
+        "pre" => egui::Margin::symmetric(0, 0),
         _ => egui::Margin::symmetric(0, 4),
     }
 }
