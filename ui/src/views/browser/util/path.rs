@@ -22,7 +22,7 @@
 /// assert_eq!(resolve_path(current_url, &full_url.to_string()), "https://website.com/images/photo.jpg");
 /// ```
 pub fn resolve_path(url: &str, src_value: &String) -> String {
-    let image_url = if src_value.starts_with("http") {
+    if src_value.starts_with("http") {
         src_value.to_string()
     } else if src_value.starts_with('/') {
         if src_value.starts_with("//") {
@@ -39,14 +39,12 @@ pub fn resolve_path(url: &str, src_value: &String) -> String {
         // Relative path
         let base_url = if url.ends_with('/') {
             url.to_string()
+        } else if let Some(last_slash) = url.rfind('/') {
+            format!("{}/", &url[..last_slash])
         } else {
-            if let Some(last_slash) = url.rfind('/') {
-                format!("{}/", &url[..last_slash])
-            } else {
-                format!("{}/", url)
-            }
+            format!("{}/", url)
         };
+
         format!("{}{}", base_url, src_value)
-    };
-    image_url
+    }
 }

@@ -49,7 +49,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
         Self {
             reader,
             buffer: String::with_capacity(buffer_size),
-            buffer_size: buffer_size,
+            buffer_size,
             byte_buffer: Vec::new(),
         }
     }

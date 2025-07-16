@@ -6,7 +6,7 @@ use iced::{
     widget::{Column, container},
 };
 
-use crate::{api::message::Message, core::app::Application, renderer::renderer::display_html};
+use crate::{api::message::Message, core::app::Application, renderer::html::display_html};
 
 pub fn render_content(app: &Application) -> Result<container::Container<'_, Message>, String> {
     let html_content = if let Ok(html) = app.tabs[app.current_tab_id].html_content.lock() {
@@ -44,17 +44,14 @@ fn display_child_elements<'window>(
     children: Vec<Arc<Mutex<ConcurrentDomNode>>>,
 ) -> Option<Column<'window, Message>> {
     for child in children {
-        match child.lock().unwrap().clone() {
-            ConcurrentDomNode::Element(element) => {
-                if element.tag_name == "body" {
-                    return Some(display_html(element));
-                }
-
-                if let Some(result) = display_child_elements(element.children) {
-                    return Some(result);
-                }
+        if let ConcurrentDomNode::Element(element) = child.lock().unwrap().clone() {
+            if element.tag_name == "body" {
+                return Some(display_html(element));
             }
-            _ => {}
+
+            if let Some(result) = display_child_elements(element.children) {
+                return Some(result);
+            }
         }
     }
 

@@ -45,12 +45,11 @@ pub fn render_header(app: &Application) -> container::Container<'_, Message> {
     ]
     .spacing(10.0);
 
-    let top_bar = container(column![tabs, search_field].spacing(6.0))
+    container(column![tabs, search_field].spacing(6.0))
         .width(Length::Fill)
         .style(|_| container::Style {
             background: Some(Background::Color(Color::WHITE)),
             text_color: Some(Color::BLACK),
             ..Default::default()
-        });
-    top_bar
+        })
 }

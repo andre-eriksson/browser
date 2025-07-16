@@ -127,7 +127,7 @@ pub fn validate_cors_preflight(
     }
 
     if let Some(allow_headers) = access_control_allow_headers {
-        handle_headers(&request_headers, allow_headers)?;
+        handle_headers(request_headers, allow_headers)?;
     } else {
         return Err("CORS violation: No Access-Control-Allow-Headers header found".to_string());
     }

@@ -112,7 +112,7 @@ impl WebClient {
             ));
         }
 
-        return validate_cors_preflight(&resp.headers(), request_origin, &method, &headers);
+        validate_cors_preflight(resp.headers(), request_origin, &method, &headers)
     }
 
     /// Initialize the origin by sending a GET request to the specified URL. Will set the headers
@@ -169,17 +169,14 @@ impl WebClient {
 
         self.origin = Origin::Tuple(
             url.scheme().to_string(),
-            url::Host::Domain(
-                url.host_str()
-                    .map_or_else(|| String::new(), |s| s.to_string()),
-            ),
+            url::Host::Domain(url.host_str().map_or_else(String::new, |s| s.to_string())),
             url.port_or_known_default().unwrap_or(80),
         );
 
         let response_result = self
-            .setup_client(&url.path())
+            .setup_client(url.path())
             .await
-            .map_err(|e| format!("{}", e));
+            .map_err(|e| e.to_string());
 
         info!(
         {EVENT} = EVENT_PAGE_RETRIEVED,
@@ -277,7 +274,7 @@ impl WebClient {
             debug!({EVENT} = {EVENT_FETCH_CONTENT}, {TAG_TYPE} = ?tag_name, {URL} = ?url, {STATUS_CODE} = ?response.status(), {DURATION} = ?start_time.elapsed());
         }
 
-        return Ok(response);
+        Ok(response)
     }
 
     /// Fetch content from the origin with optional headers and body.

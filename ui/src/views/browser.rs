@@ -1,3 +1,3 @@
-pub mod browser;
+pub mod window;
 pub mod components;
 pub mod util;

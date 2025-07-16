@@ -46,9 +46,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 if allowed_sources.clone().count() == 0 {
-                    if allowed_sources.clone().count() == 0 {
-                        return fallback_to_default_src(&mut csp_fallback, request_origin);
-                    }
+                    return fallback_to_default_src(&mut csp_fallback, request_origin);
                 }
 
                 for source in allowed_sources {
@@ -119,9 +117,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 if allowed_sources.clone().count() == 0 {
-                    if allowed_sources.clone().count() == 0 {
-                        return fallback_to_default_src(&mut csp_fallback, request_origin);
-                    }
+                    return fallback_to_default_src(&mut csp_fallback, request_origin);
                 }
 
                 for source in allowed_sources {
@@ -148,9 +144,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 if allowed_sources.clone().count() == 0 {
-                    if allowed_sources.clone().count() == 0 {
-                        return fallback_to_default_src(&mut csp_fallback, request_origin);
-                    }
+                    return fallback_to_default_src(&mut csp_fallback, request_origin);
                 }
 
                 for source in allowed_sources {
@@ -170,9 +164,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 if allowed_sources.clone().count() == 0 {
-                    if allowed_sources.clone().count() == 0 {
-                        return fallback_to_default_src(&mut csp_fallback, request_origin);
-                    }
+                    return fallback_to_default_src(&mut csp_fallback, request_origin);
                 }
 
                 for source in allowed_sources {
@@ -192,9 +184,7 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
                 }
 
                 if allowed_sources.clone().count() == 0 {
-                    if allowed_sources.clone().count() == 0 {
-                        return fallback_to_default_src(&mut csp_fallback, request_origin);
-                    }
+                    return fallback_to_default_src(&mut csp_fallback, request_origin);
                 }
 
                 for source in allowed_sources {

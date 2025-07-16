@@ -133,7 +133,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         };
 
         self.collector.collect(&TagInfo {
-            tag_name: tag_name,
+            tag_name,
             attributes: &token.attributes,
             dom_node: &Rc::new(RefCell::new(DomNode::Element(element.clone()))),
         });
@@ -192,9 +192,8 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             let decoder = Decoder::new(&text_content);
             let result = decoder.decode();
 
-            match result {
-                Ok(decoded) => text_content = decoded,
-                Err(_) => {}
+            if let Ok(decoded) = result {
+                text_content = decoded;
             }
         }
 

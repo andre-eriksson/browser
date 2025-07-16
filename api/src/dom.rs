@@ -15,23 +15,12 @@ use std::{
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
 /// * `attributes` - A map of attribute names and their values for the element.
 /// * `children` - A vector of child nodes, which can be other elements, text nodes, etc.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConcurrentElement {
     pub id: u32,
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
     pub children: Vec<ArcDomNode>,
-}
-
-impl Default for ConcurrentElement {
-    fn default() -> Self {
-        ConcurrentElement {
-            id: 0,
-            tag_name: String::new(),
-            attributes: HashMap::new(),
-            children: Vec::new(),
-        }
-    }
 }
 
 /// Represents an Arc-wrapped, multi-threaded DOM node.
@@ -75,23 +64,12 @@ impl Default for ConcurrentDomNode {
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
 /// * `attributes` - A map of attribute names and their values for the element.
 /// * `children` - A vector of child nodes, which can be other elements, text nodes, etc.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Element {
     pub id: u32,
     pub tag_name: String,
     pub attributes: HashMap<String, String>,
     pub children: Vec<RefDomNode>,
-}
-
-impl Default for Element {
-    fn default() -> Self {
-        Element {
-            id: 0,
-            tag_name: String::new(),
-            attributes: HashMap::new(),
-            children: Vec::new(),
-        }
-    }
 }
 
 /// Represents a single-threaded DOM node.

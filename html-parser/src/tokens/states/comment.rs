@@ -6,11 +6,8 @@ use crate::tokens::{
 };
 
 pub fn handle_bogus_comment_state(tokenizer: &mut HtmlTokenizer, ch: char) {
-    match ch {
-        '>' => {
-            tokenizer.state = ParserState::Data;
-        }
-        _ => {}
+    if ch == '>' {
+        tokenizer.state = ParserState::Data;
     }
 }
 
