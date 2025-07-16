@@ -1,7 +1,7 @@
 mod api;
-pub mod browser;
-mod content;
-mod debug;
-mod html;
+mod core;
+pub mod runtime;
+mod manager;
 mod network;
-mod topbar;
+mod renderer;
+mod views;

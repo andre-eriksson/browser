@@ -1,10 +1,8 @@
 use tracing::Level;
-use ui::browser::Browser;
+use ui::runtime::UiRuntime;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
-    let browser = Browser::new();
-    browser.start();
+    UiRuntime::run();
 }

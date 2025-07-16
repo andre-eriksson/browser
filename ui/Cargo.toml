@@ -4,13 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-eframe = "0.31"
-egui = { version = "0.31", default-features = false }
-url = "2.5.4"
-tokio = "1.44"
-image = "0.25"
-tracing = "0.1"
-reqwest = "0.12.18"
+iced = { version = "0.13.1", features = [
+    "multi-window",
+    "tokio",
+    "image",
+    "svg",
+
+] }
+tracing = { workspace = true }
 api = { path = "../api" }
 html-parser = { path = "../html-parser" }
 network = { path = "../network" }
