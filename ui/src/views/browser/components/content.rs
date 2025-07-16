@@ -1,13 +1,15 @@
 use std::sync::{Arc, Mutex};
 
-use api::dom::ConcurrentDomNode;
 use iced::{
     Background, Color, Length,
     widget::{Column, container},
 };
 
+use api::dom::ConcurrentDomNode;
+
 use crate::{api::message::Message, core::app::Application, renderer::html::display_html};
 
+/// Renders the content of the browser window, displaying HTML content from the current tab.
 pub fn render_content(app: &Application) -> Result<container::Container<'_, Message>, String> {
     let html_content = if let Ok(html) = app.tabs[app.current_tab_id].html_content.lock() {
         html.clone()

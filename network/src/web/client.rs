@@ -1,14 +1,16 @@
-use api::logging::{
-    DURATION, EVENT, EVENT_FETCH_CONTENT, EVENT_PAGE_RETRIEVED, STATUS_CODE, TAG_TYPE, URL,
-};
+use std::time::Instant;
+
 use http::{
     HeaderMap, HeaderValue, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN},
 };
 use reqwest::{Client, Response};
-use std::time::Instant;
 use tracing::{debug, error, info, warn};
 use url::{Origin, Url};
+
+use api::logging::{
+    DURATION, EVENT, EVENT_FETCH_CONTENT, EVENT_PAGE_RETRIEVED, STATUS_CODE, TAG_TYPE, URL,
+};
 
 use crate::{
     rules::{cors::validate_cors_preflight, csp::handle_csp, simple::is_simple_request},

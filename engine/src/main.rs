@@ -1,4 +1,5 @@
 use tracing::Level;
+
 use ui::runtime::UiRuntime;
 
 fn main() {
