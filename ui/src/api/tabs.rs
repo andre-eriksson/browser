@@ -107,14 +107,7 @@ pub struct BrowserTab {
 
 impl BrowserTab {
     pub fn new(id: usize, url: String) -> Self {
-        let client = setup_new_client();
-
-        if let Err(e) = client {
-            error!("Failed to create new client: {}", e);
-            panic!("Failed to create new client");
-        }
-
-        let client = Arc::new(Mutex::new(client.unwrap()));
+        let client = Arc::new(Mutex::new(setup_new_client()));
 
         let span = tracing::info_span!("BrowserTab", id = id);
 
