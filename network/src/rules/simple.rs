@@ -24,7 +24,7 @@ pub fn is_simple_request(headers: HeaderMap<HeaderValue>, http_method: Method) -
     ];
 
     for (header_name, _) in headers.iter() {
-        if !allowed_headers.contains(&header_name) {
+        if !allowed_headers.contains(header_name) {
             return false;
         }
     }

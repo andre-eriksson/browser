@@ -72,19 +72,10 @@ fn process_dom_children_with_context<'window>(
 
                 match get_element_type(&element.tag_name) {
                     ElementType::Block => {
-                        let has_text_nodes = element.children.iter().any(|c| {
-                            matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Text(_))
-                        });
-                        let has_inline_elements = element
-                            .children
-                            .iter()
-                            .any(|c| matches!(c.lock().unwrap().clone(), ConcurrentDomNode::Element(e) if get_element_type(&e.tag_name) == ElementType::Inline));
                         let is_preformatted = &element.tag_name == "pre";
 
                         let children_content = if is_preformatted {
                             process_preformatted_content(&element.children, &element)
-                        } else if has_text_nodes && !has_inline_elements {
-                            process_dom_children_with_context(&element.children, Some(&element))
                         } else {
                             process_dom_children_with_context(&element.children, Some(&element))
                         };

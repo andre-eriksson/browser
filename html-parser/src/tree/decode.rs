@@ -55,12 +55,12 @@ impl<'a> Decoder<'a> {
 
                 if let Ok(code_point) = u32::from_str_radix(&num_str, base) {
                     if let Some(ch) = char::from_u32(code_point) {
-                        return Ok(ch);
+                        Ok(ch)
                     } else {
-                        return Err("Invalid Unicode code point".to_string());
+                        Err("Invalid Unicode code point".to_string())
                     }
                 } else {
-                    return Err("Invalid numeric character reference".to_string());
+                    Err("Invalid numeric character reference".to_string())
                 }
             } else {
                 let mut entity_name = String::new();
@@ -256,11 +256,11 @@ impl<'a> Decoder<'a> {
                     "clubs" => Ok('\u{2663}'), // Black club suit
                     "hearts" => Ok('\u{2665}'), // Black heart suit
                     "diams" => Ok('\u{2666}'), // Black diamond suit
-                    _ => return Err(format!("Unknown entity: &{};", entity_name)),
+                    _ => Err(format!("Unknown entity: &{};", entity_name)),
                 }
             }
         } else {
-            return Err("Unterminated character reference".to_string());
+            Err("Unterminated character reference".to_string())
         }
     }
 

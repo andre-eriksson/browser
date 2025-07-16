@@ -100,7 +100,7 @@ impl Default for BrowserTab {
         Self {
             id: 0,
             temp_url: url.clone(),
-            url: url,
+            url,
             html_content: ArcDomNode::default(),
             metadata: Arc::new(Mutex::new(TabCollector::default())),
         }

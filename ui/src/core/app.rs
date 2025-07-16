@@ -16,7 +16,7 @@ use crate::{
     },
     manager::WindowController,
     network::client::setup_new_client,
-    views::{browser::browser::BrowserWindow, devtools::devtools::DevtoolsWindow},
+    views::{browser::window::BrowserWindow, devtools::window::DevtoolsWindow},
 };
 
 pub struct Application {
@@ -34,9 +34,7 @@ impl Application {
         let (main_window_id, browser_task) =
             window_controller.new_window(Box::new(BrowserWindow::default()));
 
-        let mut tasks = Vec::new();
-
-        tasks.push(browser_task.map(|_| Message::None));
+        let tasks = vec![browser_task.map(|_| Message::None)];
 
         let first_tab = BrowserTab::default();
 
@@ -59,9 +57,7 @@ impl Application {
             // === Window Management ===
             Message::NewWindow(window_type) => match window_type {
                 WindowType::Devtools => {
-                    let (_, window_task) = self
-                        .window_manager
-                        .new_window(Box::new(DevtoolsWindow::default()));
+                    let (_, window_task) = self.window_manager.new_window(Box::new(DevtoolsWindow));
                     return window_task.map(|_| Message::None);
                 }
             },

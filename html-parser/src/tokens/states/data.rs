@@ -22,7 +22,7 @@ pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
     let has_leading_newline = text.starts_with('\n') || text.starts_with('\r');
     let has_trailing_newline = text.ends_with('\n') || text.ends_with('\r');
 
-    let normalized_middle = text.trim().split_whitespace().collect::<Vec<_>>().join(" ");
+    let normalized_middle = text.split_whitespace().collect::<Vec<_>>().join(" ");
 
     let mut result = String::new();
     if has_leading_ws && !normalized_middle.is_empty() && !has_leading_newline {
@@ -76,14 +76,12 @@ pub fn handle_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                             });
                         }
                     }
-                } else {
-                    if !processed_text.is_empty() {
-                        tokenizer.emit_token(Token {
-                            kind: TokenKind::Text,
-                            attributes: HashMap::new(),
-                            data: processed_text,
-                        });
-                    }
+                } else if !processed_text.is_empty() {
+                    tokenizer.emit_token(Token {
+                        kind: TokenKind::Text,
+                        attributes: HashMap::new(),
+                        data: processed_text,
+                    });
                 }
 
                 tokenizer.temporary_buffer.clear();

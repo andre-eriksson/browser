@@ -26,7 +26,7 @@ impl WebClientBuilder {
     ///
     /// # Arguments
     /// * `origin` - The origin to be used by the WebClient, typically set to `Origin::new_opaque()` for initialization,
-    ///     should be set later with `WebClient::setup_client_from_url`, when you have made the first request.
+    ///   should be set later with `WebClient::setup_client_from_url`, when you have made the first request.
     pub fn new(origin: Origin) -> Self {
         let client_headers = HeaderMap::new();
         WebClientBuilder {
