@@ -1,9 +1,11 @@
-use api::dom::{ConcurrentDomNode, ConcurrentElement};
+use std::sync::{Arc, Mutex};
+
 use iced::{
     Color,
     widget::{Column, column, horizontal_rule, row, text},
 };
-use std::sync::{Arc, Mutex};
+
+use api::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::{
     api::message::Message,

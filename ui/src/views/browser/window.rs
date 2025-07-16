@@ -17,6 +17,7 @@ use crate::{
     views::browser::components::{content::render_content, header::render_header},
 };
 
+/// BrowserWindow is the "main" application window for the browser UI.
 #[derive(Debug, Default)]
 pub struct BrowserWindow {}
 

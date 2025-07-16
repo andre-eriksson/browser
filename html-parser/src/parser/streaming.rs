@@ -1,10 +1,12 @@
+use std::io::BufRead;
+
+use tracing::info;
+
 use api::{
     collector::Collector,
     dom::RefDomNode,
     logging::{DURATION, EVENT, EVENT_HTML_PARSED},
 };
-use std::io::BufRead;
-use tracing::info;
 
 use crate::{tokens::tokenizer::HtmlTokenizer, tree::builder::DomTreeBuilder};
 

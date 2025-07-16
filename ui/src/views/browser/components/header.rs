@@ -5,6 +5,7 @@ use iced::{
 
 use crate::{api::message::Message, core::app::Application};
 
+/// Renders the header for the browser window, including tabs and a search bar.
 pub fn render_header(app: &Application) -> container::Container<'_, Message> {
     let tabs = row(app
         .tabs

@@ -1,3 +1,10 @@
+use std::{cell::RefCell, rc::Rc};
+
+use api::{
+    collector::{Collector, TagInfo},
+    dom::{DomNode, Element, RefDomNode},
+};
+
 use crate::{
     tokens::state::{Token, TokenKind},
     tree::{
@@ -5,11 +12,6 @@ use crate::{
         rules::{auto_close::should_auto_close, void_elements::is_void_element},
     },
 };
-use api::{
-    collector::{Collector, TagInfo},
-    dom::{DomNode, Element, RefDomNode},
-};
-use std::{cell::RefCell, rc::Rc};
 
 /// A builder for constructing a DOM tree from HTML tokens.
 ///

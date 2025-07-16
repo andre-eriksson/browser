@@ -5,9 +5,11 @@ use iced::{
 };
 
 use crate::{
-    api::{message::Message, window::ApplicationWindow}, core::app::Application,
+    api::{message::Message, window::ApplicationWindow},
+    core::app::Application,
 };
 
+/// DevtoolsWindow is a window for displaying developer tools in the application.
 #[derive(Debug, Default)]
 pub struct DevtoolsWindow;
 
