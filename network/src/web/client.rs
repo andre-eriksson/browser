@@ -58,12 +58,8 @@ impl WebClient {
         }
     }
 
-    pub fn builder(client: Client) -> WebClientBuilder {
-        WebClientBuilder {
-            client,
-            origin: Origin::new_opaque(),
-            client_headers: HeaderMap::new(),
-        }
+    pub fn builder() -> WebClientBuilder {
+        WebClientBuilder::new(Origin::new_opaque())
     }
 
     async fn handle_preflight(

@@ -30,7 +30,7 @@ mod tests {
         .build()
         .expect("Failed to build HTTP client");
 
-        let mut web_client = WebClient::builder(client).build();
+        let mut web_client = WebClient::builder().with_client(client).build();
 
         let result = web_client
             .setup_client_from_url("https://www.example.com")

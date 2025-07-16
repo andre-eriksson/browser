@@ -11,7 +11,7 @@ use api::{
 use egui::{Color32, Margin, TopBottomPanel, Vec2};
 use tracing::info;
 
-use crate::{api::tabs::BrowserTab, html::util::resolve_path, network::client::setup_new_client};
+use crate::{api::tabs::BrowserTab, html::util::resolve_path};
 
 /// Renders the top bar of the browser UI, including a URL input field and a button to load the page.
 pub fn render_top_bar(
@@ -90,13 +90,6 @@ pub fn render_top_bar(
                 ui.separator();
                 let new_tab = ui.button("+");
                 if new_tab.clicked() {
-                    let client = setup_new_client();
-
-                    if let Err(e) = client {
-                        eprintln!("Failed to create new client: {}", e);
-                        return;
-                    }
-
                     let tab_id = {
                         let mut next_id = next_tab_id.lock().unwrap();
                         let id = *next_id;
