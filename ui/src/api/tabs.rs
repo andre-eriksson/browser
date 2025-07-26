@@ -81,11 +81,10 @@ pub type TabMetadata = Arc<Mutex<TabCollector>>;
 ///
 /// # Fields
 /// * `id` - A unique identifier for the tab.
+/// * `temp_url` - A temporary URL used when inputing a new URL in to the address bar.
 /// * `url` - The URL of the page loaded in the tab.
-/// * `status_code` - A mutex-protected string representing the HTTP status code of the page.
 /// * `html_content` - A shared DOM node containing the parsed HTML content of the page.
 /// * `metadata` - Metadata about the tab, including the title and external resources.
-#[derive(Debug, Clone)]
 pub struct BrowserTab {
     pub id: usize,
     pub temp_url: String,
@@ -94,11 +93,15 @@ pub struct BrowserTab {
     pub metadata: TabMetadata,
 }
 
-impl Default for BrowserTab {
-    fn default() -> Self {
-        let url = "about:blank".to_string();
+impl BrowserTab {
+    /// Creates a new `BrowserTab` with the specified ID and URL.
+    ///
+    /// # Arguments
+    /// * `id` - The unique identifier for the tab.
+    /// * `url` - The URL of the page to be loaded in the tab.
+    pub fn new(id: usize, url: String) -> Self {
         Self {
-            id: 0,
+            id,
             temp_url: url.clone(),
             url,
             html_content: ArcDomNode::default(),
