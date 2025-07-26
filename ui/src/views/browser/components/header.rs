@@ -16,9 +16,12 @@ pub fn render_header(app: &Application) -> container::Container<'_, Message> {
                 .title
                 .as_ref()
                 .map_or_else(|| "Untitled".to_string(), |t| t.clone());
-            mouse_area(button(text(tab_title)).on_press(Message::ChangeTab(tab.id)))
-                .on_right_press(Message::CloseTab(tab.id))
-                .into()
+            mouse_area(
+                button(text(format!("{} - {}", tab_title, tab.id)))
+                    .on_press(Message::ChangeTab(tab.id)),
+            )
+            .on_right_press(Message::CloseTab(tab.id))
+            .into()
         })
         .chain(std::iter::once(
             button(text("+")).on_press(Message::OpenNewTab).into(),

@@ -10,6 +10,7 @@ use api::dom::{ConcurrentDomNode, ConcurrentElement};
 use crate::{
     api::message::Message,
     renderer::{
+        inline::compose_inline_elements,
         layout::{ElementType, get_element_type},
         util::{get_margin_for_element, get_text_style_for_element},
     },
@@ -47,6 +48,60 @@ fn process_dom_children<'window>(
     process_dom_children_with_context(nodes, None)
 }
 
+/// Processes mixed content (text nodes and inline elements) within a block element.
+/// This preserves the natural flow of content where text and inline elements are intermixed.
+///
+/// # Arguments
+/// * `nodes` - A slice of DOM nodes to process
+/// * `parent_element` - The parent block element containing the mixed content
+///
+/// # Returns
+/// * `iced::Element<'window, Message>` - An Iced element representing the mixed content as a row
+fn process_mixed_content<'window>(
+    nodes: &[Arc<Mutex<ConcurrentDomNode>>],
+    parent_element: &ConcurrentElement,
+) -> iced::Element<'window, Message> {
+    let mut inline_elements = Vec::new();
+
+    for node_arc in nodes {
+        let node = node_arc.lock().unwrap().clone();
+
+        match node {
+            ConcurrentDomNode::Element(element) => {
+                if get_element_type(&element.tag_name) == ElementType::Inline {
+                    for child_arc in &element.children {
+                        let child = child_arc.lock().unwrap().clone();
+                        match child {
+                            ConcurrentDomNode::Text(content) => {
+                                let styled_text =
+                                    get_text_style_for_element(&element.tag_name, content);
+                                inline_elements.push(styled_text.into());
+                            }
+                            _ => {}
+                        }
+                    }
+                } else {
+                    // Handle block elements within mixed content (shouldn't happen in well-formed HTML)
+                    let children_content =
+                        process_dom_children_with_context(&element.children, Some(&element));
+                    inline_elements.push(children_content);
+                }
+            }
+            ConcurrentDomNode::Text(content) => {
+                let styled_text = get_text_style_for_element(&parent_element.tag_name, content);
+                inline_elements.push(styled_text.into());
+            }
+            _ => {}
+        }
+    }
+
+    if inline_elements.is_empty() {
+        text("").into()
+    } else {
+        row(inline_elements).into()
+    }
+}
+
 /// Processes DOM nodes with additional context about the parent element.
 /// This allows for better styling and layout decisions based on the parent context.
 ///
@@ -61,6 +116,7 @@ fn process_dom_children_with_context<'window>(
     parent_element: Option<&ConcurrentElement>,
 ) -> iced::Element<'window, Message> {
     let mut elements = Vec::new();
+    let mut inline_buffer = Vec::new();
 
     for node_arc in nodes {
         let node = node_arc.lock().unwrap().clone();
@@ -72,27 +128,63 @@ fn process_dom_children_with_context<'window>(
                     continue;
                 }
 
+                let has_text_nodes = element.children.iter().any(|child| {
+                    if let ConcurrentDomNode::Text(_) = child.lock().unwrap().clone() {
+                        true
+                    } else {
+                        false
+                    }
+                });
+
+                let has_inline_elements = element.children.iter().any(|child| {
+                    if let ConcurrentDomNode::Element(inner_element) = child.lock().unwrap().clone()
+                    {
+                        get_element_type(&inner_element.tag_name) == ElementType::Inline
+                    } else {
+                        false
+                    }
+                });
+
+                let is_mixed_content = has_text_nodes && has_inline_elements;
+
                 match get_element_type(&element.tag_name) {
                     ElementType::Block => {
-                        let is_preformatted = &element.tag_name == "pre";
-
-                        let children_content = if is_preformatted {
-                            process_preformatted_content(&element.children, &element)
-                        } else {
-                            process_dom_children_with_context(&element.children, Some(&element))
-                        };
-
-                        let margin = get_margin_for_element(&element.tag_name);
-                        if margin > 0 && !elements.is_empty() {
-                            elements.push(text("").size(margin / 2).into());
+                        // Clear any pending inline elements before processing block
+                        if !inline_buffer.is_empty() {
+                            compose_inline_elements(&inline_buffer, parent_element, None).map(
+                                |el| {
+                                    elements.push(el);
+                                },
+                            );
+                            inline_buffer.clear();
                         }
 
-                        elements.push(children_content);
+                        // If this block element has mixed content, handle it specially
+                        if is_mixed_content {
+                            let inline_content = process_mixed_content(&element.children, &element);
+
+                            let margin = get_margin_for_element(&element.tag_name);
+                            if margin > 0 && !elements.is_empty() {
+                                elements.push(text("").size(margin / 2).into());
+                            }
+
+                            elements.push(inline_content);
+                        } else {
+                            let children_content = process_dom_children_with_context(
+                                &element.children,
+                                Some(&element),
+                            );
+
+                            let margin = get_margin_for_element(&element.tag_name);
+                            if margin > 0 && !elements.is_empty() {
+                                elements.push(text("").size(margin / 2).into());
+                            }
+
+                            elements.push(row![children_content].into());
+                        }
                     }
                     ElementType::Inline => {
-                        let inline_content =
-                            process_dom_children_with_context(&element.children, Some(&element));
-                        elements.push(inline_content);
+                        inline_buffer.push(element.clone());
                     }
                     ElementType::ListItem => {
                         let bullet = text(match element.tag_name.as_str() {
@@ -119,67 +211,28 @@ fn process_dom_children_with_context<'window>(
                 }
             }
             ConcurrentDomNode::Text(content) => {
-                if !content.trim().is_empty() {
-                    let styled_text = if let Some(parent) = parent_element {
-                        get_text_style_for_element(&parent.tag_name, content.clone())
-                    } else {
-                        text(content).color(Color::BLACK)
-                    };
-                    elements.push(styled_text.into());
-                }
-            }
-            _ => {
-                elements.push(
-                    text("Unsupported node type")
-                        .color(Color::from_rgb(1.0, 0.5, 0.0))
-                        .into(),
-                );
-            }
-        }
-    }
+                let styled_text = if let Some(parent) = parent_element {
+                    get_text_style_for_element(&parent.tag_name, content.clone())
+                } else {
+                    text(content).color(Color::BLACK)
+                };
 
-    if elements.is_empty() {
-        text("").into()
-    } else if elements.len() == 1 {
-        elements.into_iter().next().unwrap()
-    } else {
-        column(elements).into()
-    }
-}
-
-/// Handles preformatted content (like <pre> tags) which should preserve whitespace and line breaks
-fn process_preformatted_content<'window>(
-    nodes: &[Arc<Mutex<ConcurrentDomNode>>],
-    parent_element: &ConcurrentElement,
-) -> iced::Element<'window, Message> {
-    let mut elements = Vec::new();
-
-    for node_arc in nodes {
-        let node = node_arc.lock().unwrap().clone();
-
-        match node {
-            ConcurrentDomNode::Text(content) => {
-                for line in content.split('\n') {
-                    if !line.is_empty() {
-                        let styled_text =
-                            get_text_style_for_element(&parent_element.tag_name, line.to_string());
-                        elements.push(styled_text.into());
-                    } else {
-                        elements.push(text("").size(8).into());
-                    }
-                }
-            }
-            ConcurrentDomNode::Element(element) => {
-                let nested_content =
-                    process_dom_children_with_context(&element.children, Some(&element));
-                elements.push(nested_content);
+                elements.push(styled_text.into());
             }
             _ => {}
         }
     }
 
+    compose_inline_elements(&inline_buffer, parent_element, None)
+        .into_iter()
+        .for_each(|el| {
+            elements.push(el);
+        });
+
     if elements.is_empty() {
         text("").into()
+    } else if elements.len() == 1 {
+        elements.into_iter().next().unwrap()
     } else {
         column(elements).into()
     }

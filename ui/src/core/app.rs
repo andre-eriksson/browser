@@ -47,7 +47,7 @@ impl Application {
 
         let tasks = vec![browser_task.map(|_| Message::None)];
 
-        let first_tab = BrowserTab::default();
+        let first_tab = BrowserTab::new(0, "http://localhost:8000/test.html".to_string());
 
         let app = Application {
             id: main_window_id,
@@ -99,7 +99,10 @@ impl Application {
 
             // === Tab Management ===
             Message::OpenNewTab => {
-                let new_tab = BrowserTab::default();
+                let new_tab = BrowserTab::new(
+                    self.next_tab_id,
+                    "http://localhost:8000/test.html".to_string(),
+                );
                 self.tabs.push(new_tab);
                 self.current_tab_id = self.tabs.len() - 1;
                 info!({ EVENT } = EVENT_NEW_TAB, tab_id = self.next_tab_id);
@@ -108,7 +111,6 @@ impl Application {
             Message::ChangeTab(index) => {
                 if index < self.tabs.len() {
                     self.current_tab_id = index;
-                    println!("Switched to tab: {}", index);
                 }
             }
             Message::CloseTab(index) => {
@@ -172,11 +174,6 @@ impl Application {
                         let mut html_content =
                             self.tabs[self.current_tab_id].html_content.lock().unwrap();
                         *html_content = dom_tree.convert().lock().unwrap().clone();
-
-                        info!(
-                            "Successfully parsed HTML content for tab {}",
-                            self.current_tab_id
-                        );
 
                         return Task::done(Message::RefreshContent);
                     }
