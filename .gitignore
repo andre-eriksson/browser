@@ -1,2 +1,5 @@
 target/
 profile.json.gz
+
+# Testing
+resources/test
