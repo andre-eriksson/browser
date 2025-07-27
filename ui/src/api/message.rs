@@ -1,4 +1,5 @@
 use iced::window;
+use network::web::client::WebClient;
 
 use crate::api::window::WindowType;
 
@@ -18,7 +19,7 @@ pub enum Message {
 
     // === Navigation ===
     NavigateTo(String),
-    NavigateSuccess(String),
+    NavigateSuccess(String, WebClient),
     NavigateError(String),
 
     // === UI Updates ===
