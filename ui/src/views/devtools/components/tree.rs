@@ -2,11 +2,11 @@ use std::sync::{Arc, Mutex};
 
 use api::dom::{ConcurrentDomNode, ConcurrentElement};
 use iced::{
-    Background, Color, Font, Length,
+    Background, Color, Length,
     widget::{Column, column, container, row, text},
 };
 
-use crate::{api::message::Message, core::app::Application};
+use crate::{api::message::Message, core::app::Application, util::font::MONOSPACE};
 
 /// Renders the content of the browser window, displaying HTML content from the current tab.
 pub fn render_dom_tree(app: &Application) -> Result<container::Container<'_, Message>, String> {
@@ -124,17 +124,17 @@ fn process_dom_children_with_context<'window>(
                 let opening_tag = if element.attributes.is_empty() {
                     row![
                         text(format!("{}<", spacing))
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.5, 0.5, 0.5))
                             }),
                         text(element.clone().tag_name)
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.0, 0.4, 0.8))
                             }),
                         text(if is_void_element { " />" } else { ">" })
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.5, 0.5, 0.5))
                             }),
@@ -148,22 +148,22 @@ fn process_dom_children_with_context<'window>(
                         .collect();
                     row![
                         text(format!("{}<", spacing))
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.5, 0.5, 0.5))
                             }),
                         text(element.clone().tag_name)
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.0, 0.4, 0.8))
                             }),
                         text(format!(" {}", attrs.join(" ")))
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.6, 0.3, 0.0))
                             }),
                         text(if is_void_element { " />" } else { ">" })
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.5, 0.5, 0.5))
                             }),
@@ -182,16 +182,16 @@ fn process_dom_children_with_context<'window>(
                     // Create closing tag with highlighting
                     let closing_tag = row![
                         text(format!("{}</", spacing))
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.5, 0.5, 0.5))
                             }),
                         text(element.clone().tag_name)
-                            .font(Font::MONOSPACE)
+                            .font(MONOSPACE)
                             .style(|_theme| text::Style {
                                 color: Some(Color::from_rgb(0.0, 0.4, 0.8))
                             }),
-                        text(">").font(Font::MONOSPACE).style(|_theme| text::Style {
+                        text(">").font(MONOSPACE).style(|_theme| text::Style {
                             color: Some(Color::from_rgb(0.5, 0.5, 0.5))
                         }),
                     ]
@@ -202,7 +202,7 @@ fn process_dom_children_with_context<'window>(
             }
             ConcurrentDomNode::Text(content) => elements.push(
                 text(format!("{}{}", spacing, content))
-                    .font(Font::MONOSPACE)
+                    .font(MONOSPACE)
                     .into(),
             ),
             _ => {}

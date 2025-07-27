@@ -1,0 +1,4 @@
+# Layered based image format files
+*.xcf
+*.psd
+*.pdn

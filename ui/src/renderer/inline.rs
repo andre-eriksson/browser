@@ -1,11 +1,10 @@
-use iced::{
-    Font,
-    widget::{column, row, text},
-};
+use iced::widget::{column, row, text};
 
 use api::dom::{ConcurrentDomNode, ConcurrentElement};
 
-use crate::{api::message::Message, renderer::util::get_text_style_for_element};
+use crate::{
+    api::message::Message, renderer::util::get_text_style_for_element, util::font::MONOSPACE,
+};
 
 /// Composes inline elements into a single Iced Element.
 ///
@@ -71,7 +70,7 @@ fn render_element<'html>(
             ConcurrentDomNode::Text(content) => match element.tag_name.as_str() {
                 "code" => {
                     let formatted_content = content.replace("\r\n", "").replace('\n', "");
-                    elements.push(text(formatted_content).font(Font::MONOSPACE).into());
+                    elements.push(text(formatted_content).font(MONOSPACE).into());
                 }
                 _ => {
                     let styled_text = get_text_style_for_element(&element.tag_name, content);
