@@ -9,6 +9,7 @@ use api::{
 use html_parser::parser::streaming::HtmlStreamParser;
 use network::web::client::WebClient;
 
+use crate::util::path::resolve_path;
 use crate::{
     api::{
         message::Message,
@@ -134,26 +135,33 @@ impl Application {
 
             // === Navigation ===
             Message::NavigateTo(url) => {
+                let resolved_url =
+                    resolve_path(&self.web_client.origin.ascii_serialization(), &url);
+                self.tabs[self.current_tab_id].temp_url = resolved_url.clone();
                 let mut client_clone = self.web_client.clone();
+                
                 return Task::perform(
                     async move {
-                        let res = client_clone.setup_client_from_url(url.as_str()).await;
+                        let res = client_clone
+                            .setup_client_from_url(resolved_url.as_str())
+                            .await;
 
                         match res {
                             Ok(response) => match response.text().await {
-                                Ok(html) => Ok(html),
+                                Ok(html) => Ok((html, client_clone)),
                                 Err(err) => Err(format!("Failed to read response body: {}", err)),
                             },
                             Err(_) => Err(format!("{} took too long to response", url)),
                         }
                     },
                     |result| match result {
-                        Ok(html) => Message::NavigateSuccess(html),
+                        Ok((html, client)) => Message::NavigateSuccess(html, client),
                         Err(err) => Message::NavigateError(err),
                     },
                 );
             }
-            Message::NavigateSuccess(html) => {
+            Message::NavigateSuccess(html, updated_web_client) => {
+                self.web_client = updated_web_client;
                 let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
                 let parsing_result = parser.parse(Some(TabCollector {

@@ -1,4 +1,7 @@
-use iced::widget::{column, row, text};
+use iced::{
+    Background, Color, Padding,
+    widget::{button, column, row, text},
+};
 
 use api::dom::{ConcurrentDomNode, ConcurrentElement};
 
@@ -71,6 +74,17 @@ fn render_element<'html>(
                 "code" => {
                     let formatted_content = content.replace("\r\n", "").replace('\n', "");
                     elements.push(text(formatted_content).font(MONOSPACE).into());
+                }
+                "a" => {
+                    let url = element.attributes.get("href").cloned().unwrap_or_default();
+                    let link_text = button(text(content).color(Color::from_rgb(0.0, 0.0, 1.0)))
+                        .style(|_, _| button::Style {
+                            background: Some(Background::Color(Color::from_rgb(1.0, 1.0, 1.0))),
+                            ..Default::default()
+                        })
+                        .padding(Padding::ZERO)
+                        .on_press(Message::NavigateTo(url));
+                    elements.push(link_text.into());
                 }
                 _ => {
                     let styled_text = get_text_style_for_element(&element.tag_name, content);
