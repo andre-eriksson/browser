@@ -2,4 +2,4 @@ target/
 profile.json.gz
 
 # Testing
-resources/test
+test-resources/

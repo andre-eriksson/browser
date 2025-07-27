@@ -4,6 +4,8 @@ use iced::{
     widget::{Text, text},
 };
 
+use crate::util::font::MONOSPACE;
+
 /// Get styling for different HTML elements
 pub fn get_text_style_for_element(tag_name: &str, content: String) -> Text<'static, iced::Theme> {
     let base_text = text(content).color(Color::BLACK);
@@ -23,9 +25,9 @@ pub fn get_text_style_for_element(tag_name: &str, content: String) -> Text<'stat
             style: Style::Italic,
             ..Default::default()
         }),
-        "code" => base_text.font(Font::MONOSPACE),
+        "code" => base_text.font(MONOSPACE),
         "small" => base_text.size(12),
-        "pre" => base_text.font(Font::MONOSPACE),
+        "pre" => base_text.font(MONOSPACE),
         _ => base_text,
     }
 }

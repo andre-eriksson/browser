@@ -1,3 +1,4 @@
+use assets::{ASSETS, constants::WINDOW_ICON};
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
     widget::{
@@ -14,6 +15,7 @@ use crate::{
         window::{ApplicationWindow, WindowType},
     },
     core::app::Application,
+    util::image::load_icon,
     views::browser::components::{content::render_content, header::render_header},
 };
 
@@ -72,9 +74,14 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for BrowserWindow 
     }
 
     fn settings(&self) -> iced::window::Settings {
+        let icon = ASSETS.lock().unwrap().get(WINDOW_ICON);
+
+        let browser_icon = load_icon(icon);
+
         Settings {
             size: Size::new(1920.0, 1080.0),
             position: Position::Centered,
+            icon: Some(browser_icon),
             ..Default::default()
         }
     }

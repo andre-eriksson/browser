@@ -1,3 +1,4 @@
+use assets::{ASSETS, constants::DEVTOOLS_ICON};
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
     widget::{
@@ -11,6 +12,7 @@ use iced::{
 use crate::{
     api::{message::Message, window::ApplicationWindow},
     core::app::Application,
+    util::image::load_icon,
     views::devtools::components::tree::render_dom_tree,
 };
 
@@ -56,9 +58,14 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for DevtoolsWindow
     }
 
     fn settings(&self) -> iced::window::Settings {
+        let icon = ASSETS.lock().unwrap().get(DEVTOOLS_ICON);
+
+        let devtools_icon = load_icon(icon);
+
         Settings {
             size: Size::new(800.0, 800.0),
             position: Position::Centered,
+            icon: Some(devtools_icon),
             ..Default::default()
         }
     }
