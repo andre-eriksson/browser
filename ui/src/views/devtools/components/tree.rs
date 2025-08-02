@@ -1,10 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use api::dom::{ConcurrentDomNode, ConcurrentElement};
 use iced::{
     Background, Color, Length,
     widget::{Column, column, container, row, text},
 };
+
+use html_parser::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::{api::message::Message, core::app::Application, util::font::MONOSPACE};
 

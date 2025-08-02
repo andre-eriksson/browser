@@ -14,8 +14,7 @@ pub fn handle_before_attribute_name_state(tokenizer: &mut HtmlTokenizer, ch: cha
         '/' => {
             tokenizer.state = ParserState::SelfClosingTagStart;
         }
-        ch if ch.is_whitespace() => {
-        }
+        ch if ch.is_whitespace() => {}
         ch if ch.is_alphabetic() => {
             tokenizer.current_attribute_name.clear();
             tokenizer.current_attribute_name.push(ch);
@@ -74,8 +73,7 @@ pub fn handle_after_attribute_name_state(tokenizer: &mut HtmlTokenizer, ch: char
         '=' => {
             tokenizer.state = ParserState::BeforeAttributeValue;
         }
-        ch if ch.is_whitespace() => {
-        }
+        ch if ch.is_whitespace() => {}
         ch if ch.is_alphabetic() => {
             if let Some(token) = tokenizer.current_token.as_mut() {
                 token.attributes.insert(
@@ -102,8 +100,7 @@ pub fn handle_before_attribute_value_state(tokenizer: &mut HtmlTokenizer, ch: ch
         '\'' => {
             tokenizer.state = ParserState::AttributeValueSingleQuoted;
         }
-        ch if ch.is_whitespace() => {
-        }
+        ch if ch.is_whitespace() => {}
         _ => {
             tokenizer.current_attribute_value.clear();
             tokenizer.current_attribute_value.push(ch);

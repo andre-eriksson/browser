@@ -5,7 +5,7 @@ use iced::{
     widget::{Column, container},
 };
 
-use api::dom::ConcurrentDomNode;
+use html_parser::dom::ConcurrentDomNode;
 
 use crate::{api::message::Message, core::app::Application, renderer::html::display_html};
 

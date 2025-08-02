@@ -2,10 +2,8 @@ use iced::{Renderer, Subscription, Task, Theme, window};
 use tracing::error;
 use tracing::info;
 
-use api::{
-    dom::ConvertDom,
-    logging::{EVENT, EVENT_NEW_TAB, EVENT_TAB_CLOSED},
-};
+use api::logging::{EVENT, EVENT_NEW_TAB, EVENT_TAB_CLOSED};
+use html_parser::dom::ConvertDom;
 use html_parser::parser::streaming::HtmlStreamParser;
 use network::web::client::WebClient;
 
@@ -139,7 +137,7 @@ impl Application {
                     resolve_path(&self.web_client.origin.ascii_serialization(), &url);
                 self.tabs[self.current_tab_id].temp_url = resolved_url.clone();
                 let mut client_clone = self.web_client.clone();
-                
+
                 return Task::perform(
                     async move {
                         let res = client_clone
@@ -155,13 +153,13 @@ impl Application {
                         }
                     },
                     |result| match result {
-                        Ok((html, client)) => Message::NavigateSuccess(html, client),
+                        Ok((html, client)) => Message::NavigateSuccess(html, Box::new(client)),
                         Err(err) => Message::NavigateError(err),
                     },
                 );
             }
             Message::NavigateSuccess(html, updated_web_client) => {
-                self.web_client = updated_web_client;
+                self.web_client = *updated_web_client;
                 let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
                 let parsing_result = parser.parse(Some(TabCollector {

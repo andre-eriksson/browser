@@ -3,7 +3,7 @@ use iced::{
     widget::{button, column, row, text},
 };
 
-use api::dom::{ConcurrentDomNode, ConcurrentElement};
+use html_parser::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::{
     api::message::Message, renderer::util::get_text_style_for_element, util::font::MONOSPACE,
@@ -19,11 +19,11 @@ use crate::{
 /// # Returns
 /// * `Option<iced::Element<'html, Message>>` - An Iced Element containing the composed inline elements, or None if no elements are provided.
 pub fn compose_inline_elements<'html>(
-    inline_buffer: &Vec<ConcurrentElement>,
+    inline_buffer: &[ConcurrentElement],
     parent_element: Option<&ConcurrentElement>,
     additional_element: Option<&ConcurrentElement>,
 ) -> Option<iced::Element<'html, Message>> {
-    let mut all_elements = inline_buffer.clone();
+    let mut all_elements = inline_buffer.to_owned();
     if let Some(additional) = additional_element {
         all_elements.push(additional.clone());
     }
@@ -69,8 +69,8 @@ fn render_element<'html>(
 ) -> Vec<iced::Element<'html, Message>> {
     let mut elements = Vec::new();
     for child in &element.children {
-        match child.lock().unwrap().clone() {
-            ConcurrentDomNode::Text(content) => match element.tag_name.as_str() {
+        if let ConcurrentDomNode::Text(content) = child.lock().unwrap().clone() {
+            match element.tag_name.as_str() {
                 "code" => {
                     let formatted_content = content.replace("\r\n", "").replace('\n', "");
                     elements.push(text(formatted_content).font(MONOSPACE).into());
@@ -90,8 +90,7 @@ fn render_element<'html>(
                     let styled_text = get_text_style_for_element(&element.tag_name, content);
                     elements.push(styled_text.into());
                 }
-            },
-            _ => {}
+            }
         }
     }
 
