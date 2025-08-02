@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use api::{
+use html_parser::{
     collector::{Collector, TagInfo},
     dom::{ArcDomNode, ConvertDom, DomNode},
 };

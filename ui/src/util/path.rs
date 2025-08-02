@@ -54,12 +54,10 @@ pub fn resolve_path(base_url: &str, path: &str) -> String {
 
     let mut result_path = if base_path.is_empty() || !base_path.contains('/') {
         String::new()
+    } else if let Some(last_slash) = base_path.rfind('/') {
+        base_path[..last_slash + 1].to_string()
     } else {
-        if let Some(last_slash) = base_path.rfind('/') {
-            base_path[..last_slash + 1].to_string()
-        } else {
-            String::new()
-        }
+        String::new()
     };
 
     if !result_path.ends_with('/') && !path.is_empty() {

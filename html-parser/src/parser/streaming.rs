@@ -2,13 +2,12 @@ use std::io::BufRead;
 
 use tracing::info;
 
-use api::{
-    collector::Collector,
-    dom::RefDomNode,
-    logging::{DURATION, EVENT, EVENT_HTML_PARSED},
-};
+use api::logging::{DURATION, EVENT, EVENT_HTML_PARSED};
 
-use crate::{tokens::tokenizer::HtmlTokenizer, tree::builder::DomTreeBuilder};
+use crate::{
+    collector::Collector, dom::RefDomNode, tokens::tokenizer::HtmlTokenizer,
+    tree::builder::DomTreeBuilder,
+};
 
 /// Represents the result of parsing an HTML document.
 ///

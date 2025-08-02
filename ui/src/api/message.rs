@@ -19,7 +19,7 @@ pub enum Message {
 
     // === Navigation ===
     NavigateTo(String),
-    NavigateSuccess(String, WebClient),
+    NavigateSuccess(String, Box<WebClient>),
     NavigateError(String),
 
     // === UI Updates ===

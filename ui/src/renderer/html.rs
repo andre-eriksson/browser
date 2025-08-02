@@ -5,7 +5,7 @@ use iced::{
     widget::{Column, column, horizontal_rule, row, text},
 };
 
-use api::dom::{ConcurrentDomNode, ConcurrentElement};
+use html_parser::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::{
     api::message::Message,
@@ -71,13 +71,10 @@ fn process_mixed_content<'window>(
                 if get_element_type(&element.tag_name) == ElementType::Inline {
                     for child_arc in &element.children {
                         let child = child_arc.lock().unwrap().clone();
-                        match child {
-                            ConcurrentDomNode::Text(content) => {
-                                let styled_text =
-                                    get_text_style_for_element(&element.tag_name, content);
-                                inline_elements.push(styled_text.into());
-                            }
-                            _ => {}
+                        if let ConcurrentDomNode::Text(content) = child {
+                            let styled_text =
+                                get_text_style_for_element(&element.tag_name, content);
+                            inline_elements.push(styled_text.into());
                         }
                     }
                 } else {
@@ -129,11 +126,7 @@ fn process_dom_children_with_context<'window>(
                 }
 
                 let has_text_nodes = element.children.iter().any(|child| {
-                    if let ConcurrentDomNode::Text(_) = child.lock().unwrap().clone() {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(child.lock().unwrap().clone(), ConcurrentDomNode::Text(_))
                 });
 
                 let has_inline_elements = element.children.iter().any(|child| {
@@ -151,11 +144,11 @@ fn process_dom_children_with_context<'window>(
                     ElementType::Block => {
                         // Clear any pending inline elements before processing block
                         if !inline_buffer.is_empty() {
-                            compose_inline_elements(&inline_buffer, parent_element, None).map(
-                                |el| {
-                                    elements.push(el);
-                                },
-                            );
+                            if let Some(el) =
+                                compose_inline_elements(&inline_buffer, parent_element, None)
+                            {
+                                elements.push(el);
+                            }
                             inline_buffer.clear();
                         }
 

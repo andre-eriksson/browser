@@ -1,11 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use api::{
+use crate::{
     collector::{Collector, TagInfo},
     dom::{DomNode, Element, RefDomNode},
-};
-
-use crate::{
     tokens::state::{Token, TokenKind},
     tree::{
         decode::Decoder,
