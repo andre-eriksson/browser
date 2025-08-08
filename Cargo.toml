@@ -5,3 +5,4 @@ members = ["html-parser", "engine", "network", "api", "ui", "assets"]
 [workspace.dependencies]
 tracing = "0.1"
 tokio = { version = "1.44", features = ["full"] }
+criterion = "0.7"
