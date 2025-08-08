@@ -2,21 +2,19 @@ use assets::{ASSETS, constants::WINDOW_ICON};
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
     widget::{
-        button, column, container,
+        column, container,
         scrollable::{self, Direction, Scrollbar},
-        text,
     },
     window::{Position, Settings},
 };
 
 use crate::{
-    api::{
-        message::Message,
-        window::{ApplicationWindow, WindowType},
-    },
+    api::{message::Message, window::ApplicationWindow},
     core::app::Application,
     util::image::load_icon,
-    views::browser::components::{content::render_content, header::render_header},
+    views::browser::components::{
+        content::render_content, footer::render_footer, header::render_header,
+    },
 };
 
 /// BrowserWindow is the "main" application window for the browser UI.
@@ -29,35 +27,16 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for BrowserWindow 
         app: &'window Application,
     ) -> iced::Element<'window, Message, Theme, Renderer> {
         let header = render_header(app);
-        let content = match render_content(app) {
-            Ok(content) => content,
-            Err(e) => container(text(format!("Error rendering content: {}", e)))
-                .width(Length::Fill)
-                .padding(10.0)
-                .style(|_| container::Style {
-                    background: Some(Background::Color(Color::from_rgb(0.95, 0.95, 0.95))),
-                    text_color: Some(Color::BLACK),
-                    ..Default::default()
-                }),
-        };
+        let content = render_content(app);
+        let footer = render_footer();
 
-        let debug_footer = container(
-            button("Open DevTools")
-                .on_press(Message::NewWindow(WindowType::Devtools))
-                .padding(10),
-        )
-        .style(|_| container::background(Background::Color(Color::WHITE)))
-        .padding(10.0)
-        .width(Length::Fill)
-        .height(Length::Shrink);
-
-        let ui = container(
+        container(
             column![
                 header,
                 scrollable::Scrollable::new(content)
                     .direction(Direction::Vertical(Scrollbar::new()))
                     .height(Length::Fill),
-                debug_footer
+                footer,
             ]
             .spacing(10.0),
         )
@@ -68,9 +47,8 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for BrowserWindow 
             background: Some(Background::Color(Color::WHITE)),
             text_color: Some(Color::BLACK),
             ..Default::default()
-        });
-
-        ui.into()
+        })
+        .into()
     }
 
     fn settings(&self) -> iced::window::Settings {

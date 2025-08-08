@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use html_parser::{
     collector::{Collector, TagInfo},
-    dom::{ArcDomNode, ConvertDom, DomNode},
+    dom::{DocumentNode, DocumentRoot, MultiThreaded},
 };
 
 /// A collector that gathers metadata from HTML tags in a browser tab.
@@ -12,12 +12,12 @@ use html_parser::{
 /// * `url` - The URL of the page being collected.
 /// * `title` - The title of the page, if available.
 /// * `external_resources` - A vector of tuples containing DOM nodes and their associated resource URLs (e.g., scripts, stylesheets).
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct TabCollector {
     pub in_head: bool,
     pub url: String,
     pub title: Option<String>,
-    pub favicons: Vec<(ArcDomNode, String)>,
+    pub favicons: Vec<(DocumentNode<MultiThreaded>, String)>,
 }
 
 impl Collector for TabCollector {
@@ -53,13 +53,14 @@ impl Collector for TabCollector {
 
                 if let Some(href) = tag.attributes.get("href") {
                     let href = href.to_string();
-                    self.favicons.push((tag.dom_node.clone().convert(), href));
+                    self.favicons
+                        .push((DocumentNode::from(tag.dom_node.clone()), href));
                 }
             }
         }
 
         if tag.tag_name == "title" {
-            if let DomNode::Text(ref text) = *tag.dom_node.borrow() {
+            if let DocumentNode::Text(text) = tag.dom_node {
                 self.title = Some(text.clone());
             }
         }
@@ -89,7 +90,7 @@ pub struct BrowserTab {
     pub id: usize,
     pub temp_url: String,
     pub url: String,
-    pub html_content: ArcDomNode,
+    pub html_content: DocumentRoot<MultiThreaded>,
     pub metadata: TabMetadata,
 }
 
@@ -104,7 +105,7 @@ impl BrowserTab {
             id,
             temp_url: url.clone(),
             url,
-            html_content: ArcDomNode::default(),
+            html_content: DocumentRoot::default(),
             metadata: Arc::new(Mutex::new(TabCollector::default())),
         }
     }

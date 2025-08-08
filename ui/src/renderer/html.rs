@@ -1,11 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
+use html_parser::dom::{DocumentNode, Element, MultiThreaded};
 use iced::{
     Color,
     widget::{Column, column, horizontal_rule, row, text},
 };
-
-use html_parser::dom::{ConcurrentDomNode, ConcurrentElement};
 
 use crate::{
     api::message::Message,
@@ -26,7 +25,7 @@ use crate::{
 ///
 /// # Returns
 /// * `Column<'window, Message>` - An Iced column widget containing the rendered HTML content
-pub fn display_html<'window>(element: ConcurrentElement) -> Column<'window, Message> {
+pub fn display_html<'window>(element: &Element<MultiThreaded>) -> Column<'window, Message> {
     if element.tag_name != "body" {
         return column![text("Only 'body' tag is supported for rendering.").color(Color::BLACK)];
     }
@@ -43,7 +42,7 @@ pub fn display_html<'window>(element: ConcurrentElement) -> Column<'window, Mess
 /// # Returns
 /// * `iced::Element<'window, Message>` - An Iced element representing the rendered nodes
 fn process_dom_children<'window>(
-    nodes: &[Arc<Mutex<ConcurrentDomNode>>],
+    nodes: &Vec<Arc<RwLock<DocumentNode<MultiThreaded>>>>,
 ) -> iced::Element<'window, Message> {
     process_dom_children_with_context(nodes, None)
 }
@@ -58,20 +57,20 @@ fn process_dom_children<'window>(
 /// # Returns
 /// * `iced::Element<'window, Message>` - An Iced element representing the mixed content as a row
 fn process_mixed_content<'window>(
-    nodes: &[Arc<Mutex<ConcurrentDomNode>>],
-    parent_element: &ConcurrentElement,
+    nodes: &Vec<Arc<RwLock<DocumentNode<MultiThreaded>>>>,
+    parent_element: &Element<MultiThreaded>,
 ) -> iced::Element<'window, Message> {
     let mut inline_elements = Vec::new();
 
     for node_arc in nodes {
-        let node = node_arc.lock().unwrap().clone();
+        let node = node_arc.read().unwrap().clone();
 
         match node {
-            ConcurrentDomNode::Element(element) => {
+            DocumentNode::Element(element) => {
                 if get_element_type(&element.tag_name) == ElementType::Inline {
                     for child_arc in &element.children {
-                        let child = child_arc.lock().unwrap().clone();
-                        if let ConcurrentDomNode::Text(content) = child {
+                        let child = child_arc.read().unwrap().clone();
+                        if let DocumentNode::Text(content) = child {
                             let styled_text =
                                 get_text_style_for_element(&element.tag_name, content);
                             inline_elements.push(styled_text.into());
@@ -84,11 +83,10 @@ fn process_mixed_content<'window>(
                     inline_elements.push(children_content);
                 }
             }
-            ConcurrentDomNode::Text(content) => {
+            DocumentNode::Text(content) => {
                 let styled_text = get_text_style_for_element(&parent_element.tag_name, content);
                 inline_elements.push(styled_text.into());
             }
-            _ => {}
         }
     }
 
@@ -109,36 +107,36 @@ fn process_mixed_content<'window>(
 /// # Returns
 /// * `iced::Element<'window, Message>` - An Iced element representing the rendered nodes
 fn process_dom_children_with_context<'window>(
-    nodes: &[Arc<Mutex<ConcurrentDomNode>>],
-    parent_element: Option<&ConcurrentElement>,
+    nodes: &Vec<Arc<RwLock<DocumentNode<MultiThreaded>>>>,
+    parent_element: Option<&Element<MultiThreaded>>,
 ) -> iced::Element<'window, Message> {
     let mut elements = Vec::new();
     let mut inline_buffer = Vec::new();
 
     for node_arc in nodes {
-        let node = node_arc.lock().unwrap().clone();
+        let node = node_arc.read().unwrap().clone();
 
         match node {
-            ConcurrentDomNode::Element(element) => {
+            DocumentNode::Element(element) => {
                 if &element.tag_name == "hr" {
                     elements.push(horizontal_rule(1).into());
                     continue;
                 }
 
-                let has_text_nodes = element.children.iter().any(|child| {
-                    matches!(child.lock().unwrap().clone(), ConcurrentDomNode::Text(_))
-                });
+                let has_text_nodes = element
+                    .children
+                    .iter()
+                    .any(|child| matches!(child.read().unwrap().clone(), DocumentNode::Text(_)));
 
                 let has_inline_elements = element.children.iter().any(|child| {
-                    if let ConcurrentDomNode::Element(inner_element) = child.lock().unwrap().clone()
-                    {
+                    if let DocumentNode::Element(inner_element) = child.read().unwrap().clone() {
                         get_element_type(&inner_element.tag_name) == ElementType::Inline
                     } else {
                         false
                     }
                 });
 
-                let is_mixed_content = has_text_nodes && has_inline_elements;
+                let has_mixed_content = has_text_nodes && has_inline_elements;
 
                 match get_element_type(&element.tag_name) {
                     ElementType::Block => {
@@ -152,8 +150,7 @@ fn process_dom_children_with_context<'window>(
                             inline_buffer.clear();
                         }
 
-                        // If this block element has mixed content, handle it specially
-                        if is_mixed_content {
+                        if has_mixed_content {
                             let inline_content = process_mixed_content(&element.children, &element);
 
                             let margin = get_margin_for_element(&element.tag_name);
@@ -177,7 +174,9 @@ fn process_dom_children_with_context<'window>(
                         }
                     }
                     ElementType::Inline => {
-                        inline_buffer.push(element.clone());
+                        inline_buffer.push(Arc::new(RwLock::new(DocumentNode::Element(
+                            element.clone(),
+                        ))));
                     }
                     ElementType::ListItem => {
                         let bullet = text(match element.tag_name.as_str() {
@@ -203,7 +202,7 @@ fn process_dom_children_with_context<'window>(
                     }
                 }
             }
-            ConcurrentDomNode::Text(content) => {
+            DocumentNode::Text(content) => {
                 let styled_text = if let Some(parent) = parent_element {
                     get_text_style_for_element(&parent.tag_name, content.clone())
                 } else {
@@ -212,7 +211,6 @@ fn process_dom_children_with_context<'window>(
 
                 elements.push(styled_text.into());
             }
-            _ => {}
         }
     }
 

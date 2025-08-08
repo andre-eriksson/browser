@@ -1,63 +1,57 @@
-use std::sync::{Arc, Mutex};
-
 use iced::{
     Background, Color, Length,
-    widget::{Column, container},
+    widget::{container, text},
 };
-
-use html_parser::dom::ConcurrentDomNode;
 
 use crate::{api::message::Message, core::app::Application, renderer::html::display_html};
 
 /// Renders the content of the browser window, displaying HTML content from the current tab.
 pub fn render_content<'window>(
     app: &'window Application,
-) -> Result<container::Container<'window, Message>, String> {
-    let html_content = if let Ok(html) = app.tabs[app.current_tab_id].html_content.lock() {
-        html.clone()
-    } else {
-        return Err("Failed to lock HTML content".to_string());
-    };
+) -> container::Container<'window, Message> {
+    let root = &app.tabs[app.current_tab_id].html_content;
 
-    match html_content {
-        ConcurrentDomNode::Document(children) => {
-            if children.is_empty() {
-                return Err("No HTML content loaded - document is empty.".to_string());
-            }
-
-            match display_child_elements(children) {
-                Some(content) => {
-                    let content: container::Container<'_, Message> = container(content)
-                        .style(|_theme| {
-                            container::background(Background::Color(Color::from_rgb(
-                                0.95, 0.95, 0.95,
-                            )))
-                        })
-                        .padding(10.0)
-                        .width(Length::Fill);
-                    Ok(content)
-                }
-                None => Err("No body element found in HTML document.".to_string()),
-            }
-        }
-        _ => Err("HTML content is not a document node.".to_string()),
+    if root.nodes.is_empty() {
+        return render_blank();
     }
-}
 
-fn display_child_elements<'window>(
-    children: Vec<Arc<Mutex<ConcurrentDomNode>>>,
-) -> Option<Column<'window, Message>> {
-    for child in children {
-        if let ConcurrentDomNode::Element(element) = child.lock().unwrap().clone() {
-            if element.tag_name == "body" {
-                return Some(display_html(element));
-            }
-
-            if let Some(result) = display_child_elements(element.children) {
-                return Some(result);
-            }
+    if let Some(body_node_guard) = root.index.first_element_by_tag("body") {
+        if let Some(body_element) = body_node_guard.as_element() {
+            return container(display_html(body_element))
+                .style(|_theme| {
+                    container::background(Background::Color(Color::from_rgb(0.95, 0.95, 0.95)))
+                })
+                .padding(10.0)
+                .width(Length::Fill);
         }
     }
 
-    None
+    // Fallback if no body element found
+    render_error()
 }
+
+/// Renders a blank page.
+fn render_blank<'window>() -> container::Container<'window, Message> {
+    container(text("About: Blank"))
+        .width(Length::Fill)
+        .padding(10.0)
+        .style(|_| container::Style {
+            background: Some(Background::Color(Color::from_rgb(0.90, 0.90, 0.90))),
+            text_color: Some(Color::BLACK),
+            ..Default::default()
+        })
+}
+
+/// Renders an error page.
+fn render_error<'window>() -> container::Container<'window, Message> {
+    container(text("No body tag found").color(Color::from_rgb(1.0, 0.0, 0.0)))
+        .width(Length::Fill)
+        .padding(10.0)
+        .style(|_| container::Style {
+            background: Some(Background::Color(Color::from_rgb(0.95, 0.95, 0.95))),
+            text_color: Some(Color::BLACK),
+            ..Default::default()
+        })
+}
+
+// TODO: Add more error/fallback pages depending on the type of issue (e.g. network errors, 404 errors)

@@ -1,178 +1,328 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
+    fmt::Debug,
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-// --- Multi Threaded  DOM Node ---
-// Should be used in multi-threaded contexts, e.g. tokio tasks
-
-/// Represents a multi-threaded DOM element.
+/// Represents a single-threaded context for DOM nodes.
 ///
-/// # Fields
-/// * `id` - A unique identifier for the element, useful for tracking and comparing elements.
-/// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
-/// * `attributes` - A map of attribute names and their values for the element.
-/// * `children` - A vector of child nodes, which can be other elements, text nodes, etc.
-#[derive(Debug, Clone, Default)]
-pub struct ConcurrentElement {
-    pub id: u32,
-    pub tag_name: String,
-    pub attributes: HashMap<String, String>,
-    pub children: Vec<ArcDomNode>,
+/// Will use `Rc<RefCell<T>>` for non-thread-safe access to nodes.
+#[derive(Debug, Clone)]
+pub struct SingleThreaded;
+
+/// Represents a multi-threaded context for DOM nodes.
+///
+/// Will use `Arc<RwLock<T>>` for thread-safe access to nodes.
+#[derive(Debug, Clone)]
+pub struct MultiThreaded;
+
+/// A trait that defines the context for how DOM nodes are managed.
+pub trait NodeContext {
+    /// The type of a single node in the DOM tree.
+    type Node<T: Clone>: Clone;
+
+    /// The type of children nodes in the DOM tree.
+    type Children<T: Clone>: Clone + IntoIterator<Item = Self::Node<T>>;
+
+    /// Should return a new node of type `T` wrapped in the appropriate context.
+    fn new_node<T: Clone>(node: &T) -> Self::Node<T>;
+
+    /// Should return an empty collection of children nodes.
+    fn empty_children<T: Clone>() -> Self::Children<T>;
 }
 
-/// Represents an Arc-wrapped, multi-threaded DOM node.
-/// This type is used to allow shared ownership of DOM nodes in a multi-threaded context.
-/// It is wrapped in a `Mutex` to allow safe concurrent access.
-pub type ArcDomNode = Arc<Mutex<ConcurrentDomNode>>;
+impl NodeContext for SingleThreaded {
+    type Node<T: Clone> = Rc<RefCell<T>>;
+    type Children<T: Clone> = Vec<Self::Node<T>>;
 
-/// Represents a multi-threaded DOM node.
-/// It can be a document, element, text node, comment, doctype declaration, or XML declaration.
+    fn new_node<T: Clone>(node: &T) -> Self::Node<T> {
+        Rc::new(RefCell::new(node.clone()))
+    }
+
+    fn empty_children<T: Clone>() -> Self::Children<T> {
+        Vec::new()
+    }
+}
+
+impl NodeContext for MultiThreaded {
+    type Node<T: Clone> = Arc<RwLock<T>>;
+    type Children<T: Clone> = Vec<Self::Node<T>>;
+
+    fn new_node<T: Clone>(node: &T) -> Self::Node<T> {
+        Arc::new(RwLock::new(node.clone()))
+    }
+
+    fn empty_children<T: Clone>() -> Self::Children<T> {
+        Vec::new()
+    }
+}
+
+/// Represents an HTML element in the DOM tree.
+///
+/// # Type Parameters
+/// * `Context` - The threading model used for the element, which can be either `SingleThreaded` or `MultiThreaded`.
+///
+/// # Fields
+/// * `id` - A unique identifier for the element.
+/// * `attributes` - A map of attributes associated with the element, where keys are attribute names and values are attribute values.
+/// * `tag_name` - The name of the HTML tag for the element (e.g., "div", "span").
+/// * `children` - The child nodes of the element, which are represented as a collection of nodes in the specified context.
+#[derive(Clone)]
+pub struct Element<Context: NodeContext + Clone> {
+    pub id: u16,
+    pub attributes: HashMap<String, String>,
+    pub tag_name: String,
+    pub children: Context::Children<DocumentNode<Context>>,
+}
+
+impl<Context: NodeContext + Clone> Default for Element<Context> {
+    fn default() -> Self {
+        Element {
+            id: 0,
+            attributes: HashMap::new(),
+            tag_name: String::new(),
+            children: Context::empty_children(),
+        }
+    }
+}
+
+impl<Context: NodeContext + Clone> PartialEq for Element<Context> {
+    /// Compares two elements for equality based on their unique identifier.
+    /// Does not compare other fields like tag name or attributes or children.
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+/// Represents a node in the DOM tree, which can be an element or text node.
+///
+/// # Type Parameters
+/// * `Context` - The threading model used for the node, which can be either `SingleThreaded` or `MultiThreaded`.
 ///
 /// # Variants
-/// * `Document(Vec<ArcDomNode>)` - Represents the root document node containing child nodes.
-/// * `Element(ConcurrentElement)` - Represents an HTML element with its attributes and children.
-/// * `Text(String)` - Represents a text node containing plain text.
-/// * `Comment(String)` - Represents a comment node containing comment text.
-/// * `Doctype(DoctypeDeclaration)` - Represents a doctype declaration, which defines the document type.
-/// * `XmlDeclaration(XmlDeclaration)` - Represents an XML declaration, which specifies the XML version
-#[derive(Debug, Clone)]
-pub enum ConcurrentDomNode {
-    Document(Vec<ArcDomNode>),
-    Element(ConcurrentElement),
+/// * `Element` - Represents an HTML element with a tag name, attributes, and children.
+/// * `Text` - Represents a text node containing text content.
+#[derive(Clone, PartialEq)]
+pub enum DocumentNode<Context: NodeContext + Clone> {
+    /// Represents different types of nodes in the DOM tree.
+    /// e.g. <html>, <body>, <div>, etc.
+    Element(Element<Context>),
+
+    /// Represents a text node containing text content.
+    /// e.g. "Hello, World!".
+    /// This is always a leaf node in the DOM tree.
+    ///
+    /// It does **NOT** have children.
     Text(String),
-    Comment(String),
-    Doctype(DoctypeDeclaration),
-    XmlDeclaration(XmlDeclaration),
 }
 
-impl Default for ConcurrentDomNode {
+impl<Context: NodeContext + Clone + Debug> DocumentNode<Context> {
+    pub fn as_element(&self) -> Option<&Element<Context>> {
+        if let DocumentNode::Element(element) = self {
+            Some(element)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_text(&self) -> Option<&String> {
+        if let DocumentNode::Text(text) = self {
+            Some(text)
+        } else {
+            None
+        }
+    }
+}
+
+impl From<DocumentNode<SingleThreaded>> for DocumentNode<MultiThreaded>
+where
+    DocumentNode<SingleThreaded>: Clone,
+{
+    /// Converts a single-threaded document node into a threaded-safe document node.
+    ///
+    /// Should be called before rendering, and after parsing.
+    fn from(node: DocumentNode<SingleThreaded>) -> Self {
+        match node {
+            DocumentNode::Element(element) => convert_element(element),
+            DocumentNode::Text(text) => DocumentNode::Text(text),
+        }
+    }
+}
+
+/// Converts a single-threaded element into a multi-threaded element.
+fn convert_element(element: Element<SingleThreaded>) -> DocumentNode<MultiThreaded> {
+    DocumentNode::Element(Element {
+        id: element.id,
+        tag_name: element.tag_name,
+        attributes: element.attributes,
+        children: element.children.into_iter().map(convert_node).collect(),
+    })
+}
+
+/// Converts a single-threaded node into a multi-threaded node.
+fn convert_node(
+    child: Rc<RefCell<DocumentNode<SingleThreaded>>>,
+) -> Arc<RwLock<DocumentNode<MultiThreaded>>> {
+    Arc::new(RwLock::new(DocumentNode::from((*child.borrow()).clone())))
+}
+
+/// Converts a single-threaded node into a multi-threaded node using a shared conversion map.
+fn convert_node_shared(
+    child: &Rc<RefCell<DocumentNode<SingleThreaded>>>,
+    conversion_map: &mut HashMap<
+        *const RefCell<DocumentNode<SingleThreaded>>,
+        Arc<RwLock<DocumentNode<MultiThreaded>>>,
+    >,
+) -> Arc<RwLock<DocumentNode<MultiThreaded>>> {
+    let ptr = Rc::as_ptr(child);
+
+    // Check if we've already converted this node
+    if let Some(existing) = conversion_map.get(&ptr) {
+        return existing.clone();
+    }
+
+    match &*child.borrow() {
+        DocumentNode::Element(element) => {
+            // First create the Arc for this node (without children) to avoid cycles
+            let new_node = Arc::new(RwLock::new(DocumentNode::Element(Element {
+                id: element.id,
+                tag_name: element.tag_name.clone(),
+                attributes: element.attributes.clone(),
+                children: Vec::new(), // Temporary empty children
+            })));
+
+            // Store in map before recursing to handle potential cycles
+            conversion_map.insert(ptr, new_node.clone());
+
+            // Now convert children
+            let converted_children: Vec<Arc<RwLock<DocumentNode<MultiThreaded>>>> = element
+                .children
+                .iter()
+                .map(|child| convert_node_shared(child, conversion_map))
+                .collect();
+
+            // Update the children
+            if let Ok(mut node_guard) = new_node.write() {
+                if let DocumentNode::Element(elem) = &mut *node_guard {
+                    elem.children = converted_children;
+                }
+            }
+
+            new_node
+        }
+        DocumentNode::Text(text) => {
+            let new_node = Arc::new(RwLock::new(DocumentNode::Text(text.clone())));
+            conversion_map.insert(ptr, new_node.clone());
+            new_node
+        }
+    }
+}
+
+pub struct DomIndex<Context: NodeContext + Debug + Clone> {
+    pub flat: Vec<Context::Node<DocumentNode<Context>>>,
+    pub id: HashMap<u16, Context::Node<DocumentNode<Context>>>,
+    pub tag: HashMap<String, Vec<Context::Node<DocumentNode<Context>>>>,
+}
+
+impl DomIndex<MultiThreaded> {
+    /// Returns a guard that can be used to access the element directly.
+    pub fn first_element_by_tag(
+        &self,
+        tag_name: &str,
+    ) -> Option<RwLockReadGuard<DocumentNode<MultiThreaded>>> {
+        self.tag.get(tag_name)?.first()?.read().ok()
+    }
+
+    /// Gets all elements by tag name, returning a vector of guards.
+    pub fn all_elements_by_tag(
+        &self,
+        tag_name: &str,
+    ) -> Vec<RwLockReadGuard<DocumentNode<MultiThreaded>>> {
+        self.tag
+            .get(tag_name)
+            .map(|nodes| nodes.iter().filter_map(|node| node.read().ok()).collect())
+            .unwrap_or_default()
+    }
+}
+
+impl<Context: NodeContext + Debug + Clone> Default for DomIndex<Context> {
     fn default() -> Self {
-        ConcurrentDomNode::Document(Vec::new())
+        DomIndex {
+            flat: Vec::new(),
+            id: HashMap::new(),
+            tag: HashMap::new(),
+        }
     }
 }
 
-// --- Single Threaded DOM Node ---
-// Used in single-threaded contexts, e.g. parsing HTML.
-
-/// Represents a single-threaded DOM element.
-///
-/// # Fields
-/// * `id` - A unique identifier for the element, useful for tracking and comparing elements.
-/// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
-/// * `attributes` - A map of attribute names and their values for the element.
-/// * `children` - A vector of child nodes, which can be other elements, text nodes, etc.
-#[derive(Debug, Clone, Default)]
-pub struct Element {
-    pub id: u32,
-    pub tag_name: String,
-    pub attributes: HashMap<String, String>,
-    pub children: Vec<RefDomNode>,
+/// Represents the root of a document, which is a collection of nodes in the specified context.
+pub struct DocumentRoot<Context: NodeContext + Debug + Clone> {
+    pub nodes: Vec<Context::Node<DocumentNode<Context>>>,
+    pub index: DomIndex<Context>,
 }
 
-/// Represents a single-threaded DOM node.
-/// It can be a document, element, text node, comment, doctype declaration, or XML declaration.
-///
-/// # Variants
-/// * `Document(Vec<RefDomNode>)` - Represents the root document node containing child nodes.
-/// * `Element(Element)` - Represents an HTML element with its attributes and children.
-/// * `Text(String)` - Represents a text node containing plain text.
-/// * `Comment(String)` - Represents a comment node containing comment text.
-/// * `Doctype(DoctypeDeclaration)` - Represents a doctype declaration, which defines the document type.
-/// * `XmlDeclaration(XmlDeclaration)` - Represents an XML declaration, which specifies the XML version
-#[derive(Debug, Clone)]
-pub enum DomNode {
-    Document(Vec<RefDomNode>),
-    Element(Element),
-    Text(String),
-    Comment(String),
-    Doctype(DoctypeDeclaration),
-    XmlDeclaration(XmlDeclaration),
-}
-
-impl Default for DomNode {
+impl<Context: NodeContext + Debug + Clone> Default for DocumentRoot<Context> {
     fn default() -> Self {
-        DomNode::Document(Vec::new())
+        DocumentRoot {
+            nodes: Vec::new(),
+            index: DomIndex::default(),
+        }
     }
 }
 
-/// Represents a reference-counted, single-threaded DOM node.
-/// This type is used to allow shared ownership of DOM nodes in a single-threaded context.
-pub type RefDomNode = Rc<RefCell<DomNode>>;
-
-// --- Convert Trait ---
-
-/// A trait which allows the implementor to convert itself into a different type.
-/// Currently, it is used to convert a single-threaded DOM node into a multi-threaded one, via `ArcDomNode`.
-pub trait ConvertDom<T> {
-    fn convert(self) -> T;
-}
-
-impl ConvertDom<ArcDomNode> for RefDomNode {
-    fn convert(self) -> ArcDomNode {
-        let borrowed = self.borrow();
-
-        let converted_node = match &*borrowed {
-            DomNode::Document(children) => {
-                let converted_children: Vec<ArcDomNode> = children
-                    .iter()
-                    .map(|child| child.clone().convert())
-                    .collect();
-
-                ConcurrentDomNode::Document(converted_children)
-            }
-            DomNode::Element(element) => {
-                let converted_children: Vec<ArcDomNode> = element
-                    .children
-                    .iter()
-                    .map(|child| child.clone().convert())
-                    .collect();
-
-                ConcurrentDomNode::Element(ConcurrentElement {
-                    id: element.id,
-                    tag_name: element.tag_name.clone(),
-                    attributes: element.attributes.clone(),
-                    children: converted_children,
-                })
-            }
-            DomNode::Text(text) => ConcurrentDomNode::Text(text.clone()),
-            DomNode::Comment(comment) => ConcurrentDomNode::Comment(comment.clone()),
-            DomNode::Doctype(doctype) => ConcurrentDomNode::Doctype(doctype.clone()),
-            DomNode::XmlDeclaration(xml_decl) => {
-                ConcurrentDomNode::XmlDeclaration(xml_decl.clone())
-            }
-        };
-
-        Arc::new(Mutex::new(converted_node))
+impl<Context: NodeContext + Debug + Clone> DocumentRoot<Context> {
+    /// Creates a new `DocumentRoot` with an empty vector of nodes.
+    pub fn new(nodes: Vec<Context::Node<DocumentNode<Context>>>, index: DomIndex<Context>) -> Self {
+        DocumentRoot { nodes, index }
     }
-}
 
-/// Represents a doctype declaration in the DOM tree.
-/// It contains the name of the doctype, as well as optional public and system IDs.
-///
-/// # Fields
-/// * `name` - The name of the doctype (e.g., "html").
-/// * `public_id` - An optional public identifier for the doctype, which may be used to reference a specific document type definition (DTD).
-/// * `system_id` - An optional system identifier for the doctype, which may be used to reference a specific resource or DTD.
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct DoctypeDeclaration {
-    pub name: String, // "html"
-    pub public_id: Option<String>,
-    pub system_id: Option<String>,
-}
+    /// Converts a single-threaded DocumentRoot to a multi-threaded DocumentRoot with shared references.
+    pub fn convert(
+        &mut self,
+        single_threaded_root: DocumentRoot<SingleThreaded>,
+    ) -> DocumentRoot<MultiThreaded> {
+        let mut conversion_map: HashMap<
+            *const RefCell<DocumentNode<SingleThreaded>>,
+            Arc<RwLock<DocumentNode<MultiThreaded>>>,
+        > = HashMap::new();
 
-/// Represents an XML declaration in the DOM tree.
-/// It contains the version of the XML specification, an optional encoding declaration, and an optional standalone declaration.
-///
-/// # Fields
-/// * `version` - The version of the XML specification (e.g., "1.0").
-/// * `encoding` - An optional encoding declaration (e.g., "UTF-8").
-/// * `standalone` - An optional boolean indicating whether the XML document is standalone (true) or not (false).
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct XmlDeclaration {
-    pub version: String,          // "1.0"
-    pub encoding: Option<String>, // "UTF-8"
-    pub standalone: Option<bool>, // true/false
+        DocumentRoot {
+            nodes: single_threaded_root
+                .nodes
+                .iter()
+                .map(|node| convert_node_shared(node, &mut conversion_map))
+                .collect(),
+            index: {
+                DomIndex {
+                    flat: single_threaded_root
+                        .index
+                        .flat
+                        .iter()
+                        .map(|node| convert_node_shared(node, &mut conversion_map))
+                        .collect(),
+                    id: single_threaded_root
+                        .index
+                        .id
+                        .iter()
+                        .map(|(k, v)| (*k, convert_node_shared(v, &mut conversion_map)))
+                        .collect(),
+                    tag: single_threaded_root
+                        .index
+                        .tag
+                        .iter()
+                        .map(|(k, v)| {
+                            (
+                                k.clone(),
+                                v.iter()
+                                    .map(|node| convert_node_shared(node, &mut conversion_map))
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
+                }
+            },
+        }
+    }
 }

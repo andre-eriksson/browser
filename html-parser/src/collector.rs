@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::dom::RefDomNode;
+use crate::dom::{DocumentNode, SingleThreaded};
 
 /// Represents basic metadata about an HTML tag, including its name, attributes, and associated DOM node.
 /// This struct is used to pass information about HTML tags to collectors during the parsing process.
@@ -9,11 +9,10 @@ use crate::dom::RefDomNode;
 /// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
 /// * `attributes` - A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
 /// * `dom_node` - A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
-#[derive(Debug)]
 pub struct TagInfo<'a> {
     pub tag_name: &'a str,
     pub attributes: &'a HashMap<String, String>,
-    pub dom_node: &'a RefDomNode,
+    pub dom_node: &'a DocumentNode<SingleThreaded>,
 }
 
 /// A trait that defines a collector for metadata extracted from HTML tags during parsing.
@@ -49,9 +48,9 @@ pub trait Collector {
 /// * `external_resources` - An optional map that associates external resource URLs (like `href` and `src`) with the tags that reference them.
 #[derive(Default)]
 pub struct DefaultCollector {
-    pub id_map: Option<HashMap<String, RefDomNode>>,
-    pub class_map: Option<HashMap<String, Vec<RefDomNode>>>,
-    pub external_resources: Option<HashMap<String, Vec<RefDomNode>>>,
+    pub id_map: Option<HashMap<String, DocumentNode<SingleThreaded>>>,
+    pub class_map: Option<HashMap<String, Vec<DocumentNode<SingleThreaded>>>>,
+    pub external_resources: Option<HashMap<String, Vec<DocumentNode<SingleThreaded>>>>,
 }
 
 impl Collector for DefaultCollector {
