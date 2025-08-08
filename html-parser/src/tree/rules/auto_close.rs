@@ -12,7 +12,6 @@ pub fn should_auto_close(current_tag: &str, new_tag: &str) -> bool {
 
     match current_lower {
         "p" => {
-            // Automatically close <p> when encountering block-level elements
             matches!(
                 new_lower,
                 "div"
@@ -44,21 +43,15 @@ pub fn should_auto_close(current_tag: &str, new_tag: &str) -> bool {
                     | "hr"
             )
         }
-        "li" => {
-            // Automatically close <li> when encountering another <li>
-            new_lower == "li"
-        }
+        "li" => new_lower == "li",
         "dd" | "dt" => {
-            // Automatically close <dd> or <dt> when encountering another <dd> or <dt>
             matches!(new_lower, "dd" | "dt")
         }
         "option" => {
-            // Automatically close <option> when encountering another <option> or <optgroup>
             matches!(new_lower, "option" | "optgroup")
         }
         "tr" => new_lower == "tr",
         "td" | "th" => {
-            // Automatically close <td> or <th> when encountering another <td> or <th>
             matches!(new_lower, "td" | "th" | "tr")
         }
         _ => false,

@@ -1,9 +1,11 @@
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use iced::{Renderer, Subscription, Task, Theme, window};
 use tracing::error;
 use tracing::info;
 
 use api::logging::{EVENT, EVENT_NEW_TAB, EVENT_TAB_CLOSED};
-use html_parser::dom::ConvertDom;
 use html_parser::parser::streaming::HtmlStreamParser;
 use network::web::client::WebClient;
 
@@ -174,12 +176,13 @@ impl Application {
                         self.tabs[self.current_tab_id].url =
                             self.tabs[self.current_tab_id].temp_url.clone();
 
-                        let mut metadata = self.tabs[self.current_tab_id].metadata.lock().unwrap();
-                        *metadata = result.metadata;
+                        self.tabs[self.current_tab_id].metadata =
+                            Arc::new(Mutex::new(result.metadata));
 
-                        let mut html_content =
-                            self.tabs[self.current_tab_id].html_content.lock().unwrap();
-                        *html_content = dom_tree.convert().lock().unwrap().clone();
+                        self.tabs[self.current_tab_id].html_content = self.tabs
+                            [self.current_tab_id]
+                            .html_content
+                            .convert(dom_tree);
 
                         return Task::done(Message::RefreshContent);
                     }

@@ -1,9 +1,11 @@
+use std::sync::{Arc, RwLock};
+
 use iced::{
     Background, Color, Padding,
     widget::{button, column, row, text},
 };
 
-use html_parser::dom::{ConcurrentDomNode, ConcurrentElement};
+use html_parser::dom::{DocumentNode, Element, MultiThreaded};
 
 use crate::{
     api::message::Message, renderer::util::get_text_style_for_element, util::font::MONOSPACE,
@@ -19,13 +21,16 @@ use crate::{
 /// # Returns
 /// * `Option<iced::Element<'html, Message>>` - An Iced Element containing the composed inline elements, or None if no elements are provided.
 pub fn compose_inline_elements<'html>(
-    inline_buffer: &[ConcurrentElement],
-    parent_element: Option<&ConcurrentElement>,
-    additional_element: Option<&ConcurrentElement>,
+    inline_buffer: &Vec<Arc<RwLock<DocumentNode<MultiThreaded>>>>,
+    parent_element: Option<&Element<MultiThreaded>>,
+    additional_element: Option<&Element<MultiThreaded>>,
 ) -> Option<iced::Element<'html, Message>> {
     let mut all_elements = inline_buffer.to_owned();
+
     if let Some(additional) = additional_element {
-        all_elements.push(additional.clone());
+        all_elements.push(Arc::new(RwLock::new(DocumentNode::Element(
+            additional.clone(),
+        ))));
     }
     if all_elements.is_empty() {
         return None;
@@ -34,27 +39,49 @@ pub fn compose_inline_elements<'html>(
     let processed_element_buffer;
 
     if let Some(parent) = parent_element {
-        if parent.tag_name == "pre" && all_elements.iter().any(|e| e.tag_name == "code") {
+        if parent.tag_name == "pre"
+            && all_elements.iter().any(|e| {
+                let element = e.read().unwrap().clone();
+
+                if let Some(el) = element.as_element() {
+                    el.tag_name == "code"
+                } else {
+                    false
+                }
+            })
+        {
             processed_element_buffer = Some({
                 let mut elements = Vec::new();
-                for el in all_elements {
-                    elements.extend(render_element(Some(parent), &el));
+                for node in all_elements {
+                    let element = node.read().unwrap().clone();
+
+                    if let Some(el) = element.as_element() {
+                        elements.extend(render_element(Some(parent), el));
+                    }
                 }
 
                 column(elements).into()
             });
         } else {
             let mut elements = Vec::new();
-            for el in all_elements {
-                elements.extend(render_element(Some(parent), &el));
+            for node in all_elements {
+                let element = node.read().unwrap().clone();
+
+                if let Some(el) = element.as_element() {
+                    elements.extend(render_element(Some(parent), el));
+                }
             }
 
             processed_element_buffer = Some(row(elements).into());
         }
     } else {
         let mut elements = Vec::new();
-        for el in all_elements {
-            elements.extend(render_element(None, &el));
+        for node in all_elements {
+            let element = node.read().unwrap().clone();
+
+            if let Some(el) = element.as_element() {
+                elements.extend(render_element(None, el));
+            }
         }
 
         processed_element_buffer = Some(row(elements).into());
@@ -64,12 +91,12 @@ pub fn compose_inline_elements<'html>(
 }
 
 fn render_element<'html>(
-    _parent_element: Option<&ConcurrentElement>,
-    element: &ConcurrentElement,
+    _parent_element: Option<&Element<MultiThreaded>>,
+    element: &Element<MultiThreaded>,
 ) -> Vec<iced::Element<'html, Message>> {
     let mut elements = Vec::new();
     for child in &element.children {
-        if let ConcurrentDomNode::Text(content) = child.lock().unwrap().clone() {
+        if let DocumentNode::Text(content) = child.read().unwrap().clone() {
             match element.tag_name.as_str() {
                 "code" => {
                     let formatted_content = content.replace("\r\n", "").replace('\n', "");

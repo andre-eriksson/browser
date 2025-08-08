@@ -5,19 +5,10 @@ use tracing::info;
 use api::logging::{DURATION, EVENT, EVENT_HTML_PARSED};
 
 use crate::{
-    collector::Collector, dom::RefDomNode, tokens::tokenizer::HtmlTokenizer,
-    tree::builder::DomTreeBuilder,
+    collector::Collector,
+    tokens::tokenizer::HtmlTokenizer,
+    tree::builder::{BuildResult, DomTreeBuilder},
 };
-
-/// Represents the result of parsing an HTML document.
-///
-/// # Fields
-/// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
-/// * `metadata` - The metadata collected during parsing, which is of type `M`.
-pub struct ParseResult<M> {
-    pub dom_tree: RefDomNode,
-    pub metadata: M,
-}
 
 /// A streaming HTML parser that reads HTML content from a buffered reader and builds a DOM tree incrementally.
 ///
@@ -68,7 +59,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
     pub fn parse<C: Collector + Default>(
         mut self,
         collector: Option<C>,
-    ) -> Result<ParseResult<C::Output>, String> {
+    ) -> Result<BuildResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
         let mut tokenizer = HtmlTokenizer::new();
         let mut builder = DomTreeBuilder::new(Some(collector.unwrap_or_default()));
@@ -111,10 +102,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             {DURATION} = ?start_time.elapsed(),
         );
 
-        Ok(ParseResult {
-            dom_tree: builder.get_dom_tree(),
-            metadata: builder.collector.into_result(),
-        })
+        Ok(builder.finalize())
     }
 
     /// Processes a chunk of HTML content, tokenizing it and building the DOM tree.

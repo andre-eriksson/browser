@@ -17,6 +17,7 @@ pub fn render_header(app: &Application) -> container::Container<'_, Message> {
                 .as_ref()
                 .map_or_else(|| "Untitled".to_string(), |t| t.clone());
             mouse_area(
+                // Load favicon if available
                 button(text(format!("{} - {}", tab_title, tab.id)))
                     .on_press(Message::ChangeTab(tab.id)),
             )
