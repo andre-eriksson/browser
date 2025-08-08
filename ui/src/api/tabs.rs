@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use api::html::{HtmlTag, KnownTag};
 use html_parser::{
     collector::{Collector, TagInfo},
     dom::{DocumentNode, DocumentRoot, MultiThreaded},
@@ -24,12 +25,12 @@ impl Collector for TabCollector {
     type Output = Self;
 
     fn collect(&mut self, tag: &TagInfo) {
-        if tag.tag_name == "head" {
+        if *tag.tag == HtmlTag::Known(KnownTag::Head) {
             self.in_head = true;
             return;
         }
 
-        if tag.tag_name == "body" {
+        if *tag.tag == HtmlTag::Known(KnownTag::Body) {
             self.in_head = false;
             return;
         }
@@ -38,7 +39,7 @@ impl Collector for TabCollector {
             return;
         }
 
-        if tag.tag_name == "link" {
+        if *tag.tag == HtmlTag::Known(KnownTag::Link) {
             if let Some(rel) = tag.attributes.get("rel") {
                 if rel != "icon" && rel != "shortcut icon" {
                     return;
@@ -59,7 +60,7 @@ impl Collector for TabCollector {
             }
         }
 
-        if tag.tag_name == "title" {
+        if *tag.tag == HtmlTag::Known(KnownTag::Title) {
             if let DocumentNode::Text(text) = tag.dom_node {
                 self.title = Some(text.clone());
             }

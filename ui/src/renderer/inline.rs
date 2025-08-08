@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use api::html::{HtmlTag, KnownTag};
 use iced::{
     Background, Color, Padding,
     widget::{button, column, row, text},
@@ -39,12 +40,12 @@ pub fn compose_inline_elements<'html>(
     let processed_element_buffer;
 
     if let Some(parent) = parent_element {
-        if parent.tag_name == "pre"
+        if parent.tag == HtmlTag::Known(KnownTag::Pre)
             && all_elements.iter().any(|e| {
                 let element = e.read().unwrap().clone();
 
                 if let Some(el) = element.as_element() {
-                    el.tag_name == "code"
+                    el.tag == HtmlTag::Known(KnownTag::Code)
                 } else {
                     false
                 }
@@ -97,12 +98,12 @@ fn render_element<'html>(
     let mut elements = Vec::new();
     for child in &element.children {
         if let DocumentNode::Text(content) = child.read().unwrap().clone() {
-            match element.tag_name.as_str() {
-                "code" => {
+            match element.tag {
+                HtmlTag::Known(KnownTag::Code) => {
                     let formatted_content = content.replace("\r\n", "").replace('\n', "");
                     elements.push(text(formatted_content).font(MONOSPACE).into());
                 }
-                "a" => {
+                HtmlTag::Known(KnownTag::A) => {
                     let url = element.attributes.get("href").cloned().unwrap_or_default();
                     let link_text = button(text(content).color(Color::from_rgb(0.0, 0.0, 1.0)))
                         .style(|_, _| button::Style {
@@ -114,7 +115,7 @@ fn render_element<'html>(
                     elements.push(link_text.into());
                 }
                 _ => {
-                    let styled_text = get_text_style_for_element(&element.tag_name, content);
+                    let styled_text = get_text_style_for_element(&element.tag, content);
                     elements.push(styled_text.into());
                 }
             }

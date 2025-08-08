@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use api::html::{HtmlTag, KnownTag};
 use html_parser::dom::{DocumentNode, Element, MultiThreaded};
 use iced::{
     Color,
@@ -26,7 +27,7 @@ use crate::{
 /// # Returns
 /// * `Column<'window, Message>` - An Iced column widget containing the rendered HTML content
 pub fn display_html<'window>(element: &Element<MultiThreaded>) -> Column<'window, Message> {
-    if element.tag_name != "body" {
+    if element.tag != HtmlTag::Known(KnownTag::Body) {
         return column![text("Only 'body' tag is supported for rendering.").color(Color::BLACK)];
     }
 
@@ -67,12 +68,11 @@ fn process_mixed_content<'window>(
 
         match node {
             DocumentNode::Element(element) => {
-                if get_element_type(&element.tag_name) == ElementType::Inline {
+                if get_element_type(&element.tag) == ElementType::Inline {
                     for child_arc in &element.children {
                         let child = child_arc.read().unwrap().clone();
                         if let DocumentNode::Text(content) = child {
-                            let styled_text =
-                                get_text_style_for_element(&element.tag_name, content);
+                            let styled_text = get_text_style_for_element(&element.tag, content);
                             inline_elements.push(styled_text.into());
                         }
                     }
@@ -84,7 +84,7 @@ fn process_mixed_content<'window>(
                 }
             }
             DocumentNode::Text(content) => {
-                let styled_text = get_text_style_for_element(&parent_element.tag_name, content);
+                let styled_text = get_text_style_for_element(&parent_element.tag, content);
                 inline_elements.push(styled_text.into());
             }
         }
@@ -118,7 +118,7 @@ fn process_dom_children_with_context<'window>(
 
         match node {
             DocumentNode::Element(element) => {
-                if &element.tag_name == "hr" {
+                if element.tag == HtmlTag::Known(KnownTag::Hr) {
                     elements.push(horizontal_rule(1).into());
                     continue;
                 }
@@ -130,7 +130,7 @@ fn process_dom_children_with_context<'window>(
 
                 let has_inline_elements = element.children.iter().any(|child| {
                     if let DocumentNode::Element(inner_element) = child.read().unwrap().clone() {
-                        get_element_type(&inner_element.tag_name) == ElementType::Inline
+                        get_element_type(&inner_element.tag) == ElementType::Inline
                     } else {
                         false
                     }
@@ -138,7 +138,7 @@ fn process_dom_children_with_context<'window>(
 
                 let has_mixed_content = has_text_nodes && has_inline_elements;
 
-                match get_element_type(&element.tag_name) {
+                match get_element_type(&element.tag) {
                     ElementType::Block => {
                         // Clear any pending inline elements before processing block
                         if !inline_buffer.is_empty() {
@@ -153,7 +153,7 @@ fn process_dom_children_with_context<'window>(
                         if has_mixed_content {
                             let inline_content = process_mixed_content(&element.children, &element);
 
-                            let margin = get_margin_for_element(&element.tag_name);
+                            let margin = get_margin_for_element(&element.tag);
                             if margin > 0 && !elements.is_empty() {
                                 elements.push(text("").size(margin / 2).into());
                             }
@@ -165,7 +165,7 @@ fn process_dom_children_with_context<'window>(
                                 Some(&element),
                             );
 
-                            let margin = get_margin_for_element(&element.tag_name);
+                            let margin = get_margin_for_element(&element.tag);
                             if margin > 0 && !elements.is_empty() {
                                 elements.push(text("").size(margin / 2).into());
                             }
@@ -179,10 +179,10 @@ fn process_dom_children_with_context<'window>(
                         ))));
                     }
                     ElementType::ListItem => {
-                        let bullet = text(match element.tag_name.as_str() {
-                            "li" => " • ",
-                            "dt" => " • ",
-                            "summary" => " ▶ ",
+                        let bullet = text(match element.tag {
+                            HtmlTag::Known(KnownTag::Li) => " • ",
+                            HtmlTag::Known(KnownTag::Dt) => " • ",
+                            HtmlTag::Known(KnownTag::Summary) => " ▶ ",
                             _ => "",
                         })
                         .color(Color::BLACK);
@@ -204,7 +204,7 @@ fn process_dom_children_with_context<'window>(
             }
             DocumentNode::Text(content) => {
                 let styled_text = if let Some(parent) = parent_element {
-                    get_text_style_for_element(&parent.tag_name, content.clone())
+                    get_text_style_for_element(&parent.tag, content.clone())
                 } else {
                     text(content).color(Color::BLACK)
                 };

@@ -6,6 +6,8 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
+use api::html::HtmlTag;
+
 /// Represents a single-threaded context for DOM nodes.
 ///
 /// Will use `Rc<RefCell<T>>` for non-thread-safe access to nodes.
@@ -73,7 +75,7 @@ impl NodeContext for MultiThreaded {
 pub struct Element<Context: NodeContext + Clone> {
     pub id: u16,
     pub attributes: HashMap<String, String>,
-    pub tag_name: String,
+    pub tag: HtmlTag,
     pub children: Context::Children<DocumentNode<Context>>,
 }
 
@@ -82,7 +84,7 @@ impl<Context: NodeContext + Clone> Default for Element<Context> {
         Element {
             id: 0,
             attributes: HashMap::new(),
-            tag_name: String::new(),
+            tag: HtmlTag::Unknown("".to_string()),
             children: Context::empty_children(),
         }
     }
@@ -155,7 +157,7 @@ where
 fn convert_element(element: Element<SingleThreaded>) -> DocumentNode<MultiThreaded> {
     DocumentNode::Element(Element {
         id: element.id,
-        tag_name: element.tag_name,
+        tag: element.tag,
         attributes: element.attributes,
         children: element.children.into_iter().map(convert_node).collect(),
     })
@@ -188,7 +190,7 @@ fn convert_node_shared(
             // First create the Arc for this node (without children) to avoid cycles
             let new_node = Arc::new(RwLock::new(DocumentNode::Element(Element {
                 id: element.id,
-                tag_name: element.tag_name.clone(),
+                tag: element.tag.clone(),
                 attributes: element.attributes.clone(),
                 children: Vec::new(), // Temporary empty children
             })));
@@ -223,25 +225,25 @@ fn convert_node_shared(
 pub struct DomIndex<Context: NodeContext + Debug + Clone> {
     pub flat: Vec<Context::Node<DocumentNode<Context>>>,
     pub id: HashMap<u16, Context::Node<DocumentNode<Context>>>,
-    pub tag: HashMap<String, Vec<Context::Node<DocumentNode<Context>>>>,
+    pub tag: HashMap<HtmlTag, Vec<Context::Node<DocumentNode<Context>>>>,
 }
 
 impl DomIndex<MultiThreaded> {
     /// Returns a guard that can be used to access the element directly.
     pub fn first_element_by_tag(
         &self,
-        tag_name: &str,
+        tag: &HtmlTag,
     ) -> Option<RwLockReadGuard<DocumentNode<MultiThreaded>>> {
-        self.tag.get(tag_name)?.first()?.read().ok()
+        self.tag.get(tag)?.first()?.read().ok()
     }
 
     /// Gets all elements by tag name, returning a vector of guards.
     pub fn all_elements_by_tag(
         &self,
-        tag_name: &str,
+        tag: &HtmlTag,
     ) -> Vec<RwLockReadGuard<DocumentNode<MultiThreaded>>> {
         self.tag
-            .get(tag_name)
+            .get(tag)
             .map(|nodes| nodes.iter().filter_map(|node| node.read().ok()).collect())
             .unwrap_or_default()
     }

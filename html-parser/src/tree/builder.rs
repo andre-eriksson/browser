@@ -1,11 +1,10 @@
+use api::html::{HtmlTag, is_void_element, should_auto_close, tag_from_str};
+
 use crate::{
     collector::{Collector, TagInfo},
     dom::{DocumentNode, DocumentRoot, DomIndex, Element, NodeContext, SingleThreaded},
     tokens::state::{Token, TokenKind},
-    tree::{
-        decode::Decoder,
-        rules::{auto_close::should_auto_close, void_elements::is_void_element},
-    },
+    tree::decode::Decoder,
 };
 use std::{cell::RefCell, rc::Rc};
 
@@ -107,10 +106,10 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `new_tag_name` - The name of the new tag being processed, which may trigger auto-closing of previous tags.
-    fn handle_auto_close(&mut self, new_tag_name: &str) {
+    fn handle_auto_close(&mut self, new_tag: &HtmlTag) {
         let should_pop = if let Some(last) = self.open_elements.last() {
             if let DocumentNode::Element(parent) = &*last.borrow() {
-                should_auto_close(&parent.tag_name, new_tag_name)
+                should_auto_close(&parent.tag, new_tag)
             } else {
                 false
             }
@@ -128,19 +127,19 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the start tag to be processed.
     fn handle_start_tag(&mut self, token: &Token) {
-        let tag_name = &token.data.to_lowercase();
+        let tag = tag_from_str(&token.data.to_lowercase());
         let attributes = &token.attributes;
         self.current_id += 1;
 
         let element = Element {
             id: self.current_id,
-            tag_name: tag_name.to_string(),
+            tag: tag.clone(),
             attributes: attributes.clone(),
             children: Vec::new(),
         };
 
         self.collector.collect(&TagInfo {
-            tag_name,
+            tag: &tag,
             attributes: &token.attributes,
             dom_node: &DocumentNode::Element(element.clone()),
         });
@@ -148,9 +147,9 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         let new_node = DocumentNode::Element(element);
         let new_node_ref = SingleThreaded::new_node(&new_node);
 
-        self.handle_auto_close(tag_name);
+        self.handle_auto_close(&tag);
 
-        if is_void_element(tag_name) {
+        if is_void_element(&tag) {
             self.insert_node(new_node_ref);
             return;
         }
@@ -161,7 +160,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         self.index.id.insert(self.current_id, new_node_ref.clone());
         self.index
             .tag
-            .entry(tag_name.to_string())
+            .entry(tag)
             .or_default()
             .push(new_node_ref.clone());
 
@@ -173,11 +172,11 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
     fn handle_end_tag(&mut self, token: &Token) {
-        let tag_name = &token.data.to_lowercase();
+        let tag_name = token.data.to_lowercase();
 
         let should_close = if let Some(last) = self.open_elements.last() {
             if let DocumentNode::Element(parent) = &*last.borrow() {
-                parent.tag_name == *tag_name
+                parent.tag == tag_from_str(&tag_name)
             } else {
                 false
             }
@@ -211,7 +210,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
                 let text_node = DocumentNode::<SingleThreaded>::Text(text_content);
 
                 self.collector.collect(&TagInfo {
-                    tag_name: &parent.tag_name,
+                    tag: &parent.tag,
                     attributes: &parent.attributes,
                     dom_node: &text_node.clone(),
                 });
