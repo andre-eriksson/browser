@@ -1,4 +1,4 @@
-use tracing::debug;
+use api::html::{HtmlTag, KnownTag};
 
 /// Represents the type of an HTML element.
 ///
@@ -23,23 +23,66 @@ pub enum ElementType {
 ///
 /// # Returns
 /// * `ElementType` - The type of the element, which can be Block, Inline, Skip, or Unknown.
-pub fn get_element_type(tag_name: &str) -> ElementType {
-    match tag_name {
-        "body" | "div" | "header" | "footer" | "main" | "section" | "article" | "aside" | "pre"
-        | "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "hr" | "address" | "fieldset"
-        | "form" | "legend" | "nav" | "ul" | "ol" | "details" | "table" | "thead" | "tbody"
-        | "tr" | "figcaption" | "dl" | "dt" | "dd" => ElementType::Block,
-        "li" | "summary" => ElementType::ListItem,
-        "span" | "a" | "strong" | "em" | "i" | "b" | "u" | "code" | "small" | "sub" | "sup"
-        | "img" | "time" | "label" | "abbr" | "input" | "textarea" | "th" | "td" => {
-            ElementType::Inline
-        }
+pub fn get_element_type(tag: &HtmlTag) -> ElementType {
+    if let HtmlTag::Known(tag_name) = tag {
+        return get_element_type_known(tag_name);
+    }
 
-        "script" | "style" => ElementType::Skip, // TODO: Handle script/style elements
+    ElementType::Unknown
+}
 
-        _ => {
-            debug!("Unknown tag name: {}", tag_name);
-            ElementType::Unknown
-        }
+fn get_element_type_known(tag: &KnownTag) -> ElementType {
+    match tag {
+        KnownTag::Div
+        | KnownTag::P
+        | KnownTag::H1
+        | KnownTag::H2
+        | KnownTag::H3
+        | KnownTag::H4
+        | KnownTag::H5
+        | KnownTag::H6
+        | KnownTag::Hr
+        | KnownTag::Address
+        | KnownTag::Fieldset
+        | KnownTag::Form
+        | KnownTag::Legend
+        | KnownTag::Nav
+        | KnownTag::Ul
+        | KnownTag::Ol
+        | KnownTag::Details
+        | KnownTag::Table
+        | KnownTag::Thead
+        | KnownTag::Tbody
+        | KnownTag::Tr
+        | KnownTag::Figcaption
+        | KnownTag::Dl
+        | KnownTag::Dt
+        | KnownTag::Dd => ElementType::Block,
+
+        KnownTag::Li | KnownTag::Summary => ElementType::ListItem,
+
+        KnownTag::Span
+        | KnownTag::A
+        | KnownTag::Strong
+        | KnownTag::Em
+        | KnownTag::I
+        | KnownTag::B
+        | KnownTag::U
+        | KnownTag::Code
+        | KnownTag::Small
+        | KnownTag::Sub
+        | KnownTag::Sup
+        | KnownTag::Img
+        | KnownTag::Time
+        | KnownTag::Label
+        | KnownTag::Abbr
+        | KnownTag::Input
+        | KnownTag::Textarea
+        | KnownTag::Th
+        | KnownTag::Td => ElementType::Inline,
+
+        KnownTag::Script | KnownTag::Style => ElementType::Skip, // TODO: Handle script/style elements
+
+        _ => ElementType::Unknown,
     }
 }

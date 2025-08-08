@@ -1,3 +1,4 @@
+use api::html::{HtmlTag, KnownTag};
 use iced::{
     Background, Color, Length,
     widget::{container, text},
@@ -15,7 +16,10 @@ pub fn render_content<'window>(
         return render_blank();
     }
 
-    if let Some(body_node_guard) = root.index.first_element_by_tag("body") {
+    if let Some(body_node_guard) = root
+        .index
+        .first_element_by_tag(&HtmlTag::Known(KnownTag::Body))
+    {
         if let Some(body_element) = body_node_guard.as_element() {
             return container(display_html(body_element))
                 .style(|_theme| {

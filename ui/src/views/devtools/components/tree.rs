@@ -1,5 +1,6 @@
 use std::sync::{Arc, RwLock};
 
+use api::html::is_void_element;
 use iced::{
     Background, Color, Length,
     widget::{Column, column, container, text},
@@ -122,30 +123,14 @@ fn process_dom_children_with_context<'window>(
 
         match node {
             DocumentNode::Element(element) => {
-                let is_void_element = matches!(
-                    element.tag_name.as_str(),
-                    "area"
-                        | "base"
-                        | "br"
-                        | "col"
-                        | "embed"
-                        | "hr"
-                        | "img"
-                        | "input"
-                        | "link"
-                        | "meta"
-                        | "param"
-                        | "source"
-                        | "track"
-                        | "wbr"
-                );
+                let is_void_element = is_void_element(&element.tag);
 
                 // Create a single text widget for the entire opening tag to reduce widget count
                 let opening_tag_text = if element.attributes.is_empty() {
                     format!(
                         "{}<{}{}",
                         spacing,
-                        element.tag_name,
+                        element.tag,
                         if is_void_element { " />" } else { ">" }
                     )
                 } else {
@@ -173,7 +158,7 @@ fn process_dom_children_with_context<'window>(
                     format!(
                         "{}<{} {}{}{}",
                         spacing,
-                        element.tag_name,
+                        element.tag,
                         attrs.join(" "),
                         attr_suffix,
                         if is_void_element { " />" } else { ">" }
@@ -217,7 +202,7 @@ fn process_dom_children_with_context<'window>(
 
                     // Create closing tag
                     elements.push(
-                        text(format!("{}</{}>", spacing, element.tag_name))
+                        text(format!("{}</{}>", spacing, element.tag))
                             .font(MONOSPACE)
                             .style(TAG_STYLE)
                             .into(),

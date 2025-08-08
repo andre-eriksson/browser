@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use api::html::{HtmlTag, KnownTag};
+
 use crate::dom::{DocumentNode, SingleThreaded};
 
 /// Represents basic metadata about an HTML tag, including its name, attributes, and associated DOM node.
@@ -10,7 +12,7 @@ use crate::dom::{DocumentNode, SingleThreaded};
 /// * `attributes` - A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
 /// * `dom_node` - A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
 pub struct TagInfo<'a> {
-    pub tag_name: &'a str,
+    pub tag: &'a HtmlTag,
     pub attributes: &'a HashMap<String, String>,
     pub dom_node: &'a DocumentNode<SingleThreaded>,
 }
@@ -82,7 +84,7 @@ impl Collector for DefaultCollector {
 
         if let Some(external_resources) = &mut self.external_resources {
             if let Some(href) = tag.attributes.get("href") {
-                if tag.tag_name == "a" {
+                if *tag.tag == HtmlTag::Known(KnownTag::A) {
                     return; // Skip anchor tags for href collection
                 }
 
