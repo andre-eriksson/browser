@@ -5,6 +5,7 @@ use crate::tokens::{
     tokenizer::HtmlTokenizer,
 };
 
+/// Handles the start of a tag, after a `<`
 pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '!' => {
@@ -40,6 +41,7 @@ pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
+/// Handles the start of an end tag, after a `</`
 pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
@@ -67,6 +69,7 @@ pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
+/// Handles the start of a self-closing tag, after a `<test /`
 pub fn handle_self_closing_tag_start_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
@@ -85,37 +88,16 @@ pub fn handle_self_closing_tag_start_state(tokenizer: &mut HtmlTokenizer, ch: ch
             }
             tokenizer.state = ParserState::Data;
         }
+        ch if ch.is_whitespace() => {}
         _ => {
-            panic!(
-                "Unexpected character in SelfClosingTagStart state: '{}', previous_token_data: '{:?}' '{}' current_token_data: '{:?}' '{}', buffer: '{}'",
-                ch,
-                tokenizer
-                    .tokens
-                    .back()
-                    .map_or(TokenKind::Comment, |t| t.kind.clone()),
-                tokenizer
-                    .tokens
-                    .back()
-                    .map_or("None".to_string(), |t| t.data.clone()),
-                tokenizer
-                    .current_token
-                    .as_ref()
-                    .map_or(TokenKind::Comment, |t| t.kind.clone()),
-                tokenizer
-                    .current_token
-                    .as_ref()
-                    .map_or("None".to_string(), |t| t.data.clone()),
-                tokenizer.temporary_buffer
-            );
+            tokenizer.state = ParserState::BeforeAttributeName;
         }
     }
 }
 
+/// Handles the tag name state, after the `<`
 pub fn handle_tag_name_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
-        ch if ch.is_whitespace() => {
-            tokenizer.state = ParserState::BeforeAttributeName;
-        }
         '>' => {
             if let Some(token) = tokenizer.current_token.take() {
                 if token.data == "script" {
@@ -137,6 +119,9 @@ pub fn handle_tag_name_state(tokenizer: &mut HtmlTokenizer, ch: char) {
         }
         '/' => {
             tokenizer.state = ParserState::SelfClosingTagStart;
+        }
+        ch if ch.is_whitespace() => {
+            tokenizer.state = ParserState::BeforeAttributeName;
         }
         _ => {
             if let Some(token) = tokenizer.current_token.as_mut() {

@@ -5,6 +5,7 @@ use crate::tokens::{
     tokenizer::HtmlTokenizer,
 };
 
+/// Handles the script data state, after `<script>`
 pub fn handle_script_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '<' => {
@@ -26,6 +27,7 @@ pub fn handle_script_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
+/// Handles the end tag open state for script data, after the `<`
 pub fn handle_script_data_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     let expected = "</script>";
     match ch {
