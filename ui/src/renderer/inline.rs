@@ -96,31 +96,58 @@ fn render_element<'html>(
     element: &Element<MultiThreaded>,
 ) -> Vec<iced::Element<'html, Message>> {
     let mut elements = Vec::new();
-    for child in &element.children {
-        if let DocumentNode::Text(content) = child.read().unwrap().clone() {
-            match element.tag {
-                HtmlTag::Known(KnownTag::Code) => {
-                    let formatted_content = content.replace("\r\n", "").replace('\n', "");
-                    elements.push(text(formatted_content).font(MONOSPACE).into());
-                }
-                HtmlTag::Known(KnownTag::A) => {
-                    let url = element.attributes.get("href").cloned().unwrap_or_default();
-                    let link_text = button(text(content).color(Color::from_rgb(0.0, 0.0, 1.0)))
-                        .style(|_, _| button::Style {
-                            background: Some(Background::Color(Color::from_rgb(1.0, 1.0, 1.0))),
-                            ..Default::default()
-                        })
-                        .padding(Padding::ZERO)
-                        .on_press(Message::NavigateTo(url));
-                    elements.push(link_text.into());
-                }
-                _ => {
-                    let styled_text = get_text_style_for_element(&element.tag, content);
-                    elements.push(styled_text.into());
-                }
-            }
+
+    let text_content = extract_text_content(element);
+
+    if text_content.is_empty() {
+        return elements;
+    }
+
+    match element.tag {
+        HtmlTag::Known(KnownTag::Code) => {
+            let formatted_content = text_content.replace("\r\n", "").replace('\n', "");
+            elements.push(text(formatted_content).font(MONOSPACE).into());
+        }
+        HtmlTag::Known(KnownTag::A) => {
+            let url = element.attributes.get("href").cloned().unwrap_or_default();
+            let link_text = button(text(text_content).color(Color::from_rgb(0.0, 0.0, 1.0)))
+                .style(|_, _| button::Style {
+                    background: Some(Background::Color(Color::from_rgb(1.0, 1.0, 1.0))),
+                    ..Default::default()
+                })
+                .padding(Padding::ZERO)
+                .on_press(Message::NavigateTo(url));
+            elements.push(link_text.into());
+        }
+        _ => {
+            let styled_text = get_text_style_for_element(&element.tag, text_content);
+            elements.push(styled_text.into());
         }
     }
 
     elements
+}
+
+/// Recursively extracts all text content from an element and its children
+fn extract_text_content(element: &Element<MultiThreaded>) -> String {
+    let mut text_content = String::new();
+
+    for (index, child) in element.children.iter().enumerate() {
+        match child.read().unwrap().clone() {
+            DocumentNode::Text(content) => {
+                if index > 0 && !text_content.is_empty() {
+                    text_content.push(' ');
+                }
+                text_content.push_str(&content);
+            }
+            DocumentNode::Element(child_element) => {
+                if index > 0 && !text_content.is_empty() {
+                    text_content.push(' ');
+                }
+                text_content.push_str(&extract_text_content(&child_element));
+            }
+        }
+    }
+
+    text_content
 }
