@@ -36,6 +36,7 @@ pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
     result
 }
 
+/// Handles the data state, the default state and will push content to a buffer until a `<` is reached
 pub fn handle_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '<' => {

@@ -5,6 +5,7 @@ use crate::tokens::{
     tokenizer::HtmlTokenizer,
 };
 
+/// Handles the start of a declaration, after `<!`
 pub fn handle_start_declaration_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '-' => {
@@ -25,6 +26,7 @@ pub fn handle_start_declaration_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
+/// Handles the XML declaration state, after `<?`
 pub fn handle_xml_declaration_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '?' => {
@@ -72,6 +74,7 @@ pub fn handle_xml_declaration_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
+/// Handles the doctype declaration state, after the `<!D` or `<!d`
 pub fn handle_doctype_declaration_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
