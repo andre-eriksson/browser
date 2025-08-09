@@ -3,6 +3,7 @@
 This project utilizes the following third-party libraries, each governed by its own license:
 
 ## Table of Contents
+* [criterion (MIT License)](#criterion-mit-license)
 * [http (MIT License)](#http-mit-license)
 * [iced (MIT License)](#iced-mit-license)
 * [image (MIT License)](#image-mit-license)
@@ -10,11 +11,41 @@ This project utilizes the following third-party libraries, each governed by its 
 * [OpenSans (SIL Open Font License)](#opensans-sil-open-font-license)
 * [reqwest (MIT License)](#reqwest-mit-license)
 * [Roboto Mono (SIL Open Font License)](#roboto-mono-sil-open-font-license)
-* [rust-embed (MIT License)](#)
+* [rust-embed (MIT License)](#rust-embed-mit-license)
+* [rust-phf (MIT License)](#rust-phf-mit-license)
 * [rust-url (MIT License)](#rust-url-mit-license)
 * [tokio (MIT License)](#tokio-mit-license)
 * [tracing (MIT License)](#tracing)
 * [tracing-subscriber (MIT License)](#tracing-subscriber)
+
+---
+
+## criterion (MIT License)
+**Copyright (c) 2014 Jorge Aparicio**
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE
 
 ---
 
@@ -250,6 +281,28 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## rust-phf (MIT License)
+**Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi**
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
