@@ -4,7 +4,7 @@ A browser (kinda) project to learn Rust, creating and displaying HTML content vi
 
 ## Preview
 
-<img src="./docs/preview.webp" alt="A screenshot of 'https://developer.mozilla.org/en-US/' from the current build alongside YouTube and Amazon tabs">
+<img src="./docs/preview.webp" alt="A screenshot of the app display some HTML and UI elements like tabs.">
 
 ## Features
 - [ ] Engine
@@ -21,8 +21,8 @@ A browser (kinda) project to learn Rust, creating and displaying HTML content vi
   - [ ] Cascading support
 - [x] UI rendered
   - [x] Rendering the DOM-tree
-  - [x] Applying basic CSS
-  - [x] Drawing images
+  - [ ] Applying basic CSS
+  - [ ] Drawing images
 - [ ] Networking
   - [x] Able to fetch a single .html file from a URL
   - [x] Handling of Content-Security-Policy header
