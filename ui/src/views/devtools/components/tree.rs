@@ -22,11 +22,11 @@ const MAX_CHILDREN_LIMIT: usize = 100;
 pub fn render_dom_tree(app: &Application) -> Result<container::Container<'_, Message>, String> {
     let root = &app.tabs[app.current_tab_id].html_content;
 
-    if root.nodes.is_empty() {
+    if root.dom_tree.is_empty() {
         return Err("No DOM content loaded - document is empty.".to_string());
     }
 
-    match display_child_elements(&root.nodes) {
+    match display_child_elements(&root.dom_tree) {
         Some(content) => {
             let content: container::Container<'_, Message> = container(content)
                 .style(|_theme| {

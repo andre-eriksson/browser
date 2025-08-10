@@ -5,11 +5,21 @@ use url::Origin;
 
 use crate::util::source::{SourceType, get_source_from_tag};
 
+/// A struct to hold CSP fallback directives.
 #[derive(Default)]
 struct CSPFallback {
+    /// A map of CSP directives and their fallback sources.
     directives: HashMap<String, Vec<String>>,
 }
 
+/// Tests the Content Security Policy (CSP) header.
+///
+/// # Arguments
+/// * `csp` - The CSP header value as a string.
+/// * `source_type` - The type of source being requested (e.g., script, image).
+///
+/// # Returns
+/// `Ok(())` if the CSP allows the request, or an error message if it blocks the request.
 fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Result<(), String> {
     // Parse the CSP header
     let mut csp_fallback = CSPFallback::default();
@@ -212,6 +222,15 @@ fn test_csp(csp: &str, source_type: SourceType, request_origin: &Origin) -> Resu
     Ok(())
 }
 
+/// Handles Content Security Policy (CSP) for a request.
+///
+/// # Arguments
+/// * `headers` - The headers of the request.
+/// * `tag_name` - The name of the HTML tag that initiated the request.
+/// * `request_origin` - The origin of the request.
+///
+/// # Returns
+/// `Ok(())` if the request is allowed by the CSP, or an error message if it is blocked.
 pub fn handle_csp(
     headers: &HeaderMap<HeaderValue>,
     tag_name: &str,

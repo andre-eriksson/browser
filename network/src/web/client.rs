@@ -18,38 +18,46 @@ use crate::{
 };
 
 /// DebugResponse is used to store information about the responses received by the WebClient.
-///
-/// # Fields
-/// * `url`: The URL of the request.
-/// * `method`: The HTTP method used for the request (e.g., GET, POST).
-/// * `status_code`: The HTTP status code returned by the server.
 #[derive(Debug, Clone)]
 pub struct DebugResponse {
+    /// The URL of the request.
     pub url: String,
+    /// The HTTP method used for the request (e.g., GET, POST).
     pub method: String,
+    /// The HTTP status code returned by the server.
     pub status_code: u16,
 }
 
 /// A web client for making HTTP requests with CORS and CSP handling.
+///
 /// This client is designed to work with a specific origin and can handle preflight requests for CORS.
 /// It also checks Content Security Policy (CSP) rules before making requests.
-///
-/// # Fields
-/// * `client`: The underlying HTTP client used for making requests.
-/// * `origin`: The origin of the web client, used for CORS and CSP checks.
-/// * `client_header`: Headers that will be sent with every request made by this client.
-/// * `responses`: A vector to store the responses received.
-/// * `origin_headers`: Optional headers from the origin response, used for CSP checks.
 #[derive(Debug, Clone)]
 pub struct WebClient {
+    /// The underlying HTTP client used for making requests.
     pub client: Client,
+
+    /// The origin of the web client, used for CORS and CSP checks.
     pub origin: Origin,
+
+    /// Headers that will be sent with every request made by this client.
     pub client_header: HeaderMap<HeaderValue>,
+
+    /// A vector to store the responses received.
     pub responses: Vec<DebugResponse>,
+
+    /// Optional headers from the origin response, used for CSP checks.
     origin_headers: Option<HeaderMap<HeaderValue>>,
 }
 
 impl WebClient {
+    /// Creates a new instance of the WebClient.
+    ///
+    /// # Arguments
+    /// * `client` - The underlying HTTP client to use for requests.
+    /// * `origin` - The origin of the web client, typically set to `Origin::new_opaque()`,
+    /// until you've made an inital request via `setup_client`.
+    /// * `client_header` - Headers that will be sent with every request made by this client.
     pub fn new(client: Client, origin: Origin, client_header: HeaderMap<HeaderValue>) -> Self {
         WebClient {
             client,
@@ -60,10 +68,12 @@ impl WebClient {
         }
     }
 
+    /// Initializes the builder for the WebClient.
     pub fn builder() -> WebClientBuilder {
         WebClientBuilder::new(Origin::new_opaque())
     }
 
+    /// Handles CORS preflight requests.
     async fn handle_preflight(
         &mut self,
         request_origin: &Origin,
@@ -119,6 +129,9 @@ impl WebClient {
 
     /// Initialize the origin by sending a GET request to the specified URL. Will set the headers
     /// for the client if the request is successful.
+    ///
+    /// # Arguments
+    /// * `path` - The path to send the GET request to, relative to the origin.
     ///
     /// # Returns
     /// A `Result` containing the response body as a `String` if successful, or an error message if the request fails.

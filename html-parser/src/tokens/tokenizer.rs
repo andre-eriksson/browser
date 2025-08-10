@@ -27,31 +27,34 @@ use crate::tokens::{
 };
 
 /// Context for the tokenizer that keeps track of the current parsing state between chunks.
-///
-/// # Fields
-/// * `inside_preformatted` - A boolean indicating whether the tokenizer is currently inside a preformatted text block (e.g., `<pre>` tag).
 #[derive(Debug, Default)]
 pub struct TokenizerContext {
+    /// A boolean indicating whether the tokenizer is currently inside a preformatted text block (e.g., `<pre>` tag).
     pub inside_preformatted: bool,
 }
 
 /// A tokenizer for HTML content that processes chunks of HTML and emits tokens.
 /// This tokenizer handles various HTML states, including text, tags, attributes, comments, and declarations.
-///
-/// # Fields
-/// * `state` - The current state of the parser.
-/// * `current_token` - The token currently being constructed.
-/// * `temporary_buffer` - A buffer for accumulating text data between tokens.
-/// * `current_attribute_name` - The name of the current attribute being processed.
-/// * `current_attribute_value` - The value of the current attribute being processed.
-/// * `tokens` - A queue of tokens that have been parsed and are ready to be emitted.
 pub struct HtmlTokenizer {
+    /// The current state of the parser.
     pub state: ParserState,
+
+    /// The token currently being constructed.
     pub current_token: Option<Token>,
+
+    /// A buffer for accumulating text data between tokens.
     pub temporary_buffer: String,
+
+    /// The name of the current attribute being processed.
     pub current_attribute_name: String,
+
+    /// The value of the current attribute being processed.
     pub current_attribute_value: String,
+
+    /// A queue of tokens that have been parsed and are ready to be emitted.
     pub tokens: VecDeque<Token>,
+
+    /// Context for the tokenizer that keeps track of the current parsing state between chunks.
     pub context: TokenizerContext,
 }
 

@@ -9,12 +9,11 @@ use crate::{
 use std::{cell::RefCell, rc::Rc};
 
 /// Represents the result of building a DOM tree.
-///
-/// # Fields
-/// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
-/// * `metadata` - The metadata collected during parsing, which is of type `M`.
 pub struct BuildResult<M> {
+    /// A vector of shared DOM nodes representing the parsed document structure.
     pub dom_tree: DocumentRoot<SingleThreaded>,
+
+    /// The metadata collected during parsing, which is of type `M`.
     pub metadata: M,
 }
 
@@ -22,16 +21,20 @@ pub struct BuildResult<M> {
 ///
 /// # Type Parameters
 /// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
-///
-/// # Fields
-/// * `collector` - An instance of the collector used to gather metadata during parsing.
-/// * `dom_tree` - A vector of shared DOM nodes representing the parsed document structure.
-/// * `open_elements` - A stack of currently open elements, used to manage the hierarchy of the DOM tree.
 pub struct DomTreeBuilder<C: Collector> {
+    /// The current ID to assign to new elements.
     pub current_id: u16,
+
+    /// An instance of the collector used to gather metadata during parsing.
     pub collector: C,
+
+    /// A vector of shared DOM nodes representing the parsed document structure.
     dom_tree: Vec<Rc<RefCell<DocumentNode<SingleThreaded>>>>,
+
+    /// An index for tracking the position of elements in the DOM tree.
     index: DomIndex<SingleThreaded>,
+
+    /// A stack of currently open elements, used to manage the hierarchy of the DOM tree.
     open_elements: Vec<Rc<RefCell<DocumentNode<SingleThreaded>>>>,
 }
 

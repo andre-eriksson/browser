@@ -10,20 +10,21 @@ use crate::{
     tree::builder::{BuildResult, DomTreeBuilder},
 };
 
-/// A streaming HTML parser that reads HTML content from a buffered reader and builds a DOM tree incrementally.
+/// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
 ///
 /// # Type Parameters
 /// * `R` - The type of the buffered reader, which must implement `BufRead`.
-///
-/// # Fields
-/// * `reader` - A buffered reader that provides the HTML content to be parsed.
-/// * `buffer` - A string buffer that temporarily holds HTML content between reads.
-/// * `buffer_size` - The size of the internal buffer used for reading HTML content.
-/// * `byte_buffer` - A vector of bytes that holds any incomplete UTF-8 sequences between reads.
 pub struct HtmlStreamParser<R: BufRead> {
+    /// A buffered reader that provides the HTML content to be parsed.
     reader: R,
+
+    /// A string buffer that temporarily holds HTML content between reads.
     buffer: String,
+
+    /// The size of the internal buffer used for reading HTML content.
     buffer_size: usize,
+
+    /// A vector of bytes that holds any incomplete UTF-8 sequences between reads.
     byte_buffer: Vec<u8>,
 }
 

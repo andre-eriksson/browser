@@ -5,19 +5,19 @@ use api::html::{HtmlTag, KnownTag};
 use crate::dom::{DocumentNode, SingleThreaded};
 
 /// Represents basic metadata about an HTML tag, including its name, attributes, and associated DOM node.
-/// This struct is used to pass information about HTML tags to collectors during the parsing process.
 ///
-/// # Fields
-/// * `tag_name` - The name of the HTML tag (e.g., "div", "span").
-/// * `attributes` - A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
-/// * `dom_node` - A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
+/// This struct is used to pass information about HTML tags to collectors during the parsing process.
 pub struct TagInfo<'a> {
+    /// The name of the HTML tag (e.g., `"div"`, `"span"`).
     pub tag: &'a HtmlTag,
+    /// A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
     pub attributes: &'a HashMap<String, String>,
+    /// A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
     pub dom_node: &'a DocumentNode<SingleThreaded>,
 }
 
 /// A trait that defines a collector for metadata extracted from HTML tags during parsing.
+///
 /// Collectors implement this trait to gather specific information about HTML tags, such as IDs, classes, and external resources.
 /// The collected metadata can then be used for various purposes, such as indexing, analysis, or further processing.
 ///
@@ -29,6 +29,8 @@ pub trait Collector {
     type Output;
 
     /// Collects metadata from the provided tag information.
+    ///
+    /// Will be called when building start tags.
     ///
     /// # Arguments
     /// * `tag` - A reference to a `TagInfo` struct containing the tag name, attributes, and associated DOM node.
@@ -43,15 +45,15 @@ pub trait Collector {
 
 /// A default implementation of the `Collector` trait that collects metadata about HTML tags.
 /// This implementation gathers information about IDs, classes, and external resources (like `href` and `src` attributes) from the parsed HTML tags.
-///
-/// # Fields
-/// * `id_map` - An optional map that associates IDs with their corresponding DOM nodes.
-/// * `class_map` - An optional map that associates class names with vectors of DOM nodes that have those classes.
-/// * `external_resources` - An optional map that associates external resource URLs (like `href` and `src`) with the tags that reference them.
 #[derive(Default)]
 pub struct DefaultCollector {
+    /// An optional map that associates IDs with their corresponding DOM nodes.
     pub id_map: Option<HashMap<String, DocumentNode<SingleThreaded>>>,
+
+    /// An optional map that associates class names with vectors of DOM nodes that have those classes.
     pub class_map: Option<HashMap<String, Vec<DocumentNode<SingleThreaded>>>>,
+
+    /// An optional map that associates external resource URLs (like `href` and `src`) with the tags that reference them.
     pub external_resources: Option<HashMap<String, Vec<DocumentNode<SingleThreaded>>>>,
 }
 
