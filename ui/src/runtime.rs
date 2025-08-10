@@ -15,8 +15,8 @@ pub struct UiRuntime;
 impl UiRuntime {
     /// Runs the UI runtime, initializing the application and starting the event loop.
     pub fn run() {
-        let default_font = ASSETS.lock().unwrap().get(DEFAULT_FONT);
-        let monospace_font = ASSETS.lock().unwrap().get(MONOSPACE_FONT);
+        let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
+        let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
         let result = iced::daemon(Application::title, Application::update, Application::view)
             .settings(Settings {
                 fonts: vec![Cow::Owned(default_font), Cow::Owned(monospace_font)],

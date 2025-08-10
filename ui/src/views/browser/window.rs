@@ -52,7 +52,7 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for BrowserWindow 
     }
 
     fn settings(&self) -> iced::window::Settings {
-        let icon = ASSETS.lock().unwrap().get(WINDOW_ICON);
+        let icon = ASSETS.read().unwrap().load_embedded(WINDOW_ICON);
 
         let browser_icon = load_icon(icon);
 
