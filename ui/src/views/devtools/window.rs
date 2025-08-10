@@ -58,7 +58,7 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for DevtoolsWindow
     }
 
     fn settings(&self) -> iced::window::Settings {
-        let icon = ASSETS.lock().unwrap().get(DEVTOOLS_ICON);
+        let icon = ASSETS.read().unwrap().load_embedded(DEVTOOLS_ICON);
 
         let devtools_icon = load_icon(icon);
 
