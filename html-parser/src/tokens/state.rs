@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+/// Represents the various states the parser can be in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParserState {
     /// The initial state, where the parser is reading regular text
@@ -9,21 +10,21 @@ pub enum ParserState {
     /// Hello, World!
     Data,
 
-    /// Represents the start of a tag ('<')
+    /// Represents the start of a tag (`<`)
     ///
     /// # Example
     /// ```html
     /// <tag>
     TagOpen,
 
-    /// Represents the start of an end tag ('</')
+    /// Represents the start of an end tag (`</`)
     ///
     /// # Example
     /// ```html
     /// </tag>
     EndTagOpen,
 
-    /// Represents the start of a self-closing tag ('<tag/>')
+    /// Represents the start of a self-closing tag (`<tag/>`)
     ///
     /// # Example
     /// ```html
@@ -108,7 +109,7 @@ pub enum ParserState {
     /// <!—— This is a bogus comment ——>
     BogusComment,
 
-    /// Represents the start of a comment ('<!--')
+    /// Represents the start of a comment (`<!--`)
     ///
     /// # Example
     /// ```html
@@ -122,7 +123,7 @@ pub enum ParserState {
     /// <!-- This is a comment -->
     Comment,
 
-    /// Represents the end of a comment ('-->')
+    /// Represents the end of a comment `-->`)
     ///
     /// # Example
     /// ```html
@@ -152,7 +153,7 @@ pub enum ParserState {
     /// </script>
     ScriptData,
 
-    /// Represents the start of a script end tag ('</script>')
+    /// Represents the start of a script end tag (`</script>`)
     ///
     /// # Example
     /// ```html
@@ -165,31 +166,36 @@ pub enum ParserState {
 /// Represents the kind of token being parsed in the HTML document
 ///
 /// # Fields
-/// * `StartTag` - Represents the start of an HTML tag (e.g., `<div>`).
-/// * `EndTag` - Represents the end of an HTML tag (e.g., `</div>`).
-/// * `Comment` - Represents an HTML comment (e.g., `<!-- comment -->`).
-/// * `Text` - Represents plain text content within the HTML document.
-/// * `DoctypeDeclaration` - Represents a doctype declaration (e.g., `<!DOCTYPE html>`).
-/// * `XmlDeclaration` - Represents an XML declaration (e.g., `<?xml version="1.0"?>`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
+    /// Represents the start of an HTML tag (e.g., `<div>`).
     StartTag,
+
+    /// Represents the end of an HTML tag (e.g., `</div>`).
     EndTag,
+
+    /// Represents an HTML comment (e.g., `<!-- comment -->`).
     Comment,
+
+    /// Represents plain text content within the HTML document.
     Text,
+
+    /// Represents a doctype declaration (e.g., `<!DOCTYPE html>`).
     DoctypeDeclaration,
+
+    /// Represents an XML declaration (e.g., `<?xml version="1.0"?>`).
     XmlDeclaration,
 }
 
 /// Represents a token in the HTML document, including its kind, data, and attributes
-///
-/// # Fields
-/// * `kind` - The type of token (e.g., start tag, end tag, comment).
-/// * `data` - The content of the token, such as the tag name or text content.
-/// * `attributes` - A map of attributes associated with the token, where the key is the attribute name and the value is the attribute value.
 #[derive(Debug, Clone)]
 pub struct Token {
+    /// The type of token (e.g., start tag, end tag, comment).
     pub kind: TokenKind,
+
+    /// The content of the token, such as the tag name or text content.
     pub data: String,
+
+    /// A map of attributes associated with the token, where the key is the attribute name and the value is the attribute value.
     pub attributes: HashMap<String, String>,
 }

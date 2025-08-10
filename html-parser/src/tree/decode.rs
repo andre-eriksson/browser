@@ -1,11 +1,14 @@
 use std::iter::Peekable;
 
 /// A simple HTML entity decoder that decodes named and numeric character references in HTML.
-/// /// This decoder supports both named entities (like `&amp;`, `&lt;`, etc.) and numeric character references
+///
+/// This decoder supports both named entities (like `&amp;`, `&lt;`, etc.) and numeric character references
 /// (like `&#38;`, `&#60;`, `&#x26;`, etc.). It can handle both decimal and hexadecimal numeric references.
 ///
-/// [Specification](https://html.spec.whatwg.org/multipage/named-characters.html#named-character-references)
+/// # See Also
+/// <https://html.spec.whatwg.org/multipage/named-characters.html#named-character-references>
 pub struct Decoder<'input> {
+    /// The input string to decode.
     input: &'input str,
 }
 

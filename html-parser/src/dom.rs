@@ -64,18 +64,19 @@ impl NodeContext for MultiThreaded {
 /// Represents an HTML element in the DOM tree.
 ///
 /// # Type Parameters
-/// * `Context` - The threading model used for the element, which can be either `SingleThreaded` or `MultiThreaded`.
-///
-/// # Fields
-/// * `id` - A unique identifier for the element.
-/// * `attributes` - A map of attributes associated with the element, where keys are attribute names and values are attribute values.
-/// * `tag_name` - The name of the HTML tag for the element (e.g., "div", "span").
-/// * `children` - The child nodes of the element, which are represented as a collection of nodes in the specified context.
+/// * `Context` - The threading model used for the element.
 #[derive(Clone)]
 pub struct Element<Context: NodeContext + Clone> {
+    /// A unique identifier for the element.
     pub id: u16,
+
+    /// A map of attributes associated with the element, where keys are attribute names and values are attribute values.
     pub attributes: HashMap<String, String>,
+
+    /// The name of the HTML tag for the element (e.g., "div", "span").
     pub tag: HtmlTag,
+
+    /// The child nodes of the element, which are represented as a collection of nodes in the specified context.
     pub children: Context::Children<DocumentNode<Context>>,
 }
 
@@ -101,26 +102,29 @@ impl<Context: NodeContext + Clone> PartialEq for Element<Context> {
 /// Represents a node in the DOM tree, which can be an element or text node.
 ///
 /// # Type Parameters
-/// * `Context` - The threading model used for the node, which can be either `SingleThreaded` or `MultiThreaded`.
-///
-/// # Variants
-/// * `Element` - Represents an HTML element with a tag name, attributes, and children.
-/// * `Text` - Represents a text node containing text content.
+/// * `Context` - The threading model used for the node.
 #[derive(Clone, PartialEq)]
 pub enum DocumentNode<Context: NodeContext + Clone> {
     /// Represents different types of nodes in the DOM tree.
-    /// e.g. <html>, <body>, <div>, etc.
+    ///
+    /// # Example
+    /// * `<html>`
+    /// * `<body>`
+    /// * `<div>`
     Element(Element<Context>),
 
     /// Represents a text node containing text content.
-    /// e.g. "Hello, World!".
-    /// This is always a leaf node in the DOM tree.
     ///
+    /// This is always a leaf node in the DOM tree.
     /// It does **NOT** have children.
+    ///
+    /// # Example
+    /// `<p>Hello World!</p>` -> `DocumentNode::Text(content)` -> `content == "Hello World!`
     Text(String),
 }
 
 impl<Context: NodeContext + Clone + Debug> DocumentNode<Context> {
+    /// Returns a reference to the element if it is an element node.
     pub fn as_element(&self) -> Option<&Element<Context>> {
         if let DocumentNode::Element(element) = self {
             Some(element)
@@ -129,6 +133,7 @@ impl<Context: NodeContext + Clone + Debug> DocumentNode<Context> {
         }
     }
 
+    /// Returns a reference to the text content if it is a text node.
     pub fn as_text(&self) -> Option<&String> {
         if let DocumentNode::Text(text) = self {
             Some(text)
@@ -222,9 +227,15 @@ fn convert_node_shared(
     }
 }
 
+/// A utility struct for indexing DOM nodes.
 pub struct DomIndex<Context: NodeContext + Debug + Clone> {
+    /// A flat list of all indexed nodes.
     pub flat: Vec<Context::Node<DocumentNode<Context>>>,
+
+    /// A map that associates IDs with their corresponding DOM nodes.
     pub id: HashMap<u16, Context::Node<DocumentNode<Context>>>,
+
+    /// A map that associates HTML tags with their corresponding DOM nodes.
     pub tag: HashMap<HtmlTag, Vec<Context::Node<DocumentNode<Context>>>>,
 }
 
@@ -261,14 +272,17 @@ impl<Context: NodeContext + Debug + Clone> Default for DomIndex<Context> {
 
 /// Represents the root of a document, which is a collection of nodes in the specified context.
 pub struct DocumentRoot<Context: NodeContext + Debug + Clone> {
-    pub nodes: Vec<Context::Node<DocumentNode<Context>>>,
+    /// A vector of nodes that make up the DOM tree.
+    pub dom_tree: Vec<Context::Node<DocumentNode<Context>>>,
+
+    /// A map for indexing nodes by their IDs and tags.
     pub index: DomIndex<Context>,
 }
 
 impl<Context: NodeContext + Debug + Clone> Default for DocumentRoot<Context> {
     fn default() -> Self {
         DocumentRoot {
-            nodes: Vec::new(),
+            dom_tree: Vec::new(),
             index: DomIndex::default(),
         }
     }
@@ -276,8 +290,11 @@ impl<Context: NodeContext + Debug + Clone> Default for DocumentRoot<Context> {
 
 impl<Context: NodeContext + Debug + Clone> DocumentRoot<Context> {
     /// Creates a new `DocumentRoot` with an empty vector of nodes.
-    pub fn new(nodes: Vec<Context::Node<DocumentNode<Context>>>, index: DomIndex<Context>) -> Self {
-        DocumentRoot { nodes, index }
+    pub fn new(
+        dom_tree: Vec<Context::Node<DocumentNode<Context>>>,
+        index: DomIndex<Context>,
+    ) -> Self {
+        DocumentRoot { dom_tree, index }
     }
 
     /// Converts a single-threaded DocumentRoot to a multi-threaded DocumentRoot with shared references.
@@ -291,8 +308,8 @@ impl<Context: NodeContext + Debug + Clone> DocumentRoot<Context> {
         > = HashMap::new();
 
         DocumentRoot {
-            nodes: single_threaded_root
-                .nodes
+            dom_tree: single_threaded_root
+                .dom_tree
                 .iter()
                 .map(|node| convert_node_shared(node, &mut conversion_map))
                 .collect(),

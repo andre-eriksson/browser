@@ -1,20 +1,19 @@
 use std::fmt::Display;
 
 /// Represents an HTML tag, which can be either a known tag or an unknown tag.
-///
-/// # Variants
-/// * `Known(KnownTag)` - Represents a known HTML tag defined in the `KnownTag` enum.
-/// * `Unknown(String)` - Represents an unknown HTML tag, where the string is the tag name, for instance custom tags like <yt-thumbnail-view-model>.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum HtmlTag {
+    /// Represents a known HTML tag defined in the `KnownTag` enum.
     Known(KnownTag),
+    /// Represents an unknown HTML tag, where the string is the tag name, for instance custom tags like `<yt-thumbnail-view-model>`.
     Unknown(String),
 }
 
 /// Represents known HTML tags as an enum.
+///
 /// This enum includes common HTML tags that are recognized by the parser.
 ///
-/// https://html.spec.whatwg.org/multipage/#toc-semantics
+/// <https://html.spec.whatwg.org/multipage/#toc-semantics>
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum KnownTag {
     Html,
@@ -162,6 +161,7 @@ pub enum KnownTag {
     Canvas,
 }
 
+/// A perfect hash map for HTML tags
 static TAGS: phf::Map<&'static str, HtmlTag> = phf::phf_map! {
     "html" => HtmlTag::Known(KnownTag::Html),
     "head" => HtmlTag::Known(KnownTag::Head),

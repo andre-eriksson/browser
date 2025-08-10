@@ -1,6 +1,13 @@
+/// The data module contains all the types and structures used for representing network data.
 pub mod data;
+
+/// The rules module contains all the logic for validating and applying various web standards like CORS and CSP.
 pub mod rules;
+
+/// The utils module contains various utility functions and types used throughout the network layer.
 pub mod util;
+
+/// The web module handles all web-related functionality like using WebClient to handle web page requests and responses
 pub mod web;
 
 #[cfg(test)]
