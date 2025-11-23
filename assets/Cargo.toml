@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-api = { path = "../api" }
+telemetry = { path = "../utilities/telemetry" }
 tracing = { workspace = true }
 once_cell = "1.21.3"
 rust-embed = { version = "8.7.2", features = ["include-exclude"] }

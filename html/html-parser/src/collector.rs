@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use api::html::{HtmlTag, KnownTag};
+use html_syntax::{HtmlTag, KnownTag};
 
 use crate::dom::{DocumentNode, SingleThreaded};
 

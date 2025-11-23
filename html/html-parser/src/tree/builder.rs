@@ -1,4 +1,4 @@
-use api::html::{HtmlTag, is_void_element, should_auto_close, tag_from_str};
+use html_syntax::{HtmlTag, is_void_element, should_auto_close, tag_from_str};
 
 use crate::{
     collector::{Collector, TagInfo},
