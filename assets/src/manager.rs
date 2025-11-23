@@ -1,10 +1,12 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use tracing::{debug, info, warn};
-
-use api::logging::{
-    EVENT, EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET,
+use telemetry::{
+    events::assets::{
+        EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET,
+    },
+    keys::EVENT,
 };
+use tracing::{debug, info, warn};
 
 use crate::backends::{AssetBackend, AssetError, Backend};
 
