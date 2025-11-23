@@ -1,8 +1,10 @@
 use std::io::BufRead;
 
+use telemetry::{
+    events::html::EVENT_HTML_PARSED,
+    keys::{DURATION, EVENT},
+};
 use tracing::info;
-
-use api::logging::{DURATION, EVENT, EVENT_HTML_PARSED};
 
 use crate::{
     collector::Collector,
