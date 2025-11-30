@@ -541,11 +541,8 @@ dependencies = [
  "constants",
  "cookies",
  "http",
- "network",
- "tokio",
  "tracing",
  "tracing-subscriber",
- "url",
 ]
 
 [[package]]
