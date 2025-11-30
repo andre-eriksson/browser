@@ -39,12 +39,13 @@ impl<'a> NetworkSession<'a> {
         client: Box<dyn HttpClient>,
         browser_headers: HeaderMap,
         cookie_jar: &'a mut CookieJar,
+        referrer: Option<ReferrerPolicy>,
     ) -> Self {
         NetworkSession {
             current_url: None,
             browser_headers,
             cookie_jar,
-            referrer: ReferrerPolicy::StrictOriginWhenCrossOrigin,
+            referrer: referrer.unwrap_or(ReferrerPolicy::StrictOriginWhenCrossOrigin),
             client,
         }
     }
