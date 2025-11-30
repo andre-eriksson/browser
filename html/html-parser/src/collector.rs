@@ -65,22 +65,22 @@ impl Collector for DefaultCollector {
             return;
         }
 
-        if let Some(id_map) = &mut self.id_map {
-            if let Some(id) = tag.attributes.get("id") {
-                id_map
-                    .entry(id.to_string())
-                    .or_insert_with(|| tag.dom_node.clone());
-            }
+        if let Some(id_map) = &mut self.id_map
+            && let Some(id) = tag.attributes.get("id")
+        {
+            id_map
+                .entry(id.to_string())
+                .or_insert_with(|| tag.dom_node.clone());
         }
 
-        if let Some(class_map) = &mut self.class_map {
-            if let Some(classes) = tag.attributes.get("class") {
-                for class in classes.split_whitespace() {
-                    class_map
-                        .entry(class.to_string())
-                        .or_default()
-                        .push(tag.dom_node.clone());
-                }
+        if let Some(class_map) = &mut self.class_map
+            && let Some(classes) = tag.attributes.get("class")
+        {
+            for class in classes.split_whitespace() {
+                class_map
+                    .entry(class.to_string())
+                    .or_default()
+                    .push(tag.dom_node.clone());
             }
         }
 

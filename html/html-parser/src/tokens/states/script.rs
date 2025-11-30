@@ -58,12 +58,12 @@ pub fn handle_script_data_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: 
         ch if ch.is_whitespace() => {}
         _ => {
             if tokenizer.temporary_buffer.len() == expected.len() {
-                if tokenizer.temporary_buffer != expected {
-                    if let Some(token) = tokenizer.current_token.as_mut() {
-                        token.data.push_str(&tokenizer.temporary_buffer);
-                        tokenizer.state = ParserState::ScriptData;
-                        tokenizer.temporary_buffer.clear();
-                    }
+                if tokenizer.temporary_buffer != expected
+                    && let Some(token) = tokenizer.current_token.as_mut()
+                {
+                    token.data.push_str(&tokenizer.temporary_buffer);
+                    tokenizer.state = ParserState::ScriptData;
+                    tokenizer.temporary_buffer.clear();
                 }
             } else {
                 tokenizer.temporary_buffer.push(ch);

@@ -1,4 +1,4 @@
-/// Middleware modules for handling various aspects of network sessions.
+//! Middleware modules for handling various aspects of network sessions.
 
 /// Cookie management middleware for sessions.
 pub mod cookies;

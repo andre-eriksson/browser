@@ -1,4 +1,4 @@
-/// HTTP module for handling HTTP requests and responses.
+//! HTTP module for handling HTTP requests and responses.
 
 /// Our HTTP client trait, which all HTTP client implementations should follow.
 pub mod client;

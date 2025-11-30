@@ -1,4 +1,4 @@
-/// Network module for handling HTTP clients and sessions.
+//! Network module for handling HTTP clients and sessions.
 
 /// This module provides functionalities for creating HTTP clients/backends.
 /// Handles the actual network requests and responses. But all implementations

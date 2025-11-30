@@ -1,4 +1,4 @@
-/// Session management for network operations.
+//! Session management for network operations.
 
 /// Middleware components for network requests, like CORS handling.
 mod middleware;
