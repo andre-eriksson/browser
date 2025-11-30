@@ -41,14 +41,14 @@ pub fn handle_xml_declaration_state(tokenizer: &mut HtmlTokenizer, ch: char) {
             }
         }
         '>' => {
-            if let Some(token) = &tokenizer.current_token {
-                if token.data.ends_with('?') {
-                    if let Some(token) = tokenizer.current_token.take() {
-                        tokenizer.emit_token(token);
-                    }
-                    tokenizer.state = ParserState::Data;
-                    return;
+            if let Some(token) = &tokenizer.current_token
+                && token.data.ends_with('?')
+            {
+                if let Some(token) = tokenizer.current_token.take() {
+                    tokenizer.emit_token(token);
                 }
+                tokenizer.state = ParserState::Data;
+                return;
             }
             if let Some(token) = tokenizer.current_token.as_mut() {
                 token.data.push(ch);

@@ -211,10 +211,10 @@ fn convert_node_shared(
                 .collect();
 
             // Update the children
-            if let Ok(mut node_guard) = new_node.write() {
-                if let DocumentNode::Element(elem) = &mut *node_guard {
-                    elem.children = converted_children;
-                }
+            if let Ok(mut node_guard) = new_node.write()
+                && let DocumentNode::Element(elem) = &mut *node_guard
+            {
+                elem.children = converted_children;
             }
 
             new_node
@@ -244,7 +244,7 @@ impl DomIndex<MultiThreaded> {
     pub fn first_element_by_tag(
         &self,
         tag: &HtmlTag,
-    ) -> Option<RwLockReadGuard<DocumentNode<MultiThreaded>>> {
+    ) -> Option<RwLockReadGuard<'_, DocumentNode<MultiThreaded>>> {
         self.tag.get(tag)?.first()?.read().ok()
     }
 
@@ -252,7 +252,7 @@ impl DomIndex<MultiThreaded> {
     pub fn all_elements_by_tag(
         &self,
         tag: &HtmlTag,
-    ) -> Vec<RwLockReadGuard<DocumentNode<MultiThreaded>>> {
+    ) -> Vec<RwLockReadGuard<'_, DocumentNode<MultiThreaded>>> {
         self.tag
             .get(tag)
             .map(|nodes| nodes.iter().filter_map(|node| node.read().ok()).collect())

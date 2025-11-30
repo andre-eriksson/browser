@@ -79,14 +79,14 @@ impl CookieJar {
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
     pub fn add_cookie(&mut self, cookie: Cookie<'static>, request_domain: &str) {
-        if let Some(domain) = cookie.domain() {
-            if !domain_matches(domain, request_domain) {
-                println!(
-                    "Cookie rejected: domain '{}' doesn't match request domain '{}'",
-                    domain, request_domain
-                );
-                return;
-            }
+        if let Some(domain) = cookie.domain()
+            && !domain_matches(domain, request_domain)
+        {
+            println!(
+                "Cookie rejected: domain '{}' doesn't match request domain '{}'",
+                domain, request_domain
+            );
+            return;
         }
 
         // TODO: Handle age/expiration, max cookies

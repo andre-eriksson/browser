@@ -9,7 +9,7 @@ use http::{HeaderMap, HeaderValue, Method};
 /// # Returns
 /// * `bool` - True if the request is a simple request, false otherwise.
 pub fn is_simple_request(method: &Method, headers: &HeaderMap) -> bool {
-    return is_simple_method(method) && is_simple_headers(headers);
+    is_simple_method(method) && is_simple_headers(headers)
 }
 
 /// Determines if the HTTP method is a simple method according to CORS specifications.

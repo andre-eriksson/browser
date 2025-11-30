@@ -374,10 +374,10 @@ fn is_void_element_known(tag: &KnownTag) -> bool {
 /// # Returns
 /// A boolean indicating whether the current tag should be automatically closed when the new tag is encountered.
 pub fn should_auto_close(current_tag: &HtmlTag, new_tag: &HtmlTag) -> bool {
-    if let HtmlTag::Known(current_known) = current_tag {
-        if let HtmlTag::Known(new_known) = new_tag {
-            return should_auto_close_known(current_known, new_known);
-        }
+    if let HtmlTag::Known(current_known) = current_tag
+        && let HtmlTag::Known(new_known) = new_tag
+    {
+        return should_auto_close_known(current_known, new_known);
     }
 
     false

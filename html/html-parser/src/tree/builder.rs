@@ -208,18 +208,18 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             }
         }
 
-        if let Some(last) = self.open_elements.last() {
-            if let DocumentNode::Element(parent) = &mut *last.borrow_mut() {
-                let text_node = DocumentNode::<SingleThreaded>::Text(text_content);
+        if let Some(last) = self.open_elements.last()
+            && let DocumentNode::Element(parent) = &mut *last.borrow_mut()
+        {
+            let text_node = DocumentNode::<SingleThreaded>::Text(text_content);
 
-                self.collector.collect(&TagInfo {
-                    tag: &parent.tag,
-                    attributes: &parent.attributes,
-                    dom_node: &text_node.clone(),
-                });
+            self.collector.collect(&TagInfo {
+                tag: &parent.tag,
+                attributes: &parent.attributes,
+                dom_node: &text_node.clone(),
+            });
 
-                parent.children.push(SingleThreaded::new_node(&text_node));
-            }
+            parent.children.push(SingleThreaded::new_node(&text_node));
         }
     }
 }
