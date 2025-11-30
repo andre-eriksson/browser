@@ -36,10 +36,10 @@ pub enum Backend {
     /// Used for files that don't need the program to be compiled again e.g., config files.
     FileSystem(PathBuf),
 
-    /// Represents an embedded asset backend that uses `rust-embed` i.e., files included at compile time.
+    /// Represents the apps default assets embedded in the binary.
+    ///
+    /// Used for assets that are unlikely to change frequently e.g., UI assets, logos, etc.
     Embedded,
-    // Network,
-    // etc,
 }
 
 impl AssetBackend for Backend {
