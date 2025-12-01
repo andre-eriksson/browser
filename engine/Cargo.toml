@@ -8,4 +8,5 @@ tracing = { workspace = true }
 tracing-subscriber = "0.3"
 cookies = { path = "../cookies" }
 constants = { path = "../utilities/constants" }
-http = "1.3.1"
+ui = { path = "../ui" }
+http = { workspace = true }

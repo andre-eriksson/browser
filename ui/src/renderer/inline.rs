@@ -1,12 +1,13 @@
 use std::sync::{Arc, RwLock};
 
-use api::html::{HtmlTag, KnownTag};
+use html_syntax::{HtmlTag, KnownTag};
 use iced::{
     Background, Color, Padding,
     widget::{button, column, row, text},
 };
 
 use html_parser::dom::{DocumentNode, Element, MultiThreaded};
+use url::Url;
 
 use crate::{
     api::message::Message, renderer::util::get_text_style_for_element, util::font::MONOSPACE,
@@ -109,14 +110,28 @@ fn render_element<'html>(
             elements.push(text(formatted_content).font(MONOSPACE).into());
         }
         HtmlTag::Known(KnownTag::A) => {
-            let url = element.attributes.get("href").cloned().unwrap_or_default();
+            let url = Url::parse(
+                element
+                    .attributes
+                    .get("href")
+                    .cloned()
+                    .unwrap_or_default()
+                    .as_str(),
+            );
+
+            if url.is_err() {
+                let styled_text = get_text_style_for_element(&element.tag, text_content);
+                elements.push(styled_text.into());
+                return elements;
+            }
+
             let link_text = button(text(text_content).color(Color::from_rgb(0.0, 0.0, 1.0)))
                 .style(|_, _| button::Style {
                     background: Some(Background::Color(Color::from_rgb(1.0, 1.0, 1.0))),
                     ..Default::default()
                 })
                 .padding(Padding::ZERO)
-                .on_press(Message::NavigateTo(url));
+                .on_press(Message::NavigateTo(url.unwrap().to_string()));
             elements.push(link_text.into());
         }
         _ => {

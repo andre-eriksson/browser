@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use cookie::Cookie;
 use cookies::cookie_store::CookieJar;
 use http::{
@@ -8,9 +10,9 @@ use url::Url;
 
 use crate::{
     http::{
-        client::HttpClient,
+        client::{HttpClient, ResponseHandle},
         request::{Request, RequestBuilder},
-        response::Response,
+        response::HeaderResponse,
     },
     session::{
         middleware::{
@@ -23,22 +25,23 @@ use crate::{
     },
 };
 
-pub struct NetworkSession<'a> {
+#[derive(Clone)]
+pub struct NetworkSession {
     current_url: Option<Url>,
 
-    browser_headers: HeaderMap,
-    cookie_jar: &'a mut CookieJar,
+    browser_headers: Arc<HeaderMap>,
+    cookie_jar: Arc<Mutex<CookieJar>>,
     client: Box<dyn HttpClient>,
 
     // Policies
     referrer: ReferrerPolicy,
 }
 
-impl<'a> NetworkSession<'a> {
+impl NetworkSession {
     pub fn new(
         client: Box<dyn HttpClient>,
-        browser_headers: HeaderMap,
-        cookie_jar: &'a mut CookieJar,
+        browser_headers: Arc<HeaderMap>,
+        cookie_jar: Arc<Mutex<CookieJar>>,
         referrer: Option<ReferrerPolicy>,
     ) -> Self {
         NetworkSession {
@@ -50,14 +53,22 @@ impl<'a> NetworkSession<'a> {
         }
     }
 
-    async fn raw_request(&self, request: Request) -> Result<Response, Box<dyn std::error::Error>> {
+    async fn raw_request(
+        &self,
+        request: Request,
+    ) -> Result<Box<dyn ResponseHandle>, Box<dyn std::error::Error + Send + Sync>> {
         self.client.send(request).await
     }
 
-    pub async fn send(&mut self, request: Request) -> Result<Response, Box<dyn std::error::Error>> {
+    pub async fn send(
+        &mut self,
+        request: Request,
+    ) -> Result<Box<dyn ResponseHandle>, Box<dyn std::error::Error + Send + Sync>> {
         let user_headers = request.headers.clone();
         let mut request = request;
-        request.headers.extend(self.browser_headers.clone());
+        request
+            .headers
+            .extend(self.browser_headers.as_ref().clone());
 
         let url = &request.url.clone();
 
@@ -66,13 +77,22 @@ impl<'a> NetworkSession<'a> {
         }
 
         if is_simple_request(&request.method, &user_headers) {
-            apply_cookies(&mut request, self.cookie_jar);
+            {
+                let mut jar = self.cookie_jar.lock().unwrap();
+                apply_cookies(&mut request, &mut jar);
+            }
 
             let resp = self.raw_request(request).await;
 
             if let Ok(response) = &resp {
                 let domain = url.domain().unwrap_or_default();
-                self.handle_response_cookies(response, domain);
+                self.handle_response_cookies(
+                    HeaderResponse {
+                        status_code: response.metadata().status_code,
+                        headers: response.metadata().headers.clone(),
+                    },
+                    domain,
+                );
             }
 
             return resp;
@@ -97,25 +117,32 @@ impl<'a> NetworkSession<'a> {
             return Err("CORS policy does not allow this request".into());
         }
 
-        apply_cookies(&mut request, self.cookie_jar);
+        apply_cookies(&mut request, self.cookie_jar.lock().as_ref().unwrap());
 
         let resp = self.raw_request(request).await;
 
         if let Ok(response) = &resp {
             let domain = url.domain().unwrap_or_default();
-            self.handle_response_cookies(response, domain);
+            self.handle_response_cookies(
+                HeaderResponse {
+                    status_code: response.metadata().status_code,
+                    headers: response.metadata().headers.clone(),
+                },
+                domain,
+            );
         }
 
         resp
     }
 
-    pub fn handle_response_cookies(&mut self, response: &Response, request_domain: &str) {
+    pub fn handle_response_cookies(&mut self, response: HeaderResponse, request_domain: &str) {
         for (name, value) in response.headers.iter() {
             if name == SET_COOKIE
                 && let Ok(cookie_str) = value.to_str()
                 && let Ok(cookie) = Cookie::parse(cookie_str.to_string())
             {
-                self.cookie_jar.add_cookie(cookie, request_domain);
+                let mut jar = self.cookie_jar.lock().unwrap();
+                jar.add_cookie(cookie, request_domain);
             }
         }
     }
@@ -133,7 +160,7 @@ impl<'a> NetworkSession<'a> {
         headers: &HeaderMap,
         url: &Url,
         method: &Method,
-    ) -> Result<Response, Box<dyn std::error::Error>> {
+    ) -> Result<HeaderResponse, Box<dyn std::error::Error + Send + Sync>> {
         if self.current_url.is_none() {
             return Err("No current URL set for CORS preflight request".into());
         }
@@ -161,11 +188,36 @@ impl<'a> NetworkSession<'a> {
                 .header(ACCESS_CONTROL_REQUEST_METHOD, method.as_str())
                 .build();
 
-            return self.raw_request(preflight_request).await;
+            let res = self.raw_request(preflight_request).await;
+            if let Ok(response) = &res {
+                return Ok(HeaderResponse {
+                    status_code: response.metadata().status_code,
+                    headers: response.metadata().headers.clone(),
+                });
+            } else {
+                return Err("CORS preflight request failed".into());
+            }
         }
 
         let preflight_request = preflight_build.build();
 
-        self.raw_request(preflight_request).await
+        let res = self.raw_request(preflight_request).await;
+
+        if let Ok(response) = &res {
+            Ok(HeaderResponse {
+                status_code: response.metadata().status_code,
+                headers: response.metadata().headers.clone(),
+            })
+        } else {
+            Err("CORS preflight request failed".into())
+        }
+    }
+}
+
+impl std::fmt::Debug for NetworkSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NetworkSession")
+            .field("current_url", &self.current_url)
+            .finish()
     }
 }

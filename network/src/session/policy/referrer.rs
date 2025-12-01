@@ -1,6 +1,7 @@
 /// Defines the referrer policy options for network requests.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy>
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReferrerPolicy {
     /// The Referer header will be omitted: sent requests do not include any referrer information.
     NoReferrer,

@@ -1,4 +1,4 @@
-use api::html::{HtmlTag, KnownTag};
+use html_syntax::{HtmlTag, KnownTag};
 
 /// Represents the type of an HTML element.
 ///

@@ -8,7 +8,7 @@ use http::{
 use url::{Origin, Url};
 
 use crate::{
-    http::{request::Credentials, response::Response},
+    http::{request::Credentials, response::HeaderResponse},
     session::middleware::simple::{is_simple_header, is_simple_headers, is_simple_method},
 };
 
@@ -30,7 +30,7 @@ pub fn is_cors_allowed(
     request_url: &Url,
     request_method: &Method,
     request_headers: &HeaderMap,
-    preflight_response: Response,
+    preflight_response: HeaderResponse,
 ) -> bool {
     // TODO: Return an Result<> with error details instead of just bool
 
