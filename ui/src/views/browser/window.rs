@@ -1,4 +1,5 @@
 use assets::{ASSETS, constants::WINDOW_ICON};
+use constants::APP_NAME;
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
     widget::{
@@ -65,6 +66,6 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for BrowserWindow 
     }
 
     fn title(&self) -> String {
-        "Browser".to_string()
+        APP_NAME.to_string()
     }
 }
