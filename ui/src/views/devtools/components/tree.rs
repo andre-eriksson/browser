@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use api::html::is_void_element;
+use html_syntax::is_void_element;
 use iced::{
     Background, Color, Length,
     widget::{Column, column, container, text},

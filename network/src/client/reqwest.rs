@@ -1,6 +1,11 @@
 use async_trait::async_trait;
+use http::HeaderMap;
 
-use crate::http::{client::HttpClient, request::Request, response::Response};
+use crate::http::{
+    client::{HttpClient, ResponseHandle},
+    request::Request,
+    response::{HeaderResponse, Response},
+};
 
 /// An HTTP client implementation using the `reqwest` library.
 #[derive(Default)]
@@ -17,9 +22,37 @@ impl ReqwestClient {
     }
 }
 
+pub struct ReqwestHandle {
+    inner: reqwest::Response,
+    metadata: HeaderResponse,
+}
+
+#[async_trait]
+impl ResponseHandle for ReqwestHandle {
+    fn metadata(&self) -> &HeaderResponse {
+        &self.metadata
+    }
+
+    async fn body(self: Box<Self>) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
+        let status_code = self.metadata.status_code;
+        let headers = self.metadata.headers;
+
+        let body_bytes = self.inner.bytes().await?.to_vec();
+
+        Ok(Response {
+            status_code,
+            headers,
+            body: Some(body_bytes),
+        })
+    }
+}
+
 #[async_trait]
 impl HttpClient for ReqwestClient {
-    async fn send(&self, request: Request) -> Result<Response, Box<dyn std::error::Error>> {
+    async fn send(
+        &self,
+        request: Request,
+    ) -> Result<Box<dyn ResponseHandle>, Box<dyn std::error::Error + Send + Sync>> {
         let mut req = self.client.request(request.method, request.url);
 
         for (key, value) in request.headers.iter() {
@@ -33,17 +66,26 @@ impl HttpClient for ReqwestClient {
         let response = req.send().await?;
 
         let status_code = response.status();
-        let headers = response
+        let headers: HeaderMap = response
             .headers()
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        let body = response.bytes().await?.to_vec();
 
-        Ok(Response {
+        let metadata = HeaderResponse {
             status_code,
             headers,
-            body,
+        };
+
+        Ok(Box::new(ReqwestHandle {
+            inner: response,
+            metadata,
+        }))
+    }
+
+    fn box_clone(&self) -> Box<dyn HttpClient> {
+        Box::new(ReqwestClient {
+            client: self.client.clone(),
         })
     }
 }

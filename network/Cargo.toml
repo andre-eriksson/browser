@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cookies = { path = "../cookies" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+cookie = { workspace = true }
+http = { workspace = true }
+url = { workspace = true }
 async-trait = "0.1.89"
 reqwest = { version = "0.12.18", features = [
     "json",
@@ -12,10 +18,4 @@ reqwest = { version = "0.12.18", features = [
     "deflate",
     "rustls-tls",
 ] }
-cookies = { path = "../cookies" }
-tokio = { workspace = true }
-tracing = { workspace = true }
-cookie = { workspace = true }
-url = "2.5.4"
-http = "1.3.1"
 rustls = "0.23.35"

@@ -11,7 +11,17 @@ pub fn render_header(app: &Application) -> container::Container<'_, Message> {
         .tabs
         .iter()
         .map(|tab| {
-            let metadata = tab.metadata.lock().unwrap();
+            let tab_metadata = tab.metadata.clone();
+
+            if tab_metadata.is_none() {
+                return button(text(format!("about:empty - {}", tab.id)))
+                    .on_press(Message::ChangeTab(tab.id))
+                    .into();
+            }
+
+            let tab_metadata = tab_metadata.unwrap();
+
+            let metadata = tab_metadata.lock().unwrap();
             let tab_title = metadata
                 .title
                 .as_ref()

@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
-use api::html::{HtmlTag, KnownTag};
 use html_parser::dom::{DocumentNode, Element, MultiThreaded};
+use html_syntax::{HtmlTag, KnownTag};
 use iced::{
     Color,
     widget::{Column, column, horizontal_rule, row, text},
