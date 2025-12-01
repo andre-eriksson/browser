@@ -1,4 +1,5 @@
 use assets::{ASSETS, constants::DEVTOOLS_ICON};
+use constants::APP_NAME;
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
     widget::{
@@ -71,6 +72,6 @@ impl ApplicationWindow<Application, Message, Theme, Renderer> for DevtoolsWindow
     }
 
     fn title(&self) -> String {
-        "Devtools".to_string()
+        format!("{} - DevTools", APP_NAME)
     }
 }
