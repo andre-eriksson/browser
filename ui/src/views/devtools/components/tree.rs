@@ -210,9 +210,14 @@ fn process_dom_children_with_context<'window>(
                 }
             }
             DocumentNode::Text(content) => {
-                // Truncate very long text content
                 let truncated_content = if content.len() > 200 {
-                    format!("{}{}... (truncated)", spacing, &content[..197])
+                    {
+                        let mut end = 197;
+                        while end > 0 && !content.is_char_boundary(end) {
+                            end -= 1;
+                        }
+                        format!("{}{}... (truncated)", spacing, &content[..end])
+                    }
                 } else {
                     format!("{}{}", spacing, content)
                 };
