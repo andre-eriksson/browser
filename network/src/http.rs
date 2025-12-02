@@ -1,6 +1,7 @@
 //! HTTP module for handling HTTP requests and responses.
 
-/// Our HTTP client trait, which all HTTP client implementations should follow.
+/// This module provides abstractions for HTTP clients and session management,
+/// enabling stateful interactions with web servers.
 pub mod client;
 
 /// HTTP request structures and utilities.

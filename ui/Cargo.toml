@@ -11,6 +11,7 @@ iced = { version = "0.13.1", features = [
     "svg",
 ] }
 image = "0.25"
+errors = { path = "../errors" }
 assets = { path = "../assets" }
 tracing = { workspace = true }
 html-parser = { path = "../html/html-parser" }

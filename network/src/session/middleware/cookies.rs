@@ -1,5 +1,5 @@
 use cookies::cookie_store::CookieJar;
-use http::header::COOKIE;
+use http::{HeaderValue, header::COOKIE};
 
 use crate::http::request::Request;
 
@@ -26,6 +26,17 @@ pub fn apply_cookies(request: &mut Request, cookie_jar: &CookieJar) {
             stored_cookie.inner.name(),
             stored_cookie.inner.value()
         );
-        request.headers.append(COOKIE, cookie_str.parse().unwrap());
+
+        let cookie_header = HeaderValue::from_str(&cookie_str);
+
+        match cookie_header {
+            Ok(header_value) => {
+                request.headers.append(COOKIE, header_value);
+            }
+            Err(_) => {
+                // TODO: Logging, realistically this should never happen, cause we parse cookies when storing them
+                continue;
+            }
+        }
     }
 }
