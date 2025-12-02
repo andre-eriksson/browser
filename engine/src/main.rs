@@ -3,7 +3,7 @@ pub mod headers;
 use std::sync::{Arc, Mutex};
 
 use cookies::cookie_store::CookieJar;
-use tracing::Level;
+use tracing::{Level, error, info};
 
 use crate::headers::create_default_browser_headers;
 
@@ -19,5 +19,11 @@ fn main() {
     let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
 
     let ui_runtime = UiRuntime::new(browser_headers, cookie_jar);
-    ui_runtime.run();
+    let res = ui_runtime.run();
+
+    if let Err(e) = res {
+        error!("Application exited with error: {:?}", e);
+    }
+
+    info!("Application exited successfully.");
 }

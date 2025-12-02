@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 cookies = { path = "../cookies" }
+errors = { path = "../errors" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 cookie = { workspace = true }

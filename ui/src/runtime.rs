@@ -8,9 +8,9 @@ use assets::{
     constants::{DEFAULT_FONT, MONOSPACE_FONT},
 };
 use cookies::cookie_store::CookieJar;
+use errors::subsystem::SubsystemError;
 use http::HeaderMap;
 use iced::{Font, Settings};
-use tracing::{error, info};
 
 use crate::core::app::Application;
 
@@ -30,7 +30,7 @@ impl UiRuntime {
     }
 
     /// Runs the UI runtime, initializing the application and starting the event loop.
-    pub fn run(self) {
+    pub fn run(self) -> Result<(), SubsystemError> {
         let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
         let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
         let browser_headers = self.browser_headers;
@@ -45,9 +45,19 @@ impl UiRuntime {
             .subscription(Application::subscriptions)
             .run_with(|| Application::new(browser_headers, cookie_jar));
 
-        if let Err(e) = result {
-            error!("Error running the application: {}", e);
-        }
-        info!("Application has exited successfully.");
+        return match result {
+            Ok(_) => Ok(()),
+            Err(e) => match e {
+                iced::Error::ExecutorCreationFailed(msg) => Err(SubsystemError::RuntimeError(
+                    format!("UI Executor Creation Failed: {}", msg),
+                )),
+                iced::Error::GraphicsCreationFailed(msg) => Err(SubsystemError::RuntimeError(
+                    format!("UI Graphics Creation Failed: {}", msg),
+                )),
+                iced::Error::WindowCreationFailed(msg) => Err(SubsystemError::RuntimeError(
+                    format!("UI Window Creation Failed: {}", msg),
+                )),
+            },
+        };
     }
 }

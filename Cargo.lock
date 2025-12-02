@@ -1403,6 +1403,7 @@ version = "0.1.0"
 dependencies = [
  "constants",
  "cookies",
+ "errors",
  "http",
  "tracing",
  "tracing-subscriber",
@@ -1471,6 +1472,13 @@ name = "error-code"
 version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
+
+[[package]]
+name = "errors"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.17",
+]
 
 [[package]]
 name = "etagere"
@@ -3056,6 +3064,7 @@ dependencies = [
  "async-trait",
  "cookie",
  "cookies",
+ "errors",
  "http",
  "reqwest",
  "rustls",
@@ -5470,6 +5479,7 @@ dependencies = [
  "assets",
  "constants",
  "cookies",
+ "errors",
  "html-parser",
  "html-syntax",
  "http",

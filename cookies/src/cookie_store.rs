@@ -82,6 +82,7 @@ impl CookieJar {
         if let Some(domain) = cookie.domain()
             && !domain_matches(domain, request_domain)
         {
+            // TODO: Error handling/logging
             println!(
                 "Cookie rejected: domain '{}' doesn't match request domain '{}'",
                 domain, request_domain

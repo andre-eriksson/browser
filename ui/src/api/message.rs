@@ -1,3 +1,4 @@
+use errors::network::NetworkError;
 use iced::window;
 use network::session::network::NetworkSession;
 
@@ -20,7 +21,7 @@ pub enum Message {
     // === Navigation ===
     NavigateTo(String),
     NavigateSuccess(String, NetworkSession),
-    NavigateError(String),
+    NavigateError(NetworkError),
 
     // === UI Updates ===
     RefreshContent,

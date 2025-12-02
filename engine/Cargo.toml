@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 tracing = { workspace = true }
 tracing-subscriber = "0.3"
+errors = { path = "../errors" }
 cookies = { path = "../cookies" }
 constants = { path = "../utilities/constants" }
 ui = { path = "../ui" }

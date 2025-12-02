@@ -1,3 +1,4 @@
+use errors::network::HttpError;
 use http::{HeaderMap, HeaderName, HeaderValue, Method};
 use url::{Origin, Url};
 
@@ -85,17 +86,38 @@ pub struct RequestBuilder {
 }
 
 impl RequestBuilder {
-    // TODO: Implement error handling, see .unwrap() usages and GET with body restriction.
-
+    /// Creates a new RequestBuilder with the given URL.
+    ///
+    /// # Arguments
+    /// * `url` - The URL for the request.
+    ///
+    /// # Panics
+    /// * Panics if the URL is invalid.
     pub fn new(url: &str) -> Self {
-        RequestBuilder {
+        RequestBuilder::try_new(url).unwrap()
+    }
+
+    /// Tries to create a new RequestBuilder with the given URL.
+    ///
+    /// # Arguments
+    /// * `url` - The URL for the request.
+    ///
+    /// # Returns
+    /// * `Ok(RequestBuilder)` if the URL is valid.
+    /// * `Err(HttpError)` if the URL is invalid.
+    pub fn try_new(url: &str) -> Result<Self, HttpError> {
+        let parsed_url = Url::parse(url).map_err(|err| {
+            HttpError::InvalidURL(format!("Failed to parse URL '{}': {}", url, err))
+        })?;
+
+        Ok(RequestBuilder {
             method: Method::GET,
-            url: Url::parse(url).unwrap(),
+            url: parsed_url,
             headers: HeaderMap::new(),
             mode: RequestMode::Cors,
             credentials: Credentials::SameOrigin,
             body: None,
-        }
+        })
     }
 
     /// Sets the HTTP method for the request.
@@ -123,10 +145,35 @@ impl RequestBuilder {
     /// # Arguments
     /// * `key` - The header name.
     /// * `value` - The header value.
-    pub fn header(mut self, key: HeaderName, value: &str) -> Self {
-        self.headers
-            .insert(key, HeaderValue::from_str(value).unwrap());
-        self
+    ///
+    /// # Panics
+    /// * Panics if the header value is invalid.
+    pub fn header(self, key: HeaderName, value: &str) -> Self {
+        self.try_header(key, value).unwrap()
+    }
+
+    /// Tries to append a header to the request.
+    ///
+    /// # Arguments
+    /// * `key` - The header name.
+    /// * `value` - The header value.
+    ///
+    /// # Returns
+    /// * `Ok(Self)` if the header was added successfully.
+    /// * `Err(String)` if the header value was invalid.
+    pub fn try_header(mut self, key: HeaderName, value: &str) -> Result<Self, HttpError> {
+        let header_value = HeaderValue::from_str(value);
+
+        return match header_value {
+            Ok(v) => {
+                self.headers.insert(key, v);
+                Ok(self)
+            }
+            Err(err) => Err(HttpError::HeaderParseError(format!(
+                "Invalid header value: {}",
+                err
+            ))),
+        };
     }
 
     /// Sets the body for the request.
@@ -157,12 +204,30 @@ impl RequestBuilder {
     }
 
     /// Finalizes and builds the Request object.
+    ///
+    /// # Panics
+    /// * Panics if the request is invalid.
     pub fn build(self) -> Request {
-        // TODO: Validate the request, e.g., body with GET/HEAD methods, etc.
+        self.try_build().unwrap()
+    }
+
+    /// Finalizes and builds the Request object.
+    ///
+    /// # Returns
+    /// * `Ok(Request)` if the request is valid.
+    /// * `Err(HttpError)` if the request is invalid.
+    pub fn try_build(self) -> Result<Request, HttpError> {
+        if (self.method == Method::GET || self.method == Method::HEAD) && self.body.is_some() {
+            return Err(HttpError::InvalidRequest(
+                "GET and HEAD requests cannot have a body".to_string(),
+            ));
+        }
+
+        // TODO: More validations can be added here as needed.
 
         let origin = self.url.origin();
 
-        Request {
+        Ok(Request {
             method: self.method,
             url: self.url,
             headers: self.headers,
@@ -170,7 +235,7 @@ impl RequestBuilder {
             credentials: self.credentials,
             body: self.body,
             origin,
-        }
+        })
     }
 }
 

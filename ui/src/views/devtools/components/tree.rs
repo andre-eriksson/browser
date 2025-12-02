@@ -93,7 +93,6 @@ fn process_dom_children_with_context<'window>(
     nodes: &[Arc<RwLock<DocumentNode<MultiThreaded>>>],
     depth: usize,
 ) -> iced::Element<'window, Message> {
-    // Prevent excessive nesting that can cause performance issues
     if depth > MAX_RENDER_DEPTH {
         return text(format!(
             "{}... (content truncated at depth {})",
@@ -109,7 +108,6 @@ fn process_dom_children_with_context<'window>(
 
     let mut elements = Vec::new();
 
-    // Limit the number of children to prevent performance issues with massive DOMs
     let nodes_to_process = if nodes.len() > MAX_CHILDREN_LIMIT {
         &nodes[..MAX_CHILDREN_LIMIT]
     } else {
@@ -125,7 +123,6 @@ fn process_dom_children_with_context<'window>(
             DocumentNode::Element(element) => {
                 let is_void_element = is_void_element(&element.tag);
 
-                // Create a single text widget for the entire opening tag to reduce widget count
                 let opening_tag_text = if element.attributes.is_empty() {
                     format!(
                         "{}<{}{}",
@@ -137,7 +134,7 @@ fn process_dom_children_with_context<'window>(
                     let attrs: Vec<String> = element
                         .attributes
                         .iter()
-                        .take(5) // Limit attributes shown for performance
+                        .take(5)
                         .map(|(key, value)| {
                             // Truncate long attribute values
                             let truncated_value = if value.len() > 50 {
@@ -173,7 +170,6 @@ fn process_dom_children_with_context<'window>(
                 );
 
                 if !is_void_element {
-                    // Only recurse if we have a reasonable number of children
                     if element.children.len() <= MAX_CHILDREN_LIMIT {
                         elements.push(process_dom_children_with_context(
                             &element.children,
@@ -200,7 +196,6 @@ fn process_dom_children_with_context<'window>(
                         ));
                     }
 
-                    // Create closing tag
                     elements.push(
                         text(format!("{}</{}>", spacing, element.tag))
                             .font(MONOSPACE)
@@ -227,7 +222,6 @@ fn process_dom_children_with_context<'window>(
         }
     }
 
-    // Show truncation message if we limited the nodes
     if nodes.len() > MAX_CHILDREN_LIMIT {
         elements.push(
             text(format!(

@@ -1,3 +1,4 @@
+use errors::network::NetworkError;
 use http::{
     HeaderMap, Method,
     header::{
@@ -31,11 +32,11 @@ pub fn is_cors_allowed(
     request_method: &Method,
     request_headers: &HeaderMap,
     preflight_response: HeaderResponse,
-) -> bool {
+) -> Result<(), NetworkError> {
     // TODO: Return an Result<> with error details instead of just bool
 
     if request_origin.ascii_serialization() == request_url.origin().ascii_serialization() {
-        return true;
+        return Ok(());
     }
 
     let request_origin = request_origin.ascii_serialization();
@@ -44,11 +45,13 @@ pub fn is_cors_allowed(
         .headers
         .get(ACCESS_CONTROL_ALLOW_CREDENTIALS);
 
-    if let Some(cred) = &allowed_credentials
+    if let Some(cred) = allowed_credentials
         && request_credentials == &Credentials::Include
         && cred.to_str().unwrap_or("") != "true"
     {
-        return false;
+        return Err(NetworkError::CORSError(
+            "Request with credentials not allowed by server".to_string(),
+        ));
     }
 
     let allowed_origin = preflight_response.headers.get(ACCESS_CONTROL_ALLOW_ORIGIN);
@@ -56,23 +59,30 @@ pub fn is_cors_allowed(
     if let Some(origin) = allowed_origin {
         let origin_str = origin.to_str().unwrap_or("");
 
-        if let Some(cred) = allowed_credentials {
+        if allowed_credentials.is_some() {
             match request_credentials {
                 Credentials::Include => {
                     if origin_str == "*" {
-                        return false;
+                        return Err(NetworkError::CORSError(format!(
+                            "Request with credentials not allowed with wildcard origin '{}'",
+                            request_origin
+                        )));
                     }
-                    if cred.to_str().unwrap_or("") != "true" {
-                        return false;
-                    }
+
                     if origin_str != request_origin {
-                        return false;
+                        return Err(NetworkError::CORSError(format!(
+                            "Request with credentials not allowed for origin '{}'",
+                            request_origin
+                        )));
                     }
                 }
                 Credentials::SameOrigin => {
                     // Same-origin requests are already allowed
                     // So here we are in a cross-origin request => reject
-                    return false;
+                    return Err(NetworkError::CORSError(
+                        "Request with same-origin credentials not allowed for cross-origin request"
+                            .to_string(),
+                    ));
                 }
                 Credentials::Omit => {
                     // Allow any origin including "*"
@@ -81,14 +91,22 @@ pub fn is_cors_allowed(
         }
 
         if request_origin == "null" && origin_str != "null" && origin_str != "*" {
-            return false;
+            return Err(NetworkError::CORSError(format!(
+                "Request from origin '{}' to origin '{}' is not allowed",
+                request_origin, origin_str
+            )));
         }
 
         if origin != "*" && origin_str != request_origin {
-            return false;
+            return Err(NetworkError::CORSError(format!(
+                "Request from origin '{}' to origin '{}' is not allowed",
+                request_origin, origin_str
+            )));
         }
     } else {
-        return false;
+        return Err(NetworkError::CORSError(
+            "No Access-Control-Allow-Origin header in preflight response".to_string(),
+        ));
     }
 
     let allowed_methods = preflight_response.headers.get(ACCESS_CONTROL_ALLOW_METHODS);
@@ -100,10 +118,16 @@ pub fn is_cors_allowed(
             .any(|m| m.trim().eq_ignore_ascii_case(request_method.as_str()));
 
         if !method_allowed {
-            return false;
+            return Err(NetworkError::CORSError(format!(
+                "Request method '{}' not allowed by server",
+                request_method.as_str()
+            )));
         }
     } else if !is_simple_method(request_method) {
-        return false;
+        return Err(NetworkError::CORSError(format!(
+            "Request method '{}' not allowed by server",
+            request_method.as_str()
+        )));
     }
 
     let allowed_headers = preflight_response.headers.get(ACCESS_CONTROL_ALLOW_HEADERS);
@@ -124,12 +148,17 @@ pub fn is_cors_allowed(
                 .map(|h| h.trim().to_ascii_lowercase())
                 .any(|h| h == name_str)
             {
-                return false;
+                return Err(NetworkError::CORSError(format!(
+                    "Request header '{}' not allowed by server",
+                    name_str
+                )));
             }
         }
     } else if !is_simple_headers(request_headers) {
-        return false;
+        return Err(NetworkError::CORSError(
+            "Request contains non-simple headers not allowed by server".to_string(),
+        ));
     }
 
-    true
+    Ok(())
 }

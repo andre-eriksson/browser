@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use cookie::Cookie;
 use cookies::cookie_store::CookieJar;
+use errors::network::NetworkError;
 use http::{
     HeaderMap, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN, SET_COOKIE},
@@ -53,17 +54,14 @@ impl NetworkSession {
         }
     }
 
-    async fn raw_request(
-        &self,
-        request: Request,
-    ) -> Result<Box<dyn ResponseHandle>, Box<dyn std::error::Error + Send + Sync>> {
+    async fn raw_request(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError> {
         self.client.send(request).await
     }
 
     pub async fn send(
         &mut self,
         request: Request,
-    ) -> Result<Box<dyn ResponseHandle>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Box<dyn ResponseHandle>, NetworkError> {
         let user_headers = request.headers.clone();
         let mut request = request;
         request
@@ -78,8 +76,9 @@ impl NetworkSession {
 
         if is_simple_request(&request.method, &user_headers) {
             {
-                let mut jar = self.cookie_jar.lock().unwrap();
-                apply_cookies(&mut request, &mut jar);
+                if let Ok(jar) = self.cookie_jar.lock().as_mut() {
+                    apply_cookies(&mut request, jar);
+                }
             }
 
             let resp = self.raw_request(request).await;
@@ -100,24 +99,30 @@ impl NetworkSession {
 
         let preflight_response = self
             .preflight_request(&user_headers, &request.url, &request.method)
-            .await?;
+            .await;
 
-        if !preflight_response.status_code.to_string().starts_with('2') {
-            return Err("CORS preflight request failed".into());
-        }
+        let preflight_response = match preflight_response {
+            Ok(resp) => resp,
+            Err(e) => return Err(e),
+        };
 
-        if !is_cors_allowed(
+        let cors = is_cors_allowed(
             &request.origin,
             &request.credentials,
             &request.url,
             &request.method,
             &user_headers,
             preflight_response,
-        ) {
-            return Err("CORS policy does not allow this request".into());
+        );
+
+        if let Err(e) = cors {
+            return Err(e);
         }
 
-        apply_cookies(&mut request, self.cookie_jar.lock().as_ref().unwrap());
+        // TODO: Logging?
+        if let Ok(jar) = self.cookie_jar.lock().as_ref() {
+            apply_cookies(&mut request, jar);
+        }
 
         let resp = self.raw_request(request).await;
 
@@ -137,12 +142,23 @@ impl NetworkSession {
 
     pub fn handle_response_cookies(&mut self, response: HeaderResponse, request_domain: &str) {
         for (name, value) in response.headers.iter() {
-            if name == SET_COOKIE
-                && let Ok(cookie_str) = value.to_str()
-                && let Ok(cookie) = Cookie::parse(cookie_str.to_string())
-            {
-                let mut jar = self.cookie_jar.lock().unwrap();
-                jar.add_cookie(cookie, request_domain);
+            // TODO: Logging?
+
+            let cookie_str = match value.to_str() {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+
+            let cookie = match Cookie::parse(cookie_str.to_string()) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+
+            if name == SET_COOKIE {
+                let mut jar = self.cookie_jar.lock();
+                if let Ok(jar) = jar.as_mut() {
+                    jar.add_cookie(cookie, request_domain);
+                }
             }
         }
     }
@@ -160,17 +176,21 @@ impl NetworkSession {
         headers: &HeaderMap,
         url: &Url,
         method: &Method,
-    ) -> Result<HeaderResponse, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<HeaderResponse, NetworkError> {
         if self.current_url.is_none() {
-            return Err("No current URL set for CORS preflight request".into());
+            return Err(NetworkError::RequestFailed(
+                "No current URL set for CORS preflight request".to_string(),
+            ));
         }
 
-        let origin = self
-            .current_url
-            .as_ref()
-            .unwrap()
-            .origin()
-            .ascii_serialization();
+        let origin = match self.current_url.as_ref() {
+            Some(u) => u.origin().ascii_serialization(),
+            None => {
+                return Err(NetworkError::RequestFailed(
+                    "No current Origin set for CORS preflight request".to_string(),
+                ));
+            }
+        };
 
         let request_headers = headers
             .iter()
@@ -189,27 +209,26 @@ impl NetworkSession {
                 .build();
 
             let res = self.raw_request(preflight_request).await;
-            if let Ok(response) = &res {
-                return Ok(HeaderResponse {
+
+            return match res {
+                Ok(response) => Ok(HeaderResponse {
                     status_code: response.metadata().status_code,
                     headers: response.metadata().headers.clone(),
-                });
-            } else {
-                return Err("CORS preflight request failed".into());
-            }
+                }),
+                Err(e) => Err(e),
+            };
         }
 
         let preflight_request = preflight_build.build();
 
         let res = self.raw_request(preflight_request).await;
 
-        if let Ok(response) = &res {
-            Ok(HeaderResponse {
+        match res {
+            Ok(response) => Ok(HeaderResponse {
                 status_code: response.metadata().status_code,
                 headers: response.metadata().headers.clone(),
-            })
-        } else {
-            Err("CORS preflight request failed".into())
+            }),
+            Err(e) => Err(e),
         }
     }
 }

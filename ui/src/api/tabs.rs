@@ -6,16 +6,12 @@ use html_parser::{
 };
 use html_syntax::{HtmlTag, KnownTag};
 use network::session::network::NetworkSession;
-use url::Url;
 
 /// A collector that gathers metadata from HTML tags in a browser tab.
 #[derive(Default)]
 pub struct TabCollector {
     /// Indicates whether the parser is currently within the `<head>` section of the HTML document.
     pub in_head: bool,
-
-    /// The URL of the tab being collected.
-    pub url: Option<Url>,
 
     /// The title of the tab, if available.
     pub title: Option<String>,
@@ -73,7 +69,6 @@ impl Collector for TabCollector {
     fn into_result(self) -> Self::Output {
         Self {
             in_head: self.in_head,
-            url: self.url,
             title: self.title,
             favicons: self.favicons,
         }

@@ -2,9 +2,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use cookies::cookie_store::CookieJar;
+use errors::network::NetworkError;
 use http::HeaderMap;
 use iced::{Renderer, Subscription, Task, Theme, window};
-use network::client::reqwest::ReqwestClient;
+use network::clients::reqwest::ReqwestClient;
 use network::http::client::HttpClient;
 use network::http::request::RequestBuilder;
 use network::session::network::NetworkSession;
@@ -135,17 +136,13 @@ impl Application {
 
             // === Navigation ===
             Message::NavigateTo(new_url) => {
-                //let resolved_url =
-                //    resolve_path(&self.web_client.origin.ascii_serialization(), &url);
-                //self.tabs[self.current_tab_id].temp_url = resolved_url.clone();
-                //let mut client_clone = self.web_client.clone();
-
-                let url = Url::parse(&new_url);
-                if let Err(err) = url {
-                    error!("Invalid URL: {}", err);
-                    return Task::none();
-                }
-                let url = url.unwrap();
+                let url = match Url::parse(&new_url) {
+                    Ok(u) => u,
+                    Err(err) => {
+                        error!("Invalid URL: {}", err);
+                        return Task::none();
+                    }
+                };
 
                 let network_client = Box::new(ReqwestClient::new()) as Box<dyn HttpClient>;
                 let browser_headers = Arc::clone(&self.browser_headers);
@@ -172,14 +169,22 @@ impl Application {
                                                 String::from_utf8_lossy(&content).to_string();
                                             return Ok((html, session));
                                         }
-                                        Err("Response body is empty".to_string())
+
+                                        return Err(NetworkError::RequestFailed(
+                                            "Response body is empty".to_string(),
+                                        ));
                                     }
                                     Err(err) => {
-                                        Err(format!("Failed to read response body, {}", err))
+                                        return Err(err);
                                     }
                                 }
                             }
-                            Err(_) => Err(format!("{} took too long to response", url_for_error)),
+                            Err(_) => {
+                                return Err(NetworkError::TimeoutError(format!(
+                                    "Failed to navigate to {}",
+                                    url_for_error
+                                )));
+                            }
                         }
                     },
                     |result| match result {
@@ -191,12 +196,7 @@ impl Application {
             Message::NavigateSuccess(html, session) => {
                 let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
-                let url = Url::parse(&self.tabs[self.current_tab_id].temp_url).unwrap();
-
-                let parsing_result = parser.parse(Some(TabCollector {
-                    url: Some(url),
-                    ..Default::default()
-                }));
+                let parsing_result = parser.parse(Some(TabCollector::default()));
 
                 match parsing_result {
                     Ok(result) => {

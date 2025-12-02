@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use errors::network::NetworkError;
 use http::HeaderMap;
 
 use crate::http::{
@@ -33,11 +34,16 @@ impl ResponseHandle for ReqwestHandle {
         &self.metadata
     }
 
-    async fn body(self: Box<Self>) -> Result<Response, Box<dyn std::error::Error + Send + Sync>> {
+    async fn body(self: Box<Self>) -> Result<Response, NetworkError> {
         let status_code = self.metadata.status_code;
         let headers = self.metadata.headers;
 
-        let body_bytes = self.inner.bytes().await?.to_vec();
+        let body_bytes = self.inner.bytes().await;
+
+        let body_bytes = match body_bytes {
+            Ok(bytes) => bytes.to_vec(),
+            Err(e) => return Err(NetworkError::RequestFailed(e.to_string())),
+        };
 
         Ok(Response {
             status_code,
@@ -49,10 +55,7 @@ impl ResponseHandle for ReqwestHandle {
 
 #[async_trait]
 impl HttpClient for ReqwestClient {
-    async fn send(
-        &self,
-        request: Request,
-    ) -> Result<Box<dyn ResponseHandle>, Box<dyn std::error::Error + Send + Sync>> {
+    async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError> {
         let mut req = self.client.request(request.method, request.url);
 
         for (key, value) in request.headers.iter() {
@@ -63,7 +66,12 @@ impl HttpClient for ReqwestClient {
             req = req.body(body);
         }
 
-        let response = req.send().await?;
+        let response = req.send().await;
+
+        let response = match response {
+            Ok(resp) => resp,
+            Err(e) => return Err(NetworkError::RequestFailed(e.to_string())),
+        };
 
         let status_code = response.status();
         let headers: HeaderMap = response
