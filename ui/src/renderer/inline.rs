@@ -1,12 +1,14 @@
 use std::sync::{Arc, RwLock};
 
-use html_syntax::{HtmlTag, KnownTag};
+use html_syntax::{
+    dom::{DocumentNode, Element, MultiThreaded},
+    tag::{HtmlTag, KnownTag},
+};
 use iced::{
     Background, Color, Padding,
     widget::{button, column, row, text},
 };
 
-use html_parser::dom::{DocumentNode, Element, MultiThreaded};
 use url::Url;
 
 use crate::{

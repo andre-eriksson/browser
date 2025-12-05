@@ -1,11 +1,16 @@
 use std::collections::HashMap;
 
-use crate::tokens::{
-    state::{ParserState, Token, TokenKind},
-    tokenizer::HtmlTokenizer,
-};
+use html_syntax::token::{Token, TokenKind};
 
-/// Preserves significant whitespace in the text.
+use crate::tokens::{state::ParserState, tokenizer::HtmlTokenizer};
+
+/// Preserves significant whitespace in text nodes according to HTML parsing rules.
+///
+/// # Arguments
+/// * `tokenizer` - A reference to the HTML tokenizer.
+///
+/// # Returns
+/// * `String` - The processed text with significant whitespace preserved.
 pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
     let text = tokenizer.temporary_buffer.clone();
 
@@ -36,7 +41,15 @@ pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
     result
 }
 
-/// Handles the data state, the default state and will push content to a buffer until a `<` is reached
+/// Handles the data state in the HTML tokenizer.
+///
+/// # Arguments
+/// * `tokenizer` - A mutable reference to the HTML tokenizer.
+/// * `ch` - The current character being processed.
+///
+/// # Behavior
+/// - If the character is '<', it processes the temporary buffer and transitions to the `ParserState::TagOpen` state.
+/// - For any other character, it appends the character to the temporary buffer.
 pub fn handle_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '<' => {

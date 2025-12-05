@@ -1,5 +1,5 @@
 [package]
-name = "html-parser"
+name = "html-dom"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,11 +7,3 @@ edition = "2024"
 tracing = { workspace = true }
 telemetry = { path = "../../utilities/telemetry" }
 html-syntax = { path = "../html-syntax" }
-html-dom = { path = "../html-dom" }
-
-[dev-dependencies]
-criterion = { workspace = true }
-
-[[bench]]
-name = "parser_benches"
-harness = false

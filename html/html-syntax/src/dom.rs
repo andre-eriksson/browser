@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use html_syntax::HtmlTag;
+use crate::tag::HtmlTag;
 
 /// Represents a single-threaded context for DOM nodes.
 ///

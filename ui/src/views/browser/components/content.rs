@@ -1,4 +1,4 @@
-use html_syntax::{HtmlTag, KnownTag};
+use html_syntax::tag::{HtmlTag, KnownTag};
 use iced::{
     Background, Color, Length,
     widget::{container, text},

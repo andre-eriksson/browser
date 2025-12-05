@@ -1,11 +1,21 @@
 use std::collections::HashMap;
 
-use crate::tokens::{
-    state::{ParserState, Token, TokenKind},
-    tokenizer::HtmlTokenizer,
-};
+use html_syntax::token::{Token, TokenKind};
 
-/// Handles the start of a tag, after a `<`
+use crate::tokens::{state::ParserState, tokenizer::HtmlTokenizer};
+
+/// Handles the tag open state in the HTML tokenizer.
+///
+/// # Arguments
+/// * `tokenizer` - A mutable reference to the HTML tokenizer.
+/// * `ch` - The current character being processed.
+///
+/// # Behavior
+/// - If the character is '!', it transitions to the `ParserState::StartDeclaration` state.
+/// - If the character is '?', it creates a new XML declaration token and transitions to the `ParserState::XmlDeclaration` state.
+/// - If the character is '/', it creates a new end tag token and transitions to the `ParserState::EndTagOpen` state.
+/// - If the character is alphabetic, it creates a new start tag token with the character and transitions to the `ParserState::TagName` state.
+/// - For any other character, it transitions back to the `ParserState::Data` state.
 pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '!' => {
@@ -41,7 +51,16 @@ pub fn handle_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
-/// Handles the start of an end tag, after a `</`
+/// Handles the end tag open state in the HTML tokenizer.
+///
+/// # Arguments
+/// * `tokenizer` - A mutable reference to the HTML tokenizer.
+/// * `ch` - The current character being processed.
+///
+/// # Behavior
+/// - If the character is '>', it emits the current end tag token and transitions to the `ParserState::Data` state.
+/// - If the character is alphabetic, it appends the character to the current end tag token's data and transitions to the `ParserState::TagName` state.
+/// - For any other character, it transitions back to the `ParserState::Data` state.
 pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
@@ -69,7 +88,16 @@ pub fn handle_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     }
 }
 
-/// Handles the start of a self-closing tag, after a `<test /`
+/// Handles the self-closing tag start state in the HTML tokenizer.
+///
+/// # Arguments
+/// * `tokenizer` - A mutable reference to the HTML tokenizer.
+/// * `ch` - The current character being processed.
+///
+/// # Behavior
+/// - If the character is '>', it finalizes the current token, emits it, and transitions to the `ParserState::Data` state.
+/// - If the character is whitespace, it ignores it.
+/// - For any other character, it transitions to the `ParserState::BeforeAttributeName` state.
 pub fn handle_self_closing_tag_start_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {
@@ -95,7 +123,17 @@ pub fn handle_self_closing_tag_start_state(tokenizer: &mut HtmlTokenizer, ch: ch
     }
 }
 
-/// Handles the tag name state, after the `<`
+/// Handles the tag name state in the HTML tokenizer.
+///
+/// # Arguments
+/// * `tokenizer` - A mutable reference to the HTML tokenizer.
+/// * `ch` - The current character being processed.
+///
+/// # Behavior
+/// - If the character is '>', it finalizes the current token, emits it, and transitions to the appropriate state based on the tag name.
+/// - If the character is '/', it transitions to the `ParserState::SelfClosingTagStart` state.
+/// - If the character is whitespace, it transitions to the `ParserState::BeforeAttributeName` state.
+/// - For any other character, it appends the character to the current token's data.
 pub fn handle_tag_name_state(tokenizer: &mut HtmlTokenizer, ch: char) {
     match ch {
         '>' => {

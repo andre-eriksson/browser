@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use html_syntax::{HtmlTag, KnownTag};
-
-use crate::dom::{DocumentNode, SingleThreaded};
+use crate::{
+    dom::{DocumentNode, SingleThreaded},
+    tag::{HtmlTag, KnownTag},
+};
 
 /// Represents basic metadata about an HTML tag, including its name, attributes, and associated DOM node.
 ///

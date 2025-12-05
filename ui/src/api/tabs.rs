@@ -1,10 +1,10 @@
 use std::sync::{Arc, Mutex};
 
-use html_parser::{
+use html_syntax::{
     collector::{Collector, TagInfo},
     dom::{DocumentNode, DocumentRoot, MultiThreaded},
+    tag::{HtmlTag, KnownTag},
 };
-use html_syntax::{HtmlTag, KnownTag};
 use network::session::network::NetworkSession;
 
 /// A collector that gathers metadata from HTML tags in a browser tab.

@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 
+use html_syntax::token::Token;
+
 use crate::tokens::{
-    state::{ParserState, Token},
+    state::ParserState,
     states::{
         attributes::{
             handle_after_attribute_name_state, handle_after_attribute_value_quoted_state,
@@ -78,7 +80,7 @@ impl HtmlTokenizer {
     /// * `chunk` - A slice of bytes representing a chunk of HTML content
     ///
     /// # Returns
-    /// A vector of `Token` objects representing the parsed HTML content.
+    /// * `Vec<Token>` - A vector of tokens parsed from the input chunk
     pub fn tokenize(&mut self, chunk: &[u8]) -> Vec<Token> {
         let text = String::from_utf8_lossy(chunk);
 
@@ -129,10 +131,6 @@ impl HtmlTokenizer {
             }
         }
 
-        //for token in self.tokens.clone() {
-        //    println!("Token emitted: {:?}", token);
-        //}
-
         self.tokens.drain(..).collect()
     }
 
@@ -144,8 +142,9 @@ impl HtmlTokenizer {
 
 #[cfg(test)]
 mod tests {
+    use html_syntax::token::TokenKind;
+
     use super::*;
-    use crate::tokens::state::{Token, TokenKind};
 
     fn assert_token_eq(actual: &Token, expected_kind: TokenKind, expected_data: &str) {
         assert_eq!(actual.kind, expected_kind);
