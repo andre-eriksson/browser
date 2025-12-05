@@ -1,12 +1,13 @@
-use html_syntax::{HtmlTag, is_void_element, should_auto_close, tag_from_str};
+use std::{cell::RefCell, rc::Rc};
 
-use crate::{
+use html_syntax::{
     collector::{Collector, TagInfo},
     dom::{DocumentNode, DocumentRoot, DomIndex, Element, NodeContext, SingleThreaded},
-    tokens::state::{Token, TokenKind},
-    tree::decode::Decoder,
+    tag::{HtmlTag, is_void_element, should_auto_close, tag_from_str},
+    token::{Token, TokenKind},
 };
-use std::{cell::RefCell, rc::Rc};
+
+use crate::decode::Decoder;
 
 /// Represents the result of building a DOM tree.
 pub struct BuildResult<M> {

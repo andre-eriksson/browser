@@ -1,5 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use html_parser::{collector::DefaultCollector, parser::streaming::HtmlStreamParser};
+use html_parser::parser::streaming::HtmlStreamParser;
+use html_syntax::collector::DefaultCollector;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let prefix_path = "../test-resources/html/large/";

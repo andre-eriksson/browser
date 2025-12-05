@@ -1,12 +1,13 @@
 use std::sync::{Arc, RwLock};
 
-use html_syntax::is_void_element;
+use html_syntax::{
+    dom::{DocumentNode, Element, MultiThreaded},
+    tag::is_void_element,
+};
 use iced::{
     Background, Color, Length,
     widget::{Column, column, container, text},
 };
-
-use html_parser::dom::{DocumentNode, Element, MultiThreaded};
 
 use crate::{api::message::Message, core::app::Application, util::font::MONOSPACE};
 

@@ -1,3 +1,7 @@
+//! Tokenization module for the HTML parser.
+//!
+//! This module contains the implementation of the tokenizer used in the HTML parser,
+
 /// Tokenization states for the HTML parser.
 pub mod state;
 

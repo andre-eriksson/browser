@@ -1,16 +1,14 @@
 use std::io::BufRead;
 
+use html_dom::builder::{BuildResult, DomTreeBuilder};
+use html_syntax::collector::Collector;
 use telemetry::{
     events::html::EVENT_HTML_PARSED,
     keys::{DURATION, EVENT},
 };
 use tracing::info;
 
-use crate::{
-    collector::Collector,
-    tokens::tokenizer::HtmlTokenizer,
-    tree::builder::{BuildResult, DomTreeBuilder},
-};
+use crate::tokens::tokenizer::HtmlTokenizer;
 
 /// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
 ///

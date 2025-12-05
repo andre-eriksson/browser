@@ -1,4 +1,4 @@
-use html_syntax::{HtmlTag, KnownTag};
+use html_syntax::tag::{HtmlTag, KnownTag};
 use iced::{
     Color, Font,
     font::{Style, Weight},

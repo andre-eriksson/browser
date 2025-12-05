@@ -1,3 +1,7 @@
+//! Utility state functions for HTML tokenization.
+//!
+//! This module contains various state functions used during the tokenization process of HTML documents.
+
 /// Utility state functions for attributes
 pub mod attributes;
 
