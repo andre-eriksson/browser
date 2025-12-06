@@ -160,3 +160,9 @@ pub enum ParserState {
     /// </script>
     ScriptDataEndTagOpen,
 }
+
+impl Default for ParserState {
+    fn default() -> Self {
+        ParserState::Data
+    }
+}

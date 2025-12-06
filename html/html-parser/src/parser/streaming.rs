@@ -8,7 +8,7 @@ use telemetry::{
 };
 use tracing::info;
 
-use crate::tokens::tokenizer::HtmlTokenizer;
+use crate::tokens::tokenizer::{HtmlTokenizer, TokenizerState};
 
 /// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
 ///
@@ -26,6 +26,8 @@ pub struct HtmlStreamParser<R: BufRead> {
 
     /// A vector of bytes that holds any incomplete UTF-8 sequences between reads.
     byte_buffer: Vec<u8>,
+
+    tokenizer_state: TokenizerState,
 }
 
 impl<R: BufRead> HtmlStreamParser<R> {
@@ -44,6 +46,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             buffer: String::with_capacity(buffer_size),
             buffer_size,
             byte_buffer: Vec::new(),
+            tokenizer_state: TokenizerState::default(),
         }
     }
 
@@ -62,7 +65,6 @@ impl<R: BufRead> HtmlStreamParser<R> {
         collector: Option<C>,
     ) -> Result<BuildResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
-        let mut tokenizer = HtmlTokenizer::new();
         let mut builder = DomTreeBuilder::new(Some(collector.unwrap_or_default()));
         let start_time = std::time::Instant::now();
 
@@ -85,7 +87,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
                 let full_chunk = format!("{}{}", self.buffer, chunk);
                 self.buffer.clear();
 
-                self.process_chunk(&full_chunk, &mut tokenizer, &mut builder);
+                self.process_chunk(&full_chunk, &mut builder);
             }
         }
 
@@ -94,7 +96,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             if !remaining_text.is_empty() {
                 let full_chunk = format!("{}{}", self.buffer, remaining_text);
                 self.buffer.clear();
-                self.process_chunk(&full_chunk, &mut tokenizer, &mut builder);
+                self.process_chunk(&full_chunk, &mut builder);
             }
         }
 
@@ -118,10 +120,13 @@ impl<R: BufRead> HtmlStreamParser<R> {
     fn process_chunk<C: Collector + Default>(
         &mut self,
         chunk: &str,
-        tokenizer: &mut HtmlTokenizer,
         builder: &mut DomTreeBuilder<C>,
     ) {
-        let tokens = tokenizer.tokenize(chunk.as_bytes());
+        let mut tokens = Vec::new();
+
+        for ch in chunk.chars() {
+            HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
+        }
 
         builder.build_from_tokens(tokens);
     }

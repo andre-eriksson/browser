@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use html_syntax::token::{Token, TokenKind};
 
-use crate::tokens::{state::ParserState, tokenizer::HtmlTokenizer};
+use crate::tokens::{
+    state::ParserState,
+    tokenizer::{HtmlTokenizer, TokenizerState},
+};
 
 /// Preserves significant whitespace in text nodes according to HTML parsing rules.
 ///
@@ -11,14 +14,14 @@ use crate::tokens::{state::ParserState, tokenizer::HtmlTokenizer};
 ///
 /// # Returns
 /// * `String` - The processed text with significant whitespace preserved.
-pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
-    let text = tokenizer.temporary_buffer.clone();
+pub fn preserve_significant_whitespace(state: &TokenizerState) -> String {
+    let text = state.temporary_buffer.clone();
 
-    if tokenizer.context.inside_preformatted {
+    if state.context.inside_preformatted {
         return text;
     }
 
-    if tokenizer.current_token.is_some() && text.trim().is_empty() && !text.is_empty() {
+    if state.current_token.is_some() && text.trim().is_empty() && !text.is_empty() {
         return " ".to_string();
     }
 
@@ -50,13 +53,13 @@ pub fn preserve_significant_whitespace(tokenizer: &HtmlTokenizer) -> String {
 /// # Behavior
 /// - If the character is '<', it processes the temporary buffer and transitions to the `ParserState::TagOpen` state.
 /// - For any other character, it appends the character to the temporary buffer.
-pub fn handle_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
+pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '<' => {
-            if !tokenizer.temporary_buffer.is_empty() {
-                let processed_text = preserve_significant_whitespace(tokenizer);
+            if !state.temporary_buffer.is_empty() {
+                let processed_text = preserve_significant_whitespace(state);
 
-                if tokenizer.context.inside_preformatted {
+                if state.context.inside_preformatted {
                     let mut current_pos = 0;
                     let chars: Vec<char> = processed_text.chars().collect();
 
@@ -83,27 +86,33 @@ pub fn handle_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
                         }
 
                         if !line.is_empty() {
-                            tokenizer.emit_token(Token {
-                                kind: TokenKind::Text,
-                                attributes: HashMap::new(),
-                                data: line,
-                            });
+                            HtmlTokenizer::emit_token(
+                                tokens,
+                                Token {
+                                    kind: TokenKind::Text,
+                                    attributes: HashMap::new(),
+                                    data: line,
+                                },
+                            );
                         }
                     }
                 } else if !processed_text.is_empty() {
-                    tokenizer.emit_token(Token {
-                        kind: TokenKind::Text,
-                        attributes: HashMap::new(),
-                        data: processed_text,
-                    });
+                    HtmlTokenizer::emit_token(
+                        tokens,
+                        Token {
+                            kind: TokenKind::Text,
+                            attributes: HashMap::new(),
+                            data: processed_text,
+                        },
+                    );
                 }
 
-                tokenizer.temporary_buffer.clear();
+                state.temporary_buffer.clear();
             }
-            tokenizer.state = ParserState::TagOpen;
+            state.state = ParserState::TagOpen;
         }
         _ => {
-            tokenizer.temporary_buffer.push(ch);
+            state.temporary_buffer.push(ch);
         }
     }
 }
