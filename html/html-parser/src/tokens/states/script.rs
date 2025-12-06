@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use html_syntax::token::{Token, TokenKind};
 
-use crate::tokens::{state::ParserState, tokenizer::HtmlTokenizer};
+use crate::tokens::{
+    state::ParserState,
+    tokenizer::{HtmlTokenizer, TokenizerState},
+};
 
 /// Handles the script data state in the HTML tokenizer.
 ///
@@ -13,18 +16,18 @@ use crate::tokens::{state::ParserState, tokenizer::HtmlTokenizer};
 /// # Behavior
 /// - If the character is '<', it prepares to check for an end tag and transitions to the `ParserState::ScriptDataEndTagOpen` state.
 /// - For any other character, it appends the character to the current script data token's data.
-pub fn handle_script_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
+pub fn handle_script_data_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '<' => {
-            tokenizer.temporary_buffer.clear();
-            tokenizer.temporary_buffer.push(ch);
-            tokenizer.state = ParserState::ScriptDataEndTagOpen;
+            state.temporary_buffer.clear();
+            state.temporary_buffer.push(ch);
+            state.state = ParserState::ScriptDataEndTagOpen;
         }
         _ => {
-            if let Some(token) = tokenizer.current_token.as_mut() {
+            if let Some(token) = state.current_token.as_mut() {
                 token.data.push(ch);
             } else {
-                tokenizer.current_token = Some(Token {
+                state.current_token = Some(Token {
                     kind: TokenKind::Text,
                     attributes: HashMap::new(),
                     data: ch.to_string(),
@@ -47,45 +50,52 @@ pub fn handle_script_data_state(tokenizer: &mut HtmlTokenizer, ch: char) {
 /// - If the character is whitespace, it ignores it.
 /// - For any other character, it appends it to the temporary buffer until it reaches the length of the expected end tag.
 ///   - If the temporary buffer does not match the expected end tag, it appends it to the current token's data and transitions back to the `ParserState::ScriptData` state.
-pub fn handle_script_data_end_tag_open_state(tokenizer: &mut HtmlTokenizer, ch: char) {
+pub fn handle_script_data_end_tag_open_state(
+    state: &mut TokenizerState,
+    ch: char,
+    tokens: &mut Vec<Token>,
+) {
     let expected = "</script>";
     match ch {
         '>' => {
-            tokenizer.temporary_buffer.push('>');
-            if tokenizer.temporary_buffer == expected {
-                if let Some(token) = tokenizer.current_token.take() {
-                    tokenizer.emit_token(token);
+            state.temporary_buffer.push('>');
+            if state.temporary_buffer == expected {
+                if let Some(token) = state.current_token.take() {
+                    HtmlTokenizer::emit_token(tokens, token);
                 }
 
-                tokenizer.emit_token(Token {
-                    kind: TokenKind::EndTag,
-                    attributes: HashMap::new(),
-                    data: "script".to_string(),
-                });
+                HtmlTokenizer::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "script".to_string(),
+                    },
+                );
 
-                tokenizer.temporary_buffer.clear();
-                tokenizer.state = ParserState::Data;
+                state.temporary_buffer.clear();
+                state.state = ParserState::Data;
             } else {
-                if let Some(token) = tokenizer.current_token.as_mut() {
-                    tokenizer.temporary_buffer.push(ch);
-                    token.data.push_str(&tokenizer.temporary_buffer);
+                if let Some(token) = state.current_token.as_mut() {
+                    state.temporary_buffer.push(ch);
+                    token.data.push_str(&state.temporary_buffer);
                 }
-                tokenizer.temporary_buffer.clear();
-                tokenizer.state = ParserState::ScriptData;
+                state.temporary_buffer.clear();
+                state.state = ParserState::ScriptData;
             }
         }
         ch if ch.is_whitespace() => {}
         _ => {
-            if tokenizer.temporary_buffer.len() == expected.len() {
-                if tokenizer.temporary_buffer != expected
-                    && let Some(token) = tokenizer.current_token.as_mut()
+            if state.temporary_buffer.len() == expected.len() {
+                if state.temporary_buffer != expected
+                    && let Some(token) = state.current_token.as_mut()
                 {
-                    token.data.push_str(&tokenizer.temporary_buffer);
-                    tokenizer.state = ParserState::ScriptData;
-                    tokenizer.temporary_buffer.clear();
+                    token.data.push_str(&state.temporary_buffer);
+                    state.state = ParserState::ScriptData;
+                    state.temporary_buffer.clear();
                 }
             } else {
-                tokenizer.temporary_buffer.push(ch);
+                state.temporary_buffer.push(ch);
             }
         }
     }
