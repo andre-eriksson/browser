@@ -1,14 +1,8 @@
 use std::io::BufRead;
 
+use crate::tokens::tokenizer::{HtmlTokenizer, TokenizerState};
 use html_dom::builder::{BuildResult, DomTreeBuilder};
 use html_syntax::collector::Collector;
-use telemetry::{
-    events::html::EVENT_HTML_PARSED,
-    keys::{DURATION, EVENT},
-};
-use tracing::info;
-
-use crate::tokens::tokenizer::{HtmlTokenizer, TokenizerState};
 
 /// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
 ///
@@ -66,7 +60,6 @@ impl<R: BufRead> HtmlStreamParser<R> {
     ) -> Result<BuildResult<C::Output>, String> {
         let mut buf = vec![0u8; self.buffer_size];
         let mut builder = DomTreeBuilder::new(Some(collector.unwrap_or_default()));
-        let start_time = std::time::Instant::now();
 
         while let Ok(bytes_read) = self.reader.read(&mut buf) {
             if bytes_read == 0 {
@@ -99,11 +92,6 @@ impl<R: BufRead> HtmlStreamParser<R> {
                 self.process_chunk(&full_chunk, &mut builder);
             }
         }
-
-        info!(
-            {EVENT} = EVENT_HTML_PARSED,
-            {DURATION} = ?start_time.elapsed(),
-        );
 
         Ok(builder.finalize())
     }

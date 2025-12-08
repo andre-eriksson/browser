@@ -1,10 +1,10 @@
-/// URL field key for logging events
-pub const URL: &str = "url";
-/// Duration field key for timing measurements in logging events
-pub const DURATION: &str = "duration";
-/// HTTP status code field key for response logging
-pub const STATUS_CODE: &str = "status_code";
-/// Event type field key for categorizing log entries
+/// Generic Key Constants
 pub const EVENT: &str = "event";
-/// Tag type field key for additional event categorization
-pub const TAG_TYPE: &str = "tag_type";
+
+/// Network Key Constants
+pub const URL: &str = "url";
+pub const STATUS_CODE: &str = "status_code";
+pub const REQUEST_COOKIE: &str = "request_cookie";
+pub const RESPONSE_COOKIE: &str = "response_cookie";
+pub const COOKIE_NAME: &str = "cookie_name";
+pub const COOKIE_VALUE: &str = "cookie_value";

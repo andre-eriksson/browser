@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use errors::network::NetworkError;
-use http::HeaderMap;
+use telemetry::keys::STATUS_CODE;
+use tracing::{debug, error, trace};
 
 use crate::http::{
     client::{HttpClient, ResponseHandle},
@@ -70,14 +71,31 @@ impl HttpClient for ReqwestClient {
 
         let response = match response {
             Ok(resp) => resp,
-            Err(e) => return Err(NetworkError::RequestFailed(e.to_string())),
+            Err(e) => {
+                error!("Request failed: {}", e);
+                return Err(NetworkError::RequestFailed(e.to_string()));
+            }
         };
 
         let status_code = response.status();
-        let headers: HeaderMap = response
+
+        debug!({ STATUS_CODE } = format!("{}", status_code));
+
+        let headers = response
             .headers()
             .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .map(|(k, v)| {
+                let key = k.clone();
+                let value = v.clone();
+
+                trace!(
+                    "Response Header: {}: {:?}",
+                    key.as_str(),
+                    value.to_str().unwrap_or("<invalid utf8>")
+                );
+
+                (key, value)
+            })
             .collect();
 
         let metadata = HeaderResponse {
