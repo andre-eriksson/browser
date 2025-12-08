@@ -6,12 +6,13 @@ use telemetry::{
     },
     keys::EVENT,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, instrument, trace, warn};
 
 use crate::backends::{AssetBackend, AssetError, Backend};
 
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AssetType {
     /// Represents an icon asset, default path would be `"icon/{name}"`.j
     Icon(&'static str),
@@ -64,6 +65,7 @@ impl AssetManager {
     ///
     /// # Returns
     /// A `Result<Vec<u8>, AssetError>` representing the asset data or an error message.
+    #[instrument(skip(self), fields(asset = ?asset))]
     pub fn load(&mut self, asset: AssetType) -> Result<Vec<u8>, AssetError> {
         let key = match asset {
             AssetType::Icon(name) => format!("icon/{}", name),
@@ -71,17 +73,17 @@ impl AssetManager {
             AssetType::Image(name) => format!("image/{}", name),
         };
 
-        debug!({ EVENT } = EVENT_LOAD_ASSET, key);
+        trace!({ EVENT } = EVENT_LOAD_ASSET);
 
         if let Some(data) = self.cache.get(&key) {
-            debug!({ EVENT } = EVENT_ASSET_CACHE_HIT, key);
+            debug!({ EVENT } = EVENT_ASSET_CACHE_HIT);
             return Ok(data.clone());
         }
 
         for backend in &self.backends {
             match backend.load_asset(&key) {
                 Ok(data) => {
-                    info!({ EVENT } = EVENT_ASSET_LOADED, key);
+                    debug!({ EVENT } = EVENT_ASSET_LOADED);
 
                     self.cache.insert(key, data.clone());
                     return Ok(data);
@@ -91,10 +93,7 @@ impl AssetManager {
             }
         }
 
-        warn!(
-            { EVENT } = EVENT_ASSET_NOT_FOUND,
-            "Asset not found: {}", key
-        );
+        warn!({ EVENT } = EVENT_ASSET_NOT_FOUND);
 
         Err(AssetError::NotFound(key))
     }
@@ -109,6 +108,7 @@ impl AssetManager {
     ///
     /// # Panics
     /// If the asset cannot be found in the embedded backend.
+    #[instrument(skip(self), fields(asset = ?asset))]
     pub fn load_embedded(&self, asset: AssetType) -> Vec<u8> {
         let key = match asset {
             AssetType::Icon(name) => format!("icon/{}", name),
@@ -116,10 +116,10 @@ impl AssetManager {
             AssetType::Image(name) => format!("image/{}", name),
         };
 
-        debug!({ EVENT } = EVENT_LOAD_ASSET, key);
+        trace!({ EVENT } = EVENT_LOAD_ASSET);
 
         if let Ok(data) = Backend::Embedded.load_asset(&key) {
-            info!({ EVENT } = EVENT_ASSET_LOADED, "{}", key.clone());
+            debug!({ EVENT } = EVENT_ASSET_LOADED);
 
             return data;
         }

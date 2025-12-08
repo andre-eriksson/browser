@@ -8,6 +8,7 @@ cookies = { path = "../cookies" }
 errors = { path = "../errors" }
 tokio = { workspace = true }
 tracing = { workspace = true }
+telemetry = { path = "../utilities/telemetry" }
 cookie = { workspace = true }
 http = { workspace = true }
 url = { workspace = true }

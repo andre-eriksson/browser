@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use cookie::Cookie;
 use cookies::cookie_store::CookieJar;
 use errors::network::NetworkError;
 use http::{
     HeaderMap, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN, SET_COOKIE},
 };
+use tracing::{debug, instrument, trace};
 use url::Url;
 
 use crate::{
@@ -17,7 +17,7 @@ use crate::{
     },
     session::{
         middleware::{
-            cookies::apply_cookies,
+            cookies::{apply_cookies, handle_response_cookie},
             cors::is_cors_allowed,
             referrer::apply_referrer,
             simple::{is_simple_method, is_simple_request},
@@ -58,6 +58,7 @@ impl NetworkSession {
         self.client.send(request).await
     }
 
+    #[instrument(skip(self, request), fields(url = %request.url, method = %request.method))]
     pub async fn send(
         &mut self,
         request: Request,
@@ -75,6 +76,7 @@ impl NetworkSession {
         }
 
         if is_simple_request(&request.method, &user_headers) {
+            trace!("Simple request, skipping CORS preflight");
             {
                 if let Ok(jar) = self.cookie_jar.lock().as_mut() {
                     apply_cookies(&mut request, jar);
@@ -84,14 +86,13 @@ impl NetworkSession {
             let resp = self.raw_request(request).await;
 
             if let Ok(response) = &resp {
-                let domain = url.domain().unwrap_or_default();
-                self.handle_response_cookies(
-                    HeaderResponse {
+                self.handle_response_headers(
+                    &HeaderResponse {
                         status_code: response.metadata().status_code,
                         headers: response.metadata().headers.clone(),
                     },
-                    domain,
-                );
+                    url,
+                )
             }
 
             return resp;
@@ -103,7 +104,10 @@ impl NetworkSession {
 
         let preflight_response = match preflight_response {
             Ok(resp) => resp,
-            Err(e) => return Err(e),
+            Err(e) => {
+                debug!("CORS preflight request failed: {}", e);
+                return Err(e);
+            }
         };
 
         let cors = is_cors_allowed(
@@ -116,50 +120,41 @@ impl NetworkSession {
         );
 
         if let Err(e) = cors {
+            debug!("CORS Validation failed: {}", e);
             return Err(e);
         }
 
-        // TODO: Logging?
         if let Ok(jar) = self.cookie_jar.lock().as_ref() {
             apply_cookies(&mut request, jar);
         }
 
+        let url = &request.url.clone();
         let resp = self.raw_request(request).await;
 
         if let Ok(response) = &resp {
-            let domain = url.domain().unwrap_or_default();
-            self.handle_response_cookies(
-                HeaderResponse {
+            self.handle_response_headers(
+                &HeaderResponse {
                     status_code: response.metadata().status_code,
                     headers: response.metadata().headers.clone(),
                 },
-                domain,
-            );
+                url,
+            )
         }
 
         resp
     }
 
-    pub fn handle_response_cookies(&mut self, response: HeaderResponse, request_domain: &str) {
+    fn handle_response_headers(&self, response: &HeaderResponse, url: &Url) {
+        let mut jar = self.cookie_jar.lock();
+
         for (name, value) in response.headers.iter() {
-            // TODO: Logging?
-
-            let cookie_str = match value.to_str() {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
-
-            let cookie = match Cookie::parse(cookie_str.to_string()) {
-                Ok(c) => c,
-                Err(_) => continue,
-            };
-
             if name == SET_COOKIE {
-                let mut jar = self.cookie_jar.lock();
                 if let Ok(jar) = jar.as_mut() {
-                    jar.add_cookie(cookie, request_domain);
+                    handle_response_cookie(jar, url.domain().unwrap_or_default(), value);
                 }
             }
+
+            // TODO: Handle other response headers as needed
         }
     }
 

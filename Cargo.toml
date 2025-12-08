@@ -3,7 +3,7 @@ resolver = "3"
 members = ["html/*", "engine", "network", "assets", "utilities/*", "storage", "cookies", "ui", "errors"]
 
 [workspace.dependencies]
-tracing = "0.1"
+tracing = "0.1.43"
 tokio = { version = "1.44", features = ["full"] }
 cookie = "0.18.1"
 criterion = "0.7"

@@ -33,8 +33,6 @@ pub fn is_cors_allowed(
     request_headers: &HeaderMap,
     preflight_response: HeaderResponse,
 ) -> Result<(), NetworkError> {
-    // TODO: Return an Result<> with error details instead of just bool
-
     if request_origin.ascii_serialization() == request_url.origin().ascii_serialization() {
         return Ok(());
     }

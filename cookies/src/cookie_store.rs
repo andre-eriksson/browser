@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use cookie::Cookie;
+use tracing::debug;
 
 use crate::domain::domain_matches;
 
@@ -82,11 +83,11 @@ impl CookieJar {
         if let Some(domain) = cookie.domain()
             && !domain_matches(domain, request_domain)
         {
-            // TODO: Error handling/logging
-            println!(
+            debug!(
                 "Cookie rejected: domain '{}' doesn't match request domain '{}'",
                 domain, request_domain
             );
+
             return;
         }
 
