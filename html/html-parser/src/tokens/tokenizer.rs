@@ -35,11 +35,22 @@ pub struct TokenizerContext {
 
 #[derive(Debug, Default)]
 pub struct TokenizerState {
+    /// The current state of the HTML parser.
     pub state: ParserState,
+
+    /// The current token being constructed by the tokenizer.
     pub current_token: Option<Token>,
+
+    /// A temporary buffer used for accumulating characters during tokenization.
     pub temporary_buffer: String,
+
+    /// The name of the current attribute being processed.
     pub current_attribute_name: String,
+
+    /// The value of the current attribute being processed.
     pub current_attribute_value: String,
+
+    /// The tokenizer context that maintains state information between chunks.
     pub context: TokenizerContext,
 }
 
@@ -48,6 +59,12 @@ pub struct TokenizerState {
 pub struct HtmlTokenizer;
 
 impl HtmlTokenizer {
+    /// Processes a single character based on the current parser state and updates the tokenizer state accordingly.
+    ///
+    /// # Arguments
+    /// * `state` - A mutable reference to the current tokenizer state.
+    /// * `ch` - The character to be processed.
+    /// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
     pub fn process_char(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
         match state.state {
             ParserState::Data => handle_data_state(state, ch, tokens),
@@ -89,7 +106,11 @@ impl HtmlTokenizer {
         }
     }
 
-    /// A helper function to emit a token into the queue.
+    /// An **inline** helper function to emit a token by pushing it onto the tokens vector.
+    ///
+    /// # Arguments
+    /// * `tokens` - A mutable reference to the vector of tokens.
+    /// * `token` - The token to be emitted.
     #[inline]
     pub fn emit_token(tokens: &mut Vec<Token>, token: Token) {
         tokens.push(token);

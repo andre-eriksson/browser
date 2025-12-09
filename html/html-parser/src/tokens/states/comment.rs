@@ -79,6 +79,7 @@ pub fn handle_comment_state(state: &mut TokenizerState, ch: char) {
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', the current comment token is emitted and the tokenizer transitions back to the `ParserState::Data` state.

@@ -145,10 +145,8 @@ pub enum ParserState {
     /// Represents the state of being inside a script tag
     ///
     /// # Example
-    /// ```html
-    /// <script>
-    ///   console.log("Hello, World!");
-    /// </script>
+    /// ```js
+    /// console.log("Hello, World!");
     ScriptData,
 
     /// Represents the start of a script end tag (`</script>`)

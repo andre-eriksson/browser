@@ -21,6 +21,7 @@ pub struct HtmlStreamParser<R: BufRead> {
     /// A vector of bytes that holds any incomplete UTF-8 sequences between reads.
     byte_buffer: Vec<u8>,
 
+    /// The current state of the HTML tokenizer.
     tokenizer_state: TokenizerState,
 }
 

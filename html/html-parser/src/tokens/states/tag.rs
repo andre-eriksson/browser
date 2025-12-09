@@ -59,6 +59,7 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it emits the current end tag token and transitions to the `ParserState::Data` state.
@@ -96,6 +97,7 @@ pub fn handle_end_tag_open_state(state: &mut TokenizerState, ch: char, tokens: &
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it finalizes the current token, emits it, and transitions to the `ParserState::Data` state.
@@ -135,6 +137,7 @@ pub fn handle_self_closing_tag_start_state(
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it finalizes the current token, emits it, and transitions to the appropriate state based on the tag name.
