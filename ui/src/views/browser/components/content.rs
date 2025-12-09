@@ -1,4 +1,4 @@
-use api::html::{HtmlTag, KnownTag};
+use html_syntax::tag::{HtmlTag, KnownTag};
 use iced::{
     Background, Color, Length,
     widget::{container, text},
@@ -12,7 +12,7 @@ pub fn render_content<'window>(
 ) -> container::Container<'window, Message> {
     let root = &app.tabs[app.current_tab_id].html_content;
 
-    if root.nodes.is_empty() {
+    if root.dom_tree.is_empty() {
         return render_blank();
     }
 

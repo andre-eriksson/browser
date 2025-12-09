@@ -1,12 +1,13 @@
 use std::sync::{Arc, RwLock};
 
-use api::html::is_void_element;
+use html_syntax::{
+    dom::{DocumentNode, Element, MultiThreaded},
+    tag::is_void_element,
+};
 use iced::{
     Background, Color, Length,
     widget::{Column, column, container, text},
 };
-
-use html_parser::dom::{DocumentNode, Element, MultiThreaded};
 
 use crate::{api::message::Message, core::app::Application, util::font::MONOSPACE};
 
@@ -22,11 +23,11 @@ const MAX_CHILDREN_LIMIT: usize = 100;
 pub fn render_dom_tree(app: &Application) -> Result<container::Container<'_, Message>, String> {
     let root = &app.tabs[app.current_tab_id].html_content;
 
-    if root.nodes.is_empty() {
+    if root.dom_tree.is_empty() {
         return Err("No DOM content loaded - document is empty.".to_string());
     }
 
-    match display_child_elements(&root.nodes) {
+    match display_child_elements(&root.dom_tree) {
         Some(content) => {
             let content: container::Container<'_, Message> = container(content)
                 .style(|_theme| {
@@ -93,7 +94,6 @@ fn process_dom_children_with_context<'window>(
     nodes: &[Arc<RwLock<DocumentNode<MultiThreaded>>>],
     depth: usize,
 ) -> iced::Element<'window, Message> {
-    // Prevent excessive nesting that can cause performance issues
     if depth > MAX_RENDER_DEPTH {
         return text(format!(
             "{}... (content truncated at depth {})",
@@ -109,7 +109,6 @@ fn process_dom_children_with_context<'window>(
 
     let mut elements = Vec::new();
 
-    // Limit the number of children to prevent performance issues with massive DOMs
     let nodes_to_process = if nodes.len() > MAX_CHILDREN_LIMIT {
         &nodes[..MAX_CHILDREN_LIMIT]
     } else {
@@ -125,7 +124,6 @@ fn process_dom_children_with_context<'window>(
             DocumentNode::Element(element) => {
                 let is_void_element = is_void_element(&element.tag);
 
-                // Create a single text widget for the entire opening tag to reduce widget count
                 let opening_tag_text = if element.attributes.is_empty() {
                     format!(
                         "{}<{}{}",
@@ -137,7 +135,7 @@ fn process_dom_children_with_context<'window>(
                     let attrs: Vec<String> = element
                         .attributes
                         .iter()
-                        .take(5) // Limit attributes shown for performance
+                        .take(5)
                         .map(|(key, value)| {
                             // Truncate long attribute values
                             let truncated_value = if value.len() > 50 {
@@ -173,7 +171,6 @@ fn process_dom_children_with_context<'window>(
                 );
 
                 if !is_void_element {
-                    // Only recurse if we have a reasonable number of children
                     if element.children.len() <= MAX_CHILDREN_LIMIT {
                         elements.push(process_dom_children_with_context(
                             &element.children,
@@ -200,7 +197,6 @@ fn process_dom_children_with_context<'window>(
                         ));
                     }
 
-                    // Create closing tag
                     elements.push(
                         text(format!("{}</{}>", spacing, element.tag))
                             .font(MONOSPACE)
@@ -210,9 +206,14 @@ fn process_dom_children_with_context<'window>(
                 }
             }
             DocumentNode::Text(content) => {
-                // Truncate very long text content
                 let truncated_content = if content.len() > 200 {
-                    format!("{}{}... (truncated)", spacing, &content[..197])
+                    {
+                        let mut end = 197;
+                        while end > 0 && !content.is_char_boundary(end) {
+                            end -= 1;
+                        }
+                        format!("{}{}... (truncated)", spacing, &content[..end])
+                    }
                 } else {
                     format!("{}{}", spacing, content)
                 };
@@ -222,7 +223,6 @@ fn process_dom_children_with_context<'window>(
         }
     }
 
-    // Show truncation message if we limited the nodes
     if nodes.len() > MAX_CHILDREN_LIMIT {
         elements.push(
             text(format!(

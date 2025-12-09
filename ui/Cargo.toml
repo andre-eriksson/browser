@@ -11,8 +11,14 @@ iced = { version = "0.13.1", features = [
     "svg",
 ] }
 image = "0.25"
+errors = { path = "../errors" }
 assets = { path = "../assets" }
 tracing = { workspace = true }
-api = { path = "../api" }
-html-parser = { path = "../html-parser" }
+html-parser = { path = "../html/html-parser" }
+html-syntax = { path = "../html/html-syntax" }
 network = { path = "../network" }
+telemetry = { path = "../utilities/telemetry" }
+http = { workspace = true }
+url = { workspace = true }
+cookies = { path = "../cookies" }
+constants = { path = "../utilities/constants" }

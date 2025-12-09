@@ -1,15 +1,23 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use cookies::cookie_store::CookieJar;
+use errors::network::NetworkError;
+use http::HeaderMap;
 use iced::{Renderer, Subscription, Task, Theme, window};
+use network::clients::reqwest::ReqwestClient;
+use network::http::client::HttpClient;
+use network::http::request::RequestBuilder;
+use network::session::network::NetworkSession;
+use telemetry::events::ui::EVENT_NEW_TAB;
+use telemetry::events::ui::EVENT_TAB_CLOSED;
+use telemetry::keys::EVENT;
 use tracing::error;
 use tracing::info;
 
-use api::logging::{EVENT, EVENT_NEW_TAB, EVENT_TAB_CLOSED};
 use html_parser::parser::streaming::HtmlStreamParser;
-use network::web::client::WebClient;
+use url::Url;
 
-use crate::util::path::resolve_path;
 use crate::{
     api::{
         message::Message,
@@ -17,46 +25,42 @@ use crate::{
         window::WindowType,
     },
     manager::WindowController,
-    network::client::setup_new_client,
     views::{browser, devtools},
 };
 
 /// Represents the main application state, including the current window, tabs, and client.
-///
-/// # Fields
-/// * `id` - The unique identifier for the main application window.
-/// * `window_controller` - A controller for managing application windows.
-/// * `tabs` - A vector of `BrowserTab` representing the open tabs in the browser.
-/// * `current_tab_id` - The index of the currently active tab.
-/// * `next_tab_id` - A counter for generating unique IDs for new tabs.
-/// * `client` - An instance of `WebClient` used for making network requests.
 pub struct Application {
     pub id: window::Id,
     window_controller: WindowController<Message, Theme, iced::Renderer>,
     pub tabs: Vec<BrowserTab>,
     pub current_tab_id: usize,
     pub next_tab_id: usize,
-    web_client: WebClient,
+    browser_headers: Arc<HeaderMap>,
+    cookie_jar: Arc<Mutex<CookieJar>>,
 }
 
 impl Application {
     /// Creates a new instance of the `Application` with an initial window and a default tab.
-    pub fn new() -> (Self, Task<Message>) {
+    pub fn new(
+        browser_headers: Arc<HeaderMap>,
+        cookie_jar: Arc<Mutex<CookieJar>>,
+    ) -> (Self, Task<Message>) {
         let mut window_controller = WindowController::new();
         let (main_window_id, browser_task) =
             window_controller.new_window(Box::new(browser::window::BrowserWindow::default()));
 
         let tasks = vec![browser_task.map(|_| Message::None)];
 
-        let first_tab = BrowserTab::new(0, "http://localhost:8000/test.html".to_string());
+        let first_tab = BrowserTab::empty(0);
 
         let app = Application {
             id: main_window_id,
             window_controller,
-            web_client: setup_new_client(),
             tabs: vec![first_tab],
             current_tab_id: 0,
             next_tab_id: 1,
+            browser_headers,
+            cookie_jar,
         };
 
         (app, Task::batch(tasks))
@@ -100,10 +104,7 @@ impl Application {
 
             // === Tab Management ===
             Message::OpenNewTab => {
-                let new_tab = BrowserTab::new(
-                    self.next_tab_id,
-                    "http://localhost:8000/test.html".to_string(),
-                );
+                let new_tab = BrowserTab::empty(self.next_tab_id);
                 self.tabs.push(new_tab);
                 self.current_tab_id = self.tabs.len() - 1;
                 info!({ EVENT } = EVENT_NEW_TAB, tab_id = self.next_tab_id);
@@ -129,55 +130,82 @@ impl Application {
 
                 info!({ EVENT } = EVENT_TAB_CLOSED, tab_id = index);
             }
-            Message::ChangeURL(url) => {
-                self.tabs[self.current_tab_id].temp_url = url;
+            Message::ChangeURL(new_url) => {
+                self.tabs[self.current_tab_id].temp_url = new_url;
             }
 
             // === Navigation ===
-            Message::NavigateTo(url) => {
-                let resolved_url =
-                    resolve_path(&self.web_client.origin.ascii_serialization(), &url);
-                self.tabs[self.current_tab_id].temp_url = resolved_url.clone();
-                let mut client_clone = self.web_client.clone();
+            Message::NavigateTo(new_url) => {
+                let url = match Url::parse(&new_url) {
+                    Ok(u) => u,
+                    Err(err) => {
+                        error!("Invalid URL: {}", err);
+                        return Task::none();
+                    }
+                };
+
+                let network_client = Box::new(ReqwestClient::new()) as Box<dyn HttpClient>;
+                let browser_headers = Arc::clone(&self.browser_headers);
+                let cookie_jar = Arc::clone(&self.cookie_jar);
+
+                let mut session =
+                    NetworkSession::new(network_client, browser_headers, cookie_jar, None);
+
+                session.set_current_url(url.clone());
 
                 return Task::perform(
                     async move {
-                        let res = client_clone
-                            .setup_client_from_url(resolved_url.as_str())
-                            .await;
+                        let url_for_error = url.clone();
+                        let req = RequestBuilder::from(url).build();
+                        let res = session.send(req).await;
 
                         match res {
-                            Ok(response) => match response.text().await {
-                                Ok(html) => Ok((html, client_clone)),
-                                Err(err) => Err(format!("Failed to read response body: {}", err)),
-                            },
-                            Err(_) => Err(format!("{} took too long to response", url)),
+                            Ok(response_handle) => {
+                                let body = response_handle.body().await;
+                                match body {
+                                    Ok(resp) => {
+                                        if let Some(content) = resp.body {
+                                            let html =
+                                                String::from_utf8_lossy(&content).to_string();
+                                            return Ok((html, session));
+                                        }
+
+                                        return Err(NetworkError::RequestFailed(
+                                            "Response body is empty".to_string(),
+                                        ));
+                                    }
+                                    Err(err) => {
+                                        return Err(err);
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                return Err(NetworkError::TimeoutError(format!(
+                                    "Failed to navigate to {}",
+                                    url_for_error
+                                )));
+                            }
                         }
                     },
                     |result| match result {
-                        Ok((html, client)) => Message::NavigateSuccess(html, Box::new(client)),
+                        Ok((html, session)) => Message::NavigateSuccess(html, session),
                         Err(err) => Message::NavigateError(err),
                     },
                 );
             }
-            Message::NavigateSuccess(html, updated_web_client) => {
-                self.web_client = *updated_web_client;
+            Message::NavigateSuccess(html, session) => {
                 let parser = HtmlStreamParser::new(html.as_bytes(), None);
 
-                let parsing_result = parser.parse(Some(TabCollector {
-                    url: self.tabs[self.current_tab_id].temp_url.clone(),
-                    ..Default::default()
-                }));
+                let parsing_result = parser.parse(Some(TabCollector::default()));
 
                 match parsing_result {
                     Ok(result) => {
                         let dom_tree = result.dom_tree;
 
-                        self.tabs[self.current_tab_id].url =
-                            self.tabs[self.current_tab_id].temp_url.clone();
+                        self.tabs[self.current_tab_id].network_session = Some(session);
 
                         self.tabs[self.current_tab_id].metadata =
-                            Arc::new(Mutex::new(result.metadata));
+                            Some(Arc::new(Mutex::new(result.metadata)));
 
                         self.tabs[self.current_tab_id].html_content = self.tabs
                             [self.current_tab_id]
@@ -210,7 +238,7 @@ impl Application {
     }
 
     /// Renders the application UI for a specific window.
-    pub fn view(&self, window_id: window::Id) -> iced::Element<Message, Theme, Renderer> {
+    pub fn view(&self, window_id: window::Id) -> iced::Element<'_, Message, Theme, Renderer> {
         self.window_controller.render(self, window_id)
     }
 

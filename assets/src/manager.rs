@@ -1,32 +1,35 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use api::logging::{
-    EVENT, EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET,
+use telemetry::{
+    events::assets::{
+        EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET,
+    },
+    keys::EVENT,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, instrument, trace, warn};
 
-use crate::backends::{AssetBackend, Backend};
+use crate::backends::{AssetBackend, AssetError, Backend};
 
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
-///
-/// # Variants
-/// * `Icon` - Represents an icon asset, identified by its name.
-/// * `Font` - Represents a font asset, identified by its name.
-/// * `Image` - Represents an image asset, identified by its name.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AssetType {
+    /// Represents an icon asset, default path would be `"icon/{name}"`.j
     Icon(&'static str),
+
+    /// Represents a font asset, default path would be `"font/{name}"`.
     Font(&'static str),
+
+    /// Represents an image asset, default path would be `"image/{name}"`.
     Image(&'static str),
 }
 
 /// AssetManager is responsible for managing and loading assets from various backends.
-///
-/// # Fields
-/// * `backends` - A vector of backends to load assets from, in order of priority.
-/// * `cache` - A cache to store loaded assets to avoid redundant loading.
 pub struct AssetManager {
+    /// A vector of backends to load assets from, in order of priority.
     backends: Vec<Backend>,
+
+    /// A cache to store loaded assets to avoid redundant loading.
     cache: HashMap<String, Vec<u8>>,
 }
 
@@ -54,48 +57,73 @@ impl AssetManager {
         }
     }
 
-    /// Retrieves an asset by its type.
+    /// Loads an asset, testing the suppplied backends in order until the asset is found.
+    /// If an asset is found it is stored in a in-memory cache.
     ///
     /// # Arguments
-    /// * `asset` - The type of asset to retrieve, which can be an icon, font, or image.
+    /// * `asset` - The type of asset to retrieve.
     ///
     /// # Returns
-    /// A vector of bytes representing the asset data.
-    ///
-    /// # Panics
-    /// If the asset cannot be found in any backend and the fallback asset is also not available.
-    pub fn get(&mut self, asset: AssetType) -> Vec<u8> {
+    /// A `Result<Vec<u8>, AssetError>` representing the asset data or an error message.
+    #[instrument(skip(self), fields(asset = ?asset))]
+    pub fn load(&mut self, asset: AssetType) -> Result<Vec<u8>, AssetError> {
         let key = match asset {
             AssetType::Icon(name) => format!("icon/{}", name),
             AssetType::Font(name) => format!("font/{}", name),
             AssetType::Image(name) => format!("image/{}", name),
         };
 
-        debug!({ EVENT } = EVENT_LOAD_ASSET, key);
+        trace!({ EVENT } = EVENT_LOAD_ASSET);
 
         if let Some(data) = self.cache.get(&key) {
-            debug!({ EVENT } = EVENT_ASSET_CACHE_HIT, key);
-            return data.clone();
+            debug!({ EVENT } = EVENT_ASSET_CACHE_HIT);
+            return Ok(data.clone());
         }
 
         for backend in &self.backends {
-            if let Some(data) = backend.load_asset(&key) {
-                info!({ EVENT } = EVENT_ASSET_LOADED, "{}", key.clone());
+            match backend.load_asset(&key) {
+                Ok(data) => {
+                    debug!({ EVENT } = EVENT_ASSET_LOADED);
 
-                self.cache.insert(key, data.clone());
-                return data;
+                    self.cache.insert(key, data.clone());
+                    return Ok(data);
+                }
+                Err(AssetError::NotFound(_)) => continue,
+                Err(e) => return Err(e),
             }
         }
 
-        warn!({ EVENT } = EVENT_ASSET_NOT_FOUND, key);
+        warn!({ EVENT } = EVENT_ASSET_NOT_FOUND);
 
-        let fallback = Backend::Embedded.load_asset("fallback.png");
+        Err(AssetError::NotFound(key))
+    }
 
-        if let Some(fallback_data) = fallback {
-            self.cache.insert(key, fallback_data.clone());
-            return fallback_data;
+    /// Loads an embedded asset by its type, with either a guaranteed return value or a panic.
+    ///
+    /// # Arguments
+    /// * `asset` - The type of asset to load.
+    ///
+    /// # Returns
+    /// A vector of bytes representing the asset data.
+    ///
+    /// # Panics
+    /// If the asset cannot be found in the embedded backend.
+    #[instrument(skip(self), fields(asset = ?asset))]
+    pub fn load_embedded(&self, asset: AssetType) -> Vec<u8> {
+        let key = match asset {
+            AssetType::Icon(name) => format!("icon/{}", name),
+            AssetType::Font(name) => format!("font/{}", name),
+            AssetType::Image(name) => format!("image/{}", name),
+        };
+
+        trace!({ EVENT } = EVENT_LOAD_ASSET);
+
+        if let Ok(data) = Backend::Embedded.load_asset(&key) {
+            debug!({ EVENT } = EVENT_ASSET_LOADED);
+
+            return data;
         }
 
-        panic!("Fallback asset not found: {}", key);
+        panic!("Embedded asset not found: {}", key);
     }
 }

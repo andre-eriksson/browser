@@ -1,23 +1,22 @@
 use std::sync::{Arc, Mutex};
 
-use api::html::{HtmlTag, KnownTag};
-use html_parser::{
+use html_syntax::{
     collector::{Collector, TagInfo},
     dom::{DocumentNode, DocumentRoot, MultiThreaded},
+    tag::{HtmlTag, KnownTag},
 };
+use network::session::network::NetworkSession;
 
 /// A collector that gathers metadata from HTML tags in a browser tab.
-///
-/// # Fields
-/// * `in_head` - A boolean indicating whether the collector is currently processing the `<head>` section of the HTML document.
-/// * `url` - The URL of the page being collected.
-/// * `title` - The title of the page, if available.
-/// * `external_resources` - A vector of tuples containing DOM nodes and their associated resource URLs (e.g., scripts, stylesheets).
 #[derive(Default)]
 pub struct TabCollector {
+    /// Indicates whether the parser is currently within the `<head>` section of the HTML document.
     pub in_head: bool,
-    pub url: String,
+
+    /// The title of the tab, if available.
     pub title: Option<String>,
+
+    /// A list of favicons found in the tab, each represented as a tuple of the DOM node and its URL.
     pub favicons: Vec<(DocumentNode<MultiThreaded>, String)>,
 }
 
@@ -70,7 +69,6 @@ impl Collector for TabCollector {
     fn into_result(self) -> Self::Output {
         Self {
             in_head: self.in_head,
-            url: self.url,
             title: self.title,
             favicons: self.favicons,
         }
@@ -80,34 +78,22 @@ impl Collector for TabCollector {
 pub type TabMetadata = Arc<Mutex<TabCollector>>;
 
 /// Represents a browser tab with its URL, status code, HTML content, and metadata.
-///
-/// # Fields
-/// * `id` - A unique identifier for the tab.
-/// * `temp_url` - A temporary URL used when inputing a new URL in to the address bar.
-/// * `url` - The URL of the page loaded in the tab.
-/// * `html_content` - A shared DOM node containing the parsed HTML content of the page.
-/// * `metadata` - Metadata about the tab, including the title and external resources.
 pub struct BrowserTab {
     pub id: usize,
     pub temp_url: String,
-    pub url: String,
+    pub network_session: Option<NetworkSession>,
     pub html_content: DocumentRoot<MultiThreaded>,
-    pub metadata: TabMetadata,
+    pub metadata: Option<TabMetadata>,
 }
 
 impl BrowserTab {
-    /// Creates a new `BrowserTab` with the specified ID and URL.
-    ///
-    /// # Arguments
-    /// * `id` - The unique identifier for the tab.
-    /// * `url` - The URL of the page to be loaded in the tab.
-    pub fn new(id: usize, url: String) -> Self {
-        Self {
+    pub fn empty(id: usize) -> Self {
+        BrowserTab {
             id,
-            temp_url: url.clone(),
-            url,
+            temp_url: String::new(),
+            network_session: None,
             html_content: DocumentRoot::default(),
-            metadata: Arc::new(Mutex::new(TabCollector::default())),
+            metadata: None,
         }
     }
 }
