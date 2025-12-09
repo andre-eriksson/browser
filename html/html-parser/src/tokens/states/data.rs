@@ -49,6 +49,7 @@ pub fn preserve_significant_whitespace(state: &TokenizerState) -> String {
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '<', it processes the temporary buffer and transitions to the `ParserState::TagOpen` state.

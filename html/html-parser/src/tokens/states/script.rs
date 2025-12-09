@@ -42,6 +42,7 @@ pub fn handle_script_data_state(state: &mut TokenizerState, ch: char) {
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it checks if the temporary buffer matches the expected end tag "</script>".

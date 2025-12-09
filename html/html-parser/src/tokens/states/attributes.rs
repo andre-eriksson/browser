@@ -10,6 +10,7 @@ use crate::tokens::{
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it emits the current token and transitions to the `ParserState::Data` state.
@@ -49,6 +50,7 @@ pub fn handle_before_attribute_name_state(
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '=', it transitions to the `ParserState::BeforeAttributeValue` state.
@@ -89,6 +91,7 @@ pub fn handle_attribute_name_state(state: &mut TokenizerState, ch: char, tokens:
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it finalizes the current attribute and emits the token, then transitions to the `ParserState::Data` state.
@@ -212,6 +215,7 @@ pub fn handle_attribute_value_single_quoted_state(state: &mut TokenizerState, ch
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it finalizes the current attribute, emits the token, and transitions to the `ParserState::Data` state.
@@ -260,6 +264,7 @@ pub fn handle_attribute_value_unquoted_state(
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', it finalizes the current attribute, emits the token, and transitions to the `ParserState::Data` state.

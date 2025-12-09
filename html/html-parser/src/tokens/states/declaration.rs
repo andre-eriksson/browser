@@ -43,6 +43,7 @@ pub fn handle_start_declaration_state(state: &mut TokenizerState, ch: char) {
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '?', it appends it to the current XML declaration token's data.
@@ -100,6 +101,7 @@ pub fn handle_xml_declaration_state(state: &mut TokenizerState, ch: char, tokens
 /// # Arguments
 /// * `tokenizer` - A mutable reference to the HTML tokenizer.
 /// * `ch` - The current character being processed.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
 ///
 /// # Behavior
 /// - If the character is '>', the current doctype declaration token is emitted and the tokenizer transitions back to the `ParserState::Data` state.
