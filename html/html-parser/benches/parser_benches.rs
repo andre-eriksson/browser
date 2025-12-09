@@ -3,19 +3,17 @@ use html_parser::parser::streaming::HtmlStreamParser;
 use html_syntax::collector::DefaultCollector;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let prefix_path = "../test-resources/html/large/";
-    let files = [
-        "Amazon.html",
-        "HTML5Up.html",
-        "Instagram.html",
-        "Reuters.html",
-        "Wikipedia.html",
-        "Youtube.html",
-    ];
+    let prefix_path = "./benches/resources/";
+    let files = ["deep.html", "flat.html", "mixed.html"];
 
     for &file in &files {
-        let html_content = std::fs::read_to_string(format!("{}{}", prefix_path, file))
-            .expect("Failed to read HTML file");
+        let html_content = std::fs::read_to_string(format!("{}{}", prefix_path, file)).expect(
+            format!(
+                "Failed to read file: {}",
+                format!("{}{}", prefix_path, file)
+            )
+            .as_str(),
+        );
 
         c.bench_function(&format!("streaming_html_parse_{}", file), |b| {
             b.iter(|| {
