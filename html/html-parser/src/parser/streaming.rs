@@ -1,11 +1,11 @@
 use std::io::BufRead;
 
-use crate::tokens::{
+use html_dom::builder::{BuildResult, DomTreeBuilder};
+use html_syntax::{collector::Collector, token::Token};
+use html_tokenizer::{
     state::ParserState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
-use html_dom::builder::{BuildResult, DomTreeBuilder};
-use html_syntax::{collector::Collector, token::Token};
 use parsing::{ScriptHandler, StyleHandler};
 
 /// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
@@ -72,7 +72,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
     ///
     /// # Returns
     /// A `Result` containing a `ParseResult` with the DOM tree and collected metadata, or an error message if parsing fails.
-    pub fn parse<C: Collector + Default>(
+    pub async fn parse<C: Collector + Default>(
         mut self,
         collector: Option<C>,
     ) -> Result<BuildResult<C::Output>, String> {
@@ -98,7 +98,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
                 let full_chunk = format!("{}{}", self.buffer, chunk);
                 self.buffer.clear();
 
-                self.process_chunk(&full_chunk, &mut builder);
+                self.process_chunk(&full_chunk, &mut builder).await;
             }
         }
 
@@ -107,7 +107,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             if !remaining_text.is_empty() {
                 let full_chunk = format!("{}{}", self.buffer, remaining_text);
                 self.buffer.clear();
-                self.process_chunk(&full_chunk, &mut builder);
+                self.process_chunk(&full_chunk, &mut builder).await;
             }
         }
 
@@ -123,7 +123,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
     /// * `chunk` - A string slice containing the HTML content to be processed.
     /// * `tokenizer` - A mutable reference to the `HtmlTokenizer` used for tokenizing the HTML content.
     /// * `builder` - A mutable reference to the `DomTreeBuilder` used for constructing the DOM tree.
-    fn process_chunk<C: Collector + Default>(
+    async fn process_chunk<C: Collector + Default>(
         &mut self,
         chunk: &str,
         builder: &mut DomTreeBuilder<C>,
@@ -134,10 +134,14 @@ impl<R: BufRead> HtmlStreamParser<R> {
         for ch in chunk.chars() {
             match self.tokenizer_state.state {
                 ParserState::ScriptData => {
-                    match_position = self.handle_script_data(ch, match_position, &mut tokens);
+                    match_position = self.handle_script_data(ch, match_position);
+
+                    HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
                 }
                 ParserState::StyleData => {
                     match_position = self.handle_style_data(ch, match_position);
+
+                    HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
                 }
                 _ => {
                     HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
@@ -145,7 +149,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             }
         }
 
-        dbg!(tokens.clone());
+        //dbg!(tokens.clone());
 
         builder.build_from_tokens(tokens);
     }
@@ -159,34 +163,20 @@ impl<R: BufRead> HtmlStreamParser<R> {
     ///
     /// # Returns
     /// The updated match position after processing the character.
-    fn handle_script_data(
-        &mut self,
-        ch: char,
-        mut match_position: usize,
-        tokens: &mut [Token],
-    ) -> usize {
+    fn handle_script_data(&mut self, ch: char, mut match_position: usize) -> usize {
         let end_script = "</script>";
-
-        if let Some(token) = tokens.last().as_mut() {
-            if let Some(_async_script) = token.attributes.get("async") {
-                // TODO: Handle async script attribute
-            } else if let Some(_defer_script) = token.attributes.get("defer") {
-                // TODO: Handle defer script attribute
-            }
-        }
 
         if ch.eq_ignore_ascii_case(&end_script.chars().nth(match_position).unwrap_or('\0')) {
             match_position += 1;
 
             if match_position == end_script.len() {
                 match_position = 0;
-                self.tokenizer_state.state = ParserState::Data;
             }
             return match_position;
         }
         if match_position > 0 {
             for partial_ch in end_script.chars().take(match_position) {
-                self.script_delegate.process_js(partial_ch);
+                self.script_delegate.process_js_stream(partial_ch);
             }
             match_position = 0;
 
@@ -195,7 +185,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             }
         }
 
-        self.script_delegate.process_js(ch);
+        self.script_delegate.process_js_stream(ch);
         match_position
     }
 
@@ -215,7 +205,6 @@ impl<R: BufRead> HtmlStreamParser<R> {
 
             if match_position == end_style.len() {
                 match_position = 0;
-                self.tokenizer_state.state = ParserState::Data;
             }
 
             return match_position;
@@ -223,7 +212,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
 
         if match_position > 0 {
             for partial_ch in end_style.chars().take(match_position) {
-                self.style_delegate.process_css(partial_ch);
+                self.style_delegate.process_css_stream(partial_ch);
             }
             match_position = 0;
 
@@ -232,7 +221,7 @@ impl<R: BufRead> HtmlStreamParser<R> {
             }
         }
 
-        self.style_delegate.process_css(ch);
+        self.style_delegate.process_css_stream(ch);
         match_position
     }
 

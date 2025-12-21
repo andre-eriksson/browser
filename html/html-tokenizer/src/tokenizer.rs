@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use html_syntax::token::{Token, TokenKind};
 
-use crate::tokens::{
+use crate::{
     state::ParserState,
     states::{
         attributes::{

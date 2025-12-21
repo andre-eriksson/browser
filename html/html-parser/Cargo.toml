@@ -1,13 +1,16 @@
 [package]
 name = "html-parser"
 version = "0.1.0"
-edition = "2024"
+edition = { workspace = true }
 
 [dependencies]
 tracing = { workspace = true }
 telemetry = { path = "../../utilities/telemetry" }
 html-syntax = { path = "../html-syntax" }
 html-dom = { path = "../html-dom" }
+html-tokenizer = { path = "../html-tokenizer" }
+network = { path = "../../network" }
+tokio = { workspace = true }
 parsing = { path = "../../utilities/parsing" }
 
 [dev-dependencies]

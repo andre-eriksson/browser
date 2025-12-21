@@ -1,6 +1,6 @@
 use html_syntax::token::Token;
 
-use crate::tokens::{
+use crate::{
     state::ParserState,
     states::tag::handle_closing_tag,
     tokenizer::{HtmlTokenizer, TokenizerState},
