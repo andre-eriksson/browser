@@ -1,11 +1,12 @@
 /// Represents the various states the parser can be in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParserState {
     /// The initial state, where the parser is reading regular text
     ///
     /// # Example
     /// ```html
     /// Hello, World!
+    #[default]
     Data,
 
     /// Represents the start of a tag (`<`)
@@ -149,18 +150,12 @@ pub enum ParserState {
     /// console.log("Hello, World!");
     ScriptData,
 
-    /// Represents the start of a script end tag (`</script>`)
+    /// Represents the state of being inside a style tag
     ///
     /// # Example
-    /// ```html
-    /// <script>
-    ///   console.log("Hello, World!");
-    /// </script>
-    ScriptDataEndTagOpen,
-}
-
-impl Default for ParserState {
-    fn default() -> Self {
-        ParserState::Data
-    }
+    /// ```css
+    /// body {
+    ///     background-color: #f0f0f0;
+    /// }
+    StyleData,
 }

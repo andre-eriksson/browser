@@ -1,7 +1,8 @@
-use html_syntax::token::{Token, TokenKind};
+use html_syntax::token::Token;
 
 use crate::tokens::{
     state::ParserState,
+    states::tag::handle_closing_tag,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 
@@ -63,17 +64,7 @@ pub fn handle_attribute_name_state(state: &mut TokenizerState, ch: char, tokens:
         '=' => {
             state.state = ParserState::BeforeAttributeValue;
         }
-        '>' => {
-            if let Some(mut token) = state.current_token.take() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
-
-                HtmlTokenizer::emit_token(tokens, token);
-            }
-            state.state = ParserState::Data;
-        }
+        '>' => handle_closing_tag(state, tokens),
         '/' => {
             state.state = ParserState::SelfClosingTagStart;
         }
@@ -106,17 +97,7 @@ pub fn handle_after_attribute_name_state(
     tokens: &mut Vec<Token>,
 ) {
     match ch {
-        '>' => {
-            if let Some(mut token) = state.current_token.take() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
-
-                HtmlTokenizer::emit_token(tokens, token);
-            }
-            state.state = ParserState::Data;
-        }
+        '>' => handle_closing_tag(state, tokens),
         '/' => {
             state.state = ParserState::SelfClosingTagStart;
         }
@@ -227,20 +208,7 @@ pub fn handle_attribute_value_unquoted_state(
     tokens: &mut Vec<Token>,
 ) {
     match ch {
-        '>' => {
-            if let Some(mut token) = state.current_token.take() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
-
-                state.current_attribute_name.clear();
-                state.current_attribute_value.clear();
-
-                HtmlTokenizer::emit_token(tokens, token);
-            }
-            state.state = ParserState::Data;
-        }
+        '>' => handle_closing_tag(state, tokens),
         ch if ch.is_ascii_whitespace() => {
             if let Some(token) = state.current_token.as_mut() {
                 token.attributes.insert(
@@ -276,32 +244,7 @@ pub fn handle_after_attribute_value_quoted_state(
     tokens: &mut Vec<Token>,
 ) {
     match ch {
-        '>' => {
-            if let Some(mut token) = state.current_token.take() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
-
-                state.current_attribute_name.clear();
-                state.current_attribute_value.clear();
-
-                if token.data == "script" {
-                    state.state = ParserState::ScriptData;
-                } else {
-                    if token.data == "pre" {
-                        if token.kind == TokenKind::StartTag {
-                            state.context.inside_preformatted = true;
-                        } else if token.kind == TokenKind::EndTag {
-                            state.context.inside_preformatted = false;
-                        }
-                    }
-                    state.state = ParserState::Data;
-                }
-
-                HtmlTokenizer::emit_token(tokens, token);
-            }
-        }
+        '>' => handle_closing_tag(state, tokens),
         '/' => {
             state.state = ParserState::SelfClosingTagStart;
         }

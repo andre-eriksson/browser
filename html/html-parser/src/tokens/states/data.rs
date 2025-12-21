@@ -81,9 +81,8 @@ pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<
                                     current_pos += 1;
                                 }
                                 break;
-                            } else {
-                                line.push(ch);
                             }
+                            line.push(ch);
                         }
 
                         if !line.is_empty() {

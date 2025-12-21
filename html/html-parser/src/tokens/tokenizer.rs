@@ -1,4 +1,6 @@
-use html_syntax::token::Token;
+use std::collections::HashMap;
+
+use html_syntax::token::{Token, TokenKind};
 
 use crate::tokens::{
     state::ParserState,
@@ -18,7 +20,6 @@ use crate::tokens::{
             handle_doctype_declaration_state, handle_start_declaration_state,
             handle_xml_declaration_state,
         },
-        script::{handle_script_data_end_tag_open_state, handle_script_data_state},
         tag::{
             handle_end_tag_open_state, handle_self_closing_tag_start_state, handle_tag_name_state,
             handle_tag_open_state,
@@ -99,9 +100,31 @@ impl HtmlTokenizer {
             ParserState::CommentEnd => handle_comment_end_state(state, ch, tokens),
             ParserState::XmlDeclaration => handle_xml_declaration_state(state, ch, tokens),
             ParserState::DoctypeDeclaration => handle_doctype_declaration_state(state, ch, tokens),
-            ParserState::ScriptData => handle_script_data_state(state, ch),
-            ParserState::ScriptDataEndTagOpen => {
-                handle_script_data_end_tag_open_state(state, ch, tokens)
+            ParserState::ScriptData => {
+                HtmlTokenizer::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "script".to_string(),
+                    },
+                );
+
+                state.temporary_buffer.clear();
+                state.state = ParserState::Data;
+            }
+            ParserState::StyleData => {
+                HtmlTokenizer::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "style".to_string(),
+                    },
+                );
+
+                state.temporary_buffer.clear();
+                state.state = ParserState::Data;
             }
         }
     }

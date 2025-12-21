@@ -146,25 +146,7 @@ pub fn handle_self_closing_tag_start_state(
 /// - For any other character, it appends the character to the current token's data.
 pub fn handle_tag_name_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
-        '>' => {
-            if let Some(token) = state.current_token.take() {
-                if token.data == "script" {
-                    state.state = ParserState::ScriptData;
-                } else {
-                    if token.data == "pre" {
-                        if token.kind == TokenKind::StartTag {
-                            state.context.inside_preformatted = true;
-                        } else if token.kind == TokenKind::EndTag {
-                            state.context.inside_preformatted = false;
-                        }
-                    }
-
-                    state.state = ParserState::Data;
-                }
-
-                HtmlTokenizer::emit_token(tokens, token);
-            }
-        }
+        '>' => handle_closing_tag(state, tokens),
         '/' => {
             state.state = ParserState::SelfClosingTagStart;
         }
@@ -182,5 +164,45 @@ pub fn handle_tag_name_state(state: &mut TokenizerState, ch: char, tokens: &mut 
                 });
             }
         }
+    }
+}
+
+/// Finalizes the current tag token and emits it.
+///
+/// # Arguments
+/// * `state` - A mutable reference to the tokenizer state.
+/// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
+///
+/// # Behavior
+/// - Inserts the current attribute name and value into the current token's attributes.
+/// - Clears the current attribute name and value.
+/// - Transitions to the appropriate parser data state (ScriptData, StyleData or Data) based on the token's data.
+/// - Emits the current token.
+pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
+    if let Some(mut token) = state.current_token.take() {
+        token.attributes.insert(
+            state.current_attribute_name.clone(),
+            state.current_attribute_value.clone(),
+        );
+
+        state.current_attribute_name.clear();
+        state.current_attribute_value.clear();
+
+        if token.data == "script" {
+            state.state = ParserState::ScriptData;
+        } else if token.data == "style" {
+            state.state = ParserState::StyleData;
+        } else {
+            if token.data == "pre" {
+                if token.kind == TokenKind::StartTag {
+                    state.context.inside_preformatted = true;
+                } else if token.kind == TokenKind::EndTag {
+                    state.context.inside_preformatted = false;
+                }
+            }
+            state.state = ParserState::Data;
+        }
+
+        HtmlTokenizer::emit_token(tokens, token);
     }
 }
