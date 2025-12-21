@@ -8,6 +8,7 @@ tracing = { workspace = true }
 telemetry = { path = "../../utilities/telemetry" }
 html-syntax = { path = "../html-syntax" }
 html-dom = { path = "../html-dom" }
+parsing = { path = "../../utilities/parsing" }
 
 [dev-dependencies]
 criterion = { workspace = true }

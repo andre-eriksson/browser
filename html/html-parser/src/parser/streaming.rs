@@ -1,8 +1,12 @@
 use std::io::BufRead;
 
-use crate::tokens::tokenizer::{HtmlTokenizer, TokenizerState};
+use crate::tokens::{
+    state::ParserState,
+    tokenizer::{HtmlTokenizer, TokenizerState},
+};
 use html_dom::builder::{BuildResult, DomTreeBuilder};
-use html_syntax::collector::Collector;
+use html_syntax::{collector::Collector, token::Token};
+use parsing::{ScriptHandler, StyleHandler};
 
 /// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
 ///
@@ -23,6 +27,12 @@ pub struct HtmlStreamParser<R: BufRead> {
 
     /// The current state of the HTML tokenizer.
     tokenizer_state: TokenizerState,
+
+    /// A delegate for handling CSS style content.
+    style_delegate: Box<dyn StyleHandler>,
+
+    /// A delegate for handling JavaScript script content.
+    script_delegate: Box<dyn ScriptHandler>,
 }
 
 impl<R: BufRead> HtmlStreamParser<R> {
@@ -34,7 +44,12 @@ impl<R: BufRead> HtmlStreamParser<R> {
     ///
     /// # Returns
     /// A new instance of `StreamingParser` initialized with the provided reader, and buffer size.
-    pub fn new(reader: R, buffer_size: Option<usize>) -> Self {
+    pub fn new(
+        reader: R,
+        buffer_size: Option<usize>,
+        style_delegate: Box<dyn StyleHandler>,
+        script_delegate: Box<dyn ScriptHandler>,
+    ) -> Self {
         let buffer_size = buffer_size.unwrap_or(1024 * 8);
         Self {
             reader,
@@ -42,6 +57,8 @@ impl<R: BufRead> HtmlStreamParser<R> {
             buffer_size,
             byte_buffer: Vec::new(),
             tokenizer_state: TokenizerState::default(),
+            style_delegate,
+            script_delegate,
         }
     }
 
@@ -111,13 +128,112 @@ impl<R: BufRead> HtmlStreamParser<R> {
         chunk: &str,
         builder: &mut DomTreeBuilder<C>,
     ) {
-        let mut tokens = Vec::new();
+        let mut tokens: Vec<Token> = Vec::new();
+        let mut match_position = 0;
 
         for ch in chunk.chars() {
-            HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
+            match self.tokenizer_state.state {
+                ParserState::ScriptData => {
+                    match_position = self.handle_script_data(ch, match_position, &mut tokens);
+                }
+                ParserState::StyleData => {
+                    match_position = self.handle_style_data(ch, match_position);
+                }
+                _ => {
+                    HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
+                }
+            }
         }
 
+        dbg!(tokens.clone());
+
         builder.build_from_tokens(tokens);
+    }
+
+    /// Handles characters when the parser is in the `ScriptData` state, looking for the end of the script tag.
+    ///
+    /// # Arguments
+    /// * `ch` - The current character being processed.
+    /// * `match_position` - The current position in matching the end script tag.
+    /// * `tokens` - A mutable slice of tokens being processed.
+    ///
+    /// # Returns
+    /// The updated match position after processing the character.
+    fn handle_script_data(
+        &mut self,
+        ch: char,
+        mut match_position: usize,
+        tokens: &mut [Token],
+    ) -> usize {
+        let end_script = "</script>";
+
+        if let Some(token) = tokens.last().as_mut() {
+            if let Some(_async_script) = token.attributes.get("async") {
+                // TODO: Handle async script attribute
+            } else if let Some(_defer_script) = token.attributes.get("defer") {
+                // TODO: Handle defer script attribute
+            }
+        }
+
+        if ch.eq_ignore_ascii_case(&end_script.chars().nth(match_position).unwrap_or('\0')) {
+            match_position += 1;
+
+            if match_position == end_script.len() {
+                match_position = 0;
+                self.tokenizer_state.state = ParserState::Data;
+            }
+            return match_position;
+        }
+        if match_position > 0 {
+            for partial_ch in end_script.chars().take(match_position) {
+                self.script_delegate.process_js(partial_ch);
+            }
+            match_position = 0;
+
+            if ch.eq_ignore_ascii_case(&end_script.chars().nth(0).unwrap()) {
+                return 1;
+            }
+        }
+
+        self.script_delegate.process_js(ch);
+        match_position
+    }
+
+    /// Handles characters when the parser is in the `StyleData` state, looking for the end of the style tag.
+    ///
+    /// # Arguments
+    /// * `ch` - The current character being processed.
+    /// * `match_position` - The current position in matching the end style tag.
+    ///
+    /// # Returns
+    /// The updated match position after processing the character.
+    fn handle_style_data(&mut self, ch: char, mut match_position: usize) -> usize {
+        let end_style = "</style>";
+
+        if ch.eq_ignore_ascii_case(&end_style.chars().nth(match_position).unwrap_or('\0')) {
+            match_position += 1;
+
+            if match_position == end_style.len() {
+                match_position = 0;
+                self.tokenizer_state.state = ParserState::Data;
+            }
+
+            return match_position;
+        }
+
+        if match_position > 0 {
+            for partial_ch in end_style.chars().take(match_position) {
+                self.style_delegate.process_css(partial_ch);
+            }
+            match_position = 0;
+
+            if ch.eq_ignore_ascii_case(&end_style.chars().nth(0).unwrap_or('\0')) {
+                return 1;
+            }
+        }
+
+        self.style_delegate.process_css(ch);
+        match_position
     }
 
     /// Attempts to decode a byte slice as UTF-8, handling incomplete sequences and invalid bytes.
