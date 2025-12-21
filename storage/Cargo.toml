@@ -1,8 +1,8 @@
 [package]
 name = "storage"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-constants = { path = "../utilities/constants" }
+constants.workspace = true
 dirs = "6.0.0"

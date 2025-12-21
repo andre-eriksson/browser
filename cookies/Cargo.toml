@@ -1,8 +1,10 @@
 [package]
 name = "cookies"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-cookie =  { workspace = true }
-tracing = { workspace = true }
+cookie.workspace = true
+
+# External dependencies
+tracing.workspace = true

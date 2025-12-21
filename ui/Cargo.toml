@@ -1,9 +1,19 @@
 [package]
 name = "ui"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
+assets.workspace = true
+cookies.workspace = true
+errors.workspace = true
+html-parser.workspace = true
+html-syntax.workspace = true
+network.workspace = true
+constants.workspace = true
+telemetry.workspace = true
+
+# External dependencies
 iced = { version = "0.13.1", features = [
     "multi-window",
     "tokio",
@@ -11,14 +21,6 @@ iced = { version = "0.13.1", features = [
     "svg",
 ] }
 image = "0.25"
-errors = { path = "../errors" }
-assets = { path = "../assets" }
-tracing = { workspace = true }
-html-parser = { path = "../html/html-parser" }
-html-syntax = { path = "../html/html-syntax" }
-network = { path = "../network" }
-telemetry = { path = "../utilities/telemetry" }
-http = { workspace = true }
-url = { workspace = true }
-cookies = { path = "../cookies" }
-constants = { path = "../utilities/constants" }
+tracing.workspace = true
+http.workspace = true
+url.workspace = true

@@ -1,9 +1,11 @@
 [package]
 name = "html-dom"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-tracing = { workspace = true }
-telemetry = { path = "../../utilities/telemetry" }
-html-syntax = { path = "../html-syntax" }
+telemetry.workspace = true
+html-syntax.workspace = true
+
+# External dependencies
+tracing.workspace = true
