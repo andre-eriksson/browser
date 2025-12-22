@@ -1,6 +1,6 @@
 /// Represents the various states the parser can be in.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ParserState {
+pub enum TokenState {
     /// The initial state, where the parser is reading regular text
     ///
     /// # Example

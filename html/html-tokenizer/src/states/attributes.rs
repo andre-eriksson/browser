@@ -1,7 +1,7 @@
 use html_syntax::token::Token;
 
 use crate::{
-    state::ParserState,
+    state::TokenState,
     states::tag::handle_closing_tag,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
@@ -29,19 +29,19 @@ pub fn handle_before_attribute_name_state(
             if let Some(token) = state.current_token.take() {
                 HtmlTokenizer::emit_token(tokens, token);
             }
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
         '/' => {
-            state.state = ParserState::SelfClosingTagStart;
+            state.state = TokenState::SelfClosingTagStart;
         }
         ch if ch.is_whitespace() => {}
         ch if ch.is_alphabetic() => {
             state.current_attribute_name.clear();
             state.current_attribute_name.push(ch);
-            state.state = ParserState::AttributeName;
+            state.state = TokenState::AttributeName;
         }
         _ => {
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
     }
 }
@@ -62,14 +62,14 @@ pub fn handle_before_attribute_name_state(
 pub fn handle_attribute_name_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '=' => {
-            state.state = ParserState::BeforeAttributeValue;
+            state.state = TokenState::BeforeAttributeValue;
         }
         '>' => handle_closing_tag(state, tokens),
         '/' => {
-            state.state = ParserState::SelfClosingTagStart;
+            state.state = TokenState::SelfClosingTagStart;
         }
         ch if ch.is_whitespace() => {
-            state.state = ParserState::AfterAttributeName;
+            state.state = TokenState::AfterAttributeName;
         }
         _ => {
             state.current_attribute_name.push(ch);
@@ -99,10 +99,10 @@ pub fn handle_after_attribute_name_state(
     match ch {
         '>' => handle_closing_tag(state, tokens),
         '/' => {
-            state.state = ParserState::SelfClosingTagStart;
+            state.state = TokenState::SelfClosingTagStart;
         }
         '=' => {
-            state.state = ParserState::BeforeAttributeValue;
+            state.state = TokenState::BeforeAttributeValue;
         }
         ch if ch.is_whitespace() => {}
         ch if ch.is_alphabetic() => {
@@ -115,10 +115,10 @@ pub fn handle_after_attribute_name_state(
 
             state.current_attribute_name.clear();
             state.current_attribute_name.push(ch);
-            state.state = ParserState::AttributeName;
+            state.state = TokenState::AttributeName;
         }
         _ => {
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
     }
 }
@@ -137,16 +137,16 @@ pub fn handle_after_attribute_name_state(
 pub fn handle_before_attribute_value_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '"' => {
-            state.state = ParserState::AttributeValueDoubleQuoted;
+            state.state = TokenState::AttributeValueDoubleQuoted;
         }
         '\'' => {
-            state.state = ParserState::AttributeValueSingleQuoted;
+            state.state = TokenState::AttributeValueSingleQuoted;
         }
         ch if ch.is_whitespace() => {}
         _ => {
             state.current_attribute_value.clear();
             state.current_attribute_value.push(ch);
-            state.state = ParserState::AttributeValueUnquoted;
+            state.state = TokenState::AttributeValueUnquoted;
         }
     }
 }
@@ -163,7 +163,7 @@ pub fn handle_before_attribute_value_state(state: &mut TokenizerState, ch: char)
 pub fn handle_attribute_value_double_quoted_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '"' => {
-            state.state = ParserState::AfterAttributeValueQuoted;
+            state.state = TokenState::AfterAttributeValueQuoted;
         }
         _ => {
             state.current_attribute_value.push(ch);
@@ -183,7 +183,7 @@ pub fn handle_attribute_value_double_quoted_state(state: &mut TokenizerState, ch
 pub fn handle_attribute_value_single_quoted_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '\'' => {
-            state.state = ParserState::AfterAttributeValueQuoted;
+            state.state = TokenState::AfterAttributeValueQuoted;
         }
         _ => {
             state.current_attribute_value.push(ch);
@@ -219,7 +219,7 @@ pub fn handle_attribute_value_unquoted_state(
                 state.current_attribute_name.clear();
                 state.current_attribute_value.clear();
             }
-            state.state = ParserState::BeforeAttributeName;
+            state.state = TokenState::BeforeAttributeName;
         }
         _ => {
             state.current_attribute_value.push(ch);
@@ -246,7 +246,7 @@ pub fn handle_after_attribute_value_quoted_state(
     match ch {
         '>' => handle_closing_tag(state, tokens),
         '/' => {
-            state.state = ParserState::SelfClosingTagStart;
+            state.state = TokenState::SelfClosingTagStart;
         }
         _ => {
             if let Some(token) = state.current_token.as_mut() {
@@ -259,7 +259,7 @@ pub fn handle_after_attribute_value_quoted_state(
                 state.current_attribute_value.clear();
             }
 
-            state.state = ParserState::BeforeAttributeName;
+            state.state = TokenState::BeforeAttributeName;
         }
     }
 }

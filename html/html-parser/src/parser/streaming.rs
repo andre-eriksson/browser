@@ -3,7 +3,7 @@ use std::io::BufRead;
 use html_dom::builder::{BuildResult, DomTreeBuilder};
 use html_syntax::{collector::Collector, token::Token};
 use html_tokenizer::{
-    state::ParserState,
+    state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 use parsing::{ScriptHandler, StyleHandler};
@@ -133,12 +133,12 @@ impl<R: BufRead> HtmlStreamParser<R> {
 
         for ch in chunk.chars() {
             match self.tokenizer_state.state {
-                ParserState::ScriptData => {
+                TokenState::ScriptData => {
                     match_position = self.handle_script_data(ch, match_position);
 
                     HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
                 }
-                ParserState::StyleData => {
+                TokenState::StyleData => {
                     match_position = self.handle_style_data(ch, match_position);
 
                     HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);

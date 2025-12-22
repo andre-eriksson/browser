@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use html_syntax::token::{Token, TokenKind};
 
 use crate::{
-    state::ParserState,
+    state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 
@@ -22,7 +22,7 @@ use crate::{
 pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '!' => {
-            state.state = ParserState::StartDeclaration;
+            state.state = TokenState::StartDeclaration;
         }
         '?' => {
             state.current_token = Some(Token {
@@ -30,7 +30,7 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
                 attributes: HashMap::new(),
                 data: ch.to_string(),
             });
-            state.state = ParserState::XmlDeclaration;
+            state.state = TokenState::XmlDeclaration;
         }
         '/' => {
             state.current_token = Some(Token {
@@ -38,7 +38,7 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
                 attributes: HashMap::new(),
                 data: String::new(),
             });
-            state.state = ParserState::EndTagOpen;
+            state.state = TokenState::EndTagOpen;
         }
         ch if ch.is_alphabetic() => {
             state.current_token = Some(Token {
@@ -46,10 +46,10 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
                 attributes: HashMap::new(),
                 data: ch.to_string(),
             });
-            state.state = ParserState::TagName;
+            state.state = TokenState::TagName;
         }
         _ => {
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
     }
 }
@@ -72,7 +72,7 @@ pub fn handle_end_tag_open_state(state: &mut TokenizerState, ch: char, tokens: &
                 HtmlTokenizer::emit_token(tokens, token);
             }
 
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
         ch if ch.is_alphabetic() => {
             if let Some(token) = state.current_token.as_mut() {
@@ -84,10 +84,10 @@ pub fn handle_end_tag_open_state(state: &mut TokenizerState, ch: char, tokens: &
                     data: ch.to_string(),
                 });
             }
-            state.state = ParserState::TagName;
+            state.state = TokenState::TagName;
         }
         _ => {
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
     }
 }
@@ -123,11 +123,11 @@ pub fn handle_self_closing_tag_start_state(
 
                 HtmlTokenizer::emit_token(tokens, token);
             }
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
         ch if ch.is_whitespace() => {}
         _ => {
-            state.state = ParserState::BeforeAttributeName;
+            state.state = TokenState::BeforeAttributeName;
         }
     }
 }
@@ -148,10 +148,10 @@ pub fn handle_tag_name_state(state: &mut TokenizerState, ch: char, tokens: &mut 
     match ch {
         '>' => handle_closing_tag(state, tokens),
         '/' => {
-            state.state = ParserState::SelfClosingTagStart;
+            state.state = TokenState::SelfClosingTagStart;
         }
         ch if ch.is_whitespace() => {
-            state.state = ParserState::BeforeAttributeName;
+            state.state = TokenState::BeforeAttributeName;
         }
         _ => {
             if let Some(token) = state.current_token.as_mut() {
@@ -189,9 +189,9 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
         state.current_attribute_value.clear();
 
         if token.data == "script" {
-            state.state = ParserState::ScriptData;
+            state.state = TokenState::ScriptData;
         } else if token.data == "style" {
-            state.state = ParserState::StyleData;
+            state.state = TokenState::StyleData;
         } else {
             if token.data == "pre" {
                 if token.kind == TokenKind::StartTag {
@@ -200,7 +200,7 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
                     state.context.inside_preformatted = false;
                 }
             }
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
 
         HtmlTokenizer::emit_token(tokens, token);

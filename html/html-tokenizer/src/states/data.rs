@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use html_syntax::token::{Token, TokenKind};
 
 use crate::{
-    state::ParserState,
+    state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 
@@ -109,7 +109,7 @@ pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<
 
                 state.temporary_buffer.clear();
             }
-            state.state = ParserState::TagOpen;
+            state.state = TokenState::TagOpen;
         }
         _ => {
             state.temporary_buffer.push(ch);
