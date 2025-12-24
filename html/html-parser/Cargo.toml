@@ -9,7 +9,6 @@ html-syntax.workspace = true
 html-dom.workspace = true
 html-tokenizer.workspace = true
 network.workspace = true
-parsing.workspace = true
 
 # External dependencies
 tracing.workspace = true
