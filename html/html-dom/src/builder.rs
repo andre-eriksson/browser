@@ -21,16 +21,16 @@ pub struct BuildResult<M> {
 /// # Type Parameters
 /// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
 pub struct DomTreeBuilder<C: Collector> {
-    /// The current ID to assign to new elements.
+    /// The current unique identifier for nodes being created.
     pub current_id: u16,
 
-    /// An instance of the collector used to gather metadata during parsing.
+    /// The collector instance used to gather metadata during parsing.
     pub collector: C,
 
-    /// A vector of shared DOM nodes representing the parsed document structure.
+    /// The root of the DOM tree being constructed.
     dom_tree: DocumentRoot,
 
-    /// A stack of currently open elements, used to manage the hierarchy of the DOM tree.
+    /// A stack of currently open element node IDs.
     open_elements: Vec<NodeId>,
 }
 
@@ -65,10 +65,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// Builds the DOM tree from a vector of HTML tokens.
     ///
     /// # Arguments
-    /// * `html_tokens` - A vector of `Token` representing the parsed HTML content.
-    ///
-    /// # Returns
-    /// A string of remaining content that was not processed as tokens, if any.
+    /// * `tokens` - A vector of `Token` instances representing the HTML content to be processed.
     pub fn build_from_tokens(&mut self, tokens: Vec<Token>) {
         for token in tokens {
             match token.kind {
@@ -89,7 +86,10 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// Inserts a node reference into the DOM tree, either as a child of the last open element or as a root node.
     ///
     /// # Arguments
-    /// * `node_ref` - A shared reference to the `DomNode` to be inserted into the DOM tree.
+    /// * `data` - The `NodeData` representing the node to be inserted.
+    ///
+    /// # Returns
+    /// The `NodeId` of the newly inserted node.
     fn insert_node(&mut self, data: NodeData) -> NodeId {
         let parent = self.open_elements.last().copied();
         self.dom_tree.push_node(data, parent)
@@ -98,7 +98,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// Handles auto-closing of elements based on the new tag name.
     ///
     /// # Arguments
-    /// * `new_tag_name` - The name of the new tag being processed, which may trigger auto-closing of previous tags.
+    /// * `new_tag` - A reference to the `HtmlTag` representing the new tag being processed.
     fn handle_auto_close(&mut self, new_tag: &HtmlTag) {
         let should_pop = if let Some(last_id) = self.open_elements.last() {
             if let Some(node) = self.dom_tree.get_node(last_id) {
