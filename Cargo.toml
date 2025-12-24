@@ -12,7 +12,10 @@ members = [
     "html/html-tokenizer",
     "network",
     "storage",
-    "utilities/*"
+    "ui",
+    "utilities/constants",
+    "utilities/event",
+    "utilities/telemetry",
 ]
 
 [workspace.package]
@@ -21,8 +24,8 @@ edition = "2024"
 [workspace.dependencies]
 # Local dependencies
 assets = { path = "assets" }
-browser-core = { path = "browser-core" }
 cookies = { path = "cookies" }
+browser-core = { path = "browser-core" }
 errors = { path = "errors" }
 html-dom = { path = "html/html-dom" }
 html-parser = { path = "html/html-parser" }
@@ -30,12 +33,14 @@ html-syntax = { path = "html/html-syntax" }
 html-tokenizer = { path = "html/html-tokenizer" }
 network = { path = "network" }
 storage = { path = "storage" }
+ui = { path = "ui" }
 constants = { path = "utilities/constants" }
-parsing = { path = "utilities/parsing" }
+event = { path = "utilities/event" }
 telemetry = { path = "utilities/telemetry" }
 
 
 # External dependencies
+async-trait = "0.1.89"
 tracing = "0.1.43"
 tokio = { version = "1.44", features = ["full"] }
 cookie = "0.18.1"
