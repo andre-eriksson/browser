@@ -1,8 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
-
 use html_syntax::{
     collector::{Collector, TagInfo},
-    dom::{DocumentNode, DocumentRoot, DomIndex, Element, NodeContext, SingleThreaded},
+    dom::{DocumentRoot, Element, NodeData, NodeId},
     tag::{HtmlTag, is_void_element, should_auto_close, tag_from_str},
     token::{Token, TokenKind},
 };
@@ -12,7 +10,7 @@ use crate::decode::Decoder;
 /// Represents the result of building a DOM tree.
 pub struct BuildResult<M> {
     /// A vector of shared DOM nodes representing the parsed document structure.
-    pub dom_tree: DocumentRoot<SingleThreaded>,
+    pub dom_tree: DocumentRoot,
 
     /// The metadata collected during parsing, which is of type `M`.
     pub metadata: M,
@@ -30,13 +28,10 @@ pub struct DomTreeBuilder<C: Collector> {
     pub collector: C,
 
     /// A vector of shared DOM nodes representing the parsed document structure.
-    dom_tree: Vec<Rc<RefCell<DocumentNode<SingleThreaded>>>>,
-
-    /// An index for tracking the position of elements in the DOM tree.
-    index: DomIndex<SingleThreaded>,
+    dom_tree: DocumentRoot,
 
     /// A stack of currently open elements, used to manage the hierarchy of the DOM tree.
-    open_elements: Vec<Rc<RefCell<DocumentNode<SingleThreaded>>>>,
+    open_elements: Vec<NodeId>,
 }
 
 impl<C: Collector + Default> DomTreeBuilder<C> {
@@ -51,8 +46,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         DomTreeBuilder {
             current_id: 0,
             collector: collector.unwrap_or_default(),
-            dom_tree: Vec::new(),
-            index: DomIndex::default(),
+            dom_tree: DocumentRoot::new(),
             open_elements: Vec::with_capacity(16),
         }
     }
@@ -63,7 +57,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// A `BuildResult` containing the constructed DOM tree and collected metadata.
     pub fn finalize(self) -> BuildResult<C::Output> {
         BuildResult {
-            dom_tree: DocumentRoot::new(self.dom_tree, self.index),
+            dom_tree: self.dom_tree,
             metadata: self.collector.into_result(),
         }
     }
@@ -96,14 +90,9 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `node_ref` - A shared reference to the `DomNode` to be inserted into the DOM tree.
-    fn insert_node(&mut self, node_ref: Rc<RefCell<DocumentNode<SingleThreaded>>>) {
-        if let Some(last) = self.open_elements.last() {
-            if let DocumentNode::Element(parent) = &mut *last.borrow_mut() {
-                parent.children.push(node_ref);
-            }
-        } else {
-            self.dom_tree.push(node_ref);
-        }
+    fn insert_node(&mut self, data: NodeData) -> NodeId {
+        let parent = self.open_elements.last().copied();
+        self.dom_tree.push_node(data, parent)
     }
 
     /// Handles auto-closing of elements based on the new tag name.
@@ -111,9 +100,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `new_tag_name` - The name of the new tag being processed, which may trigger auto-closing of previous tags.
     fn handle_auto_close(&mut self, new_tag: &HtmlTag) {
-        let should_pop = if let Some(last) = self.open_elements.last() {
-            if let DocumentNode::Element(parent) = &*last.borrow() {
-                should_auto_close(&parent.tag, new_tag)
+        let should_pop = if let Some(last_id) = self.open_elements.last() {
+            if let Some(node) = self.dom_tree.get_node(last_id) {
+                if let NodeData::Element(elem) = &node.data {
+                    should_auto_close(&elem.tag, new_tag)
+                } else {
+                    false
+                }
             } else {
                 false
             }
@@ -139,36 +132,23 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             id: self.current_id,
             tag: tag.clone(),
             attributes: attributes.clone(),
-            children: Vec::new(),
         };
+
+        let node_data = NodeData::Element(element);
+
+        self.handle_auto_close(&tag);
+
+        let new_id = self.insert_node(node_data);
 
         self.collector.collect(&TagInfo {
             tag: &tag,
             attributes: &token.attributes,
-            dom_node: &DocumentNode::Element(element.clone()),
+            node_id: new_id,
         });
 
-        let new_node = DocumentNode::Element(element);
-        let new_node_ref = SingleThreaded::new_node(&new_node);
-
-        self.handle_auto_close(&tag);
-
-        if is_void_element(&tag) {
-            self.insert_node(new_node_ref);
-            return;
+        if !is_void_element(&tag) {
+            self.open_elements.push(new_id);
         }
-
-        self.insert_node(new_node_ref.clone());
-
-        self.index.flat.push(new_node_ref.clone());
-        self.index.id.insert(self.current_id, new_node_ref.clone());
-        self.index
-            .tag
-            .entry(tag)
-            .or_default()
-            .push(new_node_ref.clone());
-
-        self.open_elements.push(new_node_ref);
     }
 
     /// Handles the end tag token, closing the most recent open element if it matches the tag name.
@@ -177,10 +157,15 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
     fn handle_end_tag(&mut self, token: &Token) {
         let tag_name = token.data.to_lowercase();
+        let target_tag = tag_from_str(&tag_name);
 
         let should_close = if let Some(last) = self.open_elements.last() {
-            if let DocumentNode::Element(parent) = &*last.borrow() {
-                parent.tag == tag_from_str(&tag_name)
+            if let Some(node) = self.dom_tree.get_node(last) {
+                if let NodeData::Element(elem) = &node.data {
+                    elem.tag == target_tag
+                } else {
+                    false
+                }
             } else {
                 false
             }
@@ -209,18 +194,20 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             }
         }
 
-        if let Some(last) = self.open_elements.last()
-            && let DocumentNode::Element(parent) = &mut *last.borrow_mut()
+        if let Some(last_id) = self.open_elements.last()
+            && let Some(parent_node) = self.dom_tree.get_node(last_id)
+            && let NodeData::Element(parent_elem) = &parent_node.data
         {
-            let text_node = DocumentNode::<SingleThreaded>::Text(text_content);
+            let tag = &parent_elem.tag.clone();
+            let attributes = &parent_elem.attributes.clone();
+            let text_data = NodeData::Text(text_content);
+            let new_id = self.insert_node(text_data);
 
             self.collector.collect(&TagInfo {
-                tag: &parent.tag,
-                attributes: &parent.attributes,
-                dom_node: &text_node.clone(),
+                tag,
+                attributes,
+                node_id: new_id,
             });
-
-            parent.children.push(SingleThreaded::new_node(&text_node));
         }
     }
 }
