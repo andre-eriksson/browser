@@ -112,6 +112,7 @@ impl HtmlTokenizer {
 
                 state.temporary_buffer.clear();
                 state.state = TokenState::Data;
+                HtmlTokenizer::process_char(state, ch, tokens);
             }
             TokenState::StyleData => {
                 HtmlTokenizer::emit_token(
@@ -125,6 +126,7 @@ impl HtmlTokenizer {
 
                 state.temporary_buffer.clear();
                 state.state = TokenState::Data;
+                HtmlTokenizer::process_char(state, ch, tokens);
             }
         }
     }
