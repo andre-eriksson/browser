@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use html_syntax::token::{Token, TokenKind};
 
-use crate::tokens::{
-    state::ParserState,
+use crate::{
+    state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 
@@ -21,7 +21,7 @@ use crate::tokens::{
 pub fn handle_start_declaration_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '-' => {
-            state.state = ParserState::CommentStart;
+            state.state = TokenState::CommentStart;
         }
         'd' | 'D' => {
             state.current_token = Some(Token {
@@ -29,11 +29,11 @@ pub fn handle_start_declaration_state(state: &mut TokenizerState, ch: char) {
                 attributes: HashMap::new(),
                 data: ch.to_string(),
             });
-            state.state = ParserState::DoctypeDeclaration;
+            state.state = TokenState::DoctypeDeclaration;
         }
         ch if ch.is_whitespace() => {}
         _ => {
-            state.state = ParserState::BogusComment;
+            state.state = TokenState::BogusComment;
         }
     }
 }
@@ -69,7 +69,7 @@ pub fn handle_xml_declaration_state(state: &mut TokenizerState, ch: char, tokens
                 if let Some(token) = state.current_token.take() {
                     HtmlTokenizer::emit_token(tokens, token);
                 }
-                state.state = ParserState::Data;
+                state.state = TokenState::Data;
                 return;
             }
             if let Some(token) = state.current_token.as_mut() {
@@ -116,7 +116,7 @@ pub fn handle_doctype_declaration_state(
             if let Some(token) = state.current_token.take() {
                 HtmlTokenizer::emit_token(tokens, token);
             }
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
         _ => {
             if let Some(token) = state.current_token.as_mut() {

@@ -1,5 +1,8 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use html_parser::parser::streaming::HtmlStreamParser;
+use html_parser::{
+    parser::HtmlStreamParser,
+    state::{BlockedReason, ParserState},
+};
 use html_syntax::collector::DefaultCollector;
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -7,22 +10,62 @@ fn criterion_benchmark(c: &mut Criterion) {
     let files = ["deep.html", "flat.html", "mixed.html"];
 
     for &file in &files {
-        let html_content = std::fs::read_to_string(format!("{}{}", prefix_path, file)).expect(
-            format!(
-                "Failed to read file: {}",
-                format!("{}{}", prefix_path, file)
-            )
-            .as_str(),
-        );
+        let html_content = std::fs::read_to_string(format!("{}{}", prefix_path, file))
+            .unwrap_or_else(|_| panic!("Failed to read file: {}{}", prefix_path, file));
 
         c.bench_function(&format!("streaming_html_parse_{}", file), |b| {
             b.iter(|| {
-                let parser = HtmlStreamParser::new(
+                let mut parser = HtmlStreamParser::<_, DefaultCollector>::simple(
                     std::io::Cursor::new(html_content.clone()),
-                    Some(1024 * 8),
                 );
-                let parsing_result = parser.parse(Some(DefaultCollector::default()));
-                assert!(parsing_result.is_ok(), "Parsing failed");
+                let mut success = false;
+
+                loop {
+                    let step = parser.step();
+
+                    if let Err(e) = step {
+                        eprintln!("Error during parsing step: {}", e);
+                        break;
+                    }
+
+                    match parser.get_state() {
+                        ParserState::Running => continue,
+                        ParserState::Completed => {
+                            success = true;
+                            break;
+                        }
+                        ParserState::Blocked(reason) => match reason {
+                            BlockedReason::WaitingForScript(_) => {
+                                let script_content = parser.extract_script_content();
+
+                                if let Err(e) = script_content {
+                                    eprintln!("Error extracting script content: {}", e);
+                                    break;
+                                }
+
+                                println!("Extracted Script Content: {}", script_content.unwrap());
+                                let _ = parser.resume();
+                            }
+                            BlockedReason::WaitingForStyle(_) => {
+                                let style_content = parser.extract_style_content();
+
+                                if let Err(e) = style_content {
+                                    eprintln!("Error extracting style content: {}", e);
+                                    break;
+                                }
+
+                                println!("Extracted Style Content: {}", style_content.unwrap());
+                                let _ = parser.resume();
+                            }
+                            _ => {
+                                eprintln!("Parser blocked for unhandled reason: {:?}", reason);
+                                break;
+                            }
+                        },
+                    }
+                }
+
+                assert!(success, "HTML parsing did not complete successfully.");
             });
         });
     }

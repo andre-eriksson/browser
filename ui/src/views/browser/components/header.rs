@@ -1,48 +1,44 @@
+use browser_core::events::BrowserEvent;
 use iced::{
     Background, Border, Color, Length,
     widget::{button, column, container, mouse_area, row, text, text_input},
 };
 
-use crate::{api::message::Message, core::app::Application};
+use crate::{
+    core::app::{Application, Event},
+    events::UiEvent,
+};
 
 /// Renders the header for the browser window, including tabs and a search bar.
-pub fn render_header(app: &Application) -> container::Container<'_, Message> {
+pub fn render_header(app: &Application) -> container::Container<'_, Event> {
     let tabs = row(app
         .tabs
         .iter()
         .map(|tab| {
-            let tab_metadata = tab.metadata.clone();
+            let tab_title = tab.title.as_ref();
 
-            if tab_metadata.is_none() {
-                return button(text(format!("about:empty - {}", tab.id)))
-                    .on_press(Message::ChangeTab(tab.id))
-                    .into();
-            }
-
-            let tab_metadata = tab_metadata.unwrap();
-
-            let metadata = tab_metadata.lock().unwrap();
-            let tab_title = metadata
-                .title
-                .as_ref()
-                .map_or_else(|| "Untitled".to_string(), |t| t.clone());
             mouse_area(
-                // Load favicon if available
-                button(text(format!("{} - {}", tab_title, tab.id)))
-                    .on_press(Message::ChangeTab(tab.id)),
+                button(text(format!(
+                    "{} - {:?}",
+                    tab_title.unwrap_or(&"N/A".to_string()),
+                    tab.id
+                )))
+                .on_press(Event::Ui(UiEvent::ChangeActiveTab(tab.id))),
             )
-            .on_right_press(Message::CloseTab(tab.id))
+            .on_right_press(Event::Ui(UiEvent::CloseTab(tab.id)))
             .into()
         })
         .chain(std::iter::once(
-            button(text("+")).on_press(Message::OpenNewTab).into(),
+            button(text("+"))
+                .on_press(Event::Ui(UiEvent::NewTab))
+                .into(),
         ))
         .collect::<Vec<_>>())
     .width(Length::Shrink)
     .spacing(10.0);
 
-    let search_bar = text_input("Search", &app.tabs[app.current_tab_id].temp_url)
-        .on_input(Message::ChangeURL)
+    let search_bar = text_input("Search", &app.current_url)
+        .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)))
         .style(|_, _| text_input::Style {
             background: Background::Color(Color::from_rgb(0.95, 0.95, 0.95)),
             value: Color::BLACK,
@@ -54,9 +50,9 @@ pub fn render_header(app: &Application) -> container::Container<'_, Message> {
 
     let search_field = row![
         search_bar,
-        button("Go").on_press(Message::NavigateTo(
-            app.tabs[app.current_tab_id].temp_url.clone()
-        ))
+        button("Go").on_press(Event::Browser(BrowserEvent::NavigateTo(
+            app.current_url.clone()
+        )))
     ]
     .spacing(10.0);
 

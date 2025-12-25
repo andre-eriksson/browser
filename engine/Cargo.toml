@@ -1,13 +1,19 @@
 [package]
 name = "engine"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
+browser-core.workspace = true
+cookies.workspace = true
+constants.workspace = true
+network.workspace = true
+ui.workspace = true
+
+# External dependencies
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "registry"] }
-errors = { path = "../errors" }
-cookies = { path = "../cookies" }
-constants = { path = "../utilities/constants" }
-ui = { path = "../ui" }
-http = { workspace = true }
+url.workspace = true
+tokio.workspace = true
+http.workspace = true
+clap = { version = "4.5.53", features = ["derive"] }

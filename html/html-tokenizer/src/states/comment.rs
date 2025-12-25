@@ -1,8 +1,8 @@
 use html_syntax::token::{Token, TokenKind};
 use std::collections::HashMap;
 
-use crate::tokens::{
-    state::ParserState,
+use crate::{
+    state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 
@@ -16,7 +16,7 @@ use crate::tokens::{
 /// - If the character is '>', the tokenizer transitions back to the `ParserState::Data` state.
 pub fn handle_bogus_comment_state(state: &mut TokenizerState, ch: char) {
     if ch == '>' {
-        state.state = ParserState::Data;
+        state.state = TokenState::Data;
     }
 }
 
@@ -38,10 +38,10 @@ pub fn handle_comment_start_state(state: &mut TokenizerState, ch: char) {
                 data: String::new(),
             });
 
-            state.state = ParserState::Comment;
+            state.state = TokenState::Comment;
         }
         _ => {
-            state.state = ParserState::BogusComment;
+            state.state = TokenState::BogusComment;
         }
     }
 }
@@ -58,7 +58,7 @@ pub fn handle_comment_start_state(state: &mut TokenizerState, ch: char) {
 pub fn handle_comment_state(state: &mut TokenizerState, ch: char) {
     match ch {
         '-' => {
-            state.state = ParserState::CommentEnd;
+            state.state = TokenState::CommentEnd;
         }
         _ => {
             if let Some(token) = state.current_token.as_mut() {
@@ -91,7 +91,7 @@ pub fn handle_comment_end_state(state: &mut TokenizerState, ch: char, tokens: &m
             if let Some(token) = state.current_token.take() {
                 HtmlTokenizer::emit_token(tokens, token);
             }
-            state.state = ParserState::Data;
+            state.state = TokenState::Data;
         }
         '-' => {}
         _ => {
@@ -105,7 +105,7 @@ pub fn handle_comment_end_state(state: &mut TokenizerState, ch: char, tokens: &m
                     data: format!("-{}", ch),
                 });
             }
-            state.state = ParserState::Comment;
+            state.state = TokenState::Comment;
         }
     }
 }

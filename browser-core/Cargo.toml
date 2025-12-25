@@ -1,0 +1,19 @@
+[package]
+name = "browser-core"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+cookies.workspace = true
+errors.workspace = true
+html-dom.workspace = true
+html-parser.workspace = true
+html-syntax.workspace = true
+network.workspace = true
+
+# External dependencies
+async-trait.workspace = true
+cookie.workspace = true
+http.workspace = true
+tracing.workspace = true
+url.workspace = true

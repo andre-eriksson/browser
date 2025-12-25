@@ -1,7 +1,7 @@
 //! HTML parsing library for Rust.
 
-/// The provided HTML parsers.
+/// The provided HTML parser.
 pub mod parser;
 
-/// Tokenization related functions and utilities.
-mod tokens;
+/// The state management for the HTML parser.
+pub mod state;

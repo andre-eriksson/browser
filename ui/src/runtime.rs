@@ -1,31 +1,31 @@
-use std::{
-    borrow::Cow,
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Cow, sync::Arc};
 
 use assets::{
     ASSETS,
     constants::{DEFAULT_FONT, MONOSPACE_FONT},
 };
-use cookies::cookie_store::CookieJar;
+use browser_core::{browser::Browser, events::BrowserEvent};
 use errors::subsystem::SubsystemError;
-use http::HeaderMap;
 use iced::{Font, Settings};
+use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
 use crate::core::app::Application;
 
 /// The main runtime for the UI, responsible for initializing and running the application.
-pub struct UiRuntime {
-    browser_headers: Arc<HeaderMap>,
-    cookie_jar: Arc<Mutex<CookieJar>>,
+pub struct Ui {
+    browser: Arc<Mutex<Browser>>,
+    event_receiver: UnboundedReceiver<BrowserEvent>,
 }
 
-impl UiRuntime {
+impl Ui {
     /// Creates a new instance of the `UiRuntime`.
-    pub fn new(browser_headers: Arc<HeaderMap>, cookie_jar: Arc<Mutex<CookieJar>>) -> Self {
-        UiRuntime {
-            browser_headers,
-            cookie_jar,
+    pub fn new(
+        browser: Arc<Mutex<Browser>>,
+        event_receiver: UnboundedReceiver<BrowserEvent>,
+    ) -> Self {
+        Ui {
+            browser,
+            event_receiver,
         }
     }
 
@@ -33,8 +33,8 @@ impl UiRuntime {
     pub fn run(self) -> Result<(), SubsystemError> {
         let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
         let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
-        let browser_headers = self.browser_headers;
-        let cookie_jar = self.cookie_jar;
+        let event_receiver = self.event_receiver;
+        let browser = self.browser;
 
         let result = iced::daemon(Application::title, Application::update, Application::view)
             .settings(Settings {
@@ -43,9 +43,9 @@ impl UiRuntime {
                 ..Default::default()
             })
             .subscription(Application::subscriptions)
-            .run_with(|| Application::new(browser_headers, cookie_jar));
+            .run_with(move || Application::new(event_receiver, browser.clone()));
 
-        return match result {
+        match result {
             Ok(_) => Ok(()),
             Err(e) => match e {
                 iced::Error::ExecutorCreationFailed(msg) => Err(SubsystemError::RuntimeError(
@@ -58,6 +58,6 @@ impl UiRuntime {
                     format!("UI Window Creation Failed: {}", msg),
                 )),
             },
-        };
+        }
     }
 }

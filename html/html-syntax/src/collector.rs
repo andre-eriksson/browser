@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    dom::{DocumentNode, SingleThreaded},
+    dom::NodeId,
     tag::{HtmlTag, KnownTag},
 };
 
@@ -14,7 +14,9 @@ pub struct TagInfo<'a> {
     /// A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
     pub attributes: &'a HashMap<String, String>,
     /// A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
-    pub dom_node: &'a DocumentNode<SingleThreaded>,
+    pub node_id: NodeId,
+    /// Optional text data associated with the tag, only applicable for text nodes.
+    pub data: Option<&'a String>,
 }
 
 /// A trait that defines a collector for metadata extracted from HTML tags during parsing.
@@ -24,11 +26,6 @@ pub struct TagInfo<'a> {
 ///
 /// `Collector::collect` will be called for each start tag encountered during parsing and when parsing text content.
 pub trait Collector {
-    /// The output type of the collector, which is returned when `into_result` is called.
-    /// This type should encapsulate the metadata collected during parsing.
-    /// It can be a tuple, struct, or any other type that represents the collected data.
-    type Output;
-
     /// Collects metadata from the provided tag information.
     ///
     /// Will be called when building start tags.
@@ -37,11 +34,11 @@ pub trait Collector {
     /// * `tag` - A reference to a `TagInfo` struct containing the tag name, attributes, and associated DOM node.
     fn collect(&mut self, tag: &TagInfo);
 
-    /// Converts the collected metadata into the output type defined by the `Output` associated type.
+    /// Converts the collected metadata into a final result.
     ///
     /// # Returns
-    /// The collected metadata in the form of the `Output` type.
-    fn into_result(self) -> Self::Output;
+    /// The final collected metadata.
+    fn into_result(self) -> Self;
 }
 
 /// A default implementation of the `Collector` trait that collects metadata about HTML tags.
@@ -49,18 +46,16 @@ pub trait Collector {
 #[derive(Default)]
 pub struct DefaultCollector {
     /// An optional map that associates IDs with their corresponding DOM nodes.
-    pub id_map: Option<HashMap<String, DocumentNode<SingleThreaded>>>,
+    pub id_map: Option<HashMap<String, NodeId>>,
 
     /// An optional map that associates class names with vectors of DOM nodes that have those classes.
-    pub class_map: Option<HashMap<String, Vec<DocumentNode<SingleThreaded>>>>,
+    pub class_map: Option<HashMap<String, Vec<NodeId>>>,
 
     /// An optional map that associates external resource URLs (like `href` and `src`) with the tags that reference them.
-    pub external_resources: Option<HashMap<String, Vec<DocumentNode<SingleThreaded>>>>,
+    pub external_resources: Option<HashMap<String, Vec<NodeId>>>,
 }
 
 impl Collector for DefaultCollector {
-    type Output = Self;
-
     fn collect(&mut self, tag: &TagInfo) {
         if tag.attributes.is_empty() {
             return;
@@ -69,9 +64,7 @@ impl Collector for DefaultCollector {
         if let Some(id_map) = &mut self.id_map
             && let Some(id) = tag.attributes.get("id")
         {
-            id_map
-                .entry(id.to_string())
-                .or_insert_with(|| tag.dom_node.clone());
+            id_map.entry(id.to_string()).or_insert(tag.node_id);
         }
 
         if let Some(class_map) = &mut self.class_map
@@ -81,7 +74,7 @@ impl Collector for DefaultCollector {
                 class_map
                     .entry(class.to_string())
                     .or_default()
-                    .push(tag.dom_node.clone());
+                    .push(tag.node_id);
             }
         }
 
@@ -94,19 +87,19 @@ impl Collector for DefaultCollector {
                 external_resources
                     .entry(href.to_string())
                     .or_default()
-                    .push(tag.dom_node.clone());
+                    .push(tag.node_id);
             }
 
             if let Some(src) = tag.attributes.get("src") {
                 external_resources
                     .entry(src.to_string())
                     .or_default()
-                    .push(tag.dom_node.clone());
+                    .push(tag.node_id);
             }
         }
     }
 
-    fn into_result(self) -> Self::Output {
+    fn into_result(self) -> Self {
         Self {
             id_map: self.id_map,
             class_map: self.class_map,

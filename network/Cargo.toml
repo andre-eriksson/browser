@@ -1,18 +1,20 @@
 [package]
 name = "network"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-cookies = { path = "../cookies" }
-errors = { path = "../errors" }
-tokio = { workspace = true }
-tracing = { workspace = true }
-telemetry = { path = "../utilities/telemetry" }
-cookie = { workspace = true }
-http = { workspace = true }
-url = { workspace = true }
-async-trait = "0.1.89"
+cookies.workspace = true
+errors.workspace = true
+telemetry.workspace = true
+
+# External dependencies
+tokio.workspace = true
+tracing.workspace = true
+cookie.workspace = true
+http.workspace = true
+url.workspace = true
+async-trait.workspace = true
 reqwest = { version = "0.12.18", features = [
     "json",
     "gzip",

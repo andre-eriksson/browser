@@ -1,11 +1,7 @@
 [package]
-name = "html-dom"
+name = "html-tokenizer"
 version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-telemetry.workspace = true
 html-syntax.workspace = true
-
-# External dependencies
-tracing.workspace = true

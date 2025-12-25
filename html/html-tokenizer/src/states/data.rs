@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use html_syntax::token::{Token, TokenKind};
 
-use crate::tokens::{
-    state::ParserState,
+use crate::{
+    state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };
 
@@ -81,9 +81,8 @@ pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<
                                     current_pos += 1;
                                 }
                                 break;
-                            } else {
-                                line.push(ch);
                             }
+                            line.push(ch);
                         }
 
                         if !line.is_empty() {
@@ -110,7 +109,7 @@ pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<
 
                 state.temporary_buffer.clear();
             }
-            state.state = ParserState::TagOpen;
+            state.state = TokenState::TagOpen;
         }
         _ => {
             state.temporary_buffer.push(ch);

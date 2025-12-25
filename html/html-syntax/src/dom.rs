@@ -1,347 +1,148 @@
 use std::{
-    cell::RefCell,
     collections::HashMap,
-    fmt::Debug,
-    rc::Rc,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    fmt::{Display, Formatter},
 };
 
 use crate::tag::HtmlTag;
 
-/// Represents a single-threaded context for DOM nodes.
-///
-/// Will use `Rc<RefCell<T>>` for non-thread-safe access to nodes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct NodeId(pub usize);
+
+impl Display for NodeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct SingleThreaded;
-
-/// Represents a multi-threaded context for DOM nodes.
-///
-/// Will use `Arc<RwLock<T>>` for thread-safe access to nodes.
-#[derive(Debug, Clone)]
-pub struct MultiThreaded;
-
-/// A trait that defines the context for how DOM nodes are managed.
-pub trait NodeContext {
-    /// The type of a single node in the DOM tree.
-    type Node<T: Clone>: Clone;
-
-    /// The type of children nodes in the DOM tree.
-    type Children<T: Clone>: Clone + IntoIterator<Item = Self::Node<T>>;
-
-    /// Should return a new node of type `T` wrapped in the appropriate context.
-    fn new_node<T: Clone>(node: &T) -> Self::Node<T>;
-
-    /// Should return an empty collection of children nodes.
-    fn empty_children<T: Clone>() -> Self::Children<T>;
-}
-
-impl NodeContext for SingleThreaded {
-    type Node<T: Clone> = Rc<RefCell<T>>;
-    type Children<T: Clone> = Vec<Self::Node<T>>;
-
-    fn new_node<T: Clone>(node: &T) -> Self::Node<T> {
-        Rc::new(RefCell::new(node.clone()))
-    }
-
-    fn empty_children<T: Clone>() -> Self::Children<T> {
-        Vec::new()
-    }
-}
-
-impl NodeContext for MultiThreaded {
-    type Node<T: Clone> = Arc<RwLock<T>>;
-    type Children<T: Clone> = Vec<Self::Node<T>>;
-
-    fn new_node<T: Clone>(node: &T) -> Self::Node<T> {
-        Arc::new(RwLock::new(node.clone()))
-    }
-
-    fn empty_children<T: Clone>() -> Self::Children<T> {
-        Vec::new()
-    }
-}
-
-/// Represents an HTML element in the DOM tree.
-///
-/// # Type Parameters
-/// * `Context` - The threading model used for the element.
-#[derive(Clone)]
-pub struct Element<Context: NodeContext + Clone> {
-    /// A unique identifier for the element.
-    pub id: u16,
-
-    /// A map of attributes associated with the element, where keys are attribute names and values are attribute values.
+pub struct Element {
     pub attributes: HashMap<String, String>,
-
-    /// The name of the HTML tag for the element (e.g., "div", "span").
     pub tag: HtmlTag,
-
-    /// The child nodes of the element, which are represented as a collection of nodes in the specified context.
-    pub children: Context::Children<DocumentNode<Context>>,
 }
 
-impl<Context: NodeContext + Clone> Default for Element<Context> {
+impl PartialEq for Element {
+    fn eq(&self, other: &Self) -> bool {
+        self.tag == other.tag && self.attributes == other.attributes
+    }
+}
+
+impl Default for Element {
     fn default() -> Self {
         Element {
-            id: 0,
             attributes: HashMap::new(),
             tag: HtmlTag::Unknown("".to_string()),
-            children: Context::empty_children(),
         }
     }
 }
 
-impl<Context: NodeContext + Clone> PartialEq for Element<Context> {
-    /// Compares two elements for equality based on their unique identifier.
-    /// Does not compare other fields like tag name or attributes or children.
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-/// Represents a node in the DOM tree, which can be an element or text node.
-///
-/// # Type Parameters
-/// * `Context` - The threading model used for the node.
-#[derive(Clone, PartialEq)]
-pub enum DocumentNode<Context: NodeContext + Clone> {
-    /// Represents different types of nodes in the DOM tree.
-    ///
-    /// # Example
-    /// * `<html>`
-    /// * `<body>`
-    /// * `<div>`
-    Element(Element<Context>),
-
-    /// Represents a text node containing text content.
-    ///
-    /// This is always a leaf node in the DOM tree.
-    /// It does **NOT** have children.
-    ///
-    /// # Example
-    /// `<p>Hello World!</p>` -> `DocumentNode::Text(content)` -> `content == "Hello World!`
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeData {
+    Element(Element),
     Text(String),
 }
 
-impl<Context: NodeContext + Clone + Debug> DocumentNode<Context> {
-    /// Returns a reference to the element if it is an element node.
-    pub fn as_element(&self) -> Option<&Element<Context>> {
-        if let DocumentNode::Element(element) = self {
-            Some(element)
-        } else {
-            None
+impl NodeData {
+    pub fn as_element(&self) -> Option<&Element> {
+        match self {
+            NodeData::Element(elem) => Some(elem),
+            _ => None,
         }
     }
 
-    /// Returns a reference to the text content if it is a text node.
     pub fn as_text(&self) -> Option<&String> {
-        if let DocumentNode::Text(text) = self {
-            Some(text)
-        } else {
-            None
+        match self {
+            NodeData::Text(text) => Some(text),
+            _ => None,
         }
     }
 }
 
-impl From<DocumentNode<SingleThreaded>> for DocumentNode<MultiThreaded>
-where
-    DocumentNode<SingleThreaded>: Clone,
-{
-    /// Converts a single-threaded document node into a threaded-safe document node.
-    ///
-    /// Should be called before rendering, and after parsing.
-    fn from(node: DocumentNode<SingleThreaded>) -> Self {
-        match node {
-            DocumentNode::Element(element) => convert_element(element),
-            DocumentNode::Text(text) => DocumentNode::Text(text),
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct DomNode {
+    pub id: NodeId,
+    pub parent: Option<NodeId>,
+    pub children: Vec<NodeId>,
+    pub data: NodeData,
 }
 
-/// Converts a single-threaded element into a multi-threaded element.
-fn convert_element(element: Element<SingleThreaded>) -> DocumentNode<MultiThreaded> {
-    DocumentNode::Element(Element {
-        id: element.id,
-        tag: element.tag,
-        attributes: element.attributes,
-        children: element.children.into_iter().map(convert_node).collect(),
-    })
+#[derive(Debug, Clone, Default)]
+pub struct DocumentRoot {
+    pub nodes: Vec<DomNode>,
+    pub root_nodes: Vec<NodeId>,
 }
 
-/// Converts a single-threaded node into a multi-threaded node.
-fn convert_node(
-    child: Rc<RefCell<DocumentNode<SingleThreaded>>>,
-) -> Arc<RwLock<DocumentNode<MultiThreaded>>> {
-    Arc::new(RwLock::new(DocumentNode::from((*child.borrow()).clone())))
-}
-
-/// Converts a single-threaded node into a multi-threaded node using a shared conversion map.
-fn convert_node_shared(
-    child: &Rc<RefCell<DocumentNode<SingleThreaded>>>,
-    conversion_map: &mut HashMap<
-        *const RefCell<DocumentNode<SingleThreaded>>,
-        Arc<RwLock<DocumentNode<MultiThreaded>>>,
-    >,
-) -> Arc<RwLock<DocumentNode<MultiThreaded>>> {
-    let ptr = Rc::as_ptr(child);
-
-    // Check if we've already converted this node
-    if let Some(existing) = conversion_map.get(&ptr) {
-        return existing.clone();
+impl DocumentRoot {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    match &*child.borrow() {
-        DocumentNode::Element(element) => {
-            // First create the Arc for this node (without children) to avoid cycles
-            let new_node = Arc::new(RwLock::new(DocumentNode::Element(Element {
-                id: element.id,
-                tag: element.tag.clone(),
-                attributes: element.attributes.clone(),
-                children: Vec::new(), // Temporary empty children
-            })));
+    pub fn get_node(&self, node_id: &NodeId) -> Option<&DomNode> {
+        self.nodes.get(node_id.0)
+    }
 
-            // Store in map before recursing to handle potential cycles
-            conversion_map.insert(ptr, new_node.clone());
+    pub fn get_node_mut(&mut self, node_id: &NodeId) -> Option<&mut DomNode> {
+        self.nodes.get_mut(node_id.0)
+    }
 
-            // Now convert children
-            let converted_children: Vec<Arc<RwLock<DocumentNode<MultiThreaded>>>> = element
-                .children
-                .iter()
-                .map(|child| convert_node_shared(child, conversion_map))
-                .collect();
+    pub fn push_node(&mut self, data: NodeData, parent: Option<NodeId>) -> NodeId {
+        let node_id = NodeId(self.nodes.len());
+        let new_node = DomNode {
+            id: node_id,
+            parent,
+            children: Vec::new(),
+            data: data.clone(),
+        };
 
-            // Update the children
-            if let Ok(mut node_guard) = new_node.write()
-                && let DocumentNode::Element(elem) = &mut *node_guard
-            {
-                elem.children = converted_children;
+        self.nodes.push(new_node);
+
+        if let Some(parent_id) = parent {
+            if let Some(parent_node) = self.get_node_mut(&parent_id) {
+                parent_node.children.push(node_id);
             }
-
-            new_node
+        } else {
+            self.root_nodes.push(node_id);
         }
-        DocumentNode::Text(text) => {
-            let new_node = Arc::new(RwLock::new(DocumentNode::Text(text.clone())));
-            conversion_map.insert(ptr, new_node.clone());
-            new_node
-        }
+
+        node_id
     }
 }
 
-/// A utility struct for indexing DOM nodes.
-pub struct DomIndex<Context: NodeContext + Debug + Clone> {
-    /// A flat list of all indexed nodes.
-    pub flat: Vec<Context::Node<DocumentNode<Context>>>,
-
-    /// A map that associates IDs with their corresponding DOM nodes.
-    pub id: HashMap<u16, Context::Node<DocumentNode<Context>>>,
-
-    /// A map that associates HTML tags with their corresponding DOM nodes.
-    pub tag: HashMap<HtmlTag, Vec<Context::Node<DocumentNode<Context>>>>,
-}
-
-impl DomIndex<MultiThreaded> {
-    /// Returns a guard that can be used to access the element directly.
-    pub fn first_element_by_tag(
-        &self,
-        tag: &HtmlTag,
-    ) -> Option<RwLockReadGuard<'_, DocumentNode<MultiThreaded>>> {
-        self.tag.get(tag)?.first()?.read().ok()
-    }
-
-    /// Gets all elements by tag name, returning a vector of guards.
-    pub fn all_elements_by_tag(
-        &self,
-        tag: &HtmlTag,
-    ) -> Vec<RwLockReadGuard<'_, DocumentNode<MultiThreaded>>> {
-        self.tag
-            .get(tag)
-            .map(|nodes| nodes.iter().filter_map(|node| node.read().ok()).collect())
-            .unwrap_or_default()
-    }
-}
-
-impl<Context: NodeContext + Debug + Clone> Default for DomIndex<Context> {
-    fn default() -> Self {
-        DomIndex {
-            flat: Vec::new(),
-            id: HashMap::new(),
-            tag: HashMap::new(),
-        }
-    }
-}
-
-/// Represents the root of a document, which is a collection of nodes in the specified context.
-pub struct DocumentRoot<Context: NodeContext + Debug + Clone> {
-    /// A vector of nodes that make up the DOM tree.
-    pub dom_tree: Vec<Context::Node<DocumentNode<Context>>>,
-
-    /// A map for indexing nodes by their IDs and tags.
-    pub index: DomIndex<Context>,
-}
-
-impl<Context: NodeContext + Debug + Clone> Default for DocumentRoot<Context> {
-    fn default() -> Self {
-        DocumentRoot {
-            dom_tree: Vec::new(),
-            index: DomIndex::default(),
-        }
-    }
-}
-
-impl<Context: NodeContext + Debug + Clone> DocumentRoot<Context> {
-    /// Creates a new `DocumentRoot` with an empty vector of nodes.
-    pub fn new(
-        dom_tree: Vec<Context::Node<DocumentNode<Context>>>,
-        index: DomIndex<Context>,
-    ) -> Self {
-        DocumentRoot { dom_tree, index }
-    }
-
-    /// Converts a single-threaded DocumentRoot to a multi-threaded DocumentRoot with shared references.
-    pub fn convert(
-        &mut self,
-        single_threaded_root: DocumentRoot<SingleThreaded>,
-    ) -> DocumentRoot<MultiThreaded> {
-        let mut conversion_map: HashMap<
-            *const RefCell<DocumentNode<SingleThreaded>>,
-            Arc<RwLock<DocumentNode<MultiThreaded>>>,
-        > = HashMap::new();
-
-        DocumentRoot {
-            dom_tree: single_threaded_root
-                .dom_tree
-                .iter()
-                .map(|node| convert_node_shared(node, &mut conversion_map))
-                .collect(),
-            index: {
-                DomIndex {
-                    flat: single_threaded_root
-                        .index
-                        .flat
-                        .iter()
-                        .map(|node| convert_node_shared(node, &mut conversion_map))
-                        .collect(),
-                    id: single_threaded_root
-                        .index
-                        .id
-                        .iter()
-                        .map(|(k, v)| (*k, convert_node_shared(v, &mut conversion_map)))
-                        .collect(),
-                    tag: single_threaded_root
-                        .index
-                        .tag
-                        .iter()
-                        .map(|(k, v)| {
-                            (
-                                k.clone(),
-                                v.iter()
-                                    .map(|node| convert_node_shared(node, &mut conversion_map))
-                                    .collect(),
-                            )
-                        })
-                        .collect(),
+impl Display for DocumentRoot {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        fn fmt_node(
+            node: &DomNode,
+            doc: &DocumentRoot,
+            f: &mut Formatter<'_>,
+            indent: usize,
+        ) -> std::fmt::Result {
+            for _ in 0..indent {
+                write!(f, "  ")?;
+            }
+            match &node.data {
+                NodeData::Element(elem) => {
+                    writeln!(f, "<{} node_id={}>", elem.tag, node.id)?;
+                    for child_id in &node.children {
+                        if let Some(child_node) = doc.get_node(child_id) {
+                            fmt_node(child_node, doc, f, indent + 1)?;
+                        }
+                    }
+                    for _ in 0..indent {
+                        write!(f, "  ")?;
+                    }
+                    writeln!(f, "</{}>", elem.tag)
                 }
-            },
+                NodeData::Text(text) => {
+                    writeln!(f, "{}", text)
+                }
+            }
         }
+
+        for root_id in &self.root_nodes {
+            if let Some(root_node) = self.get_node(root_id) {
+                fmt_node(root_node, self, f, 0)?;
+            }
+        }
+
+        Ok(())
     }
 }

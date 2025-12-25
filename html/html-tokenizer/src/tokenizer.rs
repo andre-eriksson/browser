@@ -1,7 +1,9 @@
-use html_syntax::token::Token;
+use std::collections::HashMap;
 
-use crate::tokens::{
-    state::ParserState,
+use html_syntax::token::{Token, TokenKind};
+
+use crate::{
+    state::TokenState,
     states::{
         attributes::{
             handle_after_attribute_name_state, handle_after_attribute_value_quoted_state,
@@ -18,7 +20,6 @@ use crate::tokens::{
             handle_doctype_declaration_state, handle_start_declaration_state,
             handle_xml_declaration_state,
         },
-        script::{handle_script_data_end_tag_open_state, handle_script_data_state},
         tag::{
             handle_end_tag_open_state, handle_self_closing_tag_start_state, handle_tag_name_state,
             handle_tag_open_state,
@@ -36,7 +37,7 @@ pub struct TokenizerContext {
 #[derive(Debug, Default)]
 pub struct TokenizerState {
     /// The current state of the HTML parser.
-    pub state: ParserState,
+    pub state: TokenState,
 
     /// The current token being constructed by the tokenizer.
     pub current_token: Option<Token>,
@@ -67,41 +68,65 @@ impl HtmlTokenizer {
     /// * `tokens` - A mutable reference to the vector of tokens to which new tokens will be emitted.
     pub fn process_char(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
         match state.state {
-            ParserState::Data => handle_data_state(state, ch, tokens),
-            ParserState::TagOpen => handle_tag_open_state(state, ch),
-            ParserState::EndTagOpen => handle_end_tag_open_state(state, ch, tokens),
-            ParserState::SelfClosingTagStart => {
+            TokenState::Data => handle_data_state(state, ch, tokens),
+            TokenState::TagOpen => handle_tag_open_state(state, ch),
+            TokenState::EndTagOpen => handle_end_tag_open_state(state, ch, tokens),
+            TokenState::SelfClosingTagStart => {
                 handle_self_closing_tag_start_state(state, ch, tokens)
             }
-            ParserState::TagName => handle_tag_name_state(state, ch, tokens),
-            ParserState::BeforeAttributeName => {
+            TokenState::TagName => handle_tag_name_state(state, ch, tokens),
+            TokenState::BeforeAttributeName => {
                 handle_before_attribute_name_state(state, ch, tokens)
             }
-            ParserState::AttributeName => handle_attribute_name_state(state, ch, tokens),
-            ParserState::AfterAttributeName => handle_after_attribute_name_state(state, ch, tokens),
-            ParserState::BeforeAttributeValue => handle_before_attribute_value_state(state, ch),
-            ParserState::AttributeValueDoubleQuoted => {
+            TokenState::AttributeName => handle_attribute_name_state(state, ch, tokens),
+            TokenState::AfterAttributeName => handle_after_attribute_name_state(state, ch, tokens),
+            TokenState::BeforeAttributeValue => handle_before_attribute_value_state(state, ch),
+            TokenState::AttributeValueDoubleQuoted => {
                 handle_attribute_value_double_quoted_state(state, ch)
             }
-            ParserState::AttributeValueSingleQuoted => {
+            TokenState::AttributeValueSingleQuoted => {
                 handle_attribute_value_single_quoted_state(state, ch)
             }
-            ParserState::AttributeValueUnquoted => {
+            TokenState::AttributeValueUnquoted => {
                 handle_attribute_value_unquoted_state(state, ch, tokens)
             }
-            ParserState::AfterAttributeValueQuoted => {
+            TokenState::AfterAttributeValueQuoted => {
                 handle_after_attribute_value_quoted_state(state, ch, tokens);
             }
-            ParserState::StartDeclaration => handle_start_declaration_state(state, ch),
-            ParserState::BogusComment => handle_bogus_comment_state(state, ch),
-            ParserState::CommentStart => handle_comment_start_state(state, ch),
-            ParserState::Comment => handle_comment_state(state, ch),
-            ParserState::CommentEnd => handle_comment_end_state(state, ch, tokens),
-            ParserState::XmlDeclaration => handle_xml_declaration_state(state, ch, tokens),
-            ParserState::DoctypeDeclaration => handle_doctype_declaration_state(state, ch, tokens),
-            ParserState::ScriptData => handle_script_data_state(state, ch),
-            ParserState::ScriptDataEndTagOpen => {
-                handle_script_data_end_tag_open_state(state, ch, tokens)
+            TokenState::StartDeclaration => handle_start_declaration_state(state, ch),
+            TokenState::BogusComment => handle_bogus_comment_state(state, ch),
+            TokenState::CommentStart => handle_comment_start_state(state, ch),
+            TokenState::Comment => handle_comment_state(state, ch),
+            TokenState::CommentEnd => handle_comment_end_state(state, ch, tokens),
+            TokenState::XmlDeclaration => handle_xml_declaration_state(state, ch, tokens),
+            TokenState::DoctypeDeclaration => handle_doctype_declaration_state(state, ch, tokens),
+            TokenState::ScriptData => {
+                HtmlTokenizer::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "script".to_string(),
+                    },
+                );
+
+                state.temporary_buffer.clear();
+                state.state = TokenState::Data;
+                HtmlTokenizer::process_char(state, ch, tokens);
+            }
+            TokenState::StyleData => {
+                HtmlTokenizer::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "style".to_string(),
+                    },
+                );
+
+                state.temporary_buffer.clear();
+                state.state = TokenState::Data;
+                HtmlTokenizer::process_char(state, ch, tokens);
             }
         }
     }

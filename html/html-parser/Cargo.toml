@@ -1,16 +1,21 @@
 [package]
 name = "html-parser"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-tracing = { workspace = true }
-telemetry = { path = "../../utilities/telemetry" }
-html-syntax = { path = "../html-syntax" }
-html-dom = { path = "../html-dom" }
+telemetry.workspace = true
+html-syntax.workspace = true
+html-dom.workspace = true
+html-tokenizer.workspace = true
+network.workspace = true
+
+# External dependencies
+tracing.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
-criterion = { workspace = true }
+criterion.workspace = true
 
 [[bench]]
 name = "parser_benches"
