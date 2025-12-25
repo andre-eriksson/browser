@@ -1,3 +1,4 @@
+use html_syntax::dom::DocumentRoot;
 use url::Url;
 
 pub struct Tab {
@@ -5,7 +6,7 @@ pub struct Tab {
 
     pub current_url: Option<Url>,
 
-    pub document: Option<String>,
+    pub document: Option<DocumentRoot>,
 }
 
 impl Tab {

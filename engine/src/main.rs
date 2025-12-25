@@ -126,15 +126,23 @@ async fn main() {
                 continue;
             }
 
-            let url = input.trim().to_string();
-            if url.is_empty() {
+            let command = input.trim().to_string();
+            if command.is_empty() {
                 break;
+            }
+
+            if command == "body" {
+                browser.lock().await.print_body(0);
+                continue;
             }
 
             let res = browser
                 .lock()
                 .await
-                .execute(BrowserCommand::Navigate { tab_id: 0, url })
+                .execute(BrowserCommand::Navigate {
+                    tab_id: 0,
+                    url: command,
+                })
                 .await;
 
             if let Err(e) = res {

@@ -46,11 +46,23 @@ impl Browser {
         }
     }
 
-    fn execute_script(&self, script: &str) {
+    pub fn print_body(&self, tab_id: usize) {
+        if let Some(tab) = self.tabs.iter().find(|t| t.id == tab_id) {
+            if let Some(document) = &tab.document {
+                debug!("Tab {} Document:\n{}", tab_id, document);
+            } else {
+                debug!("Tab {} has no document loaded.", tab_id);
+            }
+        } else {
+            debug!("Tab {} does not exist.", tab_id);
+        }
+    }
+
+    fn execute_script(&mut self, script: &str) {
         debug!("Executing script: {}", script);
     }
 
-    fn process_css(&self, css: &str) {
+    fn process_css(&mut self, css: &str) {
         debug!("Processing CSS: {}", css);
     }
 }
@@ -68,10 +80,9 @@ impl Commandable for Browser {
                     Err(e) => return Err(format!("Invalid URL: {}", e)),
                 };
 
-                let _tab = match self.tabs.iter_mut().find(|t| t.id == tab_id) {
-                    Some(t) => t,
-                    None => return Err(format!("Tab with ID {} not found", tab_id)),
-                };
+                if !self.tabs.iter().any(|t| t.id == tab_id) {
+                    return Err(format!("Tab with ID {} does not exist", tab_id));
+                }
 
                 let request = RequestBuilder::from(url.clone()).build();
                 let header_response = match self.http_client.send(request).await {
@@ -175,7 +186,14 @@ impl Commandable for Browser {
                     }
                 }
 
-                let _ = parser.finalize();
+                let parser_result = parser.finalize();
+
+                let tab = self
+                    .tabs
+                    .iter_mut()
+                    .find(|t| t.id == tab_id)
+                    .ok_or_else(|| format!("Tab with ID {} does not exist", tab_id))?;
+                tab.document = Some(parser_result.dom_tree);
 
                 return Ok(BrowserEvent::NavigateSuccess);
             }
