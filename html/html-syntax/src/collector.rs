@@ -15,6 +15,8 @@ pub struct TagInfo<'a> {
     pub attributes: &'a HashMap<String, String>,
     /// A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
     pub node_id: NodeId,
+    /// Optional text data associated with the tag, only applicable for text nodes.
+    pub data: Option<&'a String>,
 }
 
 /// A trait that defines a collector for metadata extracted from HTML tags during parsing.
@@ -24,11 +26,6 @@ pub struct TagInfo<'a> {
 ///
 /// `Collector::collect` will be called for each start tag encountered during parsing and when parsing text content.
 pub trait Collector {
-    /// The output type of the collector, which is returned when `into_result` is called.
-    /// This type should encapsulate the metadata collected during parsing.
-    /// It can be a tuple, struct, or any other type that represents the collected data.
-    type Output;
-
     /// Collects metadata from the provided tag information.
     ///
     /// Will be called when building start tags.
@@ -37,11 +34,11 @@ pub trait Collector {
     /// * `tag` - A reference to a `TagInfo` struct containing the tag name, attributes, and associated DOM node.
     fn collect(&mut self, tag: &TagInfo);
 
-    /// Converts the collected metadata into the output type defined by the `Output` associated type.
+    /// Converts the collected metadata into a final result.
     ///
     /// # Returns
-    /// The collected metadata in the form of the `Output` type.
-    fn into_result(self) -> Self::Output;
+    /// The final collected metadata.
+    fn into_result(self) -> Self;
 }
 
 /// A default implementation of the `Collector` trait that collects metadata about HTML tags.
@@ -59,8 +56,6 @@ pub struct DefaultCollector {
 }
 
 impl Collector for DefaultCollector {
-    type Output = Self;
-
     fn collect(&mut self, tag: &TagInfo) {
         if tag.attributes.is_empty() {
             return;
@@ -104,7 +99,7 @@ impl Collector for DefaultCollector {
         }
     }
 
-    fn into_result(self) -> Self::Output {
+    fn into_result(self) -> Self {
         Self {
             id_map: self.id_map,
             class_map: self.class_map,

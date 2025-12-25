@@ -51,7 +51,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Returns
     /// A `BuildResult` containing the constructed DOM tree and collected metadata.
-    pub fn finalize(self) -> BuildResult<C::Output> {
+    pub fn finalize(self) -> BuildResult<C> {
         BuildResult {
             dom_tree: self.dom_tree,
             metadata: self.collector.into_result(),
@@ -138,6 +138,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             tag: &tag,
             attributes: &token.attributes,
             node_id: new_id,
+            data: None,
         });
 
         if !is_void_element(&tag) {
@@ -195,12 +196,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             let tag = &parent_elem.tag.clone();
             let attributes = &parent_elem.attributes.clone();
             let text_data = NodeData::Text(text_content);
-            let new_id = self.insert_node(text_data);
+            let new_id = self.insert_node(text_data.clone());
 
             self.collector.collect(&TagInfo {
                 tag,
                 attributes,
                 node_id: new_id,
+                data: text_data.as_text(),
             });
         }
     }

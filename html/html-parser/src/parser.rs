@@ -249,7 +249,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     ///
     /// # Returns
     /// A `BuildResult` containing the final output of the DOM tree.
-    pub fn finalize(self) -> BuildResult<C::Output> {
+    pub fn finalize(self) -> BuildResult<C> {
         self.builder.finalize()
     }
 
