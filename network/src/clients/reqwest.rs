@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use errors::network::NetworkError;
 use telemetry::keys::STATUS_CODE;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, instrument, trace};
 
 use crate::http::{
     client::{HttpClient, ResponseHandle},
@@ -56,6 +56,7 @@ impl ResponseHandle for ReqwestHandle {
 
 #[async_trait]
 impl HttpClient for ReqwestClient {
+    #[instrument(skip(self, request), fields(method = %request.method, url = %request.url))]
     async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError> {
         let mut req = self.client.request(request.method, request.url);
 

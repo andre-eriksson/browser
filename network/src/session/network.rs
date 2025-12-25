@@ -28,7 +28,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct NetworkSession {
-    current_url: Option<Url>,
+    pub current_url: Option<Url>,
 
     browser_headers: Arc<HeaderMap>,
     cookie_jar: Arc<Mutex<CookieJar>>,

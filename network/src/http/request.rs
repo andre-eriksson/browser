@@ -2,6 +2,8 @@ use errors::network::HttpError;
 use http::{HeaderMap, HeaderName, HeaderValue, Method};
 use url::{Origin, Url};
 
+use crate::session::network::NetworkSession;
+
 /// Request mode for the request.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Request/mode>
@@ -97,6 +99,23 @@ impl RequestBuilder {
         RequestBuilder::try_new(url).unwrap()
     }
 
+    /// Tries to create a new RequestBuilder with a URL relative to the current URL in the session.
+    ///
+    /// # Arguments
+    /// * `session` - The network session containing the current URL.
+    /// * `url` - The relative URL for the request.
+    ///
+    /// # Returns
+    /// * `Ok(RequestBuilder)` if the URL is valid.
+    /// * `Err(HttpError)` if the URL is invalid or if there is no base URL in the session.
+    pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, HttpError> {
+        let joined_url = starting_url.join(url).map_err(|err| {
+            HttpError::InvalidURL(format!("Failed to join URL '{}': {}", url, err))
+        })?;
+
+        Ok(RequestBuilder::from(joined_url))
+    }
+
     /// Tries to create a new RequestBuilder with the given URL.
     ///
     /// # Arguments
@@ -164,7 +183,7 @@ impl RequestBuilder {
     pub fn try_header(mut self, key: HeaderName, value: &str) -> Result<Self, HttpError> {
         let header_value = HeaderValue::from_str(value);
 
-        return match header_value {
+        match header_value {
             Ok(v) => {
                 self.headers.insert(key, v);
                 Ok(self)
@@ -173,7 +192,7 @@ impl RequestBuilder {
                 "Invalid header value: {}",
                 err
             ))),
-        };
+        }
     }
 
     /// Sets the body for the request.
@@ -240,6 +259,13 @@ impl RequestBuilder {
 }
 
 impl From<Url> for RequestBuilder {
+    /// Creates a RequestBuilder from a Url.
+    ///
+    /// # Arguments
+    /// * `url` - The URL for the request.
+    ///
+    /// # Returns
+    /// * `RequestBuilder` initialized with the given URL, default method GET, empty headers, mode CORS, credentials SameOrigin, and no body.
     fn from(url: Url) -> Self {
         RequestBuilder {
             method: Method::GET,
