@@ -2,47 +2,42 @@ use assets::{ASSETS, constants::DEVTOOLS_ICON};
 use constants::APP_NAME;
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
-    widget::{
-        column, container,
-        scrollable::{self, Direction, Scrollbar},
-        text,
-    },
+    widget::{column, container},
     window::{Position, Settings},
 };
 
 use crate::{
-    api::{message::Message, window::ApplicationWindow},
-    core::app::Application,
+    api::window::ApplicationWindow,
+    core::app::{Application, Event},
     util::image::load_icon,
-    views::devtools::components::tree::render_dom_tree,
 };
 
 /// DevtoolsWindow is a window for displaying developer tools in the application.
 #[derive(Debug, Default)]
 pub struct DevtoolsWindow;
 
-impl ApplicationWindow<Application, Message, Theme, Renderer> for DevtoolsWindow {
+impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
     fn render<'window>(
         &'window self,
-        app: &'window Application,
-    ) -> iced::Element<'window, Message, Theme, Renderer> {
-        let dom_tree = match render_dom_tree(app) {
-            Ok(content) => content,
-            Err(e) => container(text(format!("Error rendering content: {}", e)))
-                .width(Length::Fill)
-                .padding(10.0)
-                .style(|_| container::Style {
-                    background: Some(Background::Color(Color::from_rgb(0.95, 0.95, 0.95))),
-                    text_color: Some(Color::BLACK),
-                    ..Default::default()
-                }),
-        };
+        _app: &'window Application,
+    ) -> iced::Element<'window, Event, Theme, Renderer> {
+        //let dom_tree = match render_dom_tree(app) {
+        //    Ok(content) => content,
+        //    Err(e) => container(text(format!("Error rendering content: {}", e)))
+        //        .width(Length::Fill)
+        //        .padding(10.0)
+        //        .style(|_| container::Style {
+        //            background: Some(Background::Color(Color::from_rgb(0.95, 0.95, 0.95))),
+        //            text_color: Some(Color::BLACK),
+        //            ..Default::default()
+        //        }),
+        //};
 
         let ui = container(
             column![
-                scrollable::Scrollable::new(dom_tree)
-                    .direction(Direction::Vertical(Scrollbar::new()))
-                    .height(Length::Fill),
+                //scrollable::Scrollable::new(dom_tree)
+                //    .direction(Direction::Vertical(Scrollbar::new()))
+                //    .height(Length::Fill),
             ]
             .spacing(10.0),
         )

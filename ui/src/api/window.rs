@@ -1,9 +1,5 @@
 use iced::window;
 
-/// Represents the type of window to open in the application.
-///
-/// # Variants
-/// * `Devtools` - Represents the Devtools window, used for debugging and inspecting the app.
 #[derive(Debug, Clone)]
 pub enum WindowType {
     /// Represents a target for a new browser window.

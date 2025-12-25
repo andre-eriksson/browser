@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 assets.workspace = true
+browser-core.workspace = true
 cookies.workspace = true
 errors.workspace = true
 html-parser.workspace = true
@@ -21,6 +22,7 @@ iced = { version = "0.13.1", features = [
     "svg",
 ] }
 image = "0.25"
+tokio.workspace = true
 tracing.workspace = true
 http.workspace = true
 url.workspace = true
