@@ -2,7 +2,6 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
-use event::{Emitter, browser::BrowserEvent};
 use html_parser::{
     parser::HtmlStreamParser,
     state::{BlockedReason, ParserState},
@@ -13,7 +12,11 @@ use network::http::{client::HttpClient, request::RequestBuilder};
 use tracing::debug;
 use url::Url;
 
-use crate::{commands::BrowserCommand, tab::Tab};
+use crate::{
+    commands::BrowserCommand,
+    events::{BrowserEvent, Emitter},
+    tab::{Tab, TabCollector, TabId, TabMetadata},
+};
 
 #[async_trait]
 pub trait Commandable {

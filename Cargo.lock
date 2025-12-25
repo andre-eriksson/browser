@@ -666,7 +666,8 @@ dependencies = [
  "async-trait",
  "cookie",
  "cookies",
- "event",
+ "errors",
+ "html-dom",
  "html-parser",
  "html-syntax",
  "http",
@@ -1475,7 +1476,6 @@ dependencies = [
  "clap",
  "constants",
  "cookies",
- "event",
  "http",
  "network",
  "tokio",
@@ -1572,13 +1572,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad9cdb4b747e485a12abb0e6566612956c7a1bafa3bdb8d682c5b6d403589e48"
 dependencies = [
  "num-traits",
-]
-
-[[package]]
-name = "event"
-version = "0.1.0"
-dependencies = [
- "errors",
 ]
 
 [[package]]
@@ -5691,7 +5684,6 @@ dependencies = [
  "constants",
  "cookies",
  "errors",
- "event",
  "html-parser",
  "html-syntax",
  "http",

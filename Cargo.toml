@@ -14,7 +14,6 @@ members = [
     "storage",
     "ui",
     "utilities/constants",
-    "utilities/event",
     "utilities/telemetry",
 ]
 
@@ -35,7 +34,6 @@ network = { path = "network" }
 storage = { path = "storage" }
 ui = { path = "ui" }
 constants = { path = "utilities/constants" }
-event = { path = "utilities/event" }
 telemetry = { path = "utilities/telemetry" }
 
 

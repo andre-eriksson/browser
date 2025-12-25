@@ -7,7 +7,6 @@ edition.workspace = true
 browser-core.workspace = true
 cookies.workspace = true
 constants.workspace = true
-event.workspace = true
 network.workspace = true
 ui.workspace = true
 

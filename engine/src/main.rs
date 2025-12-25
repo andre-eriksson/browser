@@ -9,10 +9,10 @@ use std::{
 use browser_core::{
     browser::{Browser, Commandable},
     commands::BrowserCommand,
+    events::{BrowserEvent, Emitter},
 };
 use clap::Parser;
 use cookies::cookie_store::CookieJar;
-use event::{Emitter, browser::BrowserEvent};
 use network::clients::reqwest::ReqwestClient;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tracing::{error, info};

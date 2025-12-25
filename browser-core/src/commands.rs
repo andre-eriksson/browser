@@ -1,12 +1,10 @@
-use cookie::Cookie;
+use crate::tab::TabId;
 
 #[derive(Debug)]
 pub enum BrowserCommand {
-    Navigate { tab_id: usize, url: String },
-    Reload(usize),
-    Stop(usize),
-
-    // Cookie management
-    AddCookie(usize, Cookie<'static>),
-    GetCookies(usize),
+    // Commands related to tab management
+    Navigate { tab_id: TabId, url: String },
+    AddTab { url: Option<String> },
+    CloseTab { tab_id: TabId },
+    ChangeActiveTab { tab_id: TabId },
 }
