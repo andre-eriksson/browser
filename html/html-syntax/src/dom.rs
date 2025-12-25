@@ -1,27 +1,34 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+};
 
 use crate::tag::HtmlTag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
+impl Display for NodeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Element {
-    pub id: u16,
     pub attributes: HashMap<String, String>,
     pub tag: HtmlTag,
 }
 
 impl PartialEq for Element {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.tag == other.tag && self.attributes == other.attributes
     }
 }
 
 impl Default for Element {
     fn default() -> Self {
         Element {
-            id: 0,
             attributes: HashMap::new(),
             tag: HtmlTag::Unknown("".to_string()),
         }
@@ -59,16 +66,9 @@ pub struct DomNode {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct DomIndex {
-    pub id: HashMap<u16, NodeId>,
-    pub tag: HashMap<HtmlTag, Vec<NodeId>>,
-}
-
-#[derive(Debug, Clone, Default)]
 pub struct DocumentRoot {
     pub nodes: Vec<DomNode>,
     pub root_nodes: Vec<NodeId>,
-    pub index: DomIndex,
 }
 
 impl DocumentRoot {
@@ -103,15 +103,46 @@ impl DocumentRoot {
             self.root_nodes.push(node_id);
         }
 
-        if let NodeData::Element(elem) = data {
-            self.index.id.insert(elem.id, node_id);
-            self.index
-                .tag
-                .entry(elem.tag.clone())
-                .or_default()
-                .push(node_id);
+        node_id
+    }
+}
+
+impl Display for DocumentRoot {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        fn fmt_node(
+            node: &DomNode,
+            doc: &DocumentRoot,
+            f: &mut Formatter<'_>,
+            indent: usize,
+        ) -> std::fmt::Result {
+            for _ in 0..indent {
+                write!(f, "  ")?;
+            }
+            match &node.data {
+                NodeData::Element(elem) => {
+                    writeln!(f, "<{} node_id={}>", elem.tag, node.id)?;
+                    for child_id in &node.children {
+                        if let Some(child_node) = doc.get_node(child_id) {
+                            fmt_node(child_node, doc, f, indent + 1)?;
+                        }
+                    }
+                    for _ in 0..indent {
+                        write!(f, "  ")?;
+                    }
+                    writeln!(f, "</{}>", elem.tag)
+                }
+                NodeData::Text(text) => {
+                    writeln!(f, "{}", text)
+                }
+            }
         }
 
-        node_id
+        for root_id in &self.root_nodes {
+            if let Some(root_node) = self.get_node(root_id) {
+                fmt_node(root_node, self, f, 0)?;
+            }
+        }
+
+        Ok(())
     }
 }

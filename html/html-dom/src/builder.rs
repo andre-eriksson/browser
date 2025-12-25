@@ -21,9 +21,6 @@ pub struct BuildResult<M> {
 /// # Type Parameters
 /// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
 pub struct DomTreeBuilder<C: Collector> {
-    /// The current unique identifier for nodes being created.
-    pub current_id: u16,
-
     /// The collector instance used to gather metadata during parsing.
     pub collector: C,
 
@@ -44,7 +41,6 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// A new instance of `DomTreeBuilder` initialized with an empty DOM tree and no open elements.
     pub fn new(collector: Option<C>) -> Self {
         DomTreeBuilder {
-            current_id: 0,
             collector: collector.unwrap_or_default(),
             dom_tree: DocumentRoot::new(),
             open_elements: Vec::with_capacity(16),
@@ -126,10 +122,8 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     fn handle_start_tag(&mut self, token: &Token) {
         let tag = tag_from_str(&token.data.to_lowercase());
         let attributes = &token.attributes;
-        self.current_id += 1;
 
         let element = Element {
-            id: self.current_id,
             tag: tag.clone(),
             attributes: attributes.clone(),
         };
