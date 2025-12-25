@@ -10,6 +10,7 @@ use browser_core::{
     browser::{Browser, Commandable},
     commands::BrowserCommand,
     events::{BrowserEvent, Emitter},
+    tab::TabId,
 };
 use clap::Parser;
 use cookies::cookie_store::CookieJar;
@@ -106,7 +107,7 @@ async fn main() {
                 .lock()
                 .await
                 .execute(BrowserCommand::Navigate {
-                    tab_id: 0,
+                    tab_id: TabId(0),
                     url: args.url,
                 })
                 .await;
@@ -132,7 +133,7 @@ async fn main() {
             }
 
             if command == "body" {
-                browser.lock().await.print_body(0);
+                browser.lock().await.print_body(TabId(0));
                 continue;
             }
 
@@ -140,7 +141,7 @@ async fn main() {
                 .lock()
                 .await
                 .execute(BrowserCommand::Navigate {
-                    tab_id: 0,
+                    tab_id: TabId(0),
                     url: command,
                 })
                 .await;
