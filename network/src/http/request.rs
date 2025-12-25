@@ -2,8 +2,6 @@ use errors::network::HttpError;
 use http::{HeaderMap, HeaderName, HeaderValue, Method};
 use url::{Origin, Url};
 
-use crate::session::network::NetworkSession;
-
 /// Request mode for the request.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Request/mode>

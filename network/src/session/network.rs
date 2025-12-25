@@ -148,10 +148,10 @@ impl NetworkSession {
         let mut jar = self.cookie_jar.lock();
 
         for (name, value) in response.headers.iter() {
-            if name == SET_COOKIE {
-                if let Ok(jar) = jar.as_mut() {
-                    handle_response_cookie(jar, url.domain().unwrap_or_default(), value);
-                }
+            if name == SET_COOKIE
+                && let Ok(jar) = jar.as_mut()
+            {
+                handle_response_cookie(jar, url.domain().unwrap_or_default(), value);
             }
 
             // TODO: Handle other response headers as needed
