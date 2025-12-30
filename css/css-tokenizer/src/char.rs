@@ -28,3 +28,63 @@ pub fn is_non_printable(c: char) -> bool {
 pub fn is_whitespace(c: char) -> bool {
     c == '\n' || c == '\t' || c == ' '
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_digit() {
+        assert!(is_digit('0'));
+        assert!(is_digit('5'));
+        assert!(is_digit('9'));
+        assert!(!is_digit('a'));
+    }
+
+    #[test]
+    fn test_is_hex_digit() {
+        assert!(is_hex_digit('0'));
+        assert!(is_hex_digit('9'));
+        assert!(is_hex_digit('a'));
+        assert!(is_hex_digit('F'));
+        assert!(!is_hex_digit('g'));
+    }
+
+    #[test]
+    fn test_is_ident_start_code_point() {
+        assert!(is_ident_start_code_point('a'));
+        assert!(is_ident_start_code_point('Z'));
+        assert!(is_ident_start_code_point('_'));
+        assert!(is_ident_start_code_point('é')); // non-ASCII
+        assert!(!is_ident_start_code_point('1'));
+    }
+
+    #[test]
+    fn test_is_ident_code_point() {
+        assert!(is_ident_code_point('a'));
+        assert!(is_ident_code_point('Z'));
+        assert!(is_ident_code_point('_'));
+        assert!(is_ident_code_point('é')); // non-ASCII
+        assert!(is_ident_code_point('1'));
+        assert!(is_ident_code_point('-'));
+        assert!(!is_ident_code_point('@'));
+    }
+
+    #[test]
+    fn test_is_non_printable() {
+        assert!(is_non_printable('\x00'));
+        assert!(is_non_printable('\x07'));
+        assert!(is_non_printable('\x0B'));
+        assert!(is_non_printable('\x1F'));
+        assert!(is_non_printable('\x7F'));
+        assert!(!is_non_printable('a'));
+    }
+
+    #[test]
+    fn test_is_whitespace() {
+        assert!(is_whitespace('\n'));
+        assert!(is_whitespace('\t'));
+        assert!(is_whitespace(' '));
+        assert!(!is_whitespace('a'));
+    }
+}
