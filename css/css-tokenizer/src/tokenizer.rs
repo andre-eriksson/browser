@@ -67,8 +67,10 @@ impl CssTokenizer {
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
     fn new(input: &str) -> Self {
+        let preprocessed_input = CssTokenizer::preprocess(input);
+
         CssTokenizer {
-            stream: InputStream::new(input),
+            stream: InputStream::new(&preprocessed_input),
         }
     }
 
@@ -96,5 +98,66 @@ impl CssTokenizer {
     pub fn tokenize(input: &str) -> Vec<CssToken> {
         let mut tokenizer = CssTokenizer::new(input);
         tokenizer.collect()
+    }
+
+    /// Preprocess the input string according to the CSS specification (§3.3)
+    ///
+    /// # Arguments
+    /// * `input` - The input CSS string to preprocess
+    ///
+    /// # Behavior
+    /// * Replace CRLF (`\r\n`) with LF (`\n`)
+    /// * Replace CR (`\r`) with LF (`\n`)
+    /// * Replace FF (`\x0C`) with LF (`\n`)
+    /// * Replace NULL (`\0`) with the REPLACEMENT CHARACTER (`\u{FFFD}`)
+    ///
+    /// # Note
+    /// Surrogate code points are discarded by Rust's `char` type, so no special handling is needed.
+    ///
+    /// # Returns
+    /// A new `String` with the preprocessed content
+    fn preprocess(input: &str) -> String {
+        let mut result = String::with_capacity(input.len());
+        let mut chars = input.chars().peekable();
+
+        while let Some(c) = chars.next() {
+            match c {
+                '\r' => {
+                    if chars.peek() == Some(&'\n') {
+                        chars.next();
+                    }
+                    result.push('\n');
+                }
+                '\x0C' => {
+                    result.push('\n');
+                }
+                '\0' => {
+                    result.push('\u{FFFD}');
+                }
+                _ => result.push(c),
+            }
+        }
+
+        result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::CssTokenizer;
+
+    #[test]
+    fn test_preprocess() {
+        // Test CRLF -> LF
+        assert_eq!(CssTokenizer::preprocess("a\r\nb"), "a\nb");
+
+        // Test CR -> LF
+        assert_eq!(CssTokenizer::preprocess("a\rb"), "a\nb");
+
+        // Test FF -> LF
+        assert_eq!(CssTokenizer::preprocess("a\x0Cb"), "a\nb");
+
+        // Test NULL -> REPLACEMENT CHARACTER
+        assert_eq!(CssTokenizer::preprocess("a\0b"), "a\u{FFFD}b");
     }
 }
