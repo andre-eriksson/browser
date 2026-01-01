@@ -2,6 +2,7 @@ use crate::{
     char::is_hex_digit, consumers::token::consume_whitespace, tokenizer::CssTokenizer,
     tokens::CssToken,
 };
+use errors::tokenization::CssTokenizationError;
 
 /// Consume a string token (§4.3.5)
 pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -> CssToken {
@@ -10,12 +11,16 @@ pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -
     loop {
         let c = match tokenizer.stream.consume() {
             Some(c) => c,
-            None => return CssToken::String(value),
+            None => {
+                tokenizer.record_error(CssTokenizationError::EofInString);
+                return CssToken::String(value);
+            }
         };
 
         match c {
             c if c == ending => return CssToken::String(value),
             '\n' => {
+                tokenizer.record_error_at_current_char(CssTokenizationError::NewlineInString);
                 tokenizer.stream.reconsume();
                 return CssToken::BadString;
             }

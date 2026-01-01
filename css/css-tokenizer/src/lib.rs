@@ -8,8 +8,7 @@
 //! ```
 //! use css_tokenizer::{CssTokenizer, CssToken};
 //!
-//! let mut tokenizer = CssTokenizer::new("div { color: red; }");
-//! let tokens: Vec<CssToken> = tokenizer.tokenize();
+//! let tokens = CssTokenizer::tokenize("div { color: red; }");
 //! for token in tokens {
 //!     println!("{:?}", token);
 //! }
@@ -26,10 +25,15 @@ mod char;
 mod consumers;
 
 /// The main tokenizer implementation
-pub mod tokenizer;
+mod tokenizer;
 
 /// Definitions of CSS tokens as per the CSS Syntax Module Level 3
 pub mod tokens;
 
 /// Validation utilities for ensuring compliance with CSS Syntax Module Level 3
 mod validator;
+
+// Re-exports
+pub use errors::tokenization::{CssTokenizationError, SourcePosition};
+pub use tokenizer::CssTokenizer;
+pub use tokens::CssToken;

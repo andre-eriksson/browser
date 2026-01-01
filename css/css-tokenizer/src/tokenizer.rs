@@ -2,6 +2,7 @@
 //! <https://www.w3.org/TR/css-syntax-3/#tokenization>
 
 use crate::{consumers::token::consume_token, tokens::CssToken};
+use errors::tokenization::{CssTokenizationError, SourcePosition};
 
 /// Input stream for the tokenizer
 pub struct InputStream {
@@ -104,6 +105,9 @@ impl InputStream {
 pub struct CssTokenizer {
     /// Input stream for the tokenizer
     pub stream: InputStream,
+
+    /// Collected parse errors
+    errors: Vec<CssTokenizationError>,
 }
 
 impl CssTokenizer {
@@ -116,24 +120,39 @@ impl CssTokenizer {
 
         CssTokenizer {
             stream: InputStream::new(&preprocessed_input),
+            errors: Vec::new(),
         }
     }
 
-    /// Tokenize the input and return a vector of tokens
-    fn collect(&mut self) -> Vec<CssToken> {
-        let mut tokens = Vec::new();
+    /// Record a parse error at the current position
+    pub fn record_error(&mut self, error_fn: fn(SourcePosition) -> CssTokenizationError) {
+        let position = self.stream.position();
+        self.errors.push(error_fn(position));
+    }
 
-        loop {
-            let token = consume_token(self);
+    /// Record a parse error at the position of the last consumed character
+    /// Use this when the error is caused by a character that was just consumed
+    pub fn record_error_at_current_char(
+        &mut self,
+        error_fn: fn(SourcePosition) -> CssTokenizationError,
+    ) {
+        let position = self.stream.prev_position();
+        self.errors.push(error_fn(position));
+    }
 
-            if matches!(token, CssToken::Eof) {
-                break;
-            }
+    /// Get all recorded parse errors
+    pub fn get_errors(&self) -> &[CssTokenizationError] {
+        &self.errors
+    }
 
-            tokens.push(token);
-        }
+    /// Take all recorded parse errors, leaving the handler empty
+    pub fn take_errors(&mut self) -> Vec<CssTokenizationError> {
+        std::mem::take(&mut self.errors)
+    }
 
-        tokens
+    /// Check if any parse errors were recorded
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
     }
 
     /// Tokenize the given input string and return a vector of tokens
@@ -141,7 +160,8 @@ impl CssTokenizer {
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
     pub fn tokenize(input: &str) -> Vec<CssToken> {
-        let mut tokenizer = CssTokenizer::new(input);
+        let tokenizer = CssTokenizer::new(input);
+
         tokenizer.collect()
     }
 
@@ -187,9 +207,24 @@ impl CssTokenizer {
     }
 }
 
+impl Iterator for CssTokenizer {
+    type Item = CssToken;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let token = consume_token(self);
+
+        if matches!(token, CssToken::Eof) {
+            None
+        } else {
+            Some(token)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::CssTokenizer;
+    use super::*;
+    use errors::tokenization::CssTokenizationError;
 
     #[test]
     fn test_preprocess() {
@@ -204,5 +239,140 @@ mod tests {
 
         // Test NULL -> REPLACEMENT CHARACTER
         assert_eq!(CssTokenizer::preprocess("a\0b"), "a\u{FFFD}b");
+    }
+
+    #[test]
+    fn test_error_newline_in_string() {
+        // Input: "hello\nworld" - the newline causes BadString, then world" continues
+        // which results in ident 'world' and then an unterminated string '"'
+        let mut tokenizer = CssTokenizer::new("\"hello\nworld\"");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        // We get 2 errors: newline in first string, and EOF in the trailing quote
+        assert_eq!(errors.len(), 2);
+        assert!(matches!(
+            errors[0],
+            CssTokenizationError::NewlineInString(_)
+        ));
+        // Error should be at the position of the newline (line 1, column 7)
+        assert_eq!(errors[0].position().line, 1);
+        assert_eq!(errors[0].position().column, 7);
+        // Second error is EOF in the unterminated string at the end
+        assert!(matches!(errors[1], CssTokenizationError::EofInString(_)));
+    }
+
+    #[test]
+    fn test_error_eof_in_string() {
+        let mut tokenizer = CssTokenizer::new("\"unterminated");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(errors[0], CssTokenizationError::EofInString(_)));
+    }
+
+    #[test]
+    fn test_error_eof_in_comment() {
+        let mut tokenizer = CssTokenizer::new("/* unterminated comment");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(errors[0], CssTokenizationError::EofInComment(_)));
+    }
+
+    #[test]
+    fn test_error_invalid_escape() {
+        let mut tokenizer = CssTokenizer::new("\\\n");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(errors[0], CssTokenizationError::InvalidEscape(_)));
+    }
+
+    #[test]
+    fn test_error_eof_in_url() {
+        let mut tokenizer = CssTokenizer::new("url(unterminated");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(errors[0], CssTokenizationError::EofInUrl(_)));
+    }
+
+    #[test]
+    fn test_error_invalid_char_in_url() {
+        let mut tokenizer = CssTokenizer::new("url(bad\"quote)");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(
+            errors[0],
+            CssTokenizationError::InvalidCharacterInUrl(_)
+        ));
+    }
+
+    #[test]
+    fn test_error_position_tracking() {
+        let mut tokenizer = CssTokenizer::new(".foo {\n  color: \"bad\n");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(
+            errors[0],
+            CssTokenizationError::NewlineInString(_)
+        ));
+        // The newline is on line 2, column 14 (after "bad)
+        assert_eq!(errors[0].position().line, 2);
+        assert_eq!(errors[0].position().column, 14);
+    }
+
+    #[test]
+    fn test_no_errors_on_valid_input() {
+        let mut tokenizer = CssTokenizer::new(".foo { color: red; }");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(!tokenizer.has_errors());
+        assert_eq!(tokenizer.get_errors().len(), 0);
+    }
+
+    #[test]
+    fn test_multiple_errors() {
+        let mut tokenizer = CssTokenizer::new("\"bad\n \"also bad\n");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.get_errors();
+        assert_eq!(errors.len(), 2);
+        assert!(matches!(
+            errors[0],
+            CssTokenizationError::NewlineInString(_)
+        ));
+        assert!(matches!(
+            errors[1],
+            CssTokenizationError::NewlineInString(_)
+        ));
+    }
+
+    #[test]
+    fn test_take_errors() {
+        let mut tokenizer = CssTokenizer::new("\"bad\n");
+        let _tokens: Vec<_> = tokenizer.by_ref().collect();
+
+        assert!(tokenizer.has_errors());
+        let errors = tokenizer.take_errors();
+        assert_eq!(errors.len(), 1);
+        assert!(!tokenizer.has_errors());
     }
 }

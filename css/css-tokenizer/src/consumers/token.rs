@@ -12,6 +12,7 @@ use crate::{
         three_code_points_would_start_ident, two_code_points_are_valid_escape,
     },
 };
+use errors::tokenization::CssTokenizationError;
 
 /// Consume a token (§4.3.1)
 pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
@@ -123,7 +124,7 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 tokenizer.stream.reconsume();
                 consume_ident_like_token(tokenizer)
             } else {
-                // Parse error
+                tokenizer.record_error(CssTokenizationError::InvalidEscape);
                 CssToken::Delim('\\')
             }
         }
@@ -149,14 +150,20 @@ fn consume_comments(tokenizer: &mut CssTokenizer) {
             tokenizer.stream.consume();
             tokenizer.stream.consume();
 
+            let mut found_end = false;
             while let Some(c) = tokenizer.stream.consume() {
                 match c {
                     '*' if tokenizer.stream.peek() == Some('/') => {
                         tokenizer.stream.consume();
+                        found_end = true;
                         break;
                     }
                     _ => {}
                 }
+            }
+
+            if !found_end {
+                tokenizer.record_error(CssTokenizationError::EofInComment);
             }
         } else {
             break;

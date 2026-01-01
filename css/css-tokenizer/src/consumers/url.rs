@@ -5,6 +5,7 @@ use crate::{
     tokens::CssToken,
     validator::starts_with_valid_escape,
 };
+use errors::tokenization::CssTokenizationError;
 
 /// Consume a URL token (§4.3.6)
 pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
@@ -14,7 +15,10 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
     loop {
         let c = match tokenizer.stream.consume() {
             Some(c) => c,
-            None => return CssToken::Url(value),
+            None => {
+                tokenizer.record_error(CssTokenizationError::EofInUrl);
+                return CssToken::Url(value);
+            }
         };
 
         match c {
@@ -26,7 +30,10 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
 
                 let ch = match tokenizer.stream.peek() {
                     Some(c) => c,
-                    None => return CssToken::Url(value),
+                    None => {
+                        tokenizer.record_error(CssTokenizationError::EofInUrl);
+                        return CssToken::Url(value);
+                    }
                 };
 
                 match ch {
@@ -41,10 +48,12 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 }
             }
             '"' | '\'' | '(' => {
+                tokenizer.record_error_at_current_char(CssTokenizationError::InvalidCharacterInUrl);
                 consume_bad_url_remnants(tokenizer);
                 return CssToken::BadUrl;
             }
             c if is_non_printable(c) => {
+                tokenizer.record_error_at_current_char(CssTokenizationError::InvalidCharacterInUrl);
                 consume_bad_url_remnants(tokenizer);
                 return CssToken::BadUrl;
             }
@@ -52,6 +61,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 if starts_with_valid_escape(tokenizer) {
                     value.push(consume_escaped_code_point(tokenizer));
                 } else {
+                    tokenizer.record_error(CssTokenizationError::InvalidEscapeInUrl);
                     consume_bad_url_remnants(tokenizer);
                     return CssToken::BadUrl;
                 }
