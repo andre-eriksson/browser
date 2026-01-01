@@ -667,7 +667,6 @@ dependencies = [
  "cookie",
  "cookies",
  "css-cssom",
- "css-parser",
  "errors",
  "html-dom",
  "html-parser",
