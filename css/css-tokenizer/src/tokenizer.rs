@@ -13,6 +13,14 @@ pub struct InputStream {
 
     /// Current character
     pub current: Option<char>,
+
+    // For tracking line and column
+    line: usize,
+    column: usize,
+
+    // For reconsume
+    prev_line: usize,
+    prev_column: usize,
 }
 
 impl InputStream {
@@ -22,6 +30,10 @@ impl InputStream {
             chars: input.chars().collect(),
             pos: 0,
             current: None,
+            line: 1,
+            column: 1,
+            prev_line: 1,
+            prev_column: 1,
         }
     }
 
@@ -38,8 +50,19 @@ impl InputStream {
     /// Consume the current character and advance the position
     pub fn consume(&mut self) -> Option<char> {
         if self.pos < self.chars.len() {
+            self.prev_line = self.line;
+            self.prev_column = self.column;
+
             self.current = Some(self.chars[self.pos]);
             self.pos += 1;
+
+            if self.current == Some('\n') {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+
             self.current
         } else {
             self.current = None;
@@ -51,6 +74,28 @@ impl InputStream {
     pub fn reconsume(&mut self) {
         if self.pos > 0 && self.current.is_some() {
             self.pos -= 1;
+            self.line = self.prev_line;
+            self.column = self.prev_column;
+        }
+    }
+
+    /// Get the current source position
+    pub fn position(&self) -> SourcePosition {
+        SourcePosition {
+            line: self.line,
+            column: self.column,
+            offset: self.pos,
+        }
+    }
+
+    /// Get the position of the previously consumed character
+    /// This is useful for recording errors at the position of the character
+    /// that caused the error, rather than the position after consuming it.
+    pub fn prev_position(&self) -> SourcePosition {
+        SourcePosition {
+            line: self.prev_line,
+            column: self.prev_column,
+            offset: if self.pos > 0 { self.pos - 1 } else { 0 },
         }
     }
 }
