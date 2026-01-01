@@ -69,7 +69,9 @@ impl Browser {
     }
 
     fn process_css(&mut self, css: &str) {
-        debug!("Processing CSS: {}", css);
+        let stylesheet = CSSStyleSheet::from_css(css);
+
+        println!("Parsed CSS Stylesheet: {:?}", stylesheet);
     }
 }
 

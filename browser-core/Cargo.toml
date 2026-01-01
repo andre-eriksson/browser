@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 cookies.workspace = true
+css-cssom.workspace = true
 errors.workspace = true
 html-dom.workspace = true
 html-parser.workspace = true
