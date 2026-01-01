@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Consume a numeric token (§4.3.3)
-pub fn consume_numeric_token(tokenizer: &mut CssTokenizer) -> CssToken {
+pub(crate) fn consume_numeric_token(tokenizer: &mut CssTokenizer) -> CssToken {
     let number = consume_number(tokenizer);
 
     let next = tokenizer.stream.peek();

@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Consume a URL token (§4.3.6)
-pub fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
+pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
     consume_whitespace(tokenizer);
     let mut value = String::new();
 

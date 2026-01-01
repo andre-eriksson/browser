@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Consume a string token (§4.3.5)
-pub fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -> CssToken {
+pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -> CssToken {
     let mut value = String::new();
 
     loop {
@@ -36,7 +36,7 @@ pub fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -> CssTo
 }
 
 /// Consume an escaped code point (§4.3.7)
-pub fn consume_escaped_code_point(tokenizer: &mut CssTokenizer) -> char {
+pub(crate) fn consume_escaped_code_point(tokenizer: &mut CssTokenizer) -> char {
     let c = match tokenizer.stream.consume() {
         Some(c) => c,
         None => return '\u{FFFD}',
