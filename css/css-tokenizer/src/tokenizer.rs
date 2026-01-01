@@ -119,7 +119,7 @@ impl CssTokenizer {
     ///
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
-    fn new(input: &str) -> Self {
+    pub fn new(input: &str) -> Self {
         let preprocessed_input = CssTokenizer::preprocess(input);
 
         CssTokenizer {
@@ -147,11 +147,6 @@ impl CssTokenizer {
     /// Get all recorded parse errors
     pub fn get_errors(&self) -> &[CssTokenizationError] {
         &self.errors
-    }
-
-    /// Take all recorded parse errors, leaving the handler empty
-    pub fn take_errors(&mut self) -> Vec<CssTokenizationError> {
-        std::mem::take(&mut self.errors)
     }
 
     /// Check if any parse errors were recorded
@@ -363,7 +358,7 @@ mod tests {
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(tokenizer.has_errors());
-        let errors = tokenizer.take_errors();
+        let errors = std::mem::take(&mut tokenizer.errors);
         assert_eq!(errors.len(), 1);
         assert!(!tokenizer.has_errors());
     }
