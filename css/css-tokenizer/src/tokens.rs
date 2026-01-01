@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// Hash token type flag as per CSS Syntax Module Level 3
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashType {
@@ -129,4 +131,40 @@ pub enum CssToken {
 
     /// End of file marker (not emitted, used internally)
     Eof,
+}
+
+impl Display for CssToken {
+    /// Serialize the token to its CSS text representation
+    ///
+    /// This follows the CSS Syntax Module Level 3 serialization rules.
+    /// <https://www.w3.org/TR/css-syntax-3/#serialization>
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CssToken::Ident(value) => write!(f, "{}", value),
+            CssToken::Function(value) => write!(f, "{}(", value),
+            CssToken::AtKeyword(value) => write!(f, "@{}", value),
+            CssToken::Hash { value, .. } => write!(f, "#{}", value),
+            CssToken::String(value) => write!(f, "\"{}\"", value),
+            CssToken::BadString => write!(f, "\""),
+            CssToken::Url(value) => write!(f, "url({})", value),
+            CssToken::BadUrl => write!(f, "url("),
+            CssToken::Delim(c) => write!(f, "{}", c),
+            CssToken::Number(num) => write!(f, "{}", num.repr),
+            CssToken::Percentage(num) => write!(f, "{}%", num.repr),
+            CssToken::Dimension { value, unit } => write!(f, "{}{}", value.repr, unit),
+            CssToken::Whitespace => write!(f, " "),
+            CssToken::Cdo => write!(f, "<!--"),
+            CssToken::Cdc => write!(f, "-->"),
+            CssToken::Colon => write!(f, ":"),
+            CssToken::Semicolon => write!(f, ";"),
+            CssToken::Comma => write!(f, ","),
+            CssToken::OpenSquare => write!(f, "["),
+            CssToken::CloseSquare => write!(f, "]"),
+            CssToken::OpenParen => write!(f, "("),
+            CssToken::CloseParen => write!(f, ")"),
+            CssToken::OpenCurly => write!(f, "{{"),
+            CssToken::CloseCurly => write!(f, "}}"),
+            CssToken::Eof => Ok(()),
+        }
+    }
 }
