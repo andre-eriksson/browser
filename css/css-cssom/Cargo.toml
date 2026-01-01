@@ -6,3 +6,10 @@ edition.workspace = true
 [dependencies]
 css-parser.workspace = true
 errors.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "cssom_benchmark"
+harness = false

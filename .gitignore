@@ -3,3 +3,8 @@ profile.json.gz
 
 # Testing
 **/benches/resources
+
+# Benchmarks
+flamegraph.svg
+perf.data
+perf.data.old

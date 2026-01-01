@@ -5,3 +5,10 @@ edition.workspace = true
 
 [dependencies]
 errors.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "tokenizer_benchmark"
+harness = false
