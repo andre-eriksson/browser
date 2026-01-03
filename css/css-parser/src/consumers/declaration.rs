@@ -27,12 +27,10 @@ pub(crate) fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<De
                 temp_tokens.push(css_parser.consume().unwrap());
 
                 // Consume until semicolon or EOF
-                while !matches!(
-                    css_parser.peek(),
-                    Some(token) if matches!(token.kind,
-                    CssTokenKind::Eof | CssTokenKind::Semicolon
-                    )
-                ) {
+                while let Some(token) = css_parser.peek() {
+                    if matches!(token.kind, CssTokenKind::Eof | CssTokenKind::Semicolon) {
+                        break;
+                    }
                     let cv = consume_component_value(css_parser);
                     CssParser::append_component_value_tokens(&cv, &mut temp_tokens);
                 }
@@ -45,12 +43,10 @@ pub(crate) fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<De
             _ => {
                 // Parse error, consume until semicolon or EOF
 
-                while !matches!(
-                    css_parser.peek(),
-                    Some(token) if matches!(token.kind,
-                    CssTokenKind::Eof | CssTokenKind::Semicolon
-                    )
-                ) {
+                while let Some(token) = css_parser.peek() {
+                    if matches!(token.kind, CssTokenKind::Eof | CssTokenKind::Semicolon) {
+                        break;
+                    }
                     consume_component_value(css_parser);
                 }
             }

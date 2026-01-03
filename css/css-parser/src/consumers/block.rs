@@ -1,6 +1,8 @@
 use css_tokenizer::CssTokenKind;
 
-use crate::{AssociatedToken, CssParser, SimpleBlock};
+use crate::{
+    AssociatedToken, CssParser, SimpleBlock, consumers::component::consume_component_value,
+};
 
 /// Consume a simple block
 ///
@@ -18,7 +20,7 @@ pub(crate) fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
         _ => (AssociatedToken::CurlyBracket, CssTokenKind::CloseCurly), // Should not happen
     };
 
-    let block = SimpleBlock::new(associated_token);
+    let mut block = SimpleBlock::new(associated_token);
 
     #[allow(clippy::while_let_loop)]
     loop {
@@ -32,6 +34,9 @@ pub(crate) fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
                     css_parser.consume();
                     break;
                 }
+
+                let component_value = consume_component_value(css_parser);
+                block.value.push(component_value);
             }
 
             None => {
