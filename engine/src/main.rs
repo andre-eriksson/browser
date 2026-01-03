@@ -64,6 +64,7 @@ async fn main() {
         .add_directive(Directive::from_str("engine=info").unwrap())
         .add_directive(Directive::from_str("browser_core=debug").unwrap())
         .add_directive(Directive::from_str("assets=debug").unwrap())
+        .add_directive(Directive::from_str("css=debug").unwrap())
         .add_directive(Directive::from_str("html_dom=info").unwrap())
         .add_directive(Directive::from_str("html_parser=debug").unwrap())
         .add_directive(Directive::from_str("ui=info").unwrap())
