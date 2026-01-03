@@ -1,7 +1,7 @@
 use html_syntax::{
     collector::{Collector, TagInfo},
     dom::{DocumentRoot, Element, NodeData, NodeId},
-    tag::{HtmlTag, is_void_element, should_auto_close, tag_from_str},
+    tag::{HtmlTag, is_void_element, should_auto_close},
     token::{Token, TokenKind},
 };
 
@@ -120,7 +120,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the start tag to be processed.
     fn handle_start_tag(&mut self, token: &Token) {
-        let tag = tag_from_str(&token.data.to_lowercase());
+        let tag = HtmlTag::from(token.data.to_lowercase());
         let attributes = &token.attributes;
 
         let element = Element {
@@ -151,8 +151,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
     fn handle_end_tag(&mut self, token: &Token) {
-        let tag_name = token.data.to_lowercase();
-        let target_tag = tag_from_str(&tag_name);
+        let target_tag = HtmlTag::from(token.data.to_lowercase());
 
         let should_close = if let Some(last) = self.open_elements.last() {
             if let Some(node) = self.dom_tree.get_node(last) {

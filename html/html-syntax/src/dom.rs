@@ -35,6 +35,36 @@ impl Default for Element {
     }
 }
 
+impl Element {
+    /// Get the ID attribute of this element, if present
+    ///
+    /// # Returns
+    /// An Option containing the ID as &str, or None if not present
+    pub fn id(&self) -> Option<&str> {
+        self.attributes.get("id").map(|s| s.as_str())
+    }
+
+    /// Get an iterator over the classes of this element
+    ///
+    /// # Returns
+    /// An iterator over class names as &str
+    pub fn classes(&self) -> impl Iterator<Item = &str> {
+        self.attributes
+            .get("class")
+            .map(|s| s.split_whitespace())
+            .into_iter()
+            .flatten()
+    }
+
+    /// Get the tag name of this element as a string
+    ///
+    /// # Returns
+    /// The tag name as &str
+    pub fn tag_name(&self) -> &str {
+        self.tag.as_str()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeData {
     Element(Element),
