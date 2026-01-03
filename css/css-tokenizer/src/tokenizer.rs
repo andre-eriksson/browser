@@ -6,6 +6,7 @@ use crate::{
     tokens::{CssToken, CssTokenKind},
 };
 use errors::tokenization::{CssTokenizationError, SourcePosition};
+use tracing::debug;
 
 /// Input stream for the tokenizer
 pub struct InputStream {
@@ -114,7 +115,7 @@ pub struct CssTokenizer {
     pub stream: InputStream,
 
     /// Collected parse errors
-    errors: Vec<CssTokenizationError>,
+    pub errors: Vec<CssTokenizationError>,
 }
 
 impl CssTokenizer {
@@ -147,22 +148,16 @@ impl CssTokenizer {
         self.errors.push(error_fn(position));
     }
 
-    /// Get all recorded parse errors
-    pub fn get_errors(&self) -> &[CssTokenizationError] {
-        &self.errors
-    }
-
-    /// Check if any parse errors were recorded
-    pub fn has_errors(&self) -> bool {
-        !self.errors.is_empty()
-    }
-
     /// Tokenize the given input string and return a vector of tokens
     ///
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
     pub fn tokenize(input: &str) -> Vec<CssToken> {
         let tokenizer = CssTokenizer::new(input);
+
+        for error in &tokenizer.errors {
+            debug!("CSS Tokenization error: {}", error);
+        }
 
         tokenizer.collect()
     }
@@ -229,6 +224,14 @@ mod tests {
     use crate::tokens::{HashType, NumberType, NumericValue};
     use errors::tokenization::CssTokenizationError;
 
+    fn has_errors(tokenizer: &CssTokenizer) -> bool {
+        !tokenizer.errors.is_empty()
+    }
+
+    fn get_errors(tokenizer: &CssTokenizer) -> &Vec<CssTokenizationError> {
+        &tokenizer.errors
+    }
+
     #[test]
     fn test_preprocess() {
         assert_eq!(CssTokenizer::preprocess("a\r\nb"), "a\nb");
@@ -242,8 +245,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("\"hello\nworld\"");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 2);
         assert!(matches!(
             errors[0],
@@ -259,8 +262,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("\"unterminated");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
         assert!(matches!(errors[0], CssTokenizationError::EofInString(_)));
     }
@@ -270,8 +273,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("/* unterminated comment");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
         assert!(matches!(errors[0], CssTokenizationError::EofInComment(_)));
     }
@@ -281,8 +284,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("\\\n");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
         assert!(matches!(errors[0], CssTokenizationError::InvalidEscape(_)));
     }
@@ -292,8 +295,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("url(unterminated");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
         assert!(matches!(errors[0], CssTokenizationError::EofInUrl(_)));
     }
@@ -303,8 +306,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("url(bad\"quote)");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0],
@@ -317,8 +320,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new(".foo {\n  color: \"bad\n");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
         assert!(matches!(
             errors[0],
@@ -333,8 +336,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new(".foo { color: red; }");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(!tokenizer.has_errors());
-        assert_eq!(tokenizer.get_errors().len(), 0);
+        assert!(!has_errors(&tokenizer));
+        assert_eq!(get_errors(&tokenizer).len(), 0);
     }
 
     #[test]
@@ -342,8 +345,8 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("\"bad\n \"also bad\n");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
-        let errors = tokenizer.get_errors();
+        assert!(has_errors(&tokenizer));
+        let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 2);
         assert!(matches!(
             errors[0],
@@ -360,10 +363,10 @@ mod tests {
         let mut tokenizer = CssTokenizer::new("\"bad\n");
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
-        assert!(tokenizer.has_errors());
+        assert!(has_errors(&tokenizer));
         let errors = std::mem::take(&mut tokenizer.errors);
         assert_eq!(errors.len(), 1);
-        assert!(!tokenizer.has_errors());
+        assert!(!has_errors(&tokenizer));
     }
 
     #[test]
