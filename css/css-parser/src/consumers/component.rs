@@ -1,4 +1,4 @@
-use css_tokenizer::CssToken;
+use css_tokenizer::{CssToken, CssTokenKind};
 
 use crate::{
     ComponentValue, CssParser,
@@ -9,11 +9,31 @@ use crate::{
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-component-value>
 pub(crate) fn consume_component_value(css_parser: &mut CssParser) -> ComponentValue {
-    match css_parser.peek() {
-        Some(CssToken::OpenCurly) | Some(CssToken::OpenSquare) | Some(CssToken::OpenParen) => {
+    let next_token = css_parser.peek();
+
+    let token_kind = match next_token {
+        Some(token) => &token.kind,
+        None => &CssTokenKind::Eof,
+    };
+
+    match token_kind {
+        CssTokenKind::OpenCurly | CssTokenKind::OpenSquare | CssTokenKind::OpenParen => {
             ComponentValue::SimpleBlock(consume_simple_block(css_parser))
         }
-        Some(CssToken::Function(_)) => ComponentValue::Function(consume_function(css_parser)),
-        _ => ComponentValue::Token(css_parser.consume().unwrap_or(CssToken::Eof)),
+        CssTokenKind::Function(_) => ComponentValue::Function(consume_function(css_parser)),
+        _ => {
+            let consumed_token = css_parser.consume();
+
+            match consumed_token {
+                Some(token) => ComponentValue::Token(CssToken {
+                    kind: token.kind,
+                    position: token.position,
+                }),
+                None => {
+                    // TODO: ComponentValue::Token(css_parser.consume().unwrap_or(CssToken::Eof))
+                    todo!()
+                }
+            }
+        }
     }
 }

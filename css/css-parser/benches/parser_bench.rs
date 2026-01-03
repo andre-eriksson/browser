@@ -6,8 +6,8 @@
 //! by pre-tokenizing the CSS input before benchmarking.
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use css_parser::{CssToken, Stylesheet};
-use css_tokenizer::CssTokenizer;
+use css_parser::Stylesheet;
+use css_tokenizer::{CssToken, CssTokenizer};
 use std::hint::black_box;
 
 /// Simple CSS input

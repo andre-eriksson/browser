@@ -62,7 +62,7 @@ impl ComponentValue {
     /// Convert this component value to a CSS string representation
     pub fn to_css_string(&self) -> String {
         match self {
-            ComponentValue::Token(t) => t.to_string(),
+            ComponentValue::Token(t) => t.kind.to_string(),
             ComponentValue::Function(f) => {
                 let mut s = format!("{}(", f.name);
                 for v in &f.value {

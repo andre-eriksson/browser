@@ -1,38 +1,43 @@
-use css_tokenizer::CssToken;
+use css_tokenizer::CssTokenKind;
 
-use crate::{
-    AssociatedToken, CssParser, SimpleBlock, consumers::component::consume_component_value,
-};
+use crate::{AssociatedToken, CssParser, SimpleBlock};
 
 /// Consume a simple block
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-simple-block>
 pub(crate) fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
-    let current = css_parser.consume();
-
-    let (associated_token, ending_token) = match current {
-        Some(CssToken::OpenCurly) => (AssociatedToken::CurlyBracket, CssToken::CloseCurly),
-        Some(CssToken::OpenSquare) => (AssociatedToken::SquareBracket, CssToken::CloseSquare),
-        Some(CssToken::OpenParen) => (AssociatedToken::Parenthesis, CssToken::CloseParen),
-        _ => (AssociatedToken::CurlyBracket, CssToken::CloseCurly), // Should not happen
+    let Some(current) = css_parser.consume() else {
+        // Should not happen
+        return SimpleBlock::new(AssociatedToken::CurlyBracket);
     };
 
-    let mut block = SimpleBlock::new(associated_token);
+    let (associated_token, ending_token) = match current.kind {
+        CssTokenKind::OpenCurly => (AssociatedToken::CurlyBracket, CssTokenKind::CloseCurly),
+        CssTokenKind::OpenSquare => (AssociatedToken::SquareBracket, CssTokenKind::CloseSquare),
+        CssTokenKind::OpenParen => (AssociatedToken::Parenthesis, CssTokenKind::CloseParen),
+        _ => (AssociatedToken::CurlyBracket, CssTokenKind::CloseCurly), // Should not happen
+    };
 
+    let block = SimpleBlock::new(associated_token);
+
+    #[allow(clippy::while_let_loop)]
     loop {
         match css_parser.peek() {
-            None | Some(CssToken::Eof) => {
+            Some(token) => {
+                if token.kind == CssTokenKind::Eof {
+                    break;
+                }
+
+                if std::mem::discriminant(&token.kind) == std::mem::discriminant(&ending_token) {
+                    css_parser.consume();
+                    break;
+                }
+            }
+
+            None => {
                 // Parse error, but return the block
+                // TODO: Collect an error
                 break;
-            }
-            Some(token)
-                if std::mem::discriminant(token) == std::mem::discriminant(&ending_token) =>
-            {
-                css_parser.consume();
-                break;
-            }
-            _ => {
-                block.value.push(consume_component_value(css_parser));
             }
         }
     }

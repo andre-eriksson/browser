@@ -3,6 +3,7 @@
 //! <https://www.w3.org/TR/css-syntax-3/#parsing>
 
 use css_tokenizer::CssToken;
+use css_tokenizer::CssTokenKind;
 use css_tokenizer::CssTokenizer;
 
 use crate::consumers::declaration::consume_list_of_declarations;
@@ -67,7 +68,13 @@ impl CssParser {
         let mut non_ws_indices: Vec<usize> = Vec::new();
 
         for (i, cv) in declaration.value.iter().enumerate() {
-            if !matches!(cv, ComponentValue::Token(CssToken::Whitespace)) {
+            if !matches!(
+                cv,
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Whitespace,
+                    ..
+                })
+            ) {
                 non_ws_indices.push(i);
             }
         }
@@ -79,7 +86,8 @@ impl CssParser {
 
             let is_important = matches!(
                 (&declaration.value.get(second_last_idx), &declaration.value.get(last_idx)),
-                (Some(ComponentValue::Token(CssToken::Delim('!'))), Some(ComponentValue::Token(CssToken::Ident(ident))))
+                (Some(ComponentValue::Token(CssToken { kind: CssTokenKind::Delim('!'), .. })),
+                    Some(ComponentValue::Token(CssToken { kind: CssTokenKind::Ident(ident), .. })))
                 if ident.eq_ignore_ascii_case("important")
             );
 
@@ -123,8 +131,12 @@ impl CssParser {
 
     /// Skip whitespace tokens
     pub(crate) fn skip_whitespace(&mut self) {
-        while matches!(self.peek(), Some(CssToken::Whitespace)) {
-            self.consume();
+        while let Some(token) = self.peek() {
+            if matches!(token.kind, CssTokenKind::Whitespace) {
+                self.consume();
+            } else {
+                break;
+            }
         }
     }
 
@@ -133,25 +145,49 @@ impl CssParser {
         match cv {
             ComponentValue::Token(t) => tokens.push(t.clone()),
             ComponentValue::Function(f) => {
-                tokens.push(CssToken::Function(f.name.clone()));
+                tokens.push(CssToken {
+                    kind: CssTokenKind::Function(f.name.clone()),
+                    position: None,
+                });
                 for v in &f.value {
                     Self::append_component_value_tokens(v, tokens);
                 }
-                tokens.push(CssToken::CloseParen);
+                tokens.push(CssToken {
+                    kind: CssTokenKind::CloseParen,
+                    position: None,
+                });
             }
             ComponentValue::SimpleBlock(b) => {
                 match b.associated_token {
-                    AssociatedToken::CurlyBracket => tokens.push(CssToken::OpenCurly),
-                    AssociatedToken::SquareBracket => tokens.push(CssToken::OpenSquare),
-                    AssociatedToken::Parenthesis => tokens.push(CssToken::OpenParen),
+                    AssociatedToken::CurlyBracket => tokens.push(CssToken {
+                        kind: CssTokenKind::OpenCurly,
+                        position: None,
+                    }),
+                    AssociatedToken::SquareBracket => tokens.push(CssToken {
+                        kind: CssTokenKind::OpenSquare,
+                        position: None,
+                    }),
+                    AssociatedToken::Parenthesis => tokens.push(CssToken {
+                        kind: CssTokenKind::OpenParen,
+                        position: None,
+                    }),
                 }
                 for v in &b.value {
                     Self::append_component_value_tokens(v, tokens);
                 }
                 match b.associated_token {
-                    AssociatedToken::CurlyBracket => tokens.push(CssToken::CloseCurly),
-                    AssociatedToken::SquareBracket => tokens.push(CssToken::CloseSquare),
-                    AssociatedToken::Parenthesis => tokens.push(CssToken::CloseParen),
+                    AssociatedToken::CurlyBracket => tokens.push(CssToken {
+                        kind: CssTokenKind::CloseCurly,
+                        position: None,
+                    }),
+                    AssociatedToken::SquareBracket => tokens.push(CssToken {
+                        kind: CssTokenKind::CloseSquare,
+                        position: None,
+                    }),
+                    AssociatedToken::Parenthesis => tokens.push(CssToken {
+                        kind: CssTokenKind::CloseParen,
+                        position: None,
+                    }),
                 }
             }
         }

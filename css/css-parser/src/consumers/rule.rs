@@ -1,4 +1,4 @@
-use css_tokenizer::CssToken;
+use css_tokenizer::CssTokenKind;
 
 use crate::{
     AtRule, CssParser, QualifiedRule, Rule,
@@ -11,21 +11,20 @@ use crate::{
 pub(crate) fn consume_list_of_rules(css_parser: &mut CssParser, top_level: bool) -> Vec<Rule> {
     let mut rules = Vec::new();
 
-    loop {
-        match css_parser.peek() {
-            None => break,
-            Some(CssToken::Eof) => break,
-            Some(CssToken::Whitespace) => {
+    while let Some(token) = css_parser.peek() {
+        match &token.kind {
+            CssTokenKind::Eof => break,
+            CssTokenKind::Whitespace => {
                 css_parser.consume();
             }
-            Some(CssToken::Cdo) | Some(CssToken::Cdc) => {
+            CssTokenKind::Cdo | CssTokenKind::Cdc => {
                 if top_level {
                     css_parser.consume();
                 } else if let Some(rule) = consume_qualified_rule(css_parser) {
                     rules.push(Rule::QualifiedRule(rule));
                 }
             }
-            Some(CssToken::AtKeyword(_)) => {
+            CssTokenKind::AtKeyword(_) => {
                 rules.push(Rule::AtRule(consume_at_rule(css_parser)));
             }
             _ => {
@@ -43,30 +42,40 @@ pub(crate) fn consume_list_of_rules(css_parser: &mut CssParser, top_level: bool)
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-an-at-rule>
 pub(crate) fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
-    // Consume the at-keyword token
     let name = match css_parser.consume() {
-        Some(CssToken::AtKeyword(name)) => name,
-        _ => String::new(), // Should not happen
+        Some(token) => match token.kind {
+            CssTokenKind::AtKeyword(name) => name,
+            _ => String::new(), // Should not happen
+        },
+        None => String::new(), // Should not happen
     };
 
     let mut at_rule = AtRule::new(name);
 
+    #[allow(clippy::while_let_loop)]
     loop {
         match css_parser.peek() {
-            None | Some(CssToken::Eof) => {
+            Some(token) => match &token.kind {
+                CssTokenKind::Eof => {
+                    // Parse error, but return the at-rule
+                    break;
+                }
+                CssTokenKind::Semicolon => {
+                    css_parser.consume();
+                    break;
+                }
+                CssTokenKind::OpenCurly => {
+                    at_rule.block = Some(consume_simple_block(css_parser));
+                    break;
+                }
+                _ => {
+                    at_rule.prelude.push(consume_component_value(css_parser));
+                }
+            },
+            None => {
                 // Parse error, but return the at-rule
+                // TODO: Collect an error
                 break;
-            }
-            Some(CssToken::Semicolon) => {
-                css_parser.consume();
-                break;
-            }
-            Some(CssToken::OpenCurly) => {
-                at_rule.block = Some(consume_simple_block(css_parser));
-                break;
-            }
-            _ => {
-                at_rule.prelude.push(consume_component_value(css_parser));
             }
         }
     }
@@ -82,16 +91,22 @@ fn consume_qualified_rule(css_parser: &mut CssParser) -> Option<QualifiedRule> {
 
     loop {
         match css_parser.peek() {
-            None | Some(CssToken::Eof) => {
+            Some(token) => match &token.kind {
+                CssTokenKind::Eof => {
+                    // Parse error, return nothing
+                    return None;
+                }
+                CssTokenKind::OpenCurly => {
+                    rule.block = consume_simple_block(css_parser);
+                    return Some(rule);
+                }
+                _ => {
+                    rule.prelude.push(consume_component_value(css_parser));
+                }
+            },
+            None => {
                 // Parse error, return nothing
                 return None;
-            }
-            Some(CssToken::OpenCurly) => {
-                rule.block = consume_simple_block(css_parser);
-                return Some(rule);
-            }
-            _ => {
-                rule.prelude.push(consume_component_value(css_parser));
             }
         }
     }

@@ -1,4 +1,4 @@
-use css_tokenizer::CssToken;
+use css_tokenizer::CssTokenKind;
 
 use crate::{
     AssociatedToken, ComponentValue, CssParser, Declaration, DeclarationOrAtRule, SimpleBlock,
@@ -53,7 +53,7 @@ impl QualifiedRule {
     /// This is useful for style rules where the block contains property declarations.
     pub fn parse_declarations(&self) -> Vec<Declaration> {
         // Collect tokens from the block
-        let mut tokens: Vec<CssToken> = Vec::new();
+        let mut tokens: Vec<CssTokenKind> = Vec::new();
         for cv in &self.block.value {
             Self::collect_tokens_from_component_value(cv, &mut tokens);
         }
@@ -73,29 +73,29 @@ impl QualifiedRule {
             .collect()
     }
 
-    fn collect_tokens_from_component_value(cv: &ComponentValue, tokens: &mut Vec<CssToken>) {
+    fn collect_tokens_from_component_value(cv: &ComponentValue, tokens: &mut Vec<CssTokenKind>) {
         match cv {
-            ComponentValue::Token(t) => tokens.push(t.clone()),
+            ComponentValue::Token(t) => tokens.push(t.kind.clone()),
             ComponentValue::Function(f) => {
-                tokens.push(CssToken::Function(f.name.clone()));
+                tokens.push(CssTokenKind::Function(f.name.clone()));
                 for v in &f.value {
                     Self::collect_tokens_from_component_value(v, tokens);
                 }
-                tokens.push(CssToken::CloseParen);
+                tokens.push(CssTokenKind::CloseParen);
             }
             ComponentValue::SimpleBlock(b) => {
                 match b.associated_token {
-                    AssociatedToken::CurlyBracket => tokens.push(CssToken::OpenCurly),
-                    AssociatedToken::SquareBracket => tokens.push(CssToken::OpenSquare),
-                    AssociatedToken::Parenthesis => tokens.push(CssToken::OpenParen),
+                    AssociatedToken::CurlyBracket => tokens.push(CssTokenKind::OpenCurly),
+                    AssociatedToken::SquareBracket => tokens.push(CssTokenKind::OpenSquare),
+                    AssociatedToken::Parenthesis => tokens.push(CssTokenKind::OpenParen),
                 }
                 for v in &b.value {
                     Self::collect_tokens_from_component_value(v, tokens);
                 }
                 match b.associated_token {
-                    AssociatedToken::CurlyBracket => tokens.push(CssToken::CloseCurly),
-                    AssociatedToken::SquareBracket => tokens.push(CssToken::CloseSquare),
-                    AssociatedToken::Parenthesis => tokens.push(CssToken::CloseParen),
+                    AssociatedToken::CurlyBracket => tokens.push(CssTokenKind::CloseCurly),
+                    AssociatedToken::SquareBracket => tokens.push(CssTokenKind::CloseSquare),
+                    AssociatedToken::Parenthesis => tokens.push(CssTokenKind::CloseParen),
                 }
             }
         }

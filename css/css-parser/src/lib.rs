@@ -25,4 +25,4 @@ pub use stylesheet::{
     StyleBlockContents, Stylesheet,
 };
 
-pub use css_tokenizer::CssToken;
+pub use css_tokenizer::CssTokenKind;
