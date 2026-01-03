@@ -56,12 +56,12 @@ impl Browser {
     pub fn print_body(&self, tab_id: TabId) {
         if let Some(tab) = self.tabs.iter().find(|t| t.id == tab_id) {
             if let Some(document) = &tab.document {
-                debug!("Tab {:?} Document:\n{}", tab_id, document);
+                debug!("Tab {} Document:\n{}", tab_id, document);
             } else {
-                debug!("Tab {:?} has no document loaded.", tab_id);
+                debug!("Tab {} has no document loaded.", tab_id);
             }
         } else {
-            debug!("Tab {:?} does not exist.", tab_id);
+            debug!("Tab {} does not exist.", tab_id);
         }
     }
 

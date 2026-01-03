@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use html_syntax::{
     collector::{Collector, TagInfo},
     dom::DocumentRoot,
@@ -54,6 +56,12 @@ impl Collector for TabCollector {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TabId(pub usize);
+
+impl Display for TabId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 pub struct Tab {
     pub id: TabId,
