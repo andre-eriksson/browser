@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```
-//! use css_tokenizer::{CssTokenizer, CssToken};
+//! use css_tokenizer::{CssTokenizer, CssToken, CssTokenKind};
 //!
 //! let tokens = CssTokenizer::tokenize("div { color: red; }");
 //! for token in tokens {
@@ -36,4 +36,4 @@ mod validator;
 // Re-exports
 pub use errors::tokenization::{CssTokenizationError, SourcePosition};
 pub use tokenizer::CssTokenizer;
-pub use tokens::CssToken;
+pub use tokens::{CssToken, CssTokenKind};

@@ -6,7 +6,7 @@ use crate::{
         string::consume_string_token,
     },
     tokenizer::CssTokenizer,
-    tokens::{CssToken, HashType},
+    tokens::{CssToken, CssTokenKind, HashType},
     validator::{
         input_starts_with_ident_sequence, input_starts_with_number, starts_with_valid_escape,
         three_code_points_would_start_ident, two_code_points_are_valid_escape,
@@ -20,13 +20,21 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
 
     let c = match tokenizer.stream.consume() {
         Some(c) => c,
-        None => return CssToken::Eof,
+        None => {
+            return CssToken {
+                kind: CssTokenKind::Eof,
+                position: tokenizer.stream.position(),
+            };
+        }
     };
 
     match c {
         c if is_whitespace(c) => {
             consume_whitespace(tokenizer);
-            CssToken::Whitespace
+            CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: tokenizer.stream.position(),
+            }
         }
         '"' => consume_string_token(tokenizer, '"'),
         '#' => {
@@ -47,23 +55,41 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 };
 
                 let value = consume_ident_sequence(tokenizer);
-                CssToken::Hash { value, type_flag }
+                CssToken {
+                    kind: CssTokenKind::Hash { value, type_flag },
+                    position: tokenizer.stream.position(),
+                }
             } else {
-                CssToken::Delim('#')
+                CssToken {
+                    kind: CssTokenKind::Delim('#'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
         '\'' => consume_string_token(tokenizer, '\''),
-        '(' => CssToken::OpenParen,
-        ')' => CssToken::CloseParen,
+        '(' => CssToken {
+            kind: CssTokenKind::OpenParen,
+            position: tokenizer.stream.position(),
+        },
+        ')' => CssToken {
+            kind: CssTokenKind::CloseParen,
+            position: tokenizer.stream.position(),
+        },
         '+' => {
             if input_starts_with_number(tokenizer) {
                 tokenizer.stream.reconsume();
                 consume_numeric_token(tokenizer)
             } else {
-                CssToken::Delim('+')
+                CssToken {
+                    kind: CssTokenKind::Delim('+'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
-        ',' => CssToken::Comma,
+        ',' => CssToken {
+            kind: CssTokenKind::Comma,
+            position: tokenizer.stream.position(),
+        },
         '-' => {
             if input_starts_with_number(tokenizer) {
                 tokenizer.stream.reconsume();
@@ -74,12 +100,18 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 // CDC token -->
                 tokenizer.stream.consume(); // -
                 tokenizer.stream.consume(); // >
-                CssToken::Cdc
+                CssToken {
+                    kind: CssTokenKind::Cdc,
+                    position: tokenizer.stream.position(),
+                }
             } else if input_starts_with_ident_sequence(tokenizer) {
                 tokenizer.stream.reconsume();
                 consume_ident_like_token(tokenizer)
             } else {
-                CssToken::Delim('-')
+                CssToken {
+                    kind: CssTokenKind::Delim('-'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
         '.' => {
@@ -87,11 +119,20 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 tokenizer.stream.reconsume();
                 consume_numeric_token(tokenizer)
             } else {
-                CssToken::Delim('.')
+                CssToken {
+                    kind: CssTokenKind::Delim('.'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
-        ':' => CssToken::Colon,
-        ';' => CssToken::Semicolon,
+        ':' => CssToken {
+            kind: CssTokenKind::Colon,
+            position: tokenizer.stream.position(),
+        },
+        ';' => CssToken {
+            kind: CssTokenKind::Semicolon,
+            position: tokenizer.stream.position(),
+        },
         '<' => {
             if tokenizer.stream.peek() == Some('!')
                 && tokenizer.stream.peek_at(1) == Some('-')
@@ -101,9 +142,15 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 tokenizer.stream.consume(); // !
                 tokenizer.stream.consume(); // -
                 tokenizer.stream.consume(); // -
-                CssToken::Cdo
+                CssToken {
+                    kind: CssTokenKind::Cdo,
+                    position: tokenizer.stream.position(),
+                }
             } else {
-                CssToken::Delim('<')
+                CssToken {
+                    kind: CssTokenKind::Delim('<'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
         '@' => {
@@ -113,24 +160,45 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
 
             if three_code_points_would_start_ident(next, next2, next3) {
                 let value = consume_ident_sequence(tokenizer);
-                CssToken::AtKeyword(value)
+                CssToken {
+                    kind: CssTokenKind::AtKeyword(value),
+                    position: tokenizer.stream.position(),
+                }
             } else {
-                CssToken::Delim('@')
+                CssToken {
+                    kind: CssTokenKind::Delim('@'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
-        '[' => CssToken::OpenSquare,
+        '[' => CssToken {
+            kind: CssTokenKind::OpenSquare,
+            position: tokenizer.stream.position(),
+        },
         '\\' => {
             if starts_with_valid_escape(tokenizer) {
                 tokenizer.stream.reconsume();
                 consume_ident_like_token(tokenizer)
             } else {
                 tokenizer.record_error(CssTokenizationError::InvalidEscape);
-                CssToken::Delim('\\')
+                CssToken {
+                    kind: CssTokenKind::Delim('\\'),
+                    position: tokenizer.stream.position(),
+                }
             }
         }
-        ']' => CssToken::CloseSquare,
-        '{' => CssToken::OpenCurly,
-        '}' => CssToken::CloseCurly,
+        ']' => CssToken {
+            kind: CssTokenKind::CloseSquare,
+            position: tokenizer.stream.position(),
+        },
+        '{' => CssToken {
+            kind: CssTokenKind::OpenCurly,
+            position: tokenizer.stream.position(),
+        },
+        '}' => CssToken {
+            kind: CssTokenKind::CloseCurly,
+            position: tokenizer.stream.position(),
+        },
         c if is_digit(c) => {
             tokenizer.stream.reconsume();
             consume_numeric_token(tokenizer)
@@ -139,7 +207,10 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
             tokenizer.stream.reconsume();
             consume_ident_like_token(tokenizer)
         }
-        _ => CssToken::Delim(c),
+        _ => CssToken {
+            kind: CssTokenKind::Delim(c),
+            position: tokenizer.stream.position(),
+        },
     }
 }
 

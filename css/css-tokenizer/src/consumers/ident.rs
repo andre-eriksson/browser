@@ -2,7 +2,7 @@ use crate::{
     char::{is_ident_code_point, is_whitespace},
     consumers::{string::consume_escaped_code_point, url::consume_url_token},
     tokenizer::CssTokenizer,
-    tokens::CssToken,
+    tokens::{CssToken, CssTokenKind},
     validator::two_code_points_are_valid_escape,
 };
 
@@ -29,15 +29,24 @@ pub(crate) fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken
             || next == Some('\'')
             || (next.is_some_and(is_whitespace) && (next2 == Some('"') || next2 == Some('\'')))
         {
-            CssToken::Function(string)
+            CssToken {
+                kind: CssTokenKind::Function(string),
+                position: tokenizer.stream.position(),
+            }
         } else {
             consume_url_token(tokenizer)
         }
     } else if tokenizer.stream.peek() == Some('(') {
         tokenizer.stream.consume();
-        CssToken::Function(string)
+        CssToken {
+            kind: CssTokenKind::Function(string),
+            position: tokenizer.stream.position(),
+        }
     } else {
-        CssToken::Ident(string)
+        CssToken {
+            kind: CssTokenKind::Ident(string),
+            position: tokenizer.stream.position(),
+        }
     }
 }
 

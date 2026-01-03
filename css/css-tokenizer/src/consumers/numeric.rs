@@ -2,7 +2,7 @@ use crate::{
     char::is_digit,
     consumers::ident::consume_ident_sequence,
     tokenizer::CssTokenizer,
-    tokens::{CssToken, NumberType, NumericValue},
+    tokens::{CssToken, CssTokenKind, NumberType, NumericValue},
     validator::three_code_points_would_start_ident,
 };
 
@@ -16,15 +16,24 @@ pub(crate) fn consume_numeric_token(tokenizer: &mut CssTokenizer) -> CssToken {
 
     if three_code_points_would_start_ident(next, next2, next3) {
         let unit = consume_ident_sequence(tokenizer);
-        CssToken::Dimension {
-            value: number,
-            unit,
+        CssToken {
+            kind: CssTokenKind::Dimension {
+                value: number,
+                unit,
+            },
+            position: tokenizer.stream.position(),
         }
     } else if tokenizer.stream.peek() == Some('%') {
         tokenizer.stream.consume();
-        CssToken::Percentage(number)
+        CssToken {
+            kind: CssTokenKind::Percentage(number),
+            position: tokenizer.stream.position(),
+        }
     } else {
-        CssToken::Number(number)
+        CssToken {
+            kind: CssTokenKind::Number(number),
+            position: tokenizer.stream.position(),
+        }
     }
 }
 

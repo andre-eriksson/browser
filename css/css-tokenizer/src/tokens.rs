@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use errors::tokenization::SourcePosition;
+
 /// Hash token type flag as per CSS Syntax Module Level 3
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashType {
@@ -56,7 +58,7 @@ impl NumericValue {
 /// CSS Token as per CSS Syntax Module Level 3
 /// <https://www.w3.org/TR/css-syntax-3/#tokenization>
 #[derive(Debug, Clone, PartialEq)]
-pub enum CssToken {
+pub enum CssTokenKind {
     /// \<ident-token\>: An identifier
     Ident(String),
 
@@ -133,38 +135,44 @@ pub enum CssToken {
     Eof,
 }
 
-impl Display for CssToken {
+impl Display for CssTokenKind {
     /// Serialize the token to its CSS text representation
     ///
     /// This follows the CSS Syntax Module Level 3 serialization rules.
     ///<https://www.w3.org/TR/css-syntax-3/#serialization>
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CssToken::Ident(value) => write!(f, "{}", value),
-            CssToken::Function(value) => write!(f, "{}(", value),
-            CssToken::AtKeyword(value) => write!(f, "@{}", value),
-            CssToken::Hash { value, .. } => write!(f, "#{}", value),
-            CssToken::String(value) => write!(f, "\"{}\"", value),
-            CssToken::BadString => write!(f, "\""),
-            CssToken::Url(value) => write!(f, "url({})", value),
-            CssToken::BadUrl => write!(f, "url("),
-            CssToken::Delim(c) => write!(f, "{}", c),
-            CssToken::Number(num) => write!(f, "{}", num.repr),
-            CssToken::Percentage(num) => write!(f, "{}%", num.repr),
-            CssToken::Dimension { value, unit } => write!(f, "{}{}", value.repr, unit),
-            CssToken::Whitespace => write!(f, " "),
-            CssToken::Cdo => write!(f, "<!--"),
-            CssToken::Cdc => write!(f, "-->"),
-            CssToken::Colon => write!(f, ":"),
-            CssToken::Semicolon => write!(f, ";"),
-            CssToken::Comma => write!(f, ","),
-            CssToken::OpenSquare => write!(f, "["),
-            CssToken::CloseSquare => write!(f, "]"),
-            CssToken::OpenParen => write!(f, "("),
-            CssToken::CloseParen => write!(f, ")"),
-            CssToken::OpenCurly => write!(f, "{{"),
-            CssToken::CloseCurly => write!(f, "}}"),
-            CssToken::Eof => Ok(()),
+            CssTokenKind::Ident(value) => write!(f, "{}", value),
+            CssTokenKind::Function(value) => write!(f, "{}(", value),
+            CssTokenKind::AtKeyword(value) => write!(f, "@{}", value),
+            CssTokenKind::Hash { value, .. } => write!(f, "#{}", value),
+            CssTokenKind::String(value) => write!(f, "\"{}\"", value),
+            CssTokenKind::BadString => write!(f, "\""),
+            CssTokenKind::Url(value) => write!(f, "url({})", value),
+            CssTokenKind::BadUrl => write!(f, "url("),
+            CssTokenKind::Delim(c) => write!(f, "{}", c),
+            CssTokenKind::Number(num) => write!(f, "{}", num.repr),
+            CssTokenKind::Percentage(num) => write!(f, "{}%", num.repr),
+            CssTokenKind::Dimension { value, unit } => write!(f, "{}{}", value.repr, unit),
+            CssTokenKind::Whitespace => write!(f, " "),
+            CssTokenKind::Cdo => write!(f, "<!--"),
+            CssTokenKind::Cdc => write!(f, "-->"),
+            CssTokenKind::Colon => write!(f, ":"),
+            CssTokenKind::Semicolon => write!(f, ";"),
+            CssTokenKind::Comma => write!(f, ","),
+            CssTokenKind::OpenSquare => write!(f, "["),
+            CssTokenKind::CloseSquare => write!(f, "]"),
+            CssTokenKind::OpenParen => write!(f, "("),
+            CssTokenKind::CloseParen => write!(f, ")"),
+            CssTokenKind::OpenCurly => write!(f, "{{"),
+            CssTokenKind::CloseCurly => write!(f, "}}"),
+            CssTokenKind::Eof => Ok(()),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CssToken {
+    pub kind: CssTokenKind,
+    pub position: SourcePosition,
 }
