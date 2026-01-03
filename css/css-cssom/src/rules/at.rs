@@ -1,4 +1,6 @@
-use css_parser::{AssociatedToken, AtRule, ComponentValue, CssToken, QualifiedRule, SimpleBlock};
+use css_parser::{
+    AssociatedToken, AtRule, ComponentValue, CssTokenKind, QualifiedRule, SimpleBlock,
+};
 
 use crate::{
     declaration::CSSDeclaration,
@@ -92,12 +94,12 @@ impl CSSAtRule {
             if in_block {
                 match cv {
                     ComponentValue::Token(token) => {
-                        match token {
-                            CssToken::OpenCurly => {
+                        match token.kind {
+                            CssTokenKind::OpenCurly => {
                                 block_depth += 1;
                                 current_block_value.push(cv.clone());
                             }
-                            CssToken::CloseCurly => {
+                            CssTokenKind::CloseCurly => {
                                 if block_depth > 0 {
                                     block_depth -= 1;
                                     current_block_value.push(cv.clone());
@@ -135,11 +137,11 @@ impl CSSAtRule {
                 }
             } else {
                 match cv {
-                    ComponentValue::Token(token) => match token {
-                        CssToken::OpenCurly => {
+                    ComponentValue::Token(token) => match token.kind {
+                        CssTokenKind::OpenCurly => {
                             in_block = true;
                         }
-                        CssToken::Whitespace if current_prelude.is_empty() => {}
+                        CssTokenKind::Whitespace if current_prelude.is_empty() => {}
                         _ => {
                             current_prelude.push(cv.clone());
                         }
@@ -172,14 +174,14 @@ impl CSSAtRule {
 
         for cv in &block.value {
             match cv {
-                ComponentValue::Token(token) => match token {
-                    CssToken::Ident(name) if !in_declaration && temp_ident.is_none() => {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(name) if !in_declaration && temp_ident.is_none() => {
                         temp_ident = Some(name.clone());
                     }
-                    CssToken::Colon if temp_ident.is_some() && !in_declaration => {
+                    CssTokenKind::Colon if temp_ident.is_some() && !in_declaration => {
                         in_declaration = true;
                     }
-                    CssToken::Semicolon if in_declaration => {
+                    CssTokenKind::Semicolon if in_declaration => {
                         if let Some(name) = temp_ident.take() {
                             let decl = CSSDeclaration::from_values(name, temp_values.clone());
                             self.declarations.push(decl);
@@ -187,7 +189,7 @@ impl CSSAtRule {
                         temp_values.clear();
                         in_declaration = false;
                     }
-                    CssToken::Whitespace => {
+                    CssTokenKind::Whitespace => {
                         if in_declaration && !temp_values.is_empty() {
                             temp_values.push(cv.clone());
                         }

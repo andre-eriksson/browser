@@ -22,7 +22,7 @@ pub fn prelude_to_string(prelude: &[ComponentValue]) -> String {
 /// Convert a component value to its string representation
 pub fn component_value_to_string(cv: &ComponentValue) -> String {
     match cv {
-        ComponentValue::Token(token) => token.to_string(),
+        ComponentValue::Token(token) => token.kind.to_string(),
         ComponentValue::Function(f) => {
             let mut s = format!("{}(", f.name);
             for v in &f.value {

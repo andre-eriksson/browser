@@ -1,4 +1,4 @@
-use css_parser::{ComponentValue, Declaration};
+use css_parser::{ComponentValue, CssToken, Declaration};
 
 use crate::string::component_value_to_string;
 
@@ -41,8 +41,14 @@ impl CSSDeclaration {
 
         // Remove trailing whitespace
         while let Some(ComponentValue::Token(token)) = check_values.last() {
-            use css_parser::CssToken;
-            if matches!(token, CssToken::Whitespace) {
+            use css_parser::CssTokenKind;
+            if matches!(
+                token,
+                CssToken {
+                    kind: CssTokenKind::Whitespace,
+                    ..
+                }
+            ) {
                 check_values.pop();
             } else {
                 break;
@@ -55,10 +61,16 @@ impl CSSDeclaration {
             let last = &check_values[len - 1];
             let second_last = &check_values[len - 2];
 
-            use css_parser::CssToken;
+            use css_parser::CssTokenKind;
             if let (
-                ComponentValue::Token(CssToken::Delim('!')),
-                ComponentValue::Token(CssToken::Ident(ident)),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Delim('!'),
+                    ..
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident(ident),
+                    ..
+                }),
             ) = (second_last, last)
                 && ident.eq_ignore_ascii_case("important")
             {
@@ -69,7 +81,10 @@ impl CSSDeclaration {
                 // Remove whitespace before !important
                 while matches!(
                     check_values.last(),
-                    Some(ComponentValue::Token(CssToken::Whitespace))
+                    Some(ComponentValue::Token(CssToken {
+                        kind: CssTokenKind::Whitespace,
+                        ..
+                    }))
                 ) {
                     check_values.pop();
                 }
