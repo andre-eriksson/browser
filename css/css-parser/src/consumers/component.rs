@@ -29,10 +29,10 @@ pub(crate) fn consume_component_value(css_parser: &mut CssParser) -> ComponentVa
                     kind: token.kind,
                     position: token.position,
                 }),
-                None => {
-                    // TODO: ComponentValue::Token(css_parser.consume().unwrap_or(CssToken::Eof))
-                    todo!()
-                }
+                None => ComponentValue::Token(css_parser.consume().unwrap_or(CssToken {
+                    kind: CssTokenKind::Eof,
+                    position: None,
+                })),
             }
         }
     }
