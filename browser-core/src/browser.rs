@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
+use css_cssom::CSSStyleSheet;
 use html_parser::{
     parser::HtmlStreamParser,
     state::{BlockedReason, ParserState},
@@ -69,7 +70,9 @@ impl Browser {
     }
 
     fn process_css(&mut self, css: &str) {
-        debug!("Processing CSS: {}", css);
+        let stylesheet = CSSStyleSheet::from_css(css);
+
+        println!("Parsed CSS Stylesheet: {:?}", stylesheet);
     }
 }
 
