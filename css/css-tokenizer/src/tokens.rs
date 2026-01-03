@@ -174,5 +174,5 @@ impl Display for CssTokenKind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CssToken {
     pub kind: CssTokenKind,
-    pub position: SourcePosition,
+    pub position: Option<SourcePosition>,
 }

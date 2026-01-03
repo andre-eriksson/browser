@@ -31,7 +31,7 @@ pub(crate) fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken
         {
             CssToken {
                 kind: CssTokenKind::Function(string),
-                position: tokenizer.stream.position(),
+                position: Some(tokenizer.stream.position()),
             }
         } else {
             consume_url_token(tokenizer)
@@ -40,12 +40,12 @@ pub(crate) fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken
         tokenizer.stream.consume();
         CssToken {
             kind: CssTokenKind::Function(string),
-            position: tokenizer.stream.position(),
+            position: Some(tokenizer.stream.position()),
         }
     } else {
         CssToken {
             kind: CssTokenKind::Ident(string),
-            position: tokenizer.stream.position(),
+            position: Some(tokenizer.stream.position()),
         }
     }
 }
