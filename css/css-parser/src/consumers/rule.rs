@@ -1,4 +1,5 @@
-use css_tokenizer::CssTokenKind;
+use css_tokenizer::{CssTokenKind, SourcePosition};
+use errors::parsing::CssParsingError;
 
 use crate::{
     AtRule, CssParser, QualifiedRule, Rule,
@@ -42,12 +43,16 @@ pub(crate) fn consume_list_of_rules(css_parser: &mut CssParser, top_level: bool)
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-an-at-rule>
 pub(crate) fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
-    let name = match css_parser.consume() {
-        Some(token) => match token.kind {
-            CssTokenKind::AtKeyword(name) => name,
-            _ => String::new(), // Should not happen
-        },
-        None => String::new(), // Should not happen
+    let (name, pos) = match css_parser.consume() {
+        Some(token) => {
+            let pos = token.position.unwrap_or_default();
+
+            match token.kind {
+                CssTokenKind::AtKeyword(name) => (name, pos),
+                _ => (String::new(), pos), // Should not happen
+            }
+        }
+        None => (String::new(), SourcePosition::default()), // Should not happen
     };
 
     let mut at_rule = AtRule::new(name);
@@ -57,7 +62,7 @@ pub(crate) fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
         match css_parser.peek() {
             Some(token) => match &token.kind {
                 CssTokenKind::Eof => {
-                    // Parse error, but return the at-rule
+                    css_parser.record_error(CssParsingError::EofInAtRule(pos));
                     break;
                 }
                 CssTokenKind::Semicolon => {
@@ -73,8 +78,7 @@ pub(crate) fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
                 }
             },
             None => {
-                // Parse error, but return the at-rule
-                // TODO: Collect an error
+                css_parser.record_error(CssParsingError::IncompleteAtRule(pos));
                 break;
             }
         }
@@ -93,7 +97,8 @@ fn consume_qualified_rule(css_parser: &mut CssParser) -> Option<QualifiedRule> {
         match css_parser.peek() {
             Some(token) => match &token.kind {
                 CssTokenKind::Eof => {
-                    // Parse error, return nothing
+                    let pos = token.position.unwrap_or_default();
+                    css_parser.record_error(CssParsingError::EofInQualifiedRule(pos));
                     return None;
                 }
                 CssTokenKind::OpenCurly => {
@@ -106,6 +111,9 @@ fn consume_qualified_rule(css_parser: &mut CssParser) -> Option<QualifiedRule> {
             },
             None => {
                 // Parse error, return nothing
+                css_parser.record_error(CssParsingError::IncompleteQualifiedRule(
+                    SourcePosition::default(),
+                ));
                 return None;
             }
         }

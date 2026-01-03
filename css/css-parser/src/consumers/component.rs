@@ -21,6 +21,10 @@ pub(crate) fn consume_component_value(css_parser: &mut CssParser) -> ComponentVa
             ComponentValue::SimpleBlock(consume_simple_block(css_parser))
         }
         CssTokenKind::Function(_) => ComponentValue::Function(consume_function(css_parser)),
+        CssTokenKind::Eof => ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Eof,
+            position: None,
+        }),
         _ => {
             let consumed_token = css_parser.consume();
 

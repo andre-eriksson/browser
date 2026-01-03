@@ -1,4 +1,5 @@
-use css_tokenizer::{CssToken, CssTokenKind};
+use css_tokenizer::{CssToken, CssTokenKind, SourcePosition};
+use errors::parsing::CssParsingError;
 
 use crate::{
     ComponentValue, CssParser, Declaration, DeclarationOrAtRule,
@@ -41,7 +42,8 @@ pub(crate) fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<De
                 }
             }
             _ => {
-                // Parse error, consume until semicolon or EOF
+                let pos = token.position.unwrap_or_default();
+                css_parser.record_error(CssParsingError::InvalidDeclarationStart(pos));
 
                 while let Some(token) = css_parser.peek() {
                     if matches!(token.kind, CssTokenKind::Eof | CssTokenKind::Semicolon) {
@@ -67,9 +69,17 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
     let name = match sub_parser.consume() {
         Some(token) => match token.kind {
             CssTokenKind::Ident(ref ident) => ident.clone(),
-            _ => return None,
+            _ => {
+                sub_parser.record_error(CssParsingError::InvalidDeclarationName(
+                    token.position.unwrap_or_default(),
+                ));
+                return None;
+            }
         },
-        _ => return None,
+        _ => {
+            sub_parser.record_error(CssParsingError::EofInDeclaration(SourcePosition::default()));
+            return None;
+        }
     };
 
     let mut declaration = Declaration::new(name);
@@ -80,10 +90,16 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
         sub_parser.peek().map(|t| &t.kind),
         Some(CssTokenKind::Colon)
     ) {
+        sub_parser.record_error(CssParsingError::MissingColonInDeclaration(
+            sub_parser
+                .peek()
+                .and_then(|t| t.position)
+                .unwrap_or_default(),
+        ));
         return None;
     }
-    sub_parser.consume();
 
+    sub_parser.consume();
     sub_parser.skip_whitespace();
 
     while !sub_parser.is_eof() {

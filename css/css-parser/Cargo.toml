@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 css-tokenizer.workspace = true
 errors.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

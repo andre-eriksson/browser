@@ -1,4 +1,5 @@
 use css_tokenizer::CssTokenKind;
+use errors::parsing::CssParsingError;
 
 use crate::{
     AssociatedToken, CssParser, SimpleBlock, consumers::component::consume_component_value,
@@ -22,11 +23,12 @@ pub(crate) fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
 
     let mut block = SimpleBlock::new(associated_token);
 
-    #[allow(clippy::while_let_loop)]
     loop {
         match css_parser.peek() {
             Some(token) => {
                 if token.kind == CssTokenKind::Eof {
+                    let pos = current.position.unwrap_or_default();
+                    css_parser.record_error(CssParsingError::EofInSimpleBlock(pos));
                     break;
                 }
 
@@ -38,10 +40,9 @@ pub(crate) fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
                 let component_value = consume_component_value(css_parser);
                 block.value.push(component_value);
             }
-
             None => {
-                // Parse error, but return the block
-                // TODO: Collect an error
+                let pos = current.position.unwrap_or_default();
+                css_parser.record_error(CssParsingError::IncompleteSimpleBlock(pos));
                 break;
             }
         }

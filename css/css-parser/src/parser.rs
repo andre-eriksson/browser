@@ -5,6 +5,9 @@
 use css_tokenizer::CssToken;
 use css_tokenizer::CssTokenKind;
 use css_tokenizer::CssTokenizer;
+use css_tokenizer::SourcePosition;
+use errors::parsing::CssParsingError;
+use tracing::debug;
 
 use crate::consumers::declaration::consume_list_of_declarations;
 use crate::consumers::rule::consume_list_of_rules;
@@ -20,8 +23,12 @@ use crate::stylesheet::{
 pub struct CssParser {
     /// The list of tokens to parse
     tokens: Vec<CssToken>,
+
     /// Current position in the token list
     pos: usize,
+
+    /// Collected parsing errors
+    errors: Vec<CssParsingError>,
 }
 
 impl CssParser {
@@ -29,6 +36,7 @@ impl CssParser {
         CssParser {
             tokens: tokens.unwrap_or_default(),
             pos: 0,
+            errors: Vec::new(),
         }
     }
 
@@ -41,7 +49,34 @@ impl CssParser {
 
         let rules = consume_list_of_rules(self, true);
 
+        self.errors.sort_by_key(Self::get_error_pos);
+
+        for error in &self.errors {
+            debug!("CSS Parsing Error: {}", error);
+        }
+
         Stylesheet { rules }
+    }
+
+    fn get_error_pos(error: &CssParsingError) -> SourcePosition {
+        match error {
+            CssParsingError::EofInAtRule(pos) => *pos,
+            CssParsingError::EofInFunction(pos) => *pos,
+            CssParsingError::IncompleteAtRule(pos) => *pos,
+            CssParsingError::IncompleteFunction(pos) => *pos,
+            CssParsingError::InvalidDeclarationStart(pos) => *pos,
+            CssParsingError::IncompleteSimpleBlock(pos) => *pos,
+            CssParsingError::IncompleteQualifiedRule(pos) => *pos,
+            CssParsingError::EofInSimpleBlock(pos) => *pos,
+            CssParsingError::EofInQualifiedRule(pos) => *pos,
+            CssParsingError::EofInDeclaration(pos) => *pos,
+            CssParsingError::InvalidDeclarationName(pos) => *pos,
+            CssParsingError::MissingColonInDeclaration(pos) => *pos,
+        }
+    }
+
+    pub fn record_error(&mut self, error: CssParsingError) {
+        self.errors.push(error);
     }
 
     pub(crate) fn parse_stylesheet_from_tokens(&mut self, tokens: Vec<CssToken>) -> Stylesheet {

@@ -1,7 +1,9 @@
+use std::fmt::Display;
+
 use thiserror::Error;
 
 /// Position in the source text for error reporting
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct SourcePosition {
     /// Line number
     pub line: usize,
@@ -24,7 +26,7 @@ impl SourcePosition {
     }
 }
 
-impl std::fmt::Display for SourcePosition {
+impl Display for SourcePosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "line {}, column {}", self.line, self.column)
     }
