@@ -6,6 +6,8 @@ members = [
     "cookies",
     "css/css-cssom",
     "css/css-parser",
+    "css/css-selectors",
+    "css/css-style",
     "css/css-tokenizer",
     "engine",
     "errors",
@@ -30,6 +32,8 @@ cookies = { path = "cookies" }
 css-cssom = { path = "css/css-cssom" }
 css-parser = { path = "css/css-parser" }
 css-tokenizer = { path = "css/css-tokenizer" }
+css-selectors = { path = "css/css-selectors" }
+css-style = { path = "css/css-style" }
 browser-core = { path = "browser-core" }
 errors = { path = "errors" }
 html-dom = { path = "html/html-dom" }
