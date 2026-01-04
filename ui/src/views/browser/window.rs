@@ -1,8 +1,8 @@
 use assets::{ASSETS, constants::WINDOW_ICON};
 use constants::APP_NAME;
 use iced::{
-    Background, Color, Length, Renderer, Size, Theme,
-    widget::{column, container},
+    Length, Renderer, Size, Theme,
+    widget::{Shader, column, container, shader},
     window::{Position, Settings},
 };
 
@@ -10,7 +10,9 @@ use crate::{
     api::window::ApplicationWindow,
     core::app::{Application, Event},
     util::image::load_icon,
-    views::browser::components::{footer::render_footer, header::render_header},
+    views::browser::components::{
+        footer::render_footer, header::render_header, shader::HtmlRenderer,
+    },
 };
 
 /// BrowserWindow is the "main" application window for the browser UI.
@@ -23,28 +25,15 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
         app: &'window Application,
     ) -> iced::Element<'window, Event, Theme, Renderer> {
         let header = render_header(app);
-        //let content = render_content(app);
         let footer = render_footer();
+        let shader: Shader<Event, HtmlRenderer> = shader(HtmlRenderer)
+            .width(Length::Fill)
+            .height(Length::Fill);
 
-        container(
-            column![
-                header,
-                //scrollable::Scrollable::new(content)
-                //    .direction(Direction::Vertical(Scrollbar::new()))
-                //    .height(Length::Fill),
-                footer,
-            ]
-            .spacing(10.0),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(10.0)
-        .style(|_| container::Style {
-            background: Some(Background::Color(Color::WHITE)),
-            text_color: Some(Color::BLACK),
-            ..Default::default()
-        })
-        .into()
+        container(column![header, shader, footer].spacing(10.0))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 
     fn settings(&self) -> iced::window::Settings {
