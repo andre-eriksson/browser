@@ -11,11 +11,15 @@ pub trait Emitter<T>: Send + Sync {
 /// Represents various events that can occur within the browser.
 #[derive(Debug, Clone)]
 pub enum BrowserEvent {
+    /// A new tab has been added.
     TabAdded(TabId),
+
+    /// A tab has been closed.
     TabClosed(TabId),
+
+    /// The active tab has changed.
     ActiveTabChanged(TabId),
 
-    // === Navigation ===
     /// Navigate to the specified URL.
     NavigateTo(String),
 

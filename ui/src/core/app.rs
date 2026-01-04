@@ -1,5 +1,3 @@
-use std::hash::{Hash, Hasher};
-use std::pin::Pin;
 use std::sync::Arc;
 
 use browser_core::browser::Browser;
@@ -9,14 +7,13 @@ use browser_core::events::BrowserEvent;
 use browser_core::tab::TabId;
 use errors::network::NetworkError;
 use iced::Subscription;
-use iced::futures::Stream;
-use iced::futures::stream::unfold;
 use iced::{Renderer, Task, Theme, window};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::error;
 
 use crate::api::window::WindowType;
+use crate::core::handle::{ReceiverHandle, create_browser_event_stream};
 use crate::core::tabs::UiTab;
 use crate::events::UiEvent;
 use crate::{
@@ -24,6 +21,7 @@ use crate::{
     views::{browser, devtools},
 };
 
+/// Represents the different types of events that can occur in the application.
 #[derive(Debug, Clone)]
 pub enum Event {
     None,
@@ -33,14 +31,25 @@ pub enum Event {
 
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {
+    /// The unique identifier for the application window.
     pub id: window::Id,
+
+    /// The list of tabs currently open in the application.
     pub tabs: Vec<UiTab>,
+
+    /// The identifier of the currently active tab.
     pub active_tab: TabId,
+
+    /// The current URL displayed in the address bar.
     pub current_url: String,
 
+    /// The window controller managing multiple windows.
     window_controller: WindowController<Event, Theme, iced::Renderer>,
 
+    /// The receiver for browser events.
     event_receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
+
+    /// The shared browser instance.
     browser: Arc<Mutex<Browser>>,
 }
 
@@ -78,7 +87,6 @@ impl Application {
         match event {
             Event::None => {}
 
-            // === UI Events ===
             Event::Ui(ui_event) => match ui_event {
                 UiEvent::NewWindow(window_type) => match window_type {
                     WindowType::Devtools => {
@@ -162,17 +170,14 @@ impl Application {
                 }
             },
 
-            // === Browser Events ===
             Event::Browser(browser_event) => match browser_event {
                 BrowserEvent::TabAdded(new_tab_id) => {
                     let new_tab = UiTab::new(new_tab_id);
                     self.tabs.push(new_tab);
                 }
-
                 BrowserEvent::TabClosed(tab_id) => {
                     self.tabs.retain(|tab| tab.id != tab_id);
                 }
-
                 BrowserEvent::ActiveTabChanged(tab_id) => {
                     self.active_tab = tab_id;
                 }
@@ -237,37 +242,4 @@ impl Application {
     pub fn theme(&self, _window_id: window::Id) -> Theme {
         Theme::CatppuccinMocha
     }
-}
-
-/// A hashable wrapper around the browser event receiver.
-/// The hash is based on a static ID since there's only one receiver.
-struct ReceiverHandle {
-    receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
-}
-
-impl ReceiverHandle {
-    fn new(receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>) -> Self {
-        Self { receiver }
-    }
-}
-
-impl Hash for ReceiverHandle {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        "browser-core-events".hash(state);
-    }
-}
-
-/// Creates a stream that receives browser events and converts them to UI events.
-fn create_browser_event_stream(
-    handle: &ReceiverHandle,
-) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
-    let receiver = handle.receiver.clone();
-    Box::pin(unfold(receiver, |receiver| async move {
-        let event = {
-            let mut lock = receiver.lock().await;
-            lock.recv().await
-        };
-
-        event.map(|browser_event| (Event::Browser(browser_event), receiver))
-    }))
 }
