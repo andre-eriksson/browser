@@ -15,11 +15,12 @@ constants.workspace = true
 telemetry.workspace = true
 
 # External dependencies
-iced = { version = "0.13.1", features = [
-    "multi-window",
+iced = { version = "0.14.0", features = [
+    "advanced",
     "tokio",
     "image",
     "svg",
+    "wgpu"
 ] }
 image = "0.25"
 tokio.workspace = true

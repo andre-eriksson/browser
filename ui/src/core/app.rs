@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+use std::pin::Pin;
 use std::sync::Arc;
 
 use browser_core::browser::Browser;
@@ -7,9 +9,8 @@ use browser_core::events::BrowserEvent;
 use browser_core::tab::TabId;
 use errors::network::NetworkError;
 use iced::Subscription;
-use iced::futures::SinkExt;
-
-use iced::stream;
+use iced::futures::Stream;
+use iced::futures::stream::unfold;
 use iced::{Renderer, Task, Theme, window};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -155,6 +156,7 @@ impl Application {
                         },
                     );
                 }
+
                 UiEvent::ChangeURL(url) => {
                     self.current_url = url;
                 }
@@ -213,37 +215,11 @@ impl Application {
 
     /// Returns the current subscriptions for the application.
     pub fn subscriptions(&self) -> iced::Subscription<Event> {
-        let reciever = self.event_receiver.clone();
+        let receiver = self.event_receiver.clone();
 
         Subscription::batch([
             window::close_events().map(|window_id| Event::Ui(UiEvent::CloseWindow(window_id))),
-            Subscription::run_with_id(
-                "browser-core-events",
-                stream::channel(100, move |mut output| {
-                    let reciever = reciever.clone();
-                    async move {
-                        loop {
-                            let event = {
-                                let mut lock = reciever.lock().await;
-                                lock.recv().await
-                            };
-
-                            match event {
-                                Some(browser_event) => {
-                                    if output.send(Event::Browser(browser_event)).await.is_err() {
-                                        break;
-                                    }
-                                }
-                                None => {
-                                    break;
-                                }
-                            }
-                        }
-
-                        std::future::pending().await
-                    }
-                }),
-            ),
+            Subscription::run_with(ReceiverHandle::new(receiver), create_browser_event_stream),
         ])
     }
 
@@ -256,4 +232,42 @@ impl Application {
     pub fn title(&self, window_id: window::Id) -> String {
         self.window_controller.title(window_id)
     }
+
+    /// Returns the theme for the application window.
+    pub fn theme(&self, _window_id: window::Id) -> Theme {
+        Theme::CatppuccinMocha
+    }
+}
+
+/// A hashable wrapper around the browser event receiver.
+/// The hash is based on a static ID since there's only one receiver.
+struct ReceiverHandle {
+    receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
+}
+
+impl ReceiverHandle {
+    fn new(receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>) -> Self {
+        Self { receiver }
+    }
+}
+
+impl Hash for ReceiverHandle {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        "browser-core-events".hash(state);
+    }
+}
+
+/// Creates a stream that receives browser events and converts them to UI events.
+fn create_browser_event_stream(
+    handle: &ReceiverHandle,
+) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
+    let receiver = handle.receiver.clone();
+    Box::pin(unfold(receiver, |receiver| async move {
+        let event = {
+            let mut lock = receiver.lock().await;
+            lock.recv().await
+        };
+
+        event.map(|browser_event| (Event::Browser(browser_event), receiver))
+    }))
 }
