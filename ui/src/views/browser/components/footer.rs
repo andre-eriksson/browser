@@ -14,7 +14,7 @@ pub fn render_footer<'window>() -> container::Container<'window, Event> {
             .on_press(Event::Ui(UiEvent::NewWindow(WindowType::Devtools)))
             .padding(10),
     )
-    .style(|_| container::background(Background::Color(Color::WHITE)))
+    .style(|_| container::background(Background::Color(Color::from_rgb8(49, 50, 68))))
     .padding(10.0)
     .width(Length::Fill)
     .height(Length::Shrink)

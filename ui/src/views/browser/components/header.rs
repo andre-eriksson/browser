@@ -1,6 +1,6 @@
 use browser_core::events::BrowserEvent;
 use iced::{
-    Background, Border, Color, Length,
+    Background, Color, Length,
     widget::{button, column, container, mouse_area, row, text, text_input},
 };
 
@@ -37,16 +37,8 @@ pub fn render_header(app: &Application) -> container::Container<'_, Event> {
     .width(Length::Shrink)
     .spacing(10.0);
 
-    let search_bar = text_input("Search", &app.current_url)
-        .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)))
-        .style(|_, _| text_input::Style {
-            background: Background::Color(Color::from_rgb(0.95, 0.95, 0.95)),
-            value: Color::BLACK,
-            placeholder: Color::from_rgb(0.7, 0.7, 0.7),
-            border: Border::default(),
-            selection: Color::from_rgb(0.2, 0.6, 1.0),
-            icon: Color::from_rgb(0.5, 0.5, 0.5),
-        });
+    let search_bar =
+        text_input("Search", &app.current_url).on_input(|text| Event::Ui(UiEvent::ChangeURL(text)));
 
     let search_field = row![
         search_bar,
@@ -58,9 +50,9 @@ pub fn render_header(app: &Application) -> container::Container<'_, Event> {
 
     container(column![tabs, search_field].spacing(6.0))
         .width(Length::Fill)
+        .padding(10.0)
         .style(|_| container::Style {
-            background: Some(Background::Color(Color::WHITE)),
-            text_color: Some(Color::BLACK),
+            background: Some(Background::Color(Color::from_rgb8(49, 50, 68))),
             ..Default::default()
         })
 }
