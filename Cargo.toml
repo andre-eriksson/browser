@@ -14,6 +14,7 @@ members = [
     "html/html-syntax",
     "html/html-tokenizer",
     "network",
+    "renderer",
     "storage",
     "ui",
     "utilities/constants",
@@ -36,6 +37,7 @@ html-parser = { path = "html/html-parser" }
 html-syntax = { path = "html/html-syntax" }
 html-tokenizer = { path = "html/html-tokenizer" }
 network = { path = "network" }
+renderer = { path = "renderer" }
 storage = { path = "storage" }
 ui = { path = "ui" }
 constants = { path = "utilities/constants" }
