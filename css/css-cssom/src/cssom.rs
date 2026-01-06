@@ -6,6 +6,19 @@ use css_parser::{CssParser, Stylesheet};
 
 use crate::rules::{css::CSSRule, style::CSSStyleRule};
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum StylesheetOrigin {
+    /// Styles defined by the user-agent (browser default styles)
+    UserAgent,
+
+    /// Styles defined by the author of the document
+    #[default]
+    Author,
+
+    /// Styles defined by the user, e.g., via browser settings
+    User,
+}
+
 /// A CSS Stylesheet as defined in CSS Syntax Module Level 3
 ///
 /// This represents the output of parsing a CSS stylesheet. It contains
@@ -16,14 +29,19 @@ use crate::rules::{css::CSSRule, style::CSSStyleRule};
 pub struct CSSStyleSheet {
     /// The list of CSS rules in this stylesheet
     rules: Vec<CSSRule>,
+
+    /// The origin of this stylesheet (user-agent, user, author)
+    origin: StylesheetOrigin,
 }
 
 impl CSSStyleSheet {
-    pub fn from_css(css: &str) -> Self {
+    pub fn from_css(css: &str, origin: StylesheetOrigin) -> Self {
         let mut parser = CssParser::default();
         let parsed = parser.parse_css(css);
 
-        Self::from(parsed)
+        let mut stylesheet = Self::from(parsed);
+        stylesheet.origin = origin;
+        stylesheet
     }
 
     /// Get the list of CSS rules
