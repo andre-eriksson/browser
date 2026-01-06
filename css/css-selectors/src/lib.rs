@@ -20,7 +20,7 @@ pub use parser::CaseSensitivity;
 pub use selector::{
     AttributeSelector, CompoundSelector, CompoundSelectorSequence, generate_compound_sequences,
 };
-pub use specificity::{Specificity, SpecificityCalculable};
+pub use specificity::{SelectorSpecificity, SpecificityCalculable};
 
 #[cfg(test)]
 #[allow(clippy::vec_init_then_push)]
@@ -31,6 +31,7 @@ mod tests {
     use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeData, NodeId};
     use html_syntax::tag::{HtmlTag, KnownTag};
 
+    use crate::{SelectorSpecificity, SpecificityCalculable};
     use crate::{matching::matches_compound, selector::generate_compound_sequences};
 
     macro_rules! generate_compound_token {
@@ -94,9 +95,13 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
 
         assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 1)
+        );
         assert_eq!(sequences[0].compound_selectors.len(), 1);
         assert_eq!(sequences[0].compound_selectors[0].tokens.len(), 1);
         assert_eq!(
@@ -111,7 +116,12 @@ mod tests {
     fn match_type_selector() {
         let components = generate_compound_token!(CssTokenKind::Ident("div".to_string()));
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -131,7 +141,12 @@ mod tests {
     fn no_match_type_selector() {
         let components = generate_compound_token!(CssTokenKind::Ident("span".to_string()));
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -154,7 +169,12 @@ mod tests {
             CssTokenKind::Ident("my-class".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -180,7 +200,12 @@ mod tests {
             CssTokenKind::Ident("my-class".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -206,7 +231,12 @@ mod tests {
             CssTokenKind::Ident("my-id".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(1, 0, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -232,7 +262,12 @@ mod tests {
             CssTokenKind::Ident("my-id".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(1, 0, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -259,7 +294,12 @@ mod tests {
             CssTokenKind::Ident("my-class".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 1)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -286,7 +326,12 @@ mod tests {
             CssTokenKind::Ident("my-class".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 1)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -315,7 +360,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -341,7 +395,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -367,7 +430,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -390,7 +462,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -413,7 +494,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -439,7 +529,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -465,7 +564,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -494,7 +602,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -520,7 +637,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -546,7 +672,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -578,7 +713,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -605,7 +745,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -634,7 +779,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -663,7 +813,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -693,7 +848,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -724,7 +884,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -755,7 +920,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -784,7 +954,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -813,7 +988,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -842,7 +1022,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -871,7 +1056,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -900,7 +1090,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -929,7 +1124,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -958,7 +1158,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -987,7 +1192,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -1016,7 +1226,12 @@ mod tests {
             ]
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -1039,7 +1254,12 @@ mod tests {
     fn universal_selector() {
         let components = generate_compound_token!(CssTokenKind::Delim('*'));
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 0, 0)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -1065,7 +1285,16 @@ mod tests {
             CssTokenKind::Ident("span".to_string())
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(0, 1, 1)
+        );
+        assert_eq!(
+            sequences[1].specificity(),
+            SelectorSpecificity::new(0, 0, 1)
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -1101,7 +1330,12 @@ mod tests {
             ],
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(1, 2, 1)
+        );
 
         let tree = DocumentRoot::new();
 
@@ -1138,7 +1372,12 @@ mod tests {
             ],
         );
 
-        let sequences = generate_compound_sequences(components);
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 1);
+        assert_eq!(
+            sequences[0].specificity(),
+            SelectorSpecificity::new(1, 2, 1)
+        );
 
         let tree = DocumentRoot::new();
 

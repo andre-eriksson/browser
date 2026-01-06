@@ -1,4 +1,7 @@
-use std::{cmp::Ordering, ops::Add};
+use std::{
+    cmp::Ordering,
+    ops::{Add, AddAssign},
+};
 
 use css_cssom::CssTokenKind;
 
@@ -11,7 +14,7 @@ use crate::selector::{CompoundSelector, CompoundSelectorSequence};
 /// - b: Number of class selectors, attributes selectors, and (TODO: pseudo-classes)
 /// - c: Number of element selectors and (TODO: pseudo-elements)
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Specificity(
+pub struct SelectorSpecificity(
     /// IDs
     pub u32,
     /// Classes, attributes, and (TODO: pseudo-classes)
@@ -20,19 +23,25 @@ pub struct Specificity(
     pub u32,
 );
 
-impl Specificity {
+impl SelectorSpecificity {
     pub fn new(a: u32, b: u32, c: u32) -> Self {
-        Specificity(a, b, c)
+        SelectorSpecificity(a, b, c)
     }
 }
 
-impl PartialOrd for Specificity {
+impl From<(u32, u32, u32)> for SelectorSpecificity {
+    fn from(value: (u32, u32, u32)) -> Self {
+        SelectorSpecificity(value.0, value.1, value.2)
+    }
+}
+
+impl PartialOrd for SelectorSpecificity {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Specificity {
+impl Ord for SelectorSpecificity {
     fn cmp(&self, other: &Self) -> Ordering {
         self.0
             .cmp(&other.0)
@@ -41,11 +50,19 @@ impl Ord for Specificity {
     }
 }
 
-impl Add for Specificity {
+impl Add for SelectorSpecificity {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
+    }
+}
+
+impl AddAssign for SelectorSpecificity {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+        self.1 += rhs.1;
+        self.2 += rhs.2;
     }
 }
 
@@ -55,12 +72,12 @@ pub trait SpecificityCalculable {
     ///
     /// # Returns
     /// The calculated specificity
-    fn specificity(&self) -> Specificity;
+    fn specificity(&self) -> SelectorSpecificity;
 }
 
 impl SpecificityCalculable for CompoundSelector {
-    fn specificity(&self) -> Specificity {
-        let mut specificity = Specificity::default();
+    fn specificity(&self) -> SelectorSpecificity {
+        let mut specificity = SelectorSpecificity::default();
 
         specificity.1 += self.attribute_selectors.len() as u32;
 
@@ -93,10 +110,10 @@ impl SpecificityCalculable for CompoundSelector {
 }
 
 impl SpecificityCalculable for CompoundSelectorSequence {
-    fn specificity(&self) -> Specificity {
+    fn specificity(&self) -> SelectorSpecificity {
         self.compound_selectors
             .iter()
             .map(|cs| cs.specificity())
-            .fold(Specificity::default(), |acc, sp| acc + sp)
+            .fold(SelectorSpecificity::default(), |acc, sp| acc + sp)
     }
 }
