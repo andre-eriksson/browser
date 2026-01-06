@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use css_style::tree::StyleTree;
+use css_style::StyleTree;
 use html_parser::{
     parser::HtmlStreamParser,
     state::{BlockedReason, ParserState},
