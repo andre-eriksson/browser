@@ -176,3 +176,18 @@ pub struct CssToken {
     pub kind: CssTokenKind,
     pub position: Option<SourcePosition>,
 }
+
+impl From<CssTokenKind> for CssToken {
+    fn from(kind: CssTokenKind) -> Self {
+        CssToken {
+            kind,
+            position: None,
+        }
+    }
+}
+
+impl Display for CssToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
