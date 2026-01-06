@@ -2,7 +2,8 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
-use css_cssom::CSSStyleSheet;
+use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use css_style::tree::StyleTree;
 use html_parser::{
     parser::HtmlStreamParser,
     state::{BlockedReason, ParserState},
@@ -31,8 +32,8 @@ pub struct Browser {
     emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
 
     http_client: Box<dyn HttpClient>,
-    cookie_jar: Arc<Mutex<CookieJar>>,
-    headers: Arc<HeaderMap>,
+    _cookie_jar: Arc<Mutex<CookieJar>>,
+    _headers: Arc<HeaderMap>,
 }
 
 impl Browser {
@@ -48,8 +49,8 @@ impl Browser {
             next_tab_id: 1,
             emitter,
             http_client,
-            cookie_jar,
-            headers,
+            _cookie_jar: cookie_jar,
+            _headers: headers,
         }
     }
 
@@ -65,14 +66,21 @@ impl Browser {
         }
     }
 
-    fn execute_script(&mut self, script: &str) {
-        debug!("Executing script: {}", script);
+    fn execute_script(&mut self, _script: &str) {
+        //debug!("Executing script: {}", script);
     }
 
     fn process_css(&mut self, css: &str) {
-        let stylesheet = CSSStyleSheet::from_css(css);
+        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author);
+        let current_tab = match self.tabs.get_mut(self.active_tab.0) {
+            Some(tab) => tab,
+            None => {
+                debug!("No active tab found for processing CSS.");
+                return;
+            }
+        };
 
-        println!("Parsed CSS Stylesheet: {:?}", stylesheet);
+        current_tab.add_stylesheet(stylesheet);
     }
 }
 
@@ -206,7 +214,14 @@ impl Commandable for Browser {
                     .iter_mut()
                     .find(|t| t.id == tab_id)
                     .ok_or_else(|| format!("Tab with ID {:?} does not exist", tab_id))?;
+
+                let style_tree = StyleTree::build(&parser_result.dom_tree, &tab.stylesheets);
                 tab.document = Some(parser_result.dom_tree);
+
+                println!(
+                    "Computed Style Tree for Tab {:?}:\n{:#?}",
+                    tab_id, style_tree
+                );
 
                 let metadata = TabMetadata {
                     tab_id,

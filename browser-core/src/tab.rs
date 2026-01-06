@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use css_cssom::CSSStyleSheet;
 use html_syntax::{
     collector::{Collector, TagInfo},
     dom::DocumentRoot,
@@ -67,6 +68,7 @@ pub struct Tab {
     pub id: TabId,
     pub current_url: Option<Url>,
     pub document: Option<DocumentRoot>,
+    pub stylesheets: Vec<CSSStyleSheet>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +83,11 @@ impl Tab {
             id,
             current_url: url,
             document: None,
+            stylesheets: Vec::new(),
         }
+    }
+
+    pub fn add_stylesheet(&mut self, stylesheet: CSSStyleSheet) {
+        self.stylesheets.push(stylesheet);
     }
 }

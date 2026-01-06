@@ -1,15 +1,22 @@
-use crate::types::{
-    border::Border,
-    color::{Color, NamedColor},
-    display::{Display, InsideDisplay, OutsideDisplay},
-    font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, GenericName},
-    height::Height,
-    line_height::LineHeight,
-    margin::Margin,
-    padding::Padding,
-    position::Position,
-    text_align::TextAlign,
-    width::Width,
+use css_cssom::CSSStyleSheet;
+use html_dom::{DocumentRoot, NodeId};
+
+use crate::{
+    cascade::{cascade, collect_declarations},
+    resolver::PropertyResolver,
+    types::{
+        border::Border,
+        color::{Color, NamedColor},
+        display::{Display, InsideDisplay, OutsideDisplay},
+        font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, GenericName},
+        height::Height,
+        line_height::LineHeight,
+        margin::Margin,
+        padding::Padding,
+        position::Position,
+        text_align::TextAlign,
+        width::Width,
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -27,6 +34,94 @@ pub struct ComputedStyle {
     pub position: Position,
     pub text_align: TextAlign,
     pub width: Width,
+}
+
+impl ComputedStyle {
+    pub fn from_node(node_id: &NodeId, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
+        let mut computed_style = ComputedStyle::default();
+
+        let node = match dom.get_node(node_id) {
+            Some(n) => n,
+            None => return computed_style,
+        };
+
+        let delcarations = &mut collect_declarations(node, dom, stylesheets);
+        let properties = cascade(delcarations);
+
+        for (key, value) in properties {
+            let v = value.as_str();
+            match key.as_str() {
+                "background-color" => {
+                    if let Some(color) = PropertyResolver::resolve_color(v) {
+                        computed_style.background_color = color;
+                    }
+                }
+                "border" => {
+                    if let Some(border) = PropertyResolver::resolve_border(v) {
+                        computed_style.border = border;
+                    }
+                }
+                "color" => {
+                    if let Some(color) = PropertyResolver::resolve_color(v) {
+                        computed_style.color = color;
+                    }
+                }
+                "display" => {
+                    if let Some(display) = PropertyResolver::resolve_display(v) {
+                        computed_style.display = display;
+                    }
+                }
+                "font-family" => {
+                    if let Some(font_family) = PropertyResolver::resolve_font_family(v) {
+                        computed_style.font_family = font_family;
+                    }
+                }
+                "font-size" => {
+                    if let Some(font_size) = PropertyResolver::resolve_font_size(v) {
+                        computed_style.font_size = font_size;
+                    }
+                }
+                "height" => {
+                    if let Some(height) = PropertyResolver::resolve_height(v) {
+                        computed_style.height = height;
+                    }
+                }
+                "line-height" => {
+                    if let Some(line_height) = PropertyResolver::resolve_line_height(v) {
+                        computed_style.line_height = line_height;
+                    }
+                }
+                "margin" => {
+                    if let Some(margin) = PropertyResolver::resolve_margin(v) {
+                        computed_style.margin = margin;
+                    }
+                }
+                "padding" => {
+                    if let Some(padding) = PropertyResolver::resolve_padding(v) {
+                        computed_style.padding = padding;
+                    }
+                }
+                "position" => {
+                    if let Some(position) = PropertyResolver::resolve_position(v) {
+                        computed_style.position = position;
+                    }
+                }
+                "text-align" => {
+                    if let Some(text_align) = PropertyResolver::resolve_text_align(v) {
+                        computed_style.text_align = text_align;
+                    }
+                }
+                "width" => {
+                    if let Some(width) = PropertyResolver::resolve_width(v) {
+                        computed_style.width = width;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        computed_style
+    }
 }
 
 impl Default for ComputedStyle {
