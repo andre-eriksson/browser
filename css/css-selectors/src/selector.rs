@@ -295,22 +295,24 @@ mod tests {
         tag::{HtmlTag, KnownTag},
     };
 
+    /// Helper macro to generate CSS tokens for testing
+    macro_rules! generate_selector_tokens {
+        ( $($kind:expr),* ) => {
+            { vec![ $(CssToken {
+                    kind: $kind,
+                    position: None,
+                }),* ]
+            }
+        };
+    }
+
     #[test]
     fn generate_sequences_test() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('>'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('>'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let sequences = generate_sequences(selector_tokens);
 
@@ -323,10 +325,7 @@ mod tests {
 
     #[test]
     fn test_matches_type_selector() {
-        let selector_tokens = vec![CssToken {
-            kind: CssTokenKind::Ident("div".to_string()),
-            position: None,
-        }];
+        let selector_tokens = generate_selector_tokens!(CssTokenKind::Ident("div".to_string()));
 
         let tree = DocumentRoot::new();
 
@@ -347,10 +346,7 @@ mod tests {
 
     #[test]
     fn test_matches_fail_type_selector() {
-        let selector_tokens = vec![CssToken {
-            kind: CssTokenKind::Ident("div".to_string()),
-            position: None,
-        }];
+        let selector_tokens = generate_selector_tokens!(CssTokenKind::Ident("div".to_string()));
 
         let tree = DocumentRoot::new();
 
@@ -371,16 +367,10 @@ mod tests {
 
     #[test]
     fn test_matches_id_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Delim('#'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-id".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Delim('#'),
+            CssTokenKind::Ident("test-id".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -403,16 +393,10 @@ mod tests {
 
     #[test]
     fn test_matches_fail_id_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Delim('#'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-id".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Delim('#'),
+            CssTokenKind::Ident("test-id".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -435,16 +419,10 @@ mod tests {
 
     #[test]
     fn test_matches_class_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-class".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("test-class".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -467,16 +445,10 @@ mod tests {
 
     #[test]
     fn test_matches_fail_class_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-class".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("test-class".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -499,20 +471,11 @@ mod tests {
 
     #[test]
     fn test_matches_type_and_id_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('#'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-id".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('#'),
+            CssTokenKind::Ident("test-id".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -535,20 +498,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_type_and_id_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('#'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-id".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('#'),
+            CssTokenKind::Ident("test-id".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -570,20 +524,11 @@ mod tests {
 
     #[test]
     fn test_matches_type_and_class_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-class".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("test-class".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -606,20 +551,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_type_and_class_selector() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("test-class".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("test-class".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -640,24 +576,12 @@ mod tests {
 
     #[test]
     fn test_matches_multiple_class_selectors() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("class-one".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("class-two".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("class-one".to_string()),
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("class-two".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -683,24 +607,12 @@ mod tests {
 
     #[test]
     fn test_matches_fail_multiple_class_selectors() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("class-one".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('.'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("class-two".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("class-one".to_string()),
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("class-two".to_string())
+        );
 
         let tree = DocumentRoot::new();
 
@@ -721,20 +633,11 @@ mod tests {
 
     #[test]
     fn test_matches_child_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('>'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('>'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -753,20 +656,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_child_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('>'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('>'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -785,20 +679,11 @@ mod tests {
 
     #[test]
     fn test_matches_descendant_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Whitespace,
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Whitespace,
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -822,20 +707,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_descendant_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Whitespace,
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Whitespace,
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
 
@@ -859,20 +735,11 @@ mod tests {
 
     #[test]
     fn test_matches_adjacent_sibling_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('+'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('+'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
         let parent_node_data = NodeData::Element(Element::new(
@@ -895,20 +762,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_adjacent_sibling_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('+'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('+'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
         let parent_node_data = NodeData::Element(Element::new(
@@ -931,20 +789,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_multiple_adjacent_sibling_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('+'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('+'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
         let parent_node_data = NodeData::Element(Element::new(
@@ -974,20 +823,11 @@ mod tests {
 
     #[test]
     fn test_matches_general_sibling_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('~'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('~'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
         let parent_node_data = NodeData::Element(Element::new(
@@ -1012,20 +852,11 @@ mod tests {
 
     #[test]
     fn test_matches_fail_general_sibling_combinator() {
-        let selector_tokens = vec![
-            CssToken {
-                kind: CssTokenKind::Ident("div".to_string()),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Delim('~'),
-                position: None,
-            },
-            CssToken {
-                kind: CssTokenKind::Ident("p".to_string()),
-                position: None,
-            },
-        ];
+        let selector_tokens = generate_selector_tokens!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Delim('~'),
+            CssTokenKind::Ident("p".to_string())
+        );
 
         let mut tree = DocumentRoot::new();
         let parent_node_data = NodeData::Element(Element::new(
