@@ -21,14 +21,17 @@ impl StyleTree {
             node_id: NodeId,
             dom: &DocumentRoot,
             stylesheets: &[CSSStyleSheet],
+            parent_style: Option<&ComputedStyle>,
         ) -> StyledNode {
-            let computed_style = ComputedStyle::from_node(&node_id, dom, stylesheets);
+            let computed_style = ComputedStyle::from_node(&node_id, dom, stylesheets, parent_style);
 
             let node = dom.get_node(&node_id).unwrap();
             let children = node
                 .children
                 .iter()
-                .map(|&child_id| build_styled_node(child_id, dom, stylesheets))
+                .map(|&child_id| {
+                    build_styled_node(child_id, dom, stylesheets, Some(&computed_style))
+                })
                 .collect();
 
             StyledNode {
@@ -41,7 +44,7 @@ impl StyleTree {
         let root_nodes = dom
             .root_nodes
             .iter()
-            .map(|&root_id| build_styled_node(root_id, dom, stylesheets))
+            .map(|&root_id| build_styled_node(root_id, dom, stylesheets, None))
             .collect();
 
         StyleTree { root_nodes }

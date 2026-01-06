@@ -37,8 +37,23 @@ pub struct ComputedStyle {
 }
 
 impl ComputedStyle {
-    pub fn from_node(node_id: &NodeId, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
-        let mut computed_style = ComputedStyle::default();
+    /// Computes the ComputedStyle for a given node in the DOM.
+    ///
+    /// # Arguments
+    /// * `node_id` - The NodeId of the DOM node to compute the style for.
+    /// * `dom` - The DocumentRoot representing the DOM tree.
+    /// * `stylesheets` - A slice of CSSStyleSheet references to apply styles from.
+    /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
+    pub fn from_node(
+        node_id: &NodeId,
+        dom: &DocumentRoot,
+        stylesheets: &[CSSStyleSheet],
+        parent_style: Option<&ComputedStyle>,
+    ) -> Self {
+        let mut computed_style = match parent_style {
+            Some(style) => style.inherited_subset(),
+            None => ComputedStyle::default(),
+        };
 
         let node = match dom.get_node(node_id) {
             Some(n) => n,
@@ -121,6 +136,18 @@ impl ComputedStyle {
         }
 
         computed_style
+    }
+
+    /// Returns a subset of the ComputedStyle containing only inherited properties.
+    pub fn inherited_subset(&self) -> Self {
+        ComputedStyle {
+            color: self.color.clone(),
+            font_family: self.font_family.clone(),
+            font_size: self.font_size.clone(),
+            line_height: self.line_height.clone(),
+            text_align: self.text_align.clone(),
+            ..ComputedStyle::default()
+        }
     }
 }
 

@@ -9,9 +9,6 @@ mod cascade;
 /// The computed styles for HTML elements.
 mod computed;
 
-/// Handles CSS inheritance rules for properties.
-mod inheritance;
-
 /// Resolves CSS property values from strings to usable types.
 mod resolver;
 
