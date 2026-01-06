@@ -87,6 +87,17 @@ impl ComponentValue {
             }
         }
     }
+
+    /// Check if this component value is a whitespace token
+    ///
+    /// # Returns
+    /// True if it is a whitespace token, false otherwise
+    pub fn is_whitespace(&self) -> bool {
+        match self {
+            ComponentValue::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
+            _ => false,
+        }
+    }
 }
 
 /// A CSS function (name followed by parentheses with content)

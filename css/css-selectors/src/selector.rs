@@ -48,16 +48,26 @@ pub struct CompoundSelectorSequence {
 ///
 /// # Returns
 /// * `Vec<CompoundSelectorSequence>` - A vector of compound selector sequences
-pub fn generate_compound_sequences(
-    components: Vec<ComponentValue>,
-) -> Vec<CompoundSelectorSequence> {
+pub fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<CompoundSelectorSequence> {
     let mut sequences: Vec<CompoundSelectorSequence> = Vec::new();
     let mut current_sequence = CompoundSelectorSequence {
         compound_selectors: Vec::new(),
         combinator: None,
     };
 
-    for component in components.iter() {
+    let start = components
+        .iter()
+        .position(|cv| !cv.is_whitespace())
+        .unwrap_or(components.len());
+    let end = components
+        .iter()
+        .rposition(|cv| !cv.is_whitespace())
+        .map(|idx| idx + 1)
+        .unwrap_or(0);
+
+    let trimmed_components = &components[start..end];
+
+    for component in trimmed_components.iter() {
         match component {
             ComponentValue::SimpleBlock(block) => {
                 if block.associated_token == AssociatedToken::SquareBracket {
