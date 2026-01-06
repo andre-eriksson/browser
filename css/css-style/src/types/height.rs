@@ -1,9 +1,10 @@
 use crate::types::{global::Global, length::Length};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum Height {
     Percentage(f32),
     Length(Length),
+    #[default]
     Auto,
     MaxContent,
     MinContent,

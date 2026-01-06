@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LengthUnit {
     // Relative length units based on font
     Cap,
@@ -50,6 +50,7 @@ pub enum LengthUnit {
     Cqmax,
 
     // Absolute length units
+    #[default]
     Px,
     Cm,
     Mm,
@@ -63,4 +64,61 @@ pub enum LengthUnit {
 pub struct Length {
     pub value: f32,
     pub unit: LengthUnit,
+}
+
+impl Length {
+    pub fn new(value: f32, unit: LengthUnit) -> Self {
+        Self { value, unit }
+    }
+}
+
+impl From<&str> for LengthUnit {
+    fn from(s: &str) -> Self {
+        match s {
+            "cap" => LengthUnit::Cap,
+            "ch" => LengthUnit::Ch,
+            "em" => LengthUnit::Em,
+            "ex" => LengthUnit::Ex,
+            "ic" => LengthUnit::Ic,
+            "lh" => LengthUnit::Lh,
+            "rcap" => LengthUnit::Rcap,
+            "rch" => LengthUnit::Rch,
+            "rem" => LengthUnit::Rem,
+            "rex" => LengthUnit::Rex,
+            "ric" => LengthUnit::Ric,
+            "rlh" => LengthUnit::Rlh,
+            "svh" => LengthUnit::Svh,
+            "svw" => LengthUnit::Svw,
+            "svmax" => LengthUnit::Svmax,
+            "svmin" => LengthUnit::Svmin,
+            "svb" => LengthUnit::Svb,
+            "svi" => LengthUnit::Svi,
+            "lvh" => LengthUnit::Lvh,
+            "lvw" => LengthUnit::Lvw,
+            "lvmax" => LengthUnit::Lvmax,
+            "lvmin" => LengthUnit::Lvmin,
+            "lvb" => LengthUnit::Lvb,
+            "lvi" => LengthUnit::Lvi,
+            "dvh" => LengthUnit::Dvh,
+            "dvw" => LengthUnit::Dvw,
+            "dvmax" => LengthUnit::Dvmax,
+            "dvmin" => LengthUnit::Dvmin,
+            "dvb" => LengthUnit::Dvb,
+            "dvi" => LengthUnit::Dvi,
+            "cqw" => LengthUnit::Cqw,
+            "cqh" => LengthUnit::Cqh,
+            "cqi" => LengthUnit::Cqi,
+            "cqb" => LengthUnit::Cqb,
+            "cqmin" => LengthUnit::Cqmin,
+            "cqmax" => LengthUnit::Cqmax,
+            "px" => LengthUnit::Px,
+            "cm" => LengthUnit::Cm,
+            "mm" => LengthUnit::Mm,
+            "q" => LengthUnit::Q,
+            "in" => LengthUnit::In,
+            "pc" => LengthUnit::Pc,
+            "pt" => LengthUnit::Pt,
+            _ => LengthUnit::Px,
+        }
+    }
 }

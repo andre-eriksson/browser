@@ -86,6 +86,24 @@ pub enum BorderStyleValue {
     Global(Global),
 }
 
+impl BorderStyleValue {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "none" => Some(BorderStyleValue::None),
+            "hidden" => Some(BorderStyleValue::Hidden),
+            "dotted" => Some(BorderStyleValue::Dotted),
+            "dashed" => Some(BorderStyleValue::Dashed),
+            "solid" => Some(BorderStyleValue::Solid),
+            "double" => Some(BorderStyleValue::Double),
+            "groove" => Some(BorderStyleValue::Groove),
+            "ridge" => Some(BorderStyleValue::Ridge),
+            "inset" => Some(BorderStyleValue::Inset),
+            "outset" => Some(BorderStyleValue::Outset),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct BorderStyle {
     pub top: BorderStyleValue,
