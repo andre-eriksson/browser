@@ -41,19 +41,10 @@ pub enum BoxDisplay {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum LegacyDisplay {
-    InlineBlock, // inline flow-root
-    InlineTable, // inline table
-    InlineFlex,  // inline flex
-    InlineGrid,  // inline grid
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Display {
     pub outside: Option<OutsideDisplay>,
     pub inside: Option<InsideDisplay>,
     pub internal: Option<InternalDisplay>,
     pub box_display: Option<BoxDisplay>,
-    pub legacy: Option<LegacyDisplay>,
     pub global: Option<Global>,
 }

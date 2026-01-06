@@ -40,7 +40,6 @@ impl Default for ComputedStyle {
                 inside: Some(InsideDisplay::Flow),
                 internal: None,
                 box_display: None,
-                legacy: None,
                 global: None,
             },
             font_family: FontFamily {
