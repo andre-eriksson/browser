@@ -1,4 +1,7 @@
-use crate::types::{global::Global, length::Length};
+use crate::types::{
+    global::Global,
+    length::{Length, LengthUnit},
+};
 
 #[derive(Clone, Debug)]
 pub enum PaddingValue {
@@ -29,6 +32,13 @@ impl Padding {
             bottom,
             left,
         }
+    }
+
+    pub fn zero() -> Self {
+        Self::all(PaddingValue::Length(Length {
+            value: 0.0,
+            unit: LengthUnit::Px,
+        }))
     }
 
     /// Set all paddings to the same value

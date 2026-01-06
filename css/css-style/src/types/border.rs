@@ -1,4 +1,8 @@
-use crate::types::{color::Color, global::Global, length::Length};
+use crate::types::{
+    color::{Color, NamedColor},
+    global::Global,
+    length::Length,
+};
 
 #[derive(Debug, Clone)]
 pub enum BorderWidthValue {
@@ -209,4 +213,14 @@ pub struct Border {
     pub width: BorderWidth,
     pub style: BorderStyle,
     pub color: BorderColor,
+}
+
+impl Border {
+    pub fn none() -> Self {
+        Border {
+            width: BorderWidth::all(BorderWidthValue::Medium),
+            style: BorderStyle::all(BorderStyleValue::None),
+            color: BorderColor::all(BorderColorValue::Color(Color::Named(NamedColor::Black))),
+        }
+    }
 }

@@ -1,8 +1,8 @@
 use crate::types::{
     border::Border,
-    color::Color,
-    display::Display,
-    font::{FontFamily, FontSize},
+    color::{Color, NamedColor},
+    display::{Display, InsideDisplay, OutsideDisplay},
+    font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, GenericName},
     height::Height,
     line_height::LineHeight,
     margin::Margin,
@@ -27,4 +27,33 @@ pub struct ComputedStyle {
     pub position: Position,
     pub text_align: TextAlign,
     pub width: Width,
+}
+
+impl Default for ComputedStyle {
+    fn default() -> Self {
+        ComputedStyle {
+            background_color: Color::Named(NamedColor::Transparent),
+            border: Border::none(),
+            color: Color::Named(NamedColor::Black),
+            display: Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::Flow),
+                internal: None,
+                box_display: None,
+                legacy: None,
+                global: None,
+            },
+            font_family: FontFamily {
+                names: vec![FontFamilyName::Generic(GenericName::Serif)],
+            },
+            font_size: FontSize::Absolute(AbsoluteSize::Medium),
+            height: Height::Auto,
+            line_height: LineHeight::Normal,
+            margin: Margin::zero(),
+            padding: Padding::zero(),
+            position: Position::Static,
+            text_align: TextAlign::Left,
+            width: Width::Auto,
+        }
+    }
 }

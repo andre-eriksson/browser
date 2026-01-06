@@ -1,4 +1,7 @@
-use crate::types::{global::Global, length::Length};
+use crate::types::{
+    global::Global,
+    length::{Length, LengthUnit},
+};
 
 #[derive(Clone, Debug)]
 pub enum MarginValue {
@@ -29,6 +32,13 @@ impl Margin {
             bottom,
             left,
         }
+    }
+
+    pub fn zero() -> Self {
+        Self::all(MarginValue::Length(Length {
+            value: 0.0,
+            unit: LengthUnit::Px,
+        }))
     }
 
     /// Set all margins to the same value
