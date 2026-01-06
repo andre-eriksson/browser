@@ -191,8 +191,8 @@ mod tests {
     #[test]
     fn test_parse_font_face() {
         let mut parser = CssParser::default();
-        let parsed = parser
-            .parse_css("@font-face { font-family: 'MyFont'; src: url('font.woff2'); }");
+        let parsed =
+            parser.parse_css("@font-face { font-family: 'MyFont'; src: url('font.woff2'); }");
         let stylesheet = CSSStyleSheet::from(parsed);
 
         if let CSSRule::AtRule(at_rule) = &stylesheet.css_rules()[0] {

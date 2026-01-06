@@ -1,6 +1,26 @@
-pub mod matching;
-pub mod parser;
-pub mod selector;
+//! CSS Selectors Module
+//!
+//! This module provides functionality for parsing, matching, and calculating specificity of CSS selectors.
+
+/// A module for matching CSS selectors against DOM nodes
+mod matching;
+
+/// A module for parsing CSS selectors
+mod parser;
+
+/// A module for CSS selector structures and generation
+mod selector;
+
+/// A module for calculating the specificity of CSS selectors
+mod specificity;
+
+// Re-export main types for convenience
+pub use matching::{AttributeOperator, Combinator, matches_compound};
+pub use parser::CaseSensitivity;
+pub use selector::{
+    AttributeSelector, CompoundSelector, CompoundSelectorSequence, generate_compound_sequences,
+};
+pub use specificity::{Specificity, SpecificityCalculable};
 
 #[cfg(test)]
 #[allow(clippy::vec_init_then_push)]
