@@ -22,6 +22,12 @@ pub enum AssetType {
 
     /// Represents an image asset, default path would be `"image/{name}"`.
     Image(&'static str),
+
+    /// Represents a shader asset, default path would be `"shader/{name}"`.
+    Shader(&'static str),
+
+    /// Represents a browser asset (e.g., defaults used by the browser), default path would be `"browser/{name}"`.
+    Browser(&'static str),
 }
 
 /// AssetManager is responsible for managing and loading assets from various backends.
@@ -57,6 +63,16 @@ impl AssetManager {
         }
     }
 
+    fn match_asset(&self, asset: &AssetType) -> String {
+        match asset {
+            AssetType::Icon(name) => format!("icon/{}", name),
+            AssetType::Font(name) => format!("font/{}", name),
+            AssetType::Image(name) => format!("image/{}", name),
+            AssetType::Shader(name) => format!("shader/{}", name),
+            AssetType::Browser(name) => format!("browser/{}", name),
+        }
+    }
+
     /// Loads an asset, testing the suppplied backends in order until the asset is found.
     /// If an asset is found it is stored in a in-memory cache.
     ///
@@ -67,11 +83,7 @@ impl AssetManager {
     /// A `Result<Vec<u8>, AssetError>` representing the asset data or an error message.
     #[instrument(skip(self), fields(asset = ?asset))]
     pub fn load(&mut self, asset: AssetType) -> Result<Vec<u8>, AssetError> {
-        let key = match asset {
-            AssetType::Icon(name) => format!("icon/{}", name),
-            AssetType::Font(name) => format!("font/{}", name),
-            AssetType::Image(name) => format!("image/{}", name),
-        };
+        let key = self.match_asset(&asset);
 
         trace!({ EVENT } = EVENT_LOAD_ASSET);
 
@@ -110,11 +122,7 @@ impl AssetManager {
     /// If the asset cannot be found in the embedded backend.
     #[instrument(skip(self), fields(asset = ?asset))]
     pub fn load_embedded(&self, asset: AssetType) -> Vec<u8> {
-        let key = match asset {
-            AssetType::Icon(name) => format!("icon/{}", name),
-            AssetType::Font(name) => format!("font/{}", name),
-            AssetType::Image(name) => format!("image/{}", name),
-        };
+        let key = self.match_asset(&asset);
 
         trace!({ EVENT } = EVENT_LOAD_ASSET);
 

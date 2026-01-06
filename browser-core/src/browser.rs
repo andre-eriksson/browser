@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
@@ -43,9 +44,20 @@ impl Browser {
         cookie_jar: Arc<Mutex<CookieJar>>,
         headers: Arc<HeaderMap>,
     ) -> Self {
+        let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
+
+        // TODO: Load the CSSStyleSheet from cache before parsing it again
+        let stylesheet = CSSStyleSheet::from_css(
+            std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+            StylesheetOrigin::UserAgent,
+        );
+
+        let mut first_tab = Tab::new(TabId(0), None);
+        first_tab.add_stylesheet(stylesheet);
+
         Browser {
-            active_tab: TabId(0),
-            tabs: vec![Tab::new(TabId(0), None)],
+            active_tab: first_tab.id,
+            tabs: vec![first_tab],
             next_tab_id: 1,
             emitter,
             http_client,
