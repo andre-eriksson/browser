@@ -4,3 +4,5 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+html-syntax.workspace = true
+css-cssom.workspace = true
