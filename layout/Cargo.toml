@@ -1,0 +1,9 @@
+[package]
+name = "layout"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+css-style.workspace = true
+html-syntax.workspace = true
+cosmic-text = "0.15.0"
