@@ -222,39 +222,46 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
         let current_token = &simple_selectors[i];
         let next_token = simple_selectors.get(i + 1);
 
-        if let CssTokenKind::Ident(ident) = &current_token.kind {
-            let prev = previous_token.map(|t| &t.kind);
-            let next = next_token.map(|t| &t.kind);
+        match &current_token.kind {
+            CssTokenKind::Ident(ident) => {
+                let prev = previous_token.map(|t| &t.kind);
+                let next = next_token.map(|t| &t.kind);
 
-            if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
-                match next {
-                    None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
-                        if element.tag_name().to_string().to_lowercase() != ident.to_lowercase()
-                            && ident != "*"
-                        {
-                            return false;
+                if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
+                    match next {
+                        None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
+                            if element.tag_name().to_string().to_lowercase() != ident.to_lowercase()
+                                && ident != "*"
+                            {
+                                return false;
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
-                }
-            } else if let Some(CssTokenKind::Delim(delim)) = prev {
-                match delim {
-                    '.' => {
-                        if !element
-                            .classes()
-                            .any(|class| class.eq_ignore_ascii_case(ident))
-                        {
-                            return false;
+                } else if let Some(CssTokenKind::Delim(delim)) = prev {
+                    match delim {
+                        '.' => {
+                            if !element
+                                .classes()
+                                .any(|class| class.eq_ignore_ascii_case(ident))
+                            {
+                                return false;
+                            }
                         }
-                    }
-                    '#' => {
-                        if !element.id().is_none_or(|id| id.eq_ignore_ascii_case(ident)) {
-                            return false;
+                        '#' => {
+                            if !element.id().is_none_or(|id| id.eq_ignore_ascii_case(ident)) {
+                                return false;
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
+                } else if let Some(CssTokenKind::Colon) = prev {
+                    return false;
                 }
             }
+            CssTokenKind::Comma => return true,
+            CssTokenKind::Colon => return false, // TODO: Handle pseudo-classes and pseudo-elements
+            _ => return false,                   // TODO: Handle other simple selectors
         }
     }
 
