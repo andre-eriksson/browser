@@ -44,6 +44,10 @@ impl CSSStyleSheet {
         stylesheet
     }
 
+    pub fn origin(&self) -> StylesheetOrigin {
+        self.origin
+    }
+
     /// Get the list of CSS rules
     pub fn css_rules(&self) -> &[CSSRule] {
         &self.rules
