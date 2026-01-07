@@ -57,6 +57,7 @@ pub struct CascadedDeclaration {
     pub important: bool,
     pub specificity: CascadeSpecificity,
     pub source_order: usize,
+    pub origin: StylesheetOrigin,
 }
 
 impl CascadedDeclaration {
@@ -67,6 +68,7 @@ impl CascadedDeclaration {
             important: decl.important,
             specificity: CascadeSpecificity::inline(),
             source_order: order,
+            origin: StylesheetOrigin::Author,
         }
     }
 }
@@ -96,14 +98,19 @@ pub fn collect_declarations(
                     .unwrap_or_default();
 
                 for decl in rule.declarations() {
-                    declarations.push(CascadedDeclaration {
-                        property: decl.name.clone(),
-                        value: decl.value.clone(),
-                        important: decl.important,
-                        specificity: CascadeSpecificity::from(specificity),
-                        source_order,
-                    });
-                    source_order += 1;
+                    let expanded = expand_shorthand_property(&decl.name, &decl.value);
+
+                    for (property, value) in expanded {
+                        declarations.push(CascadedDeclaration {
+                            property,
+                            value,
+                            important: decl.important,
+                            specificity: CascadeSpecificity::from(specificity),
+                            source_order,
+                            origin: stylesheet.origin(),
+                        });
+                        source_order += 1;
+                    }
                 }
             }
         }
@@ -123,13 +130,73 @@ pub fn collect_declarations(
     declarations
 }
 
-pub fn cascade(declarations: &mut [CascadedDeclaration]) -> HashMap<String, String> {
+fn sort_declarations(declarations: &mut [CascadedDeclaration]) {
     declarations.sort_by(|a, b| {
-        a.important
-            .cmp(&b.important)
-            .then(a.specificity.cmp(&b.specificity))
-            .then(a.source_order.cmp(&b.source_order))
+        b.important
+            .cmp(&a.important)
+            .then_with(|| {
+                let origin_order_a = match a.origin {
+                    StylesheetOrigin::UserAgent => {
+                        if a.important {
+                            6
+                        } else {
+                            1
+                        }
+                    }
+                    StylesheetOrigin::User => {
+                        if a.important {
+                            5
+                        } else {
+                            2
+                        }
+                    }
+                    StylesheetOrigin::Author => {
+                        if a.important {
+                            4
+                        } else {
+                            3
+                        }
+                    }
+                };
+                let origin_order_b = match b.origin {
+                    StylesheetOrigin::UserAgent => {
+                        if b.important {
+                            6
+                        } else {
+                            1
+                        }
+                    }
+                    StylesheetOrigin::User => {
+                        if b.important {
+                            5
+                        } else {
+                            2
+                        }
+                    }
+                    StylesheetOrigin::Author => {
+                        if b.important {
+                            4
+                        } else {
+                            3
+                        }
+                    }
+                };
+                origin_order_b.cmp(&origin_order_a)
+            })
+            .then_with(|| b.specificity.cmp(&a.specificity))
+            .then_with(|| b.source_order.cmp(&a.source_order))
     });
+}
+
+fn expand_shorthand_property(property: &str, value: &str) -> Vec<(String, String)> {
+    match property {
+        "background" => vec![("background-color".to_string(), value.to_string())], // For now treat background as background-color
+        _ => vec![(property.to_string(), value.to_string())],
+    }
+}
+
+pub fn cascade(declarations: &mut [CascadedDeclaration]) -> HashMap<String, String> {
+    sort_declarations(declarations);
 
     let mut cascaded_styles: HashMap<String, String> = HashMap::new();
 
