@@ -264,6 +264,10 @@ impl Color {
 }
 
 impl NamedColor {
+    /// Converts the NamedColor to its hexadecimal string representation
+    ///
+    /// # Returns
+    /// An Option containing the hex string if the color is valid, or None if not.
     pub fn to_hex(&self) -> Option<&'static str> {
         match self {
             NamedColor::AliceBlue => Some("#F0F8FF"),
@@ -410,6 +414,25 @@ impl NamedColor {
             NamedColor::YellowGreen => Some("#9ACD32"),
             _ => None,
         }
+    }
+
+    /// Converts the NamedColor to an RGB tuple (r, g, b)
+    ///
+    /// # Returns
+    /// An Option containing a tuple of (r, g, b) if the color is valid, or None if not.
+    pub fn to_rgb_tuple(&self) -> Option<(u8, u8, u8)> {
+        self.to_hex().and_then(|hex| {
+            let hex = hex.trim_start_matches('#');
+            if hex.len() == 6
+                && let Ok(parsed) = u32::from_str_radix(hex, 16)
+            {
+                let r = ((parsed >> 16) & 0xFF) as u8;
+                let g = ((parsed >> 8) & 0xFF) as u8;
+                let b = (parsed & 0xFF) as u8;
+                return Some((r, g, b));
+            }
+            None
+        })
     }
 }
 

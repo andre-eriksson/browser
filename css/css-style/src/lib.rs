@@ -18,4 +18,5 @@ mod tree;
 /// Defines various types used in CSS styling.
 pub mod types;
 
-pub use tree::StyleTree;
+pub use computed::ComputedStyle;
+pub use tree::{StyleTree, StyledNode};
