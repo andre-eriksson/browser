@@ -29,7 +29,7 @@ impl TestPipeline {
 
         let time_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Time Buffer"),
-            size: 32,
+            size: 16,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -40,7 +40,7 @@ impl TestPipeline {
                 // @binding(0) Uniform Buffer for Time
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,

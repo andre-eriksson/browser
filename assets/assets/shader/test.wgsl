@@ -1,7 +1,9 @@
 
 struct TimeUniforms {
     time: f32,
-    _padding: vec3<f32>,
+    _padding1: f32,
+    _padding2: f32,
+    _padding3: f32,
 };
 
 @group(0) @binding(0)
