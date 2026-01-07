@@ -319,12 +319,13 @@ impl PropertyResolver {
 
     pub fn resolve_length(value: &str) -> Option<Length> {
         let s = value.trim();
-        let mut chars = s.chars().rev();
+        let mut chars = s.chars().rev().peekable();
         let mut unit_str = String::new();
 
-        for c in &mut chars {
-            if c.is_alphabetic() {
-                unit_str.insert(0, c);
+        while let Some(&c) = chars.peek() {
+            if c.is_alphabetic() || c == '%' {
+                unit_str.push(c);
+                chars.next();
             } else {
                 break;
             }
