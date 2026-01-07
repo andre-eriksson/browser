@@ -27,6 +27,7 @@ pub struct ComputedStyle {
     pub display: Display,
     pub font_family: FontFamily,
     pub font_size: FontSize,
+    pub computed_font_size_px: f32,
     pub height: Height,
     pub line_height: LineHeight,
     pub margin: Margin,
@@ -66,7 +67,7 @@ impl ComputedStyle {
         for (key, value) in properties {
             let v = value.as_str();
             match key.as_str() {
-                "background-color" => {
+                "background" | "background-color" => {
                     if let Some(color) = PropertyResolver::resolve_color(v) {
                         computed_style.background_color = color;
                     }
@@ -93,6 +94,10 @@ impl ComputedStyle {
                 }
                 "font-size" => {
                     if let Some(font_size) = PropertyResolver::resolve_font_size(v) {
+                        let parent_px = parent_style
+                            .map(|p| p.computed_font_size_px)
+                            .unwrap_or(16.0);
+                        computed_style.computed_font_size_px = font_size.to_px(parent_px);
                         computed_style.font_size = font_size;
                     }
                 }
@@ -144,6 +149,7 @@ impl ComputedStyle {
             color: self.color.clone(),
             font_family: self.font_family.clone(),
             font_size: self.font_size.clone(),
+            computed_font_size_px: self.computed_font_size_px,
             line_height: self.line_height.clone(),
             text_align: self.text_align.clone(),
             ..ComputedStyle::default()
@@ -168,6 +174,7 @@ impl Default for ComputedStyle {
                 names: vec![FontFamilyName::Generic(GenericName::Serif)],
             },
             font_size: FontSize::Absolute(AbsoluteSize::Medium),
+            computed_font_size_px: 16.0,
             height: Height::Auto,
             line_height: LineHeight::Normal,
             margin: Margin::zero(),

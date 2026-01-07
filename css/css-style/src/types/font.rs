@@ -1,4 +1,7 @@
-use crate::types::{global::Global, length::Length};
+use crate::types::{
+    global::Global,
+    length::{Length, LengthUnit},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum GenericName {
@@ -98,4 +101,34 @@ pub enum FontSize {
     Length(Length),
     Percentage(f32),
     Global(Global),
+}
+
+impl FontSize {
+    pub fn to_px(&self, parent_px: f32) -> f32 {
+        match self {
+            FontSize::Absolute(abs) => match abs {
+                AbsoluteSize::XXSmall => 9.0,
+                AbsoluteSize::XSmall => 10.0,
+                AbsoluteSize::Small => 13.0,
+                AbsoluteSize::Medium => 16.0,
+                AbsoluteSize::Large => 18.0,
+                AbsoluteSize::XLarge => 24.0,
+                AbsoluteSize::XXLarge => 32.0,
+                AbsoluteSize::XXXLarge => 48.0,
+            },
+            FontSize::Length(len) => match len.unit {
+                LengthUnit::Px => len.value,
+                LengthUnit::Em => len.value * parent_px,
+                LengthUnit::Rem => len.value * 16.0,
+                LengthUnit::Pt => len.value * 96.0 / 72.0,
+                _ => len.value * parent_px,
+            },
+            FontSize::Percentage(pct) => parent_px * pct / 100.0,
+            FontSize::Relative(rel) => match rel {
+                RelativeSize::Smaller => parent_px * 0.833,
+                RelativeSize::Larger => parent_px * 1.2,
+            },
+            FontSize::Global(_) => parent_px,
+        }
+    }
 }

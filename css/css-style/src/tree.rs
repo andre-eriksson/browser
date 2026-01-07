@@ -1,16 +1,17 @@
 use css_cssom::CSSStyleSheet;
-use html_dom::{DocumentRoot, NodeId};
+use html_dom::{DocumentRoot, NodeData, NodeId};
 
 use crate::computed::ComputedStyle;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StyledNode {
     pub node_id: NodeId,
     pub style: ComputedStyle,
     pub children: Vec<StyledNode>,
+    pub text_content: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StyleTree {
     pub root_nodes: Vec<StyledNode>,
 }
@@ -26,6 +27,12 @@ impl StyleTree {
             let computed_style = ComputedStyle::from_node(&node_id, dom, stylesheets, parent_style);
 
             let node = dom.get_node(&node_id).unwrap();
+
+            let text_content = match &node.data {
+                NodeData::Text(text) => Some(text.clone()),
+                _ => None,
+            };
+
             let children = node
                 .children
                 .iter()
@@ -38,6 +45,7 @@ impl StyleTree {
                 node_id,
                 style: computed_style,
                 children,
+                text_content,
             }
         }
 

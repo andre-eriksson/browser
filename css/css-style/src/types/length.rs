@@ -70,6 +70,26 @@ impl Length {
     pub fn new(value: f32, unit: LengthUnit) -> Self {
         Self { value, unit }
     }
+
+    pub fn zero() -> Self {
+        Self {
+            value: 0.0,
+            unit: LengthUnit::Px,
+        }
+    }
+
+    pub fn to_px(&self) -> f32 {
+        match self.unit {
+            LengthUnit::Px => self.value,
+            LengthUnit::Cm => self.value * 96.0 / 2.54,
+            LengthUnit::Mm => self.value * 96.0 / 25.4,
+            LengthUnit::Q => self.value * 96.0 / 101.6,
+            LengthUnit::In => self.value * 96.0,
+            LengthUnit::Pc => self.value * 16.0,
+            LengthUnit::Pt => self.value * 96.0 / 72.0,
+            _ => self.value, // TODO: Handle other units properly
+        }
+    }
 }
 
 impl From<&str> for LengthUnit {

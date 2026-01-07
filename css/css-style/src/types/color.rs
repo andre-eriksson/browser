@@ -404,7 +404,6 @@ impl NamedColor {
             NamedColor::Teal => Some("#008080"),
             NamedColor::Thistle => Some("#D8BFD8"),
             NamedColor::Tomato => Some("#FF6347"),
-            NamedColor::Transparent => Some("#00000000"),
             NamedColor::Turquoise => Some("#40E0D0"),
             NamedColor::Violet => Some("#EE82EE"),
             NamedColor::Wheat => Some("#F5DEB3"),
