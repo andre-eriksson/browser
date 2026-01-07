@@ -319,21 +319,11 @@ impl PropertyResolver {
 
     pub fn resolve_length(value: &str) -> Option<Length> {
         let s = value.trim();
-        let mut chars = s.chars().rev().peekable();
-        let mut unit_str = String::new();
+        let split_idx = s.find(|c: char| c.is_alphabetic()).unwrap_or(s.len());
+        let (value_str, unit_str) = s.split_at(split_idx);
 
-        while let Some(&c) = chars.peek() {
-            if c.is_alphabetic() || c == '%' {
-                unit_str.push(c);
-                chars.next();
-            } else {
-                break;
-            }
-        }
-
-        let value_str: String = chars.collect::<Vec<char>>().into_iter().rev().collect();
         let value = value_str.trim().parse::<f32>().ok()?;
-        let unit = LengthUnit::from(unit_str.as_str());
+        let unit = LengthUnit::from(unit_str);
 
         Some(Length::new(value, unit))
     }
