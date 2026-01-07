@@ -16,6 +16,9 @@ pub const DEFAULT_FONT: AssetType = AssetType::Font("OpenSans-Regular.ttf");
 /// Represents a monospaced font for code and other fixed-width content.
 pub const MONOSPACE_FONT: AssetType = AssetType::Font("RobotoMono-Regular.ttf");
 
+/// Test shader for development purposes.
+pub const TEST_SHADER: AssetType = AssetType::Shader("test.wgsl");
+
 // === Browser Assets ===
 
 /// Represents the default CSS stylesheet.
