@@ -12,6 +12,9 @@ pub enum UiEvent {
     /// Close the window with the specified ID.
     CloseWindow(window::Id),
 
+    /// Handle window resize event with new width and height.
+    WindowResized(window::Id, f32, f32),
+
     /// Create a new tab.
     NewTab,
 
