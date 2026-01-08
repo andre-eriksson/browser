@@ -644,6 +644,7 @@ dependencies = [
 name = "browser-core"
 version = "0.1.0"
 dependencies = [
+ "assets",
  "async-trait",
  "cookie",
  "cookies",
@@ -2734,6 +2735,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "layout"
+version = "0.1.0"
+dependencies = [
+ "cosmic-text",
+ "css-style",
+ "html-syntax",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4281,7 +4291,9 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 name = "renderer"
 version = "0.1.0"
 dependencies = [
+ "assets",
  "bytemuck",
+ "layout",
  "wgpu",
 ]
 
@@ -5447,12 +5459,15 @@ dependencies = [
  "browser-core",
  "constants",
  "cookies",
+ "css-cssom",
+ "css-style",
  "errors",
  "html-parser",
  "html-syntax",
  "http",
  "iced",
  "image",
+ "layout",
  "network",
  "renderer",
  "telemetry",
