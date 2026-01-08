@@ -95,7 +95,7 @@ impl AssetManager {
         for backend in &self.backends {
             match backend.load_asset(&key) {
                 Ok(data) => {
-                    debug!({ EVENT } = EVENT_ASSET_LOADED);
+                    trace!({ EVENT } = EVENT_ASSET_LOADED);
 
                     self.cache.insert(key, data.clone());
                     return Ok(data);
@@ -127,7 +127,7 @@ impl AssetManager {
         trace!({ EVENT } = EVENT_LOAD_ASSET);
 
         if let Ok(data) = Backend::Embedded.load_asset(&key) {
-            debug!({ EVENT } = EVENT_ASSET_LOADED);
+            trace!({ EVENT } = EVENT_ASSET_LOADED);
 
             return data;
         }
