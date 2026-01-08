@@ -16,6 +16,14 @@ pub const DEFAULT_FONT: AssetType = AssetType::Font("OpenSans-Regular.ttf");
 /// Represents a monospaced font for code and other fixed-width content.
 pub const MONOSPACE_FONT: AssetType = AssetType::Font("RobotoMono-Regular.ttf");
 
+// === Shader Assets ===
+
+/// Shader for rendering solid colors.
+pub const SOLID_SHADER: AssetType = AssetType::Shader("solid.wgsl");
+
+/// Shader for rendering textures.
+pub const TEXTURE_SHADER: AssetType = AssetType::Shader("texture.wgsl");
+
 /// Test shader for development purposes.
 pub const TEST_SHADER: AssetType = AssetType::Shader("test.wgsl");
 

@@ -2,7 +2,11 @@ use assets::{ASSETS, constants::WINDOW_ICON};
 use constants::APP_NAME;
 use iced::{
     Length, Renderer, Size, Theme,
-    widget::{Shader, column, container, shader},
+    widget::{
+        Shader, column, container,
+        scrollable::{self, Direction, Scrollbar},
+        shader,
+    },
     window::{Position, Settings},
 };
 
@@ -11,13 +15,15 @@ use crate::{
     core::app::{Application, Event},
     util::image::load_icon,
     views::browser::components::{
-        footer::render_footer, header::render_header, shader::HtmlRenderer,
+        footer::render_footer,
+        header::render_header,
+        shader::{HtmlRenderer, collect_rects_from_layout},
     },
 };
 
 /// BrowserWindow is the "main" application window for the browser UI.
 #[derive(Debug, Default)]
-pub struct BrowserWindow {}
+pub struct BrowserWindow;
 
 impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
     fn render<'window>(
@@ -26,11 +32,31 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
     ) -> iced::Element<'window, Event, Theme, Renderer> {
         let header = render_header(app);
         let footer = render_footer();
-        let shader: Shader<Event, HtmlRenderer> = shader(HtmlRenderer)
+        let mut renderer = HtmlRenderer::default();
+
+        let active_tab = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
+            Some(tab) => tab,
+            None => {
+                renderer.clear();
+                return container(column![header, footer].spacing(10.0))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into();
+            }
+        };
+
+        let rects = collect_rects_from_layout(&active_tab.layout_tree);
+        renderer.set_rects(rects);
+
+        let shader: Shader<Event, HtmlRenderer> = shader(renderer)
             .width(Length::Fill)
+            .height(Length::Fixed(active_tab.layout_tree.content_height));
+
+        let content = scrollable::Scrollable::new(shader)
+            .direction(Direction::Vertical(Scrollbar::new()))
             .height(Length::Fill);
 
-        container(column![header, shader, footer].spacing(10.0))
+        container(column![header, content, footer])
             .width(Length::Fill)
             .height(Length::Fill)
             .into()
