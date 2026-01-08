@@ -4,7 +4,6 @@ use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use css_style::StyleTree;
 use html_parser::{
     parser::HtmlStreamParser,
     state::{BlockedReason, ParserState},
@@ -52,7 +51,7 @@ impl Browser {
             StylesheetOrigin::UserAgent,
         );
 
-        let mut first_tab = Tab::new(TabId(0), None);
+        let mut first_tab = Tab::new(TabId(0));
         first_tab.add_stylesheet(stylesheet);
 
         Browser {
@@ -63,18 +62,6 @@ impl Browser {
             http_client,
             _cookie_jar: cookie_jar,
             _headers: headers,
-        }
-    }
-
-    pub fn print_body(&self, tab_id: TabId) {
-        if let Some(tab) = self.tabs.iter().find(|t| t.id == tab_id) {
-            if let Some(document) = &tab.document {
-                debug!("Tab {} Document:\n{}", tab_id, document);
-            } else {
-                debug!("Tab {} has no document loaded.", tab_id);
-            }
-        } else {
-            debug!("Tab {} does not exist.", tab_id);
         }
     }
 
@@ -223,39 +210,21 @@ impl Commandable for Browser {
 
                 let tab = self
                     .tabs
-                    .iter_mut()
+                    .iter()
                     .find(|t| t.id == tab_id)
                     .ok_or_else(|| format!("Tab with ID {:?} does not exist", tab_id))?;
 
-                let style_tree = StyleTree::build(&parser_result.dom_tree, &tab.stylesheets);
-                tab.document = Some(parser_result.dom_tree);
-
-                println!(
-                    "Computed Style Tree for Tab {:?}:\n{:#?}",
-                    tab_id, style_tree
-                );
-
-                let metadata = TabMetadata {
-                    tab_id,
+                return Ok(BrowserEvent::NavigateSuccess(TabMetadata {
+                    id: tab_id,
                     title: parser_result.metadata.title.unwrap_or(url.to_string()),
-                };
-
-                return Ok(BrowserEvent::NavigateSuccess(metadata));
+                    document: parser_result.dom_tree,
+                    stylesheets: tab.stylesheets().clone(),
+                }));
             }
-            BrowserCommand::AddTab { url } => {
+            BrowserCommand::AddTab => {
                 let new_tab_id = TabId(self.next_tab_id);
-
-                if let Some(url) = url {
-                    let parsed_url = match Url::parse(&url) {
-                        Ok(u) => u,
-                        Err(e) => return Err(format!("Invalid URL: {}", e)),
-                    };
-                    let new_tab = Tab::new(new_tab_id, Some(parsed_url));
-                    self.tabs.push(new_tab);
-                } else {
-                    let new_tab = Tab::new(new_tab_id, None);
-                    self.tabs.push(new_tab);
-                }
+                let new_tab = Tab::new(new_tab_id);
+                self.tabs.push(new_tab);
 
                 self.next_tab_id += 1;
                 debug!("Added new tab with ID {:?}", new_tab_id);

@@ -1,12 +1,11 @@
 use std::fmt::Display;
 
 use css_cssom::CSSStyleSheet;
+use html_dom::DocumentRoot;
 use html_syntax::{
     collector::{Collector, TagInfo},
-    dom::DocumentRoot,
     tag::{HtmlTag, KnownTag},
 };
-use url::Url;
 
 #[derive(Default)]
 pub struct TabCollector {
@@ -64,25 +63,16 @@ impl Display for TabId {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Tab {
     pub id: TabId,
-    pub current_url: Option<Url>,
-    pub document: Option<DocumentRoot>,
-    pub stylesheets: Vec<CSSStyleSheet>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TabMetadata {
-    pub tab_id: TabId,
-    pub title: String,
+    stylesheets: Vec<CSSStyleSheet>,
 }
 
 impl Tab {
-    pub fn new(id: TabId, url: Option<Url>) -> Self {
+    pub fn new(id: TabId) -> Self {
         Tab {
             id,
-            current_url: url,
-            document: None,
             stylesheets: Vec::new(),
         }
     }
@@ -90,4 +80,17 @@ impl Tab {
     pub fn add_stylesheet(&mut self, stylesheet: CSSStyleSheet) {
         self.stylesheets.push(stylesheet);
     }
+
+    pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
+        &self.stylesheets
+    }
+}
+
+/// Metadata that is sent to the UI when a tab is updated.
+#[derive(Debug, Clone)]
+pub struct TabMetadata {
+    pub id: TabId,
+    pub title: String,
+    pub document: DocumentRoot,
+    pub stylesheets: Vec<CSSStyleSheet>,
 }
