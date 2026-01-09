@@ -15,6 +15,7 @@ html-parser.workspace = true
 html-syntax.workspace = true
 renderer.workspace = true
 network.workspace = true
+cosmic-text.workspace = true
 constants.workspace = true
 telemetry.workspace = true
 

@@ -1,7 +1,7 @@
 use assets::{ASSETS, constants::WINDOW_ICON};
 use constants::APP_NAME;
 use iced::{
-    Length, Renderer, Size, Theme,
+    Background, Color, Length, Renderer, Size, Theme,
     widget::{
         Shader, column, container,
         scrollable::{self, Direction, Scrollbar},
@@ -17,7 +17,7 @@ use crate::{
     views::browser::components::{
         footer::render_footer,
         header::render_header,
-        shader::{HtmlRenderer, collect_rects_from_layout},
+        shader::{HtmlRenderer, collect_render_data_from_layout},
     },
 };
 
@@ -45,16 +45,23 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
             }
         };
 
-        let rects = collect_rects_from_layout(&active_tab.layout_tree);
-        renderer.set_rects(rects);
+        let render_data = collect_render_data_from_layout(&active_tab.layout_tree);
+        renderer.set_rects(render_data.rects);
+        renderer.set_text_blocks(render_data.text_blocks);
 
         let shader: Shader<Event, HtmlRenderer> = shader(renderer)
             .width(Length::Fill)
             .height(Length::Fixed(active_tab.layout_tree.content_height));
 
-        let content = scrollable::Scrollable::new(shader)
-            .direction(Direction::Vertical(Scrollbar::new()))
-            .height(Length::Fill);
+        let content = container(
+            scrollable::Scrollable::new(shader)
+                .direction(Direction::Vertical(Scrollbar::new()))
+                .height(Length::Fill),
+        )
+        .style(|_| container::Style {
+            background: Some(Background::Color(Color::from_rgb8(0xFF, 0xF5, 0xEE))),
+            ..Default::default()
+        });
 
         container(column![header, content, footer])
             .width(Length::Fill)

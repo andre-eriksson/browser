@@ -2741,6 +2741,7 @@ dependencies = [
  "cosmic-text",
  "css-style",
  "html-syntax",
+ "tracing",
 ]
 
 [[package]]
@@ -4293,6 +4294,7 @@ version = "0.1.0"
 dependencies = [
  "assets",
  "bytemuck",
+ "cosmic-text",
  "layout",
  "wgpu",
 ]
@@ -5459,6 +5461,7 @@ dependencies = [
  "browser-core",
  "constants",
  "cookies",
+ "cosmic-text",
  "css-cssom",
  "css-style",
  "errors",

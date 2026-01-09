@@ -198,3 +198,10 @@ impl RectPipeline {
         self.vertex_count
     }
 }
+
+/// Data for rectangles to be rendered
+#[derive(Debug, Clone)]
+pub struct RenderRect {
+    pub rect: Rect,
+    pub background: Color4f,
+}
