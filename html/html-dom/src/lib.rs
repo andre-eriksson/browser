@@ -1,4 +1,4 @@
 pub mod builder;
 mod decode;
 
-pub use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeId};
+pub use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeData, NodeId};
