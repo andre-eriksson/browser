@@ -28,8 +28,6 @@ html, body {
 }
 
 body {
-    margin: 8px;
-    background: white;
     color: black;
     font-family: sans-serif;
     font-size: 16px;
@@ -175,14 +173,14 @@ article, aside, :heading, hgroup, nav, section {
   display: block;
 }
 
-:heading { font-weight: bold; }
+h1,h2,h3,h4,h5,h6,h7 { font-weight: bold; }
 
-:heading(1) { margin-block: 0.67em; font-size: 2.00em; }
-:heading(2) { margin-block: 0.83em; font-size: 1.50em; }
-:heading(3) { margin-block: 1.00em; font-size: 1.17em; }
-:heading(4) { margin-block: 1.33em; font-size: 1.00em; }
-:heading(5) { margin-block: 1.67em; font-size: 0.83em; }
-:heading(6, 7, 8, 9) {
+h1 { margin-block: 0.67em; font-size: 2.00em; }
+h2 { margin-block: 0.83em; font-size: 1.50em; }
+h3 { margin-block: 1.00em; font-size: 1.17em; }
+h4 { margin-block: 1.33em; font-size: 1.00em; }
+h5 { margin-block: 1.67em; font-size: 0.83em; }
+h6, h7, h8, h9 {
   font-size: 0.67em;
   margin-block: 2.33em;
 }

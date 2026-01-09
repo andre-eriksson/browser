@@ -24,11 +24,10 @@ pub const SOLID_SHADER: AssetType = AssetType::Shader("solid.wgsl");
 /// Shader for rendering textures.
 pub const TEXTURE_SHADER: AssetType = AssetType::Shader("texture.wgsl");
 
-/// Test shader for development purposes.
-pub const TEST_SHADER: AssetType = AssetType::Shader("test.wgsl");
-
 // === Browser Assets ===
 
 /// Represents the default CSS stylesheet.
 pub const DEFAULT_CSS: AssetType = AssetType::Browser("default.css");
 
+/// Represents the "about:blank" HTML page.
+pub const ABOUT_BLANK_HTML: AssetType = AssetType::Browser("about_blank.html");
