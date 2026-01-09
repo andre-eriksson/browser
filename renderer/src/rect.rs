@@ -1,90 +1,49 @@
-use std::borrow::Cow;
-
 use assets::{ASSETS, constants::SOLID_SHADER};
 use bytemuck::{Pod, Zeroable};
 use layout::{Color4f, Rect};
 use wgpu::{Device, Queue, RenderPipeline, TextureFormat};
 
+use crate::{globals::Globals2D, vertex::VertexBuffer};
+
 /// A single vertex with position and color attributes
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct Vertex {
-    position: [f32; 2], // @location(0)
-    color: [f32; 4],    // @location(1)
+pub struct SolidVertex {
+    /// `@location(0)`
+    position: [f32; 2],
+
+    /// `@location(1)`
+    color: [f32; 4],
 }
 
-impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] = wgpu::vertex_attr_array![
-        0 => Float32x2,  // position
-        1 => Float32x4,  // color
-    ];
-
-    pub fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
-/// A GPU pipeline for rendering solid-colored rectangles
+/// A GPU pipeline for rendering solid-colored rectangles using position and color attributes
 pub struct RectPipeline {
     pipeline: RenderPipeline,
-    global_buffer: wgpu::Buffer,
-    global_bind_group: wgpu::BindGroup,
+    globals: Globals2D,
     vertex_buffer: wgpu::Buffer,
-    vertices: Vec<Vertex>,
+    vertices: Vec<SolidVertex>,
     vertex_count: u32,
     max_vertices: usize,
 }
 
 impl RectPipeline {
+    pub const MAX_QUADS: usize = 10_000;
+
     /// Creates a new RectPipeline
     pub fn new(device: &Device, format: TextureFormat) -> Self {
         let shader_bytes = ASSETS.read().unwrap().load_embedded(SOLID_SHADER);
-        let shader_str = std::str::from_utf8(&shader_bytes).expect("Shader is not valid UTF-8");
-        let shader = shader_str.to_string();
+        let shader = std::str::from_utf8(&shader_bytes).expect("Shader is not valid UTF-8");
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Solid Rect Shader"),
             source: wgpu::ShaderSource::Wgsl(shader.into()),
         });
 
-        // Global uniform buffer for screen size
-        let global_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Globals Buffer"),
-            mapped_at_creation: false,
-            size: 16, // vec2<f32> screen_size + vec2<f32> padding
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Globals Bind Group Layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                count: None,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-            }],
-        });
-
-        let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Globals Bind Group"),
-            layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: global_buffer.as_entire_binding(),
-            }],
-        });
+        let globals = Globals2D::new(device, "Rect Pipeline");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Rect Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[&globals.layout],
             push_constant_ranges: &[],
         });
 
@@ -95,7 +54,7 @@ impl RectPipeline {
                 module: &shader_module,
                 entry_point: Some("vs_main"),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
-                buffers: &[Vertex::desc()],
+                buffers: &[SolidVertex::layout()],
             },
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -126,19 +85,17 @@ impl RectPipeline {
             cache: None,
         });
 
-        let max_quads = 10_000;
-        let max_vertices = max_quads * 6;
+        let max_vertices = Self::MAX_QUADS * 6;
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Rect Vertex Buffer"),
-            size: (std::mem::size_of::<Vertex>() * max_vertices) as wgpu::BufferAddress,
+            size: (std::mem::size_of::<SolidVertex>() * max_vertices) as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
         Self {
             pipeline,
-            global_buffer,
-            global_bind_group,
+            globals,
             vertex_buffer,
             vertices: Vec::with_capacity(max_vertices),
             vertex_count: 0,
@@ -147,9 +104,8 @@ impl RectPipeline {
     }
 
     /// Updates the viewport/screen size uniform
-    pub fn update_viewport(&self, queue: &Queue, width: f32, height: f32) {
-        let viewport_data: [f32; 4] = [width, height, 0.0, 0.0];
-        queue.write_buffer(&self.global_buffer, 0, bytemuck::cast_slice(&viewport_data));
+    pub fn update_globals(&self, queue: &Queue, width: f32, height: f32) {
+        self.globals.update(queue, width, height);
     }
 
     /// Clears all queued vertices
@@ -176,34 +132,31 @@ impl RectPipeline {
 
         let color = background.to_array();
 
-        // Two triangles to form a quad (counter-clockwise winding)
         let quad_vertices = [
-            // Triangle 1
-            Vertex {
+            SolidVertex {
                 position: [x, y],
                 color,
-            }, // Top-left
-            Vertex {
+            },
+            SolidVertex {
                 position: [x + w, y],
                 color,
-            }, // Top-right
-            Vertex {
+            },
+            SolidVertex {
                 position: [x, y + h],
                 color,
-            }, // Bottom-left
-            // Triangle 2
-            Vertex {
+            },
+            SolidVertex {
                 position: [x + w, y],
                 color,
-            }, // Top-right
-            Vertex {
+            },
+            SolidVertex {
                 position: [x + w, y + h],
                 color,
-            }, // Bottom-right
-            Vertex {
+            },
+            SolidVertex {
                 position: [x, y + h],
                 color,
-            }, // Bottom-left
+            },
         ];
 
         self.vertices.extend_from_slice(&quad_vertices);
@@ -232,7 +185,7 @@ impl RectPipeline {
 
     /// Returns a reference to the globals bind group
     pub fn bind_group(&self) -> &wgpu::BindGroup {
-        &self.global_bind_group
+        &self.globals.bind_group
     }
 
     /// Returns the vertex buffer

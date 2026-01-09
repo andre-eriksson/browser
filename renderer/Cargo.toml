@@ -8,3 +8,4 @@ assets.workspace = true
 layout.workspace = true
 wgpu = "27.0.1"
 bytemuck = { version = "1.24.0", features = ["derive"] }
+cosmic-text.workspace = true

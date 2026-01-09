@@ -11,7 +11,7 @@ struct VertexOutput {
 }
 
 struct Globals {
-    screen_size: vec2<f32>,  // To convert pixel coords to clip space
+    screen_size: vec2<f32>,
     _padding: vec2<f32>,
 };
 
@@ -23,7 +23,6 @@ struct Globals {
 fn vs_main(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
 
-    // Convert position from pixel space to clip space
     let clip_x = (input.position.x / globals.screen_size.x) * 2.0 - 1.0;
     let clip_y = 1.0 - (input.position.y / globals.screen_size.y) * 2.0;
 
@@ -35,11 +34,19 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_image(input: VertexOutput) -> @location(0) vec4<f32> {
     let texture_color = textureSample(t_texture, s_texture, input.frag_uv);
 
-    // Text: texture_color.r is alpha (grayscale)
-    // Image: texture_color is full RGBA
-
     return texture_color * input.frag_color;
+}
+
+@fragment
+fn fs_text(input: VertexOutput) -> @location(0) vec4<f32> {
+    let glyph_alpha = textureSample(t_texture, s_texture, input.frag_uv).r;
+    let final_alpha = glyph_alpha * input.frag_color.a;
+
+    return vec4<f32>(
+        input.frag_color.rgb * final_alpha,
+        final_alpha
+    );
 }
