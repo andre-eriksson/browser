@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use cosmic_text::Buffer;
 use html_syntax::dom::NodeId;
 
 use crate::primitives::{Color4f, Rect, SideOffset};
@@ -29,6 +32,9 @@ pub struct LayoutNode {
 
     /// The resolved padding values
     pub resolved_padding: SideOffset,
+
+    /// Optional text buffer for rendered text
+    pub text_buffer: Option<Arc<Buffer>>,
 
     /// Child layout nodes
     pub children: Vec<LayoutNode>,

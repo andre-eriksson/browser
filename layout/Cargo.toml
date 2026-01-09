@@ -6,4 +6,5 @@ edition.workspace = true
 [dependencies]
 css-style.workspace = true
 html-syntax.workspace = true
-cosmic-text = "0.15.0"
+cosmic-text.workspace = true
+tracing.workspace = true

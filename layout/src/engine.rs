@@ -1,3 +1,5 @@
+use std::{sync::Arc, vec};
+
 use css_style::{
     StyleTree, StyledNode,
     types::{
@@ -111,6 +113,7 @@ impl LayoutEngine {
                 colors: LayoutColors::default(),
                 resolved_margin: SideOffset::zero(),
                 resolved_padding: SideOffset::zero(),
+                text_buffer: None,
                 children: vec![],
             };
         }
@@ -139,15 +142,19 @@ impl LayoutEngine {
             },
         };
 
-        let (content_height, children) = if let Some(text) = &styled_node.text_content {
-            let (_, text_height) = text_ctx.measure_text(
+        let (content_height, children, buffer) = if let Some(text) = &styled_node.text_content {
+            let (_, text_height, buffer) = text_ctx.measure_text(
                 text,
                 font_size_px,
                 &styled_node.style.line_height,
                 &styled_node.style.font_family,
                 content_width,
             );
-            (text_height, vec![])
+            if buffer.is_none() {
+                panic!("Failed to create text buffer for node {:?}", styled_node);
+            }
+
+            (text_height, vec![], Some(Arc::new(buffer.unwrap())))
         } else {
             let mut child_flow_y = 0.0;
             let children: Vec<LayoutNode> = styled_node
@@ -161,7 +168,7 @@ impl LayoutEngine {
                 .collect();
 
             let content_height = Self::calculate_height(styled_node, ctx, child_flow_y);
-            (content_height, children)
+            (content_height, children, None)
         };
 
         let dimensions = Rect {
@@ -177,6 +184,7 @@ impl LayoutEngine {
             colors,
             resolved_margin: margin,
             resolved_padding: padding,
+            text_buffer: buffer,
             children,
         }
     }

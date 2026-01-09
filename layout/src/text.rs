@@ -24,6 +24,11 @@ impl TextContext {
         Self { font_system }
     }
 
+    /// Get a mutable reference to the font system for glyph rasterization
+    pub fn font_system_mut(&mut self) -> &mut FontSystem {
+        &mut self.font_system
+    }
+
     /// Measures the rendered size of the given text with specified styles and constraints.
     pub fn measure_text(
         &mut self,
@@ -32,9 +37,9 @@ impl TextContext {
         line_height: &LineHeight,
         font_family: &FontFamily,
         available_width: f32,
-    ) -> (f32, f32) {
+    ) -> (f32, f32, Option<Buffer>) {
         if text.trim().is_empty() {
-            return (0.0, 0.0);
+            return (0.0, 0.0, None);
         }
 
         let line_height_px = line_height.to_px(font_size_px);
@@ -72,7 +77,7 @@ impl TextContext {
             0.0
         };
 
-        (max_width, total_height)
+        (max_width, total_height, Some(buffer))
     }
 }
 
