@@ -150,11 +150,8 @@ impl LayoutEngine {
                 &styled_node.style.font_family,
                 content_width,
             );
-            if buffer.is_none() {
-                panic!("Failed to create text buffer for node {:?}", styled_node);
-            }
 
-            (text_height, vec![], Some(Arc::new(buffer.unwrap())))
+            (text_height, vec![], Some(Arc::new(buffer)))
         } else {
             let mut child_flow_y = 0.0;
             let children: Vec<LayoutNode> = styled_node

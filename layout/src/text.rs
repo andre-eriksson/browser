@@ -37,11 +37,7 @@ impl TextContext {
         line_height: &LineHeight,
         font_family: &FontFamily,
         available_width: f32,
-    ) -> (f32, f32, Option<Buffer>) {
-        if text.trim().is_empty() {
-            return (0.0, 0.0, None);
-        }
-
+    ) -> (f32, f32, Buffer) {
         let line_height_px = line_height.to_px(font_size_px);
 
         let metrics = Metrics::new(font_size_px, line_height_px);
@@ -51,6 +47,11 @@ impl TextContext {
 
         let family = resolve_font_family(font_family);
         let attrs = Attrs::new().family(family);
+
+        if text.trim().is_empty() {
+            return (0.0, 0.0, buffer);
+        }
+
         buffer.set_text(
             &mut self.font_system,
             text,
@@ -77,7 +78,7 @@ impl TextContext {
             0.0
         };
 
-        (max_width, total_height, Some(buffer))
+        (max_width, total_height, buffer)
     }
 }
 
