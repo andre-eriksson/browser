@@ -1,4 +1,4 @@
-use browser_core::tab::TabId;
+use browser_core::TabId;
 use css_cssom::CSSStyleSheet;
 use html_syntax::dom::DocumentRoot;
 use layout::LayoutTree;

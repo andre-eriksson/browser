@@ -7,6 +7,71 @@ use html_syntax::{
     tag::{HtmlTag, KnownTag},
 };
 
+pub struct TabManager {
+    active_tab: TabId,
+    tabs: Vec<Tab>,
+    next_tab_id: usize,
+}
+
+impl TabManager {
+    pub fn new(initial_tab: Tab) -> Self {
+        TabManager {
+            active_tab: initial_tab.id,
+            tabs: vec![initial_tab],
+            next_tab_id: 1,
+        }
+    }
+
+    pub(crate) fn tabs(&self) -> &Vec<Tab> {
+        &self.tabs
+    }
+
+    pub(crate) fn tabs_mut(&mut self) -> &mut Vec<Tab> {
+        &mut self.tabs
+    }
+
+    pub(crate) fn active_tab(&self) -> TabId {
+        self.active_tab
+    }
+
+    pub(crate) fn next_tab_id(&self) -> usize {
+        self.next_tab_id
+    }
+
+    pub(crate) fn add_tab(&mut self, tab: Tab) {
+        self.tabs.push(tab);
+        self.next_tab_id += 1;
+    }
+
+    pub(crate) fn change_active_tab(&mut self, tab_id: TabId) -> Result<(), String> {
+        if !self.tabs.iter().any(|t| t.id == tab_id) {
+            return Err(format!("Tab with ID {:?} does not exist", tab_id));
+        }
+
+        self.active_tab = tab_id;
+
+        Ok(())
+    }
+
+    pub(crate) fn change_to_any_tab(&mut self) -> Result<(), String> {
+        if let Some(first_tab) = self.tabs.first() {
+            self.change_active_tab(first_tab.id)?;
+            Ok(())
+        } else {
+            Err("No tabs available to switch to".to_string())
+        }
+    }
+
+    pub(crate) fn close_tab(&mut self, tab_id: TabId) -> Result<(), String> {
+        if let Some(pos) = self.tabs.iter().position(|t| t.id == tab_id) {
+            self.tabs.remove(pos);
+            Ok(())
+        } else {
+            Err(format!("Tab with ID {:?} does not exist", tab_id))
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct TabCollector {
     /// Indicates whether the parser is currently within the `<head>` section of the HTML document.

@@ -1,4 +1,4 @@
-use browser_core::events::BrowserEvent;
+use browser_core::BrowserEvent;
 use iced::{
     Background, Color, Length,
     widget::{button, column, container, mouse_area, row, text, text_input},

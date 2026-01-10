@@ -1,4 +1,4 @@
-use browser_core::tab::TabId;
+use browser_core::TabId;
 use iced::window;
 
 use crate::api::window::WindowType;

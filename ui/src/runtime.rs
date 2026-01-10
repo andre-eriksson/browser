@@ -4,7 +4,7 @@ use assets::{
     ASSETS,
     constants::{DEFAULT_FONT, MONOSPACE_FONT},
 };
-use browser_core::{browser::Browser, events::BrowserEvent};
+use browser_core::{Browser, BrowserEvent};
 use errors::subsystem::SubsystemError;
 use iced::{Font, Settings};
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};

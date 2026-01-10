@@ -6,12 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use browser_core::{
-    browser::{Browser, Commandable},
-    commands::BrowserCommand,
-    events::{BrowserEvent, Emitter},
-    tab::TabId,
-};
+use browser_core::{Browser, BrowserEvent, Emitter};
 use clap::Parser;
 use cookies::cookie_store::CookieJar;
 use network::clients::reqwest::ReqwestClient;
