@@ -51,3 +51,19 @@ pub enum BrowserCommand {
     /// Command to change the active tab.
     ChangeActiveTab { tab_id: TabId },
 }
+
+impl BrowserCommand {
+    pub fn parse_navigate(value: &str) -> Option<Self> {
+        let parts: Vec<&str> = value.splitn(2, ' ').collect();
+        if parts.len() != 2 {
+            return None;
+        }
+        let tab_id = parts[0].parse::<usize>().ok()?;
+        let url = parts[1].to_string();
+
+        Some(BrowserCommand::Navigate {
+            tab_id: TabId(tab_id),
+            url,
+        })
+    }
+}

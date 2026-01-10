@@ -4,7 +4,7 @@ pub mod headless;
 
 use std::{str::FromStr, sync::Arc};
 
-use browser_core::{Browser, BrowserEvent, Emitter};
+use browser_core::{Browser, BrowserEvent, Emitter, HeadlessBrowser};
 use clap::Parser;
 use cookies::cookie_store::CookieJar;
 use network::clients::reqwest::ReqwestClient;
@@ -19,7 +19,7 @@ use tracing_subscriber::{
 };
 use ui::Ui;
 
-use crate::{cli::Args, headers::create_default_browser_headers, headless::headless_main};
+use crate::{cli::Args, headers::create_default_browser_headers, headless::HeadlessEngine};
 
 pub struct ChannelEmitter<T> {
     sender: UnboundedSender<T>,
@@ -70,11 +70,22 @@ fn main() {
     let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
     let emitter = Box::new(ChannelEmitter::new(event_sender));
     let http_client = Box::new(ReqwestClient::new());
-
     let browser_headers = Arc::new(create_default_browser_headers());
 
     // TODO: Load cookies from persistent storage
     let cookie_jar = Arc::new(std::sync::Mutex::new(CookieJar::new()));
+
+    if args.headless {
+        let browser = HeadlessBrowser::new(emitter, http_client, cookie_jar, browser_headers);
+        let mut engine = HeadlessEngine::new(browser);
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        return runtime.block_on(engine.main(&args));
+    }
 
     let browser = Arc::new(tokio::sync::Mutex::new(Browser::new(
         emitter,
@@ -82,15 +93,6 @@ fn main() {
         cookie_jar,
         browser_headers,
     )));
-
-    if args.headless {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-
-        return runtime.block_on(headless_main(args, browser));
-    }
 
     let ui_runtime = Ui::new(browser, event_receiver);
     let res = ui_runtime.run();
