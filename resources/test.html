@@ -2,14 +2,37 @@
 <html>
     <head>
         <script src="test.js"></script>
+        <script>
+            console.log("Test script loaded.");
+        </script>
         <title>Test</title>
         <style>
-            div > p {
-                padding: calc(10px + 2em);
+            .blue {
+                color: blue;
+            }
+
+            h1 {
+                color: green;
+            }
+
+            p {
+                color: red;
+            }
+
+            #yellow {
+                color: yellow;
+            }
+
+            #mixed {
+                color: purple;
             }
         </style>
     </head>
     <body>
-        <h1>Test Page</h1>
+        <h1>This heading should be green.</h1>
+        <h1 class="blue">This heading should be blue.</h1>
+        <p class="red">This paragraph should be red.</p>
+        <p id="yellow">This paragraph should be yellow.</p>
+        <p id="mixed" style="color: orange;">This paragraph should be orange.</p>
     </body>
 </html>
