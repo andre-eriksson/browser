@@ -29,6 +29,8 @@ pub struct Browser {
     tabs: Vec<Tab>,
     next_tab_id: usize,
 
+    default_stylesheet: CSSStyleSheet,
+
     emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
 
     http_client: Box<dyn HttpClient>,
@@ -51,13 +53,13 @@ impl Browser {
             StylesheetOrigin::UserAgent,
         );
 
-        let mut first_tab = Tab::new(TabId(0));
-        first_tab.add_stylesheet(stylesheet);
+        let first_tab = Tab::new(TabId(0));
 
         Browser {
             active_tab: first_tab.id,
             tabs: vec![first_tab],
             next_tab_id: 1,
+            default_stylesheet: stylesheet,
             emitter,
             http_client,
             _cookie_jar: cookie_jar,
@@ -69,17 +71,9 @@ impl Browser {
         //debug!("Executing script: {}", script);
     }
 
-    fn process_css(&mut self, css: &str) {
+    fn process_css(&mut self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
         let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author);
-        let current_tab = match self.tabs.get_mut(self.active_tab.0) {
-            Some(tab) => tab,
-            None => {
-                debug!("No active tab found for processing CSS.");
-                return;
-            }
-        };
-
-        current_tab.add_stylesheet(stylesheet);
+        stylesheets.push(stylesheet);
     }
 }
 
@@ -121,6 +115,8 @@ impl Commandable for Browser {
                     None,
                     Some(TabCollector::default()),
                 );
+
+                let mut stylesheets = Vec::new();
 
                 loop {
                     parser.step()?;
@@ -188,7 +184,7 @@ impl Commandable for Browser {
                             }
                             BlockedReason::WaitingForStyle(_attributes) => {
                                 let css_content = parser.extract_style_content()?;
-                                self.process_css(&css_content);
+                                self.process_css(&css_content, &mut stylesheets);
 
                                 parser.resume()?;
                             }
@@ -210,9 +206,16 @@ impl Commandable for Browser {
 
                 let tab = self
                     .tabs
-                    .iter()
+                    .iter_mut()
                     .find(|t| t.id == tab_id)
                     .ok_or_else(|| format!("Tab with ID {:?} does not exist", tab_id))?;
+
+                tab.clear_stylesheets();
+                tab.add_stylesheet(self.default_stylesheet.clone());
+
+                for stylesheet in stylesheets {
+                    tab.add_stylesheet(stylesheet);
+                }
 
                 return Ok(BrowserEvent::NavigateSuccess(TabMetadata {
                     id: tab_id,
@@ -257,6 +260,7 @@ impl Commandable for Browser {
                 }
 
                 self.active_tab = tab_id;
+
                 debug!("Changed active tab to {:?}", tab_id);
 
                 return Ok(BrowserEvent::ActiveTabChanged(tab_id));

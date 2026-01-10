@@ -81,6 +81,10 @@ impl Tab {
         self.stylesheets.push(stylesheet);
     }
 
+    pub fn clear_stylesheets(&mut self) {
+        self.stylesheets.clear();
+    }
+
     pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
         &self.stylesheets
     }
