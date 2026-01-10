@@ -4,15 +4,15 @@ use tracing::debug;
 use url::Url;
 
 use crate::{
-    browser::Browser,
     events::BrowserEvent,
+    navigation::NavigationContext,
     tab::{TabCollector, TabId, TabMetadata},
 };
 
 /// Navigates the specified tab to the given URL, fetching and parsing the content.
 /// Executes any scripts and processes stylesheets found during parsing.
 pub async fn navigate_to(
-    browser: &mut Browser,
+    navigation_context: &mut dyn NavigationContext,
     tab_id: TabId,
     url: String,
 ) -> Result<BrowserEvent, String> {
@@ -24,12 +24,17 @@ pub async fn navigate_to(
         Err(e) => return Err(format!("Invalid URL: {}", e)),
     };
 
-    if !browser.tab_manager().tabs().iter().any(|t| t.id == tab_id) {
+    if !navigation_context
+        .tab_manager()
+        .tabs()
+        .iter()
+        .any(|t| t.id == tab_id)
+    {
         return Err(format!("Tab with ID {:?} does not exist", tab_id));
     }
 
     let request = RequestBuilder::from(url.clone()).build();
-    let header_response = match browser.http_client().send(request).await {
+    let header_response = match navigation_context.http_client().send(request).await {
         Ok(resp) => resp,
         Err(e) => return Err(format!("HTTP request failed: {}", e)),
     };
@@ -73,7 +78,10 @@ pub async fn navigate_to(
                             }
                         };
 
-                        let script_response = match browser.http_client().send(script_request).await
+                        let script_response = match navigation_context
+                            .http_client()
+                            .send(script_request)
+                            .await
                         {
                             Ok(resp) => resp,
                             Err(e) => {
@@ -100,17 +108,17 @@ pub async fn navigate_to(
 
                         let script_text = String::from_utf8_lossy(body.as_slice()).to_string();
                         let _ = parser.extract_script_content()?;
-                        browser.execute_script(&script_text);
+                        navigation_context.execute_script(&script_text);
                     } else {
                         let script_content = parser.extract_script_content()?;
-                        browser.execute_script(&script_content);
+                        navigation_context.execute_script(&script_content);
                     }
 
                     parser.resume()?;
                 }
                 BlockedReason::WaitingForStyle(_attributes) => {
                     let css_content = parser.extract_style_content()?;
-                    browser.process_css(&css_content, &mut stylesheets);
+                    navigation_context.process_css(&css_content, &mut stylesheets);
 
                     parser.resume()?;
                 }
@@ -129,17 +137,20 @@ pub async fn navigate_to(
     }
 
     let parser_result = parser.finalize();
-    let default_stylesheet = browser.default_stylesheet().clone();
+    let default_stylesheet = navigation_context.default_stylesheet().cloned();
 
-    let tab = browser
+    let tab = navigation_context
         .tab_manager()
         .tabs_mut()
         .iter_mut()
         .find(|t| t.id == tab_id)
         .ok_or_else(|| format!("Tab with ID {:?} does not exist", tab_id))?;
 
+    tab.set_document(parser_result.dom_tree.clone());
     tab.clear_stylesheets();
-    tab.add_stylesheet(default_stylesheet);
+    if let Some(default) = default_stylesheet {
+        tab.add_stylesheet(default.clone());
+    }
 
     for stylesheet in stylesheets {
         tab.add_stylesheet(stylesheet);

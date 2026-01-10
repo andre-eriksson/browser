@@ -13,16 +13,14 @@ use crate::{
         tab::{add_tab, change_active_tab, close_tab},
     },
     events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
+    navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
     tab::{Tab, TabId, TabManager},
 };
 
 pub struct Browser {
     tab_manager: TabManager,
-
     default_stylesheet: CSSStyleSheet,
-
     emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-
     http_client: Box<dyn HttpClient>,
     _cookie_jar: Arc<Mutex<CookieJar>>,
     _headers: Arc<HeaderMap>,
@@ -54,30 +52,44 @@ impl Browser {
             _headers: headers,
         }
     }
+}
 
-    pub(crate) fn execute_script(&mut self, _script: &str) {
+impl ScriptExecutor for Browser {
+    fn execute_script(&mut self, _script: &str) {
         //debug!("Executing script: {}", script);
     }
+}
 
-    pub(crate) fn process_css(&mut self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
+impl StyleProcessor for Browser {
+    fn process_css(&mut self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
         let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author);
         stylesheets.push(stylesheet);
     }
+}
 
-    pub(crate) fn emit_event(&self, event: BrowserEvent) {
-        self.emitter.emit(event);
-    }
-
-    pub(crate) fn http_client(&self) -> &dyn HttpClient {
+impl NavigationContext for Browser {
+    fn http_client(&self) -> &dyn HttpClient {
         self.http_client.as_ref()
     }
 
-    pub(crate) fn tab_manager(&mut self) -> &mut TabManager {
+    fn tab_manager(&mut self) -> &mut TabManager {
         &mut self.tab_manager
     }
 
-    pub(crate) fn default_stylesheet(&self) -> &CSSStyleSheet {
-        &self.default_stylesheet
+    fn default_stylesheet(&self) -> Option<&CSSStyleSheet> {
+        Some(&self.default_stylesheet)
+    }
+
+    fn emit_event(&self, event: BrowserEvent) {
+        self.emitter.emit(event);
+    }
+
+    fn process_css(&mut self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
+        StyleProcessor::process_css(self, css, stylesheets);
+    }
+
+    fn execute_script(&mut self, script: &str) {
+        ScriptExecutor::execute_script(self, script);
     }
 }
 
@@ -86,8 +98,8 @@ impl Commandable for Browser {
     async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => navigate_to(self, tab_id, url).await,
-            BrowserCommand::AddTab => Ok(add_tab(self)),
-            BrowserCommand::CloseTab { tab_id } => close_tab(self, tab_id),
+            BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
+            BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
             BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(self, tab_id),
         }
     }
