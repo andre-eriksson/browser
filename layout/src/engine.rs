@@ -242,7 +242,7 @@ impl LayoutEngine {
 
         match &styled_node.style.width {
             Width::Auto => available_width.max(0.0),
-            Width::Length(len) => len.value,
+            Width::Length(len) => len.to_px(available_width),
             Width::Percentage(pct) => (pct * ctx.containing_block.width / 100.0).max(0.0),
             Width::Global(_) => available_width.max(0.0),
             Width::MaxContent | Width::MinContent | Width::FitContent(_) | Width::Stretch => {

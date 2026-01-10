@@ -17,6 +17,13 @@ pub enum LengthUnit {
     Rlh,
 
     // Relative length units based on viewport
+    Vw,
+    Vh,
+    Vmin,
+    Vmax,
+    Vb,
+    Vi,
+
     // Small
     Svh,
     Svw,
@@ -78,7 +85,7 @@ impl Length {
         }
     }
 
-    pub fn to_px(&self) -> f32 {
+    pub fn to_px(&self, relative_to: f32) -> f32 {
         match self.unit {
             LengthUnit::Px => self.value,
             LengthUnit::Cm => self.value * 96.0 / 2.54,
@@ -87,6 +94,8 @@ impl Length {
             LengthUnit::In => self.value * 96.0,
             LengthUnit::Pc => self.value * 16.0,
             LengthUnit::Pt => self.value * 96.0 / 72.0,
+            LengthUnit::Vw => relative_to * self.value / 100.0,
+            LengthUnit::Vh => relative_to * self.value / 100.0,
             _ => self.value, // TODO: Handle other units properly
         }
     }
@@ -107,6 +116,12 @@ impl From<&str> for LengthUnit {
             "rex" => LengthUnit::Rex,
             "ric" => LengthUnit::Ric,
             "rlh" => LengthUnit::Rlh,
+            "vw" => LengthUnit::Vw,
+            "vh" => LengthUnit::Vh,
+            "vmin" => LengthUnit::Vmin,
+            "vmax" => LengthUnit::Vmax,
+            "vb" => LengthUnit::Vb,
+            "vi" => LengthUnit::Vi,
             "svh" => LengthUnit::Svh,
             "svw" => LengthUnit::Svw,
             "svmax" => LengthUnit::Svmax,
