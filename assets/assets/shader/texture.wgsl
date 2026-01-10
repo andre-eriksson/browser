@@ -1,13 +1,13 @@
 struct VertexInput {
-    @location(0) position: vec2<f32>, // Vertex position (x, y)
-    @location(1) uv: vec2<f32>,       // Texture coordinates (u, v)
-    @location(2) color: vec4<f32>,    // Vertex color (r, g, b, a)
+    @location(0) position: vec2<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) color: vec4<f32>,
 }
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>, // Clip space position
-    @location(0) frag_uv: vec2<f32>,             // Texture coordinates to pass to fragment
-    @location(1) frag_color: vec4<f32>,          // Color to pass to fragment
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) frag_uv: vec2<f32>,
+    @location(1) frag_color: vec4<f32>,
 }
 
 struct Globals {
