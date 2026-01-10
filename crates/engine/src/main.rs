@@ -1,14 +1,15 @@
 pub mod cli;
 pub mod headers;
 pub mod headless;
+pub mod message;
 
 use std::{str::FromStr, sync::Arc};
 
-use browser_core::{Browser, BrowserEvent, Emitter, HeadlessBrowser};
+use browser_core::{Browser, BrowserEvent, HeadlessBrowser};
 use clap::Parser;
 use cookies::cookie_store::CookieJar;
 use network::clients::reqwest::ReqwestClient;
-use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
+use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
     EnvFilter,
@@ -19,34 +20,10 @@ use tracing_subscriber::{
 };
 use ui::Ui;
 
-use crate::{cli::Args, headers::create_default_browser_headers, headless::HeadlessEngine};
-
-pub struct ChannelEmitter<T> {
-    sender: UnboundedSender<T>,
-}
-
-impl<T: Send + 'static> ChannelEmitter<T> {
-    pub fn new(sender: UnboundedSender<T>) -> Self {
-        ChannelEmitter { sender }
-    }
-}
-
-impl<T: Send + 'static> Emitter<T> for ChannelEmitter<T> {
-    fn emit(&self, event: T) {
-        let sender = self.sender.clone();
-        tokio::spawn(async move {
-            if let Err(e) = sender.send(event) {
-                error!("Failed to send event: {:?}", e);
-            }
-        });
-    }
-
-    fn clone_box(&self) -> Box<dyn Emitter<T>> {
-        Box::new(ChannelEmitter {
-            sender: self.sender.clone(),
-        })
-    }
-}
+use crate::{
+    cli::Args, headers::create_default_browser_headers, headless::HeadlessEngine,
+    message::ChannelEmitter,
+};
 
 /// The main entry point for the application
 fn main() {

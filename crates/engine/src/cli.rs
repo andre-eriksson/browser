@@ -1,10 +1,11 @@
 use clap::Parser;
+use constants::APP_NAME;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "Browser Engine",
+    name = APP_NAME,
     version,
-    about = "A web browser engine implemented in Rust."
+    about = "A web browser implemented in Rust."
 )]
 pub struct Args {
     #[arg(
