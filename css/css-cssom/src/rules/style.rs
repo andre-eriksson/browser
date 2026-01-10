@@ -14,7 +14,7 @@ pub struct CSSStyleRule {
     selector_text: String,
 
     /// The prelude as component values (for reference)
-    prelude: Vec<ComponentValue>,
+    pub prelude: Vec<ComponentValue>,
 
     /// The declarations in this style rule
     declarations: Vec<CSSDeclaration>,

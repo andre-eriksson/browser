@@ -1,7 +1,7 @@
 use assets::{ASSETS, constants::DEVTOOLS_ICON};
 use constants::APP_NAME;
 use iced::{
-    Background, Color, Length, Renderer, Size, Theme,
+    Length, Renderer, Size, Theme,
     widget::{column, container},
     window::{Position, Settings},
 };
@@ -43,12 +43,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(10.0)
-        .style(|_| container::Style {
-            background: Some(Background::Color(Color::from_rgb(0.95, 0.95, 0.95))),
-            text_color: Some(Color::BLACK),
-            ..Default::default()
-        });
+        .padding(10.0);
 
         ui.into()
     }

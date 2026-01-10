@@ -1,10 +1,7 @@
-use crate::tab::TabId;
+//! Commands module, containing various command implementations for the browser core.
 
-#[derive(Debug)]
-pub enum BrowserCommand {
-    // Commands related to tab management
-    Navigate { tab_id: TabId, url: String },
-    AddTab { url: Option<String> },
-    CloseTab { tab_id: TabId },
-    ChangeActiveTab { tab_id: TabId },
-}
+/// Commands related to navigation.
+pub mod navigate;
+
+/// Commands related to tab management.
+pub mod tab;

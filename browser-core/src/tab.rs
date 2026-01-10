@@ -1,9 +1,76 @@
+use std::fmt::Display;
+
+use css_cssom::CSSStyleSheet;
+use html_dom::DocumentRoot;
 use html_syntax::{
     collector::{Collector, TagInfo},
-    dom::DocumentRoot,
     tag::{HtmlTag, KnownTag},
 };
-use url::Url;
+
+pub struct TabManager {
+    active_tab: TabId,
+    tabs: Vec<Tab>,
+    next_tab_id: usize,
+}
+
+impl TabManager {
+    pub fn new(initial_tab: Tab) -> Self {
+        TabManager {
+            active_tab: initial_tab.id,
+            tabs: vec![initial_tab],
+            next_tab_id: 1,
+        }
+    }
+
+    pub(crate) fn tabs(&self) -> &Vec<Tab> {
+        &self.tabs
+    }
+
+    pub(crate) fn tabs_mut(&mut self) -> &mut Vec<Tab> {
+        &mut self.tabs
+    }
+
+    pub(crate) fn active_tab(&self) -> TabId {
+        self.active_tab
+    }
+
+    pub(crate) fn next_tab_id(&self) -> usize {
+        self.next_tab_id
+    }
+
+    pub(crate) fn add_tab(&mut self, tab: Tab) {
+        self.tabs.push(tab);
+        self.next_tab_id += 1;
+    }
+
+    pub(crate) fn change_active_tab(&mut self, tab_id: TabId) -> Result<(), String> {
+        if !self.tabs.iter().any(|t| t.id == tab_id) {
+            return Err(format!("Tab with ID {:?} does not exist", tab_id));
+        }
+
+        self.active_tab = tab_id;
+
+        Ok(())
+    }
+
+    pub(crate) fn change_to_any_tab(&mut self) -> Result<(), String> {
+        if let Some(first_tab) = self.tabs.first() {
+            self.change_active_tab(first_tab.id)?;
+            Ok(())
+        } else {
+            Err("No tabs available to switch to".to_string())
+        }
+    }
+
+    pub(crate) fn close_tab(&mut self, tab_id: TabId) -> Result<(), String> {
+        if let Some(pos) = self.tabs.iter().position(|t| t.id == tab_id) {
+            self.tabs.remove(pos);
+            Ok(())
+        } else {
+            Err(format!("Tab with ID {:?} does not exist", tab_id))
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct TabCollector {
@@ -55,24 +122,44 @@ impl Collector for TabCollector {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TabId(pub usize);
 
-pub struct Tab {
-    pub id: TabId,
-    pub current_url: Option<Url>,
-    pub document: Option<DocumentRoot>,
+impl Display for TabId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct TabMetadata {
-    pub tab_id: TabId,
-    pub title: String,
+pub struct Tab {
+    pub id: TabId,
+    stylesheets: Vec<CSSStyleSheet>,
 }
 
 impl Tab {
-    pub fn new(id: TabId, url: Option<Url>) -> Self {
+    pub fn new(id: TabId) -> Self {
         Tab {
             id,
-            current_url: url,
-            document: None,
+            stylesheets: Vec::new(),
         }
     }
+
+    pub fn add_stylesheet(&mut self, stylesheet: CSSStyleSheet) {
+        self.stylesheets.push(stylesheet);
+    }
+
+    pub fn clear_stylesheets(&mut self) {
+        self.stylesheets.clear();
+    }
+
+    pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
+        &self.stylesheets
+    }
+}
+
+/// Metadata that is sent to the UI when a tab is updated.
+#[derive(Debug, Clone)]
+pub struct TabMetadata {
+    pub id: TabId,
+    pub title: String,
+    pub document: DocumentRoot,
+    pub stylesheets: Vec<CSSStyleSheet>,
 }

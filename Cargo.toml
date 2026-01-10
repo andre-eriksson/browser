@@ -6,6 +6,8 @@ members = [
     "cookies",
     "css/css-cssom",
     "css/css-parser",
+    "css/css-selectors",
+    "css/css-style",
     "css/css-tokenizer",
     "engine",
     "errors",
@@ -13,7 +15,9 @@ members = [
     "html/html-parser",
     "html/html-syntax",
     "html/html-tokenizer",
+    "layout",
     "network",
+    "renderer",
     "storage",
     "ui",
     "utilities/constants",
@@ -29,13 +33,17 @@ cookies = { path = "cookies" }
 css-cssom = { path = "css/css-cssom" }
 css-parser = { path = "css/css-parser" }
 css-tokenizer = { path = "css/css-tokenizer" }
+css-selectors = { path = "css/css-selectors" }
+css-style = { path = "css/css-style" }
 browser-core = { path = "browser-core" }
 errors = { path = "errors" }
 html-dom = { path = "html/html-dom" }
 html-parser = { path = "html/html-parser" }
 html-syntax = { path = "html/html-syntax" }
 html-tokenizer = { path = "html/html-tokenizer" }
+layout = { path = "layout" }
 network = { path = "network" }
+renderer = { path = "renderer" }
 storage = { path = "storage" }
 ui = { path = "ui" }
 constants = { path = "utilities/constants" }
@@ -47,6 +55,7 @@ async-trait = "0.1.89"
 tracing = "0.1.43"
 tokio = { version = "1.44", features = ["full"] }
 cookie = "0.18.1"
+cosmic-text = "0.15.0"
 criterion = "0.8.1"
 http = "1.3.1"
 url = "2.5.4"

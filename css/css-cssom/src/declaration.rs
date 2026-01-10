@@ -1,4 +1,4 @@
-use css_parser::{ComponentValue, CssToken, Declaration};
+use css_parser::{ComponentValue, CssToken, CssTokenKind, Declaration};
 
 use crate::string::component_value_to_string;
 
@@ -41,7 +41,6 @@ impl CSSDeclaration {
 
         // Remove trailing whitespace
         while let Some(ComponentValue::Token(token)) = check_values.last() {
-            use css_parser::CssTokenKind;
             if matches!(
                 token,
                 CssToken {

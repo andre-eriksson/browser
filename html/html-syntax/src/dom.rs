@@ -35,6 +35,62 @@ impl Default for Element {
     }
 }
 
+impl Element {
+    pub fn new(tag: HtmlTag, attributes: HashMap<String, String>) -> Self {
+        Element { tag, attributes }
+    }
+
+    /// Get the ID attribute of this element, if present
+    ///
+    /// # Returns
+    /// An Option containing the ID as &str, or None if not present
+    pub fn id(&self) -> Option<&str> {
+        self.attributes.get("id").map(|s| s.as_str())
+    }
+
+    /// Get an iterator over the classes of this element
+    ///
+    /// # Returns
+    /// An iterator over class names as &str
+    pub fn classes(&self) -> impl Iterator<Item = &str> {
+        self.attributes
+            .get("class")
+            .map(|s| s.split_whitespace())
+            .into_iter()
+            .flatten()
+    }
+
+    /// Check if this element has a specific attribute
+    ///
+    /// # Arguments
+    /// * `name` - The name of the attribute to check
+    ///
+    /// # Returns
+    /// bool indicating whether the attribute is present
+    pub fn has_attribute(&self, name: &str) -> bool {
+        self.attributes.contains_key(name)
+    }
+
+    /// Get the value of a specific attribute by name
+    ///
+    /// # Arguments
+    /// * `name` - The name of the attribute to retrieve
+    ///
+    /// # Returns
+    /// An Option containing the attribute value as &str, or None if not present
+    pub fn get_attribute(&self, name: &str) -> Option<&str> {
+        self.attributes.get(name).map(|s| s.as_str())
+    }
+
+    /// Get the tag name of this element as a string
+    ///
+    /// # Returns
+    /// The tag name as &str
+    pub fn tag_name(&self) -> &str {
+        self.tag.as_str()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum NodeData {
     Element(Element),

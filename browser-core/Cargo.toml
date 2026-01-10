@@ -4,8 +4,10 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+assets.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true
+css-style.workspace = true
 errors.workspace = true
 html-dom.workspace = true
 html-parser.workspace = true

@@ -36,4 +36,4 @@ mod validator;
 // Re-exports
 pub use errors::tokenization::{CssTokenizationError, SourcePosition};
 pub use tokenizer::CssTokenizer;
-pub use tokens::{CssToken, CssTokenKind};
+pub use tokens::{CssToken, CssTokenKind, HashType, NumberType};

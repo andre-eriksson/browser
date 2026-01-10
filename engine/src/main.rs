@@ -1,17 +1,10 @@
 pub mod cli;
 pub mod headers;
+pub mod headless;
 
-use std::{
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{str::FromStr, sync::Arc};
 
-use browser_core::{
-    browser::{Browser, Commandable},
-    commands::BrowserCommand,
-    events::{BrowserEvent, Emitter},
-    tab::TabId,
-};
+use browser_core::{Browser, BrowserEvent, Emitter};
 use clap::Parser;
 use cookies::cookie_store::CookieJar;
 use network::clients::reqwest::ReqwestClient;
@@ -26,7 +19,7 @@ use tracing_subscriber::{
 };
 use ui::runtime::Ui;
 
-use crate::{cli::Args, headers::create_default_browser_headers};
+use crate::{cli::Args, headers::create_default_browser_headers, headless::headless_main};
 
 //use ui::runtime::UiRuntime;
 
@@ -58,8 +51,7 @@ impl<T: Send + 'static> Emitter<T> for ChannelEmitter<T> {
 }
 
 /// The main entry point for the application
-#[tokio::main]
-async fn main() {
+fn main() {
     let filter = EnvFilter::new("warn")
         .add_directive(Directive::from_str("engine=info").unwrap())
         .add_directive(Directive::from_str("browser_core=debug").unwrap())
@@ -84,7 +76,7 @@ async fn main() {
     let browser_headers = Arc::new(create_default_browser_headers());
 
     // TODO: Load cookies from persistent storage
-    let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
+    let cookie_jar = Arc::new(std::sync::Mutex::new(CookieJar::new()));
 
     let browser = Arc::new(tokio::sync::Mutex::new(Browser::new(
         emitter,
@@ -93,64 +85,21 @@ async fn main() {
         browser_headers,
     )));
 
-    if !args.headless {
-        let ui_runtime = Ui::new(browser, event_receiver);
-        let res = ui_runtime.run();
+    if args.headless {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
-        if let Err(e) = res {
-            error!("Application exited with error: {:?}", e);
-        }
-
-        info!("Application exited successfully.");
-    } else {
-        if !args.url.is_empty() {
-            let res = browser
-                .lock()
-                .await
-                .execute(BrowserCommand::Navigate {
-                    tab_id: TabId(0),
-                    url: args.url,
-                })
-                .await;
-
-            if let Err(e) = res {
-                error!("Failed to navigate to URL: {:?}", e);
-            }
-        }
-
-        loop {
-            print!("Enter a new URL to navigate to (or press Enter to exit): ");
-            std::io::Write::flush(&mut std::io::stdout()).unwrap();
-
-            let mut input = String::new();
-            if let Err(e) = std::io::stdin().read_line(&mut input) {
-                error!("Failed to read input: {:?}", e);
-                continue;
-            }
-
-            let command = input.trim().to_string();
-            if command.is_empty() {
-                break;
-            }
-
-            if command == "body" {
-                browser.lock().await.print_body(TabId(0));
-                continue;
-            }
-
-            let res = browser
-                .lock()
-                .await
-                .execute(BrowserCommand::Navigate {
-                    tab_id: TabId(0),
-                    url: command,
-                })
-                .await;
-
-            if let Err(e) = res {
-                error!("Failed to navigate to URL: {:?}", e);
-                break;
-            }
-        }
+        return runtime.block_on(headless_main(args, browser));
     }
+
+    let ui_runtime = Ui::new(browser, event_receiver);
+    let res = ui_runtime.run();
+
+    if let Err(e) = res {
+        error!("Application exited with error: {:?}", e);
+    }
+
+    info!("Application exited successfully.");
 }

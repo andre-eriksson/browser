@@ -61,7 +61,10 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 }
             } else {
                 CssToken {
-                    kind: CssTokenKind::Delim('#'),
+                    kind: CssTokenKind::Hash {
+                        value: String::new(),
+                        type_flag: HashType::Unrestricted,
+                    },
                     position: Some(tokenizer.stream.position()),
                 }
             }

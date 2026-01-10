@@ -1,4 +1,8 @@
-pub mod browser;
-pub mod commands;
-pub mod events;
-pub mod tab;
+mod browser;
+mod commands;
+mod events;
+mod tab;
+
+pub use browser::Browser;
+pub use events::{BrowserCommand, BrowserEvent, Commandable, Emitter};
+pub use tab::TabId;
