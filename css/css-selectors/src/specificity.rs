@@ -3,7 +3,7 @@ use std::{
     ops::{Add, AddAssign},
 };
 
-use css_cssom::CssTokenKind;
+use css_cssom::{CssTokenKind, HashType};
 
 use crate::selector::{CompoundSelector, CompoundSelectorSequence};
 
@@ -82,26 +82,39 @@ impl SpecificityCalculable for CompoundSelector {
         specificity.1 += self.attribute_selectors.len() as u32;
 
         for (i, token) in self.tokens.iter().enumerate() {
-            if let CssTokenKind::Ident(ident) = &token.kind {
-                let prev_token_kind = if i > 0 {
-                    Some(&self.tokens[i - 1].kind)
-                } else {
-                    None
-                };
-
-                match prev_token_kind {
-                    Some(CssTokenKind::Delim('#')) => {
+            match &token.kind {
+                CssTokenKind::Hash { value, type_flag } => {
+                    if *type_flag == HashType::Id && !value.is_empty() {
                         specificity.0 += 1;
                     }
-                    Some(CssTokenKind::Delim('.')) => {
-                        specificity.1 += 1;
-                    }
-                    _ => {
-                        if ident != "*" {
-                            specificity.2 += 1;
+                }
+                CssTokenKind::Ident(ident) => {
+                    let prev_token_kind = if i > 0 {
+                        Some(&self.tokens[i - 1].kind)
+                    } else {
+                        None
+                    };
+
+                    match prev_token_kind {
+                        Some(CssTokenKind::Hash {
+                            value: _,
+                            type_flag,
+                        }) => {
+                            if *type_flag == HashType::Id {
+                                specificity.0 += 1;
+                            }
+                        }
+                        Some(CssTokenKind::Delim('.')) => {
+                            specificity.1 += 1;
+                        }
+                        _ => {
+                            if ident != "*" {
+                                specificity.2 += 1;
+                            }
                         }
                     }
                 }
+                _ => {}
             }
         }
 

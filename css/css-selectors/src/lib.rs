@@ -27,7 +27,9 @@ pub use specificity::{SelectorSpecificity, SpecificityCalculable};
 mod tests {
     use std::collections::HashMap;
 
-    use css_cssom::{AssociatedToken, ComponentValue, CssToken, CssTokenKind, SimpleBlock};
+    use css_cssom::{
+        AssociatedToken, ComponentValue, CssToken, CssTokenKind, HashType, SimpleBlock,
+    };
     use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeData, NodeId};
     use html_syntax::tag::{HtmlTag, KnownTag};
 
@@ -226,10 +228,10 @@ mod tests {
 
     #[test]
     fn match_id_selector() {
-        let components = generate_compound_token!(
-            CssTokenKind::Delim('#'),
-            CssTokenKind::Ident("my-id".to_string())
-        );
+        let components = generate_compound_token!(CssTokenKind::Hash {
+            value: "my-id".to_string(),
+            type_flag: HashType::Id,
+        });
 
         let sequences = generate_compound_sequences(&components);
         assert_eq!(sequences.len(), 1);
@@ -257,10 +259,10 @@ mod tests {
 
     #[test]
     fn no_match_id_selector() {
-        let components = generate_compound_token!(
-            CssTokenKind::Delim('#'),
-            CssTokenKind::Ident("my-id".to_string())
-        );
+        let components = generate_compound_token!(CssTokenKind::Hash {
+            value: "my-id".to_string(),
+            type_flag: HashType::Id,
+        });
 
         let sequences = generate_compound_sequences(&components);
         assert_eq!(sequences.len(), 1);
@@ -1320,8 +1322,10 @@ mod tests {
             CssTokenKind::Ident("a".to_string()),
             CssTokenKind::Delim('.'),
             CssTokenKind::Ident("external-link".to_string()),
-            CssTokenKind::Delim('#'),
-            CssTokenKind::Ident("main-link".to_string());
+            CssTokenKind::Hash {
+                value: "main-link".to_string(),
+                type_flag: HashType::Id,
+            };
             attr[
                 CssTokenKind::Ident("href".to_string()),
                 CssTokenKind::Delim('^'),
@@ -1362,8 +1366,10 @@ mod tests {
             CssTokenKind::Ident("a".to_string()),
             CssTokenKind::Delim('.'),
             CssTokenKind::Ident("external-link".to_string()),
-            CssTokenKind::Delim('#'),
-            CssTokenKind::Ident("main-link".to_string());
+            CssTokenKind::Hash {
+                value: "main-link".to_string(),
+                type_flag: HashType::Id,
+            };
             attr[
                 CssTokenKind::Ident("href".to_string()),
                 CssTokenKind::Delim('^'),

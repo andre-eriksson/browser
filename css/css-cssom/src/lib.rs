@@ -32,7 +32,9 @@ mod declaration;
 mod rules;
 mod string;
 
-pub use css_parser::{AssociatedToken, ComponentValue, CssToken, CssTokenKind, SimpleBlock};
+pub use css_parser::{
+    AssociatedToken, ComponentValue, CssToken, CssTokenKind, HashType, NumberType, SimpleBlock,
+};
 pub use cssom::{CSSStyleSheet, StylesheetOrigin};
 pub use declaration::CSSDeclaration;
 pub use rules::at::CSSAtRule;

@@ -1,4 +1,4 @@
-use css_cssom::{CssToken, CssTokenKind};
+use css_cssom::{CssToken, CssTokenKind, HashType};
 use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeId};
 
 use crate::{
@@ -239,23 +239,29 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
                         _ => {}
                     }
                 } else if let Some(CssTokenKind::Delim(delim)) = prev {
-                    match delim {
-                        '.' => {
-                            if !element
-                                .classes()
-                                .any(|class| class.eq_ignore_ascii_case(ident))
-                            {
-                                return false;
-                            }
-                        }
-                        '#' => {
-                            if !element.id().is_none_or(|id| id.eq_ignore_ascii_case(ident)) {
-                                return false;
-                            }
-                        }
-                        _ => {}
+                    if delim == &'.'
+                        && !element
+                            .classes()
+                            .any(|class| class.eq_ignore_ascii_case(ident))
+                    {
+                        return false;
                     }
                 } else if let Some(CssTokenKind::Colon) = prev {
+                    return false;
+                }
+            }
+            CssTokenKind::Hash { value, type_flag } => {
+                if *type_flag != HashType::Id {
+                    continue;
+                }
+
+                let id = if let Some(element_id) = element.id() {
+                    element_id
+                } else {
+                    return false;
+                };
+
+                if !id.eq_ignore_ascii_case(value) {
                     return false;
                 }
             }
