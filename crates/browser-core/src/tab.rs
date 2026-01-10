@@ -1,11 +1,7 @@
 use std::fmt::Display;
 
 use css_cssom::CSSStyleSheet;
-use html_dom::DocumentRoot;
-use html_syntax::{
-    collector::{Collector, TagInfo},
-    tag::{HtmlTag, KnownTag},
-};
+use html_dom::{Collector, DocumentRoot, HtmlTag, KnownTag, TagInfo};
 
 pub struct TabManager {
     active_tab: TabId,

@@ -5,6 +5,6 @@ edition.workspace = true
 
 [dependencies]
 css-style.workspace = true
-html-syntax.workspace = true
+html-dom.workspace = true
 cosmic-text.workspace = true
 tracing.workspace = true

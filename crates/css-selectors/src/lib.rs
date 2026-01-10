@@ -30,11 +30,10 @@ mod tests {
     use css_cssom::{
         AssociatedToken, ComponentValue, CssToken, CssTokenKind, HashType, SimpleBlock,
     };
-    use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeData, NodeId};
-    use html_syntax::tag::{HtmlTag, KnownTag};
 
     use crate::{SelectorSpecificity, SpecificityCalculable};
     use crate::{matching::matches_compound, selector::generate_compound_sequences};
+    use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, KnownTag, NodeData, NodeId};
 
     macro_rules! generate_compound_token {
         ($($kind:expr),* ; attr[ $($attr_kind:expr),* $(,)? ] $(; $($rest_kind:expr),*)? $(,)?) => {{

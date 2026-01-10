@@ -278,7 +278,7 @@ mod tests {
         margin::Margin,
         margin::MarginValue,
     };
-    use html_syntax::dom::NodeId;
+    use html_dom::NodeId;
 
     fn viewport() -> Rect {
         Rect {

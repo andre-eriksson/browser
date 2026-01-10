@@ -1,7 +1,7 @@
-use html_syntax::token::{Token, TokenKind};
 use std::collections::HashMap;
 
 use crate::{
+    Token, TokenKind,
     state::TokenState,
     tokenizer::{HtmlTokenizer, TokenizerState},
 };

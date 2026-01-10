@@ -13,7 +13,6 @@ members = [
     "crates/errors",
     "crates/html-dom",
     "crates/html-parser",
-    "crates/html-syntax",
     "crates/html-tokenizer",
     "crates/layout",
     "crates/network",
@@ -39,7 +38,6 @@ browser-core =   { path = "crates/browser-core" }
 errors =         { path = "crates/errors" }
 html-dom =       { path = "crates/html-dom" }
 html-parser =    { path = "crates/html-parser" }
-html-syntax =    { path = "crates/html-syntax" }
 html-tokenizer = { path = "crates/html-tokenizer" }
 layout =         { path = "crates/layout" }
 network =        { path = "crates/network" }
