@@ -1,53 +1,53 @@
 [workspace]
 resolver = "3"
 members = [
-    "assets",
-    "browser-core",
-    "cookies",
-    "css/css-cssom",
-    "css/css-parser",
-    "css/css-selectors",
-    "css/css-style",
-    "css/css-tokenizer",
-    "engine",
-    "errors",
-    "html/html-dom",
-    "html/html-parser",
-    "html/html-syntax",
-    "html/html-tokenizer",
-    "layout",
-    "network",
-    "renderer",
-    "storage",
-    "ui",
-    "utilities/constants",
-    "utilities/telemetry",
+    "crates/assets",
+    "crates/browser-core",
+    "crates/cookies",
+    "crates/css-cssom",
+    "crates/css-parser",
+    "crates/css-selectors",
+    "crates/css-style",
+    "crates/css-tokenizer",
+    "crates/engine",
+    "crates/errors",
+    "crates/html-dom",
+    "crates/html-parser",
+    "crates/html-syntax",
+    "crates/html-tokenizer",
+    "crates/layout",
+    "crates/network",
+    "crates/renderer",
+    "crates/storage",
+    "crates/ui",
+    "crates/constants",
+    "crates/telemetry",
 ]
 
 [workspace.package]
 edition = "2024"
 
 [workspace.dependencies]
-assets = { path = "assets" }
-cookies = { path = "cookies" }
-css-cssom = { path = "css/css-cssom" }
-css-parser = { path = "css/css-parser" }
-css-tokenizer = { path = "css/css-tokenizer" }
-css-selectors = { path = "css/css-selectors" }
-css-style = { path = "css/css-style" }
-browser-core = { path = "browser-core" }
-errors = { path = "errors" }
-html-dom = { path = "html/html-dom" }
-html-parser = { path = "html/html-parser" }
-html-syntax = { path = "html/html-syntax" }
-html-tokenizer = { path = "html/html-tokenizer" }
-layout = { path = "layout" }
-network = { path = "network" }
-renderer = { path = "renderer" }
-storage = { path = "storage" }
-ui = { path = "ui" }
-constants = { path = "utilities/constants" }
-telemetry = { path = "utilities/telemetry" }
+assets =         { path = "crates/assets" }
+cookies =        { path = "crates/cookies" }
+css-cssom =      { path = "crates/css-cssom" }
+css-parser =     { path = "crates/css-parser" }
+css-tokenizer =  { path = "crates/css-tokenizer" }
+css-selectors =  { path = "crates/css-selectors" }
+css-style =      { path = "crates/css-style" }
+browser-core =   { path = "crates/browser-core" }
+errors =         { path = "crates/errors" }
+html-dom =       { path = "crates/html-dom" }
+html-parser =    { path = "crates/html-parser" }
+html-syntax =    { path = "crates/html-syntax" }
+html-tokenizer = { path = "crates/html-tokenizer" }
+layout =         { path = "crates/layout" }
+network =        { path = "crates/network" }
+renderer =       { path = "crates/renderer" }
+storage =        { path = "crates/storage" }
+ui =             { path = "crates/ui" }
+constants =      { path = "crates/constants" }
+telemetry =      { path = "crates/telemetry" }
 
 
 # External dependencies
