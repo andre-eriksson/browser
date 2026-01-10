@@ -21,7 +21,9 @@ use tracing_subscriber::{
 use ui::Ui;
 
 use crate::{
-    cli::Args, headers::create_default_browser_headers, headless::HeadlessEngine,
+    cli::Args,
+    headers::{create_default_browser_headers, create_headless_browser_headers},
+    headless::HeadlessEngine,
     message::ChannelEmitter,
 };
 
@@ -47,12 +49,12 @@ fn main() {
     let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
     let emitter = Box::new(ChannelEmitter::new(event_sender));
     let http_client = Box::new(ReqwestClient::new());
-    let browser_headers = Arc::new(create_default_browser_headers());
 
     // TODO: Load cookies from persistent storage
     let cookie_jar = Arc::new(std::sync::Mutex::new(CookieJar::new()));
 
     if args.headless {
+        let browser_headers = Arc::new(create_headless_browser_headers());
         let browser = HeadlessBrowser::new(emitter, http_client, cookie_jar, browser_headers);
         let mut engine = HeadlessEngine::new(browser);
 
@@ -63,6 +65,8 @@ fn main() {
 
         return runtime.block_on(engine.main(&args));
     }
+
+    let browser_headers = Arc::new(create_default_browser_headers());
 
     let browser = Arc::new(tokio::sync::Mutex::new(Browser::new(
         emitter,
