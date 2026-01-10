@@ -26,8 +26,12 @@ impl TabManager {
         &mut self.tabs
     }
 
-    pub(crate) fn active_tab(&self) -> TabId {
+    pub(crate) fn active_tab_id(&self) -> TabId {
         self.active_tab
+    }
+
+    pub(crate) fn active_tab(&self) -> Option<&Tab> {
+        self.tabs.iter().find(|t| t.id == self.active_tab)
     }
 
     pub(crate) fn next_tab_id(&self) -> usize {
@@ -127,6 +131,7 @@ impl Display for TabId {
 #[derive(Debug, Clone)]
 pub struct Tab {
     pub id: TabId,
+    document: DocumentRoot,
     stylesheets: Vec<CSSStyleSheet>,
 }
 
@@ -134,8 +139,17 @@ impl Tab {
     pub fn new(id: TabId) -> Self {
         Tab {
             id,
+            document: DocumentRoot::new(),
             stylesheets: Vec::new(),
         }
+    }
+
+    pub fn document(&self) -> &DocumentRoot {
+        &self.document
+    }
+
+    pub fn set_document(&mut self, document: DocumentRoot) {
+        self.document = document;
     }
 
     pub fn add_stylesheet(&mut self, stylesheet: CSSStyleSheet) {

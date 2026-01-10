@@ -6,6 +6,7 @@ use tracing::debug;
 use crate::domain::domain_matches;
 
 /// A stored cookie with additional metadata.
+#[derive(Clone, Debug)]
 pub struct StoredCookie {
     /// The actual cookie data.
     pub inner: Cookie<'static>,
@@ -14,8 +15,25 @@ pub struct StoredCookie {
     original_host: Option<String>,
 }
 
+impl Display for StoredCookie {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}={}; Domain={}; Path={}; Secure={}; HttpOnly={}",
+            self.inner.name(),
+            self.inner.value(),
+            self.inner
+                .domain()
+                .unwrap_or(self.original_host.as_deref().unwrap_or("")),
+            self.inner.path().unwrap_or("/"),
+            self.inner.secure().unwrap_or(false),
+            self.inner.http_only().unwrap_or(false)
+        )
+    }
+}
+
 /// A simple in-memory cookie jar (for now).
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CookieJar {
     /// The list of stored cookies.
     cookies: Vec<StoredCookie>,
@@ -104,6 +122,18 @@ impl CookieJar {
             inner: cookie,
             original_host,
         });
+    }
+}
+
+impl Iterator for CookieJar {
+    type Item = StoredCookie;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cookies.is_empty() {
+            None
+        } else {
+            Some(self.cookies.remove(0))
+        }
     }
 }
 

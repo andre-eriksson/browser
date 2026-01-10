@@ -1,91 +1,90 @@
 use std::sync::{Arc, Mutex};
 
-use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
-use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use http::HeaderMap;
 use network::http::client::HttpClient;
 
 use crate::{
+    BrowserCommand, BrowserEvent, Commandable, Emitter, TabId,
     commands::{
         navigate::navigate_to,
         tab::{add_tab, change_active_tab, close_tab},
     },
-    events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
-    navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
-    tab::{Tab, TabId, TabManager},
+    navigation::{NavigationContext, ScriptExecutor},
+    tab::{Tab, TabManager},
 };
 
-pub struct Browser {
+pub struct HeadlessBrowser {
     tab_manager: TabManager,
-    default_stylesheet: CSSStyleSheet,
     emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
     http_client: Box<dyn HttpClient>,
     _cookie_jar: Arc<Mutex<CookieJar>>,
     _headers: Arc<HeaderMap>,
 }
 
-impl Browser {
+impl HeadlessBrowser {
     pub fn new(
         emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
         http_client: Box<dyn HttpClient>,
         cookie_jar: Arc<Mutex<CookieJar>>,
         headers: Arc<HeaderMap>,
     ) -> Self {
-        let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
-
-        // TODO: Load the CSSStyleSheet from cache before parsing it again
-        let stylesheet = CSSStyleSheet::from_css(
-            std::str::from_utf8(&user_agent_css).unwrap_or_default(),
-            StylesheetOrigin::UserAgent,
-        );
-
         let tab_manager = TabManager::new(Tab::new(TabId(0)));
 
-        Browser {
+        HeadlessBrowser {
             tab_manager,
-            default_stylesheet: stylesheet,
             emitter,
             http_client,
             _cookie_jar: cookie_jar,
             _headers: headers,
         }
     }
+
+    pub fn print_body(&self) {
+        if let Some(active_tab) = self.tab_manager.active_tab() {
+            println!("{}", active_tab.document());
+        } else {
+            println!("No active tab.");
+        }
+    }
+
+    pub fn print_cookies(&self) {
+        if let Ok(cookie_jar) = self._cookie_jar.lock() {
+            for cookie in cookie_jar.clone() {
+                println!("{}", cookie);
+            }
+        } else {
+            println!("Failed to acquire lock on cookie jar.");
+        }
+    }
 }
 
-impl ScriptExecutor for Browser {
+impl ScriptExecutor for HeadlessBrowser {
     fn execute_script(&mut self, _script: &str) {
-        //debug!("Executing script: {}", script);
+        // TODO: Implement script execution in headless browser since it can modify the DOM.
     }
 }
 
-impl StyleProcessor for Browser {
-    fn process_css(&mut self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
-        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author);
-        stylesheets.push(stylesheet);
-    }
-}
-
-impl NavigationContext for Browser {
+impl NavigationContext for HeadlessBrowser {
     fn http_client(&self) -> &dyn HttpClient {
-        self.http_client.as_ref()
+        &*self.http_client
     }
 
     fn tab_manager(&mut self) -> &mut TabManager {
         &mut self.tab_manager
     }
 
-    fn default_stylesheet(&self) -> Option<&CSSStyleSheet> {
-        Some(&self.default_stylesheet)
+    fn default_stylesheet(&self) -> Option<&css_cssom::CSSStyleSheet> {
+        None
     }
 
     fn emit_event(&self, event: BrowserEvent) {
         self.emitter.emit(event);
     }
 
-    fn process_css(&mut self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
-        StyleProcessor::process_css(self, css, stylesheets);
+    fn process_css(&mut self, _css: &str, _stylesheets: &mut Vec<css_cssom::CSSStyleSheet>) {
+        // No-op for headless browser
     }
 
     fn execute_script(&mut self, script: &str) {
@@ -94,7 +93,7 @@ impl NavigationContext for Browser {
 }
 
 #[async_trait]
-impl Commandable for Browser {
+impl Commandable for HeadlessBrowser {
     async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => navigate_to(self, tab_id, url).await,
