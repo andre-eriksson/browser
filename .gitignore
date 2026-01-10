@@ -19,3 +19,6 @@ perf.data.old
 
 # Debug files
 tmp/
+
+# Misc
+THIRD_PARTY.md
