@@ -20,26 +20,31 @@ pub struct Args {
         default_value_t = false,
         group = "mode",
         help_heading = "Headless Mode",
-        help = "Run the browser in headless mode, without a graphical user interface, exclusive with interactive mode"
+        help = "Run the browser in headless mode, without a graphical user interface, exclusive with interactive mode",
+        conflicts_with = "interactive"
     )]
     pub headless: bool,
 
     #[arg(
         short = 'I',
         long,
+        group = "headless-mode",
         help_heading = "Headless Mode",
-        help = "Path to a file containing commands to execute in headless mode (See documentation for command format)",
-        requires = "headless"
+        help = "Path to a file containing commands to execute in headless mode, one per line.",
+        requires = "headless",
+        conflicts_with = "commands"
     )]
     pub input: Option<String>,
 
     #[arg(
         short = 'C',
         long,
+        group = "headless-mode",
         help_heading = "Headless Mode",
         help = "Commands to execute in headless mode, separated by commas. Will exit after executing all commands.",
         requires = "headless",
-        value_delimiter = ','
+        value_delimiter = ',',
+        conflicts_with = "input"
     )]
     pub commands: Vec<String>,
 

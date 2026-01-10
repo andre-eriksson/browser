@@ -73,6 +73,18 @@ impl HeadlessEngine {
             }
         }
 
+        if let Some(input_path) = args.input.as_deref()
+            && !input_path.is_empty()
+        {
+            let content = std::fs::read_to_string(input_path).expect("Failed to read input file");
+            for line in content.lines() {
+                if let Err(e) = self.handle_command(line).await {
+                    error!("{}", e);
+                }
+            }
+            return;
+        }
+
         if !args.commands.is_empty() {
             for cmd in &args.commands {
                 if let Err(e) = self.handle_command(cmd).await {
