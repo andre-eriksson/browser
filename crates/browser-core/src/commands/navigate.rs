@@ -1,7 +1,4 @@
-use html_parser::{
-    parser::HtmlStreamParser,
-    state::{BlockedReason, ParserState},
-};
+use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
 use network::http::request::RequestBuilder;
 use tracing::debug;
 use url::Url;

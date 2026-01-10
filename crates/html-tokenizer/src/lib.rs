@@ -1,4 +1,6 @@
 //! HTML Tokenizer Library
+//!
+//! This library provides a tokenizer for HTML content, breaking it down into manageable tokens for further processing.
 
 /// Enum for parser states
 mod state;
@@ -9,6 +11,7 @@ mod states;
 /// The main tokenizer module
 mod tokenizer;
 
+/// Definitions for HTML tokens
 mod tokens;
 
 pub use state::TokenState;
