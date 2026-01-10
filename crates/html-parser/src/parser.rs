@@ -1,11 +1,8 @@
 use std::io::BufRead;
 use std::mem;
 
-use html_dom::builder::{BuildResult, DomTreeBuilder};
-use html_syntax::{collector::Collector, token::Token};
-use html_tokenizer::{
-    state::TokenState,
-    tokenizer::{HtmlTokenizer, TokenizerState},
+use html_dom::{
+    BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
 };
 
 use crate::state::{BlockedReason, ParserState};

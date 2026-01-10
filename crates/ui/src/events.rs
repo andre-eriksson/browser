@@ -1,7 +1,7 @@
 use browser_core::TabId;
 use iced::window;
 
-use crate::api::window::WindowType;
+use crate::core::WindowType;
 
 /// Represents the different types of UI events that can occur in the application.
 #[derive(Debug, Clone)]

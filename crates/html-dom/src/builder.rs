@@ -1,11 +1,11 @@
-use html_syntax::{
+use html_tokenizer::{Token, TokenKind};
+
+use crate::{
     collector::{Collector, TagInfo},
+    decode::Decoder,
     dom::{DocumentRoot, Element, NodeData, NodeId},
     tag::{HtmlTag, is_void_element, should_auto_close},
-    token::{Token, TokenKind},
 };
-
-use crate::decode::Decoder;
 
 /// Represents the result of building a DOM tree.
 pub struct BuildResult<M> {

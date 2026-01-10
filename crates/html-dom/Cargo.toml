@@ -5,7 +5,7 @@ edition.workspace = true
 
 [dependencies]
 telemetry.workspace = true
-html-syntax.workspace = true
+html-tokenizer.workspace = true
 
 # External dependencies
 tracing.workspace = true

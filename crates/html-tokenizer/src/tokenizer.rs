@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use html_syntax::token::{Token, TokenKind};
-
 use crate::{
+    Token, TokenKind,
     state::TokenState,
     states::{
         attributes::{

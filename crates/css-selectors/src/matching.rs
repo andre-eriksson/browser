@@ -1,5 +1,5 @@
 use css_cssom::{CssToken, CssTokenKind, HashType};
-use html_syntax::dom::{DocumentRoot, DomNode, Element, NodeId};
+use html_dom::{DocumentRoot, DomNode, Element, NodeId};
 
 use crate::{
     parser::CaseSensitivity,

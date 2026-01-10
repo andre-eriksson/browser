@@ -1,9 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use html_parser::{
-    parser::HtmlStreamParser,
-    state::{BlockedReason, ParserState},
-};
-use html_syntax::collector::DefaultCollector;
+use html_dom::DefaultCollector;
+use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let prefix_path = "./benches/resources/";

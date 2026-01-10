@@ -653,7 +653,6 @@ dependencies = [
  "errors",
  "html-dom",
  "html-parser",
- "html-syntax",
  "http",
  "network",
  "tracing",
@@ -1234,7 +1233,7 @@ name = "css-selectors"
 version = "0.1.0"
 dependencies = [
  "css-cssom",
- "html-syntax",
+ "html-dom",
 ]
 
 [[package]]
@@ -2086,7 +2085,7 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 name = "html-dom"
 version = "0.1.0"
 dependencies = [
- "html-syntax",
+ "html-tokenizer",
  "telemetry",
  "tracing",
 ]
@@ -2097,8 +2096,6 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "html-dom",
- "html-syntax",
- "html-tokenizer",
  "network",
  "telemetry",
  "tokio",
@@ -2106,15 +2103,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "html-syntax"
-version = "0.1.0"
-
-[[package]]
 name = "html-tokenizer"
 version = "0.1.0"
-dependencies = [
- "html-syntax",
-]
 
 [[package]]
 name = "http"
@@ -2740,7 +2730,7 @@ version = "0.1.0"
 dependencies = [
  "cosmic-text",
  "css-style",
- "html-syntax",
+ "html-dom",
  "tracing",
 ]
 
@@ -5465,8 +5455,8 @@ dependencies = [
  "css-cssom",
  "css-style",
  "errors",
+ "html-dom",
  "html-parser",
- "html-syntax",
  "http",
  "iced",
  "image",

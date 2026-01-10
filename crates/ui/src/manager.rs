@@ -5,7 +5,7 @@ use iced::{
     window::{self, Id},
 };
 
-use crate::{api::window::ApplicationWindow, core::app::Application};
+use crate::core::{Application, ApplicationWindow};
 
 /// WindowController manages multiple application windows, allowing for rendering and interaction
 ///

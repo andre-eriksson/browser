@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
-use html_syntax::dom::NodeId;
+use html_dom::NodeId;
 
 use crate::primitives::{Color4f, Rect, SideOffset};
 

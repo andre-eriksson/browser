@@ -1,6 +1,6 @@
 use browser_core::TabId;
 use css_cssom::CSSStyleSheet;
-use html_syntax::dom::DocumentRoot;
+use html_dom::DocumentRoot;
 use layout::LayoutTree;
 use url::Url;
 
