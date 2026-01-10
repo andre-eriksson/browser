@@ -20,7 +20,7 @@ pub struct Args {
         default_value_t = false,
         group = "mode",
         help_heading = "Headless Mode",
-        help = "Run the browser in headless mode, without a graphical user interface, exclusive with interactive mode",
+        help = "Run the browser in headless mode, without a graphical user interface. Can't be used with --interactive.",
         conflicts_with = "interactive"
     )]
     pub headless: bool,
@@ -30,7 +30,7 @@ pub struct Args {
         long,
         group = "headless-mode",
         help_heading = "Headless Mode",
-        help = "Path to a file containing commands to execute in headless mode, one per line.",
+        help = "Path to a file containing commands to execute in headless mode, one per line. Can't be used with --commands.",
         requires = "headless",
         conflicts_with = "commands"
     )]
@@ -41,7 +41,7 @@ pub struct Args {
         long,
         group = "headless-mode",
         help_heading = "Headless Mode",
-        help = "Commands to execute in headless mode, separated by commas. Will exit after executing all commands.",
+        help = "Commands to execute in headless mode, separated by commas. Can't be used with --input.",
         requires = "headless",
         value_delimiter = ',',
         conflicts_with = "input"
@@ -53,7 +53,7 @@ pub struct Args {
         long,
         default_value_t = false,
         group = "mode",
-        help = "Run the browser in interactive terminal mode (TUI), exclusive with headless mode",
+        help = "Run the browser in interactive terminal mode (TUI). Can't be used with --headless. (Not yet implemented.)",
         conflicts_with = "headless"
     )]
     pub interactive: bool,

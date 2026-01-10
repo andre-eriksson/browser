@@ -13,6 +13,7 @@ impl HeadlessEngine {
         HeadlessEngine { browser }
     }
 
+    /// Handle a single command input
     async fn handle_command(&mut self, input: &str) -> Result<(), String> {
         match input.trim() {
             "exit" | "quit" => {
@@ -53,6 +54,7 @@ impl HeadlessEngine {
         }
     }
 
+    /// Main loop to process commands
     pub async fn main(&mut self, args: &Args) {
         if !args.url.is_empty() {
             let navigation_result = self
