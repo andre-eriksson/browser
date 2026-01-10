@@ -37,7 +37,7 @@ pub struct Args {
         short = 'C',
         long,
         help_heading = "Headless Mode",
-        help = "Commands to execute in headless mode, separated by commas",
+        help = "Commands to execute in headless mode, separated by commas. Will exit after executing all commands.",
         requires = "headless",
         value_delimiter = ','
     )]

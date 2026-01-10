@@ -13,6 +13,46 @@ impl HeadlessEngine {
         HeadlessEngine { browser }
     }
 
+    async fn handle_command(&mut self, input: &str) -> Result<(), String> {
+        match input.trim() {
+            "exit" | "quit" => {
+                info!("Exiting headless engine.");
+                std::process::exit(0);
+            }
+            cmd if cmd.starts_with("navigate ") => {
+                let parts: Vec<&str> = cmd["navigate ".len()..].splitn(2, ' ').collect();
+                if parts.len() != 2 {
+                    return Err("Usage: navigate <tab_id> <url>".to_string());
+                }
+                let tab_id = parts[0]
+                    .parse::<usize>()
+                    .map_err(|_| "Invalid tab_id".to_string())?;
+                let url = parts[1].to_string();
+
+                let navigation_result = self
+                    .browser
+                    .execute(BrowserCommand::Navigate {
+                        tab_id: TabId(tab_id),
+                        url,
+                    })
+                    .await;
+
+                match navigation_result {
+                    Ok(_) => {
+                        info!("Navigation successful");
+                        Ok(())
+                    }
+                    Err(e) => Err(format!("Navigation error: {}", e)),
+                }
+            }
+            "body" => {
+                self.browser.print_body();
+                Ok(())
+            }
+            _ => Err(format!("Unknown command: {}", input.trim())),
+        }
+    }
+
     pub async fn main(&mut self, args: &Args) {
         if !args.url.is_empty() {
             let navigation_result = self
@@ -33,6 +73,15 @@ impl HeadlessEngine {
             }
         }
 
+        if !args.commands.is_empty() {
+            for cmd in &args.commands {
+                if let Err(e) = self.handle_command(cmd).await {
+                    error!("{}", e);
+                }
+            }
+            return;
+        }
+
         loop {
             print!("headless > ");
             io::stdout().flush().unwrap();
@@ -42,30 +91,9 @@ impl HeadlessEngine {
                 .read_line(&mut input)
                 .expect("Failed to read line");
 
-            match input.trim() {
-                "exit" | "quit" => {
-                    break;
-                }
-                cmd if cmd.starts_with("navigate ") => {
-                    if let Some(command) = BrowserCommand::parse_navigate(&cmd["navigate ".len()..])
-                    {
-                        match self.browser.execute(command).await {
-                            Ok(_) => info!("Success"),
-                            Err(e) => error!("{}", e),
-                        }
-                    } else {
-                        error!("Invalid navigate command format. Use: navigate <tab_id> <url>");
-                    }
-                }
-                "body" => {
-                    self.browser.print_body();
-                }
-                _ => {
-                    error!("Unknown command: {}", input.trim());
-                }
+            if let Err(e) = self.handle_command(&input).await {
+                error!("{}", e);
             }
         }
-
-        info!("Exiting headless engine.");
     }
 }
