@@ -48,6 +48,16 @@ impl HeadlessBrowser {
             println!("No active tab.");
         }
     }
+
+    pub fn print_cookies(&self) {
+        if let Ok(cookie_jar) = self._cookie_jar.lock() {
+            for cookie in cookie_jar.clone() {
+                println!("{}", cookie);
+            }
+        } else {
+            println!("Failed to acquire lock on cookie jar.");
+        }
+    }
 }
 
 impl ScriptExecutor for HeadlessBrowser {
