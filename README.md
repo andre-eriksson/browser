@@ -1,33 +1,13 @@
-# Rust powered Browser
+# Rust Browser
 
-A browser (kinda) project to learn Rust, creating and displaying HTML content via a UI, mostly from scratch. Perhaps I can use CSS and hopefully JS (in the future 😶). Not aiming to be fully HTML5 spec compliant just enough to display simple content.
+A from-scratch (sort of) web browser built in Rust! It supports basic HTML and CSS rendering, as well as UI elements like tabs. The goal of this project is to learn more about how browsers work under the hood and to improve my Rust skills, as such it contains minimal dependencies as to not rely on external libraries for core functionality.
+
+> [!WARNING]
+> This is a work in progress and is not intended for production use. It is missing many features and is not optimized for performance or security.
 
 ## Preview
 
-<img src="./docs/preview.webp" alt="A screenshot of the app display some HTML and UI elements like tabs.">
-
-## Features
-- [ ] Engine
-  - [ ] Delegate tasks
-  - [x] Multithreaded
-  - [ ] Event queue
-- [x] HTML Parser
-  - [x] Basic DOM-tree builder
-  - [x] Handling malformed tags
-  - [x] Parses a decent amount of .html files correctly
-  - [ ] Handling of more exceptions
-- [ ] CSS Parser
-  - [ ] Basic CSSOM builder
-  - [ ] Cascading support
-- [x] UI rendered
-  - [x] Rendering the DOM-tree
-  - [ ] Applying basic CSS
-  - [ ] Drawing images
-- [ ] Networking
-  - [x] Able to fetch a single .html file from a URL
-  - [x] Handling of CORS
-  - [ ] Handling of Content-Security-Policy header
-  - [x] Handle POST, PUT, PATCH, DELETE, and other methods
+<img src="./docs/preview.png" alt="A screenshot of the app displaying some HTML, CSS and UI elements like tabs.">
 
 ## How to Run
 1. Install Rust (https://www.rust-lang.org/tools/install)
