@@ -15,26 +15,26 @@ use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{GlyphAtlas, RectPipeline, RenderRect, TextBlockInfo, TexturePipeline};
 
 use crate::core::app::Event;
+use crate::core::tabs::ScrollOffset;
 
 /// The primitive that carries render data from draw() to prepare()/render()
 #[derive(Debug, Clone)]
 pub struct HtmlPrimitive {
-    /// Rectangles to render
     pub rects: Vec<RenderRect>,
-    /// Text blocks to render (pre-extracted glyph info)
     pub text_blocks: Vec<TextBlockInfo>,
-
     pub viewport_width: f32,
     pub viewport_height: f32,
+    pub scroll_offset: ScrollOffset,
 }
 
 impl HtmlPrimitive {
-    pub fn new(viewport_width: f32, viewport_height: f32) -> Self {
+    pub fn new(viewport_width: f32, viewport_height: f32, scroll_offset: ScrollOffset) -> Self {
         Self {
             rects: Vec::new(),
             text_blocks: Vec::new(),
             viewport_width,
             viewport_height,
+            scroll_offset,
         }
     }
 
@@ -106,9 +106,15 @@ impl Primitive for HtmlPrimitive {
         pipeline.text_pipeline.clear();
 
         for render_rect in &self.rects {
+            let offset_rect = Rect {
+                x: render_rect.rect.x - self.scroll_offset.x,
+                y: render_rect.rect.y - self.scroll_offset.y,
+                width: render_rect.rect.width,
+                height: render_rect.rect.height,
+            };
             pipeline
                 .rect_pipeline
-                .push_quad(render_rect.rect, render_rect.background);
+                .push_quad(offset_rect, render_rect.background);
         }
 
         let (atlas_width, atlas_height) = pipeline.glyph_atlas.size();
@@ -128,8 +134,10 @@ impl Primitive for HtmlPrimitive {
                     continue;
                 }
 
-                let screen_x = glyph_info.x as f32 + region.placement_left as f32;
-                let screen_y = glyph_info.y as f32 - region.placement_top as f32;
+                let screen_x =
+                    glyph_info.x as f32 + region.placement_left as f32 - self.scroll_offset.x;
+                let screen_y =
+                    glyph_info.y as f32 - region.placement_top as f32 - self.scroll_offset.y;
 
                 let uv_rect = region.uv_rect(atlas_width, atlas_height);
 
@@ -184,6 +192,8 @@ pub struct HtmlRenderer {
     pub rects: Vec<RenderRect>,
     /// Text blocks to render (populated by layout engine)
     pub text_blocks: Vec<TextBlockInfo>,
+    /// The scroll offset for viewport-based rendering
+    pub scroll_offset: ScrollOffset,
 }
 
 impl HtmlRenderer {
@@ -199,6 +209,10 @@ impl HtmlRenderer {
     pub fn set_text_blocks(&mut self, text_blocks: Vec<TextBlockInfo>) {
         self.text_blocks = text_blocks;
     }
+
+    pub fn set_scroll_offset(&mut self, scroll_offset: ScrollOffset) {
+        self.scroll_offset = scroll_offset;
+    }
 }
 
 /// State for the shader widget
@@ -210,7 +224,7 @@ impl Program<Event> for HtmlRenderer {
     type State = ShaderState;
 
     fn draw(&self, _state: &Self::State, _cursor: Cursor, bounds: Rectangle) -> Self::Primitive {
-        let mut primitive = HtmlPrimitive::new(bounds.width, bounds.height);
+        let mut primitive = HtmlPrimitive::new(bounds.width, bounds.height, self.scroll_offset);
 
         for render_rect in &self.rects {
             primitive.push_rect(render_rect.rect, render_rect.background);
@@ -224,11 +238,47 @@ impl Program<Event> for HtmlRenderer {
     }
 }
 
-/// Helper function to collect all render data from a layout tree
-pub fn collect_render_data_from_layout(layout_tree: &LayoutTree) -> HtmlRenderer {
+/// Viewport bounds for culling off-screen content
+#[derive(Debug, Clone, Copy)]
+pub struct ViewportBounds {
+    pub scroll_y: f32,
+    pub viewport_height: f32,
+    pub margin: f32,
+}
+
+impl ViewportBounds {
+    pub fn new(scroll_y: f32, viewport_height: f32) -> Self {
+        Self {
+            scroll_y,
+            viewport_height,
+            margin: 200.0,
+        }
+    }
+
+    /// Check if a node is visible within the viewport (with margin)
+    fn is_visible(&self, node_y: f32, node_height: f32) -> bool {
+        let viewport_top = self.scroll_y - self.margin;
+        let viewport_bottom = self.scroll_y + self.viewport_height + self.margin;
+        let node_bottom = node_y + node_height;
+
+        node_bottom >= viewport_top && node_y <= viewport_bottom
+    }
+}
+
+/// Helper function to collect all render data from a layout tree with viewport culling
+pub fn collect_render_data_from_layout(
+    layout_tree: &LayoutTree,
+    viewport: Option<ViewportBounds>,
+) -> HtmlRenderer {
     let mut data = HtmlRenderer::default();
 
-    fn collect_node(node: &LayoutNode, data: &mut HtmlRenderer) {
+    fn collect_node(node: &LayoutNode, data: &mut HtmlRenderer, viewport: Option<&ViewportBounds>) {
+        if let Some(vp) = viewport
+            && !vp.is_visible(node.dimensions.y, node.dimensions.height)
+        {
+            return;
+        }
+
         let bg = node.colors.background_color;
 
         if bg.a > 0.0 {
@@ -256,12 +306,12 @@ pub fn collect_render_data_from_layout(layout_tree: &LayoutTree) -> HtmlRenderer
         }
 
         for child in &node.children {
-            collect_node(child, data);
+            collect_node(child, data, viewport);
         }
     }
 
     for root in &layout_tree.root_nodes {
-        collect_node(root, &mut data);
+        collect_node(root, &mut data, viewport.as_ref());
     }
 
     data

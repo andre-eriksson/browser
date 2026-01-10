@@ -26,4 +26,7 @@ pub enum UiEvent {
 
     /// Change the URL in the address bar to the specified URL.
     ChangeURL(String),
+
+    /// Handle content scroll event with new scroll offset.
+    ContentScrolled(f32, f32),
 }

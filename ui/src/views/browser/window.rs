@@ -3,9 +3,9 @@ use constants::APP_NAME;
 use iced::{
     Background, Color, Length, Renderer, Size, Theme,
     widget::{
-        Shader, column, container,
-        scrollable::{self, Direction, Scrollbar},
-        shader,
+        Shader, Space, column, container,
+        scrollable::{self, Direction, Scrollbar, Viewport},
+        shader, stack,
     },
     window::{Position, Settings},
 };
@@ -13,11 +13,12 @@ use iced::{
 use crate::{
     api::window::ApplicationWindow,
     core::app::{Application, Event},
+    events::UiEvent,
     util::image::load_icon,
     views::browser::components::{
         footer::render_footer,
         header::render_header,
-        shader::{HtmlRenderer, collect_render_data_from_layout},
+        shader::{HtmlRenderer, ViewportBounds, collect_render_data_from_layout},
     },
 };
 
@@ -45,23 +46,52 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
             }
         };
 
-        let render_data = collect_render_data_from_layout(&active_tab.layout_tree);
+        let (_, viewport_height) = app
+            .viewports
+            .get(&app.id)
+            .copied()
+            .unwrap_or((800.0, 600.0));
+
+        let content_viewport_height = (viewport_height - 100.0).max(100.0);
+
+        let viewport_bounds =
+            ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);
+
+        let render_data =
+            collect_render_data_from_layout(&active_tab.layout_tree, Some(viewport_bounds));
         renderer.set_rects(render_data.rects);
         renderer.set_text_blocks(render_data.text_blocks);
+        renderer.set_scroll_offset(active_tab.scroll_offset);
 
-        let shader: Shader<Event, HtmlRenderer> = shader(renderer)
+        let shader: Shader<Event, HtmlRenderer> =
+            shader(renderer).width(Length::Fill).height(Length::Fill);
+
+        let scroll_spacer = Space::new()
             .width(Length::Fill)
             .height(Length::Fixed(active_tab.layout_tree.content_height));
 
-        let content = container(
-            scrollable::Scrollable::new(shader)
-                .direction(Direction::Vertical(Scrollbar::new()))
-                .height(Length::Fill),
-        )
-        .style(|_| container::Style {
-            background: Some(Background::Color(Color::from_rgb8(0xFF, 0xF5, 0xEE))),
-            ..Default::default()
-        });
+        let scrollable_layer = scrollable::Scrollable::new(scroll_spacer)
+            .direction(Direction::Vertical(Scrollbar::new()))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .on_scroll(|viewport: Viewport| {
+                Event::Ui(UiEvent::ContentScrolled(
+                    viewport.absolute_offset().x,
+                    viewport.absolute_offset().y,
+                ))
+            });
+
+        let content_stack = stack![scrollable_layer, shader]
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+        let content = container(content_stack)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(|_| container::Style {
+                background: Some(Background::Color(Color::from_rgb8(0xFF, 0xF5, 0xEE))),
+                ..Default::default()
+            });
 
         container(column![header, content, footer])
             .width(Length::Fill)

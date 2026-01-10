@@ -1,3 +1,3 @@
 pub mod app;
 mod handle;
-mod tabs;
+pub mod tabs;

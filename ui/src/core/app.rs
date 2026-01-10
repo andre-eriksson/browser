@@ -230,6 +230,12 @@ impl Application {
                 UiEvent::ChangeURL(url) => {
                     self.current_url = url;
                 }
+                UiEvent::ContentScrolled(x, y) => {
+                    if let Some(tab) = self.tabs.iter_mut().find(|tab| tab.id == self.active_tab) {
+                        tab.scroll_offset.x = x;
+                        tab.scroll_offset.y = y;
+                    }
+                }
             },
 
             Event::Browser(browser_event) => match browser_event {
