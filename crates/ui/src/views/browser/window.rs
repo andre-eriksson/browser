@@ -11,8 +11,7 @@ use iced::{
 };
 
 use crate::{
-    api::window::ApplicationWindow,
-    core::app::{Application, Event},
+    core::{Application, ApplicationWindow, Event},
     events::UiEvent,
     util::image::load_icon,
     views::browser::components::{

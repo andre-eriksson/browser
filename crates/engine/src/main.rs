@@ -17,11 +17,9 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
 };
-use ui::runtime::Ui;
+use ui::Ui;
 
 use crate::{cli::Args, headers::create_default_browser_headers, headless::headless_main};
-
-//use ui::runtime::UiRuntime;
 
 pub struct ChannelEmitter<T> {
     sender: UnboundedSender<T>,

@@ -5,7 +5,7 @@ use iced::{
 };
 
 use crate::{
-    core::app::{Application, Event},
+    core::{Application, Event},
     events::UiEvent,
 };
 

@@ -9,7 +9,7 @@ use errors::subsystem::SubsystemError;
 use iced::{Font, Settings};
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-use crate::core::app::Application;
+use crate::core::Application;
 
 /// The main runtime for the UI, responsible for initializing and running the application.
 pub struct Ui {

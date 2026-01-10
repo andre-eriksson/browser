@@ -3,7 +3,10 @@ use iced::{
     widget::{button, container},
 };
 
-use crate::{api::window::WindowType, core::app::Event, events::UiEvent};
+use crate::{
+    core::{Event, WindowType},
+    events::UiEvent,
+};
 
 /// Renders the footer of the browser window.
 ///

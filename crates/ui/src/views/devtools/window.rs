@@ -7,8 +7,7 @@ use iced::{
 };
 
 use crate::{
-    api::window::ApplicationWindow,
-    core::app::{Application, Event},
+    core::{Application, ApplicationWindow, Event},
     util::image::load_icon,
 };
 

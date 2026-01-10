@@ -14,8 +14,7 @@ use iced::{
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{GlyphAtlas, RectPipeline, RenderRect, TextBlockInfo, TexturePipeline};
 
-use crate::core::app::Event;
-use crate::core::tabs::ScrollOffset;
+use crate::core::{Event, ScrollOffset};
 
 /// The primitive that carries render data from draw() to prepare()/render()
 #[derive(Debug, Clone)]
