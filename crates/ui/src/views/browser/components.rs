@@ -10,5 +10,8 @@ pub mod footer;
 /// Contains the address bar and navigation buttons.
 pub mod header;
 
-/// The HTML renderer shader component.
+/// The HTML shader component.
 pub mod shader;
+
+/// The HTML rendering component.
+pub mod html;
