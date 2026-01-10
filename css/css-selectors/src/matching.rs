@@ -259,9 +259,8 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
                     return false;
                 }
             }
-            CssTokenKind::Comma => return true,
             CssTokenKind::Colon => return false, // TODO: Handle pseudo-classes and pseudo-elements
-            _ => return false,                   // TODO: Handle other simple selectors
+            _ => continue,                       // TODO: Handle other simple selectors
         }
     }
 
@@ -289,6 +288,7 @@ pub fn matches_compound(
 
     for sequence in sequence.iter().rev() {
         let matched = matches_compound_selectors(&sequence.compound_selectors, element);
+
         if sequence.combinator.is_none() && !matched {
             return false;
         } else if sequence.combinator.is_none() && matched {
