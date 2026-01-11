@@ -50,10 +50,6 @@ impl HeadlessEngine {
                 self.browser.print_body();
                 Ok(())
             }
-            "cookies" => {
-                self.browser.print_cookies();
-                Ok(())
-            }
             _ => Err(format!("Unknown command: {}", input.trim())),
         }
     }
