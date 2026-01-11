@@ -10,10 +10,13 @@ pub enum HttpError {
 
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
+
+    #[error("Expected body in HTTP response but none found")]
+    MissingBody,
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum NetworkError {
+pub enum RequestError {
     #[error("Network request failed: {0}")]
     RequestFailed(String),
 
@@ -22,4 +25,13 @@ pub enum NetworkError {
 
     #[error("Timeout error: {0}")]
     TimeoutError(String),
+}
+
+#[derive(Error, Debug, Clone)]
+pub enum NetworkError {
+    #[error("HTTP error: {0}")]
+    Http(#[from] HttpError),
+
+    #[error("Request error: {0}")]
+    Request(#[from] RequestError),
 }

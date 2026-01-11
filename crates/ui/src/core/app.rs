@@ -5,7 +5,7 @@ use assets::ASSETS;
 use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
-use errors::network::NetworkError;
+use errors::network::RequestError;
 use iced::Subscription;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
@@ -179,7 +179,7 @@ impl Application {
                         |result| match result {
                             Ok(task) => Event::Browser(task),
                             Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
+                                RequestError::RequestFailed(err),
                             )),
                         },
                     );
@@ -195,7 +195,7 @@ impl Application {
                         |result| match result {
                             Ok(task) => Event::Browser(task),
                             Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
+                                RequestError::RequestFailed(err),
                             )),
                         },
                     );
@@ -212,7 +212,7 @@ impl Application {
                         |result| match result {
                             Ok(task) => Event::Browser(task),
                             Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
+                                RequestError::RequestFailed(err),
                             )),
                         },
                     );
@@ -257,7 +257,7 @@ impl Application {
                         |result| match result {
                             Ok(task) => Event::Browser(task),
                             Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
+                                RequestError::RequestFailed(err),
                             )),
                         },
                     );

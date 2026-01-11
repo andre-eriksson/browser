@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use errors::network::NetworkError;
+use errors::network::RequestError;
 
 use crate::http::{
     request::Request,
@@ -9,7 +9,7 @@ use crate::http::{
 #[async_trait]
 pub trait ResponseHandle: Send + Sync {
     fn metadata(&self) -> &HeaderResponse;
-    async fn body(self: Box<Self>) -> Result<Response, NetworkError>;
+    async fn body(self: Box<Self>) -> Result<Response, RequestError>;
 }
 
 /// An asynchronous HTTP client trait.
@@ -24,7 +24,7 @@ pub trait HttpClient: Send + Sync {
     ///
     /// # Returns
     /// * `Result<Response, Box<dyn std::error::Error>>` - The HTTP response or an error.
-    async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError>;
+    async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, RequestError>;
 
     fn box_clone(&self) -> Box<dyn HttpClient>;
 }

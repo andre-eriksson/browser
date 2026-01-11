@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use errors::network::NetworkError;
+use errors::network::RequestError;
 use telemetry::keys::STATUS_CODE;
-use tracing::{debug, error, instrument, trace};
+use tracing::{debug, error, trace};
 
 use crate::http::{
     client::{HttpClient, ResponseHandle},
@@ -35,7 +35,7 @@ impl ResponseHandle for ReqwestHandle {
         &self.metadata
     }
 
-    async fn body(self: Box<Self>) -> Result<Response, NetworkError> {
+    async fn body(self: Box<Self>) -> Result<Response, RequestError> {
         let status_code = self.metadata.status_code;
         let headers = self.metadata.headers;
 
@@ -43,7 +43,7 @@ impl ResponseHandle for ReqwestHandle {
 
         let body_bytes = match body_bytes {
             Ok(bytes) => bytes.to_vec(),
-            Err(e) => return Err(NetworkError::RequestFailed(e.to_string())),
+            Err(e) => return Err(RequestError::RequestFailed(e.to_string())),
         };
 
         Ok(Response {
@@ -56,8 +56,7 @@ impl ResponseHandle for ReqwestHandle {
 
 #[async_trait]
 impl HttpClient for ReqwestClient {
-    #[instrument(skip(self, request), fields(method = %request.method, url = %request.url))]
-    async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError> {
+    async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, RequestError> {
         let mut req = self.client.request(request.method, request.url);
 
         for (key, value) in request.headers.iter() {
@@ -74,7 +73,7 @@ impl HttpClient for ReqwestClient {
             Ok(resp) => resp,
             Err(e) => {
                 error!("Request failed: {}", e);
-                return Err(NetworkError::RequestFailed(e.to_string()));
+                return Err(RequestError::RequestFailed(e.to_string()));
             }
         };
 
