@@ -1,8 +1,9 @@
 use tracing::debug;
 
 use crate::{
+    Tab,
     events::BrowserEvent,
-    tab::{Tab, TabId, TabManager},
+    tab::{manager::TabManager, tabs::TabId},
 };
 
 /// Adds a new tab to the browser and returns a `BrowserEvent` indicating the addition.

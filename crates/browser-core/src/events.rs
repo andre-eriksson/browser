@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use errors::network::RequestError;
 
-use crate::tab::{TabId, TabMetadata};
+use crate::tab::tabs::{TabId, TabMetadata};
 
 #[async_trait]
 pub trait Commandable {

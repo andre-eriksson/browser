@@ -14,7 +14,10 @@ use crate::{
     events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
     navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
     service::network::{header::DefaultHeaders, service::NetworkService},
-    tab::{Tab, TabId, TabManager, TabMetadata},
+    tab::{
+        manager::TabManager,
+        tabs::{Tab, TabId, TabMetadata},
+    },
 };
 
 pub struct Browser {

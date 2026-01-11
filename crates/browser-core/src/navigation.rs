@@ -1,6 +1,6 @@
 use css_cssom::CSSStyleSheet;
 
-use crate::{service::network::service::NetworkService, tab::TabManager};
+use crate::{service::network::service::NetworkService, tab::manager::TabManager};
 
 /// A trait representing the ability to process CSS styles within the browser context.
 pub trait StyleProcessor {

@@ -5,14 +5,17 @@ use cookies::cookie_store::CookieJar;
 use network::clients::reqwest::ReqwestClient;
 
 use crate::{
-    BrowserCommand, BrowserEvent, Commandable, Emitter, TabId,
+    BrowserCommand, BrowserEvent, Commandable, Emitter,
     commands::{
         navigate::navigate,
         tab::{add_tab, change_active_tab, close_tab},
     },
     navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
     service::network::{header::DefaultHeaders, service::NetworkService},
-    tab::{Tab, TabManager, TabMetadata},
+    tab::{
+        manager::TabManager,
+        tabs::{Tab, TabId, TabMetadata},
+    },
 };
 
 pub struct HeadlessBrowser {

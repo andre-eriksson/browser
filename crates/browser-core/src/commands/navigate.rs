@@ -6,10 +6,9 @@ use network::http::request::RequestBuilder;
 use url::Url;
 
 use crate::{
-    TabId,
     navigation::NavigationContext,
     service::network::{context::NetworkContext, service::NetworkService},
-    tab::TabCollector,
+    tab::{collector::TabCollector, tabs::TabId},
 };
 
 async fn fetch_url(
