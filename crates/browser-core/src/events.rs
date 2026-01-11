@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use errors::network::NetworkError;
+use errors::network::RequestError;
 
 use crate::tab::{TabId, TabMetadata};
 
@@ -33,7 +33,7 @@ pub enum BrowserEvent {
     NavigateSuccess(TabMetadata),
 
     /// Navigation failed with a network error.
-    NavigateError(NetworkError),
+    NavigateError(RequestError),
 }
 
 /// Represents commands that can be issued to the browser.

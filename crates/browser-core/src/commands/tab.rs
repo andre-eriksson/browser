@@ -2,7 +2,6 @@ use tracing::debug;
 
 use crate::{
     events::BrowserEvent,
-    navigation::NavigationContext,
     tab::{Tab, TabId, TabManager},
 };
 
@@ -30,12 +29,12 @@ pub fn close_tab(tab_manager: &mut TabManager, tab_id: TabId) -> Result<BrowserE
 
 /// Changes the active tab to the tab with the specified `tab_id`.
 pub fn change_active_tab(
-    navigation_context: &mut dyn NavigationContext,
+    tab_manager: &mut TabManager,
     tab_id: TabId,
 ) -> Result<BrowserEvent, String> {
     debug!("Changing active tab to ID {:?}", tab_id);
-    navigation_context.tab_manager().change_active_tab(tab_id)?;
-    navigation_context.emit_event(BrowserEvent::ActiveTabChanged(tab_id));
+
+    tab_manager.change_active_tab(tab_id)?;
 
     Ok(BrowserEvent::ActiveTabChanged(tab_id))
 }

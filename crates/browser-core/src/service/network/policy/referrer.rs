@@ -1,7 +1,8 @@
 /// Defines the referrer policy options for network requests.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Referrer-Policy>
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(dead_code)]
 pub enum ReferrerPolicy {
     /// The Referer header will be omitted: sent requests do not include any referrer information.
     NoReferrer,
@@ -28,6 +29,7 @@ pub enum ReferrerPolicy {
     /// Send the origin, path, and query string when performing a same-origin request.
     /// For cross-origin requests send the origin (only) when the protocol security level stays same (HTTPS→HTTPS).
     /// Don't send the Referer header to less secure destinations (HTTPS→HTTP).
+    #[default]
     StrictOriginWhenCrossOrigin,
 
     /// Send the origin, path, and query string when performing any request, regardless of security.

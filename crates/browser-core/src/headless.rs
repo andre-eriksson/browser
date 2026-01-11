@@ -2,42 +2,38 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
-use http::HeaderMap;
-use network::http::client::HttpClient;
+use network::clients::reqwest::ReqwestClient;
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter, TabId,
     commands::{
-        navigate::navigate_to,
+        navigate::navigate,
         tab::{add_tab, change_active_tab, close_tab},
     },
-    navigation::{NavigationContext, ScriptExecutor},
-    tab::{Tab, TabManager},
+    navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
+    service::network::{header::DefaultHeaders, service::NetworkService},
+    tab::{Tab, TabManager, TabMetadata},
 };
 
 pub struct HeadlessBrowser {
     tab_manager: TabManager,
-    emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-    http_client: Box<dyn HttpClient>,
-    _cookie_jar: Arc<Mutex<CookieJar>>,
-    _headers: Arc<HeaderMap>,
+    _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
+    network: NetworkService,
 }
 
 impl HeadlessBrowser {
-    pub fn new(
-        emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-        http_client: Box<dyn HttpClient>,
-        cookie_jar: Arc<Mutex<CookieJar>>,
-        headers: Arc<HeaderMap>,
-    ) -> Self {
+    pub fn new(emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
+        let http_client = Box::new(ReqwestClient::new());
+        // TODO: Load cookies from persistent storage
+        let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
+        let headers = Arc::new(DefaultHeaders::create_headless_browser_headers());
+
         let tab_manager = TabManager::new(Tab::new(TabId(0)));
 
         HeadlessBrowser {
             tab_manager,
-            emitter,
-            http_client,
-            _cookie_jar: cookie_jar,
-            _headers: headers,
+            _emitter: emitter,
+            network: NetworkService::new(http_client, cookie_jar, headers),
         }
     }
 
@@ -48,47 +44,35 @@ impl HeadlessBrowser {
             println!("No active tab.");
         }
     }
+}
 
-    pub fn print_cookies(&self) {
-        if let Ok(cookie_jar) = self._cookie_jar.lock() {
-            for cookie in cookie_jar.clone() {
-                println!("{}", cookie);
-            }
-        } else {
-            println!("Failed to acquire lock on cookie jar.");
-        }
+impl StyleProcessor for HeadlessBrowser {
+    fn process_css(&self, _css: &str, _stylesheets: &mut Vec<css_cssom::CSSStyleSheet>) {
+        // Nothing
     }
 }
 
 impl ScriptExecutor for HeadlessBrowser {
-    fn execute_script(&mut self, _script: &str) {
+    fn execute_script(&self, _script: &str) {
         // TODO: Implement script execution in headless browser since it can modify the DOM.
     }
 }
 
 impl NavigationContext for HeadlessBrowser {
-    fn http_client(&self) -> &dyn HttpClient {
-        &*self.http_client
+    fn network_service(&mut self) -> &mut NetworkService {
+        &mut self.network
+    }
+
+    fn script_executor(&self) -> &dyn ScriptExecutor {
+        self
+    }
+
+    fn style_processor(&self) -> &dyn StyleProcessor {
+        self
     }
 
     fn tab_manager(&mut self) -> &mut TabManager {
         &mut self.tab_manager
-    }
-
-    fn default_stylesheet(&self) -> Option<&css_cssom::CSSStyleSheet> {
-        None
-    }
-
-    fn emit_event(&self, event: BrowserEvent) {
-        self.emitter.emit(event);
-    }
-
-    fn process_css(&mut self, _css: &str, _stylesheets: &mut Vec<css_cssom::CSSStyleSheet>) {
-        // No-op for headless browser
-    }
-
-    fn execute_script(&mut self, script: &str) {
-        ScriptExecutor::execute_script(self, script);
     }
 }
 
@@ -96,10 +80,30 @@ impl NavigationContext for HeadlessBrowser {
 impl Commandable for HeadlessBrowser {
     async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
         match command {
-            BrowserCommand::Navigate { tab_id, url } => navigate_to(self, tab_id, url).await,
+            BrowserCommand::Navigate { tab_id, url } => {
+                let result = navigate(self, tab_id, &url, &mut Vec::new()).await?;
+
+                let tab = self
+                    .tab_manager
+                    .get_tab_mut(tab_id)
+                    .ok_or_else(|| format!("Tab with id {:?} not found in TabManager", tab_id))?;
+
+                tab.set_document(result.dom_tree.clone());
+
+                let tab_metadata = TabMetadata {
+                    id: tab.id,
+                    title: result.metadata.title.unwrap_or(url.to_string()),
+                    document: result.dom_tree,
+                    stylesheets: tab.stylesheets().clone(),
+                };
+
+                Ok(BrowserEvent::NavigateSuccess(tab_metadata))
+            }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(self, tab_id),
+            BrowserCommand::ChangeActiveTab { tab_id } => {
+                change_active_tab(&mut self.tab_manager, tab_id)
+            }
         }
     }
 }

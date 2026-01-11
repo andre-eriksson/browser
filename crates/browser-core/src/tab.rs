@@ -3,6 +3,8 @@ use std::fmt::Display;
 use css_cssom::CSSStyleSheet;
 use html_dom::{Collector, DocumentRoot, HtmlTag, KnownTag, TagInfo};
 
+use crate::service::network::context::NetworkContext;
+
 pub struct TabManager {
     active_tab: TabId,
     tabs: Vec<Tab>,
@@ -18,20 +20,16 @@ impl TabManager {
         }
     }
 
-    pub(crate) fn tabs(&self) -> &Vec<Tab> {
-        &self.tabs
-    }
-
-    pub(crate) fn tabs_mut(&mut self) -> &mut Vec<Tab> {
-        &mut self.tabs
-    }
-
     pub(crate) fn active_tab_id(&self) -> TabId {
         self.active_tab
     }
 
     pub(crate) fn active_tab(&self) -> Option<&Tab> {
         self.tabs.iter().find(|t| t.id == self.active_tab)
+    }
+
+    pub(crate) fn get_tab_mut(&mut self, tab_id: TabId) -> Option<&mut Tab> {
+        self.tabs.iter_mut().find(|t| t.id == tab_id)
     }
 
     pub(crate) fn next_tab_id(&self) -> usize {
@@ -133,6 +131,7 @@ pub struct Tab {
     pub id: TabId,
     document: DocumentRoot,
     stylesheets: Vec<CSSStyleSheet>,
+    network_context: NetworkContext,
 }
 
 impl Tab {
@@ -141,6 +140,7 @@ impl Tab {
             id,
             document: DocumentRoot::new(),
             stylesheets: Vec::new(),
+            network_context: NetworkContext::default(),
         }
     }
 
@@ -150,6 +150,10 @@ impl Tab {
 
     pub fn set_document(&mut self, document: DocumentRoot) {
         self.document = document;
+    }
+
+    pub fn network_context(&mut self) -> &mut NetworkContext {
+        &mut self.network_context
     }
 
     pub fn add_stylesheet(&mut self, stylesheet: CSSStyleSheet) {

@@ -6,12 +6,14 @@ edition.workspace = true
 [dependencies]
 assets.workspace = true
 cookies.workspace = true
+constants.workspace = true
 css-cssom.workspace = true
 css-style.workspace = true
 errors.workspace = true
 html-dom.workspace = true
 html-parser.workspace = true
 network.workspace = true
+telemetry.workspace = true
 
 # External dependencies
 async-trait.workspace = true

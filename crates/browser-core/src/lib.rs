@@ -3,6 +3,7 @@ mod commands;
 mod events;
 mod headless;
 mod navigation;
+mod service;
 mod tab;
 
 pub use browser::Browser;

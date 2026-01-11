@@ -646,6 +646,7 @@ version = "0.1.0"
 dependencies = [
  "assets",
  "async-trait",
+ "constants",
  "cookie",
  "cookies",
  "css-cssom",
@@ -655,6 +656,7 @@ dependencies = [
  "html-parser",
  "http",
  "network",
+ "telemetry",
  "tracing",
  "url",
 ]
@@ -2096,9 +2098,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "html-dom",
- "network",
  "telemetry",
- "tokio",
  "tracing",
 ]
 
