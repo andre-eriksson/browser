@@ -5,7 +5,7 @@ use assets::ASSETS;
 use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
-use errors::network::NetworkError;
+use errors::browser::{BrowserError, NavigationError};
 use iced::Subscription;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
@@ -13,7 +13,7 @@ use iced::{Renderer, Task, Theme, window};
 use layout::{LayoutEngine, Rect, TextContext};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::error;
+use tracing::info;
 
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::UiEvent;
@@ -178,9 +178,7 @@ impl Application {
                         },
                         |result| match result {
                             Ok(task) => Event::Browser(task),
-                            Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
-                            )),
+                            Err(_) => Event::None,
                         },
                     );
                 }
@@ -194,9 +192,7 @@ impl Application {
                         },
                         |result| match result {
                             Ok(task) => Event::Browser(task),
-                            Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
-                            )),
+                            Err(_) => Event::None,
                         },
                     );
                 }
@@ -211,9 +207,7 @@ impl Application {
                         },
                         |result| match result {
                             Ok(task) => Event::Browser(task),
-                            Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
-                            )),
+                            Err(_) => Event::None,
                         },
                     );
                 }
@@ -256,18 +250,21 @@ impl Application {
                         },
                         |result| match result {
                             Ok(task) => Event::Browser(task),
-                            Err(err) => Event::Browser(BrowserEvent::NavigateError(
-                                NetworkError::RequestFailed(err),
-                            )),
+                            Err(err) => match err {
+                                BrowserError::NavigationError(NavigationError::RequestError(
+                                    err,
+                                )) => Event::Browser(BrowserEvent::NavigateError(err)),
+
+                                _ => Event::None,
+                            },
                         },
                     );
                 }
-                BrowserEvent::NavigateSuccess(metadata) => {
-                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == metadata.id);
+                BrowserEvent::NavigateSuccess(tab_id, page) => {
+                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
                     if let Some(tab) = current_tab {
-                        let style_tree =
-                            StyleTree::build(&metadata.document, &metadata.stylesheets);
+                        let style_tree = StyleTree::build(page.document(), page.stylesheets());
 
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
@@ -288,15 +285,15 @@ impl Application {
                             &mut self.text_context,
                         );
 
-                        tab.document = metadata.document;
-                        tab.stylesheets = metadata.stylesheets;
+                        tab.document = page.document().clone();
+                        tab.stylesheets = page.stylesheets().clone();
                         tab.current_url = Some(self.current_url.parse().unwrap());
                         tab.layout_tree = layout_tree;
-                        tab.title = Some(metadata.title);
+                        tab.title = Some(page.title().to_string());
                     }
                 }
                 BrowserEvent::NavigateError(err) => {
-                    error!("Navigation error: {}", err);
+                    info!("{}", err);
                 }
             },
         }

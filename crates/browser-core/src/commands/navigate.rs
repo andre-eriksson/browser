@@ -1,61 +1,64 @@
+use std::sync::Arc;
+
+use css_cssom::CSSStyleSheet;
+use errors::{
+    browser::NavigationError,
+    network::{NetworkError, RequestError},
+};
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
 use network::http::request::RequestBuilder;
-use tracing::debug;
 use url::Url;
 
 use crate::{
-    events::BrowserEvent,
+    TabId,
     navigation::NavigationContext,
-    tab::{TabCollector, TabId, TabMetadata},
+    service::network::{policy::DocumentPolicy, request::RequestResult},
+    tab::{collector::TabCollector, page::Page},
 };
 
 /// Navigates the specified tab to the given URL, fetching and parsing the content.
 /// Executes any scripts and processes stylesheets found during parsing.
-pub async fn navigate_to(
-    navigation_context: &mut dyn NavigationContext,
+pub async fn navigate(
+    ctx: &mut dyn NavigationContext,
     tab_id: TabId,
-    url: String,
-) -> Result<BrowserEvent, String> {
-    debug!("Navigating tab {:?} to URL: {}", tab_id, url);
+    url: &str,
+    mut stylesheets: Vec<CSSStyleSheet>,
+) -> Result<Page, NavigationError> {
+    let mut page = Page::blank();
+
+    let url = Url::parse(url).map_err(|e| {
+        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+            e.to_string(),
+        )))
+    })?;
 
     // TODO: Handle exceptions like about:blank or about:config
-    let url = match Url::parse(&url) {
-        Ok(parsed_url) => parsed_url,
-        Err(e) => return Err(format!("Invalid URL: {}", e)),
-    };
-
-    if !navigation_context
-        .tab_manager()
-        .tabs()
-        .iter()
-        .any(|t| t.id == tab_id)
-    {
-        return Err(format!("Tab with ID {:?} does not exist", tab_id));
-    }
-
     let request = RequestBuilder::from(url.clone()).build();
-    let header_response = match navigation_context.http_client().send(request).await {
-        Ok(resp) => resp,
-        Err(e) => return Err(format!("HTTP request failed: {}", e)),
+    let header_response = match ctx.network_service().fetch(&mut page, request).await {
+        RequestResult::Failed(err) => return Err(NavigationError::RequestError(err)),
+        RequestResult::ClientError(resp)
+        | RequestResult::ServerError(resp)
+        | RequestResult::Success(resp) => resp,
+    };
+    let body = match header_response.body().await {
+        Ok(resp) => match resp.body {
+            Some(b) => b,
+            None => {
+                return Err(NavigationError::RequestError(RequestError::EmptyBody));
+            }
+        },
+        Err(e) => {
+            return Err(NavigationError::RequestError(RequestError::Network(e)));
+        }
     };
 
-    let response = match header_response.body().await {
-        Ok(b) => b,
-        Err(e) => return Err(format!("Failed to read response body: {}", e)),
-    };
-
-    let body = match response.body {
-        Some(b) => b,
-        None => return Err("Response body is empty".to_string()),
-    };
+    page.document_url = Some(url.clone());
 
     let mut parser = HtmlStreamParser::<_, TabCollector>::new(
         body.as_slice(),
         None,
         Some(TabCollector::default()),
     );
-
-    let mut stylesheets = Vec::new();
 
     loop {
         parser.step()?;
@@ -64,69 +67,63 @@ pub async fn navigate_to(
             ParserState::Running => continue,
             ParserState::Blocked(reason) => match reason {
                 BlockedReason::WaitingForScript(attributes) => {
-                    //println!("Script attributes: {:?}", attributes);
-
                     if attributes.get("src").is_some() {
                         let src = attributes.get("src").unwrap();
-                        let script_request = match RequestBuilder::from_relative_url(&url, src) {
-                            Ok(req) => req.build(),
+
+                        let src_url = match url.join(src) {
+                            Ok(u) => u,
                             Err(e) => {
-                                return Err(format!(
-                                    "Failed to build script request for {}: {}",
-                                    src, e
-                                ));
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    NetworkError::InvalidUrl(e.to_string()),
+                                )));
                             }
                         };
 
-                        let script_response = match navigation_context
-                            .http_client()
-                            .send(script_request)
-                            .await
-                        {
-                            Ok(resp) => resp,
+                        let script_request = RequestBuilder::from(src_url).build();
+                        let script_resp = ctx.network_service().fetch(&mut page, script_request);
+                        let script_response = match script_resp.await {
+                            RequestResult::Failed(err) => {
+                                return Err(NavigationError::RequestError(err));
+                            }
+                            RequestResult::ClientError(resp)
+                            | RequestResult::ServerError(resp)
+                            | RequestResult::Success(resp) => resp,
+                        };
+                        let script_body = match script_response.body().await {
+                            Ok(resp) => match resp.body {
+                                Some(b) => b,
+                                None => {
+                                    return Err(NavigationError::RequestError(
+                                        RequestError::EmptyBody,
+                                    ));
+                                }
+                            },
                             Err(e) => {
-                                return Err(format!("Failed to fetch script from {}: {}", src, e));
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    e,
+                                )));
                             }
                         };
 
-                        let response = match script_response.body().await {
-                            Ok(b) => b,
-                            Err(e) => {
-                                return Err(format!(
-                                    "Failed to read script body from {}: {}",
-                                    src, e
-                                ));
-                            }
-                        };
-
-                        let body = match response.body {
-                            Some(b) => b,
-                            None => {
-                                return Err(format!("Script body from {} is empty", src));
-                            }
-                        };
-
-                        let script_text = String::from_utf8_lossy(body.as_slice()).to_string();
+                        let script_text =
+                            String::from_utf8_lossy(script_body.as_slice()).to_string();
                         let _ = parser.extract_script_content()?;
-                        navigation_context.execute_script(&script_text);
+                        ctx.script_executor().execute_script(&script_text);
                     } else {
                         let script_content = parser.extract_script_content()?;
-                        navigation_context.execute_script(&script_content);
+                        ctx.script_executor().execute_script(&script_content);
                     }
 
                     parser.resume()?;
                 }
                 BlockedReason::WaitingForStyle(_attributes) => {
                     let css_content = parser.extract_style_content()?;
-                    navigation_context.process_css(&css_content, &mut stylesheets);
+                    ctx.style_processor()
+                        .process_css(&css_content, &mut stylesheets);
 
                     parser.resume()?;
                 }
                 _ => {
-                    debug!(
-                        "Parser for tab {:?} is blocked for reason: {:?}",
-                        tab_id, reason
-                    );
                     break;
                 }
             },
@@ -136,30 +133,17 @@ pub async fn navigate_to(
         }
     }
 
-    let parser_result = parser.finalize();
-    let default_stylesheet = navigation_context.default_stylesheet().cloned();
+    let result = parser.finalize();
+    let policies = match ctx.tab_manager().get_tab_mut(tab_id) {
+        Some(tab) => tab.policies().clone(),
+        None => DocumentPolicy::default(),
+    };
 
-    let tab = navigation_context
-        .tab_manager()
-        .tabs_mut()
-        .iter_mut()
-        .find(|t| t.id == tab_id)
-        .ok_or_else(|| format!("Tab with ID {:?} does not exist", tab_id))?;
-
-    tab.set_document(parser_result.dom_tree.clone());
-    tab.clear_stylesheets();
-    if let Some(default) = default_stylesheet {
-        tab.add_stylesheet(default.clone());
-    }
-
-    for stylesheet in stylesheets {
-        tab.add_stylesheet(stylesheet);
-    }
-
-    Ok(BrowserEvent::NavigateSuccess(TabMetadata {
-        id: tab_id,
-        title: parser_result.metadata.title.unwrap_or(url.to_string()),
-        document: parser_result.dom_tree,
-        stylesheets: tab.stylesheets().clone(),
-    }))
+    Ok(page.load(
+        result.metadata.title.unwrap_or(url.to_string()),
+        Some(url.clone()),
+        result.dom_tree,
+        stylesheets,
+        Arc::new(policies),
+    ))
 }

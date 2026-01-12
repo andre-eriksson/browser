@@ -1,7 +1,5 @@
 use async_trait::async_trait;
 use errors::network::NetworkError;
-use telemetry::keys::STATUS_CODE;
-use tracing::{debug, error, instrument, trace};
 
 use crate::http::{
     client::{HttpClient, ResponseHandle},
@@ -43,7 +41,14 @@ impl ResponseHandle for ReqwestHandle {
 
         let body_bytes = match body_bytes {
             Ok(bytes) => bytes.to_vec(),
-            Err(e) => return Err(NetworkError::RequestFailed(e.to_string())),
+            Err(err) => {
+                return match err {
+                    _ if err.is_timeout() => Err(NetworkError::Timeout),
+                    _ if err.is_redirect() => Err(NetworkError::MaxRedirectsExceeded),
+                    _ if err.is_connect() => Err(NetworkError::ConnectionRefused),
+                    e => Err(NetworkError::InvalidRequest(e.to_string())),
+                };
+            }
         };
 
         Ok(Response {
@@ -56,7 +61,6 @@ impl ResponseHandle for ReqwestHandle {
 
 #[async_trait]
 impl HttpClient for ReqwestClient {
-    #[instrument(skip(self, request), fields(method = %request.method, url = %request.url))]
     async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError> {
         let mut req = self.client.request(request.method, request.url);
 
@@ -72,31 +76,22 @@ impl HttpClient for ReqwestClient {
 
         let response = match response {
             Ok(resp) => resp,
-            Err(e) => {
-                error!("Request failed: {}", e);
-                return Err(NetworkError::RequestFailed(e.to_string()));
+            Err(err) => {
+                return match err {
+                    _ if err.is_timeout() => Err(NetworkError::Timeout),
+                    _ if err.is_redirect() => Err(NetworkError::MaxRedirectsExceeded),
+                    _ if err.is_connect() => Err(NetworkError::ConnectionRefused),
+                    e => Err(NetworkError::InvalidRequest(e.to_string())),
+                };
             }
         };
 
         let status_code = response.status();
 
-        debug!({ STATUS_CODE } = format!("{}", status_code));
-
         let headers = response
             .headers()
             .iter()
-            .map(|(k, v)| {
-                let key = k.clone();
-                let value = v.clone();
-
-                trace!(
-                    "Response Header: {}: {:?}",
-                    key.as_str(),
-                    value.to_str().unwrap_or("<invalid utf8>")
-                );
-
-                (key, value)
-            })
+            .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
 
         let metadata = HeaderResponse {

@@ -1,11 +1,11 @@
-use errors::network::HttpError;
+use errors::network::NetworkError;
 use http::{HeaderMap, HeaderName, HeaderValue, Method};
 use url::{Origin, Url};
 
 /// Request mode for the request.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Request/mode>
-#[derive(PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RequestMode {
     /// Disallows cross-origin requests. If a request is made to another origin with this mode set, the result is an error.
     SameOrigin,
@@ -24,7 +24,7 @@ pub enum RequestMode {
 /// Credentials mode for the request.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Request/credentials>
-#[derive(PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Credentials {
     /// Always include credentials even for cross-origin requests.
     Include,
@@ -41,6 +41,7 @@ pub enum Credentials {
 /// Implements `From<Url>` and `From<Request>` for easy conversion to `RequestBuilder`.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Request>
+#[derive(Debug, Clone)]
 pub struct Request {
     /// The HTTP method of the request.
     pub method: Method,
@@ -106,9 +107,9 @@ impl RequestBuilder {
     /// # Returns
     /// * `Ok(RequestBuilder)` if the URL is valid.
     /// * `Err(HttpError)` if the URL is invalid or if there is no base URL in the session.
-    pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, HttpError> {
+    pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, NetworkError> {
         let joined_url = starting_url.join(url).map_err(|err| {
-            HttpError::InvalidURL(format!("Failed to join URL '{}': {}", url, err))
+            NetworkError::InvalidUrl(format!("Failed to join URL '{}': {}", url, err))
         })?;
 
         Ok(RequestBuilder::from(joined_url))
@@ -122,9 +123,9 @@ impl RequestBuilder {
     /// # Returns
     /// * `Ok(RequestBuilder)` if the URL is valid.
     /// * `Err(HttpError)` if the URL is invalid.
-    pub fn try_new(url: &str) -> Result<Self, HttpError> {
+    pub fn try_new(url: &str) -> Result<Self, NetworkError> {
         let parsed_url = Url::parse(url).map_err(|err| {
-            HttpError::InvalidURL(format!("Failed to parse URL '{}': {}", url, err))
+            NetworkError::InvalidUrl(format!("Failed to parse URL '{}': {}", url, err))
         })?;
 
         Ok(RequestBuilder {
@@ -178,7 +179,7 @@ impl RequestBuilder {
     /// # Returns
     /// * `Ok(Self)` if the header was added successfully.
     /// * `Err(String)` if the header value was invalid.
-    pub fn try_header(mut self, key: HeaderName, value: &str) -> Result<Self, HttpError> {
+    pub fn try_header(mut self, key: HeaderName, value: &str) -> Result<Self, NetworkError> {
         let header_value = HeaderValue::from_str(value);
 
         match header_value {
@@ -186,7 +187,7 @@ impl RequestBuilder {
                 self.headers.insert(key, v);
                 Ok(self)
             }
-            Err(err) => Err(HttpError::HeaderParseError(format!(
+            Err(err) => Err(NetworkError::InvalidHeader(format!(
                 "Invalid header value: {}",
                 err
             ))),
@@ -233,9 +234,9 @@ impl RequestBuilder {
     /// # Returns
     /// * `Ok(Request)` if the request is valid.
     /// * `Err(HttpError)` if the request is invalid.
-    pub fn try_build(self) -> Result<Request, HttpError> {
+    pub fn try_build(self) -> Result<Request, NetworkError> {
         if (self.method == Method::GET || self.method == Method::HEAD) && self.body.is_some() {
-            return Err(HttpError::InvalidRequest(
+            return Err(NetworkError::InvalidRequest(
                 "GET and HEAD requests cannot have a body".to_string(),
             ));
         }
