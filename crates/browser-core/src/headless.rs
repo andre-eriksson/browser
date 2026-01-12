@@ -53,6 +53,13 @@ impl HeadlessBrowser {
             println!("No active tab.");
         }
     }
+
+    pub fn print_cookies(&self) {
+        let cookie_jar = self.network.cookies().lock().unwrap().clone();
+        for cookie in cookie_jar.into_iter() {
+            println!("{}", cookie);
+        }
+    }
 }
 
 impl StyleProcessor for HeadlessBrowser {

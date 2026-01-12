@@ -46,6 +46,10 @@ impl NetworkService {
         }
     }
 
+    pub fn cookies(&self) -> Arc<Mutex<CookieJar>> {
+        self.cookie_jar.clone()
+    }
+
     fn convert_response(
         response: Result<Box<dyn ResponseHandle>, NetworkError>,
     ) -> RequestResult<Box<dyn ResponseHandle>> {
@@ -92,26 +96,37 @@ impl NetworkService {
             let url = request.url.clone();
             let resp = self.raw_fetch(request).await;
 
-            match resp {
+            return match resp {
                 RequestResult::Failed(e) => {
                     debug!("{}", e);
 
-                    return RequestResult::Failed(e);
+                    RequestResult::Failed(e)
                 }
-                _ => {
-                    page.document_url = Some(url);
-                    debug!(
-                        { STATUS_CODE } = match &resp {
-                            RequestResult::Success(r) => r.metadata().status_code.to_string(),
-                            RequestResult::ClientError(r) => r.metadata().status_code.to_string(),
-                            RequestResult::ServerError(r) => r.metadata().status_code.to_string(),
-                            RequestResult::Failed(_) => "N/A".to_string(),
+                RequestResult::Success(resp) => {
+                    self.handle_response_headers(
+                        &HeaderResponse {
+                            status_code: resp.metadata().status_code,
+                            headers: resp.metadata().headers.clone(),
                         },
+                        &url,
                     );
-                }
-            }
+                    page.document_url = Some(url);
 
-            return resp;
+                    debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
+
+                    RequestResult::Success(resp)
+                }
+                RequestResult::ServerError(resp) => {
+                    debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
+
+                    RequestResult::ServerError(resp)
+                }
+                RequestResult::ClientError(resp) => {
+                    debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
+
+                    RequestResult::ClientError(resp)
+                }
+            };
         }
 
         if let Some(current_url) = &page.document_url {
