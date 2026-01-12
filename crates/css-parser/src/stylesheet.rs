@@ -88,6 +88,19 @@ impl ComponentValue {
         }
     }
 
+    /// Check if this component value is a token
+    pub fn is_token(&self) -> bool {
+        matches!(self, ComponentValue::Token(_))
+    }
+
+    /// Get a reference to the token if this component value is a token
+    pub fn as_token(&self) -> Option<&CssToken> {
+        match self {
+            ComponentValue::Token(t) => Some(t),
+            _ => None,
+        }
+    }
+
     /// Check if this component value is a whitespace token
     ///
     /// # Returns

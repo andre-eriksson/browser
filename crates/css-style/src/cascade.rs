@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use css_cssom::{CSSDeclaration, CSSStyleSheet, StylesheetOrigin};
-use css_selectors::{
-    SelectorSpecificity, SpecificityCalculable, generate_compound_sequences, matches_compound,
-};
+use css_selectors::{SelectorSpecificity, SpecificityCalculable, matches_compound};
 use html_dom::{DocumentRoot, DomNode};
+
+use crate::cached_stylesheet::CachedStylesheets;
 
 /// Full cascade specificity including inline styles
 ///
@@ -73,10 +73,11 @@ impl CascadedDeclaration {
     }
 }
 
+/// Collect declarations for a node using pre-cached selector sequences.
 pub fn collect_declarations(
     node: &DomNode,
     dom: &DocumentRoot,
-    stylesheets: &[CSSStyleSheet],
+    cached_stylesheets: &CachedStylesheets,
 ) -> Vec<CascadedDeclaration> {
     let mut declarations = Vec::new();
     let mut source_order: usize = 0;
@@ -86,18 +87,17 @@ pub fn collect_declarations(
         None => return declarations,
     };
 
-    for stylesheet in stylesheets {
-        for rule in stylesheet.get_style_rules() {
-            let selector_sequences = generate_compound_sequences(&rule.prelude);
-
-            if matches_compound(&selector_sequences, dom, node) {
-                let specificity = selector_sequences
+    for cached_stylesheet in cached_stylesheets.iter() {
+        for cached_rule in cached_stylesheet.cached_rules() {
+            if matches_compound(&cached_rule.selector_sequences, dom, node) {
+                let specificity = cached_rule
+                    .selector_sequences
                     .iter()
                     .map(|seq| seq.specificity())
                     .max()
                     .unwrap_or_default();
 
-                for decl in rule.declarations() {
+                for decl in cached_rule.declarations {
                     let expanded = expand_shorthand_property(&decl.name, &decl.value);
 
                     for (property, value) in expanded {
@@ -107,7 +107,7 @@ pub fn collect_declarations(
                             important: decl.important,
                             specificity: CascadeSpecificity::from(specificity),
                             source_order,
-                            origin: stylesheet.origin(),
+                            origin: cached_stylesheet.origin(),
                         });
                         source_order += 1;
                     }

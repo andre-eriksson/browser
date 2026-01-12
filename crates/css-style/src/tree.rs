@@ -1,6 +1,7 @@
 use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeData, NodeId};
 
+use crate::cached_stylesheet::CachedStylesheets;
 use crate::computed::ComputedStyle;
 
 #[derive(Debug, Clone)]
@@ -18,13 +19,16 @@ pub struct StyleTree {
 
 impl StyleTree {
     pub fn build(dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
+        let cached_stylesheets = CachedStylesheets::new(stylesheets);
+
         fn build_styled_node(
             node_id: NodeId,
             dom: &DocumentRoot,
-            stylesheets: &[CSSStyleSheet],
+            cached_stylesheets: &CachedStylesheets,
             parent_style: Option<&ComputedStyle>,
         ) -> StyledNode {
-            let computed_style = ComputedStyle::from_node(&node_id, dom, stylesheets, parent_style);
+            let computed_style =
+                ComputedStyle::from_node(&node_id, dom, cached_stylesheets, parent_style);
 
             let node = dom.get_node(&node_id).unwrap();
 
@@ -37,7 +41,7 @@ impl StyleTree {
                 .children
                 .iter()
                 .map(|&child_id| {
-                    build_styled_node(child_id, dom, stylesheets, Some(&computed_style))
+                    build_styled_node(child_id, dom, cached_stylesheets, Some(&computed_style))
                 })
                 .collect();
 
@@ -52,7 +56,7 @@ impl StyleTree {
         let root_nodes = dom
             .root_nodes
             .iter()
-            .map(|&root_id| build_styled_node(root_id, dom, stylesheets, None))
+            .map(|&root_id| build_styled_node(root_id, dom, &cached_stylesheets, None))
             .collect();
 
         StyleTree { root_nodes }

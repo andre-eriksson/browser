@@ -18,7 +18,7 @@ mod specificity;
 pub use matching::{AttributeOperator, Combinator, matches_compound};
 pub use parser::CaseSensitivity;
 pub use selector::{
-    AttributeSelector, CompoundSelector, CompoundSelectorSequence, generate_compound_sequences,
+    AttributeSelector, CompoundSelector, CompoundSelectorSequence, generate_selector_list,
 };
 pub use specificity::{SelectorSpecificity, SpecificityCalculable};
 

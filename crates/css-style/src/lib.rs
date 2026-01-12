@@ -3,6 +3,9 @@
 //! This crate implements the functionality to turn CSS stylesheets into
 //! computed styles for HTML elements, following the CSS specifications.
 
+/// Cached stylesheet wrapper for pre-computed selector sequences.
+pub(crate) mod cached_stylesheet;
+
 /// Calculates the cascading of CSS declarations to determine final property values.
 mod cascade;
 

@@ -1,7 +1,7 @@
-use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
+    cached_stylesheet::CachedStylesheets,
     cascade::{cascade, collect_declarations},
     resolver::PropertyResolver,
     types::{
@@ -43,12 +43,12 @@ impl ComputedStyle {
     /// # Arguments
     /// * `node_id` - The NodeId of the DOM node to compute the style for.
     /// * `dom` - The DocumentRoot representing the DOM tree.
-    /// * `stylesheets` - A slice of CSSStyleSheet references to apply styles from.
+    /// * `cached_stylesheets` - Pre-cached stylesheets with parsed selector sequences.
     /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
     pub fn from_node(
         node_id: &NodeId,
         dom: &DocumentRoot,
-        stylesheets: &[CSSStyleSheet],
+        cached_stylesheets: &CachedStylesheets,
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
         let mut computed_style = match parent_style {
@@ -61,8 +61,8 @@ impl ComputedStyle {
             None => return computed_style,
         };
 
-        let delcarations = &mut collect_declarations(node, dom, stylesheets);
-        let properties = cascade(delcarations);
+        let declarations = &mut collect_declarations(node, dom, cached_stylesheets);
+        let properties = cascade(declarations);
 
         for (key, value) in properties {
             let v = value.as_str();
