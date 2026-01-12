@@ -1,4 +1,4 @@
-use css_cssom::{CssToken, CssTokenKind};
+use css_cssom::{ComponentValue, CssToken, CssTokenKind};
 
 use crate::{matching::AttributeOperator, selector::AttributeSelector};
 
@@ -10,6 +10,22 @@ pub enum CaseSensitivity {
 
     /// 'i' or 'I' flag
     CaseInsensitive,
+}
+
+pub(crate) fn parse_attribute_selectors_components(
+    components: &[ComponentValue],
+) -> Option<AttributeSelector> {
+    let mut tokens: Vec<CssToken> = Vec::with_capacity(4);
+
+    for cv in components {
+        if !cv.is_token() {
+            continue;
+        }
+
+        tokens.push(cv.as_token().unwrap().clone());
+    }
+
+    parse_attribute_selector(tokens.as_slice())
 }
 
 /// Parse an attribute selector from a list of CSS tokens
