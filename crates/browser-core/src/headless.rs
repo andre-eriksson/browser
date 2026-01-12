@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
+use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
-use url::Url;
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter,
@@ -87,20 +87,17 @@ impl NavigationContext for HeadlessBrowser {
 
 #[async_trait]
 impl Commandable for HeadlessBrowser {
-    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
+    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => {
                 let stylesheets = Vec::new();
 
-                let qualified_url =
-                    Url::parse(&url).map_err(|e| format!("Failed to parse URL: {}", e))?;
-
-                let page = navigate(self, tab_id, &qualified_url, stylesheets).await?;
+                let page = navigate(self, tab_id, &url, stylesheets).await?;
 
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| format!("Tab with id {:?} not found in TabManager", tab_id))?;
+                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 tab.set_page(page);
                 let page = tab.page().clone();

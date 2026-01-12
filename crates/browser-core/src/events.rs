@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use errors::network::RequestError;
+use errors::{browser::BrowserError, network::RequestError};
 
 use crate::tab::{page::Page, tabs::TabId};
 
 #[async_trait]
 pub trait Commandable {
-    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String>;
+    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError>;
 }
 
 /// A trait representing an event emitter that can emit events of type `T`.

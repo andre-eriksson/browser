@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use css_cssom::CSSStyleSheet;
-use errors::network::{HttpError, NetworkError};
+use errors::{
+    browser::NavigationError,
+    network::{NetworkError, RequestError},
+};
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
 use network::http::request::RequestBuilder;
 use url::Url;
@@ -9,44 +12,43 @@ use url::Url;
 use crate::{
     TabId,
     navigation::NavigationContext,
-    service::network::{policy::DocumentPolicy, service::NetworkService},
+    service::network::{policy::DocumentPolicy, request::RequestResult},
     tab::{collector::TabCollector, page::Page},
 };
-
-async fn fetch_url(
-    page: &mut Page,
-    network: &mut NetworkService,
-    url: &Url,
-) -> Result<Vec<u8>, NetworkError> {
-    let request = RequestBuilder::from(url.clone()).build();
-    let header_response = network.fetch(page, request).await?;
-
-    let response = header_response.body().await?;
-
-    let body = match response.body {
-        Some(b) => b,
-        None => return Err(NetworkError::Http(HttpError::MissingBody)),
-    };
-
-    Ok(body)
-}
 
 /// Navigates the specified tab to the given URL, fetching and parsing the content.
 /// Executes any scripts and processes stylesheets found during parsing.
 pub async fn navigate(
     ctx: &mut dyn NavigationContext,
     tab_id: TabId,
-    url: &Url,
+    url: &str,
     mut stylesheets: Vec<CSSStyleSheet>,
-) -> Result<Page, String> {
-    let mut network_service = ctx.network_service().clone();
+) -> Result<Page, NavigationError> {
     let mut page = Page::blank();
 
+    let url = Url::parse(url).map_err(|e| {
+        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+            e.to_string(),
+        )))
+    })?;
+
     // TODO: Handle exceptions like about:blank or about:config
-    let body = match fetch_url(&mut page, &mut network_service, url).await {
-        Ok(b) => b,
+    let request = RequestBuilder::from(url.clone()).build();
+    let header_response = match ctx.network_service().fetch(&mut page, request).await {
+        RequestResult::Failed(err) => return Err(NavigationError::RequestError(err)),
+        RequestResult::ClientError(resp)
+        | RequestResult::ServerError(resp)
+        | RequestResult::Success(resp) => resp,
+    };
+    let body = match header_response.body().await {
+        Ok(resp) => match resp.body {
+            Some(b) => b,
+            None => {
+                return Err(NavigationError::RequestError(RequestError::EmptyBody));
+            }
+        },
         Err(e) => {
-            return Err(format!("Failed to fetch URL {}: {}", url, e));
+            return Err(NavigationError::RequestError(RequestError::Network(e)));
         }
     };
 
@@ -65,25 +67,43 @@ pub async fn navigate(
             ParserState::Running => continue,
             ParserState::Blocked(reason) => match reason {
                 BlockedReason::WaitingForScript(attributes) => {
-                    //println!("Script attributes: {:?}", attributes);
-
                     if attributes.get("src").is_some() {
                         let src = attributes.get("src").unwrap();
 
                         let src_url = match url.join(src) {
                             Ok(u) => u,
                             Err(e) => {
-                                return Err(format!("Failed to resolve script URL {}: {}", src, e));
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    NetworkError::InvalidUrl(e.to_string()),
+                                )));
                             }
                         };
 
-                        let script_body =
-                            match fetch_url(&mut page, &mut network_service, &src_url).await {
-                                Ok(b) => b,
-                                Err(e) => {
-                                    return Err(format!("Failed to fetch script {}: {}", src, e));
+                        let script_request = RequestBuilder::from(src_url).build();
+                        let script_resp = ctx.network_service().fetch(&mut page, script_request);
+                        let script_response = match script_resp.await {
+                            RequestResult::Failed(err) => {
+                                return Err(NavigationError::RequestError(err));
+                            }
+                            RequestResult::ClientError(resp)
+                            | RequestResult::ServerError(resp)
+                            | RequestResult::Success(resp) => resp,
+                        };
+                        let script_body = match script_response.body().await {
+                            Ok(resp) => match resp.body {
+                                Some(b) => b,
+                                None => {
+                                    return Err(NavigationError::RequestError(
+                                        RequestError::EmptyBody,
+                                    ));
                                 }
-                            };
+                            },
+                            Err(e) => {
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    e,
+                                )));
+                            }
+                        };
 
                         let script_text =
                             String::from_utf8_lossy(script_body.as_slice()).to_string();

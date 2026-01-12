@@ -1,3 +1,5 @@
+use errors::browser::TabError;
+
 use crate::tab::tabs::{Tab, TabId};
 
 pub struct TabManager {
@@ -36,9 +38,9 @@ impl TabManager {
         self.next_tab_id += 1;
     }
 
-    pub(crate) fn change_active_tab(&mut self, tab_id: TabId) -> Result<(), String> {
+    pub(crate) fn change_active_tab(&mut self, tab_id: TabId) -> Result<(), TabError> {
         if !self.tabs.iter().any(|t| t.id == tab_id) {
-            return Err(format!("Tab with ID {:?} does not exist", tab_id));
+            return Err(TabError::TabNotFound(tab_id.0));
         }
 
         self.active_tab = tab_id;
@@ -46,21 +48,21 @@ impl TabManager {
         Ok(())
     }
 
-    pub(crate) fn change_to_any_tab(&mut self) -> Result<(), String> {
+    pub(crate) fn change_to_any_tab(&mut self) -> Result<(), TabError> {
         if let Some(first_tab) = self.tabs.first() {
             self.change_active_tab(first_tab.id)?;
             Ok(())
         } else {
-            Err("No tabs available to switch to".to_string())
+            Err(TabError::NoTabsAvailable)
         }
     }
 
-    pub(crate) fn close_tab(&mut self, tab_id: TabId) -> Result<(), String> {
+    pub(crate) fn close_tab(&mut self, tab_id: TabId) -> Result<(), TabError> {
         if let Some(pos) = self.tabs.iter().position(|t| t.id == tab_id) {
             self.tabs.remove(pos);
             Ok(())
         } else {
-            Err(format!("Tab with ID {:?} does not exist", tab_id))
+            Err(TabError::TabNotFound(tab_id.0))
         }
     }
 }

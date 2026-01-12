@@ -1,3 +1,4 @@
+use errors::browser::BrowserError;
 use tracing::debug;
 
 use crate::{
@@ -17,7 +18,10 @@ pub fn add_tab(tab_manager: &mut TabManager) -> BrowserEvent {
 }
 
 /// Closes the tab with the specified `tab_id`. If the closed tab is the active tab,
-pub fn close_tab(tab_manager: &mut TabManager, tab_id: TabId) -> Result<BrowserEvent, String> {
+pub fn close_tab(
+    tab_manager: &mut TabManager,
+    tab_id: TabId,
+) -> Result<BrowserEvent, BrowserError> {
     debug!("Closing tab with ID {:?}", tab_id);
     tab_manager.close_tab(tab_id)?;
 
@@ -32,7 +36,7 @@ pub fn close_tab(tab_manager: &mut TabManager, tab_id: TabId) -> Result<BrowserE
 pub fn change_active_tab(
     tab_manager: &mut TabManager,
     tab_id: TabId,
-) -> Result<BrowserEvent, String> {
+) -> Result<BrowserEvent, BrowserError> {
     debug!("Changing active tab to ID {:?}", tab_id);
 
     tab_manager.change_active_tab(tab_id)?;

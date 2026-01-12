@@ -2082,6 +2082,7 @@ name = "html-parser"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "errors",
  "html-dom",
  "telemetry",
  "tracing",

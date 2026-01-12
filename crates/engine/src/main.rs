@@ -33,7 +33,12 @@ fn main() {
 
     tracing_subscriber::registry()
         .with(filter)
-        .with(fmt::layer())
+        .with(
+            fmt::layer()
+                .pretty()
+                .with_file(false)
+                .with_line_number(false),
+        )
         .init();
 
     let args = Args::parse();

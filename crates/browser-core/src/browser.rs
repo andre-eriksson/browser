@@ -7,8 +7,9 @@ use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
-use url::Url;
+use tracing::instrument;
 
 use crate::{
     commands::{
@@ -93,20 +94,18 @@ impl NavigationContext for Browser {
 
 #[async_trait]
 impl Commandable for Browser {
-    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
+    #[instrument(skip(self))]
+    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => {
                 let stylesheets = vec![self.default_stylesheet.clone()];
 
-                let qualified_url =
-                    Url::parse(&url).map_err(|e| format!("Failed to parse URL: {}", e))?;
-
-                let page = navigate(self, tab_id, &qualified_url, stylesheets).await?;
+                let page = navigate(self, tab_id, &url, stylesheets).await?;
 
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| format!("Tab with id {:?} not found in TabManager", tab_id))?;
+                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 tab.set_page(page);
                 let page = tab.page().clone();
