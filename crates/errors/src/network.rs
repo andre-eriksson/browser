@@ -1,37 +1,48 @@
 use thiserror::Error;
 
+/// Errors related to network operations, preventing successful completion of a network request.
 #[derive(Error, Debug, Clone)]
-pub enum HttpError {
-    #[error("Header parse error: {0}")]
-    HeaderParseError(String),
+pub enum NetworkError {
+    #[error("Connection timed out")]
+    Timeout,
+
+    #[error("Connection refused")]
+    ConnectionRefused,
 
     #[error("Invalid URL: {0}")]
-    InvalidURL(String),
+    InvalidUrl(String),
+
+    #[error("Invalid header: {0}")]
+    InvalidHeader(String),
 
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
 
-    #[error("Expected body in HTTP response but none found")]
-    MissingBody,
+    #[error("Maximum redirects exceeded")]
+    MaxRedirectsExceeded,
 }
 
+/// Errors that can occur during the processing of a network request.
 #[derive(Error, Debug, Clone)]
 pub enum RequestError {
     #[error("Network request failed: {0}")]
-    RequestFailed(String),
+    Network(#[from] NetworkError),
+
+    #[error("Invalid HTTP method: {0}")]
+    InvalidMethod(String),
+
+    #[error("Request body is empty")]
+    EmptyBody,
+
+    #[error("CORS preflight request failed")]
+    PreflightFailed,
 
     #[error("CORS error: {0}")]
-    CORSError(String),
+    CorsViolation(String),
 
-    #[error("Timeout error: {0}")]
-    TimeoutError(String),
-}
+    #[error("CSP violation: {0}")]
+    CspViolation(String),
 
-#[derive(Error, Debug, Clone)]
-pub enum NetworkError {
-    #[error("HTTP error: {0}")]
-    Http(#[from] HttpError),
-
-    #[error("Request error: {0}")]
-    Request(#[from] RequestError),
+    #[error("Request blocked by policy: {0}")]
+    BlockedByPolicy(String),
 }

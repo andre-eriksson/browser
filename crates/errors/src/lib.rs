@@ -1,5 +1,7 @@
 //! This module defines various error types used across different components of the application.
 
+pub mod browser;
+
 /// Errors related to network operations
 pub mod network;
 
