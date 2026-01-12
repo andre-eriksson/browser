@@ -12,7 +12,10 @@ use crate::{
         tab::{add_tab, change_active_tab, close_tab},
     },
     navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
-    service::network::{header::DefaultHeaders, service::NetworkService},
+    service::network::{
+        header::{DefaultHeaders, HeaderType},
+        service::NetworkService,
+    },
     tab::{
         manager::TabManager,
         tabs::{Tab, TabId},
@@ -30,7 +33,9 @@ impl HeadlessBrowser {
         let http_client = Box::new(ReqwestClient::new());
         // TODO: Load cookies from persistent storage
         let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
-        let headers = Arc::new(DefaultHeaders::create_headless_browser_headers());
+        let headers = Arc::new(DefaultHeaders::create_browser_headers(
+            HeaderType::HeadlessBrowser,
+        ));
 
         let tab_manager = TabManager::new(Tab::new(TabId(0)));
 

@@ -17,7 +17,10 @@ use crate::{
     },
     events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
     navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
-    service::network::{header::DefaultHeaders, service::NetworkService},
+    service::network::{
+        header::{DefaultHeaders, HeaderType},
+        service::NetworkService,
+    },
     tab::{
         manager::TabManager,
         tabs::{Tab, TabId},
@@ -36,7 +39,7 @@ impl Browser {
         let http_client = Box::new(ReqwestClient::new());
         // TODO: Load cookies from persistent storage
         let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
-        let headers = Arc::new(DefaultHeaders::create_default_browser_headers());
+        let headers = Arc::new(DefaultHeaders::create_browser_headers(HeaderType::Browser));
 
         let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
 
