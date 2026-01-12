@@ -16,4 +16,4 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "reg
 url.workspace = true
 tokio.workspace = true
 http.workspace = true
-clap = { version = "4.5.53", features = ["derive"] }
+clap = { version = "4.5.54", features = ["derive"] }
