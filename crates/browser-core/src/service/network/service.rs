@@ -55,6 +55,11 @@ impl NetworkService {
         page: &mut Page,
         request: Request,
     ) -> Result<Box<dyn ResponseHandle>, RequestError> {
+        let mut request = request;
+        request
+            .headers
+            .extend(self.browser_headers.as_ref().clone());
+
         // First request to set document URL
         if page.document_url.is_none() {
             if request.method != Method::GET {
@@ -70,10 +75,6 @@ impl NetworkService {
         }
 
         let user_headers = request.headers.clone();
-        let mut request = request;
-        request
-            .headers
-            .extend(self.browser_headers.as_ref().clone());
 
         if let Some(current_url) = &page.document_url {
             ReferrerMiddleware::apply_referrer(
