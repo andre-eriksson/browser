@@ -262,12 +262,11 @@ impl Application {
                         },
                     );
                 }
-                BrowserEvent::NavigateSuccess(metadata) => {
-                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == metadata.id);
+                BrowserEvent::NavigateSuccess(tab_id, page) => {
+                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
                     if let Some(tab) = current_tab {
-                        let style_tree =
-                            StyleTree::build(&metadata.document, &metadata.stylesheets);
+                        let style_tree = StyleTree::build(page.document(), page.stylesheets());
 
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
@@ -288,11 +287,11 @@ impl Application {
                             &mut self.text_context,
                         );
 
-                        tab.document = metadata.document;
-                        tab.stylesheets = metadata.stylesheets;
+                        tab.document = page.document().clone();
+                        tab.stylesheets = page.stylesheets().clone();
                         tab.current_url = Some(self.current_url.parse().unwrap());
                         tab.layout_tree = layout_tree;
-                        tab.title = Some(metadata.title);
+                        tab.title = Some(page.title().to_string());
                     }
                 }
                 BrowserEvent::NavigateError(err) => {

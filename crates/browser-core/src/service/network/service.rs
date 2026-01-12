@@ -14,12 +14,12 @@ use network::http::{
 use tracing::instrument;
 use url::Url;
 
-use crate::service::network::{
-    context::NetworkContext,
-    middleware::{
+use crate::{
+    service::network::middleware::{
         cookies::CookieMiddleware, cors::CorsMiddleware, referrer::ReferrerMiddleware,
         simple::SimpleMiddleware,
     },
+    tab::page::Page,
 };
 
 #[derive(Clone)]
@@ -49,14 +49,14 @@ impl NetworkService {
         self.client.send(request).await
     }
 
-    #[instrument(skip(self, ctx, request), fields(url = %request.url, method = %request.method))]
+    #[instrument(skip(self, page, request), fields(url = %request.url, method = %request.method))]
     pub async fn fetch(
         &mut self,
-        ctx: &mut NetworkContext,
+        page: &mut Page,
         request: Request,
     ) -> Result<Box<dyn ResponseHandle>, RequestError> {
         // First request to set document URL
-        if ctx.document_url.is_none() {
+        if page.document_url.is_none() {
             if request.method != Method::GET {
                 return Err(RequestError::RequestFailed(
                     "First request must be a GET request".to_string(),
@@ -65,7 +65,7 @@ impl NetworkService {
 
             let url = request.url.clone();
             let resp = self.raw_fetch(request).await?;
-            ctx.document_url = Some(url);
+            page.document_url = Some(url);
             return Ok(resp);
         }
 
@@ -75,8 +75,12 @@ impl NetworkService {
             .headers
             .extend(self.browser_headers.as_ref().clone());
 
-        if let Some(current_url) = &ctx.document_url {
-            ReferrerMiddleware::apply_referrer(current_url, &mut request, &ctx.referrer_policy);
+        if let Some(current_url) = &page.document_url {
+            ReferrerMiddleware::apply_referrer(
+                current_url,
+                &mut request,
+                &page.policies().as_ref().referrer,
+            );
         }
 
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
@@ -101,7 +105,7 @@ impl NetworkService {
         }
 
         let preflight_response = self
-            .preflight_request(ctx, &user_headers, &request.url, &request.method)
+            .preflight_request(page, &user_headers, &request.url, &request.method)
             .await?;
 
         CorsMiddleware::is_allowed(
@@ -151,18 +155,18 @@ impl NetworkService {
 
     async fn preflight_request(
         &self,
-        ctx: &NetworkContext,
+        page: &Page,
         headers: &HeaderMap,
         url: &Url,
         method: &Method,
     ) -> Result<HeaderResponse, RequestError> {
-        if ctx.document_url.is_none() {
+        if page.document_url.is_none() {
             return Err(RequestError::RequestFailed(
                 "No document URL in context".to_string(),
             ));
         }
 
-        let origin = match ctx.document_url.as_ref() {
+        let origin = match page.document_url.as_ref() {
             Some(u) => u.origin().ascii_serialization(),
             None => {
                 return Err(RequestError::RequestFailed(

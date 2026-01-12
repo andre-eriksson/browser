@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
 use network::clients::reqwest::ReqwestClient;
+use url::Url;
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter,
@@ -14,7 +15,7 @@ use crate::{
     service::network::{header::DefaultHeaders, service::NetworkService},
     tab::{
         manager::TabManager,
-        tabs::{Tab, TabId, TabMetadata},
+        tabs::{Tab, TabId},
     },
 };
 
@@ -42,7 +43,7 @@ impl HeadlessBrowser {
 
     pub fn print_body(&self) {
         if let Some(active_tab) = self.tab_manager.active_tab() {
-            println!("{}", active_tab.document());
+            println!("{}", active_tab.page().document());
         } else {
             println!("No active tab.");
         }
@@ -84,23 +85,22 @@ impl Commandable for HeadlessBrowser {
     async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => {
-                let result = navigate(self, tab_id, &url, &mut Vec::new()).await?;
+                let stylesheets = Vec::new();
+
+                let qualified_url =
+                    Url::parse(&url).map_err(|e| format!("Failed to parse URL: {}", e))?;
+
+                let page = navigate(self, tab_id, &qualified_url, stylesheets).await?;
 
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
                     .ok_or_else(|| format!("Tab with id {:?} not found in TabManager", tab_id))?;
 
-                tab.set_document(result.dom_tree.clone());
+                tab.set_page(page);
+                let page = tab.page().clone();
 
-                let tab_metadata = TabMetadata {
-                    id: tab.id,
-                    title: result.metadata.title.unwrap_or(url.to_string()),
-                    document: result.dom_tree,
-                    stylesheets: tab.stylesheets().clone(),
-                };
-
-                Ok(BrowserEvent::NavigateSuccess(tab_metadata))
+                Ok(BrowserEvent::NavigateSuccess(tab_id, page))
             }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use errors::network::RequestError;
 
-use crate::tab::tabs::{TabId, TabMetadata};
+use crate::tab::{page::Page, tabs::TabId};
 
 #[async_trait]
 pub trait Commandable {
@@ -30,7 +30,7 @@ pub enum BrowserEvent {
     NavigateTo(String),
 
     /// Navigation succeeded.
-    NavigateSuccess(TabMetadata),
+    NavigateSuccess(TabId, Page),
 
     /// Navigation failed with a network error.
     NavigateError(RequestError),

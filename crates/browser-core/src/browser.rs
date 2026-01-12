@@ -1,10 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    vec,
+};
 
 use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use cookies::cookie_store::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use network::clients::reqwest::ReqwestClient;
+use url::Url;
 
 use crate::{
     commands::{
@@ -16,7 +20,7 @@ use crate::{
     service::network::{header::DefaultHeaders, service::NetworkService},
     tab::{
         manager::TabManager,
-        tabs::{Tab, TabId, TabMetadata},
+        tabs::{Tab, TabId},
     },
 };
 
@@ -89,31 +93,22 @@ impl Commandable for Browser {
     async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, String> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => {
-                let mut stylesheets = Vec::new();
+                let stylesheets = vec![self.default_stylesheet.clone()];
 
-                let result = navigate(self, tab_id, &url, &mut stylesheets).await?;
+                let qualified_url =
+                    Url::parse(&url).map_err(|e| format!("Failed to parse URL: {}", e))?;
+
+                let page = navigate(self, tab_id, &qualified_url, stylesheets).await?;
 
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
                     .ok_or_else(|| format!("Tab with id {:?} not found in TabManager", tab_id))?;
 
-                tab.clear_stylesheets();
-                tab.add_stylesheet(self.default_stylesheet.clone());
-                tab.set_document(result.dom_tree.clone());
+                tab.set_page(page);
+                let page = tab.page().clone();
 
-                for stylesheet in stylesheets {
-                    tab.add_stylesheet(stylesheet);
-                }
-
-                let tab_metadata = TabMetadata {
-                    id: tab.id,
-                    title: result.metadata.title.unwrap_or(url.to_string()),
-                    document: result.dom_tree,
-                    stylesheets: tab.stylesheets().clone(),
-                };
-
-                Ok(BrowserEvent::NavigateSuccess(tab_metadata))
+                Ok(BrowserEvent::NavigateSuccess(tab_id, page))
             }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),

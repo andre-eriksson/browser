@@ -2,7 +2,7 @@ use http::{HeaderValue, header::REFERER};
 use network::http::request::Request;
 use url::Url;
 
-use crate::service::network::policy::referrer::ReferrerPolicy;
+use crate::service::network::policies::referrer::ReferrerPolicy;
 
 pub struct ReferrerMiddleware;
 
