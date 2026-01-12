@@ -15,7 +15,7 @@ pub enum CaseSensitivity {
 pub(crate) fn parse_attribute_selectors_components(
     components: &[ComponentValue],
 ) -> Option<AttributeSelector> {
-    let mut tokens: Vec<CssToken> = Vec::with_capacity(4);
+    let mut tokens: Vec<CssToken> = Vec::with_capacity(6);
 
     for cv in components {
         if !cv.is_token() {
@@ -35,67 +35,53 @@ pub(crate) fn parse_attribute_selectors_components(
 ///
 /// # Returns
 /// * `Option<AttributeSelector>` - An optional AttributeSelector if parsing was successful
-pub(crate) fn parse_attribute_selector(tokens: Vec<CssToken>) -> Option<AttributeSelector> {
+pub(crate) fn parse_attribute_selector(tokens: &[CssToken]) -> Option<AttributeSelector> {
     let mut attribute_selector = AttributeSelector::default();
-    let mut temp_buffer = String::new();
+    let mut temp_buffer_ch = '0';
 
     for token in tokens {
-        if attribute_selector.attribute.is_none() {
-            if let CssTokenKind::Ident(_) = token.kind {
-                attribute_selector.attribute = Some(token);
-                continue;
-            } else {
-                return None;
-            }
+        if attribute_selector.attribute.is_none()
+            && let CssTokenKind::Ident(_) = token.kind
+        {
+            attribute_selector.attribute = Some(token.clone());
+
+            continue;
         }
 
         if attribute_selector.operator.is_none() {
-            if !temp_buffer.is_empty() {
-                match temp_buffer.as_str() {
-                    "~" => attribute_selector.operator = Some(AttributeOperator::Includes),
-                    "|" => attribute_selector.operator = Some(AttributeOperator::DashMatch),
-                    "^" => attribute_selector.operator = Some(AttributeOperator::PrefixMatch),
-                    "$" => attribute_selector.operator = Some(AttributeOperator::SuffixMatch),
-                    "*" => attribute_selector.operator = Some(AttributeOperator::SubstringMatch),
+            if !temp_buffer_ch.eq(&'0') {
+                match temp_buffer_ch {
+                    '~' => attribute_selector.operator = Some(AttributeOperator::Includes),
+                    '|' => attribute_selector.operator = Some(AttributeOperator::DashMatch),
+                    '^' => attribute_selector.operator = Some(AttributeOperator::PrefixMatch),
+                    '$' => attribute_selector.operator = Some(AttributeOperator::SuffixMatch),
+                    '*' => attribute_selector.operator = Some(AttributeOperator::SubstringMatch),
                     _ => return None,
                 }
-                temp_buffer.clear();
+                temp_buffer_ch = '0';
                 continue;
             }
 
             match &token.kind {
                 CssTokenKind::Delim('=') => {
                     attribute_selector.operator = Some(AttributeOperator::Equals);
-                    continue;
                 }
-                CssTokenKind::Delim('~') => {
-                    temp_buffer.push('~');
-                    continue;
-                }
-                CssTokenKind::Delim('|') => {
-                    temp_buffer.push('|');
-                    continue;
-                }
-                CssTokenKind::Delim('^') => {
-                    temp_buffer.push('^');
-                    continue;
-                }
-                CssTokenKind::Delim('$') => {
-                    temp_buffer.push('$');
-                    continue;
-                }
-                CssTokenKind::Delim('*') => {
-                    temp_buffer.push('*');
-                    continue;
-                }
+                CssTokenKind::Delim('~') => temp_buffer_ch = '~',
+                CssTokenKind::Delim('|') => temp_buffer_ch = '|',
+                CssTokenKind::Delim('^') => temp_buffer_ch = '^',
+                CssTokenKind::Delim('$') => temp_buffer_ch = '$',
+                CssTokenKind::Delim('*') => temp_buffer_ch = '*',
                 _ => {}
             }
+
+            continue;
         }
 
         if attribute_selector.value.is_none() {
             match &token.kind {
                 CssTokenKind::Ident(_) | CssTokenKind::String(_) => {
-                    attribute_selector.value = Some(token);
+                    attribute_selector.value = Some(token.clone());
+
                     continue;
                 }
                 _ => {}
