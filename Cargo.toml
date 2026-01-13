@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/assets",
+    "crates/browser-config",
     "crates/browser-core",
     "crates/cookies",
     "crates/css-cssom",
@@ -29,12 +30,13 @@ edition = "2024"
 [workspace.dependencies]
 assets =         { path = "crates/assets" }
 cookies =        { path = "crates/cookies" }
+browser-config = { path = "crates/browser-config" }
+browser-core =   { path = "crates/browser-core" }
 css-cssom =      { path = "crates/css-cssom" }
 css-parser =     { path = "crates/css-parser" }
 css-tokenizer =  { path = "crates/css-tokenizer" }
 css-selectors =  { path = "crates/css-selectors" }
 css-style =      { path = "crates/css-style" }
-browser-core =   { path = "crates/browser-core" }
 errors =         { path = "crates/errors" }
 html-dom =       { path = "crates/html-dom" }
 html-parser =    { path = "crates/html-parser" }
@@ -56,6 +58,8 @@ cookie = "0.18.1"
 cosmic-text = "0.15.0"
 criterion = "0.8.1"
 http = "1.3.1"
+serde = { version = "1.0.228", features = ["derive"] }
+postcard = { version = "1.1.3", features = ["use-std"] }
 url = "2.5.4"
 
 [profile.release]
