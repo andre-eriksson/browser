@@ -3,10 +3,11 @@
 //! <https://www.w3.org/TR/css-syntax-3/#css-stylesheets>
 
 use css_parser::{CssParser, Stylesheet};
+use serde::{Deserialize, Serialize};
 
 use crate::rules::{css::CSSRule, style::CSSStyleRule};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StylesheetOrigin {
     /// Styles defined by the user-agent (browser default styles)
     UserAgent,
@@ -25,7 +26,7 @@ pub enum StylesheetOrigin {
 /// a list of CSS rules and optional metadata such as location.
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#css-stylesheets>
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct CSSStyleSheet {
     /// The list of CSS rules in this stylesheet
     rules: Vec<CSSRule>,
@@ -35,9 +36,9 @@ pub struct CSSStyleSheet {
 }
 
 impl CSSStyleSheet {
-    pub fn from_css(css: &str, origin: StylesheetOrigin) -> Self {
+    pub fn from_css(css: &str, origin: StylesheetOrigin, collect_positions: bool) -> Self {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css(css);
+        let parsed = parser.parse_css(css, collect_positions);
 
         let mut stylesheet = Self::from(parsed);
         stylesheet.origin = origin;
@@ -121,7 +122,7 @@ impl From<Stylesheet> for CSSStyleSheet {
         let mut stylesheet = CSSStyleSheet::default();
 
         for rule in parsed.rules {
-            if let Some(css_rule) = CSSRule::from_parsed(rule) {
+            if let Some(css_rule) = CSSRule::from_parsed(rule, true) {
                 stylesheet.rules.push(css_rule);
             }
         }
@@ -138,7 +139,7 @@ mod tests {
     #[test]
     fn test_parse_simple_stylesheet() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("div { color: red; }");
+        let parsed = parser.parse_css("div { color: red; }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         assert_eq!(stylesheet.length(), 1);
@@ -155,7 +156,7 @@ mod tests {
     #[test]
     fn test_parse_multiple_declarations() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("p { margin: 10px; padding: 5px; }");
+        let parsed = parser.parse_css("p { margin: 10px; padding: 5px; }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         assert_eq!(stylesheet.length(), 1);
@@ -171,7 +172,7 @@ mod tests {
     #[test]
     fn test_parse_important() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("div { color: red !important; }");
+        let parsed = parser.parse_css("div { color: red !important; }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
@@ -183,7 +184,7 @@ mod tests {
     #[test]
     fn test_parse_at_rule_import() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("@import url('styles.css');");
+        let parsed = parser.parse_css("@import url('styles.css');", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         assert_eq!(stylesheet.length(), 1);
@@ -198,7 +199,7 @@ mod tests {
     #[test]
     fn test_parse_media_rule() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("@media screen { div { color: blue; } }");
+        let parsed = parser.parse_css("@media screen { div { color: blue; } }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         assert_eq!(stylesheet.length(), 1);
@@ -213,8 +214,10 @@ mod tests {
     #[test]
     fn test_parse_font_face() {
         let mut parser = CssParser::default();
-        let parsed =
-            parser.parse_css("@font-face { font-family: 'MyFont'; src: url('font.woff2'); }");
+        let parsed = parser.parse_css(
+            "@font-face { font-family: 'MyFont'; src: url('font.woff2'); }",
+            true,
+        );
         let stylesheet = CSSStyleSheet::from(parsed);
 
         if let CSSRule::AtRule(at_rule) = &stylesheet.css_rules()[0] {
@@ -227,7 +230,7 @@ mod tests {
     #[test]
     fn test_stylesheet_serialization() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("div { color: red; margin: 10px; }");
+        let parsed = parser.parse_css("div { color: red; margin: 10px; }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
         let css_text = stylesheet.to_css_string();
 
@@ -239,7 +242,7 @@ mod tests {
     #[test]
     fn test_insert_delete_rule() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css("div { color: red; }");
+        let parsed = parser.parse_css("div { color: red; }", true);
         let mut stylesheet = CSSStyleSheet::from(parsed);
 
         assert_eq!(stylesheet.length(), 1);
@@ -272,6 +275,7 @@ mod tests {
         let mut parser = CssParser::default();
         let parsed = parser.parse_css(
             "div { color: red; } @media screen { p { color: blue; } } span { color: green; }",
+            true,
         );
         let stylesheet = CSSStyleSheet::from(parsed);
 

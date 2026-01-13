@@ -1,9 +1,10 @@
 use std::fmt::Display;
 
 use errors::tokenization::SourcePosition;
+use serde::{Deserialize, Serialize};
 
 /// Hash token type flag as per CSS Syntax Module Level 3
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HashType {
     /// The hash token would start an identifier
     Id,
@@ -12,7 +13,7 @@ pub enum HashType {
 }
 
 /// Number type flag as per CSS Syntax Module Level 3
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NumberType {
     /// The number is an integer (no decimal point or exponent)
     Integer,
@@ -21,7 +22,7 @@ pub enum NumberType {
 }
 
 /// A numeric value with its type flag
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NumericValue {
     /// The numeric value
     pub value: f64,
@@ -57,7 +58,7 @@ impl NumericValue {
 
 /// CSS Token as per CSS Syntax Module Level 3
 /// <https://www.w3.org/TR/css-syntax-3/#tokenization>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CssTokenKind {
     /// \<ident-token\>: An identifier
     Ident(String),
@@ -171,7 +172,7 @@ impl Display for CssTokenKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CssToken {
     pub kind: CssTokenKind,
     pub position: Option<SourcePosition>,

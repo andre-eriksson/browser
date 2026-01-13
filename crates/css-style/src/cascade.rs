@@ -117,8 +117,11 @@ pub fn collect_declarations(
     }
 
     if let Some(style_attr) = element.get_attribute("style") {
-        let inline_stylesheet =
-            CSSStyleSheet::from_css(&format!("* {{ {} }}", style_attr), StylesheetOrigin::Author);
+        let inline_stylesheet = CSSStyleSheet::from_css(
+            &format!("* {{ {} }}", style_attr),
+            StylesheetOrigin::Author,
+            true,
+        );
         for rule in inline_stylesheet.get_style_rules() {
             for decl in rule.declarations() {
                 declarations.push(CascadedDeclaration::from_inline(decl, source_order));

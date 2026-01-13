@@ -116,6 +116,9 @@ pub struct CssTokenizer {
 
     /// Collected parse errors
     pub errors: Vec<CssTokenizationError>,
+
+    /// Whether to collect position information for tokens
+    pub collect_positions: bool,
 }
 
 impl CssTokenizer {
@@ -123,12 +126,13 @@ impl CssTokenizer {
     ///
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
-    pub fn new(input: &str) -> Self {
+    pub fn new(input: &str, collect_positions: bool) -> Self {
         let preprocessed_input = CssTokenizer::preprocess(input);
 
         CssTokenizer {
             stream: InputStream::new(&preprocessed_input),
             errors: Vec::new(),
+            collect_positions,
         }
     }
 
@@ -152,14 +156,24 @@ impl CssTokenizer {
     ///
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
-    pub fn tokenize(input: &str) -> Vec<CssToken> {
-        let tokenizer = CssTokenizer::new(input);
+    pub fn tokenize(input: &str, collect_positions: bool) -> Vec<CssToken> {
+        let tokenizer = CssTokenizer::new(input, collect_positions);
 
         for error in &tokenizer.errors {
             debug!("CSS Tokenization error: {}", error);
         }
 
         tokenizer.collect()
+    }
+
+    /// Collect the current position if position tracking is enabled
+    #[inline]
+    pub fn collect_positions(tokenizer: &mut CssTokenizer) -> Option<SourcePosition> {
+        if tokenizer.collect_positions {
+            Some(tokenizer.stream.position())
+        } else {
+            None
+        }
     }
 
     /// Preprocess the input string according to the CSS specification (§3.3)
@@ -242,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_error_newline_in_string() {
-        let mut tokenizer = CssTokenizer::new("\"hello\nworld\"");
+        let mut tokenizer = CssTokenizer::new("\"hello\nworld\"", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -259,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_error_eof_in_string() {
-        let mut tokenizer = CssTokenizer::new("\"unterminated");
+        let mut tokenizer = CssTokenizer::new("\"unterminated", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -270,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_error_eof_in_comment() {
-        let mut tokenizer = CssTokenizer::new("/* unterminated comment");
+        let mut tokenizer = CssTokenizer::new("/* unterminated comment", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -281,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_error_invalid_escape() {
-        let mut tokenizer = CssTokenizer::new("\\\n");
+        let mut tokenizer = CssTokenizer::new("\\\n", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -292,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_error_eof_in_url() {
-        let mut tokenizer = CssTokenizer::new("url(unterminated");
+        let mut tokenizer = CssTokenizer::new("url(unterminated", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -303,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_error_invalid_char_in_url() {
-        let mut tokenizer = CssTokenizer::new("url(bad\"quote)");
+        let mut tokenizer = CssTokenizer::new("url(bad\"quote)", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -317,7 +331,7 @@ mod tests {
 
     #[test]
     fn test_error_position_tracking() {
-        let mut tokenizer = CssTokenizer::new(".foo {\n  color: \"bad\n");
+        let mut tokenizer = CssTokenizer::new(".foo {\n  color: \"bad\n", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -333,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_no_errors_on_valid_input() {
-        let mut tokenizer = CssTokenizer::new(".foo { color: red; }");
+        let mut tokenizer = CssTokenizer::new(".foo { color: red; }", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(!has_errors(&tokenizer));
@@ -342,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_multiple_errors() {
-        let mut tokenizer = CssTokenizer::new("\"bad\n \"also bad\n");
+        let mut tokenizer = CssTokenizer::new("\"bad\n \"also bad\n", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -360,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_take_errors() {
-        let mut tokenizer = CssTokenizer::new("\"bad\n");
+        let mut tokenizer = CssTokenizer::new("\"bad\n", true);
         let _tokens: Vec<_> = tokenizer.by_ref().collect();
 
         assert!(has_errors(&tokenizer));
@@ -371,13 +385,13 @@ mod tests {
 
     #[test]
     fn test_empty_input() {
-        let tokens = CssTokenizer::tokenize("");
+        let tokens = CssTokenizer::tokenize("", true);
         assert!(tokens.is_empty());
     }
 
     #[test]
     fn test_whitespace_only() {
-        let tokens = CssTokenizer::tokenize("   \t\n  ");
+        let tokens = CssTokenizer::tokenize("   \t\n  ", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Whitespace));
     }
@@ -385,102 +399,102 @@ mod tests {
     #[test]
     fn test_single_tokens() {
         assert!(matches!(
-            CssTokenizer::tokenize("(")[0].kind,
+            CssTokenizer::tokenize("(", true)[0].kind,
             CssTokenKind::OpenParen
         ));
         assert!(matches!(
-            CssTokenizer::tokenize(")")[0].kind,
+            CssTokenizer::tokenize(")", true)[0].kind,
             CssTokenKind::CloseParen
         ));
         assert!(matches!(
-            CssTokenizer::tokenize("{")[0].kind,
+            CssTokenizer::tokenize("{", true)[0].kind,
             CssTokenKind::OpenCurly
         ));
         assert!(matches!(
-            CssTokenizer::tokenize("}")[0].kind,
+            CssTokenizer::tokenize("}", true)[0].kind,
             CssTokenKind::CloseCurly
         ));
         assert!(matches!(
-            CssTokenizer::tokenize("[")[0].kind,
+            CssTokenizer::tokenize("[", true)[0].kind,
             CssTokenKind::OpenSquare
         ));
         assert!(matches!(
-            CssTokenizer::tokenize("]")[0].kind,
+            CssTokenizer::tokenize("]", true)[0].kind,
             CssTokenKind::CloseSquare
         ));
         assert!(matches!(
-            CssTokenizer::tokenize(":")[0].kind,
+            CssTokenizer::tokenize(":", true)[0].kind,
             CssTokenKind::Colon
         ));
         assert!(matches!(
-            CssTokenizer::tokenize(";")[0].kind,
+            CssTokenizer::tokenize(";", true)[0].kind,
             CssTokenKind::Semicolon
         ));
         assert!(matches!(
-            CssTokenizer::tokenize(",")[0].kind,
+            CssTokenizer::tokenize(",", true)[0].kind,
             CssTokenKind::Comma
         ));
     }
 
     #[test]
     fn test_simple_identifiers() {
-        let tokens = CssTokenizer::tokenize("div");
+        let tokens = CssTokenizer::tokenize("div", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "div"));
     }
 
     #[test]
     fn test_identifier_with_hyphen() {
-        let tokens = CssTokenizer::tokenize("font-family");
+        let tokens = CssTokenizer::tokenize("font-family", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "font-family"));
     }
 
     #[test]
     fn test_identifier_starting_with_hyphen() {
-        let tokens = CssTokenizer::tokenize("-webkit-transform");
+        let tokens = CssTokenizer::tokenize("-webkit-transform", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "-webkit-transform"));
     }
 
     #[test]
     fn test_identifier_with_double_hyphen() {
-        let tokens = CssTokenizer::tokenize("--primary-color");
+        let tokens = CssTokenizer::tokenize("--primary-color", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "--primary-color"));
     }
 
     #[test]
     fn test_identifier_with_underscore() {
-        let tokens = CssTokenizer::tokenize("_private_class");
+        let tokens = CssTokenizer::tokenize("_private_class", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "_private_class"));
     }
 
     #[test]
     fn test_identifier_with_digits() {
-        let tokens = CssTokenizer::tokenize("class123");
+        let tokens = CssTokenizer::tokenize("class123", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "class123"));
     }
 
     #[test]
     fn test_identifier_unicode() {
-        let tokens = CssTokenizer::tokenize("élément");
+        let tokens = CssTokenizer::tokenize("élément", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "élément"));
     }
 
     #[test]
     fn test_identifier_with_escape() {
-        let tokens = CssTokenizer::tokenize(r"\31 abc");
+        let tokens = CssTokenizer::tokenize(r"\31 abc", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "1abc"));
     }
 
     #[test]
     fn test_multiple_identifiers() {
-        let tokens = CssTokenizer::tokenize("hello world");
+        let tokens = CssTokenizer::tokenize("hello world", true);
         assert_eq!(tokens.len(), 3);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "hello"));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Whitespace));
@@ -489,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        let tokens = CssTokenizer::tokenize("123");
+        let tokens = CssTokenizer::tokenize("123", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert_eq!(num.value, 123.0);
@@ -502,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_negative_integer() {
-        let tokens = CssTokenizer::tokenize("-42");
+        let tokens = CssTokenizer::tokenize("-42", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert_eq!(num.value, -42.0);
@@ -515,7 +529,7 @@ mod tests {
 
     #[test]
     fn test_positive_integer_with_sign() {
-        let tokens = CssTokenizer::tokenize("+100");
+        let tokens = CssTokenizer::tokenize("+100", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert_eq!(num.value, 100.0);
@@ -528,7 +542,7 @@ mod tests {
     #[test]
     #[allow(clippy::approx_constant)]
     fn test_decimal_number() {
-        let tokens = CssTokenizer::tokenize("3.14");
+        let tokens = CssTokenizer::tokenize("3.14", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert!((num.value - 3.14).abs() < 0.0001);
@@ -541,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_decimal_starting_with_dot() {
-        let tokens = CssTokenizer::tokenize(".5");
+        let tokens = CssTokenizer::tokenize(".5", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert!((num.value - 0.5).abs() < 0.0001);
@@ -553,7 +567,7 @@ mod tests {
 
     #[test]
     fn test_number_with_exponent() {
-        let tokens = CssTokenizer::tokenize("1e10");
+        let tokens = CssTokenizer::tokenize("1e10", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert!((num.value - 1e10).abs() < 1e5);
@@ -565,7 +579,7 @@ mod tests {
 
     #[test]
     fn test_number_with_negative_exponent() {
-        let tokens = CssTokenizer::tokenize("1e-5");
+        let tokens = CssTokenizer::tokenize("1e-5", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert!((num.value - 1e-5).abs() < 1e-10);
@@ -576,7 +590,7 @@ mod tests {
 
     #[test]
     fn test_number_with_positive_exponent() {
-        let tokens = CssTokenizer::tokenize("2E+3");
+        let tokens = CssTokenizer::tokenize("2E+3", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert!((num.value - 2000.0).abs() < 0.0001);
@@ -587,7 +601,7 @@ mod tests {
 
     #[test]
     fn test_zero() {
-        let tokens = CssTokenizer::tokenize("0");
+        let tokens = CssTokenizer::tokenize("0", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
             assert_eq!(num.value, 0.0);
@@ -599,7 +613,7 @@ mod tests {
 
     #[test]
     fn test_dimension_px() {
-        let tokens = CssTokenizer::tokenize("100px");
+        let tokens = CssTokenizer::tokenize("100px", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, 100.0);
@@ -611,7 +625,7 @@ mod tests {
 
     #[test]
     fn test_dimension_em() {
-        let tokens = CssTokenizer::tokenize("1.5em");
+        let tokens = CssTokenizer::tokenize("1.5em", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert!((value.value - 1.5).abs() < 0.0001);
@@ -623,7 +637,7 @@ mod tests {
 
     #[test]
     fn test_dimension_rem() {
-        let tokens = CssTokenizer::tokenize("2rem");
+        let tokens = CssTokenizer::tokenize("2rem", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, 2.0);
@@ -635,7 +649,7 @@ mod tests {
 
     #[test]
     fn test_dimension_deg() {
-        let tokens = CssTokenizer::tokenize("45deg");
+        let tokens = CssTokenizer::tokenize("45deg", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, 45.0);
@@ -647,7 +661,7 @@ mod tests {
 
     #[test]
     fn test_dimension_ms() {
-        let tokens = CssTokenizer::tokenize("300ms");
+        let tokens = CssTokenizer::tokenize("300ms", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, 300.0);
@@ -659,7 +673,7 @@ mod tests {
 
     #[test]
     fn test_dimension_s() {
-        let tokens = CssTokenizer::tokenize("0.5s");
+        let tokens = CssTokenizer::tokenize("0.5s", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert!((value.value - 0.5).abs() < 0.0001);
@@ -671,7 +685,7 @@ mod tests {
 
     #[test]
     fn test_dimension_vw() {
-        let tokens = CssTokenizer::tokenize("100vw");
+        let tokens = CssTokenizer::tokenize("100vw", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, 100.0);
@@ -683,7 +697,7 @@ mod tests {
 
     #[test]
     fn test_dimension_negative() {
-        let tokens = CssTokenizer::tokenize("-10px");
+        let tokens = CssTokenizer::tokenize("-10px", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, -10.0);
@@ -695,7 +709,7 @@ mod tests {
 
     #[test]
     fn test_percentage() {
-        let tokens = CssTokenizer::tokenize("50%");
+        let tokens = CssTokenizer::tokenize("50%", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Percentage(num) = &tokens[0].kind {
             assert_eq!(num.value, 50.0);
@@ -706,7 +720,7 @@ mod tests {
 
     #[test]
     fn test_percentage_decimal() {
-        let tokens = CssTokenizer::tokenize("33.33%");
+        let tokens = CssTokenizer::tokenize("33.33%", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Percentage(num) = &tokens[0].kind {
             assert!((num.value - 33.33).abs() < 0.0001);
@@ -717,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_percentage_negative() {
-        let tokens = CssTokenizer::tokenize("-25%");
+        let tokens = CssTokenizer::tokenize("-25%", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Percentage(num) = &tokens[0].kind {
             assert_eq!(num.value, -25.0);
@@ -728,56 +742,56 @@ mod tests {
 
     #[test]
     fn test_double_quoted_string() {
-        let tokens = CssTokenizer::tokenize(r#""hello world""#);
+        let tokens = CssTokenizer::tokenize(r#""hello world""#, true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s == "hello world"));
     }
 
     #[test]
     fn test_single_quoted_string() {
-        let tokens = CssTokenizer::tokenize("'hello world'");
+        let tokens = CssTokenizer::tokenize("'hello world'", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s == "hello world"));
     }
 
     #[test]
     fn test_empty_string() {
-        let tokens = CssTokenizer::tokenize(r#""""#);
+        let tokens = CssTokenizer::tokenize(r#""""#, true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s.is_empty()));
     }
 
     #[test]
     fn test_string_with_escaped_quote() {
-        let tokens = CssTokenizer::tokenize(r#""hello \"world\"""#);
+        let tokens = CssTokenizer::tokenize(r#""hello \"world\"""#, true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s == r#"hello "world""#));
     }
 
     #[test]
     fn test_string_with_escaped_newline() {
-        let tokens = CssTokenizer::tokenize("\"hello\\\nworld\"");
+        let tokens = CssTokenizer::tokenize("\"hello\\\nworld\"", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s == "helloworld"));
     }
 
     #[test]
     fn test_string_with_hex_escape() {
-        let tokens = CssTokenizer::tokenize(r#""\41 BC""#);
+        let tokens = CssTokenizer::tokenize(r#""\41 BC""#, true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s == "ABC"));
     }
 
     #[test]
     fn test_string_with_unicode_escape() {
-        let tokens = CssTokenizer::tokenize(r#""\1F600""#);
+        let tokens = CssTokenizer::tokenize(r#""\1F600""#, true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::String(s) if s == "😀"));
     }
 
     #[test]
     fn test_hash_id() {
-        let tokens = CssTokenizer::tokenize("#header");
+        let tokens = CssTokenizer::tokenize("#header", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Hash { value, type_flag } = &tokens[0].kind {
             assert_eq!(value, "header");
@@ -789,7 +803,7 @@ mod tests {
 
     #[test]
     fn test_hash_color_hex3() {
-        let tokens = CssTokenizer::tokenize("#fff");
+        let tokens = CssTokenizer::tokenize("#fff", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Hash { value, type_flag } = &tokens[0].kind {
             assert_eq!(value, "fff");
@@ -801,7 +815,7 @@ mod tests {
 
     #[test]
     fn test_hash_color_hex6() {
-        let tokens = CssTokenizer::tokenize("#ff00ff");
+        let tokens = CssTokenizer::tokenize("#ff00ff", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Hash { value, type_flag } = &tokens[0].kind {
             assert_eq!(value, "ff00ff");
@@ -813,7 +827,7 @@ mod tests {
 
     #[test]
     fn test_hash_numeric_start() {
-        let tokens = CssTokenizer::tokenize("#123");
+        let tokens = CssTokenizer::tokenize("#123", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Hash { value, type_flag } = &tokens[0].kind {
             assert_eq!(value, "123");
@@ -825,7 +839,7 @@ mod tests {
 
     #[test]
     fn test_hash_alphanumeric() {
-        let tokens = CssTokenizer::tokenize("#abc123");
+        let tokens = CssTokenizer::tokenize("#abc123", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Hash { value, type_flag } = &tokens[0].kind {
             assert_eq!(value, "abc123");
@@ -837,35 +851,35 @@ mod tests {
 
     #[test]
     fn test_function_rgb() {
-        let tokens = CssTokenizer::tokenize("rgb(");
+        let tokens = CssTokenizer::tokenize("rgb(", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "rgb"));
     }
 
     #[test]
     fn test_function_rgba() {
-        let tokens = CssTokenizer::tokenize("rgba(");
+        let tokens = CssTokenizer::tokenize("rgba(", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "rgba"));
     }
 
     #[test]
     fn test_function_calc() {
-        let tokens = CssTokenizer::tokenize("calc(");
+        let tokens = CssTokenizer::tokenize("calc(", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "calc"));
     }
 
     #[test]
     fn test_function_var() {
-        let tokens = CssTokenizer::tokenize("var(");
+        let tokens = CssTokenizer::tokenize("var(", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "var"));
     }
 
     #[test]
     fn test_function_complete_call() {
-        let tokens = CssTokenizer::tokenize("rgb(255, 0, 0)");
+        let tokens = CssTokenizer::tokenize("rgb(255, 0, 0)", true);
         assert_eq!(tokens.len(), 9);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "rgb"));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Number(_)));
@@ -880,21 +894,21 @@ mod tests {
 
     #[test]
     fn test_url_unquoted() {
-        let tokens = CssTokenizer::tokenize("url(image.png)");
+        let tokens = CssTokenizer::tokenize("url(image.png)", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Url(s) if s == "image.png"));
     }
 
     #[test]
     fn test_url_with_path() {
-        let tokens = CssTokenizer::tokenize("url(/path/to/image.png)");
+        let tokens = CssTokenizer::tokenize("url(/path/to/image.png)", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Url(s) if s == "/path/to/image.png"));
     }
 
     #[test]
     fn test_url_quoted_double() {
-        let tokens = CssTokenizer::tokenize("url(\"image.png\")");
+        let tokens = CssTokenizer::tokenize("url(\"image.png\")", true);
         assert!(tokens.len() >= 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "url"));
         assert!(matches!(&tokens[1].kind, CssTokenKind::String(s) if s == "image.png"));
@@ -902,7 +916,7 @@ mod tests {
 
     #[test]
     fn test_url_quoted_single() {
-        let tokens = CssTokenizer::tokenize("url('image.png')");
+        let tokens = CssTokenizer::tokenize("url('image.png')", true);
         assert!(tokens.len() >= 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "url"));
         assert!(matches!(&tokens[1].kind, CssTokenKind::String(s) if s == "image.png"));
@@ -910,56 +924,56 @@ mod tests {
 
     #[test]
     fn test_url_with_whitespace() {
-        let tokens = CssTokenizer::tokenize("url(  image.png  )");
+        let tokens = CssTokenizer::tokenize("url(  image.png  )", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Url(s) if s == "image.png"));
     }
 
     #[test]
     fn test_at_keyword_media() {
-        let tokens = CssTokenizer::tokenize("@media");
+        let tokens = CssTokenizer::tokenize("@media", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "media"));
     }
 
     #[test]
     fn test_at_keyword_import() {
-        let tokens = CssTokenizer::tokenize("@import");
+        let tokens = CssTokenizer::tokenize("@import", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "import"));
     }
 
     #[test]
     fn test_at_keyword_keyframes() {
-        let tokens = CssTokenizer::tokenize("@keyframes");
+        let tokens = CssTokenizer::tokenize("@keyframes", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "keyframes"));
     }
 
     #[test]
     fn test_at_keyword_font_face() {
-        let tokens = CssTokenizer::tokenize("@font-face");
+        let tokens = CssTokenizer::tokenize("@font-face", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "font-face"));
     }
 
     #[test]
     fn test_at_keyword_supports() {
-        let tokens = CssTokenizer::tokenize("@supports");
+        let tokens = CssTokenizer::tokenize("@supports", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "supports"));
     }
 
     #[test]
     fn test_at_keyword_charset() {
-        let tokens = CssTokenizer::tokenize("@charset");
+        let tokens = CssTokenizer::tokenize("@charset", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "charset"));
     }
 
     #[test]
     fn test_at_not_keyword() {
-        let tokens = CssTokenizer::tokenize("@ ");
+        let tokens = CssTokenizer::tokenize("@ ", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('@')));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Whitespace));
@@ -967,21 +981,21 @@ mod tests {
 
     #[test]
     fn test_cdo() {
-        let tokens = CssTokenizer::tokenize("<!--");
+        let tokens = CssTokenizer::tokenize("<!--", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Cdo));
     }
 
     #[test]
     fn test_cdc() {
-        let tokens = CssTokenizer::tokenize("-->");
+        let tokens = CssTokenizer::tokenize("-->", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Cdc));
     }
 
     #[test]
     fn test_cdo_cdc_in_context() {
-        let tokens = CssTokenizer::tokenize("<!-- div { } -->");
+        let tokens = CssTokenizer::tokenize("<!-- div { } -->", true);
         assert!(tokens.len() >= 5);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Cdo));
         assert!(matches!(&tokens[tokens.len() - 1].kind, CssTokenKind::Cdc));
@@ -989,14 +1003,14 @@ mod tests {
 
     #[test]
     fn test_delim_plus() {
-        let tokens = CssTokenizer::tokenize("+ ");
+        let tokens = CssTokenizer::tokenize("+ ", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('+')));
     }
 
     #[test]
     fn test_delim_dot_not_number() {
-        let tokens = CssTokenizer::tokenize(".class");
+        let tokens = CssTokenizer::tokenize(".class", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('.')));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "class"));
@@ -1004,62 +1018,62 @@ mod tests {
 
     #[test]
     fn test_delim_asterisk() {
-        let tokens = CssTokenizer::tokenize("*");
+        let tokens = CssTokenizer::tokenize("*", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('*')));
     }
 
     #[test]
     fn test_delim_greater_than() {
-        let tokens = CssTokenizer::tokenize(">");
+        let tokens = CssTokenizer::tokenize(">", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('>')));
     }
 
     #[test]
     fn test_delim_tilde() {
-        let tokens = CssTokenizer::tokenize("~");
+        let tokens = CssTokenizer::tokenize("~", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('~')));
     }
 
     #[test]
     fn test_delim_pipe() {
-        let tokens = CssTokenizer::tokenize("|");
+        let tokens = CssTokenizer::tokenize("|", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('|')));
     }
 
     #[test]
     fn test_delim_equals() {
-        let tokens = CssTokenizer::tokenize("=");
+        let tokens = CssTokenizer::tokenize("=", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('=')));
     }
 
     #[test]
     fn test_delim_caret() {
-        let tokens = CssTokenizer::tokenize("^");
+        let tokens = CssTokenizer::tokenize("^", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('^')));
     }
 
     #[test]
     fn test_delim_dollar() {
-        let tokens = CssTokenizer::tokenize("$");
+        let tokens = CssTokenizer::tokenize("$", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('$')));
     }
 
     #[test]
     fn test_simple_comment() {
-        let tokens = CssTokenizer::tokenize("/* comment */");
+        let tokens = CssTokenizer::tokenize("/* comment */", true);
         assert!(tokens.is_empty());
     }
 
     #[test]
     fn test_comment_before_rule() {
-        let tokens = CssTokenizer::tokenize("/* comment */ div");
+        let tokens = CssTokenizer::tokenize("/* comment */ div", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Whitespace));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "div"));
@@ -1067,13 +1081,13 @@ mod tests {
 
     #[test]
     fn test_multiline_comment() {
-        let tokens = CssTokenizer::tokenize("/* line 1\n   line 2\n   line 3 */");
+        let tokens = CssTokenizer::tokenize("/* line 1\n   line 2\n   line 3 */", true);
         assert!(tokens.is_empty());
     }
 
     #[test]
     fn test_nested_comment_markers() {
-        let tokens = CssTokenizer::tokenize("/* outer /* inner */ */");
+        let tokens = CssTokenizer::tokenize("/* outer /* inner */ */", true);
         assert_eq!(tokens.len(), 3);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Whitespace));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Delim('*')));
@@ -1082,41 +1096,41 @@ mod tests {
 
     #[test]
     fn test_comment_with_special_chars() {
-        let tokens = CssTokenizer::tokenize("/* <>&\"' */");
+        let tokens = CssTokenizer::tokenize("/* <>&\"' */", true);
         assert!(tokens.is_empty());
     }
 
     #[test]
     fn test_escape_single_char() {
-        let tokens = CssTokenizer::tokenize(r"\.class");
+        let tokens = CssTokenizer::tokenize(r"\.class", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == ".class"));
     }
 
     #[test]
     fn test_escape_hex_1_digit() {
-        let tokens = CssTokenizer::tokenize(r"\A");
+        let tokens = CssTokenizer::tokenize(r"\A", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "\n"));
     }
 
     #[test]
     fn test_escape_hex_6_digits() {
-        let tokens = CssTokenizer::tokenize(r"\000041BC");
+        let tokens = CssTokenizer::tokenize(r"\000041BC", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "ABC"));
     }
 
     #[test]
     fn test_escape_followed_by_space() {
-        let tokens = CssTokenizer::tokenize(r"\41 B");
+        let tokens = CssTokenizer::tokenize(r"\41 B", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "AB"));
     }
 
     #[test]
     fn test_crlf_to_lf() {
-        let tokens = CssTokenizer::tokenize("a\r\nb");
+        let tokens = CssTokenizer::tokenize("a\r\nb", true);
         assert_eq!(tokens.len(), 3);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "a"));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Whitespace));
@@ -1125,35 +1139,35 @@ mod tests {
 
     #[test]
     fn test_cr_to_lf() {
-        let tokens = CssTokenizer::tokenize("a\rb");
+        let tokens = CssTokenizer::tokenize("a\rb", true);
         assert_eq!(tokens.len(), 3);
         assert!(matches!(&tokens[1].kind, CssTokenKind::Whitespace));
     }
 
     #[test]
     fn test_ff_to_lf() {
-        let tokens = CssTokenizer::tokenize("a\x0Cb");
+        let tokens = CssTokenizer::tokenize("a\x0Cb", true);
         assert_eq!(tokens.len(), 3);
         assert!(matches!(&tokens[1].kind, CssTokenKind::Whitespace));
     }
 
     #[test]
     fn test_null_to_replacement() {
-        let tokens = CssTokenizer::tokenize("a\0b");
+        let tokens = CssTokenizer::tokenize("a\0b", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "a\u{FFFD}b"));
     }
 
     #[test]
     fn test_simple_rule() {
-        let tokens = CssTokenizer::tokenize("div { color: red; }");
+        let tokens = CssTokenizer::tokenize("div { color: red; }", true);
         assert!(tokens.len() >= 9);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == "div"));
     }
 
     #[test]
     fn test_class_selector() {
-        let tokens = CssTokenizer::tokenize(".container");
+        let tokens = CssTokenizer::tokenize(".container", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('.')));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "container"));
@@ -1161,7 +1175,7 @@ mod tests {
 
     #[test]
     fn test_id_selector() {
-        let tokens = CssTokenizer::tokenize("#main");
+        let tokens = CssTokenizer::tokenize("#main", true);
         assert_eq!(tokens.len(), 1);
         assert!(
             matches!(&tokens[0].kind, CssTokenKind::Hash { value, type_flag: HashType::Id } if value == "main")
@@ -1170,7 +1184,7 @@ mod tests {
 
     #[test]
     fn test_attribute_selector() {
-        let tokens = CssTokenizer::tokenize("[data-attr=\"value\"]");
+        let tokens = CssTokenizer::tokenize("[data-attr=\"value\"]", true);
         assert!(tokens.len() >= 5);
         assert!(matches!(&tokens[0].kind, CssTokenKind::OpenSquare));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "data-attr"));
@@ -1178,7 +1192,7 @@ mod tests {
 
     #[test]
     fn test_pseudo_class() {
-        let tokens = CssTokenizer::tokenize(":hover");
+        let tokens = CssTokenizer::tokenize(":hover", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Colon));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "hover"));
@@ -1186,7 +1200,7 @@ mod tests {
 
     #[test]
     fn test_pseudo_element() {
-        let tokens = CssTokenizer::tokenize("::before");
+        let tokens = CssTokenizer::tokenize("::before", true);
         assert_eq!(tokens.len(), 3);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Colon));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Colon));
@@ -1195,21 +1209,21 @@ mod tests {
 
     #[test]
     fn test_media_query() {
-        let tokens = CssTokenizer::tokenize("@media screen and (min-width: 768px)");
+        let tokens = CssTokenizer::tokenize("@media screen and (min-width: 768px)", true);
         assert!(tokens.len() >= 8);
         assert!(matches!(&tokens[0].kind, CssTokenKind::AtKeyword(s) if s == "media"));
     }
 
     #[test]
     fn test_calc_expression() {
-        let tokens = CssTokenizer::tokenize("calc(100% - 20px)");
+        let tokens = CssTokenizer::tokenize("calc(100% - 20px)", true);
         assert!(tokens.len() >= 6);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "calc"));
     }
 
     #[test]
     fn test_var_function() {
-        let tokens = CssTokenizer::tokenize("var(--primary-color)");
+        let tokens = CssTokenizer::tokenize("var(--primary-color)", true);
         assert!(tokens.len() >= 3);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "var"));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "--primary-color"));
@@ -1217,14 +1231,14 @@ mod tests {
 
     #[test]
     fn test_gradient() {
-        let tokens = CssTokenizer::tokenize("linear-gradient(to right, red, blue)");
+        let tokens = CssTokenizer::tokenize("linear-gradient(to right, red, blue)", true);
         assert!(tokens.len() >= 8);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Function(s) if s == "linear-gradient"));
     }
 
     #[test]
     fn test_important() {
-        let tokens = CssTokenizer::tokenize("!important");
+        let tokens = CssTokenizer::tokenize("!important", true);
         assert_eq!(tokens.len(), 2);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('!')));
         assert!(matches!(&tokens[1].kind, CssTokenKind::Ident(s) if s == "important"));
@@ -1339,7 +1353,7 @@ mod tests {
 
     #[test]
     fn test_unterminated_string_returns_bad_string() {
-        let tokens = CssTokenizer::tokenize("\"unterminated");
+        let tokens = CssTokenizer::tokenize("\"unterminated", true);
         assert!(!tokens.is_empty());
         assert!(
             matches!(&tokens[0].kind, CssTokenKind::String(_))
@@ -1349,21 +1363,21 @@ mod tests {
 
     #[test]
     fn test_string_with_newline_returns_bad_string() {
-        let tokens = CssTokenizer::tokenize("\"bad\nstring\"");
+        let tokens = CssTokenizer::tokenize("\"bad\nstring\"", true);
         assert!(!tokens.is_empty());
         assert!(matches!(&tokens[0].kind, CssTokenKind::BadString));
     }
 
     #[test]
     fn test_invalid_escape_at_top_level() {
-        let tokens = CssTokenizer::tokenize("\\\n");
+        let tokens = CssTokenizer::tokenize("\\\n", true);
         assert!(!tokens.is_empty());
         assert!(matches!(&tokens[0].kind, CssTokenKind::Delim('\\')));
     }
 
     #[test]
     fn test_multiple_consecutive_numbers() {
-        let tokens = CssTokenizer::tokenize("1 2 3");
+        let tokens = CssTokenizer::tokenize("1 2 3", true);
         assert_eq!(tokens.len(), 5);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Number(n) if n.value == 1.0));
         assert!(matches!(&tokens[2].kind, CssTokenKind::Number(n) if n.value == 2.0));
@@ -1372,14 +1386,14 @@ mod tests {
 
     #[test]
     fn test_number_immediately_followed_by_ident() {
-        let tokens = CssTokenizer::tokenize("10abc");
+        let tokens = CssTokenizer::tokenize("10abc", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Dimension { unit, .. } if unit == "abc"));
     }
 
     #[test]
     fn test_negative_number_as_dimension() {
-        let tokens = CssTokenizer::tokenize("-5em");
+        let tokens = CssTokenizer::tokenize("-5em", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
             assert_eq!(value.value, -5.0);
@@ -1392,21 +1406,21 @@ mod tests {
     #[test]
     fn test_very_long_identifier() {
         let long_ident = "a".repeat(1000);
-        let tokens = CssTokenizer::tokenize(&long_ident);
+        let tokens = CssTokenizer::tokenize(&long_ident, true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Ident(s) if s == &long_ident));
     }
 
     #[test]
     fn test_very_large_number() {
-        let tokens = CssTokenizer::tokenize("999999999999999999999");
+        let tokens = CssTokenizer::tokenize("999999999999999999999", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Number(_)));
     }
 
     #[test]
     fn test_scientific_notation_edge_cases() {
-        let tokens = CssTokenizer::tokenize("1eabc");
+        let tokens = CssTokenizer::tokenize("1eabc", true);
         assert_eq!(tokens.len(), 1);
         assert!(matches!(&tokens[0].kind, CssTokenKind::Dimension { unit, .. } if unit == "eabc"));
     }

@@ -190,7 +190,7 @@ const MULTIPLE_RULES_CSS: &str = r#"
 /// Pre-parse CSS to get a Stylesheet for benchmarking CSSOM construction
 fn parse(css: &str) -> Stylesheet {
     let mut parser = CssParser::default();
-    parser.parse_css(css)
+    parser.parse_css(css, true)
 }
 
 fn bench_from_stylesheet_simple(c: &mut Criterion) {
@@ -280,7 +280,7 @@ fn bench_cssom_scaling(c: &mut Criterion) {
 fn bench_get_style_rules(c: &mut Criterion) {
     // For this benchmark, we use the full CSSStyleSheet since we're
     // benchmarking the get_style_rules method, not construction
-    let stylesheet = CSSStyleSheet::from_css(COMPLEX_CSS, StylesheetOrigin::Author);
+    let stylesheet = CSSStyleSheet::from_css(COMPLEX_CSS, StylesheetOrigin::Author, true);
 
     c.bench_function("cssom_get_style_rules", |b| {
         b.iter(|| {
@@ -291,7 +291,7 @@ fn bench_get_style_rules(c: &mut Criterion) {
 }
 
 fn bench_css_rules_access(c: &mut Criterion) {
-    let stylesheet = CSSStyleSheet::from_css(MULTIPLE_RULES_CSS, StylesheetOrigin::Author);
+    let stylesheet = CSSStyleSheet::from_css(MULTIPLE_RULES_CSS, StylesheetOrigin::Author, true);
 
     c.bench_function("cssom_css_rules_access", |b| {
         b.iter(|| {
@@ -311,7 +311,7 @@ fn bench_to_css_string(c: &mut Criterion) {
     ];
 
     for (name, css) in inputs {
-        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author);
+        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author, true);
         group.bench_with_input(
             BenchmarkId::from_parameter(name),
             &stylesheet,
@@ -332,7 +332,7 @@ fn bench_insert_delete_rule(c: &mut Criterion) {
 
     group.bench_function("insert_rule", |b| {
         b.iter_batched(
-            || CSSStyleSheet::from_css(SIMPLE_CSS, StylesheetOrigin::Author),
+            || CSSStyleSheet::from_css(SIMPLE_CSS, StylesheetOrigin::Author, true),
             |mut stylesheet| {
                 let new_rule = CSSRule::Style(CSSStyleRule::new("p".to_string()));
                 stylesheet.insert_rule(new_rule, 0).unwrap();
@@ -344,7 +344,7 @@ fn bench_insert_delete_rule(c: &mut Criterion) {
 
     group.bench_function("delete_rule", |b| {
         b.iter_batched(
-            || CSSStyleSheet::from_css(MULTIPLE_RULES_CSS, StylesheetOrigin::Author),
+            || CSSStyleSheet::from_css(MULTIPLE_RULES_CSS, StylesheetOrigin::Author, true),
             |mut stylesheet| {
                 stylesheet.delete_rule(0).unwrap();
                 black_box(stylesheet)
@@ -357,7 +357,7 @@ fn bench_insert_delete_rule(c: &mut Criterion) {
 }
 
 fn bench_property_access(c: &mut Criterion) {
-    let stylesheet = CSSStyleSheet::from_css(DECLARATION_HEAVY_CSS, StylesheetOrigin::Author);
+    let stylesheet = CSSStyleSheet::from_css(DECLARATION_HEAVY_CSS, StylesheetOrigin::Author, true);
 
     c.bench_function("cssom_property_access", |b| {
         b.iter(|| {
@@ -392,7 +392,7 @@ fn bench_property_modification(c: &mut Criterion) {
 }
 
 fn bench_declaration_iteration(c: &mut Criterion) {
-    let stylesheet = CSSStyleSheet::from_css(DECLARATION_HEAVY_CSS, StylesheetOrigin::Author);
+    let stylesheet = CSSStyleSheet::from_css(DECLARATION_HEAVY_CSS, StylesheetOrigin::Author, true);
 
     c.bench_function("cssom_declaration_iteration", |b| {
         b.iter(|| {

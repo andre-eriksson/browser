@@ -21,18 +21,18 @@ pub(crate) fn consume_numeric_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 value: number,
                 unit,
             },
-            position: Some(tokenizer.stream.position()),
+            position: CssTokenizer::collect_positions(tokenizer),
         }
     } else if tokenizer.stream.peek() == Some('%') {
         tokenizer.stream.consume();
         CssToken {
             kind: CssTokenKind::Percentage(number),
-            position: Some(tokenizer.stream.position()),
+            position: CssTokenizer::collect_positions(tokenizer),
         }
     } else {
         CssToken {
             kind: CssTokenKind::Number(number),
-            position: Some(tokenizer.stream.position()),
+            position: CssTokenizer::collect_positions(tokenizer),
         }
     }
 }

@@ -1,6 +1,7 @@
 use css_parser::{
     AssociatedToken, AtRule, ComponentValue, CssTokenKind, QualifiedRule, SimpleBlock,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{
     declaration::CSSDeclaration,
@@ -11,7 +12,7 @@ use crate::{
 /// A CSS at-rule (@media, @import, @font-face, etc.)
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#at-rule>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CSSAtRule {
     /// The name of the at-rule (without the @)
     name: String,
@@ -46,7 +47,7 @@ impl CSSAtRule {
     }
 
     /// Create a CSSAtRule from a parsed AtRule
-    pub fn from_parsed(ar: AtRule) -> Self {
+    pub fn from_parsed(ar: AtRule, collect_positions: bool) -> Self {
         let prelude = prelude_to_string(&ar.prelude);
         let has_block = ar.block.is_some();
 
@@ -60,17 +61,17 @@ impl CSSAtRule {
         };
 
         if let Some(block) = ar.block {
-            css_at_rule.parse_block_contents(&ar.name, &block);
+            css_at_rule.parse_block_contents(&ar.name, &block, collect_positions);
         }
 
         css_at_rule
     }
 
     /// Parse block contents based on the at-rule type
-    fn parse_block_contents(&mut self, name: &str, block: &SimpleBlock) {
+    fn parse_block_contents(&mut self, name: &str, block: &SimpleBlock, collect_positions: bool) {
         match name.to_lowercase().as_str() {
             "media" | "supports" | "document" | "layer" | "scope" | "container" => {
-                self.parse_nested_rules(block)
+                self.parse_nested_rules(block, collect_positions)
             }
             "font-face"
             | "page"
@@ -78,13 +79,13 @@ impl CSSAtRule {
             | "font-feature-values"
             | "font-palette-values"
             | "property" => self.parse_declarations(block),
-            "keyframes" => self.parse_keyframe_rules(block),
-            _ => self.parse_nested_rules(block),
+            "keyframes" => self.parse_keyframe_rules(block, collect_positions),
+            _ => self.parse_nested_rules(block, collect_positions),
         }
     }
 
     /// Parse block as nested rules
-    fn parse_nested_rules(&mut self, block: &SimpleBlock) {
+    fn parse_nested_rules(&mut self, block: &SimpleBlock, collect_positions: bool) {
         let mut current_prelude: Vec<ComponentValue> = Vec::new();
         let mut in_block = false;
         let mut block_depth = 0;
@@ -112,7 +113,9 @@ impl CSSAtRule {
                                             value: current_block_value.clone(),
                                         },
                                     };
-                                    if let Some(style_rule) = CSSStyleRule::from_parsed(qr) {
+                                    if let Some(style_rule) =
+                                        CSSStyleRule::from_parsed(qr, collect_positions)
+                                    {
                                         self.rules.push(CSSRule::Style(style_rule));
                                     }
                                     current_prelude.clear();
@@ -153,7 +156,7 @@ impl CSSAtRule {
                             prelude: current_prelude.clone(),
                             block: sb.clone(),
                         };
-                        if let Some(style_rule) = CSSStyleRule::from_parsed(qr) {
+                        if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
                             self.rules.push(CSSRule::Style(style_rule));
                         }
                         current_prelude.clear();
@@ -217,10 +220,10 @@ impl CSSAtRule {
     }
 
     /// Parse block as keyframe rules
-    fn parse_keyframe_rules(&mut self, block: &SimpleBlock) {
+    fn parse_keyframe_rules(&mut self, block: &SimpleBlock, collect_positions: bool) {
         // TODO: Implement a dedicated CSSKeyframeRule struct someday
         // For now, we treat them as nested style rules
-        self.parse_nested_rules(block);
+        self.parse_nested_rules(block, collect_positions);
     }
 
     /// Get the at-rule name

@@ -17,7 +17,7 @@ pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -
                 tokenizer.record_error(CssTokenizationError::EofInString);
                 return CssToken {
                     kind: CssTokenKind::String(value),
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
         };
@@ -26,7 +26,7 @@ pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -
             c if c == ending => {
                 return CssToken {
                     kind: CssTokenKind::String(value),
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
             '\n' => {
@@ -34,7 +34,7 @@ pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -
                 tokenizer.stream.reconsume();
                 return CssToken {
                     kind: CssTokenKind::BadString,
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
             '\\' => match tokenizer.stream.peek() {
