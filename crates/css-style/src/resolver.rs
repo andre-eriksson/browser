@@ -412,6 +412,43 @@ impl PropertyResolver {
         }
     }
 
+    pub fn resolve_margin_block(value: &str) -> Option<Margin> {
+        let parts = value.split_whitespace().collect::<Vec<&str>>();
+
+        let parse_margin_value = |s: &str| -> Option<MarginValue> {
+            if let Some(length) = PropertyResolver::resolve_length(s) {
+                return Some(MarginValue::Length(length));
+            }
+
+            if let Some(percentage) = PropertyResolver::resolve_percentage(s) {
+                return Some(MarginValue::Percentage(percentage));
+            }
+
+            if let Some(global) = Global::parse(s) {
+                return Some(MarginValue::Global(global));
+            }
+
+            if s == "auto" {
+                return Some(MarginValue::Auto);
+            }
+
+            None
+        };
+
+        match parts.len() {
+            1 => {
+                let value = parse_margin_value(parts[0])?;
+                Some(Margin::block(value))
+            }
+            2 => {
+                let start = parse_margin_value(parts[0])?;
+                let end = parse_margin_value(parts[1])?;
+                Some(Margin::block_two(start, end))
+            }
+            _ => None,
+        }
+    }
+
     pub fn resolve_padding(value: &str) -> Option<Padding> {
         let parts = value.split_whitespace().collect::<Vec<&str>>();
 

@@ -96,6 +96,7 @@ impl Length {
             LengthUnit::Pt => self.value * 96.0 / 72.0,
             LengthUnit::Vw => relative_to * self.value / 100.0,
             LengthUnit::Vh => relative_to * self.value / 100.0,
+            LengthUnit::Rem | LengthUnit::Em => relative_to * self.value,
             _ => self.value, // TODO: Handle other units properly
         }
     }

@@ -116,6 +116,11 @@ impl ComputedStyle {
                         computed_style.margin = margin;
                     }
                 }
+                "margin-block" => {
+                    if let Some(margin) = PropertyResolver::resolve_margin_block(v) {
+                        computed_style.margin = margin;
+                    }
+                }
                 "padding" => {
                     if let Some(padding) = PropertyResolver::resolve_padding(v) {
                         computed_style.padding = padding;

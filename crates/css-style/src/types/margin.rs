@@ -41,6 +41,36 @@ impl Margin {
         }))
     }
 
+    pub fn block(value: MarginValue) -> Self {
+        Self {
+            top: value.clone(),
+            right: MarginValue::Length(Length {
+                value: 0.0,
+                unit: LengthUnit::Px,
+            }),
+            bottom: value.clone(),
+            left: MarginValue::Length(Length {
+                value: 0.0,
+                unit: LengthUnit::Px,
+            }),
+        }
+    }
+
+    pub fn block_two(top: MarginValue, bottom: MarginValue) -> Self {
+        Self {
+            top,
+            right: MarginValue::Length(Length {
+                value: 0.0,
+                unit: LengthUnit::Px,
+            }),
+            bottom,
+            left: MarginValue::Length(Length {
+                value: 0.0,
+                unit: LengthUnit::Px,
+            }),
+        }
+    }
+
     /// Set all margins to the same value
     pub fn all(value: MarginValue) -> Self {
         Self {

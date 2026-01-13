@@ -120,8 +120,8 @@ impl LayoutEngine {
 
         let font_size_px = styled_node.style.computed_font_size_px;
 
-        let margin = Self::resolve_margins(styled_node, ctx.containing_block.width);
-        let padding = Self::resolve_padding(styled_node, ctx.containing_block.width);
+        let margin = Self::resolve_margins(styled_node, ctx.containing_block.width, font_size_px);
+        let padding = Self::resolve_padding(styled_node, ctx.containing_block.width, font_size_px);
 
         let colors = LayoutColors {
             background_color: Color4f::from_css_color(&styled_node.style.background_color),
@@ -187,20 +187,24 @@ impl LayoutEngine {
     }
 
     /// Resolve margin values to pixels
-    fn resolve_margins(styled_node: &StyledNode, containing_width: f32) -> SideOffset {
+    fn resolve_margins(
+        styled_node: &StyledNode,
+        containing_width: f32,
+        font_size_px: f32,
+    ) -> SideOffset {
         let margin = &styled_node.style.margin;
         SideOffset {
-            top: Self::resolve_margin_value(&margin.top, containing_width),
-            right: Self::resolve_margin_value(&margin.right, containing_width),
-            bottom: Self::resolve_margin_value(&margin.bottom, containing_width),
-            left: Self::resolve_margin_value(&margin.left, containing_width),
+            top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
+            right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
+            bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
+            left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
         }
     }
 
     /// Resolve a single margin value to pixels
-    fn resolve_margin_value(value: &MarginValue, containing_width: f32) -> f32 {
+    fn resolve_margin_value(value: &MarginValue, containing_width: f32, font_size_px: f32) -> f32 {
         match value {
-            MarginValue::Length(len) => len.value,
+            MarginValue::Length(len) => len.to_px(font_size_px),
             MarginValue::Percentage(pct) => pct * containing_width / 100.0,
             MarginValue::Auto => 0.0,
             MarginValue::Global(_) => 0.0,
@@ -208,19 +212,27 @@ impl LayoutEngine {
     }
 
     /// Resolve padding values to pixels
-    fn resolve_padding(styled_node: &StyledNode, containing_width: f32) -> SideOffset {
+    fn resolve_padding(
+        styled_node: &StyledNode,
+        containing_width: f32,
+        font_size_px: f32,
+    ) -> SideOffset {
         let padding = &styled_node.style.padding;
         SideOffset {
-            top: Self::resolve_padding_value(&padding.top, containing_width),
-            right: Self::resolve_padding_value(&padding.right, containing_width),
-            bottom: Self::resolve_padding_value(&padding.bottom, containing_width),
-            left: Self::resolve_padding_value(&padding.left, containing_width),
+            top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
+            right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
+            bottom: Self::resolve_padding_value(&padding.bottom, containing_width, font_size_px),
+            left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
         }
     }
 
-    fn resolve_padding_value(value: &PaddingValue, containing_width: f32) -> f32 {
+    fn resolve_padding_value(
+        value: &PaddingValue,
+        containing_width: f32,
+        font_size_px: f32,
+    ) -> f32 {
         match value {
-            PaddingValue::Length(len) => len.value,
+            PaddingValue::Length(len) => len.to_px(font_size_px),
             PaddingValue::Percentage(pct) => pct * containing_width / 100.0,
             PaddingValue::Auto => 0.0,
             PaddingValue::Global(_) => 0.0,
