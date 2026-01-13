@@ -6,7 +6,10 @@ use html_dom::{
     BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
 };
 
-use crate::state::{BlockedReason, ParserState};
+use crate::{
+    ResourceType,
+    state::{BlockedReason, ParserState},
+};
 
 /// A streaming HTML parser that reads HTML content in chunks and builds the DOM tree incrementally.
 pub struct HtmlStreamParser<R: BufRead, C: Collector + Default> {
@@ -287,6 +290,25 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                             .unwrap_or_default();
 
                         Some(BlockedReason::WaitingForStyle(attributes))
+                    }
+                    TokenState::AfterAttributeValueQuoted | TokenState::TagOpen => {
+                        if let Some(last_token) = tokens.last()
+                            && last_token.data.eq_ignore_ascii_case("link")
+                            && let Some(rel_value) = last_token
+                                .attributes
+                                .get("rel")
+                                .map(|v| v.to_ascii_lowercase())
+                            && rel_value == "stylesheet"
+                        {
+                            last_token.attributes.get("href").map(|href| {
+                                BlockedReason::WaitingForResource(
+                                    ResourceType::Style,
+                                    href.to_string(),
+                                )
+                            })
+                        } else {
+                            None
+                        }
                     }
                     _ => None,
                 };

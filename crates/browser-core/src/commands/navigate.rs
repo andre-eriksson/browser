@@ -5,7 +5,7 @@ use errors::{
     browser::NavigationError,
     network::{NetworkError, RequestError},
 };
-use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
+use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
 use network::http::request::RequestBuilder;
 use url::Url;
 
@@ -123,9 +123,52 @@ pub async fn navigate(
 
                     parser.resume()?;
                 }
-                _ => {
-                    break;
-                }
+
+                BlockedReason::WaitingForResource(resource_type, href) => match resource_type {
+                    ResourceType::Style => {
+                        let style_url = match url.join(href) {
+                            Ok(u) => u,
+                            Err(e) => {
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    NetworkError::InvalidUrl(e.to_string()),
+                                )));
+                            }
+                        };
+
+                        let style_request = RequestBuilder::from(style_url).build();
+                        let style_resp = ctx.network_service().fetch(&mut page, style_request);
+                        let style_response = match style_resp.await {
+                            RequestResult::Failed(err) => {
+                                return Err(NavigationError::RequestError(err));
+                            }
+                            RequestResult::ClientError(resp)
+                            | RequestResult::ServerError(resp)
+                            | RequestResult::Success(resp) => resp,
+                        };
+                        let style_body = match style_response.body().await {
+                            Ok(resp) => match resp.body {
+                                Some(b) => b,
+                                None => {
+                                    return Err(NavigationError::RequestError(
+                                        RequestError::EmptyBody,
+                                    ));
+                                }
+                            },
+                            Err(e) => {
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    e,
+                                )));
+                            }
+                        };
+
+                        let css_content =
+                            String::from_utf8_lossy(style_body.as_slice()).to_string();
+                        ctx.style_processor()
+                            .process_css(&css_content, &mut stylesheets);
+
+                        parser.resume()?;
+                    }
+                },
             },
             ParserState::Completed => {
                 break;

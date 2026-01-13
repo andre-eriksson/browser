@@ -1,5 +1,10 @@
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
+pub enum ResourceType {
+    Style,
+}
+
 /// Represents the reason why the HTML parser is blocked.
 #[derive(Debug, Clone)]
 pub enum BlockedReason {
@@ -13,7 +18,7 @@ pub enum BlockedReason {
 
     /// The parser is waiting for a generic resource to load.
     /// The associated `String` represents the URL of the resource.
-    WaitingForResource(String),
+    WaitingForResource(ResourceType, String),
 }
 
 /// Represents the current state of the HTML parser.

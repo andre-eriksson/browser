@@ -20,4 +20,4 @@ mod parser;
 mod state;
 
 pub use parser::HtmlStreamParser;
-pub use state::{BlockedReason, ParserState};
+pub use state::{BlockedReason, ParserState, ResourceType};
