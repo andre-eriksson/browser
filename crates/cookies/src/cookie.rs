@@ -26,7 +26,7 @@ pub struct Cookie {
 }
 
 impl Cookie {
-    pub fn parse(cookie_str: &str) -> Result<Self, &str> {
+    pub fn parse(cookie_str: &str) -> Result<Self, String> {
         let parts = cookie_str.split(';');
         let mut cookie = Cookie::default();
 
@@ -34,13 +34,15 @@ impl Cookie {
             let trimmed = part.trim().to_ascii_lowercase();
 
             if cookie.name.is_empty() {
-                let pair: Vec<&str> = part.split('=').collect();
-                if pair.len() != 2 {
-                    return Err("Invalid cookie pair");
-                }
+                let pair = match part.split_once('=') {
+                    None => {
+                        return Err(format!("Invalid cookie: {}", cookie.name));
+                    }
+                    Some(pair) => pair,
+                };
 
-                cookie.name = String::from(pair[0].trim());
-                cookie.value = String::from(pair[1].trim());
+                cookie.name = String::from(pair.0.trim());
+                cookie.value = String::from(pair.1.trim());
             } else if trimmed.starts_with("expires=") {
                 let pair: Vec<&str> = part.split('=').collect();
                 if pair.len() != 2 {
@@ -94,25 +96,30 @@ impl Cookie {
                         Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
                 } else if date_parts.len() == 4 {
                     // Sunday, 06-Nov-94 08:49:37 GMT
-                    let current_year_prefix = UtcDateTime::now()
-                        .year()
-                        .to_string()
-                        .split_at(2)
-                        .0
-                        .parse::<i16>()
-                        .unwrap();
+                    let correct_date = if date_parts[1][7..].len() == 4 {
+                        date_parts[1].to_string()
+                    } else {
+                        let current_year_prefix = UtcDateTime::now()
+                            .year()
+                            .to_string()
+                            .split_at(2)
+                            .0
+                            .parse::<i16>()
+                            .unwrap();
 
-                    let correct_date = format!(
-                        "{}{}{}",
-                        &date_parts[1][..7],
-                        current_year_prefix,
-                        &date_parts[1][7..]
-                    );
+                        format!(
+                            "{}{}{}",
+                            &date_parts[1][..7],
+                            current_year_prefix,
+                            &date_parts[1][7..]
+                        )
+                    };
 
                     let date_format = format_description!("[day]-[month repr:short]-[year]");
 
-                    let date = match Date::parse(correct_date.as_str(), date_format) {
+                    let date = match Date::parse(correct_date.trim(), date_format) {
                         Err(e) => {
+                            dbg!(correct_date.trim());
                             eprintln!("Date: {e}");
                             continue;
                         }
@@ -361,5 +368,39 @@ mod tests {
         assert_eq!(cookie.name(), "ID");
         assert_eq!(cookie.value(), "HelloWorld");
         assert!(!cookie.http_only());
+    }
+
+    #[test]
+    fn google() {
+        let cookie1 = Cookie::parse(
+            "SOCS=TEST; expires=Tue, 16-Feb-2027 11:39:17 GMT; path=/; domain=.google.com; Secure; SameSite=lax",
+        );
+        let cookie2 = Cookie::parse(
+            "AEC=ABCDEFGHTEST; expires=Thu, 16-Jul-2026 11:39:17 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax",
+        );
+        let cookie3 = Cookie::parse(
+            "__Secure-ENID=AB.CD=TEST; expires=Wed, 17-Feb-2027 03:57:35 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax",
+        );
+
+        assert!(cookie1.is_ok());
+        let c1 = cookie1.unwrap();
+
+        assert_eq!(c1.name(), "SOCS");
+        assert_eq!(c1.value(), "TEST");
+        assert!(c1.secure());
+
+        assert!(cookie2.is_ok());
+        let c2 = cookie2.unwrap();
+
+        assert_eq!(c2.name(), "AEC");
+        assert_eq!(c2.value(), "ABCDEFGHTEST");
+        assert!(c2.secure());
+
+        assert!(cookie3.is_ok());
+        let c3 = cookie3.unwrap();
+
+        assert_eq!(c3.name(), "__Secure-ENID");
+        assert_eq!(c3.value(), "AB.CD=TEST");
+        assert!(c3.secure());
     }
 }
