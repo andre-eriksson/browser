@@ -1,6 +1,8 @@
-use std::time::Duration;
+use std::fmt::Display;
 
-use time::{Date, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description};
+use time::{
+    Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description,
+};
 use url::Host;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -26,6 +28,28 @@ pub struct Cookie {
 }
 
 impl Cookie {
+    pub fn new(
+        name: String,
+        value: String,
+        expires: Expiration,
+        max_age: Option<Duration>,
+        domain: Option<Host>,
+        path: String,
+        secure: bool,
+        http_only: bool,
+    ) -> Self {
+        Self {
+            name,
+            value,
+            expires,
+            max_age,
+            domain,
+            path,
+            secure,
+            http_only,
+        }
+    }
+
     pub fn parse(cookie_str: &str) -> Result<Self, String> {
         let parts = cookie_str.split(';');
         let mut cookie = Cookie::default();
@@ -151,12 +175,12 @@ impl Cookie {
                     pair[1].trim()
                 };
 
-                let val = match value.parse::<u64>() {
+                let val = match value.parse::<i64>() {
                     Err(_) => continue,
                     Ok(val) => val,
                 };
 
-                let duration = Duration::from_secs(val);
+                let duration = Duration::seconds(val);
 
                 cookie.max_age = Some(duration);
             } else if trimmed.starts_with("domain=") {
@@ -227,6 +251,12 @@ impl Cookie {
 
     pub fn http_only(&self) -> bool {
         self.http_only
+    }
+}
+
+impl Display for Cookie {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}={}", self.name(), self.value())
     }
 }
 

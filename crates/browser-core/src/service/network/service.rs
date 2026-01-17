@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    net::Ipv4Addr,
+    sync::{Arc, Mutex},
+};
 
 use cookies::CookieJar;
 use errors::network::{NetworkError, RequestError};
@@ -13,7 +16,7 @@ use network::http::{
 };
 use telemetry::keys::STATUS_CODE;
 use tracing::{debug, instrument, trace};
-use url::Url;
+use url::{Host, Url};
 
 use crate::{
     service::network::{
@@ -211,11 +214,12 @@ impl NetworkService {
             if name == SET_COOKIE
                 && let Ok(jar) = jar.as_mut()
             {
-                CookieMiddleware::handle_response_cookie(
-                    jar,
-                    url.domain().unwrap_or_default(),
-                    value,
-                );
+                let host = url
+                    .host()
+                    .unwrap_or(Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)))
+                    .to_owned();
+
+                CookieMiddleware::handle_response_cookie(jar, host, value);
             }
 
             // TODO: Handle other response headers as needed

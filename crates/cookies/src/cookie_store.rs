@@ -3,10 +3,11 @@ use std::{
     net::Ipv4Addr,
 };
 
+use database::{Database, Domain, Table};
 use tracing::debug;
 use url::Host;
 
-use crate::cookie::Cookie;
+use crate::{cookie::Cookie, table::CookieTable};
 
 /// A stored cookie with additional metadata.
 #[derive(Clone, Debug)]
@@ -39,10 +40,21 @@ impl Display for StoredCookie {
 }
 
 /// A simple in-memory cookie jar (for now).
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct CookieJar {
     /// The list of stored cookies.
-    cookies: Vec<StoredCookie>,
+    cookies: Vec<Cookie>,
+
+    database: Database,
+}
+
+impl Default for CookieJar {
+    fn default() -> Self {
+        Self {
+            cookies: Vec::new(),
+            database: Database::new(Domain::Cookies),
+        }
+    }
 }
 
 impl CookieJar {
@@ -50,6 +62,7 @@ impl CookieJar {
     pub fn new() -> Self {
         CookieJar {
             cookies: Vec::new(),
+            database: Database::new(Domain::Cookies),
         }
     }
 
@@ -62,7 +75,7 @@ impl CookieJar {
     ///
     /// # Returns
     /// A vector of references to the matching stored cookies.
-    pub fn get_cookies(&self, domain: &str, path: &str, secure: bool) -> Vec<&StoredCookie> {
+    pub fn get_cookies(&self, domain: &str, path: &str, secure: bool) -> Vec<Cookie> {
         let mut result = Vec::new();
 
         let host = match Host::parse(domain) {
@@ -73,26 +86,33 @@ impl CookieJar {
             Ok(h) => h,
         };
 
-        for stored_cookie in &self.cookies {
-            if let Some(cookie_domain) = stored_cookie.inner.domain() {
+        let conn = self.database.open();
+        if let Ok(connection) = conn {
+            let persisted_cookies = CookieTable::get_cookies_by_domain(&connection, domain);
+
+            result.extend(persisted_cookies);
+        }
+
+        for cookie in self.cookies.clone() {
+            if let Some(cookie_domain) = cookie.domain() {
                 if cookie_domain != &host {
                     continue;
                 }
-            } else if let Some(original_host) = &stored_cookie.original_host
-                && original_host != &host
+            } else if let Some(domain) = cookie.domain()
+                && domain != &host
             {
                 continue;
             }
 
-            if stored_cookie.inner.secure() && !secure {
+            if cookie.secure() && !secure {
                 continue;
             }
 
-            if !path.starts_with(stored_cookie.inner.path()) {
+            if !path.starts_with(cookie.path()) {
                 continue;
             }
 
-            result.push(stored_cookie);
+            result.push(cookie);
         }
 
         result
@@ -106,17 +126,11 @@ impl CookieJar {
     ///
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
-    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: &str) {
-        let request_host = match Host::parse(request_domain) {
-            Err(e) => {
-                eprintln!("{e}");
-                return;
-            }
-            Ok(h) => h,
-        };
-
+    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: Host) {
         if let Some(domain) = cookie.domain()
-            && domain != &request_host
+            && !request_domain
+                .to_string()
+                .ends_with(domain.to_string().as_str())
         {
             debug!(
                 "Cookie rejected: domain '{}' doesn't match request domain '{}'",
@@ -128,21 +142,31 @@ impl CookieJar {
 
         // TODO: Handle age/expiration, max cookies
 
-        let original_host = if cookie.domain().is_none() {
-            Some(request_host)
-        } else {
-            None
-        };
+        let conn = self.database.open();
 
-        self.cookies.push(StoredCookie {
-            inner: cookie,
-            original_host,
-        });
+        if let Ok(connection) = conn {
+            let creation = CookieTable::create_table(&connection);
+
+            if creation.is_err() {
+                debug!(
+                    "Unable to create the cookie table: {}",
+                    creation.err().unwrap()
+                );
+            } else {
+                let adding = CookieTable::insert(&connection, &cookie);
+
+                if adding.is_err() {
+                    debug!("Unable to add a cookie: {}", adding.err().unwrap());
+                }
+            }
+        }
+
+        self.cookies.push(cookie);
     }
 }
 
 impl Iterator for CookieJar {
-    type Item = StoredCookie;
+    type Item = Cookie;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.cookies.is_empty() {
@@ -155,13 +179,8 @@ impl Iterator for CookieJar {
 
 impl Display for CookieJar {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for stored_cookie in &self.cookies {
-            writeln!(
-                f,
-                "{}={}",
-                stored_cookie.inner.name(),
-                stored_cookie.inner.value()
-            )?;
+        for cookie in &self.cookies {
+            writeln!(f, "{}={}", cookie.name(), cookie.value())?;
         }
         Ok(())
     }

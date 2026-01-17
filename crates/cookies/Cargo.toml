@@ -8,5 +8,6 @@ database.workspace = true
 time = { version = "0.3.45", features = ["parsing", "macros"]}
 
 # External dependencies
+rusqlite.workspace = true
 tracing.workspace = true
 url.workspace = true

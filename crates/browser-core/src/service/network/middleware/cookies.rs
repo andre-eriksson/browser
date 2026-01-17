@@ -3,6 +3,7 @@ use http::{HeaderValue, header::COOKIE};
 use network::http::request::Request;
 use telemetry::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
 use tracing::{trace, trace_span, warn};
+use url::Host;
 
 pub struct CookieMiddleware;
 
@@ -16,19 +17,20 @@ impl CookieMiddleware {
     /// # Notes
     /// This function modifies the `request` in place by adding the appropriate Cookie headers.
     pub fn apply_cookies(request: &mut Request, cookie_jar: &CookieJar) {
-        let Some(domain) = request.url.domain() else {
+        let Some(domain) = request.url.host() else {
             return;
         };
 
         let secure = request.url.scheme() == "https";
 
-        let cookies = cookie_jar.get_cookies(domain, request.url.path(), secure);
+        let cookies =
+            cookie_jar.get_cookies(domain.to_string().as_str(), request.url.path(), secure);
 
         trace!("Applying {} cookies to request", cookies.len());
 
         for stored_cookie in cookies {
-            let cookie_name = stored_cookie.inner.name();
-            let cookie_value = stored_cookie.inner.value();
+            let cookie_name = stored_cookie.name();
+            let cookie_value = stored_cookie.value();
 
             let span = trace_span!(
                 REQUEST_COOKIE,
@@ -64,7 +66,7 @@ impl CookieMiddleware {
     /// * `header_value` - The value of the Set-Cookie header from the response.
     pub fn handle_response_cookie(
         cookie_jar: &mut CookieJar,
-        request_domain: &str,
+        request_domain: Host,
         header_value: &HeaderValue,
     ) {
         let cookie_str = match header_value.to_str() {
@@ -74,7 +76,10 @@ impl CookieMiddleware {
 
         let cookie = match Cookie::parse(cookie_str) {
             Ok(c) => c,
-            Err(_) => return,
+            Err(e) => {
+                eprintln!("{e}");
+                return;
+            }
         };
 
         let span = trace_span!(
