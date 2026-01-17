@@ -13,3 +13,7 @@ pub fn get_config_path() -> Option<PathBuf> {
 pub fn get_data_path() -> Option<PathBuf> {
     dirs::data_dir().map(|p| p.join(APP_NAME))
 }
+
+pub fn create_paths(path: &PathBuf) -> std::io::Result<()> {
+    std::fs::create_dir_all(path)
+}
