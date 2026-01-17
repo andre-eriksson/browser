@@ -4,7 +4,9 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-cookie.workspace = true
+database.workspace = true
+time = { version = "0.3.45", features = ["parsing", "macros"]}
 
 # External dependencies
 tracing.workspace = true
+url.workspace = true

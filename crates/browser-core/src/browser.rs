@@ -6,7 +6,7 @@ use std::{
 use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use constants::files::CACHE_USER_AGENT;
-use cookies::cookie_store::CookieJar;
+use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;

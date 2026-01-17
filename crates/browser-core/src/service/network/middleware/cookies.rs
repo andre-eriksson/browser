@@ -1,5 +1,4 @@
-use cookie::Cookie;
-use cookies::cookie_store::CookieJar;
+use cookies::{Cookie, CookieJar};
 use http::{HeaderValue, header::COOKIE};
 use network::http::request::Request;
 use telemetry::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
@@ -73,7 +72,7 @@ impl CookieMiddleware {
             Err(_) => return,
         };
 
-        let cookie = match Cookie::parse(cookie_str.to_string()) {
+        let cookie = match Cookie::parse(cookie_str) {
             Ok(c) => c,
             Err(_) => return,
         };

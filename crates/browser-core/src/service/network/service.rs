@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use cookies::cookie_store::CookieJar;
+use cookies::CookieJar;
 use errors::network::{NetworkError, RequestError};
 use http::{
     HeaderMap, Method,

@@ -1,5 +1,7 @@
-/// Cookies management library for a browser.
-pub mod cookie_store;
+//! Cookies managment library for a browser!
 
-/// Domain matching utilities.
-mod domain;
+mod cookie;
+mod cookie_store;
+
+pub use cookie::{Cookie, Expiration};
+pub use cookie_store::{CookieJar, StoredCookie};

@@ -1,18 +1,21 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    fmt::{Display, Formatter},
+    net::Ipv4Addr,
+};
 
-use cookie::Cookie;
 use tracing::debug;
+use url::Host;
 
-use crate::domain::domain_matches;
+use crate::cookie::Cookie;
 
 /// A stored cookie with additional metadata.
 #[derive(Clone, Debug)]
 pub struct StoredCookie {
     /// The actual cookie data.
-    pub inner: Cookie<'static>,
+    pub inner: Cookie,
 
     /// The original host from which the cookie was set (if host-only), will be None for domain cookies.
-    original_host: Option<String>,
+    original_host: Option<Host>,
 }
 
 impl Display for StoredCookie {
@@ -22,12 +25,15 @@ impl Display for StoredCookie {
             "{}={}; Domain={}; Path={}; Secure={}; HttpOnly={}",
             self.inner.name(),
             self.inner.value(),
-            self.inner
-                .domain()
-                .unwrap_or(self.original_host.as_deref().unwrap_or("")),
-            self.inner.path().unwrap_or("/"),
-            self.inner.secure().unwrap_or(false),
-            self.inner.http_only().unwrap_or(false)
+            self.inner.domain().as_ref().unwrap_or(
+                &self
+                    .original_host
+                    .clone()
+                    .unwrap_or(Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)))
+            ),
+            self.inner.path(),
+            self.inner.secure(),
+            self.inner.http_only(),
         )
     }
 }
@@ -59,27 +65,30 @@ impl CookieJar {
     pub fn get_cookies(&self, domain: &str, path: &str, secure: bool) -> Vec<&StoredCookie> {
         let mut result = Vec::new();
 
+        let host = match Host::parse(domain) {
+            Err(e) => {
+                eprintln!("{e}");
+                return result;
+            }
+            Ok(h) => h,
+        };
+
         for stored_cookie in &self.cookies {
             if let Some(cookie_domain) = stored_cookie.inner.domain() {
-                if !domain_matches(cookie_domain, domain) {
+                if cookie_domain != &host {
                     continue;
                 }
             } else if let Some(original_host) = &stored_cookie.original_host
-                && original_host != domain
+                && original_host != &host
             {
                 continue;
             }
 
-            if let Some(cookie_secure) = stored_cookie.inner.secure()
-                && cookie_secure
-                && !secure
-            {
+            if stored_cookie.inner.secure() && !secure {
                 continue;
             }
 
-            if let Some(cookie_path) = stored_cookie.inner.path()
-                && !path.starts_with(cookie_path)
-            {
+            if !path.starts_with(stored_cookie.inner.path()) {
                 continue;
             }
 
@@ -97,9 +106,17 @@ impl CookieJar {
     ///
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
-    pub fn add_cookie(&mut self, cookie: Cookie<'static>, request_domain: &str) {
+    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: &str) {
+        let request_host = match Host::parse(request_domain) {
+            Err(e) => {
+                eprintln!("{e}");
+                return;
+            }
+            Ok(h) => h,
+        };
+
         if let Some(domain) = cookie.domain()
-            && !domain_matches(domain, request_domain)
+            && domain != &request_host
         {
             debug!(
                 "Cookie rejected: domain '{}' doesn't match request domain '{}'",
@@ -111,9 +128,8 @@ impl CookieJar {
 
         // TODO: Handle age/expiration, max cookies
 
-        let host_only = cookie.domain().is_none();
-        let original_host = if host_only {
-            Some(request_domain.to_string())
+        let original_host = if cookie.domain().is_none() {
+            Some(request_host)
         } else {
             None
         };

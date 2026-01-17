@@ -660,7 +660,6 @@ dependencies = [
  "assets",
  "async-trait",
  "constants",
- "cookie",
  "cookies",
  "css-cssom",
  "css-style",
@@ -1015,20 +1014,9 @@ name = "constants"
 version = "0.1.0"
 
 [[package]]
-name = "cookie"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ddef33a339a91ea89fb53151bd0a4689cfce27055c291dfa69945475d22c747"
-dependencies = [
- "time",
- "version_check",
-]
-
-[[package]]
 name = "cookies"
 version = "0.1.0"
 dependencies = [
- "cookie",
  "tracing",
 ]
 

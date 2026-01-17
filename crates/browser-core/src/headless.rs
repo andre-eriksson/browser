@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use cookies::cookie_store::CookieJar;
+use cookies::CookieJar;
 use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
 
