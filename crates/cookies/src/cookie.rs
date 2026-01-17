@@ -12,42 +12,57 @@ pub enum Expiration {
     Date(OffsetDateTime),
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SameSite {
+    #[default]
+    Strict,
+    Lax,
+    None,
+}
+
+impl From<&str> for SameSite {
+    fn from(value: &str) -> Self {
+        match value {
+            "strict" => SameSite::Strict,
+            "lax" => SameSite::Lax,
+            "none" => SameSite::None,
+            _ => SameSite::Strict,
+        }
+    }
+}
+
+impl From<String> for SameSite {
+    fn from(value: String) -> Self {
+        SameSite::from(value.to_ascii_lowercase().as_str())
+    }
+}
+
+impl Display for SameSite {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SameSite::Lax => write!(f, "lax"),
+            SameSite::Strict => write!(f, "strict"),
+            SameSite::None => write!(f, "none"),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Cookie {
     name: String,
     value: String,
-
     expires: Expiration,
     max_age: Option<Duration>,
-
     domain: Option<Host>,
     path: String,
-
     secure: bool,
     http_only: bool,
+    same_site: Option<SameSite>,
 }
 
 impl Cookie {
-    pub fn new(
-        name: String,
-        value: String,
-        expires: Expiration,
-        max_age: Option<Duration>,
-        domain: Option<Host>,
-        path: String,
-        secure: bool,
-        http_only: bool,
-    ) -> Self {
-        Self {
-            name,
-            value,
-            expires,
-            max_age,
-            domain,
-            path,
-            secure,
-            http_only,
-        }
+    pub fn builder() -> CookieBuilder {
+        CookieBuilder::default()
     }
 
     pub fn parse(cookie_str: &str) -> Result<Self, String> {
@@ -211,6 +226,19 @@ impl Cookie {
                 if value.starts_with('/') || !value.is_empty() {
                     cookie.path = String::from(pair[1].trim());
                 } // TODO: Handle "default-path"
+            } else if trimmed.starts_with("samesite=") {
+                let pair: Vec<&str> = part.split('=').collect();
+                if pair.len() != 2 {
+                    continue;
+                }
+                let value = pair[1].trim().to_ascii_lowercase();
+
+                cookie.same_site = match value.as_str() {
+                    "lax" => Some(SameSite::Lax),
+                    "strict" => Some(SameSite::Strict),
+                    "none" => Some(SameSite::None),
+                    _ => None,
+                };
             } else if trimmed == "secure" {
                 cookie.secure = true;
             } else if trimmed == "httponly" {
@@ -252,11 +280,89 @@ impl Cookie {
     pub fn http_only(&self) -> bool {
         self.http_only
     }
+
+    pub fn same_site(&self) -> &Option<SameSite> {
+        &self.same_site
+    }
 }
 
 impl Display for Cookie {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}={}", self.name(), self.value())
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct CookieBuilder {
+    name: String,
+    value: String,
+    expires: Expiration,
+    max_age: Option<Duration>,
+    domain: Option<Host>,
+    path: String,
+    secure: bool,
+    http_only: bool,
+    same_site: Option<SameSite>,
+}
+
+impl CookieBuilder {
+    pub fn name(mut self, name: String) -> Self {
+        self.name = name;
+        self
+    }
+
+    pub fn value(mut self, value: String) -> Self {
+        self.value = value;
+        self
+    }
+
+    pub fn expires(mut self, expiration: Expiration) -> Self {
+        self.expires = expiration;
+        self
+    }
+
+    pub fn max_age(mut self, max_age: Duration) -> Self {
+        self.max_age = Some(max_age);
+        self
+    }
+
+    pub fn domain(mut self, domain: Host) -> Self {
+        self.domain = Some(domain);
+        self
+    }
+
+    pub fn path(mut self, path: String) -> Self {
+        self.path = path;
+        self
+    }
+
+    pub fn secure(mut self, secure: bool) -> Self {
+        self.secure = secure;
+        self
+    }
+
+    pub fn http_only(mut self, http_only: bool) -> Self {
+        self.http_only = http_only;
+        self
+    }
+
+    pub fn same_site(mut self, same_site: SameSite) -> Self {
+        self.same_site = Some(same_site);
+        self
+    }
+
+    pub fn build(self) -> Cookie {
+        Cookie {
+            name: self.name,
+            value: self.value,
+            expires: self.expires,
+            max_age: self.max_age,
+            domain: self.domain,
+            path: self.path,
+            secure: self.secure,
+            http_only: self.http_only,
+            same_site: self.same_site,
+        }
     }
 }
 

@@ -5,7 +5,7 @@ use rusqlite::{Connection, Result, params};
 use time::{OffsetDateTime, UtcDateTime};
 use url::Host;
 
-use crate::{Cookie, Expiration};
+use crate::{Cookie, Expiration, cookie::SameSite};
 
 pub struct CookieTable;
 
@@ -13,7 +13,7 @@ impl CookieTable {
     pub fn get_cookies_by_domain(conn: &Connection, domain: &str) -> Vec<Cookie> {
         let mut cookies = Vec::new();
 
-        let stmt = conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only FROM cookies WHERE domain=?1");
+        let stmt = conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies WHERE domain=?1");
 
         if stmt.is_err() {
             return cookies;
@@ -32,16 +32,18 @@ impl CookieTable {
                 panic!();
             };
 
-            Ok(Cookie::new(
-                row.get(0)?,
-                row.get(1)?,
-                Expiration::Date(expiry),
-                None,
-                Some(domain),
-                row.get(4)?,
-                row.get(5)?,
-                row.get(6)?,
-            ))
+            let cookie = Cookie::builder()
+                .name(row.get(0)?)
+                .value(row.get(1)?)
+                .expires(Expiration::Date(expiry))
+                .domain(domain)
+                .path(row.get(4)?)
+                .secure(row.get(5)?)
+                .secure(row.get(6)?)
+                .same_site(SameSite::from(row.get::<usize, String>(7)?))
+                .build();
+
+            Ok(cookie)
         });
 
         if cookies_iter.is_err() {
@@ -75,6 +77,7 @@ impl Table for CookieTable {
                 path TEXT,
                 secure BOOLEAN,
                 http_only BOOLEAN,
+                same_site TEXT,
                 UNIQUE (name, domain)
             );
             CREATE INDEX IF NOT EXISTS domain_idx ON cookies (domain);
@@ -94,10 +97,16 @@ impl Table for CookieTable {
             Some(val) => UtcDateTime::now().unix_timestamp() + val.whole_seconds(),
         };
 
+        let same_site = data
+            .same_site()
+            .as_ref()
+            .map(|s| s.to_string())
+            .unwrap_or(SameSite::Strict.to_string());
+
         conn.execute(
             "INSERT OR REPLACE INTO cookies
-            (name, value, expiration, domain, path, secure, http_only)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            (name, value, expiration, domain, path, secure, http_only, same_site)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 data.name(),
                 data.value(),
@@ -109,6 +118,7 @@ impl Table for CookieTable {
                 data.path(),
                 data.secure(),
                 data.http_only(),
+                same_site,
             ],
         )?;
 
