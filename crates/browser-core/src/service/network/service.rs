@@ -96,6 +96,10 @@ impl NetworkService {
                 ));
             }
 
+            if let Ok(jar) = self.cookie_jar.lock().as_mut() {
+                CookieMiddleware::apply_cookies(&mut request, jar);
+            }
+
             let url = request.url.clone();
             let resp = self.raw_fetch(request).await;
 
