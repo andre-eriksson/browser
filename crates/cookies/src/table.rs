@@ -97,11 +97,7 @@ impl Table for CookieTable {
             Some(val) => UtcDateTime::now().unix_timestamp() + val.whole_seconds(),
         };
 
-        let same_site = data
-            .same_site()
-            .as_ref()
-            .map(|s| s.to_string())
-            .unwrap_or(SameSite::Strict.to_string());
+        let same_site = data.same_site().to_string();
 
         conn.execute(
             "INSERT OR REPLACE INTO cookies

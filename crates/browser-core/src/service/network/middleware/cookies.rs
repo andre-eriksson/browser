@@ -28,9 +28,9 @@ impl CookieMiddleware {
 
         trace!("Applying {} cookies to request", cookies.len());
 
-        for stored_cookie in cookies {
-            let cookie_name = stored_cookie.name();
-            let cookie_value = stored_cookie.value();
+        for cookie in cookies {
+            let cookie_name = cookie.name();
+            let cookie_value = cookie.value();
 
             let span = trace_span!(
                 REQUEST_COOKIE,
