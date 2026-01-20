@@ -1,7 +1,4 @@
-use std::{
-    fmt::{Display, Formatter},
-    net::Ipv4Addr,
-};
+use std::fmt::{Display, Formatter};
 
 use database::{Database, Domain, Table};
 use tracing::debug;
@@ -9,42 +6,13 @@ use url::Host;
 
 use crate::{Expiration, cookie::Cookie, table::CookieTable};
 
-/// A stored cookie with additional metadata.
-#[derive(Clone, Debug)]
-pub struct StoredCookie {
-    /// The actual cookie data.
-    pub inner: Cookie,
-
-    /// The original host from which the cookie was set (if host-only), will be None for domain cookies.
-    original_host: Option<Host>,
-}
-
-impl Display for StoredCookie {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}={}; Domain={}; Path={}; Secure={}; HttpOnly={}",
-            self.inner.name(),
-            self.inner.value(),
-            self.inner.domain().as_ref().unwrap_or(
-                &self
-                    .original_host
-                    .clone()
-                    .unwrap_or(Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)))
-            ),
-            self.inner.path(),
-            self.inner.secure(),
-            self.inner.http_only(),
-        )
-    }
-}
-
 /// A simple in-memory cookie jar (for now).
 #[derive(Clone)]
 pub struct CookieJar {
     /// The list of stored cookies.
     session_cookies: Vec<Cookie>,
 
+    /// The database instance for cookies
     database: Database,
 }
 
@@ -74,7 +42,7 @@ impl CookieJar {
     /// * `secure` - Whether the request is made over a secure connection.
     ///
     /// # Returns
-    /// A vector of references to the matching stored cookies.
+    /// A vector to the matching stored cookies.
     pub fn get_cookies(&self, domain: &str, path: &str, secure: bool) -> Vec<Cookie> {
         let mut result = Vec::new();
 
