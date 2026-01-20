@@ -8,12 +8,8 @@ use constants::APP_NAME;
     about = "A web browser implemented in Rust."
 )]
 pub struct Args {
-    #[arg(
-        long,
-        default_value_t = String::from("https://www.example.com"),
-        help = "The initial URL to load"
-    )]
-    pub url: String,
+    #[arg(long, help = "The initial URL to load")]
+    pub url: Option<String>,
 
     #[arg(
         short = 'H',

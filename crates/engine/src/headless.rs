@@ -60,12 +60,12 @@ impl HeadlessEngine {
 
     /// Main loop to process commands
     pub async fn main(&mut self, args: &Args) {
-        if !args.url.is_empty() {
+        if args.url.is_some() {
             let navigation_result = self
                 .browser
                 .execute(BrowserCommand::Navigate {
                     tab_id: TabId(0),
-                    url: args.url.clone(),
+                    url: args.url.clone().unwrap(),
                 })
                 .await;
 
