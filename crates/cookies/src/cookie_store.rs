@@ -63,11 +63,11 @@ impl CookieJar {
 
         for cookie in self.session_cookies.clone() {
             if let Some(cookie_domain) = cookie.domain() {
-                if cookie_domain != &host {
+                if **cookie_domain != host {
                     continue;
                 }
             } else if let Some(domain) = cookie.domain()
-                && domain != &host
+                && **domain != host
             {
                 continue;
             }
@@ -76,7 +76,7 @@ impl CookieJar {
                 continue;
             }
 
-            if !path.starts_with(cookie.path()) {
+            if !path.starts_with(cookie.path().trim()) {
                 continue;
             }
 

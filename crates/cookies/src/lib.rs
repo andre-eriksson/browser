@@ -79,8 +79,8 @@ mod tests {
         assert_eq!(cookie.value(), "HelloWorld");
         assert!(cookie.domain().is_some());
         assert_eq!(
-            cookie.domain().as_ref().unwrap(),
-            &Host::Domain("google.com".to_string())
+            *cookie.domain().as_ref().unwrap(),
+            Host::Domain("google.com".to_string()).into()
         );
     }
 

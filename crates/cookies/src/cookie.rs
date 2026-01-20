@@ -66,12 +66,12 @@ impl Display for SameSite {
 
 #[derive(Debug, Default, Clone)]
 pub struct Cookie {
-    name: String,
-    value: String,
+    name: Box<str>,
+    value: Box<str>,
     expires: Expiration,
     max_age: Option<Duration>,
-    domain: Option<Host>,
-    path: String,
+    domain: Option<Box<Host>>,
+    path: Box<str>,
     secure: bool,
     http_only: bool,
     same_site: SameSite,
@@ -101,8 +101,8 @@ impl Cookie {
                     Some(pair) => pair,
                 };
 
-                cookie.name = String::from(pair.0.trim());
-                cookie.value = String::from(pair.1.trim());
+                cookie.name = pair.0.trim().into();
+                cookie.value = pair.1.trim().into();
 
                 continue;
             }
@@ -260,7 +260,7 @@ impl Cookie {
                 Ok(host) => host,
             };
 
-            cookie.domain = Some(domain);
+            cookie.domain = Some(domain.into());
         }
 
         Ok(())
@@ -270,7 +270,7 @@ impl Cookie {
         if let Some(path) = value
             && (path.starts_with('/') || !path.is_empty())
         {
-            cookie.path = String::from(path);
+            cookie.path = path.into();
             // TODO: Handle "default-path"
         }
     }
@@ -289,11 +289,11 @@ impl Cookie {
         }
     }
 
-    pub fn name(&self) -> &String {
+    pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn value(&self) -> &String {
+    pub fn value(&self) -> &str {
         &self.value
     }
 
@@ -305,11 +305,11 @@ impl Cookie {
         &self.max_age
     }
 
-    pub fn domain(&self) -> &Option<Host> {
+    pub fn domain(&self) -> &Option<Box<Host>> {
         &self.domain
     }
 
-    pub fn path(&self) -> &String {
+    pub fn path(&self) -> &str {
         &self.path
     }
 
@@ -337,7 +337,7 @@ impl Display for Cookie {
             self.max_age().unwrap_or(Duration::seconds(0)),
             self.domain()
                 .as_ref()
-                .unwrap_or(&Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1))),
+                .unwrap_or(&Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)).into()),
             self.path(),
             self.secure(),
             self.http_only(),
@@ -348,12 +348,12 @@ impl Display for Cookie {
 
 #[derive(Debug, Default, Clone)]
 pub struct CookieBuilder {
-    name: String,
-    value: String,
+    name: Box<str>,
+    value: Box<str>,
     expires: Expiration,
     max_age: Option<Duration>,
-    domain: Option<Host>,
-    path: String,
+    domain: Option<Box<Host>>,
+    path: Box<str>,
     secure: bool,
     http_only: bool,
     same_site: SameSite,
@@ -361,12 +361,12 @@ pub struct CookieBuilder {
 
 impl CookieBuilder {
     pub fn name(mut self, name: String) -> Self {
-        self.name = name;
+        self.name = name.into();
         self
     }
 
     pub fn value(mut self, value: String) -> Self {
-        self.value = value;
+        self.value = value.into();
         self
     }
 
@@ -381,12 +381,12 @@ impl CookieBuilder {
     }
 
     pub fn domain(mut self, domain: Host) -> Self {
-        self.domain = Some(domain);
+        self.domain = Some(domain.into());
         self
     }
 
     pub fn path(mut self, path: String) -> Self {
-        self.path = path;
+        self.path = path.into();
         self
     }
 
