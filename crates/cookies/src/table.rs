@@ -10,6 +10,59 @@ use crate::{Cookie, Expiration, cookie::SameSite};
 pub struct CookieTable;
 
 impl CookieTable {
+    /// Retrieves all cookies
+    pub fn get_all(conn: &Connection) -> Vec<Cookie> {
+        let mut cookies = Vec::with_capacity(32);
+
+        let stmt = conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies");
+
+        if stmt.is_err() {
+            return cookies;
+        }
+
+        let mut binding = stmt.unwrap();
+        let cookies_iter = binding.query_map([], |row| {
+            let val = row.get::<usize, i64>(2);
+
+            let Ok(expiry) = OffsetDateTime::from_unix_timestamp(val?) else {
+                panic!();
+            };
+
+            let dom_host = row.get::<usize, String>(3)?;
+            let Ok(domain) = Host::parse(dom_host.as_str()) else {
+                panic!();
+            };
+
+            let cookie = Cookie::builder()
+                .name(row.get(0)?)
+                .value(row.get(1)?)
+                .expires(Expiration::Date(expiry))
+                .domain(domain)
+                .path(row.get(4)?)
+                .secure(row.get(5)?)
+                .secure(row.get(6)?)
+                .same_site(SameSite::from(row.get::<usize, String>(7)?))
+                .build();
+
+            Ok(cookie)
+        });
+
+        if cookies_iter.is_err() {
+            return cookies;
+        }
+
+        for cookie in cookies_iter.unwrap() {
+            if cookie.is_err() {
+                continue;
+            }
+
+            cookies.push(cookie.unwrap());
+        }
+
+        cookies
+    }
+
+    /// Retrieve all cookies from a specific domain
     pub fn get_cookies_by_domain(conn: &Connection, domain: &str) -> Vec<Cookie> {
         let mut cookies = Vec::new();
 

@@ -10,7 +10,7 @@ use crate::{Expiration, cookie::Cookie, table::CookieTable};
 #[derive(Clone)]
 pub struct CookieJar {
     /// The list of stored cookies.
-    session_cookies: Vec<Cookie>,
+    cookies: Vec<Cookie>,
 
     /// The database instance for cookies
     database: Database,
@@ -19,17 +19,26 @@ pub struct CookieJar {
 impl Default for CookieJar {
     fn default() -> Self {
         Self {
-            session_cookies: Vec::new(),
+            cookies: Vec::new(),
             database: Database::new(Domain::Cookies),
         }
     }
 }
 
 impl CookieJar {
-    /// Creates a new, empty CookieJar.
-    pub fn new() -> Self {
+    /// Loads existing cookies and returns the cookie jar
+    pub fn load() -> Self {
+        let database = Database::new(Domain::Cookies);
+
+        let conn = database.open();
+        if let Ok(connection) = conn {
+            let cookies = CookieTable::get_all(&connection);
+
+            return Self { database, cookies };
+        }
+
         CookieJar {
-            session_cookies: Vec::with_capacity(16),
+            cookies: Vec::with_capacity(32),
             database: Database::new(Domain::Cookies),
         }
     }
@@ -61,7 +70,7 @@ impl CookieJar {
             result.extend(persisted_cookies);
         }
 
-        for cookie in self.session_cookies.clone() {
+        for cookie in self.cookies.clone() {
             if let Some(cookie_domain) = cookie.domain() {
                 if **cookie_domain != host {
                     continue;
@@ -111,7 +120,7 @@ impl CookieJar {
         // TODO: Handle age/expiration, max cookies
 
         if cookie.max_age().is_none() && cookie.expires() == &Expiration::Session {
-            self.session_cookies.push(cookie);
+            self.cookies.push(cookie);
             return;
         }
 
@@ -140,17 +149,17 @@ impl Iterator for CookieJar {
     type Item = Cookie;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.session_cookies.is_empty() {
+        if self.cookies.is_empty() {
             None
         } else {
-            Some(self.session_cookies.remove(0))
+            Some(self.cookies.remove(0))
         }
     }
 }
 
 impl Display for CookieJar {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for cookie in &self.session_cookies {
+        for cookie in &self.cookies {
             writeln!(f, "{}={}", cookie.name(), cookie.value())?;
         }
         Ok(())
