@@ -15,12 +15,10 @@ pub enum Expiration {
 
 impl Display for Expiration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let val = match self {
-            Self::Session => String::from("session"),
-            Self::Date(offset) => offset.to_string(),
-        };
-
-        write!(f, "{val}")
+        match self {
+            Self::Session => write!(f, "session"),
+            Self::Date(offset) => write!(f, "{}", offset),
+        }
     }
 }
 
@@ -34,18 +32,25 @@ pub enum SameSite {
 
 impl From<&str> for SameSite {
     fn from(value: &str) -> Self {
-        match value {
-            "strict" => SameSite::Strict,
-            "lax" => SameSite::Lax,
-            "none" => SameSite::None,
-            _ => SameSite::Strict,
+        if value.eq_ignore_ascii_case("strict") {
+            SameSite::Strict
+        } else if value.eq_ignore_ascii_case("none") {
+            SameSite::None
+        } else {
+            SameSite::Lax
         }
     }
 }
 
 impl From<String> for SameSite {
     fn from(value: String) -> Self {
-        SameSite::from(value.to_ascii_lowercase().as_str())
+        if value.eq_ignore_ascii_case("strict") {
+            SameSite::Strict
+        } else if value.eq_ignore_ascii_case("none") {
+            SameSite::None
+        } else {
+            SameSite::Lax
+        }
     }
 }
 
