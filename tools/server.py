@@ -1,19 +1,9 @@
-from flask import Flask, make_response
+from flask import Flask
+from blueprints import cookies_bp
 
 app = Flask(__name__)
 
-@app.route("/set-cookie")
-def set_cookie():
-    resp = make_response("Cookie has been set")
-    resp.set_cookie(
-        key="example_cookie",
-        value="hello_worldagain",
-        max_age=60 * 60,
-        httponly=True,
-        secure=False,
-        samesite="Lax"
-    )
-    return resp
+app.register_blueprint(cookies_bp, url_prefix='/cookies')
 
 if __name__ == "__main__":
     app.run(debug=True)
