@@ -2,7 +2,7 @@ use cookies::{Cookie, CookieJar};
 use http::{HeaderValue, header::COOKIE};
 use network::http::request::Request;
 use telemetry::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
-use tracing::{trace, trace_span, warn};
+use tracing::{debug, trace, trace_span, warn};
 use url::Host;
 
 pub struct CookieMiddleware;
@@ -77,7 +77,7 @@ impl CookieMiddleware {
         let cookie = match Cookie::parse(cookie_str) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("{e}");
+                debug!("Error parsing the cookie: {e}");
                 return;
             }
         };

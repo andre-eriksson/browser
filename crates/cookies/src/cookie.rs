@@ -1,5 +1,6 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
+use errors::parsing::CookieParsingError;
 use time::{
     Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description,
 };
@@ -76,7 +77,7 @@ impl Cookie {
         CookieBuilder::default()
     }
 
-    pub fn parse(cookie_str: &str) -> Result<Self, String> {
+    pub fn parse(cookie_str: &str) -> Result<Self, CookieParsingError> {
         let parts = cookie_str.split(';');
         let mut cookie = Cookie::default();
 
@@ -90,7 +91,7 @@ impl Cookie {
             if cookie.name.is_empty() {
                 let pair = match part.split_once('=') {
                     None => {
-                        return Err(format!("Invalid cookie: {}", cookie.name));
+                        return Err(CookieParsingError::InvalidCookie);
                     }
                     Some(pair) => pair,
                 };
@@ -107,11 +108,11 @@ impl Cookie {
             };
 
             if k.eq_ignore_ascii_case("expires") {
-                Self::parse_expires(&mut cookie, value);
+                Self::parse_expires(&mut cookie, value)?;
             } else if k.eq_ignore_ascii_case("max-age") {
-                Self::parse_max_age(&mut cookie, value);
+                Self::parse_max_age(&mut cookie, value)?;
             } else if k.eq_ignore_ascii_case("domain") {
-                Self::parse_domain(&mut cookie, value);
+                Self::parse_domain(&mut cookie, value)?;
             } else if k.eq_ignore_ascii_case("path") {
                 Self::parse_path(&mut cookie, value);
             } else if k.eq_ignore_ascii_case("samesite") {
@@ -126,7 +127,7 @@ impl Cookie {
         Ok(cookie)
     }
 
-    fn parse_expires(cookie: &mut Cookie, value: Option<&str>) {
+    fn parse_expires(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
         if let Some(expires) = value {
             let date_parts: Vec<&str> = expires.split_ascii_whitespace().collect();
 
@@ -136,13 +137,13 @@ impl Cookie {
                 let full_date = [date_parts[1], date_parts[2], date_parts[3]].join("-");
 
                 let date = match Date::parse(full_date.as_str(), date_format) {
-                    Err(_) => return,
+                    Err(e) => return Err(CookieParsingError::DateError(e.to_string())),
                     Ok(date) => date,
                 };
 
                 let time_format = format_description!("[hour]:[minute]:[second]");
                 let time = match Time::parse(date_parts[4], time_format) {
-                    Err(_) => return,
+                    Err(e) => return Err(CookieParsingError::TimeError(e.to_string())),
                     Ok(parsed) => parsed,
                 };
 
@@ -155,19 +156,13 @@ impl Cookie {
                 let full_date = [date_parts[1], date_parts[2], date_parts[4]].join("-");
 
                 let date = match Date::parse(full_date.as_str(), date_format) {
-                    Err(e) => {
-                        eprintln!("{e}");
-                        return;
-                    }
+                    Err(e) => return Err(CookieParsingError::DateError(e.to_string())),
                     Ok(date) => date,
                 };
 
                 let time_format = format_description!("[hour]:[minute]:[second]");
                 let time = match Time::parse(date_parts[3], time_format) {
-                    Err(e) => {
-                        eprintln!("{e}");
-                        return;
-                    }
+                    Err(e) => return Err(CookieParsingError::TimeError(e.to_string())),
                     Ok(parsed) => parsed,
                 };
 
@@ -197,20 +192,13 @@ impl Cookie {
                 let date_format = format_description!("[day]-[month repr:short]-[year]");
 
                 let date = match Date::parse(correct_date.trim(), date_format) {
-                    Err(e) => {
-                        dbg!(correct_date.trim());
-                        eprintln!("Date: {e}");
-                        return;
-                    }
+                    Err(e) => return Err(CookieParsingError::DateError(e.to_string())),
                     Ok(date) => date,
                 };
 
                 let time_format = format_description!("[hour]:[minute]:[second]");
                 let time = match Time::parse(date_parts[2], time_format) {
-                    Err(e) => {
-                        eprintln!("Time: {e}");
-                        return;
-                    }
+                    Err(e) => return Err(CookieParsingError::TimeError(e.to_string())),
                     Ok(parsed) => parsed,
                 };
 
@@ -218,9 +206,11 @@ impl Cookie {
                     Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
             }
         }
+
+        Ok(())
     }
 
-    fn parse_max_age(cookie: &mut Cookie, value: Option<&str>) {
+    fn parse_max_age(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
         if let Some(max_age) = value {
             let value = if max_age.starts_with('-') {
                 // TODO: Something?
@@ -230,7 +220,12 @@ impl Cookie {
             };
 
             let val = match value.parse::<i64>() {
-                Err(_) => return,
+                Err(e) => {
+                    return Err(CookieParsingError::Parsing(
+                        String::from("i16"),
+                        e.to_string(),
+                    ));
+                }
                 Ok(val) => val,
             };
 
@@ -238,9 +233,11 @@ impl Cookie {
 
             cookie.max_age = Some(duration);
         }
+
+        Ok(())
     }
 
-    fn parse_domain(cookie: &mut Cookie, value: Option<&str>) {
+    fn parse_domain(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
         if let Some(domain) = value {
             let mut domain_mut = domain;
 
@@ -249,12 +246,19 @@ impl Cookie {
             }
 
             let domain = match Host::parse(domain_mut) {
-                Err(_) => return,
+                Err(e) => {
+                    return Err(CookieParsingError::Parsing(
+                        String::from("host"),
+                        e.to_string(),
+                    ));
+                }
                 Ok(host) => host,
             };
 
             cookie.domain = Some(domain);
         }
+
+        Ok(())
     }
 
     fn parse_path(cookie: &mut Cookie, value: Option<&str>) {
