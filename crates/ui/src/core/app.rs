@@ -3,12 +3,14 @@ use std::sync::Arc;
 
 use assets::ASSETS;
 use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
+use browser_config::Config;
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
 use errors::browser::{BrowserError, NavigationError};
-use iced::Subscription;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
+use iced::theme::{Custom, Palette};
+use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
 use layout::{LayoutEngine, Rect, TextContext};
 use tokio::sync::Mutex;
@@ -30,6 +32,9 @@ pub enum Event {
 
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {
+    /// The application config.
+    pub config: Config,
+
     /// The unique identifier for the application window.
     pub id: window::Id,
 
@@ -63,6 +68,7 @@ impl Application {
     pub fn new(
         event_receiver: UnboundedReceiver<BrowserEvent>,
         browser: Arc<Mutex<Browser>>,
+        config: Config,
     ) -> (Self, Task<Event>) {
         let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
         let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
@@ -104,6 +110,7 @@ impl Application {
             browser,
             viewports,
             text_context,
+            config,
         };
 
         (app, Task::batch(tasks))
@@ -325,6 +332,39 @@ impl Application {
 
     /// Returns the theme for the application window.
     pub fn theme(&self, _window_id: window::Id) -> Theme {
-        Theme::CatppuccinMocha
+        let app_theme = self.config.theme();
+
+        let palette = Palette {
+            background: Color::from_rgb8(
+                app_theme.background[0],
+                app_theme.background[1],
+                app_theme.background[2],
+            ),
+            text: Color::from_rgb8(app_theme.text[0], app_theme.text[1], app_theme.text[2]),
+            primary: Color::from_rgb8(
+                app_theme.primary[0],
+                app_theme.primary[1],
+                app_theme.primary[2],
+            ),
+            success: Color::from_rgb8(
+                app_theme.success[0],
+                app_theme.success[1],
+                app_theme.success[2],
+            ),
+            warning: Color::from_rgb8(
+                app_theme.warning[0],
+                app_theme.warning[1],
+                app_theme.warning[2],
+            ),
+            danger: Color::from_rgb8(
+                app_theme.danger[0],
+                app_theme.danger[1],
+                app_theme.danger[2],
+            ),
+        };
+
+        let custom = Custom::new(String::from("Settings"), palette);
+
+        Theme::Custom(Arc::new(custom))
     }
 }

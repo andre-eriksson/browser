@@ -51,11 +51,15 @@ impl BrowserHeader {
         ]
         .spacing(10.0);
 
+        let color = &app.config.theme().foreground;
+
         container(column![tabs, search_field].spacing(6.0))
             .width(Length::Fill)
             .padding(10.0)
             .style(|_| container::Style {
-                background: Some(Background::Color(Color::from_rgb8(49, 50, 68))),
+                background: Some(Background::Color(Color::from_rgb8(
+                    color[0], color[1], color[2],
+                ))),
                 ..Default::default()
             })
     }

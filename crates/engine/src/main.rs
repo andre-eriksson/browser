@@ -4,6 +4,7 @@ pub mod message;
 
 use std::{str::FromStr, sync::Arc};
 
+use browser_config::Config;
 use browser_core::{Browser, BrowserEvent, HeadlessBrowser};
 use clap::Parser;
 use tokio::sync::mpsc::unbounded_channel;
@@ -43,6 +44,7 @@ fn main() {
         .init();
 
     let args = Args::parse();
+    let config = Config::load();
 
     let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
     let emitter = Box::new(ChannelEmitter::new(event_sender));
@@ -61,7 +63,7 @@ fn main() {
 
     let browser = Arc::new(tokio::sync::Mutex::new(Browser::new(emitter)));
 
-    let ui_runtime = Ui::new(browser, event_receiver);
+    let ui_runtime = Ui::new(browser, event_receiver, config);
     let res = ui_runtime.run();
 
     if let Err(e) = res {

@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 assets.workspace = true
+browser-config.workspace = true
 browser-core.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true

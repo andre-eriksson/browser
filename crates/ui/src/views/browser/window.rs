@@ -24,7 +24,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
         app: &'window Application,
     ) -> iced::Element<'window, Event, Theme, Renderer> {
         let header = BrowserHeader::render(app);
-        let footer = BrowserFooter::render();
+        let footer = BrowserFooter::render(app);
         let mut renderer = HtmlRenderer::default();
 
         let active_tab = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
