@@ -2,7 +2,7 @@ use std::panic;
 
 use database::Table;
 use rusqlite::{Connection, Result, params};
-use time::{OffsetDateTime, UtcDateTime};
+use time::{Duration, OffsetDateTime, UtcDateTime};
 use url::Host;
 
 use crate::{Cookie, Expiration, cookie::SameSite};
@@ -74,9 +74,9 @@ impl CookieTable {
 
         let mut binding = stmt.unwrap();
         let cookies_iter = binding.query_map([domain], |row| {
-            let val = row.get::<usize, i64>(2);
+            let val = row.get::<usize, i64>(2)?;
 
-            let Ok(expiry) = OffsetDateTime::from_unix_timestamp(val?) else {
+            let Ok(expiry) = OffsetDateTime::from_unix_timestamp(val) else {
                 panic!();
             };
 
@@ -89,6 +89,7 @@ impl CookieTable {
                 .name(row.get(0)?)
                 .value(row.get(1)?)
                 .expires(Expiration::Date(expiry))
+                .max_age(Duration::seconds(val))
                 .domain(domain)
                 .path(row.get(4)?)
                 .secure(row.get(5)?)

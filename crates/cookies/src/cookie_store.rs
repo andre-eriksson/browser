@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use database::{Database, Domain, Table};
+use time::UtcDateTime;
 use tracing::debug;
 use url::Host;
 
@@ -43,6 +44,10 @@ impl CookieJar {
         }
     }
 
+    pub fn cookies(&self) -> &Vec<Cookie> {
+        &self.cookies
+    }
+
     /// Retrieves cookies that match the given domain, path, and security context.
     ///
     /// # Arguments
@@ -52,47 +57,21 @@ impl CookieJar {
     ///
     /// # Returns
     /// A vector to the matching stored cookies.
-    pub fn get_cookies(&self, domain: &str, path: &str, secure: bool) -> Vec<Cookie> {
-        let mut result = Vec::new();
-
-        let host = match Host::parse(domain) {
-            Err(e) => {
-                eprintln!("{e}");
-                return result;
-            }
-            Ok(h) => h,
-        };
+    pub fn get_cookies(&self, domain: Host<&str>, path: &str, secure: bool) -> Vec<Cookie> {
+        let mut cookies = self.cookies.clone();
 
         let conn = self.database.open();
         if let Ok(connection) = conn {
-            let persisted_cookies = CookieTable::get_cookies_by_domain(&connection, domain);
+            let persisted_cookies =
+                CookieTable::get_cookies_by_domain(&connection, domain.to_string().as_str());
 
-            result.extend(persisted_cookies);
+            cookies.extend(persisted_cookies);
         }
 
-        for cookie in self.cookies.clone() {
-            if let Some(cookie_domain) = cookie.domain() {
-                if **cookie_domain != host {
-                    continue;
-                }
-            } else if let Some(domain) = cookie.domain()
-                && **domain != host
-            {
-                continue;
-            }
-
-            if cookie.secure() && !secure {
-                continue;
-            }
-
-            if !path.starts_with(cookie.path().trim()) {
-                continue;
-            }
-
-            result.push(cookie);
-        }
-
-        result
+        cookies
+            .into_iter()
+            .filter(|cookie| Self::validate_cookie(&domain, path, secure, cookie))
+            .collect()
     }
 
     /// Adds a cookie to the jar if it matches the request domain.
@@ -117,16 +96,15 @@ impl CookieJar {
             return;
         }
 
-        // TODO: Handle age/expiration, max cookies
-
         if cookie.max_age().is_none() && cookie.expires() == &Expiration::Session {
             self.cookies.push(cookie);
             return;
         }
 
-        let conn = self.database.open();
-
-        if let Ok(connection) = conn {
+        // TODO: Mark updated cookies as dirty then |
+        //                                          v
+        // TODO: Scheduler should periodically save cookies
+        if let Ok(connection) = self.database.open() {
             let creation = CookieTable::create_table(&connection);
 
             if creation.is_err() {
@@ -142,6 +120,34 @@ impl CookieJar {
                 }
             }
         }
+
+        self.cookies.push(cookie);
+    }
+
+    fn validate_cookie(domain: &Host<&str>, path: &str, secure: bool, cookie: &Cookie) -> bool {
+        if let Some(cookie_domain) = cookie.domain()
+            && **cookie_domain != *domain
+        {
+            return false;
+        }
+
+        if cookie.secure() && !secure {
+            return false;
+        }
+
+        if !path.starts_with(cookie.path().trim()) {
+            return false;
+        }
+
+        if let Some(max_age) = cookie.max_age() {
+            let current_time = UtcDateTime::now().unix_timestamp();
+            if max_age.whole_seconds() <= current_time {
+                // TODO: Mark as stale/remove them from the database
+                return false;
+            }
+        }
+
+        true
     }
 }
 
