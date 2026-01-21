@@ -63,7 +63,7 @@ impl CookieTable {
     }
 
     /// Retrieve all cookies from a specific domain
-    pub fn get_cookies_by_domain(conn: &Connection, domain: &str) -> Vec<Cookie> {
+    pub fn get_cookies_by_domain<D: AsRef<str>>(conn: &Connection, domain: D) -> Vec<Cookie> {
         let mut cookies = Vec::new();
 
         let stmt = conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies WHERE domain=?1");
@@ -73,7 +73,7 @@ impl CookieTable {
         }
 
         let mut binding = stmt.unwrap();
-        let cookies_iter = binding.query_map([domain], |row| {
+        let cookies_iter = binding.query_map([domain.as_ref()], |row| {
             let val = row.get::<usize, i64>(2)?;
 
             let Ok(expiry) = OffsetDateTime::from_unix_timestamp(val) else {

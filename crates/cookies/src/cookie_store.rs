@@ -63,7 +63,7 @@ impl CookieJar {
         let conn = self.database.open();
         if let Ok(connection) = conn {
             let persisted_cookies =
-                CookieTable::get_cookies_by_domain(&connection, domain.to_string().as_str());
+                CookieTable::get_cookies_by_domain(&connection, domain.to_string());
 
             cookies.extend(persisted_cookies);
         }
