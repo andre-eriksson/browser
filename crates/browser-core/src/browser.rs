@@ -1,5 +1,5 @@
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
     vec,
 };
 
@@ -41,7 +41,7 @@ pub struct Browser {
 impl Browser {
     pub fn new(emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
-        let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
+        let cookie_jar = RwLock::new(CookieJar::load());
         let headers = Arc::new(DefaultHeaders::create_browser_headers(HeaderType::Browser));
 
         let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
