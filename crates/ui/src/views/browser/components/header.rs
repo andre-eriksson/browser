@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use browser_core::BrowserEvent;
 use iced::{
     Background, Color, Length,
@@ -51,15 +53,14 @@ impl BrowserHeader {
         ]
         .spacing(10.0);
 
-        let color = &app.config.theme().foreground;
-
         container(column![tabs, search_field].spacing(6.0))
             .width(Length::Fill)
             .padding(10.0)
             .style(|_| container::Style {
-                background: Some(Background::Color(Color::from_rgb8(
-                    color[0], color[1], color[2],
-                ))),
+                background: Some(Background::Color(
+                    Color::from_str(app.config.theme().foreground.as_str())
+                        .unwrap_or(Color::from_rgb8(212, 212, 212)),
+                )),
                 ..Default::default()
             })
     }

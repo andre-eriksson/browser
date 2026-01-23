@@ -5,8 +5,8 @@ use storage::{
     paths::{create_paths, get_config_path},
 };
 
-// RGB Value
-pub type Color = [u8; 3];
+/// Hex color representation as a string.
+pub type Color = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
@@ -22,13 +22,13 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
-            background: [255, 255, 255],
-            foreground: [216, 216, 209],
-            text: [0, 0, 0],
-            primary: [144, 230, 252],
-            success: [18, 102, 79],
-            warning: [183, 126, 51],
-            danger: [195, 66, 63],
+            background: "#FFFFFF".to_string(),
+            foreground: "#D4D4D4".to_string(),
+            text: "#0A0A0A".to_string(),
+            primary: "#00BBF9".to_string(),
+            success: "#90BE6D".to_string(),
+            warning: "#F8961E".to_string(),
+            danger: "#F94144".to_string(),
         }
     }
 }

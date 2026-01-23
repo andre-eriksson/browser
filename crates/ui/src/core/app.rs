@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use assets::ASSETS;
@@ -104,7 +105,7 @@ impl Application {
             id: main_window_id,
             tabs: vec![first_tab],
             active_tab: TabId(0),
-            current_url: "http://127.0.0.1:8000/test.html".to_string(),
+            current_url: "http://127.0.0.1:5000/cookies/set-cookie".to_string(),
             window_controller,
             event_receiver: Arc::new(Mutex::new(event_receiver)),
             browser,
@@ -335,32 +336,16 @@ impl Application {
         let app_theme = self.config.theme();
 
         let palette = Palette {
-            background: Color::from_rgb8(
-                app_theme.background[0],
-                app_theme.background[1],
-                app_theme.background[2],
-            ),
-            text: Color::from_rgb8(app_theme.text[0], app_theme.text[1], app_theme.text[2]),
-            primary: Color::from_rgb8(
-                app_theme.primary[0],
-                app_theme.primary[1],
-                app_theme.primary[2],
-            ),
-            success: Color::from_rgb8(
-                app_theme.success[0],
-                app_theme.success[1],
-                app_theme.success[2],
-            ),
-            warning: Color::from_rgb8(
-                app_theme.warning[0],
-                app_theme.warning[1],
-                app_theme.warning[2],
-            ),
-            danger: Color::from_rgb8(
-                app_theme.danger[0],
-                app_theme.danger[1],
-                app_theme.danger[2],
-            ),
+            background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),
+            text: Color::from_str(app_theme.text.as_str()).unwrap_or(Color::from_rgb8(10, 10, 10)),
+            primary: Color::from_str(app_theme.primary.as_str())
+                .unwrap_or(Color::from_rgb8(0, 187, 249)),
+            success: Color::from_str(app_theme.success.as_str())
+                .unwrap_or(Color::from_rgb8(144, 190, 109)),
+            warning: Color::from_str(app_theme.warning.as_str())
+                .unwrap_or(Color::from_rgb8(248, 150, 30)),
+            danger: Color::from_str(app_theme.danger.as_str())
+                .unwrap_or(Color::from_rgb8(249, 65, 68)),
         };
 
         let custom = Custom::new(String::from("Settings"), palette);

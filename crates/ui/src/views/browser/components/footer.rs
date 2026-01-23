@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use iced::{
     Background, Color, Length,
     widget::{button, container},
@@ -15,17 +17,16 @@ impl BrowserFooter {
     ///
     /// Contains a button to open the devtools!
     pub fn render(app: &Application) -> container::Container<'_, Event> {
-        let color = &app.config.theme().foreground;
-
         container(
             button("Open DevTools")
                 .on_press(Event::Ui(UiEvent::NewWindow(WindowType::Devtools)))
                 .padding(10),
         )
         .style(|_| {
-            container::background(Background::Color(Color::from_rgb8(
-                color[0], color[1], color[2],
-            )))
+            container::background(Background::Color(
+                Color::from_str(app.config.theme().foreground.as_str())
+                    .unwrap_or(Color::from_rgb8(212, 212, 212)),
+            ))
         })
         .padding(10.0)
         .width(Length::Fill)
