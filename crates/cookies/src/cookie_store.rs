@@ -121,6 +121,14 @@ impl CookieJar {
             }
         }
 
+        if let Some(pos) = self
+            .cookies
+            .iter()
+            .position(|c| c.name() == cookie.name() && c.domain() == cookie.domain())
+        {
+            self.cookies.remove(pos);
+        }
+
         self.cookies.push(cookie);
     }
 
