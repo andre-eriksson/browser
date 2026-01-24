@@ -53,8 +53,21 @@ impl HeadlessBrowser {
         }
     }
 
-    pub fn print_cookies(&mut self) {
-        for cookie in self.network_service().cookie_jar().cookies() {
+    pub fn print_cookies(&mut self, domain: Option<&str>) {
+        if domain.is_none() {
+            for cookie in self.network_service().cookie_jar().cookies() {
+                println!("{}", cookie);
+            }
+            return;
+        }
+
+        let domain = domain.unwrap();
+
+        for cookie in self
+            .network_service()
+            .cookie_jar()
+            .get_cookies_for_domain(domain)
+        {
             println!("{}", cookie);
         }
     }

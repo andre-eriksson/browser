@@ -51,7 +51,12 @@ impl HeadlessEngine {
                 Ok(())
             }
             "cookies" => {
-                self.browser.print_cookies();
+                self.browser.print_cookies(None);
+                Ok(())
+            }
+            cmd if cmd.starts_with("cookies ") => {
+                let domain = cmd["cookies ".len()..].trim();
+                self.browser.print_cookies(Some(domain));
                 Ok(())
             }
             _ => Err(format!("Unknown command: {}", input.trim())),

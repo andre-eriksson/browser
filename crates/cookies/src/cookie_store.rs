@@ -48,6 +48,25 @@ impl CookieJar {
         &self.cookies
     }
 
+    pub fn get_cookies_for_domain(&self, domain: &str) -> Vec<Cookie> {
+        let host = Host::parse(domain);
+        if host.is_err() {
+            return Vec::new();
+        }
+
+        self.cookies
+            .iter()
+            .filter(|cookie| {
+                if let Some(cookie_domain) = cookie.domain() {
+                    **cookie_domain == *host.as_ref().unwrap()
+                } else {
+                    false
+                }
+            })
+            .cloned()
+            .collect()
+    }
+
     /// Retrieves cookies that match the given domain, path, and security context.
     ///
     /// # Arguments
