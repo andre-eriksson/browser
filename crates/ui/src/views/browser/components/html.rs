@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use iced::{
     Background, Color, Length,
     widget::{
@@ -26,8 +28,8 @@ impl BrowserHtml {
 
     pub fn render<'a>(
         mut self,
-        app: &Application,
-        active_tab: &UiTab,
+        app: &'a Application,
+        active_tab: &'a UiTab,
     ) -> container::Container<'a, Event> {
         let (_, viewport_height) = app
             .viewports
@@ -73,7 +75,11 @@ impl BrowserHtml {
             .width(Length::Fill)
             .height(Length::Fill)
             .style(|_| container::Style {
-                background: Some(Background::Color(Color::from_rgb8(0xFF, 0xF5, 0xEE))),
+                background: Some(Background::Color(
+                    Color::from_str(app.config.theme().background.as_str()).unwrap_or(
+                        Color::from_str(&browser_config::Theme::default().background).unwrap(),
+                    ),
+                )),
                 ..Default::default()
             })
     }

@@ -337,15 +337,16 @@ impl Application {
 
         let palette = Palette {
             background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),
-            text: Color::from_str(app_theme.text.as_str()).unwrap_or(Color::from_rgb8(10, 10, 10)),
+            text: Color::from_str(app_theme.text.as_str())
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().text).unwrap()),
             primary: Color::from_str(app_theme.primary.as_str())
-                .unwrap_or(Color::from_rgb8(0, 187, 249)),
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().primary).unwrap()),
             success: Color::from_str(app_theme.success.as_str())
-                .unwrap_or(Color::from_rgb8(144, 190, 109)),
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().success).unwrap()),
             warning: Color::from_str(app_theme.warning.as_str())
-                .unwrap_or(Color::from_rgb8(248, 150, 30)),
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().warning).unwrap()),
             danger: Color::from_str(app_theme.danger.as_str())
-                .unwrap_or(Color::from_rgb8(249, 65, 68)),
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().danger).unwrap()),
         };
 
         let custom = Custom::new(String::from("Settings"), palette);
