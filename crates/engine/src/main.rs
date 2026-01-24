@@ -1,12 +1,10 @@
-pub mod cli;
-pub mod headless;
-pub mod message;
+mod message;
 
 use std::{str::FromStr, sync::Arc};
 
 use browser_config::Config;
 use browser_core::{Browser, BrowserEvent, HeadlessBrowser};
-use clap::Parser;
+use cli::{Parser, args::Args, browser::HeadlessEngine};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
@@ -18,7 +16,7 @@ use tracing_subscriber::{
 };
 use ui::Ui;
 
-use crate::{cli::Args, headless::HeadlessEngine, message::ChannelEmitter};
+use crate::message::ChannelEmitter;
 
 /// The main entry point for the application
 fn main() {

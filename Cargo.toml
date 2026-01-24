@@ -4,6 +4,7 @@ members = [
     "crates/assets",
     "crates/browser-config",
     "crates/browser-core",
+    "crates/cli",
     "crates/cookies",
     "crates/css-cssom",
     "crates/css-parser",
@@ -33,6 +34,7 @@ assets =         { path = "crates/assets" }
 cookies =        { path = "crates/cookies" }
 browser-config = { path = "crates/browser-config" }
 browser-core =   { path = "crates/browser-core" }
+cli =            { path = "crates/cli" }
 css-cssom =      { path = "crates/css-cssom" }
 css-parser =     { path = "crates/css-parser" }
 css-selectors =  { path = "crates/css-selectors" }

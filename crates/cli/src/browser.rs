@@ -2,7 +2,7 @@ use browser_core::{BrowserCommand, Commandable, HeadlessBrowser, TabId};
 use std::io::{self, Write};
 use tracing::{error, info};
 
-use crate::cli::Args;
+use crate::args::Args;
 
 pub struct HeadlessEngine {
     browser: HeadlessBrowser,
