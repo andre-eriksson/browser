@@ -1,8 +1,8 @@
 [package]
-name = "errors"
+name = "database"
 version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
-thiserror = "2.0.17"
-serde.workspace = true
+rusqlite.workspace = true
+storage.workspace = true

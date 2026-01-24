@@ -1,9 +1,11 @@
-use cookie::Cookie;
-use cookies::cookie_store::CookieJar;
+use std::sync::RwLock;
+
+use cookies::{Cookie, CookieJar};
 use http::{HeaderValue, header::COOKIE};
 use network::http::request::Request;
 use telemetry::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
-use tracing::{trace, trace_span, warn};
+use tracing::{debug, trace, trace_span, warn};
+use url::Host;
 
 pub struct CookieMiddleware;
 
@@ -16,20 +18,22 @@ impl CookieMiddleware {
     ///
     /// # Notes
     /// This function modifies the `request` in place by adding the appropriate Cookie headers.
-    pub fn apply_cookies(request: &mut Request, cookie_jar: &CookieJar) {
-        let Some(domain) = request.url.domain() else {
-            return;
+    pub fn apply_cookies(request: &mut Request, cookie_jar: &RwLock<CookieJar>) {
+        let cookies = if let Ok(jar) = cookie_jar.read() {
+            jar.get_cookies(
+                request.url.host().unwrap(),
+                request.url.path(),
+                request.url.scheme() == "https",
+            )
+        } else {
+            Vec::new()
         };
-
-        let secure = request.url.scheme() == "https";
-
-        let cookies = cookie_jar.get_cookies(domain, request.url.path(), secure);
 
         trace!("Applying {} cookies to request", cookies.len());
 
-        for stored_cookie in cookies {
-            let cookie_name = stored_cookie.inner.name();
-            let cookie_value = stored_cookie.inner.value();
+        for cookie in cookies {
+            let cookie_name = cookie.name();
+            let cookie_value = cookie.value();
 
             let span = trace_span!(
                 REQUEST_COOKIE,
@@ -64,8 +68,8 @@ impl CookieMiddleware {
     /// * `request_domain` - The domain of the request that received the response.
     /// * `header_value` - The value of the Set-Cookie header from the response.
     pub fn handle_response_cookie(
-        cookie_jar: &mut CookieJar,
-        request_domain: &str,
+        cookie_jar: &mut RwLock<CookieJar>,
+        request_domain: Host,
         header_value: &HeaderValue,
     ) {
         let cookie_str = match header_value.to_str() {
@@ -73,9 +77,12 @@ impl CookieMiddleware {
             Err(_) => return,
         };
 
-        let cookie = match Cookie::parse(cookie_str.to_string()) {
+        let cookie = match Cookie::parse(cookie_str) {
             Ok(c) => c,
-            Err(_) => return,
+            Err(e) => {
+                debug!("Error parsing the cookie: {e}");
+                return;
+            }
         };
 
         let span = trace_span!(
@@ -87,6 +94,8 @@ impl CookieMiddleware {
 
         trace!("Storing cookie from response");
 
-        cookie_jar.add_cookie(cookie, request_domain);
+        if let Ok(jar) = cookie_jar.get_mut() {
+            jar.add_cookie(cookie, request_domain);
+        }
     }
 }

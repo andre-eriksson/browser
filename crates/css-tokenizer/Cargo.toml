@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 errors.workspace = true
 tracing.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

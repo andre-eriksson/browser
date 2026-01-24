@@ -1,6 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    net::Ipv4Addr,
+    sync::{Arc, RwLock, RwLockReadGuard},
+};
 
-use cookies::cookie_store::CookieJar;
+use cookies::CookieJar;
 use errors::network::{NetworkError, RequestError};
 use http::{
     HeaderMap, Method,
@@ -13,7 +16,7 @@ use network::http::{
 };
 use telemetry::keys::STATUS_CODE;
 use tracing::{debug, instrument, trace};
-use url::Url;
+use url::{Host, Url};
 
 use crate::{
     service::network::{
@@ -26,17 +29,16 @@ use crate::{
     tab::page::Page,
 };
 
-#[derive(Clone)]
 pub struct NetworkService {
     client: Box<dyn HttpClient>,
-    cookie_jar: Arc<Mutex<CookieJar>>,
+    cookie_jar: RwLock<CookieJar>,
     browser_headers: Arc<HeaderMap>,
 }
 
 impl NetworkService {
     pub fn new(
         client: Box<dyn HttpClient>,
-        cookie_jar: Arc<Mutex<CookieJar>>,
+        cookie_jar: RwLock<CookieJar>,
         browser_headers: Arc<HeaderMap>,
     ) -> Self {
         NetworkService {
@@ -46,8 +48,8 @@ impl NetworkService {
         }
     }
 
-    pub fn cookies(&self) -> Arc<Mutex<CookieJar>> {
-        self.cookie_jar.clone()
+    pub fn cookie_jar(&self) -> RwLockReadGuard<'_, CookieJar> {
+        self.cookie_jar.read().unwrap()
     }
 
     fn convert_response(
@@ -92,6 +94,8 @@ impl NetworkService {
                     "First request must be a GET request".to_string(),
                 ));
             }
+
+            CookieMiddleware::apply_cookies(&mut request, &self.cookie_jar);
 
             let url = request.url.clone();
             let resp = self.raw_fetch(request).await;
@@ -139,9 +143,7 @@ impl NetworkService {
 
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
             trace!("Simple request detected, skipping CORS preflight");
-            if let Ok(jar) = self.cookie_jar.lock().as_mut() {
-                CookieMiddleware::apply_cookies(&mut request, jar);
-            }
+            CookieMiddleware::apply_cookies(&mut request, &self.cookie_jar);
 
             let url = &request.url.clone();
             let resp = self.client.send(request).await;
@@ -182,9 +184,7 @@ impl NetworkService {
             return RequestResult::Failed(e);
         }
 
-        if let Ok(jar) = self.cookie_jar.lock().as_ref() {
-            CookieMiddleware::apply_cookies(&mut request, jar);
-        }
+        CookieMiddleware::apply_cookies(&mut request, &self.cookie_jar);
 
         let url = &request.url.clone();
         let resp = self.client.send(request).await;
@@ -204,18 +204,15 @@ impl NetworkService {
         Self::convert_response(resp)
     }
 
-    fn handle_response_headers(&self, response: &HeaderResponse, url: &Url) {
-        let mut jar = self.cookie_jar.lock();
-
+    fn handle_response_headers(&mut self, response: &HeaderResponse, url: &Url) {
         for (name, value) in response.headers.iter() {
-            if name == SET_COOKIE
-                && let Ok(jar) = jar.as_mut()
-            {
-                CookieMiddleware::handle_response_cookie(
-                    jar,
-                    url.domain().unwrap_or_default(),
-                    value,
-                );
+            if name == SET_COOKIE {
+                let host = url
+                    .host()
+                    .unwrap_or(Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)))
+                    .to_owned();
+
+                CookieMiddleware::handle_response_cookie(&mut self.cookie_jar, host, value);
             }
 
             // TODO: Handle other response headers as needed

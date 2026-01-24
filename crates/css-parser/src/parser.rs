@@ -43,8 +43,8 @@ impl CssParser {
     /// Parse a stylesheet from a string
     ///
     /// <https://www.w3.org/TR/css-syntax-3/#parse-a-stylesheet>
-    pub fn parse_css(&mut self, input: &str) -> Stylesheet {
-        self.tokens = CssTokenizer::tokenize(input);
+    pub fn parse_css(&mut self, input: &str, collect_positions: bool) -> Stylesheet {
+        self.tokens = CssTokenizer::tokenize(input, collect_positions);
         self.pos = 0;
 
         let rules = consume_list_of_rules(self, true);
@@ -91,8 +91,12 @@ impl CssParser {
     /// Parse a list of declarations
     ///
     /// <https://www.w3.org/TR/css-syntax-3/#parse-a-list-of-declarations>
-    pub(crate) fn parse_list_of_declarations(&mut self, input: &str) -> Vec<DeclarationOrAtRule> {
-        self.tokens = CssTokenizer::tokenize(input);
+    pub(crate) fn parse_list_of_declarations(
+        &mut self,
+        input: &str,
+        collect_positions: bool,
+    ) -> Vec<DeclarationOrAtRule> {
+        self.tokens = CssTokenizer::tokenize(input, collect_positions);
         self.pos = 0;
 
         consume_list_of_declarations(self)
@@ -238,7 +242,7 @@ mod tests {
     #[test]
     fn test_parse_simple_stylesheet() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("div { color: red; }");
+        let stylesheet = parser.parse_css("div { color: red; }", true);
 
         assert_eq!(stylesheet.rules.len(), 1);
         assert!(matches!(&stylesheet.rules[0], Rule::QualifiedRule(_)));
@@ -247,7 +251,7 @@ mod tests {
     #[test]
     fn test_parse_at_rule() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("@media print { body { font-size: 10pt } }");
+        let stylesheet = parser.parse_css("@media print { body { font-size: 10pt } }", true);
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
@@ -262,7 +266,7 @@ mod tests {
     #[test]
     fn test_parse_import_at_rule() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("@import \"styles.css\";");
+        let stylesheet = parser.parse_css("@import \"styles.css\";", true);
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
@@ -279,6 +283,7 @@ mod tests {
         let mut parser = CssParser::default();
         let stylesheet = parser.parse_css(
             "div { color: red; } p { margin: 0; } @media print { body { font-size: 10pt } }",
+            true,
         );
 
         assert_eq!(stylesheet.rules.len(), 3);
@@ -287,7 +292,7 @@ mod tests {
     #[test]
     fn test_parse_declaration_list() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("color: red; margin: 10px");
+        let declarations = parser.parse_list_of_declarations("color: red; margin: 10px", true);
 
         assert_eq!(declarations.len(), 2);
     }
@@ -295,7 +300,7 @@ mod tests {
     #[test]
     fn test_parse_important() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("color: red !important");
+        let declarations = parser.parse_list_of_declarations("color: red !important", true);
 
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
@@ -310,7 +315,7 @@ mod tests {
     #[test]
     fn test_parse_function() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("background: url(image.png)");
+        let declarations = parser.parse_list_of_declarations("background: url(image.png)", true);
 
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
@@ -326,7 +331,7 @@ mod tests {
     #[test]
     fn test_parse_selector_text() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("div.class#id > p:hover { color: red; }");
+        let stylesheet = parser.parse_css("div.class#id > p:hover { color: red; }", true);
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
@@ -346,12 +351,12 @@ mod tests {
     #[test]
     fn test_parse_declarations_from_block() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("div { color: red; margin: 10px; padding: 5px; }");
+        let stylesheet = parser.parse_css("div { color: red; margin: 10px; padding: 5px; }", true);
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
             Rule::QualifiedRule(qr) => {
-                let declarations = qr.parse_declarations();
+                let declarations = qr.parse_declarations(true);
                 assert_eq!(declarations.len(), 3);
                 assert_eq!(declarations[0].name, "color");
                 assert_eq!(declarations[1].name, "margin");
@@ -364,8 +369,10 @@ mod tests {
     #[test]
     fn test_parse_nested_blocks() {
         let mut parser = CssParser::default();
-        let stylesheet =
-            parser.parse_css("@media screen and (min-width: 768px) { div { color: blue; } }");
+        let stylesheet = parser.parse_css(
+            "@media screen and (min-width: 768px) { div { color: blue; } }",
+            true,
+        );
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
@@ -383,8 +390,10 @@ mod tests {
     #[test]
     fn test_parse_keyframes() {
         let mut parser = CssParser::default();
-        let stylesheet =
-            parser.parse_css("@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }");
+        let stylesheet = parser.parse_css(
+            "@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }",
+            true,
+        );
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
@@ -399,8 +408,10 @@ mod tests {
     #[test]
     fn test_parse_font_face() {
         let mut parser = CssParser::default();
-        let stylesheet =
-            parser.parse_css("@font-face { font-family: 'MyFont'; src: url('font.woff2'); }");
+        let stylesheet = parser.parse_css(
+            "@font-face { font-family: 'MyFont'; src: url('font.woff2'); }",
+            true,
+        );
 
         assert_eq!(stylesheet.rules.len(), 1);
         match &stylesheet.rules[0] {
@@ -417,6 +428,7 @@ mod tests {
         let mut parser = CssParser::default();
         let stylesheet = parser.parse_css(
             "body > div.container p.text:first-child, header nav ul li a:hover { color: green; }",
+            true,
         );
 
         assert_eq!(stylesheet.rules.len(), 1);
@@ -434,7 +446,7 @@ mod tests {
     #[test]
     fn test_parse_calc_function() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("width: calc(100% - 20px)");
+        let declarations = parser.parse_list_of_declarations("width: calc(100% - 20px)", true);
 
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
@@ -453,7 +465,7 @@ mod tests {
     #[test]
     fn test_parse_rgb_function() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("color: rgb(255, 128, 0)");
+        let declarations = parser.parse_list_of_declarations("color: rgb(255, 128, 0)", true);
 
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
@@ -472,7 +484,7 @@ mod tests {
     #[test]
     fn test_parse_empty_stylesheet() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("");
+        let stylesheet = parser.parse_css("", true);
 
         assert!(stylesheet.rules.is_empty());
     }
@@ -480,7 +492,7 @@ mod tests {
     #[test]
     fn test_parse_whitespace_only_stylesheet() {
         let mut parser = CssParser::default();
-        let stylesheet = parser.parse_css("   \n\t  ");
+        let stylesheet = parser.parse_css("   \n\t  ", true);
 
         assert!(stylesheet.rules.is_empty());
     }
@@ -491,6 +503,7 @@ mod tests {
         let stylesheet = parser.parse_css(
             "/* comment */
  div { color: red; }",
+            true,
         );
 
         assert_eq!(stylesheet.rules.len(), 1);
@@ -500,7 +513,7 @@ mod tests {
     fn test_parse_multiple_declarations_same_property() {
         let mut parser = CssParser::default();
         let declarations =
-            parser.parse_list_of_declarations("color: red; color: blue; color: green");
+            parser.parse_list_of_declarations("color: red; color: blue; color: green", true);
 
         assert_eq!(declarations.len(), 3);
     }
@@ -510,6 +523,7 @@ mod tests {
         let mut parser = CssParser::default();
         let declarations = parser.parse_list_of_declarations(
             "background: red; background: linear-gradient(to right, red, blue)",
+            true,
         );
 
         assert_eq!(declarations.len(), 2);
@@ -518,7 +532,8 @@ mod tests {
     #[test]
     fn test_parse_var_function() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("color: var(--primary-color, blue)");
+        let declarations =
+            parser.parse_list_of_declarations("color: var(--primary-color, blue)", true);
 
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
@@ -538,7 +553,7 @@ mod tests {
     #[test]
     fn test_parse_custom_property() {
         let mut parser = CssParser::default();
-        let declarations = parser.parse_list_of_declarations("--primary-color: #ff0000");
+        let declarations = parser.parse_list_of_declarations("--primary-color: #ff0000", true);
 
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {

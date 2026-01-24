@@ -4,6 +4,7 @@ use assets::{
     ASSETS,
     constants::{DEFAULT_FONT, MONOSPACE_FONT},
 };
+use browser_config::Config;
 use browser_core::{Browser, BrowserEvent};
 use errors::subsystem::SubsystemError;
 use iced::{Font, Settings};
@@ -15,6 +16,7 @@ use crate::core::Application;
 pub struct Ui {
     browser: Arc<Mutex<Browser>>,
     event_receiver: UnboundedReceiver<BrowserEvent>,
+    config: Config,
 }
 
 impl Ui {
@@ -22,10 +24,12 @@ impl Ui {
     pub fn new(
         browser: Arc<Mutex<Browser>>,
         event_receiver: UnboundedReceiver<BrowserEvent>,
+        config: Config,
     ) -> Self {
         Ui {
             browser,
             event_receiver,
+            config,
         }
     }
 
@@ -34,6 +38,7 @@ impl Ui {
         let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
         let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
         let browser = self.browser;
+        let config = self.config;
         let event_receiver = Arc::new(std::sync::Mutex::new(Some(self.event_receiver)));
 
         let result = iced::daemon(
@@ -43,7 +48,7 @@ impl Ui {
                     .unwrap()
                     .take()
                     .expect("Boot function called more than once");
-                Application::new(receiver, browser.clone())
+                Application::new(receiver, browser.clone(), config.clone())
             },
             Application::update,
             Application::view,

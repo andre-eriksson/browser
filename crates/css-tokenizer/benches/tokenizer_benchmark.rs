@@ -150,7 +150,7 @@ main > section:first-child > div:nth-child(2n+1) > p:not(.excluded):last-of-type
 fn bench_tokenize_simple(c: &mut Criterion) {
     c.bench_function("tokenize_simple", |b| {
         b.iter(|| {
-            let tokens = CssTokenizer::tokenize(black_box(SIMPLE_CSS));
+            let tokens = CssTokenizer::tokenize(black_box(SIMPLE_CSS), true);
             black_box(tokens)
         })
     });
@@ -159,7 +159,7 @@ fn bench_tokenize_simple(c: &mut Criterion) {
 fn bench_tokenize_medium(c: &mut Criterion) {
     c.bench_function("tokenize_medium", |b| {
         b.iter(|| {
-            let tokens = CssTokenizer::tokenize(black_box(MEDIUM_CSS));
+            let tokens = CssTokenizer::tokenize(black_box(MEDIUM_CSS), true);
             black_box(tokens)
         })
     });
@@ -168,7 +168,7 @@ fn bench_tokenize_medium(c: &mut Criterion) {
 fn bench_tokenize_complex(c: &mut Criterion) {
     c.bench_function("tokenize_complex", |b| {
         b.iter(|| {
-            let tokens = CssTokenizer::tokenize(black_box(COMPLEX_CSS));
+            let tokens = CssTokenizer::tokenize(black_box(COMPLEX_CSS), true);
             black_box(tokens)
         })
     });
@@ -177,7 +177,7 @@ fn bench_tokenize_complex(c: &mut Criterion) {
 fn bench_tokenize_numeric_heavy(c: &mut Criterion) {
     c.bench_function("tokenize_numeric_heavy", |b| {
         b.iter(|| {
-            let tokens = CssTokenizer::tokenize(black_box(NUMERIC_CSS));
+            let tokens = CssTokenizer::tokenize(black_box(NUMERIC_CSS), true);
             black_box(tokens)
         })
     });
@@ -186,7 +186,7 @@ fn bench_tokenize_numeric_heavy(c: &mut Criterion) {
 fn bench_tokenize_selector_heavy(c: &mut Criterion) {
     c.bench_function("tokenize_selector_heavy", |b| {
         b.iter(|| {
-            let tokens = CssTokenizer::tokenize(black_box(SELECTOR_HEAVY_CSS));
+            let tokens = CssTokenizer::tokenize(black_box(SELECTOR_HEAVY_CSS), true);
             black_box(tokens)
         })
     });
@@ -207,7 +207,7 @@ fn bench_tokenize_throughput(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(css.len() as u64));
         group.bench_with_input(BenchmarkId::new("bytes", name), css, |b, input| {
             b.iter(|| {
-                let tokens = CssTokenizer::tokenize(black_box(input));
+                let tokens = CssTokenizer::tokenize(black_box(input), true);
                 black_box(tokens)
             })
         });
@@ -230,7 +230,7 @@ fn bench_tokenize_scaling(c: &mut Criterion) {
             &css,
             |b, input| {
                 b.iter(|| {
-                    let tokens = CssTokenizer::tokenize(black_box(input));
+                    let tokens = CssTokenizer::tokenize(black_box(input), true);
                     black_box(tokens)
                 })
             },
@@ -277,7 +277,7 @@ fn bench_specific_tokens(c: &mut Criterion) {
     for (name, css) in inputs {
         group.bench_with_input(BenchmarkId::from_parameter(name), css, |b, input| {
             b.iter(|| {
-                let tokens = CssTokenizer::tokenize(black_box(input));
+                let tokens = CssTokenizer::tokenize(black_box(input), true);
                 black_box(tokens)
             })
         });

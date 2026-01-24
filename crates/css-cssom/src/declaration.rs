@@ -1,11 +1,12 @@
 use css_parser::{ComponentValue, CssToken, CssTokenKind, Declaration};
+use serde::{Deserialize, Serialize};
 
 use crate::string::component_value_to_string;
 
 /// A CSS declaration (property: value)
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#declaration>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CSSDeclaration {
     /// The property name
     pub name: String,

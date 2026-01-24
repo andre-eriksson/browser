@@ -4,6 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 
 [dependencies]
+browser-config.workspace = true
 browser-core.workspace = true
 cookies.workspace = true
 constants.workspace = true

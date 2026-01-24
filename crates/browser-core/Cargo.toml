@@ -13,11 +13,13 @@ errors.workspace = true
 html-dom.workspace = true
 html-parser.workspace = true
 network.workspace = true
+storage.workspace = true
 telemetry.workspace = true
 
 # External dependencies
 async-trait.workspace = true
-cookie.workspace = true
 http.workspace = true
 tracing.workspace = true
 url.workspace = true
+serde.workspace = true
+postcard.workspace = true

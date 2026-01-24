@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
-use cookies::cookie_store::CookieJar;
+use cookies::CookieJar;
 use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
 
@@ -31,8 +31,7 @@ pub struct HeadlessBrowser {
 impl HeadlessBrowser {
     pub fn new(emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
-        // TODO: Load cookies from persistent storage
-        let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
+        let cookie_jar = RwLock::new(CookieJar::load());
         let headers = Arc::new(DefaultHeaders::create_browser_headers(
             HeaderType::HeadlessBrowser,
         ));
@@ -54,9 +53,8 @@ impl HeadlessBrowser {
         }
     }
 
-    pub fn print_cookies(&self) {
-        let cookie_jar = self.network.cookies().lock().unwrap().clone();
-        for cookie in cookie_jar.into_iter() {
+    pub fn print_cookies(&mut self) {
+        for cookie in self.network_service().cookie_jar().cookies() {
             println!("{}", cookie);
         }
     }

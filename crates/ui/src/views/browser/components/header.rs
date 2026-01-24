@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use browser_core::BrowserEvent;
 use iced::{
     Background, Color, Length,
@@ -55,7 +57,11 @@ impl BrowserHeader {
             .width(Length::Fill)
             .padding(10.0)
             .style(|_| container::Style {
-                background: Some(Background::Color(Color::from_rgb8(49, 50, 68))),
+                background: Some(Background::Color(
+                    Color::from_str(app.config.theme().foreground.as_str()).unwrap_or(
+                        Color::from_str(&browser_config::Theme::default().foreground).unwrap(),
+                    ),
+                )),
                 ..Default::default()
             })
     }

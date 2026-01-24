@@ -1,4 +1,5 @@
 use css_tokenizer::CssToken;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     CssParser,
@@ -48,7 +49,7 @@ impl Declaration {
 /// A component value is a preserved token, function, or simple block
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#component-value>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ComponentValue {
     /// A preserved token
     Token(CssToken),
@@ -116,7 +117,7 @@ impl ComponentValue {
 /// A CSS function (name followed by parentheses with content)
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#function>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Function {
     /// The function name
     pub name: String,
@@ -135,7 +136,7 @@ impl Function {
 }
 
 /// The associated token type for a simple block
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssociatedToken {
     /// { } block
     CurlyBracket,
@@ -148,7 +149,7 @@ pub enum AssociatedToken {
 /// A simple block has an associated token and a value
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#simple-block>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimpleBlock {
     /// The associated token (determines the block type)
     pub associated_token: AssociatedToken,

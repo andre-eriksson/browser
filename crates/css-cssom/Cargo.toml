@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 css-parser.workspace = true
 errors.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

@@ -19,7 +19,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 tokenizer.record_error(CssTokenizationError::EofInUrl);
                 return CssToken {
                     kind: CssTokenKind::Url(value),
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
         };
@@ -28,7 +28,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
             ')' => {
                 return CssToken {
                     kind: CssTokenKind::Url(value),
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
             c if is_whitespace(c) => {
@@ -40,7 +40,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                         tokenizer.record_error(CssTokenizationError::EofInUrl);
                         return CssToken {
                             kind: CssTokenKind::Url(value),
-                            position: Some(tokenizer.stream.position()),
+                            position: CssTokenizer::collect_positions(tokenizer),
                         };
                     }
                 };
@@ -50,14 +50,14 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                         tokenizer.stream.consume();
                         return CssToken {
                             kind: CssTokenKind::Url(value),
-                            position: Some(tokenizer.stream.position()),
+                            position: CssTokenizer::collect_positions(tokenizer),
                         };
                     }
                     _ => {
                         consume_bad_url_remnants(tokenizer);
                         return CssToken {
                             kind: CssTokenKind::BadUrl,
-                            position: Some(tokenizer.stream.position()),
+                            position: CssTokenizer::collect_positions(tokenizer),
                         };
                     }
                 }
@@ -67,7 +67,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 consume_bad_url_remnants(tokenizer);
                 return CssToken {
                     kind: CssTokenKind::BadUrl,
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
             c if is_non_printable(c) => {
@@ -75,7 +75,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                 consume_bad_url_remnants(tokenizer);
                 return CssToken {
                     kind: CssTokenKind::BadUrl,
-                    position: Some(tokenizer.stream.position()),
+                    position: CssTokenizer::collect_positions(tokenizer),
                 };
             }
             '\\' => {
@@ -86,7 +86,7 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
                     consume_bad_url_remnants(tokenizer);
                     return CssToken {
                         kind: CssTokenKind::BadUrl,
-                        position: Some(tokenizer.stream.position()),
+                        position: CssTokenizer::collect_positions(tokenizer),
                     };
                 }
             }

@@ -1,14 +1,17 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use assets::ASSETS;
 use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
+use browser_config::Config;
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
 use errors::browser::{BrowserError, NavigationError};
-use iced::Subscription;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
+use iced::theme::{Custom, Palette};
+use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
 use layout::{LayoutEngine, Rect, TextContext};
 use tokio::sync::Mutex;
@@ -30,6 +33,9 @@ pub enum Event {
 
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {
+    /// The application config.
+    pub config: Config,
+
     /// The unique identifier for the application window.
     pub id: window::Id,
 
@@ -63,6 +69,7 @@ impl Application {
     pub fn new(
         event_receiver: UnboundedReceiver<BrowserEvent>,
         browser: Arc<Mutex<Browser>>,
+        config: Config,
     ) -> (Self, Task<Event>) {
         let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
         let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
@@ -98,12 +105,13 @@ impl Application {
             id: main_window_id,
             tabs: vec![first_tab],
             active_tab: TabId(0),
-            current_url: "http://127.0.0.1:8000/test.html".to_string(),
+            current_url: "http://127.0.0.1:5000/cookies/set-cookie".to_string(),
             window_controller,
             event_receiver: Arc::new(Mutex::new(event_receiver)),
             browser,
             viewports,
             text_context,
+            config,
         };
 
         (app, Task::batch(tasks))
@@ -325,6 +333,24 @@ impl Application {
 
     /// Returns the theme for the application window.
     pub fn theme(&self, _window_id: window::Id) -> Theme {
-        Theme::CatppuccinMocha
+        let app_theme = self.config.theme();
+
+        let palette = Palette {
+            background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),
+            text: Color::from_str(app_theme.text.as_str())
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().text).unwrap()),
+            primary: Color::from_str(app_theme.primary.as_str())
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().primary).unwrap()),
+            success: Color::from_str(app_theme.success.as_str())
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().success).unwrap()),
+            warning: Color::from_str(app_theme.warning.as_str())
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().warning).unwrap()),
+            danger: Color::from_str(app_theme.danger.as_str())
+                .unwrap_or(Color::from_str(&browser_config::Theme::default().danger).unwrap()),
+        };
+
+        let custom = Custom::new(String::from("Settings"), palette);
+
+        Theme::Custom(Arc::new(custom))
     }
 }

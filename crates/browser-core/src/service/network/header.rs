@@ -34,7 +34,8 @@ impl DefaultHeaders {
 
         #[cfg(debug_assertions)]
         {
-            user_agent += "-development (contact: https://github.com/andre-eriksson/browser/issues)";
+            user_agent +=
+                "-development (contact: https://github.com/andre-eriksson/browser/issues)";
         }
 
         user_agent

@@ -209,7 +209,7 @@ const NESTED_AT_RULES_CSS: &str = r#"
 
 /// Pre-tokenize CSS for benchmarking
 fn tokenize(css: &str) -> Vec<CssToken> {
-    CssTokenizer::tokenize(css)
+    CssTokenizer::tokenize(css, true)
 }
 
 fn bench_parse_simple(c: &mut Criterion) {
@@ -337,7 +337,7 @@ fn bench_rule_extraction(c: &mut Criterion) {
             let mut count = 0;
             for rule in &stylesheet.rules {
                 if let css_parser::Rule::QualifiedRule(qr) = rule {
-                    count += qr.parse_declarations().len();
+                    count += qr.parse_declarations(true).len();
                 }
             }
             black_box(count)

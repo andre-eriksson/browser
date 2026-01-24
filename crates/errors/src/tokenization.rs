@@ -1,9 +1,10 @@
 use std::fmt::Display;
 
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Position in the source text for error reporting
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourcePosition {
     /// Line number
     pub line: usize,

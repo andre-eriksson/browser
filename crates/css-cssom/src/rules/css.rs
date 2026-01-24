@@ -1,11 +1,12 @@
 use css_parser::Rule;
+use serde::{Deserialize, Serialize};
 
 use crate::rules::{at::CSSAtRule, style::CSSStyleRule};
 
 /// A CSS rule - either a style rule or an at-rule
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#css-rule>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CSSRule {
     /// A style rule (qualified rule interpreted as a style rule)
     Style(CSSStyleRule),
@@ -18,10 +19,15 @@ impl CSSRule {
     /// Create a CSSRule from a parsed Rule
     ///
     /// Returns None if the rule is invalid and should be discarded.
-    pub fn from_parsed(rule: Rule) -> Option<Self> {
+    pub fn from_parsed(rule: Rule, collect_positions: bool) -> Option<Self> {
         match rule {
-            Rule::QualifiedRule(qr) => CSSStyleRule::from_parsed(qr).map(CSSRule::Style),
-            Rule::AtRule(ar) => Some(CSSRule::AtRule(CSSAtRule::from_parsed(ar))),
+            Rule::QualifiedRule(qr) => {
+                CSSStyleRule::from_parsed(qr, collect_positions).map(CSSRule::Style)
+            }
+            Rule::AtRule(ar) => Some(CSSRule::AtRule(CSSAtRule::from_parsed(
+                ar,
+                collect_positions,
+            ))),
         }
     }
 

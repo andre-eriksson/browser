@@ -1,14 +1,17 @@
 use std::{
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
     vec,
 };
 
 use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
-use cookies::cookie_store::CookieJar;
+use constants::files::CACHE_USER_AGENT;
+use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
+use postcard::{from_bytes, to_stdvec};
+use storage::files::{read_file_from_cache, write_file_to_cache};
 use tracing::instrument;
 
 use crate::{
@@ -38,17 +41,37 @@ pub struct Browser {
 impl Browser {
     pub fn new(emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
-        // TODO: Load cookies from persistent storage
-        let cookie_jar = Arc::new(Mutex::new(CookieJar::new()));
+        let cookie_jar = RwLock::new(CookieJar::load());
         let headers = Arc::new(DefaultHeaders::create_browser_headers(HeaderType::Browser));
 
         let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
 
-        // TODO: Load the CSSStyleSheet from cache before parsing it again
-        let stylesheet = CSSStyleSheet::from_css(
-            std::str::from_utf8(&user_agent_css).unwrap_or_default(),
-            StylesheetOrigin::UserAgent,
-        );
+        let stylesheet = match read_file_from_cache(CACHE_USER_AGENT) {
+            Ok(data) => {
+                let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
+                    CSSStyleSheet::from_css(
+                        std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+                        StylesheetOrigin::UserAgent,
+                        false,
+                    )
+                });
+
+                out
+            }
+            Err(_) => {
+                let parsed = CSSStyleSheet::from_css(
+                    std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+                    StylesheetOrigin::UserAgent,
+                    false,
+                );
+
+                let serialized = to_stdvec(&parsed).unwrap();
+
+                write_file_to_cache(CACHE_USER_AGENT, serialized.as_slice()).ok();
+
+                parsed
+            }
+        };
 
         let tab_manager = TabManager::new(Tab::new(TabId(0)));
 
@@ -69,7 +92,7 @@ impl ScriptExecutor for Browser {
 
 impl StyleProcessor for Browser {
     fn process_css(&self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
-        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author);
+        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author, true);
         stylesheets.push(stylesheet);
     }
 }

@@ -22,3 +22,6 @@ tmp/
 
 # Misc
 THIRD_PARTY.md
+
+# Tools
+__pycache__

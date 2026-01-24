@@ -1,4 +1,5 @@
 use css_parser::{ComponentValue, QualifiedRule};
+use serde::{Deserialize, Serialize};
 
 use crate::{declaration::CSSDeclaration, rules::css::CSSRule, string::prelude_to_selector_text};
 
@@ -8,7 +9,7 @@ use crate::{declaration::CSSDeclaration, rules::css::CSSRule, string::prelude_to
 /// The prelude is interpreted as a selector list, and the block contains declarations.
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#style-rule>
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CSSStyleRule {
     /// The selector text (prelude of the qualified rule)
     selector_text: String,
@@ -39,13 +40,13 @@ impl CSSStyleRule {
     /// Returns None if the prelude (selector) is empty/invalid.
     ///
     /// <https://www.w3.org/TR/css-syntax-3/#style-rule>
-    pub fn from_parsed(qr: QualifiedRule) -> Option<Self> {
+    pub fn from_parsed(qr: QualifiedRule, collect_positions: bool) -> Option<Self> {
         let selector_text = prelude_to_selector_text(&qr.prelude);
         if selector_text.is_empty() {
             return None;
         }
 
-        let declarations = qr.parse_declarations();
+        let declarations = qr.parse_declarations(collect_positions);
         let css_declarations: Vec<CSSDeclaration> = declarations
             .into_iter()
             .map(CSSDeclaration::from_parser_declaration)

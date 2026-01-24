@@ -1,50 +1,51 @@
 use std::fmt::{Display, Formatter};
 
-use cookie::Cookie;
+use database::{Database, Domain, Table};
+use time::UtcDateTime;
 use tracing::debug;
+use url::Host;
 
-use crate::domain::domain_matches;
+use crate::{Expiration, cookie::Cookie, table::CookieTable};
 
-/// A stored cookie with additional metadata.
-#[derive(Clone, Debug)]
-pub struct StoredCookie {
-    /// The actual cookie data.
-    pub inner: Cookie<'static>,
+/// A simple in-memory cookie jar (for now).
+#[derive(Clone)]
+pub struct CookieJar {
+    /// The list of stored cookies.
+    cookies: Vec<Cookie>,
 
-    /// The original host from which the cookie was set (if host-only), will be None for domain cookies.
-    original_host: Option<String>,
+    /// The database instance for cookies
+    database: Database,
 }
 
-impl Display for StoredCookie {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}={}; Domain={}; Path={}; Secure={}; HttpOnly={}",
-            self.inner.name(),
-            self.inner.value(),
-            self.inner
-                .domain()
-                .unwrap_or(self.original_host.as_deref().unwrap_or("")),
-            self.inner.path().unwrap_or("/"),
-            self.inner.secure().unwrap_or(false),
-            self.inner.http_only().unwrap_or(false)
-        )
+impl Default for CookieJar {
+    fn default() -> Self {
+        Self {
+            cookies: Vec::new(),
+            database: Database::new(Domain::Cookies),
+        }
     }
 }
 
-/// A simple in-memory cookie jar (for now).
-#[derive(Default, Clone)]
-pub struct CookieJar {
-    /// The list of stored cookies.
-    cookies: Vec<StoredCookie>,
-}
-
 impl CookieJar {
-    /// Creates a new, empty CookieJar.
-    pub fn new() -> Self {
-        CookieJar {
-            cookies: Vec::new(),
+    /// Loads existing cookies and returns the cookie jar
+    pub fn load() -> Self {
+        let database = Database::new(Domain::Cookies);
+
+        let conn = database.open();
+        if let Ok(connection) = conn {
+            let cookies = CookieTable::get_all(&connection);
+
+            return Self { database, cookies };
         }
+
+        CookieJar {
+            cookies: Vec::with_capacity(32),
+            database: Database::new(Domain::Cookies),
+        }
+    }
+
+    pub fn cookies(&self) -> &Vec<Cookie> {
+        &self.cookies
     }
 
     /// Retrieves cookies that match the given domain, path, and security context.
@@ -55,38 +56,22 @@ impl CookieJar {
     /// * `secure` - Whether the request is made over a secure connection.
     ///
     /// # Returns
-    /// A vector of references to the matching stored cookies.
-    pub fn get_cookies(&self, domain: &str, path: &str, secure: bool) -> Vec<&StoredCookie> {
-        let mut result = Vec::new();
+    /// A vector to the matching stored cookies.
+    pub fn get_cookies(&self, domain: Host<&str>, path: &str, secure: bool) -> Vec<Cookie> {
+        let mut cookies = self.cookies.clone();
 
-        for stored_cookie in &self.cookies {
-            if let Some(cookie_domain) = stored_cookie.inner.domain() {
-                if !domain_matches(cookie_domain, domain) {
-                    continue;
-                }
-            } else if let Some(original_host) = &stored_cookie.original_host
-                && original_host != domain
-            {
-                continue;
-            }
+        let conn = self.database.open();
+        if let Ok(connection) = conn {
+            let persisted_cookies =
+                CookieTable::get_cookies_by_domain(&connection, domain.to_string());
 
-            if let Some(cookie_secure) = stored_cookie.inner.secure()
-                && cookie_secure
-                && !secure
-            {
-                continue;
-            }
-
-            if let Some(cookie_path) = stored_cookie.inner.path()
-                && !path.starts_with(cookie_path)
-            {
-                continue;
-            }
-
-            result.push(stored_cookie);
+            cookies.extend(persisted_cookies);
         }
 
-        result
+        cookies
+            .into_iter()
+            .filter(|cookie| Self::validate_cookie(&domain, path, secure, cookie))
+            .collect()
     }
 
     /// Adds a cookie to the jar if it matches the request domain.
@@ -97,9 +82,11 @@ impl CookieJar {
     ///
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
-    pub fn add_cookie(&mut self, cookie: Cookie<'static>, request_domain: &str) {
+    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: Host) {
         if let Some(domain) = cookie.domain()
-            && !domain_matches(domain, request_domain)
+            && !request_domain
+                .to_string()
+                .ends_with(domain.to_string().as_str())
         {
             debug!(
                 "Cookie rejected: domain '{}' doesn't match request domain '{}'",
@@ -109,24 +96,63 @@ impl CookieJar {
             return;
         }
 
-        // TODO: Handle age/expiration, max cookies
+        if cookie.max_age().is_none() && cookie.expires() == &Expiration::Session {
+            self.cookies.push(cookie);
+            return;
+        }
 
-        let host_only = cookie.domain().is_none();
-        let original_host = if host_only {
-            Some(request_domain.to_string())
-        } else {
-            None
-        };
+        // TODO: Mark updated cookies as dirty then |
+        //                                          v
+        // TODO: Scheduler should periodically save cookies
+        if let Ok(connection) = self.database.open() {
+            let creation = CookieTable::create_table(&connection);
 
-        self.cookies.push(StoredCookie {
-            inner: cookie,
-            original_host,
-        });
+            if creation.is_err() {
+                debug!(
+                    "Unable to create the cookie table: {}",
+                    creation.err().unwrap()
+                );
+            } else {
+                let adding = CookieTable::insert(&connection, &cookie);
+
+                if adding.is_err() {
+                    debug!("Unable to add a cookie: {}", adding.err().unwrap());
+                }
+            }
+        }
+
+        self.cookies.push(cookie);
+    }
+
+    fn validate_cookie(domain: &Host<&str>, path: &str, secure: bool, cookie: &Cookie) -> bool {
+        if let Some(cookie_domain) = cookie.domain()
+            && **cookie_domain != *domain
+        {
+            return false;
+        }
+
+        if cookie.secure() && !secure {
+            return false;
+        }
+
+        if !path.starts_with(cookie.path().trim()) {
+            return false;
+        }
+
+        if let Some(max_age) = cookie.max_age() {
+            let current_time = UtcDateTime::now().unix_timestamp();
+            if max_age.whole_seconds() <= current_time {
+                // TODO: Mark as stale/remove them from the database
+                return false;
+            }
+        }
+
+        true
     }
 }
 
 impl Iterator for CookieJar {
-    type Item = StoredCookie;
+    type Item = Cookie;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.cookies.is_empty() {
@@ -139,13 +165,8 @@ impl Iterator for CookieJar {
 
 impl Display for CookieJar {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for stored_cookie in &self.cookies {
-            writeln!(
-                f,
-                "{}={}",
-                stored_cookie.inner.name(),
-                stored_cookie.inner.value()
-            )?;
+        for cookie in &self.cookies {
+            writeln!(f, "{}={}", cookie.name(), cookie.value())?;
         }
         Ok(())
     }
