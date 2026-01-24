@@ -2,7 +2,7 @@ use rust_embed::RustEmbed;
 use std::path::PathBuf;
 
 #[derive(RustEmbed)]
-#[folder = "resources/"]
+#[folder = "../../assets/"]
 #[include = "**/*"]
 struct Asset;
 

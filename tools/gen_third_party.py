@@ -334,7 +334,7 @@ def main() -> None:
         include_optional=args.include_optional,
     )
 
-    out_path = repo / args.output
+    out_path = repo.parent / args.output
     out_path.write_text(md, encoding="utf-8")
     print(f"Wrote {out_path} ({len(deps)} direct third-party deps).")
 

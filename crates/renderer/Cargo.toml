@@ -2,10 +2,13 @@
 name = "renderer"
 version = "0.1.0"
 edition.workspace = true
+license.workspace = true
 
 [dependencies]
 assets.workspace = true
 layout.workspace = true
+
+# External dependencies
 wgpu = "27.0.1"
 bytemuck = { version = "1.24.0", features = ["derive"] }
 cosmic-text.workspace = true
