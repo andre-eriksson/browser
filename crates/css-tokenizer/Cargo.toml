@@ -6,10 +6,10 @@ license.workspace = true
 
 [dependencies]
 errors.workspace = true
-tracing.workspace = true
 
 # External dependencies
 serde.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

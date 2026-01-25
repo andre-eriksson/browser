@@ -22,7 +22,6 @@ members = [
     "crates/network",
     "crates/renderer",
     "crates/storage",
-    "crates/telemetry",
     "crates/ui",
 ]
 
@@ -52,7 +51,6 @@ renderer       = { path = "crates/renderer" }
 storage        = { path = "crates/storage" }
 ui             = { path = "crates/ui" }
 constants      = { path = "crates/constants" }
-telemetry      = { path = "crates/telemetry" }
 
 
 # External dependencies

@@ -261,9 +261,9 @@ dependencies = [
 name = "assets"
 version = "0.1.0"
 dependencies = [
+ "constants",
  "once_cell",
  "rust-embed",
- "telemetry",
  "tracing",
 ]
 
@@ -677,7 +677,6 @@ dependencies = [
  "postcard",
  "serde",
  "storage",
- "telemetry",
  "tracing",
  "url",
 ]
@@ -2184,7 +2183,6 @@ name = "html-dom"
 version = "0.1.0"
 dependencies = [
  "html-tokenizer",
- "telemetry",
  "tracing",
 ]
 
@@ -2195,7 +2193,6 @@ dependencies = [
  "criterion",
  "errors",
  "html-dom",
- "telemetry",
  "tracing",
 ]
 
@@ -3161,7 +3158,6 @@ dependencies = [
  "errors",
  "http",
  "reqwest",
- "telemetry",
  "tokio",
  "tracing",
  "url",
@@ -5143,10 +5139,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "telemetry"
-version = "0.1.0"
-
-[[package]]
 name = "tempfile"
 version = "3.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5603,7 +5595,6 @@ dependencies = [
  "layout",
  "network",
  "renderer",
- "telemetry",
  "tokio",
  "tracing",
  "url",

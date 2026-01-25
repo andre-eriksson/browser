@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-telemetry.workspace = true
+constants.workspace = true
 
 # External dependencies
 tracing.workspace = true

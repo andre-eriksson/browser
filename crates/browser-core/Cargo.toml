@@ -15,7 +15,6 @@ html-dom.workspace = true
 html-parser.workspace = true
 network.workspace = true
 storage.workspace = true
-telemetry.workspace = true
 
 # External dependencies
 async-trait.workspace = true

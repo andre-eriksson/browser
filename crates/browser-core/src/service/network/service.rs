@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
+use constants::keys::STATUS_CODE;
 use cookies::CookieJar;
 use errors::network::{NetworkError, RequestError};
 use http::{
@@ -14,7 +15,6 @@ use network::http::{
     request::{Request, RequestBuilder},
     response::HeaderResponse,
 };
-use telemetry::keys::STATUS_CODE;
 use tracing::{debug, instrument, trace};
 use url::{Host, Url};
 

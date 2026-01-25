@@ -1,9 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use telemetry::{
-    events::assets::{
-        EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET,
-    },
+use constants::{
+    events::{EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET},
     keys::EVENT,
 };
 use tracing::{debug, instrument, trace, warn};
