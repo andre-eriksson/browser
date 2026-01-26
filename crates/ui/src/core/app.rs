@@ -14,6 +14,7 @@ use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
 use layout::{LayoutEngine, Rect, TextContext};
+use regex::Regex;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::info;
@@ -231,79 +232,94 @@ impl Application {
                 }
             },
 
-            Event::Browser(browser_event) => match browser_event {
-                BrowserEvent::TabAdded(new_tab_id) => {
-                    let new_tab = UiTab::new(new_tab_id);
-                    self.tabs.push(new_tab);
-                }
-                BrowserEvent::TabClosed(tab_id) => {
-                    self.tabs.retain(|tab| tab.id != tab_id);
-                }
-                BrowserEvent::ActiveTabChanged(tab_id) => {
-                    self.active_tab = tab_id;
-                }
+            Event::Browser(browser_event) => {
+                match browser_event {
+                    BrowserEvent::TabAdded(new_tab_id) => {
+                        let new_tab = UiTab::new(new_tab_id);
+                        self.tabs.push(new_tab);
+                    }
+                    BrowserEvent::TabClosed(tab_id) => {
+                        self.tabs.retain(|tab| tab.id != tab_id);
+                    }
+                    BrowserEvent::ActiveTabChanged(tab_id) => {
+                        self.active_tab = tab_id;
+                    }
 
-                BrowserEvent::NavigateTo(new_url) => {
-                    let browser = self.browser.clone();
-                    let active_tab = self.active_tab;
+                    BrowserEvent::NavigateTo(new_url) => {
+                        let browser = self.browser.clone();
+                        let active_tab = self.active_tab;
 
-                    return Task::perform(
-                        async move {
-                            let mut lock = browser.lock().await;
-                            lock.execute(BrowserCommand::Navigate {
-                                tab_id: active_tab,
-                                url: new_url,
-                            })
-                            .await
-                        },
-                        |result| match result {
-                            Ok(task) => Event::Browser(task),
-                            Err(err) => match err {
-                                BrowserError::NavigationError(NavigationError::RequestError(
-                                    err,
-                                )) => Event::Browser(BrowserEvent::NavigateError(err)),
+                        let local_regex = Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
 
-                                _ => Event::None,
-                            },
-                        },
-                    );
-                }
-                BrowserEvent::NavigateSuccess(tab_id, page) => {
-                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
+                        let adjusted_url =
+                            if new_url.starts_with("http://") || new_url.starts_with("https://") {
+                                new_url
+                            } else if local_regex.is_match(new_url.as_str()) {
+                                format!("http://{}", new_url)
+                            } else {
+                                format!("https://{}", new_url)
+                            };
 
-                    if let Some(tab) = current_tab {
-                        let style_tree = StyleTree::build(page.document(), page.stylesheets());
+                        self.current_url = adjusted_url.clone();
 
-                        let layout_tree = LayoutEngine::compute_layout(
-                            &style_tree,
-                            self.viewports
-                                .get(&self.id)
-                                .map(|(w, h)| Rect {
-                                    x: 0.0,
-                                    y: 0.0,
-                                    width: *w,
-                                    height: *h,
+                        return Task::perform(
+                            async move {
+                                let mut lock = browser.lock().await;
+                                lock.execute(BrowserCommand::Navigate {
+                                    tab_id: active_tab,
+                                    url: adjusted_url,
                                 })
-                                .unwrap_or(Rect {
-                                    x: 0.0,
-                                    y: 0.0,
-                                    width: 800.0,
-                                    height: 600.0,
-                                }),
-                            &mut self.text_context,
-                        );
+                                .await
+                            },
+                            |result| match result {
+                                Ok(task) => Event::Browser(task),
+                                Err(err) => match err {
+                                    BrowserError::NavigationError(
+                                        NavigationError::RequestError(err),
+                                    ) => Event::Browser(BrowserEvent::NavigateError(err)),
 
-                        tab.document = page.document().clone();
-                        tab.stylesheets = page.stylesheets().clone();
-                        tab.current_url = Some(self.current_url.parse().unwrap());
-                        tab.layout_tree = layout_tree;
-                        tab.title = Some(page.title().to_string());
+                                    _ => Event::None,
+                                },
+                            },
+                        );
+                    }
+                    BrowserEvent::NavigateSuccess(tab_id, page) => {
+                        let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
+
+                        if let Some(tab) = current_tab {
+                            let style_tree = StyleTree::build(page.document(), page.stylesheets());
+
+                            let layout_tree = LayoutEngine::compute_layout(
+                                &style_tree,
+                                self.viewports
+                                    .get(&self.id)
+                                    .map(|(w, h)| Rect {
+                                        x: 0.0,
+                                        y: 0.0,
+                                        width: *w,
+                                        height: *h,
+                                    })
+                                    .unwrap_or(Rect {
+                                        x: 0.0,
+                                        y: 0.0,
+                                        width: 800.0,
+                                        height: 600.0,
+                                    }),
+                                &mut self.text_context,
+                            );
+
+                            tab.document = page.document().clone();
+                            tab.stylesheets = page.stylesheets().clone();
+                            tab.current_url = Some(self.current_url.parse().unwrap());
+                            tab.layout_tree = layout_tree;
+                            tab.title = Some(page.title().to_string());
+                        }
+                    }
+                    BrowserEvent::NavigateError(err) => {
+                        info!("{}", err);
                     }
                 }
-                BrowserEvent::NavigateError(err) => {
-                    info!("{}", err);
-                }
-            },
+            }
         }
         Task::none()
     }

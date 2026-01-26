@@ -29,6 +29,7 @@ iced = { version = "0.14.0", features = [
     "wgpu"
 ] }
 image = "0.25"
+regex.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 http.workspace = true
