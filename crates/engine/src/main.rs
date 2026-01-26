@@ -48,7 +48,7 @@ fn main() {
     let emitter = Box::new(ChannelEmitter::new(event_sender));
 
     if args.headless {
-        let browser = HeadlessBrowser::new(emitter);
+        let browser = HeadlessBrowser::new(&args.headers, emitter);
         let mut engine = HeadlessEngine::new(browser);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -58,8 +58,8 @@ fn main() {
 
         return runtime.block_on(engine.main(&args));
     }
-
-    let browser = Arc::new(tokio::sync::Mutex::new(Browser::new(emitter)));
+    let browser = Browser::new(args.headers, emitter);
+    let browser = Arc::new(tokio::sync::Mutex::new(browser));
 
     let ui_runtime = Ui::new(browser, event_receiver, config);
     let res = ui_runtime.run();

@@ -46,6 +46,10 @@ impl HeadlessEngine {
                     Err(e) => Err(format!("Navigation error: {}", e)),
                 }
             }
+            "headers" => {
+                self.browser.print_headers();
+                Ok(())
+            }
             "body" => {
                 self.browser.print_body();
                 Ok(())

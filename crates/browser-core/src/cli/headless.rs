@@ -29,19 +29,35 @@ pub struct HeadlessBrowser {
 }
 
 impl HeadlessBrowser {
-    pub fn new(emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
+    pub fn new(
+        custom_headers: &Vec<String>,
+        emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
+    ) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = RwLock::new(CookieJar::load());
-        let headers = Arc::new(DefaultHeaders::create_browser_headers(
-            HeaderType::HeadlessBrowser,
-        ));
+
+        let mut headers = DefaultHeaders::create_browser_headers(HeaderType::HeadlessBrowser);
+        for header in custom_headers {
+            if let Some((key, value)) = header.split_once(':')
+                && let Ok(header_name) = http::header::HeaderName::from_bytes(key.trim().as_bytes())
+                && let Ok(header_value) = http::header::HeaderValue::from_str(value.trim())
+            {
+                headers.insert(header_name, header_value);
+            }
+        }
 
         let tab_manager = TabManager::new(Tab::new(TabId(0)));
 
         HeadlessBrowser {
             tab_manager,
             _emitter: emitter,
-            network: NetworkService::new(http_client, cookie_jar, headers),
+            network: NetworkService::new(http_client, cookie_jar, Arc::new(headers)),
+        }
+    }
+
+    pub fn print_headers(&mut self) {
+        for header in self.network_service().browser_headers().iter() {
+            println!("{}: {}", header.0, header.1.to_str().unwrap_or(""));
         }
     }
 

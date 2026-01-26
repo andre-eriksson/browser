@@ -39,10 +39,22 @@ pub struct Browser {
 }
 
 impl Browser {
-    pub fn new(emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
+    pub fn new(
+        custom_headers: Vec<String>,
+        emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
+    ) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = RwLock::new(CookieJar::load());
-        let headers = Arc::new(DefaultHeaders::create_browser_headers(HeaderType::Browser));
+
+        let mut headers = DefaultHeaders::create_browser_headers(HeaderType::Browser);
+        for header in custom_headers {
+            if let Some((key, value)) = header.split_once(':')
+                && let Ok(header_name) = http::header::HeaderName::from_bytes(key.trim().as_bytes())
+                && let Ok(header_value) = http::header::HeaderValue::from_str(value.trim())
+            {
+                headers.insert(header_name, header_value);
+            }
+        }
 
         let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
 
@@ -79,7 +91,7 @@ impl Browser {
             tab_manager,
             default_stylesheet: stylesheet,
             _emitter: emitter,
-            network: NetworkService::new(http_client, cookie_jar, headers),
+            network: NetworkService::new(http_client, cookie_jar, Arc::new(headers)),
         }
     }
 }

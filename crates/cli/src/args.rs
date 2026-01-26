@@ -12,13 +12,20 @@ pub struct Args {
     pub url: Option<String>,
 
     #[arg(
+        name = "header",
         short = 'H',
+        long,
+        long_help = "Custom headers to include in requests.\nFormat: 'Header-Name: Header-Value'.\nWill override default headers if there are any conflicts."
+    )]
+    pub headers: Vec<String>,
+
+    #[arg(
+        short = 'T',
         long,
         default_value_t = false,
         group = "mode",
         help_heading = "Headless Mode",
-        help = "Run the browser in headless mode, without a graphical user interface. Can't be used with --interactive.",
-        conflicts_with = "interactive"
+        help = "Run the browser in headless mode."
     )]
     pub headless: bool,
 
@@ -29,11 +36,12 @@ pub struct Args {
         help_heading = "Headless Mode",
         help = "Path to a file containing commands to execute in headless mode, one per line. Can't be used with --commands.",
         requires = "headless",
-        conflicts_with = "commands"
+        conflicts_with = "command"
     )]
     pub input: Option<String>,
 
     #[arg(
+        name = "command",
         short = 'C',
         long,
         group = "headless-mode",
@@ -44,14 +52,4 @@ pub struct Args {
         conflicts_with = "input"
     )]
     pub commands: Vec<String>,
-
-    #[arg(
-        short,
-        long,
-        default_value_t = false,
-        group = "mode",
-        help = "Run the browser in interactive terminal mode (TUI). Can't be used with --headless. (Not yet implemented.)",
-        conflicts_with = "headless"
-    )]
-    pub interactive: bool,
 }

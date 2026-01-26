@@ -52,6 +52,10 @@ impl NetworkService {
         self.cookie_jar.read().unwrap()
     }
 
+    pub fn browser_headers(&self) -> Arc<HeaderMap> {
+        self.browser_headers.clone()
+    }
+
     fn convert_response(
         response: Result<Box<dyn ResponseHandle>, NetworkError>,
     ) -> RequestResult<Box<dyn ResponseHandle>> {
