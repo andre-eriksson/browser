@@ -332,7 +332,7 @@ impl PropertyResolver {
         if let Some(stripped) = value.strip_suffix('%')
             && let Ok(num) = stripped.trim().parse::<f32>()
         {
-            return Some(num / 100.0);
+            return Some(num);
         }
         None
     }
