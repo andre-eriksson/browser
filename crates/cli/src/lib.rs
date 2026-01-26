@@ -1,4 +1,4 @@
 pub mod args;
-pub mod browser;
+pub mod headless;
 
 pub use clap::Parser;

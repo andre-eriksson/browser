@@ -4,7 +4,7 @@ use std::{str::FromStr, sync::Arc};
 
 use browser_config::Config;
 use browser_core::{Browser, BrowserEvent, HeadlessBrowser};
-use cli::{Parser, args::Args, browser::HeadlessEngine};
+use cli::{Parser, args::Args, headless::HeadlessEngine};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
