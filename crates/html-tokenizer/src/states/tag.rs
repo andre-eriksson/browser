@@ -187,9 +187,9 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
         state.current_attribute_name.clear();
         state.current_attribute_value.clear();
 
-        if token.data == "script" {
+        if token.data == "script" && token.kind != TokenKind::EndTag {
             state.state = TokenState::ScriptData;
-        } else if token.data == "style" {
+        } else if token.data == "style" && token.kind != TokenKind::EndTag {
             state.state = TokenState::StyleData;
         } else {
             if token.data == "pre" {

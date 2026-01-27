@@ -26,9 +26,18 @@ pub fn handle_before_attribute_name_state(
     match ch {
         '>' => {
             if let Some(token) = state.current_token.take() {
+                let data = &token.data;
+
+                if data == "script" {
+                    state.state = TokenState::ScriptData;
+                } else if data == "style" {
+                    state.state = TokenState::StyleData;
+                } else {
+                    state.state = TokenState::Data;
+                }
+
                 HtmlTokenizer::emit_token(tokens, token);
             }
-            state.state = TokenState::Data;
         }
         '/' => {
             state.state = TokenState::SelfClosingTagStart;
