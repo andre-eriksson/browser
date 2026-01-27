@@ -32,6 +32,8 @@ pub fn handle_before_attribute_name_state(
                     state.state = TokenState::ScriptData;
                 } else if data == "style" {
                     state.state = TokenState::StyleData;
+                } else if data == "svg" {
+                    state.state = TokenState::SvgData;
                 } else {
                     state.state = TokenState::Data;
                 }

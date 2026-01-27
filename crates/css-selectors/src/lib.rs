@@ -33,7 +33,7 @@ mod tests {
 
     use crate::{SelectorSpecificity, SpecificityCalculable};
     use crate::{matching::matches_compound, selector::generate_compound_sequences};
-    use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, KnownTag, NodeData, NodeId};
+    use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
 
     macro_rules! generate_compound_token {
         ($($kind:expr),* ; attr[ $($attr_kind:expr),* $(,)? ] $(; $($rest_kind:expr),*)? $(,)?) => {{
@@ -82,7 +82,7 @@ mod tests {
     }
 
     macro_rules! generate_node_data {
-        ($tag:expr, $attributes:expr) => {{ NodeData::Element(Element::new(HtmlTag::Known($tag), $attributes)) }};
+        ($tag:expr, $attributes:expr) => {{ NodeData::Element(Element::new(Tag::Html($tag), $attributes)) }};
     }
 
     #[test]
@@ -126,7 +126,7 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
-        let node_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let node_data = generate_node_data!(HtmlTag::Div, HashMap::default());
 
         let node = DomNode {
             id: NodeId(0),
@@ -151,7 +151,7 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
-        let node_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let node_data = generate_node_data!(HtmlTag::Div, HashMap::default());
 
         let node = DomNode {
             id: NodeId(0),
@@ -182,7 +182,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "my-class another-class".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -213,7 +213,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "wrong-class another-class".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -244,7 +244,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("id".to_string(), "my-id".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -275,7 +275,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("id".to_string(), "wrong-id".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -307,7 +307,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "my-class another-class".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -339,7 +339,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "wrong-class another-class".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -374,13 +374,13 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let grandparent_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let grandparent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         let grandparent_id = tree.push_node(grandparent_data, None);
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, Some(grandparent_id));
 
-        let child_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
@@ -409,13 +409,13 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let grandparent_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let grandparent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         let grandparent_id = tree.push_node(grandparent_data, None);
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, Some(grandparent_id));
 
-        let child_data = generate_node_data!(KnownTag::P, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::P, HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
@@ -444,10 +444,10 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let child_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
@@ -476,10 +476,10 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let child_data = generate_node_data!(KnownTag::P, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::P, HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
@@ -508,13 +508,13 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
@@ -543,13 +543,13 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(KnownTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
@@ -578,16 +578,16 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(KnownTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
         tree.push_node(sibling2_data, Some(parent_id));
 
-        let sibling3_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let sibling3_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let sibling3_id = tree.push_node(sibling3_data, Some(parent_id));
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
@@ -616,13 +616,13 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
@@ -651,13 +651,13 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(KnownTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
@@ -686,16 +686,16 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(KnownTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(KnownTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
         tree.push_node(sibling2_data, Some(parent_id));
 
-        let sibling3_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let sibling3_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let sibling3_id = tree.push_node(sibling3_data, Some(parent_id));
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
@@ -726,7 +726,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("data-active".to_string(), "true".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -758,7 +758,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("data-inactive".to_string(), "true".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -792,7 +792,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("data-test".to_string(), "value".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -826,7 +826,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("data".to_string(), "value".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -861,7 +861,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("data-tags".to_string(), "new featured popular".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -897,7 +897,7 @@ mod tests {
         let mut attributes = HashMap::new();
         attributes.insert("data-tags".to_string(), "new discount popular".to_string());
 
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -932,7 +932,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-region".to_string(), "us-west".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -966,7 +966,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-region".to_string(), "eu-north1".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1000,7 +1000,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "en-US".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1034,7 +1034,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "sv-SE".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1068,7 +1068,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-file".to_string(), "image.jpg".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1102,7 +1102,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-file".to_string(), "document.pdf".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1136,7 +1136,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-info".to_string(), "start-middle-end".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1170,7 +1170,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-info".to_string(), "start-end".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1204,7 +1204,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "en".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1238,7 +1238,7 @@ mod tests {
 
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "EN".to_string());
-        let node_data = generate_node_data!(KnownTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1264,7 +1264,7 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
-        let node_data = generate_node_data!(KnownTag::Div, HashMap::default());
+        let node_data = generate_node_data!(HtmlTag::Div, HashMap::default());
 
         let node = DomNode {
             id: NodeId(0),
@@ -1304,10 +1304,10 @@ mod tests {
             attrs.insert("class".to_string(), "my-class another-class".to_string());
             attrs
         };
-        let parent_data = generate_node_data!(KnownTag::Div, parent_attributes);
+        let parent_data = generate_node_data!(HtmlTag::Div, parent_attributes);
         let parent_id = tree.push_node(parent_data, None);
 
-        let child_data = generate_node_data!(KnownTag::Span, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::Span, HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
@@ -1347,7 +1347,7 @@ mod tests {
         attributes.insert("id".to_string(), "main-link".to_string());
         attributes.insert("href".to_string(), "https://example.com".to_string());
 
-        let node_data = generate_node_data!(KnownTag::A, attributes);
+        let node_data = generate_node_data!(HtmlTag::A, attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -1391,7 +1391,7 @@ mod tests {
         attributes.insert("id".to_string(), "main-link".to_string());
         attributes.insert("href".to_string(), "http://example.com".to_string());
 
-        let node_data = generate_node_data!(KnownTag::A, attributes);
+        let node_data = generate_node_data!(HtmlTag::A, attributes);
 
         let node = DomNode {
             id: NodeId(0),

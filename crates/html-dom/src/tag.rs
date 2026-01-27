@@ -1,327 +1,62 @@
 use std::fmt::Display;
 
+// === Master Tag ===
+
 /// Represents an HTML tag, which can be either a known tag or an unknown tag.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum HtmlTag {
-    /// Represents a known HTML tag defined in the `KnownTag` enum.
-    Known(KnownTag),
-    /// Represents an unknown HTML tag, where the string is the tag name, for instance custom tags like `<yt-thumbnail-view-model>`.
+pub enum Tag {
+    /// Represents a known HTML tag defined in the `HtmlTag` enum.
+    Html(HtmlTag),
+
+    /// Represents a known SVG tag defined in the `SvgTag` enum.
+    Svg(SvgTag),
+
+    /// Represents an unknown tag, where the string is the tag name, for instance custom tags like `<yt-thumbnail-view-model>`.
     Unknown(String),
 }
 
-impl Display for HtmlTag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
+impl Tag {
+    /// Checks if the tag is a void element.
+    pub fn is_void_element(&self) -> bool {
+        match self {
+            Tag::Html(html_tag) => html_tag.is_void_element(),
+            Tag::Svg(svg_tag) => svg_tag.is_void_element(),
+            Tag::Unknown(_) => false,
+        }
     }
-}
 
-impl From<&str> for HtmlTag {
-    fn from(s: &str) -> Self {
-        match s {
-            "html" => HtmlTag::Known(KnownTag::Html),
-            "head" => HtmlTag::Known(KnownTag::Head),
-            "title" => HtmlTag::Known(KnownTag::Title),
-            "base" => HtmlTag::Known(KnownTag::Base),
-            "link" => HtmlTag::Known(KnownTag::Link),
-            "meta" => HtmlTag::Known(KnownTag::Meta),
-            "style" => HtmlTag::Known(KnownTag::Style),
-            "body" => HtmlTag::Known(KnownTag::Body),
-            "article" => HtmlTag::Known(KnownTag::Article),
-            "section" => HtmlTag::Known(KnownTag::Section),
-            "nav" => HtmlTag::Known(KnownTag::Nav),
-            "aside" => HtmlTag::Known(KnownTag::Aside),
-            "h1" => HtmlTag::Known(KnownTag::H1),
-            "h2" => HtmlTag::Known(KnownTag::H2),
-            "h3" => HtmlTag::Known(KnownTag::H3),
-            "h4" => HtmlTag::Known(KnownTag::H4),
-            "h5" => HtmlTag::Known(KnownTag::H5),
-            "h6" => HtmlTag::Known(KnownTag::H6),
-            "hgroup" => HtmlTag::Known(KnownTag::HGroup),
-            "header" => HtmlTag::Known(KnownTag::Header),
-            "footer" => HtmlTag::Known(KnownTag::Footer),
-            "address" => HtmlTag::Known(KnownTag::Address),
-            "p" => HtmlTag::Known(KnownTag::P),
-            "hr" => HtmlTag::Known(KnownTag::Hr),
-            "pre" => HtmlTag::Known(KnownTag::Pre),
-            "blockquote" => HtmlTag::Known(KnownTag::Blockquote),
-            "ol" => HtmlTag::Known(KnownTag::Ol),
-            "ul" => HtmlTag::Known(KnownTag::Ul),
-            "menu" => HtmlTag::Known(KnownTag::Menu),
-            "li" => HtmlTag::Known(KnownTag::Li),
-            "dl" => HtmlTag::Known(KnownTag::Dl),
-            "dt" => HtmlTag::Known(KnownTag::Dt),
-            "dd" => HtmlTag::Known(KnownTag::Dd),
-            "figure" => HtmlTag::Known(KnownTag::Figure),
-            "figcaption" => HtmlTag::Known(KnownTag::Figcaption),
-            "main" => HtmlTag::Known(KnownTag::Main),
-            "search" => HtmlTag::Known(KnownTag::Search),
-            "div" => HtmlTag::Known(KnownTag::Div),
-            "a" => HtmlTag::Known(KnownTag::A),
-            "em" => HtmlTag::Known(KnownTag::Em),
-            "strong" => HtmlTag::Known(KnownTag::Strong),
-            "small" => HtmlTag::Known(KnownTag::Small),
-            "s" => HtmlTag::Known(KnownTag::S),
-            "cite" => HtmlTag::Known(KnownTag::Cite),
-            "q" => HtmlTag::Known(KnownTag::Q),
-            "dfn" => HtmlTag::Known(KnownTag::Dfn),
-            "abbr" => HtmlTag::Known(KnownTag::Abbr),
-            "ruby" => HtmlTag::Known(KnownTag::Ruby),
-            "rt" => HtmlTag::Known(KnownTag::Rt),
-            "rp" => HtmlTag::Known(KnownTag::Rp),
-            "data" => HtmlTag::Known(KnownTag::Data),
-            "time" => HtmlTag::Known(KnownTag::Time),
-            "code" => HtmlTag::Known(KnownTag::Code),
-            "var" => HtmlTag::Known(KnownTag::Var),
-            "samp" => HtmlTag::Known(KnownTag::Samp),
-            "kbd" => HtmlTag::Known(KnownTag::Kbd),
-            "sub" => HtmlTag::Known(KnownTag::Sub),
-            "sup" => HtmlTag::Known(KnownTag::Sup),
-            "i" => HtmlTag::Known(KnownTag::I),
-            "b" => HtmlTag::Known(KnownTag::B),
-            "u" => HtmlTag::Known(KnownTag::U),
-            "mark" => HtmlTag::Known(KnownTag::Mark),
-            "bdi" => HtmlTag::Known(KnownTag::Bdi),
-            "bdo" => HtmlTag::Known(KnownTag::Bdo),
-            "span" => HtmlTag::Known(KnownTag::Span),
-            "br" => HtmlTag::Known(KnownTag::Br),
-            "wbr" => HtmlTag::Known(KnownTag::Wbr),
-            "ins" => HtmlTag::Known(KnownTag::Ins),
-            "del" => HtmlTag::Known(KnownTag::Del),
-            "picture" => HtmlTag::Known(KnownTag::Picture),
-            "source" => HtmlTag::Known(KnownTag::Source),
-            "img" => HtmlTag::Known(KnownTag::Img),
-            "iframe" => HtmlTag::Known(KnownTag::Iframe),
-            "embed" => HtmlTag::Known(KnownTag::Embed),
-            "object" => HtmlTag::Known(KnownTag::Object),
-            "video" => HtmlTag::Known(KnownTag::Video),
-            "audio" => HtmlTag::Known(KnownTag::Audio),
-            "track" => HtmlTag::Known(KnownTag::Track),
-            "map" => HtmlTag::Known(KnownTag::Map),
-            "area" => HtmlTag::Known(KnownTag::Area),
-            "math" => HtmlTag::Known(KnownTag::Math),
-            "annotation" => HtmlTag::Known(KnownTag::Annotation),
-            "annotation-xml" => HtmlTag::Known(KnownTag::AnnotationXML),
-            "mi" => HtmlTag::Known(KnownTag::Mi),
-            "mo" => HtmlTag::Known(KnownTag::Mo),
-            "mn" => HtmlTag::Known(KnownTag::Mn),
-            "ms" => HtmlTag::Known(KnownTag::Ms),
-            "mfrac" => HtmlTag::Known(KnownTag::Mfrac),
-            "mmultiscripts" => HtmlTag::Known(KnownTag::Mmultiscripts),
-            "mover" => HtmlTag::Known(KnownTag::Mover),
-            "mpadded" => HtmlTag::Known(KnownTag::Mpadded),
-            "mphantom" => HtmlTag::Known(KnownTag::Mphantom),
-            "mprescripts" => HtmlTag::Known(KnownTag::Mprescripts),
-            "mroot" => HtmlTag::Known(KnownTag::Mroot),
-            "mrow" => HtmlTag::Known(KnownTag::Mrow),
-            "mspace" => HtmlTag::Known(KnownTag::Mspace),
-            "msqrt" => HtmlTag::Known(KnownTag::Msqrt),
-            "mstyle" => HtmlTag::Known(KnownTag::Mstyle),
-            "msub" => HtmlTag::Known(KnownTag::Msub),
-            "msubsup" => HtmlTag::Known(KnownTag::Msubsup),
-            "msup" => HtmlTag::Known(KnownTag::Msup),
-            "mtable" => HtmlTag::Known(KnownTag::Mtable),
-            "mtd" => HtmlTag::Known(KnownTag::Mtd),
-            "mtr" => HtmlTag::Known(KnownTag::Mtr),
-            "munder" => HtmlTag::Known(KnownTag::Munder),
-            "munderover" => HtmlTag::Known(KnownTag::Munderover),
-            "semantics" => HtmlTag::Known(KnownTag::Semantics),
-            "mtext" => HtmlTag::Known(KnownTag::Mtext),
-            "merror" => HtmlTag::Known(KnownTag::Merror),
-            "svg" => HtmlTag::Known(KnownTag::Svg),
-            "table" => HtmlTag::Known(KnownTag::Table),
-            "caption" => HtmlTag::Known(KnownTag::Caption),
-            "colgroup" => HtmlTag::Known(KnownTag::Colgroup),
-            "col" => HtmlTag::Known(KnownTag::Col),
-            "tbody" => HtmlTag::Known(KnownTag::Tbody),
-            "thead" => HtmlTag::Known(KnownTag::Thead),
-            "tfoot" => HtmlTag::Known(KnownTag::Tfoot),
-            "tr" => HtmlTag::Known(KnownTag::Tr),
-            "td" => HtmlTag::Known(KnownTag::Td),
-            "th" => HtmlTag::Known(KnownTag::Th),
-            "form" => HtmlTag::Known(KnownTag::Form),
-            "label" => HtmlTag::Known(KnownTag::Label),
-            "input" => HtmlTag::Known(KnownTag::Input),
-            "button" => HtmlTag::Known(KnownTag::Button),
-            "select" => HtmlTag::Known(KnownTag::Select),
-            "datalist" => HtmlTag::Known(KnownTag::Datalist),
-            "optgroup" => HtmlTag::Known(KnownTag::Optgroup),
-            "option" => HtmlTag::Known(KnownTag::Option),
-            "textarea" => HtmlTag::Known(KnownTag::Textarea),
-            "output" => HtmlTag::Known(KnownTag::Output),
-            "progress" => HtmlTag::Known(KnownTag::Progress),
-            "meter" => HtmlTag::Known(KnownTag::Meter),
-            "fieldset" => HtmlTag::Known(KnownTag::Fieldset),
-            "legend" => HtmlTag::Known(KnownTag::Legend),
-            "selectedcontent" => HtmlTag::Known(KnownTag::Selectedcontent),
-            "details" => HtmlTag::Known(KnownTag::Details),
-            "summary" => HtmlTag::Known(KnownTag::Summary),
-            "dialog" => HtmlTag::Known(KnownTag::Dialog),
-            "script" => HtmlTag::Known(KnownTag::Script),
-            "noscript" => HtmlTag::Known(KnownTag::Noscript),
-            "template" => HtmlTag::Known(KnownTag::Template),
-            "slot" => HtmlTag::Known(KnownTag::Slot),
-            "canvas" => HtmlTag::Known(KnownTag::Canvas),
-            other => HtmlTag::Unknown(other.to_string()),
+    /// Determines if the current tag should automatically close based on the new tag being encountered.
+    pub fn should_auto_close(&self, new_tag: &Tag) -> bool {
+        match self {
+            Tag::Html(html_tag) => html_tag.should_auto_close(new_tag),
+            Tag::Svg(_) => false,
+            Tag::Unknown(_) => false,
         }
     }
 }
 
-impl From<String> for HtmlTag {
-    fn from(s: String) -> Self {
-        HtmlTag::from(s.as_str())
+impl Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Tag::Html(html_tag) => html_tag.to_string(),
+                Tag::Svg(svg_tag) => svg_tag.to_string(),
+                Tag::Unknown(name) => name.clone(),
+            }
+        )
     }
 }
 
-impl HtmlTag {
-    /// Returns the string representation of the HTML tag.
-    pub fn as_str(&self) -> &str {
-        match self {
-            HtmlTag::Known(tag) => match tag {
-                KnownTag::Html => "html",
-                KnownTag::Head => "head",
-                KnownTag::Title => "title",
-                KnownTag::Base => "base",
-                KnownTag::Link => "link",
-                KnownTag::Meta => "meta",
-                KnownTag::Style => "style",
-                KnownTag::Body => "body",
-                KnownTag::Article => "article",
-                KnownTag::Section => "section",
-                KnownTag::Nav => "nav",
-                KnownTag::Aside => "aside",
-                KnownTag::H1 => "h1",
-                KnownTag::H2 => "h2",
-                KnownTag::H3 => "h3",
-                KnownTag::H4 => "h4",
-                KnownTag::H5 => "h5",
-                KnownTag::H6 => "h6",
-                KnownTag::HGroup => "hgroup",
-                KnownTag::Header => "header",
-                KnownTag::Footer => "footer",
-                KnownTag::Address => "address",
-                KnownTag::P => "p",
-                KnownTag::Hr => "hr",
-                KnownTag::Pre => "pre",
-                KnownTag::Blockquote => "blockquote",
-                KnownTag::Ol => "ol",
-                KnownTag::Ul => "ul",
-                KnownTag::Menu => "menu",
-                KnownTag::Li => "li",
-                KnownTag::Dl => "dl",
-                KnownTag::Dt => "dt",
-                KnownTag::Dd => "dd",
-                KnownTag::Figure => "figure",
-                KnownTag::Figcaption => "figcaption",
-                KnownTag::Main => "main",
-                KnownTag::Search => "search",
-                KnownTag::Div => "div",
-                KnownTag::A => "a",
-                KnownTag::Em => "em",
-                KnownTag::Strong => "strong",
-                KnownTag::Small => "small",
-                KnownTag::S => "s",
-                KnownTag::Cite => "cite",
-                KnownTag::Q => "q",
-                KnownTag::Dfn => "dfn",
-                KnownTag::Abbr => "abbr",
-                KnownTag::Ruby => "ruby",
-                KnownTag::Rt => "rt",
-                KnownTag::Rp => "rp",
-                KnownTag::Data => "data",
-                KnownTag::Time => "time",
-                KnownTag::Code => "code",
-                KnownTag::Var => "var",
-                KnownTag::Samp => "samp",
-                KnownTag::Kbd => "kbd",
-                KnownTag::Sub => "sub",
-                KnownTag::Sup => "sup",
-                KnownTag::I => "i",
-                KnownTag::B => "b",
-                KnownTag::U => "u",
-                KnownTag::Mark => "mark",
-                KnownTag::Bdi => "bdi",
-                KnownTag::Bdo => "bdo",
-                KnownTag::Span => "span",
-                KnownTag::Br => "br",
-                KnownTag::Wbr => "wbr",
-                KnownTag::Ins => "ins",
-                KnownTag::Del => "del",
-                KnownTag::Picture => "picture",
-                KnownTag::Source => "source",
-                KnownTag::Img => "img",
-                KnownTag::Iframe => "iframe",
-                KnownTag::Embed => "embed",
-                KnownTag::Object => "object",
-                KnownTag::Video => "video",
-                KnownTag::Audio => "audio",
-                KnownTag::Track => "track",
-                KnownTag::Map => "map",
-                KnownTag::Area => "area",
-                KnownTag::Math => "math",
-                KnownTag::Annotation => "annotation",
-                KnownTag::AnnotationXML => "annotation-xml",
-                KnownTag::Mi => "mi",
-                KnownTag::Mo => "mo",
-                KnownTag::Mn => "mn",
-                KnownTag::Ms => "ms",
-                KnownTag::Mfrac => "mfrac",
-                KnownTag::Mmultiscripts => "mmultiscripts",
-                KnownTag::Mover => "mover",
-                KnownTag::Mpadded => "mpadded",
-                KnownTag::Mphantom => "mphantom",
-                KnownTag::Mprescripts => "mprescripts",
-                KnownTag::Mroot => "mroot",
-                KnownTag::Mrow => "mrow",
-                KnownTag::Mspace => "mspace",
-                KnownTag::Msqrt => "msqrt",
-                KnownTag::Mstyle => "mstyle",
-                KnownTag::Msub => "msub",
-                KnownTag::Msubsup => "msubsup",
-                KnownTag::Msup => "msup",
-                KnownTag::Mtable => "mtable",
-                KnownTag::Mtd => "mtd",
-                KnownTag::Mtr => "mtr",
-                KnownTag::Munder => "munder",
-                KnownTag::Munderover => "munderover",
-                KnownTag::Semantics => "semantics",
-                KnownTag::Mtext => "mtext",
-                KnownTag::Merror => "merror",
-                KnownTag::Svg => "svg",
-                KnownTag::Table => "table",
-                KnownTag::Caption => "caption",
-                KnownTag::Colgroup => "colgroup",
-                KnownTag::Col => "col",
-                KnownTag::Tbody => "tbody",
-                KnownTag::Thead => "thead",
-                KnownTag::Tfoot => "tfoot",
-                KnownTag::Tr => "tr",
-                KnownTag::Td => "td",
-                KnownTag::Th => "th",
-                KnownTag::Form => "form",
-                KnownTag::Label => "label",
-                KnownTag::Input => "input",
-                KnownTag::Button => "button",
-                KnownTag::Select => "select",
-                KnownTag::Datalist => "datalist",
-                KnownTag::Optgroup => "optgroup",
-                KnownTag::Option => "option",
-                KnownTag::Textarea => "textarea",
-                KnownTag::Output => "output",
-                KnownTag::Progress => "progress",
-                KnownTag::Meter => "meter",
-                KnownTag::Fieldset => "fieldset",
-                KnownTag::Legend => "legend",
-                KnownTag::Selectedcontent => "selectedcontent",
-                KnownTag::Details => "details",
-                KnownTag::Summary => "summary",
-                KnownTag::Dialog => "dialog",
-                KnownTag::Script => "script",
-                KnownTag::Noscript => "noscript",
-                KnownTag::Template => "template",
-                KnownTag::Slot => "slot",
-                KnownTag::Canvas => "canvas",
-            },
-            HtmlTag::Unknown(name) => name.as_str(),
+impl From<&str> for Tag {
+    fn from(value: &str) -> Self {
+        if let Ok(html_tag) = HtmlTag::try_from(value) {
+            Tag::Html(html_tag)
+        } else if let Ok(svg_tag) = SvgTag::try_from(value) {
+            Tag::Svg(svg_tag)
+        } else {
+            Tag::Unknown(value.to_string())
         }
     }
 }
@@ -332,7 +67,7 @@ impl HtmlTag {
 ///
 /// <https://html.spec.whatwg.org/multipage/#toc-semantics>
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub enum KnownTag {
+pub enum HtmlTag {
     Html,
     Head,
     Title,
@@ -478,101 +213,679 @@ pub enum KnownTag {
     Canvas,
 }
 
-/// Checks if the given tag is a void element.
-/// Void elements are those that do not have any content and do not require a closing tag.
-///
-/// # Arguments
-/// * `tag` - The HTML tag to check.
-///
-/// # Returns
-/// `true` if the tag is a void element, `false` otherwise.
-pub fn is_void_element(tag: &HtmlTag) -> bool {
-    if let HtmlTag::Known(tag_name) = tag {
-        return is_void_element_known(tag_name);
+impl HtmlTag {
+    /// Checks if the given tag is a void element.
+    /// Void elements are those that do not have any content and do not require a closing tag.
+    ///
+    /// # Arguments
+    /// * `tag` - The HTML tag to check.
+    ///
+    /// # Returns
+    /// `true` if the tag is a void element, `false` otherwise.
+    pub fn is_void_element(&self) -> bool {
+        matches!(
+            self,
+            HtmlTag::Area
+                | HtmlTag::Base
+                | HtmlTag::Br
+                | HtmlTag::Col
+                | HtmlTag::Embed
+                | HtmlTag::Hr
+                | HtmlTag::Img
+                | HtmlTag::Input
+                | HtmlTag::Link
+                | HtmlTag::Meta
+                | HtmlTag::Source
+                | HtmlTag::Track
+                | HtmlTag::Wbr
+        )
     }
 
-    false
-}
+    /// A utility function to determine if a tag should automatically close based on the current tag and the new tag being encountered.
+    ///
+    /// # Arguments
+    /// * `current_tag` - The name of the current tag that is open.
+    /// * `new_tag` - The name of the new tag that is being encountered.
+    ///
+    /// # Returns
+    /// A boolean indicating whether the current tag should be automatically closed when the new tag is encountered.
+    pub fn should_auto_close(&self, new_tag: &Tag) -> bool {
+        if let Tag::Html(new_known) = new_tag {
+            return self.should_auto_close_known(new_known);
+        }
 
-fn is_void_element_known(tag: &KnownTag) -> bool {
-    matches!(
-        tag,
-        KnownTag::Area
-            | KnownTag::Base
-            | KnownTag::Br
-            | KnownTag::Col
-            | KnownTag::Embed
-            | KnownTag::Hr
-            | KnownTag::Img
-            | KnownTag::Input
-            | KnownTag::Link
-            | KnownTag::Meta
-            | KnownTag::Source
-            | KnownTag::Track
-            | KnownTag::Wbr
-    )
-}
-
-/// A utility function to determine if a tag should automatically close based on the current tag and the new tag being encountered.
-///
-/// # Arguments
-/// * `current_tag` - The name of the current tag that is open.
-/// * `new_tag` - The name of the new tag that is being encountered.
-///
-/// # Returns
-/// A boolean indicating whether the current tag should be automatically closed when the new tag is encountered.
-pub fn should_auto_close(current_tag: &HtmlTag, new_tag: &HtmlTag) -> bool {
-    if let HtmlTag::Known(current_known) = current_tag
-        && let HtmlTag::Known(new_known) = new_tag
-    {
-        return should_auto_close_known(current_known, new_known);
+        false
     }
 
-    false
+    /// Determines if a known tag should automatically close based on the current and new known tags.
+    fn should_auto_close_known(&self, new: &HtmlTag) -> bool {
+        matches!(
+            (self, new),
+            (HtmlTag::P, HtmlTag::Div)
+                | (HtmlTag::P, HtmlTag::P)
+                | (HtmlTag::P, HtmlTag::H1)
+                | (HtmlTag::P, HtmlTag::H2)
+                | (HtmlTag::P, HtmlTag::H3)
+                | (HtmlTag::P, HtmlTag::H4)
+                | (HtmlTag::P, HtmlTag::H5)
+                | (HtmlTag::P, HtmlTag::H6)
+                | (HtmlTag::P, HtmlTag::Ul)
+                | (HtmlTag::P, HtmlTag::Ol)
+                | (HtmlTag::P, HtmlTag::Li)
+                | (HtmlTag::P, HtmlTag::Dl)
+                | (HtmlTag::P, HtmlTag::Dt)
+                | (HtmlTag::P, HtmlTag::Dd)
+                | (HtmlTag::P, HtmlTag::Blockquote)
+                | (HtmlTag::P, HtmlTag::Pre)
+                | (HtmlTag::P, HtmlTag::Form)
+                | (HtmlTag::P, HtmlTag::Table)
+                | (HtmlTag::P, HtmlTag::Section)
+                | (HtmlTag::P, HtmlTag::Article)
+                | (HtmlTag::P, HtmlTag::Aside)
+                | (HtmlTag::P, HtmlTag::Header)
+                | (HtmlTag::P, HtmlTag::Footer)
+                | (HtmlTag::P, HtmlTag::Nav)
+                | (HtmlTag::P, HtmlTag::Main)
+                | (HtmlTag::P, HtmlTag::Figure)
+                | (HtmlTag::P, HtmlTag::Hr)
+                | (HtmlTag::Li, HtmlTag::Li)
+                | (HtmlTag::Dd, HtmlTag::Dd)
+                | (HtmlTag::Dt, HtmlTag::Dt)
+                | (HtmlTag::Option, HtmlTag::Option)
+                | (HtmlTag::Option, HtmlTag::Optgroup)
+                | (HtmlTag::Tr, HtmlTag::Tr)
+                | (HtmlTag::Td, HtmlTag::Td)
+                | (HtmlTag::Td, HtmlTag::Th)
+                | (HtmlTag::Td, HtmlTag::Tr)
+                | (HtmlTag::Th, HtmlTag::Th)
+                | (HtmlTag::Th, HtmlTag::Td)
+                | (HtmlTag::Th, HtmlTag::Tr)
+        )
+    }
 }
 
-/// Determines if a known tag should automatically close based on the current and new known tags.
-fn should_auto_close_known(current: &KnownTag, new: &KnownTag) -> bool {
-    matches!(
-        (current, new),
-        (KnownTag::P, KnownTag::Div)
-            | (KnownTag::P, KnownTag::P)
-            | (KnownTag::P, KnownTag::H1)
-            | (KnownTag::P, KnownTag::H2)
-            | (KnownTag::P, KnownTag::H3)
-            | (KnownTag::P, KnownTag::H4)
-            | (KnownTag::P, KnownTag::H5)
-            | (KnownTag::P, KnownTag::H6)
-            | (KnownTag::P, KnownTag::Ul)
-            | (KnownTag::P, KnownTag::Ol)
-            | (KnownTag::P, KnownTag::Li)
-            | (KnownTag::P, KnownTag::Dl)
-            | (KnownTag::P, KnownTag::Dt)
-            | (KnownTag::P, KnownTag::Dd)
-            | (KnownTag::P, KnownTag::Blockquote)
-            | (KnownTag::P, KnownTag::Pre)
-            | (KnownTag::P, KnownTag::Form)
-            | (KnownTag::P, KnownTag::Table)
-            | (KnownTag::P, KnownTag::Section)
-            | (KnownTag::P, KnownTag::Article)
-            | (KnownTag::P, KnownTag::Aside)
-            | (KnownTag::P, KnownTag::Header)
-            | (KnownTag::P, KnownTag::Footer)
-            | (KnownTag::P, KnownTag::Nav)
-            | (KnownTag::P, KnownTag::Main)
-            | (KnownTag::P, KnownTag::Figure)
-            | (KnownTag::P, KnownTag::Hr)
-            | (KnownTag::Li, KnownTag::Li)
-            | (KnownTag::Dd, KnownTag::Dd)
-            | (KnownTag::Dt, KnownTag::Dt)
-            | (KnownTag::Option, KnownTag::Option)
-            | (KnownTag::Option, KnownTag::Optgroup)
-            | (KnownTag::Tr, KnownTag::Tr)
-            | (KnownTag::Td, KnownTag::Td)
-            | (KnownTag::Td, KnownTag::Th)
-            | (KnownTag::Td, KnownTag::Tr)
-            | (KnownTag::Th, KnownTag::Th)
-            | (KnownTag::Th, KnownTag::Td)
-            | (KnownTag::Th, KnownTag::Tr)
-    )
+impl Display for HtmlTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                HtmlTag::Html => "html",
+                HtmlTag::Head => "head",
+                HtmlTag::Title => "title",
+                HtmlTag::Base => "base",
+                HtmlTag::Link => "link",
+                HtmlTag::Meta => "meta",
+                HtmlTag::Style => "style",
+                HtmlTag::Body => "body",
+                HtmlTag::Article => "article",
+                HtmlTag::Section => "section",
+                HtmlTag::Nav => "nav",
+                HtmlTag::Aside => "aside",
+                HtmlTag::H1 => "h1",
+                HtmlTag::H2 => "h2",
+                HtmlTag::H3 => "h3",
+                HtmlTag::H4 => "h4",
+                HtmlTag::H5 => "h5",
+                HtmlTag::H6 => "h6",
+                HtmlTag::HGroup => "hgroup",
+                HtmlTag::Header => "header",
+                HtmlTag::Footer => "footer",
+                HtmlTag::Address => "address",
+                HtmlTag::P => "p",
+                HtmlTag::Hr => "hr",
+                HtmlTag::Pre => "pre",
+                HtmlTag::Blockquote => "blockquote",
+                HtmlTag::Ol => "ol",
+                HtmlTag::Ul => "ul",
+                HtmlTag::Menu => "menu",
+                HtmlTag::Li => "li",
+                HtmlTag::Dl => "dl",
+                HtmlTag::Dt => "dt",
+                HtmlTag::Dd => "dd",
+                HtmlTag::Figure => "figure",
+                HtmlTag::Figcaption => "figcaption",
+                HtmlTag::Main => "main",
+                HtmlTag::Search => "search",
+                HtmlTag::Div => "div",
+                HtmlTag::A => "a",
+                HtmlTag::Em => "em",
+                HtmlTag::Strong => "strong",
+                HtmlTag::Small => "small",
+                HtmlTag::S => "s",
+                HtmlTag::Cite => "cite",
+                HtmlTag::Q => "q",
+                HtmlTag::Dfn => "dfn",
+                HtmlTag::Abbr => "abbr",
+                HtmlTag::Ruby => "ruby",
+                HtmlTag::Rt => "rt",
+                HtmlTag::Rp => "rp",
+                HtmlTag::Data => "data",
+                HtmlTag::Time => "time",
+                HtmlTag::Code => "code",
+                HtmlTag::Var => "var",
+                HtmlTag::Samp => "samp",
+                HtmlTag::Kbd => "kbd",
+                HtmlTag::Sub => "sub",
+                HtmlTag::Sup => "sup",
+                HtmlTag::I => "i",
+                HtmlTag::B => "b",
+                HtmlTag::U => "u",
+                HtmlTag::Mark => "mark",
+                HtmlTag::Bdi => "bdi",
+                HtmlTag::Bdo => "bdo",
+                HtmlTag::Span => "span",
+                HtmlTag::Br => "br",
+                HtmlTag::Wbr => "wbr",
+                HtmlTag::Ins => "ins",
+                HtmlTag::Del => "del",
+                HtmlTag::Picture => "picture",
+                HtmlTag::Source => "source",
+                HtmlTag::Img => "img",
+                HtmlTag::Iframe => "iframe",
+                HtmlTag::Embed => "embed",
+                HtmlTag::Object => "object",
+                HtmlTag::Video => "video",
+                HtmlTag::Audio => "audio",
+                HtmlTag::Track => "track",
+                HtmlTag::Map => "map",
+                HtmlTag::Area => "area",
+                HtmlTag::Math => "math",
+                HtmlTag::Annotation => "annotation",
+                HtmlTag::AnnotationXML => "annotation-xml",
+                HtmlTag::Mi => "mi",
+                HtmlTag::Mo => "mo",
+                HtmlTag::Mn => "mn",
+                HtmlTag::Ms => "ms",
+                HtmlTag::Mfrac => "mfrac",
+                HtmlTag::Mmultiscripts => "mmultiscripts",
+                HtmlTag::Mover => "mover",
+                HtmlTag::Mpadded => "mpadded",
+                HtmlTag::Mphantom => "mphantom",
+                HtmlTag::Mprescripts => "mprescripts",
+                HtmlTag::Mroot => "mroot",
+                HtmlTag::Mrow => "mrow",
+                HtmlTag::Mspace => "mspace",
+                HtmlTag::Msqrt => "msqrt",
+                HtmlTag::Mstyle => "mstyle",
+                HtmlTag::Msub => "msub",
+                HtmlTag::Msubsup => "msubsup",
+                HtmlTag::Msup => "msup",
+                HtmlTag::Mtable => "mtable",
+                HtmlTag::Mtd => "mtd",
+                HtmlTag::Mtr => "mtr",
+                HtmlTag::Munder => "munder",
+                HtmlTag::Munderover => "munderover",
+                HtmlTag::Semantics => "semantics",
+                HtmlTag::Mtext => "mtext",
+                HtmlTag::Merror => "merror",
+                HtmlTag::Svg => "svg",
+                HtmlTag::Table => "table",
+                HtmlTag::Caption => "caption",
+                HtmlTag::Colgroup => "colgroup",
+                HtmlTag::Col => "col",
+                HtmlTag::Tbody => "tbody",
+                HtmlTag::Thead => "thead",
+                HtmlTag::Tfoot => "tfoot",
+                HtmlTag::Tr => "tr",
+                HtmlTag::Td => "td",
+                HtmlTag::Th => "th",
+                HtmlTag::Form => "form",
+                HtmlTag::Label => "label",
+                HtmlTag::Input => "input",
+                HtmlTag::Button => "button",
+                HtmlTag::Select => "select",
+                HtmlTag::Datalist => "datalist",
+                HtmlTag::Optgroup => "optgroup",
+                HtmlTag::Option => "option",
+                HtmlTag::Textarea => "textarea",
+                HtmlTag::Output => "output",
+                HtmlTag::Progress => "progress",
+                HtmlTag::Meter => "meter",
+                HtmlTag::Fieldset => "fieldset",
+                HtmlTag::Legend => "legend",
+                HtmlTag::Selectedcontent => "selectedcontent",
+                HtmlTag::Details => "details",
+                HtmlTag::Summary => "summary",
+                HtmlTag::Dialog => "dialog",
+                HtmlTag::Script => "script",
+                HtmlTag::Noscript => "noscript",
+                HtmlTag::Template => "template",
+                HtmlTag::Slot => "slot",
+                HtmlTag::Canvas => "canvas",
+            }
+        )
+    }
+}
+
+impl TryFrom<&str> for HtmlTag {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "html" => Ok(HtmlTag::Html),
+            "head" => Ok(HtmlTag::Head),
+            "title" => Ok(HtmlTag::Title),
+            "base" => Ok(HtmlTag::Base),
+            "link" => Ok(HtmlTag::Link),
+            "meta" => Ok(HtmlTag::Meta),
+            "style" => Ok(HtmlTag::Style),
+            "body" => Ok(HtmlTag::Body),
+            "article" => Ok(HtmlTag::Article),
+            "section" => Ok(HtmlTag::Section),
+            "nav" => Ok(HtmlTag::Nav),
+            "aside" => Ok(HtmlTag::Aside),
+            "h1" => Ok(HtmlTag::H1),
+            "h2" => Ok(HtmlTag::H2),
+            "h3" => Ok(HtmlTag::H3),
+            "h4" => Ok(HtmlTag::H4),
+            "h5" => Ok(HtmlTag::H5),
+            "h6" => Ok(HtmlTag::H6),
+            "hgroup" => Ok(HtmlTag::HGroup),
+            "header" => Ok(HtmlTag::Header),
+            "footer" => Ok(HtmlTag::Footer),
+            "address" => Ok(HtmlTag::Address),
+            "p" => Ok(HtmlTag::P),
+            "hr" => Ok(HtmlTag::Hr),
+            "pre" => Ok(HtmlTag::Pre),
+            "blockquote" => Ok(HtmlTag::Blockquote),
+            "ol" => Ok(HtmlTag::Ol),
+            "ul" => Ok(HtmlTag::Ul),
+            "menu" => Ok(HtmlTag::Menu),
+            "li" => Ok(HtmlTag::Li),
+            "dl" => Ok(HtmlTag::Dl),
+            "dt" => Ok(HtmlTag::Dt),
+            "dd" => Ok(HtmlTag::Dd),
+            "figure" => Ok(HtmlTag::Figure),
+            "figcaption" => Ok(HtmlTag::Figcaption),
+            "main" => Ok(HtmlTag::Main),
+            "search" => Ok(HtmlTag::Search),
+            "div" => Ok(HtmlTag::Div),
+            "a" => Ok(HtmlTag::A),
+            "em" => Ok(HtmlTag::Em),
+            "strong" => Ok(HtmlTag::Strong),
+            "small" => Ok(HtmlTag::Small),
+            "s" => Ok(HtmlTag::S),
+            "cite" => Ok(HtmlTag::Cite),
+            "q" => Ok(HtmlTag::Q),
+            "dfn" => Ok(HtmlTag::Dfn),
+            "abbr" => Ok(HtmlTag::Abbr),
+            "ruby" => Ok(HtmlTag::Ruby),
+            "rt" => Ok(HtmlTag::Rt),
+            "rp" => Ok(HtmlTag::Rp),
+            "data" => Ok(HtmlTag::Data),
+            "time" => Ok(HtmlTag::Time),
+            "code" => Ok(HtmlTag::Code),
+            "var" => Ok(HtmlTag::Var),
+            "samp" => Ok(HtmlTag::Samp),
+            "kbd" => Ok(HtmlTag::Kbd),
+            "sub" => Ok(HtmlTag::Sub),
+            "sup" => Ok(HtmlTag::Sup),
+            "i" => Ok(HtmlTag::I),
+            "b" => Ok(HtmlTag::B),
+            "u" => Ok(HtmlTag::U),
+            "mark" => Ok(HtmlTag::Mark),
+            "bdi" => Ok(HtmlTag::Bdi),
+            "bdo" => Ok(HtmlTag::Bdo),
+            "span" => Ok(HtmlTag::Span),
+            "br" => Ok(HtmlTag::Br),
+            "wbr" => Ok(HtmlTag::Wbr),
+            "ins" => Ok(HtmlTag::Ins),
+            "del" => Ok(HtmlTag::Del),
+            "picture" => Ok(HtmlTag::Picture),
+            "source" => Ok(HtmlTag::Source),
+            "img" => Ok(HtmlTag::Img),
+            "iframe" => Ok(HtmlTag::Iframe),
+            "embed" => Ok(HtmlTag::Embed),
+            "object" => Ok(HtmlTag::Object),
+            "video" => Ok(HtmlTag::Video),
+            "audio" => Ok(HtmlTag::Audio),
+            "track" => Ok(HtmlTag::Track),
+            "map" => Ok(HtmlTag::Map),
+            "area" => Ok(HtmlTag::Area),
+            "math" => Ok(HtmlTag::Math),
+            "annotation" => Ok(HtmlTag::Annotation),
+            "annotation-xml" => Ok(HtmlTag::AnnotationXML),
+            "mi" => Ok(HtmlTag::Mi),
+            "mo" => Ok(HtmlTag::Mo),
+            "mn" => Ok(HtmlTag::Mn),
+            "ms" => Ok(HtmlTag::Ms),
+            "mfrac" => Ok(HtmlTag::Mfrac),
+            "mmultiscripts" => Ok(HtmlTag::Mmultiscripts),
+            "mover" => Ok(HtmlTag::Mover),
+            "mpadded" => Ok(HtmlTag::Mpadded),
+            "mphantom" => Ok(HtmlTag::Mphantom),
+            "mprescripts" => Ok(HtmlTag::Mprescripts),
+            "mroot" => Ok(HtmlTag::Mroot),
+            "mrow" => Ok(HtmlTag::Mrow),
+            "mspace" => Ok(HtmlTag::Mspace),
+            "msqrt" => Ok(HtmlTag::Msqrt),
+            "mstyle" => Ok(HtmlTag::Mstyle),
+            "msub" => Ok(HtmlTag::Msub),
+            "msubsup" => Ok(HtmlTag::Msubsup),
+            "msup" => Ok(HtmlTag::Msup),
+            "mtable" => Ok(HtmlTag::Mtable),
+            "mtd" => Ok(HtmlTag::Mtd),
+            "mtr" => Ok(HtmlTag::Mtr),
+            "munder" => Ok(HtmlTag::Munder),
+            "munderover" => Ok(HtmlTag::Munderover),
+            "semantics" => Ok(HtmlTag::Semantics),
+            "mtext" => Ok(HtmlTag::Mtext),
+            "merror" => Ok(HtmlTag::Merror),
+            "svg" => Ok(HtmlTag::Svg),
+            "table" => Ok(HtmlTag::Table),
+            "caption" => Ok(HtmlTag::Caption),
+            "colgroup" => Ok(HtmlTag::Colgroup),
+            "col" => Ok(HtmlTag::Col),
+            "tbody" => Ok(HtmlTag::Tbody),
+            "thead" => Ok(HtmlTag::Thead),
+            "tfoot" => Ok(HtmlTag::Tfoot),
+            "tr" => Ok(HtmlTag::Tr),
+            "td" => Ok(HtmlTag::Td),
+            "th" => Ok(HtmlTag::Th),
+            "form" => Ok(HtmlTag::Form),
+            "label" => Ok(HtmlTag::Label),
+            "input" => Ok(HtmlTag::Input),
+            "button" => Ok(HtmlTag::Button),
+            "select" => Ok(HtmlTag::Select),
+            "datalist" => Ok(HtmlTag::Datalist),
+            "optgroup" => Ok(HtmlTag::Optgroup),
+            "option" => Ok(HtmlTag::Option),
+            "textarea" => Ok(HtmlTag::Textarea),
+            "output" => Ok(HtmlTag::Output),
+            "progress" => Ok(HtmlTag::Progress),
+            "meter" => Ok(HtmlTag::Meter),
+            "fieldset" => Ok(HtmlTag::Fieldset),
+            "legend" => Ok(HtmlTag::Legend),
+            "selectedcontent" => Ok(HtmlTag::Selectedcontent),
+            "details" => Ok(HtmlTag::Details),
+            "summary" => Ok(HtmlTag::Summary),
+            "dialog" => Ok(HtmlTag::Dialog),
+            "script" => Ok(HtmlTag::Script),
+            "noscript" => Ok(HtmlTag::Noscript),
+            "template" => Ok(HtmlTag::Template),
+            "slot" => Ok(HtmlTag::Slot),
+            "canvas" => Ok(HtmlTag::Canvas),
+            s => Err(format!("'{}' is not a recognized HTML tag", s)),
+        }
+    }
+}
+
+impl TryFrom<String> for HtmlTag {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        HtmlTag::try_from(value.as_str())
+    }
+}
+
+/// Represents SVG tags as an enum.
+///
+/// This enum includes common SVG tags that are recognized by the parser.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Element>
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum SvgTag {
+    A,
+    Animate,
+    AnimateMotion,
+    AnimateTransform,
+    Circle,
+    ClipPath,
+    Defs,
+    Desc,
+    Ellipse,
+    FeBlend,
+    FeColorMatrix,
+    FeComponentTransfer,
+    FeComposite,
+    FeConvolveMatrix,
+    FeDiffuseLighting,
+    FeDisplacementMap,
+    FeDistantLight,
+    FeDropShadow,
+    FeFlood,
+    FeFuncA,
+    FeFuncB,
+    FeFuncG,
+    FeFuncR,
+    FeGaussianBlur,
+    FeImage,
+    FeMerge,
+    FeMergeNode,
+    FeMorphology,
+    FeOffset,
+    FePointLight,
+    FeSpecularLighting,
+    FeSpotLight,
+    FeTile,
+    FeTurbulence,
+    Filter,
+    ForeignObject,
+    G,
+    Image,
+    Line,
+    LinearGradient,
+    Marker,
+    Mask,
+    Metadata,
+    Mpath,
+    Path,
+    Pattern,
+    Polygon,
+    Polyline,
+    RadialGradient,
+    Rect,
+    Script,
+    Set,
+    Stop,
+    Svg,
+    Switch,
+    Symbol,
+    Text,
+    TextPath,
+    Title,
+    Tspan,
+    Use,
+    View,
+}
+
+impl SvgTag {
+    pub fn is_void_element(&self) -> bool {
+        matches!(
+            self,
+            SvgTag::Circle
+                | SvgTag::Ellipse
+                | SvgTag::Line
+                | SvgTag::Path
+                | SvgTag::Polygon
+                | SvgTag::Polyline
+                | SvgTag::Rect
+                | SvgTag::Stop
+                | SvgTag::Use
+                | SvgTag::Image
+                | SvgTag::FeBlend
+                | SvgTag::FeColorMatrix
+                | SvgTag::FeComponentTransfer
+                | SvgTag::FeComposite
+                | SvgTag::FeConvolveMatrix
+                | SvgTag::FeDiffuseLighting
+                | SvgTag::FeDisplacementMap
+                | SvgTag::FeDistantLight
+                | SvgTag::FeDropShadow
+                | SvgTag::FeFlood
+                | SvgTag::FeFuncA
+                | SvgTag::FeFuncB
+                | SvgTag::FeFuncG
+                | SvgTag::FeFuncR
+                | SvgTag::FeGaussianBlur
+                | SvgTag::FeImage
+                | SvgTag::FeMergeNode
+                | SvgTag::FeMorphology
+                | SvgTag::FeOffset
+                | SvgTag::FePointLight
+                | SvgTag::FeSpecularLighting
+                | SvgTag::FeSpotLight
+                | SvgTag::FeTile
+                | SvgTag::FeTurbulence
+                | SvgTag::Animate
+                | SvgTag::AnimateMotion
+                | SvgTag::AnimateTransform
+                | SvgTag::Mpath
+                | SvgTag::Set
+        )
+    }
+}
+
+impl Display for SvgTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SvgTag::A => "a",
+                SvgTag::Animate => "animate",
+                SvgTag::AnimateMotion => "animateMotion",
+                SvgTag::AnimateTransform => "animateTransform",
+                SvgTag::Circle => "circle",
+                SvgTag::ClipPath => "clipPath",
+                SvgTag::Defs => "defs",
+                SvgTag::Desc => "desc",
+                SvgTag::Ellipse => "ellipse",
+                SvgTag::FeBlend => "feBlend",
+                SvgTag::FeColorMatrix => "feColorMatrix",
+                SvgTag::FeComponentTransfer => "feComponentTransfer",
+                SvgTag::FeComposite => "feComposite",
+                SvgTag::FeConvolveMatrix => "feConvolveMatrix",
+                SvgTag::FeDiffuseLighting => "feDiffuseLighting",
+                SvgTag::FeDisplacementMap => "feDisplacementMap",
+                SvgTag::FeDistantLight => "feDistantLight",
+                SvgTag::FeDropShadow => "feDropShadow",
+                SvgTag::FeFlood => "feFlood",
+                SvgTag::FeFuncA => "feFuncA",
+                SvgTag::FeFuncB => "feFuncB",
+                SvgTag::FeFuncG => "feFuncG",
+                SvgTag::FeFuncR => "feFuncR",
+                SvgTag::FeGaussianBlur => "feGaussianBlur",
+                SvgTag::FeImage => "feImage",
+                SvgTag::FeMerge => "feMerge",
+                SvgTag::FeMergeNode => "feMergeNode",
+                SvgTag::FeMorphology => "feMorphology",
+                SvgTag::FeOffset => "feOffset",
+                SvgTag::FePointLight => "fePointLight",
+                SvgTag::FeSpecularLighting => "feSpecularLighting",
+                SvgTag::FeSpotLight => "feSpotLight",
+                SvgTag::FeTile => "feTile",
+                SvgTag::FeTurbulence => "feTurbulence",
+                SvgTag::Filter => "filter",
+                SvgTag::ForeignObject => "foreignObject",
+                SvgTag::G => "g",
+                SvgTag::Image => "image",
+                SvgTag::Line => "line",
+                SvgTag::LinearGradient => "linearGradient",
+                SvgTag::Marker => "marker",
+                SvgTag::Mask => "mask",
+                SvgTag::Metadata => "metadata",
+                SvgTag::Mpath => "mpath",
+                SvgTag::Path => "path",
+                SvgTag::Pattern => "pattern",
+                SvgTag::Polygon => "polygon",
+                SvgTag::Polyline => "polyline",
+                SvgTag::RadialGradient => "radialGradient",
+                SvgTag::Rect => "rect",
+                SvgTag::Script => "script",
+                SvgTag::Set => "set",
+                SvgTag::Stop => "stop",
+                SvgTag::Svg => "svg",
+                SvgTag::Switch => "switch",
+                SvgTag::Symbol => "symbol",
+                SvgTag::Text => "text",
+                SvgTag::TextPath => "textPath",
+                SvgTag::Title => "title",
+                SvgTag::Tspan => "tspan",
+                SvgTag::Use => "use",
+                SvgTag::View => "view",
+            }
+        )
+    }
+}
+
+impl TryFrom<&str> for SvgTag {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "a" => Ok(SvgTag::A),
+            "animate" => Ok(SvgTag::Animate),
+            "animateMotion" => Ok(SvgTag::AnimateMotion),
+            "animateTransform" => Ok(SvgTag::AnimateTransform),
+            "circle" => Ok(SvgTag::Circle),
+            "clipPath" => Ok(SvgTag::ClipPath),
+            "defs" => Ok(SvgTag::Defs),
+            "desc" => Ok(SvgTag::Desc),
+            "ellipse" => Ok(SvgTag::Ellipse),
+            "feBlend" => Ok(SvgTag::FeBlend),
+            "feColorMatrix" => Ok(SvgTag::FeColorMatrix),
+            "feComponentTransfer" => Ok(SvgTag::FeComponentTransfer),
+            "feComposite" => Ok(SvgTag::FeComposite),
+            "feConvolveMatrix" => Ok(SvgTag::FeConvolveMatrix),
+            "feDiffuseLighting" => Ok(SvgTag::FeDiffuseLighting),
+            "feDisplacementMap" => Ok(SvgTag::FeDisplacementMap),
+            "feDistantLight" => Ok(SvgTag::FeDistantLight),
+            "feDropShadow" => Ok(SvgTag::FeDropShadow),
+            "feFlood" => Ok(SvgTag::FeFlood),
+            "feFuncA" => Ok(SvgTag::FeFuncA),
+            "feFuncB" => Ok(SvgTag::FeFuncB),
+            "feFuncG" => Ok(SvgTag::FeFuncG),
+            "feFuncR" => Ok(SvgTag::FeFuncR),
+            "feGaussianBlur" => Ok(SvgTag::FeGaussianBlur),
+            "feImage" => Ok(SvgTag::FeImage),
+            "feMerge" => Ok(SvgTag::FeMerge),
+            "feMergeNode" => Ok(SvgTag::FeMergeNode),
+            "feMorphology" => Ok(SvgTag::FeMorphology),
+            "feOffset" => Ok(SvgTag::FeOffset),
+            "fePointLight" => Ok(SvgTag::FePointLight),
+            "feSpecularLighting" => Ok(SvgTag::FeSpecularLighting),
+            "feSpotLight" => Ok(SvgTag::FeSpotLight),
+            "feTile" => Ok(SvgTag::FeTile),
+            "feTurbulence" => Ok(SvgTag::FeTurbulence),
+            "filter" => Ok(SvgTag::Filter),
+            "foreignObject" => Ok(SvgTag::ForeignObject),
+            "g" => Ok(SvgTag::G),
+            "image" => Ok(SvgTag::Image),
+            "line" => Ok(SvgTag::Line),
+            "linearGradient" => Ok(SvgTag::LinearGradient),
+            "marker" => Ok(SvgTag::Marker),
+            "mask" => Ok(SvgTag::Mask),
+            "metadata" => Ok(SvgTag::Metadata),
+            "mpath" => Ok(SvgTag::Mpath),
+            "path" => Ok(SvgTag::Path),
+            "pattern" => Ok(SvgTag::Pattern),
+            "polygon" => Ok(SvgTag::Polygon),
+            "polyline" => Ok(SvgTag::Polyline),
+            "radialGradient" => Ok(SvgTag::RadialGradient),
+            "rect" => Ok(SvgTag::Rect),
+            "script" => Ok(SvgTag::Script),
+            "set" => Ok(SvgTag::Set),
+            "stop" => Ok(SvgTag::Stop),
+            "svg" => Ok(SvgTag::Svg),
+            "switch" => Ok(SvgTag::Switch),
+            "symbol" => Ok(SvgTag::Symbol),
+            "text" => Ok(SvgTag::Text),
+            "textPath" => Ok(SvgTag::TextPath),
+            "title" => Ok(SvgTag::Title),
+            "tspan" => Ok(SvgTag::Tspan),
+            "use" => Ok(SvgTag::Use),
+            "view" => Ok(SvgTag::View),
+            s => Err(format!("'{}' is not a recognized SVG tag", s)),
+        }
+    }
+}
+
+impl TryFrom<String> for SvgTag {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        SvgTag::try_from(value.as_str())
+    }
 }

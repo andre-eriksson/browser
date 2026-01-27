@@ -19,6 +19,9 @@ pub enum BlockedReason {
     /// The parser is waiting for a generic resource to load.
     /// The associated `String` represents the URL of the resource.
     WaitingForResource(ResourceType, String),
+
+    /// The parser is waiting for SVG parsing to complete.
+    ParsingSVG,
 }
 
 /// Represents the current state of the HTML parser.

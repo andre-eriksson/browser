@@ -158,4 +158,13 @@ pub enum TokenState {
     ///     background-color: #f0f0f0;
     /// }
     StyleData,
+
+    /// Represents the state of being inside an SVG tag
+    ///
+    /// # Example
+    /// ```css
+    /// <svg>
+    ///    <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
+    /// </svg>
+    SvgData,
 }

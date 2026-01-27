@@ -190,6 +190,19 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
         self.extract_content_until_end_tag("</style>")
     }
 
+    /// Extracts the content of an `<svg>` tag when the parser is blocked parsing SVG.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The content of the `<svg>` tag.
+    /// * `Err(String)` - An error message if the parser is not blocked parsing SVG or if extraction fails.
+    pub fn extract_svg_content(&mut self) -> Result<String, HtmlParsingError> {
+        if !matches!(self.state, ParserState::Blocked(BlockedReason::ParsingSVG),) {
+            return Err(HtmlParsingError::InvalidBlockReason("svg".to_string()));
+        }
+
+        self.extract_content_until_end_tag("</svg>")
+    }
+
     /// Extracts content from the input stream until the specified end tag is found.
     ///
     /// # Arguments
@@ -291,6 +304,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                         Some(BlockedReason::WaitingForStyle(attributes))
                     }
+                    TokenState::SvgData => Some(BlockedReason::ParsingSVG),
                     TokenState::AfterAttributeValueQuoted | TokenState::TagOpen => {
                         if let Some(last_token) = tokens.last()
                             && last_token.data.eq_ignore_ascii_case("link")

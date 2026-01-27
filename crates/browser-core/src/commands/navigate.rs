@@ -123,7 +123,6 @@ pub async fn navigate(
 
                     parser.resume()?;
                 }
-
                 BlockedReason::WaitingForResource(resource_type, href) => match resource_type {
                     ResourceType::Style => {
                         let style_url = match url.join(href) {
@@ -169,6 +168,13 @@ pub async fn navigate(
                         parser.resume()?;
                     }
                 },
+                BlockedReason::ParsingSVG => {
+                    let _svg_content = parser.extract_svg_content()?;
+
+                    // TODO: Process SVG content
+
+                    parser.resume()?;
+                }
             },
             ParserState::Completed => {
                 break;

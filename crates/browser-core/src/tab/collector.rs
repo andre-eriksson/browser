@@ -1,4 +1,4 @@
-use html_dom::{Collector, HtmlTag, KnownTag, TagInfo};
+use html_dom::{Collector, HtmlTag, Tag, TagInfo};
 
 #[derive(Default)]
 pub struct TabCollector {
@@ -14,12 +14,12 @@ pub struct TabCollector {
 
 impl Collector for TabCollector {
     fn collect(&mut self, tag: &TagInfo) {
-        if *tag.tag == HtmlTag::Known(KnownTag::Head) {
+        if *tag.tag == Tag::Html(HtmlTag::Head) {
             self.in_head = true;
             return;
         }
 
-        if *tag.tag == HtmlTag::Known(KnownTag::Body) {
+        if *tag.tag == Tag::Html(HtmlTag::Body) {
             self.in_head = false;
             return;
         }
@@ -28,7 +28,7 @@ impl Collector for TabCollector {
             return;
         }
 
-        if *tag.tag == HtmlTag::Known(KnownTag::Title) {
+        if *tag.tag == Tag::Html(HtmlTag::Title) {
             self.in_title = true;
         }
 

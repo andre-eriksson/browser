@@ -230,7 +230,7 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
                 if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                     match next {
                         None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
-                            if element.tag_name().to_string().to_lowercase() != ident.to_lowercase()
+                            if element.tag_name().to_lowercase() != ident.to_lowercase()
                                 && ident != "*"
                             {
                                 return false;

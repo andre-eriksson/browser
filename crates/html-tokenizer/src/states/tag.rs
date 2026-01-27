@@ -191,6 +191,8 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
             state.state = TokenState::ScriptData;
         } else if token.data == "style" && token.kind != TokenKind::EndTag {
             state.state = TokenState::StyleData;
+        } else if token.data == "svg" && token.kind != TokenKind::EndTag {
+            state.state = TokenState::SvgData
         } else {
             if token.data == "pre" {
                 if token.kind == TokenKind::StartTag {

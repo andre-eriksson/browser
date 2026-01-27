@@ -127,6 +127,20 @@ impl HtmlTokenizer {
                 state.state = TokenState::Data;
                 HtmlTokenizer::process_char(state, ch, tokens);
             }
+            TokenState::SvgData => {
+                HtmlTokenizer::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: HashMap::new(),
+                        data: "svg".to_string(),
+                    },
+                );
+
+                state.temporary_buffer.clear();
+                state.state = TokenState::Data;
+                HtmlTokenizer::process_char(state, ch, tokens);
+            }
         }
     }
 

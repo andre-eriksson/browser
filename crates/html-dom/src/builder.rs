@@ -4,7 +4,7 @@ use crate::{
     collector::{Collector, TagInfo},
     decode::Decoder,
     dom::{DocumentRoot, Element, NodeData, NodeId},
-    tag::{HtmlTag, is_void_element, should_auto_close},
+    tag::Tag,
 };
 
 /// Represents the result of building a DOM tree.
@@ -95,11 +95,11 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `new_tag` - A reference to the `HtmlTag` representing the new tag being processed.
-    fn handle_auto_close(&mut self, new_tag: &HtmlTag) {
+    fn handle_auto_close(&mut self, new_tag: &Tag) {
         let should_pop = if let Some(last_id) = self.open_elements.last() {
             if let Some(node) = self.dom_tree.get_node(last_id) {
                 if let NodeData::Element(elem) = &node.data {
-                    should_auto_close(&elem.tag, new_tag)
+                    elem.tag.should_auto_close(new_tag)
                 } else {
                     false
                 }
@@ -120,7 +120,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the start tag to be processed.
     fn handle_start_tag(&mut self, token: &Token) {
-        let tag = HtmlTag::from(token.data.to_lowercase());
+        let tag = Tag::from(token.data.to_lowercase().as_str());
         let attributes = &token.attributes;
 
         let element = Element {
@@ -141,7 +141,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             data: None,
         });
 
-        if !is_void_element(&tag) {
+        if !tag.is_void_element() {
             self.open_elements.push(new_id);
         }
     }
@@ -151,7 +151,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
     fn handle_end_tag(&mut self, token: &Token) {
-        let target_tag = HtmlTag::from(token.data.to_lowercase());
+        let target_tag = Tag::from(token.data.to_lowercase().as_str());
 
         let should_close = if let Some(last) = self.open_elements.last() {
             if let Some(node) = self.dom_tree.get_node(last) {

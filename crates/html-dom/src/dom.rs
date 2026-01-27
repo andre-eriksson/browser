@@ -3,7 +3,7 @@ use std::{
     fmt::{Display, Formatter},
 };
 
-use crate::tag::HtmlTag;
+use crate::tag::Tag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
@@ -17,7 +17,7 @@ impl Display for NodeId {
 #[derive(Debug, Clone)]
 pub struct Element {
     pub attributes: HashMap<String, String>,
-    pub tag: HtmlTag,
+    pub tag: Tag,
 }
 
 impl PartialEq for Element {
@@ -30,13 +30,13 @@ impl Default for Element {
     fn default() -> Self {
         Element {
             attributes: HashMap::new(),
-            tag: HtmlTag::Unknown("".to_string()),
+            tag: Tag::Unknown("".to_string()),
         }
     }
 }
 
 impl Element {
-    pub fn new(tag: HtmlTag, attributes: HashMap<String, String>) -> Self {
+    pub fn new(tag: Tag, attributes: HashMap<String, String>) -> Self {
         Element { tag, attributes }
     }
 
@@ -86,8 +86,8 @@ impl Element {
     ///
     /// # Returns
     /// The tag name as &str
-    pub fn tag_name(&self) -> &str {
-        self.tag.as_str()
+    pub fn tag_name(&self) -> String {
+        self.tag.to_string()
     }
 }
 
