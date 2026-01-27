@@ -43,7 +43,10 @@ impl BrowserHeader {
         .spacing(10.0);
 
         let search_bar = text_input("Search", &app.current_url)
-            .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)));
+            .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)))
+            .on_submit(Event::Browser(BrowserEvent::NavigateTo(
+                app.current_url.clone(),
+            )));
 
         let search_field = row![
             search_bar,
