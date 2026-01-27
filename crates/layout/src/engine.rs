@@ -1,39 +1,20 @@
 use std::{sync::Arc, vec};
 
-use css_style::{
-    StyleTree, StyledNode,
-    types::{
-        display::{BoxDisplay, InsideDisplay},
-        height::Height,
-        margin::MarginValue,
-        padding::PaddingValue,
-        width::Width,
-    },
-};
+use css_style::{StyleTree, StyledNode, types::display::InsideDisplay};
 
 use crate::{
-    layout::{LayoutColors, LayoutNode, LayoutTree},
-    primitives::{Color4f, Rect, SideOffset},
+    layout::{LayoutContext, LayoutNode, LayoutTree},
+    mode::block::BlockLayout,
+    primitives::Rect,
     text::TextContext,
 };
-
-/// Context passed down during layout computation
-#[derive(Debug, Clone, Default)]
-struct LayoutContext {
-    /// The containing block's content rect (where children are positioned)
-    pub containing_block: Rect,
-}
 
 /// Layout mode determines how children are positioned
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LayoutMode {
-    /// Default block layout
     Block,
-
-    /// Flexbox layout
+    Inline,
     Flex, // TODO: implement
-
-    /// Grid layout
     Grid, // TODO: implement
 }
 
@@ -79,7 +60,7 @@ impl LayoutEngine {
     }
 
     /// Compute layout for a single node and its descendants
-    fn layout_node(
+    pub(crate) fn layout_node(
         styled_node: &StyledNode,
         ctx: &LayoutContext,
         flow_y: f32,
@@ -88,194 +69,10 @@ impl LayoutEngine {
         let layout_mode = LayoutMode::from_styled_node(styled_node);
 
         match layout_mode {
-            LayoutMode::Block => Self::layout_block(styled_node, ctx, flow_y, text_ctx),
-            LayoutMode::Flex => Self::layout_block(styled_node, ctx, flow_y, text_ctx), // TODO: implement flex layout
-            LayoutMode::Grid => Self::layout_block(styled_node, ctx, flow_y, text_ctx), // TODO: implement grid layout
-        }
-    }
-
-    /// Block layout: elements stack vertically
-    fn layout_block(
-        styled_node: &StyledNode,
-        ctx: &LayoutContext,
-        flow_y: f32,
-        text_ctx: &mut TextContext,
-    ) -> LayoutNode {
-        if styled_node.style.display.box_display == Some(BoxDisplay::None) {
-            return LayoutNode {
-                node_id: styled_node.node_id,
-                dimensions: Rect {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 0.0,
-                    height: 0.0,
-                },
-                colors: LayoutColors::default(),
-                resolved_margin: SideOffset::zero(),
-                resolved_padding: SideOffset::zero(),
-                text_buffer: None,
-                children: vec![],
-            };
-        }
-
-        let font_size_px = styled_node.style.computed_font_size_px;
-
-        let margin = Self::resolve_margins(styled_node, ctx.containing_block.width, font_size_px);
-        let padding = Self::resolve_padding(styled_node, ctx.containing_block.width, font_size_px);
-
-        let colors = LayoutColors {
-            background_color: Color4f::from_css_color(&styled_node.style.background_color),
-            color: Color4f::from_css_color(&styled_node.style.color),
-        };
-
-        let x = ctx.containing_block.x + margin.left + padding.left;
-        let y = ctx.containing_block.y + flow_y + margin.top + padding.top;
-
-        let content_width = Self::calculate_width(styled_node, ctx, &margin, &padding);
-
-        let child_ctx = LayoutContext {
-            containing_block: Rect {
-                x,
-                y,
-                width: content_width,
-                height: ctx.containing_block.height,
-            },
-        };
-
-        let (content_height, children, buffer) = if let Some(text) = &styled_node.text_content {
-            let (_, text_height, buffer) = text_ctx.measure_text(
-                text,
-                font_size_px,
-                &styled_node.style.line_height,
-                &styled_node.style.font_family,
-                content_width,
-            );
-
-            (text_height, vec![], Some(Arc::new(buffer)))
-        } else {
-            let mut child_flow_y = 0.0;
-            let children: Vec<LayoutNode> = styled_node
-                .children
-                .iter()
-                .map(|child| {
-                    let child_node = Self::layout_node(child, &child_ctx, child_flow_y, text_ctx);
-                    child_flow_y += child_node.margin_box_height();
-                    child_node
-                })
-                .collect();
-
-            let content_height = Self::calculate_height(styled_node, ctx, child_flow_y);
-            (content_height, children, None)
-        };
-
-        let dimensions = Rect {
-            x,
-            y,
-            width: content_width,
-            height: content_height,
-        };
-
-        LayoutNode {
-            node_id: styled_node.node_id,
-            dimensions,
-            colors,
-            resolved_margin: margin,
-            resolved_padding: padding,
-            text_buffer: buffer,
-            children,
-        }
-    }
-
-    /// Resolve margin values to pixels
-    fn resolve_margins(
-        styled_node: &StyledNode,
-        containing_width: f32,
-        font_size_px: f32,
-    ) -> SideOffset {
-        let margin = &styled_node.style.margin;
-        SideOffset {
-            top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
-            right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
-            bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
-            left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
-        }
-    }
-
-    /// Resolve a single margin value to pixels
-    fn resolve_margin_value(value: &MarginValue, containing_width: f32, font_size_px: f32) -> f32 {
-        match value {
-            MarginValue::Length(len) => len.to_px(font_size_px),
-            MarginValue::Percentage(pct) => pct * containing_width / 100.0,
-            MarginValue::Auto => 0.0,
-            MarginValue::Global(_) => 0.0,
-        }
-    }
-
-    /// Resolve padding values to pixels
-    fn resolve_padding(
-        styled_node: &StyledNode,
-        containing_width: f32,
-        font_size_px: f32,
-    ) -> SideOffset {
-        let padding = &styled_node.style.padding;
-        SideOffset {
-            top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
-            right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
-            bottom: Self::resolve_padding_value(&padding.bottom, containing_width, font_size_px),
-            left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
-        }
-    }
-
-    fn resolve_padding_value(
-        value: &PaddingValue,
-        containing_width: f32,
-        font_size_px: f32,
-    ) -> f32 {
-        match value {
-            PaddingValue::Length(len) => len.to_px(font_size_px),
-            PaddingValue::Percentage(pct) => pct * containing_width / 100.0,
-            PaddingValue::Auto => 0.0,
-            PaddingValue::Global(_) => 0.0,
-        }
-    }
-
-    /// Calculate content width (top-down from containing block)
-    fn calculate_width(
-        styled_node: &StyledNode,
-        ctx: &LayoutContext,
-        margin: &SideOffset,
-        padding: &SideOffset,
-    ) -> f32 {
-        let available_width =
-            ctx.containing_block.width - margin.horizontal() - padding.horizontal();
-
-        match &styled_node.style.width {
-            Width::Auto => available_width.max(0.0),
-            Width::Length(len) => len.to_px(available_width),
-            Width::Percentage(pct) => (pct * ctx.containing_block.width / 100.0).max(0.0),
-            Width::Global(_) => available_width.max(0.0),
-            Width::MaxContent | Width::MinContent | Width::FitContent(_) | Width::Stretch => {
-                // TODO: implement intrinsic sizing
-                available_width.max(0.0)
-            }
-        }
-    }
-
-    /// Calculate content height (from explicit value or children)
-    fn calculate_height(
-        styled_node: &StyledNode,
-        ctx: &LayoutContext,
-        children_height: f32,
-    ) -> f32 {
-        match &styled_node.style.height {
-            Height::Auto => children_height,
-            Height::Length(len) => len.value,
-            Height::Percentage(pct) => pct * ctx.containing_block.height / 100.0,
-            Height::Global(_) => children_height,
-            Height::MaxContent | Height::MinContent | Height::FitContent(_) | Height::Stretch => {
-                // TODO: implement intrinsic sizing
-                children_height
-            }
+            LayoutMode::Block => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx),
+            LayoutMode::Inline => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx), // TODO: implement inline layout
+            LayoutMode::Flex => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx), // TODO: implement flex layout
+            LayoutMode::Grid => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx), // TODO: implement grid layout
         }
     }
 }

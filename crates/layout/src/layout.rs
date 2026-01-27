@@ -45,6 +45,13 @@ impl LayoutNode {
     pub fn margin_box_height(&self) -> f32 {
         self.dimensions.height + self.resolved_margin.vertical() + self.resolved_padding.vertical()
     }
+
+    /// Calculate the total width including margins and padding
+    pub fn margin_box_width(&self) -> f32 {
+        self.dimensions.width
+            + self.resolved_margin.horizontal()
+            + self.resolved_padding.horizontal()
+    }
 }
 
 /// The root of the layout tree containing all layout nodes
@@ -55,4 +62,11 @@ pub struct LayoutTree {
 
     /// The total content height of the layout tree
     pub content_height: f32,
+}
+
+/// Context passed down during layout computation
+#[derive(Debug, Clone, Default)]
+pub struct LayoutContext {
+    /// The containing block's content rect (where children are positioned)
+    pub containing_block: Rect,
 }
