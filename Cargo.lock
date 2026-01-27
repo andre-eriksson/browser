@@ -5581,6 +5581,7 @@ dependencies = [
  "assets",
  "browser-config",
  "browser-core",
+ "cli",
  "constants",
  "cookies",
  "cosmic-text",

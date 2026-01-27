@@ -2,9 +2,9 @@ mod message;
 
 use std::{str::FromStr, sync::Arc};
 
-use browser_config::Config;
+use browser_config::BrowserConfig;
 use browser_core::{Browser, BrowserEvent, HeadlessBrowser};
-use cli::{Parser, args::Args, headless::HeadlessEngine};
+use cli::{Parser, args::BrowserArgs, headless::HeadlessEngine};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
@@ -41,8 +41,8 @@ fn main() {
         )
         .init();
 
-    let args = Args::parse();
-    let config = Config::load();
+    let args = BrowserArgs::parse();
+    let config = BrowserConfig::default();
 
     let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
     let emitter = Box::new(ChannelEmitter::new(event_sender));
@@ -58,10 +58,11 @@ fn main() {
 
         return runtime.block_on(engine.main(&args));
     }
-    let browser = Browser::new(args.headers, emitter);
+
+    let browser = Browser::new(&args.headers, emitter);
     let browser = Arc::new(tokio::sync::Mutex::new(browser));
 
-    let ui_runtime = Ui::new(browser, event_receiver, config);
+    let ui_runtime = Ui::new(browser, event_receiver, args, config);
     let res = ui_runtime.run();
 
     if let Err(e) = res {

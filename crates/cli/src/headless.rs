@@ -2,7 +2,7 @@ use browser_core::{BrowserCommand, Commandable, HeadlessBrowser, TabId};
 use std::io::{self, Write};
 use tracing::{error, info};
 
-use crate::args::Args;
+use crate::args::BrowserArgs;
 
 pub struct HeadlessEngine {
     browser: HeadlessBrowser,
@@ -68,7 +68,7 @@ impl HeadlessEngine {
     }
 
     /// Main loop to process commands
-    pub async fn main(&mut self, args: &Args) {
+    pub async fn main(&mut self, args: &BrowserArgs) {
         if args.url.is_some() {
             let navigation_result = self
                 .browser

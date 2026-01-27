@@ -38,11 +38,11 @@ impl Default for Theme {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Config {
+pub struct BrowserConfig {
     theme: Theme,
 }
 
-impl Config {
+impl BrowserConfig {
     pub fn load() -> Self {
         match read_file_from_config(SETTINGS) {
             Err(_) => {
@@ -51,11 +51,11 @@ impl Config {
 
                 let path = base_path.join(SETTINGS);
 
-                let serialized = toml::to_string(&Config::default());
+                let serialized = toml::to_string(&BrowserConfig::default());
 
                 if serialized.is_err() {
                     eprintln!("Unable to serialize config file");
-                    return Config::default();
+                    return BrowserConfig::default();
                 }
 
                 let res = std::fs::write(path, serialized.unwrap());
@@ -64,22 +64,22 @@ impl Config {
                     eprintln!("Unable to create settings file")
                 }
 
-                Config::default()
+                BrowserConfig::default()
             }
             Ok(data) => {
                 let val = str::from_utf8(&data);
 
                 if val.is_err() {
-                    return Config::default();
+                    return BrowserConfig::default();
                 }
 
                 let out = toml::from_str(val.unwrap());
 
                 if out.is_err() {
-                    return Config::default();
+                    return BrowserConfig::default();
                 }
 
-                let config: Config = out.unwrap();
+                let config: BrowserConfig = out.unwrap();
 
                 config
             }

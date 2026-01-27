@@ -40,7 +40,7 @@ pub struct Browser {
 
 impl Browser {
     pub fn new(
-        custom_headers: Vec<String>,
+        custom_headers: &Vec<String>,
         emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
     ) -> Self {
         let http_client = Box::new(ReqwestClient::new());

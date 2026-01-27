@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use assets::ASSETS;
 use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
-use browser_config::Config;
+use browser_config::BrowserConfig;
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
 use errors::browser::{BrowserError, NavigationError};
@@ -35,7 +35,7 @@ pub enum Event {
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {
     /// The application config.
-    pub config: Config,
+    pub config: BrowserConfig,
 
     /// The unique identifier for the application window.
     pub id: window::Id,
@@ -70,7 +70,8 @@ impl Application {
     pub fn new(
         event_receiver: UnboundedReceiver<BrowserEvent>,
         browser: Arc<Mutex<Browser>>,
-        config: Config,
+        config: BrowserConfig,
+        initial_url: Option<String>,
     ) -> (Self, Task<Event>) {
         let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
         let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
@@ -106,7 +107,7 @@ impl Application {
             id: main_window_id,
             tabs: vec![first_tab],
             active_tab: TabId(0),
-            current_url: "http://127.0.0.1:5000/cookies/set-cookie".to_string(),
+            current_url: initial_url.unwrap_or("https://www.google.com".to_string()),
             window_controller,
             event_receiver: Arc::new(Mutex::new(event_receiver)),
             browser,

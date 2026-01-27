@@ -7,8 +7,8 @@ use constants::APP_NAME;
     version,
     about = "A web browser implemented in Rust."
 )]
-pub struct Args {
-    #[arg(long, help = "The initial URL to load")]
+pub struct BrowserArgs {
+    #[arg(short = 'u', long, help = "The initial URL to load")]
     pub url: Option<String>,
 
     #[arg(

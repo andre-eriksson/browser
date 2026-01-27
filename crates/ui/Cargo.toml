@@ -8,6 +8,7 @@ license.workspace = true
 assets.workspace = true
 browser-config.workspace = true
 browser-core.workspace = true
+cli.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true
 css-style.workspace = true
