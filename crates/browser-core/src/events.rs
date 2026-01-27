@@ -21,7 +21,7 @@ pub enum BrowserEvent {
     TabAdded(TabId),
 
     /// A tab has been closed.
-    TabClosed(TabId),
+    TabClosed(TabId, Option<TabId>),
 
     /// The active tab has changed.
     ActiveTabChanged(TabId),

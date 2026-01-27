@@ -2,8 +2,12 @@ use std::str::FromStr;
 
 use browser_core::BrowserEvent;
 use iced::{
-    Background, Color, Length,
-    widget::{button, column, container, mouse_area, row, text, text_input},
+    Background, Color, Length, Theme,
+    widget::{
+        button, column, container, mouse_area, row,
+        scrollable::{self, Direction, Scrollbar},
+        text, text_input,
+    },
 };
 
 use crate::{
@@ -16,19 +20,37 @@ pub struct BrowserHeader;
 impl BrowserHeader {
     /// Renders the header for the browser window, including tabs and a search bar.
     pub fn render(app: &Application) -> container::Container<'_, Event> {
-        let tabs = row(app
+        let theme = app.config.theme();
+
+        let all_tabs = row(app
             .tabs
             .iter()
             .map(|tab| {
-                let tab_title = tab.title.as_ref();
+                let active_tab_id = app.active_tab;
 
                 mouse_area(
-                    button(text(format!(
-                        "{} - {:?}",
-                        tab_title.unwrap_or(&"N/A".to_string()),
-                        tab.id
-                    )))
-                    .on_press(Event::Ui(UiEvent::ChangeActiveTab(tab.id))),
+                    button(text(tab.title.as_deref().unwrap_or("New Tab")))
+                        .on_press(Event::Ui(UiEvent::ChangeActiveTab(tab.id)))
+                        .style(move |t: &Theme, _| {
+                            if tab.id == active_tab_id {
+                                button::Style {
+                                    background: Some(Background::Color(t.palette().primary)),
+                                    ..Default::default()
+                                }
+                            } else {
+                                button::Style {
+                                    background: Some(Background::Color(
+                                        Color::from_str(theme.secondary.as_str()).unwrap_or(
+                                            Color::from_str(
+                                                &browser_config::Theme::default().secondary,
+                                            )
+                                            .unwrap(),
+                                        ),
+                                    )),
+                                    ..Default::default()
+                                }
+                            }
+                        }),
                 )
                 .on_right_press(Event::Ui(UiEvent::CloseTab(tab.id)))
                 .into()
@@ -36,11 +58,25 @@ impl BrowserHeader {
             .chain(std::iter::once(
                 button(text("+"))
                     .on_press(Event::Ui(UiEvent::NewTab))
+                    .style(|_, _| button::Style {
+                        background: Some(Background::Color(
+                            Color::from_str(theme.tertiary.as_str()).unwrap_or(
+                                Color::from_str(&browser_config::Theme::default().tertiary)
+                                    .unwrap(),
+                            ),
+                        )),
+                        ..Default::default()
+                    })
                     .into(),
             ))
             .collect::<Vec<_>>())
         .width(Length::Shrink)
         .spacing(10.0);
+
+        let tabs = scrollable::Scrollable::new(all_tabs)
+            .direction(Direction::Horizontal(Scrollbar::new()))
+            .height(Length::Fixed(40.0))
+            .width(Length::FillPortion(2));
 
         let search_bar = text_input("Search", &app.current_url)
             .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)))
@@ -61,7 +97,7 @@ impl BrowserHeader {
             .padding(10.0)
             .style(|_| container::Style {
                 background: Some(Background::Color(
-                    Color::from_str(app.config.theme().foreground.as_str()).unwrap_or(
+                    Color::from_str(theme.foreground.as_str()).unwrap_or(
                         Color::from_str(&browser_config::Theme::default().foreground).unwrap(),
                     ),
                 )),

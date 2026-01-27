@@ -48,10 +48,10 @@ impl TabManager {
         Ok(())
     }
 
-    pub(crate) fn change_to_any_tab(&mut self) -> Result<(), TabError> {
-        if let Some(first_tab) = self.tabs.first() {
-            self.change_active_tab(first_tab.id)?;
-            Ok(())
+    pub(crate) fn change_to_any_tab(&mut self) -> Result<TabId, TabError> {
+        if let Some(first_tab) = self.tabs.last() {
+            self.active_tab = first_tab.id;
+            Ok(first_tab.id)
         } else {
             Err(TabError::NoTabsAvailable)
         }

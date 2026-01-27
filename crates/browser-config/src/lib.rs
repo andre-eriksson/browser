@@ -14,6 +14,8 @@ pub struct Theme {
     pub foreground: Color,
     pub text: Color,
     pub primary: Color,
+    pub secondary: Color,
+    pub tertiary: Color,
     pub success: Color,
     pub warning: Color,
     pub danger: Color,
@@ -23,12 +25,14 @@ impl Default for Theme {
     fn default() -> Self {
         Self {
             background: "#FFFFFF".to_string(),
-            foreground: "#D4D4D4".to_string(),
-            text: "#0A0A0A".to_string(),
-            primary: "#00BBF9".to_string(),
-            success: "#90BE6D".to_string(),
-            warning: "#F8961E".to_string(),
-            danger: "#F94144".to_string(),
+            foreground: "#F6F8FB".to_string(),
+            text: "#1A1A1A".to_string(),
+            primary: "#5BC0EB".to_string(),
+            secondary: "#9BD7F5".to_string(),
+            tertiary: "#3A86FF".to_string(),
+            success: "#8AC926".to_string(),
+            warning: "#FFB703".to_string(),
+            danger: "#EF476F".to_string(),
         }
     }
 }

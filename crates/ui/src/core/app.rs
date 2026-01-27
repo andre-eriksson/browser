@@ -238,8 +238,12 @@ impl Application {
                         let new_tab = UiTab::new(new_tab_id);
                         self.tabs.push(new_tab);
                     }
-                    BrowserEvent::TabClosed(tab_id) => {
+                    BrowserEvent::TabClosed(tab_id, next_tab_id) => {
                         self.tabs.retain(|tab| tab.id != tab_id);
+
+                        if let Some(next_id) = next_tab_id {
+                            self.active_tab = next_id;
+                        }
                     }
                     BrowserEvent::ActiveTabChanged(tab_id) => {
                         self.active_tab = tab_id;
