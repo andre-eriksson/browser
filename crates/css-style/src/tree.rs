@@ -1,5 +1,5 @@
 use css_cssom::CSSStyleSheet;
-use html_dom::{DocumentRoot, NodeData, NodeId};
+use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
 use crate::cached_stylesheet::CachedStylesheets;
 use crate::computed::ComputedStyle;
@@ -7,6 +7,7 @@ use crate::computed::ComputedStyle;
 #[derive(Debug, Clone)]
 pub struct StyledNode {
     pub node_id: NodeId,
+    pub tag: Option<Tag>,
     pub style: ComputedStyle,
     pub children: Vec<StyledNode>,
     pub text_content: Option<String>,
@@ -47,6 +48,7 @@ impl StyleTree {
 
             StyledNode {
                 node_id,
+                tag: node.data.as_element().map(|e| e.tag.clone()),
                 style: computed_style,
                 children,
                 text_content,
