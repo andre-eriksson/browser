@@ -144,7 +144,7 @@ br[clear=all i], br[clear=both i] { clear: both; }
 
 address, blockquote, center, div, figure, figcaption, footer, form, header, hr,
 legend, listing, main, p, plaintext, pre, summary, xmp, article, aside,
-:heading, hgroup, nav, section, search, table, caption, colgroup, col, thead,
+h1, h2, h3, h4, h5, h6, h7, h8, h9, hgroup, nav, section, search, table, caption, colgroup, col, thead,
 tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, bdi, output,
 [dir=ltr i], [dir=rtl i], [dir=auto i] {
   unicode-bidi: isolate;
@@ -159,7 +159,7 @@ input[dir=auto i]:is([type=search i], [type=tel i], [type=url i],
 
 address, blockquote, center, div, figure, figcaption, footer, form, header, hr,
 legend, listing, main, p, plaintext, pre, summary, xmp, article, aside,
-:heading, hgroup, nav, section, search, table, caption, colgroup, col, thead,
+h1, h2, h3, h4, h5, h6, h7, h8, h9, hgroup, nav, section, search, table, caption, colgroup, col, thead,
 tbody, tfoot, tr, td, th, dir, dd, dl, dt, menu, ol, ul, li, [dir=ltr i],
 [dir=rtl i], [dir=auto i], *|* {
   unicode-bidi: bidi-override;
@@ -169,7 +169,7 @@ textarea {
   unicode-bidi: normal;
 }
 
-article, aside, :heading, hgroup, nav, section {
+article, aside, h1, h2, h3, h4, h5, h6, h7, h8, h9, hgroup, nav, section {
   display: block;
 }
 
