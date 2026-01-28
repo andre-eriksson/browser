@@ -1,6 +1,11 @@
 use css_style::{
     StyledNode,
-    types::{height::Height, margin::MarginValue, padding::PaddingValue, width::Width},
+    types::{
+        height::Height,
+        margin::{Margin, MarginValue},
+        padding::{Padding, PaddingValue},
+        width::Width,
+    },
 };
 
 use crate::SideOffset;
@@ -9,12 +14,25 @@ pub struct PropertyResolver;
 
 impl PropertyResolver {
     /// Resolve margin values to pixels
-    pub(crate) fn resolve_margins(
+    pub(crate) fn resolve_node_margins(
         styled_node: &StyledNode,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
         let margin = &styled_node.style.margin;
+        SideOffset {
+            top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
+            right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
+            bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
+            left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
+        }
+    }
+
+    pub(crate) fn resolve_margins(
+        margin: &Margin,
+        containing_width: f32,
+        font_size_px: f32,
+    ) -> SideOffset {
         SideOffset {
             top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
             right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
@@ -38,12 +56,25 @@ impl PropertyResolver {
     }
 
     /// Resolve padding values to pixels
-    pub(crate) fn resolve_padding(
+    pub(crate) fn resolve_node_padding(
         styled_node: &StyledNode,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
         let padding = &styled_node.style.padding;
+        SideOffset {
+            top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
+            right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
+            bottom: Self::resolve_padding_value(&padding.bottom, containing_width, font_size_px),
+            left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
+        }
+    }
+
+    pub(crate) fn resolve_padding(
+        padding: &Padding,
+        containing_width: f32,
+        font_size_px: f32,
+    ) -> SideOffset {
         SideOffset {
             top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
             right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
