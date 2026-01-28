@@ -2,6 +2,20 @@ use std::path::Path;
 
 use crate::paths::{get_cache_path, get_config_path, get_data_path};
 
+#[macro_export]
+macro_rules! write_tmp {
+    ($name:expr, $content:expr) => {{
+        use std::fs;
+        use std::path::PathBuf;
+
+        let mut path = PathBuf::from("tmp");
+
+        let _ = fs::create_dir_all(&path);
+        path.push($name);
+        let _ = fs::write(&path, $content);
+    }};
+}
+
 fn write_file<P, C>(path: P, content: C) -> std::io::Result<()>
 where
     P: AsRef<Path>,
