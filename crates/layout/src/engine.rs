@@ -1,29 +1,33 @@
-use std::{sync::Arc, vec};
-
-use css_style::{StyleTree, StyledNode, types::display::InsideDisplay};
+use css_style::{
+    StyleTree, StyledNode,
+    types::display::{BoxDisplay, InsideDisplay},
+};
 
 use crate::{
     layout::{LayoutContext, LayoutNode, LayoutTree},
-    mode::block::BlockLayout,
+    mode::block::{BlockCursor, BlockLayout},
     primitives::Rect,
     text::TextContext,
 };
 
 /// Layout mode determines how children are positioned
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LayoutMode {
+pub(crate) enum LayoutMode {
     Block,
-    Inline,
     Flex, // TODO: implement
     Grid, // TODO: implement
 }
 
 impl LayoutMode {
-    pub fn from_styled_node(styled_node: &StyledNode) -> Self {
+    pub fn from_styled_node(styled_node: &StyledNode) -> Option<Self> {
+        if styled_node.style.display.box_display == Some(BoxDisplay::None) {
+            return None;
+        }
+
         match styled_node.style.display.inside {
-            Some(InsideDisplay::Flex) => LayoutMode::Flex,
-            Some(InsideDisplay::Grid) => LayoutMode::Grid,
-            _ => LayoutMode::Block,
+            Some(InsideDisplay::Flex) => Some(LayoutMode::Flex),
+            Some(InsideDisplay::Grid) => Some(LayoutMode::Grid),
+            _ => Some(LayoutMode::Block),
         }
     }
 }
@@ -42,16 +46,24 @@ impl LayoutEngine {
         };
 
         let mut total_height = 0.0;
+        let mut block_cursor = BlockCursor { y: 0.0 };
 
-        let root_nodes = style_tree
-            .root_nodes
-            .iter()
-            .map(|styled_node| {
-                let node = Self::layout_node(styled_node, &ctx, total_height, text_ctx);
-                total_height += node.margin_box_height();
-                node
-            })
-            .collect();
+        let mut root_nodes = Vec::new();
+
+        for styled_node in &style_tree.root_nodes {
+            let node = Self::layout_node(styled_node, &ctx, &mut block_cursor, text_ctx);
+
+            if node.is_none() {
+                // For `display: none`
+                continue;
+            }
+
+            let node = node.unwrap();
+
+            total_height +=
+                node.resolved_margin.bottom + node.resolved_padding.bottom + node.dimensions.height;
+            root_nodes.push(node);
+        }
 
         LayoutTree {
             root_nodes,
@@ -63,16 +75,30 @@ impl LayoutEngine {
     pub(crate) fn layout_node(
         styled_node: &StyledNode,
         ctx: &LayoutContext,
-        flow_y: f32,
+        block_cursor: &mut BlockCursor,
         text_ctx: &mut TextContext,
-    ) -> LayoutNode {
-        let layout_mode = LayoutMode::from_styled_node(styled_node);
+    ) -> Option<LayoutNode> {
+        let layout_mode = LayoutMode::from_styled_node(styled_node)?;
 
         match layout_mode {
-            LayoutMode::Block => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx),
-            LayoutMode::Inline => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx), // TODO: implement inline layout
-            LayoutMode::Flex => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx), // TODO: implement flex layout
-            LayoutMode::Grid => BlockLayout::layout(styled_node, ctx, flow_y, text_ctx), // TODO: implement grid layout
+            LayoutMode::Block => Some(BlockLayout::layout(
+                styled_node,
+                ctx,
+                block_cursor,
+                text_ctx,
+            )),
+            LayoutMode::Flex => Some(BlockLayout::layout(
+                styled_node,
+                ctx,
+                block_cursor,
+                text_ctx,
+            )), // TODO: implement flex layout
+            LayoutMode::Grid => Some(BlockLayout::layout(
+                styled_node,
+                ctx,
+                block_cursor,
+                text_ctx,
+            )), // TODO: implement grid layout
         }
     }
 }
@@ -103,6 +129,7 @@ mod tests {
         let style_tree = StyleTree {
             root_nodes: vec![StyledNode {
                 node_id: NodeId(0),
+                tag: None,
                 style: ComputedStyle {
                     height: Height::Length(Length {
                         value: 100.0,
@@ -135,6 +162,7 @@ mod tests {
     fn test_parent_with_child() {
         let style_node_child = StyledNode {
             node_id: NodeId(1),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Length(Length {
                     value: 50.0,
@@ -152,6 +180,7 @@ mod tests {
 
         let style_node_parent = StyledNode {
             node_id: NodeId(0),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Length(Length {
                     value: 100.0,
@@ -190,6 +219,7 @@ mod tests {
     fn test_siblings_do_not_accumulate_x() {
         let sibling1 = StyledNode {
             node_id: NodeId(1),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Length(Length {
                     value: 30.0,
@@ -207,6 +237,7 @@ mod tests {
 
         let sibling2 = StyledNode {
             node_id: NodeId(2),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Length(Length {
                     value: 30.0,
@@ -224,6 +255,7 @@ mod tests {
 
         let parent = StyledNode {
             node_id: NodeId(0),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Auto,
                 margin: Margin::zero(),
@@ -254,6 +286,7 @@ mod tests {
     fn test_auto_height_from_children() {
         let child = StyledNode {
             node_id: NodeId(1),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Length(Length {
                     value: 50.0,
@@ -268,6 +301,7 @@ mod tests {
 
         let parent = StyledNode {
             node_id: NodeId(0),
+            tag: None,
             style: ComputedStyle {
                 height: Height::Auto,
                 margin: Margin::zero(),
@@ -294,6 +328,7 @@ mod tests {
 
         let styled_node = StyledNode {
             node_id: NodeId(0),
+            tag: None,
             style: ComputedStyle {
                 background_color: Color::Hex([255, 0, 0]),
                 color: Color::Named(NamedColor::White),
