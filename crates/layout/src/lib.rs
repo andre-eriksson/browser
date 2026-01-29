@@ -16,6 +16,9 @@ mod primitives;
 /// Text measurement context
 mod text;
 
+mod mode;
+mod resolver;
+
 pub use engine::LayoutEngine;
 pub use layout::{LayoutColors, LayoutNode, LayoutTree};
 pub use primitives::{Color4f, Rect, SideOffset};
