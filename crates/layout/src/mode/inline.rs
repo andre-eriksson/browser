@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use css_style::{ComputedStyle, StyledNode};
-use html_dom::NodeId;
+use css_style::{ComputedStyle, StyledNode, types::display::OutsideDisplay};
+use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
     Color4f, LayoutColors, LayoutNode, Rect, TextContext, resolver::PropertyResolver,
@@ -20,30 +20,56 @@ pub enum InlineItem {
     TextRun {
         id: NodeId,
         text: String,
-        style: ComputedStyle,
+        style: Box<ComputedStyle>,
+    },
+    Break {
+        font_size_px: f32,
     },
 }
 
 pub struct InlineLayout;
 
 impl InlineLayout {
-    pub fn collect_inline_items(inline_node: &StyledNode) -> Vec<InlineItem> {
+    pub fn collect_inline_items_from_nodes(nodes: &[StyledNode]) -> Vec<InlineItem> {
         let mut items = Vec::new();
 
+        for node in nodes {
+            Self::collect(node, &mut items);
+        }
+
+        items
+    }
+
+    fn collect(inline_node: &StyledNode, items: &mut Vec<InlineItem>) {
         if let Some(text) = inline_node.text_content.as_ref() {
             items.push(InlineItem::TextRun {
                 id: inline_node.node_id,
                 text: text.clone(),
-                style: inline_node.style.clone(),
+                style: Box::new(inline_node.style.clone()),
             });
         }
 
-        for child in &inline_node.children {
-            let mut child_items = Self::collect_inline_items(child);
-            items.append(&mut child_items);
-        }
+        if let Some(tag) = inline_node.tag.as_ref() {
+            if inline_node.style.display.outside != Some(OutsideDisplay::Inline)
+                && !items.is_empty()
+            {
+                return;
+            }
 
-        items
+            match tag {
+                Tag::Html(HtmlTag::Br) => {
+                    let font_size_px = inline_node.style.computed_font_size_px;
+                    items.push(InlineItem::Break { font_size_px });
+                }
+                _ => {
+                    if !inline_node.children.is_empty() {
+                        for child in &inline_node.children {
+                            Self::collect(child, items);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn layout(
@@ -153,6 +179,13 @@ impl InlineLayout {
                     }
 
                     cursor.remaining_width = width - cursor.x;
+                }
+                InlineItem::Break { font_size_px } => {
+                    let line_height_px = *font_size_px * 1.2;
+                    cursor.y += line_height_px;
+                    cursor.x = 0.0;
+                    cursor.remaining_width = width;
+                    total_height += line_height_px;
                 }
             }
         }

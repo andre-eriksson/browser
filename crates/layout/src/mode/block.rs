@@ -81,24 +81,50 @@ impl BlockLayout {
         let mut content_height = 0.0;
         let mut child_cursor = BlockCursor { y: 0.0 };
 
-        for style_node in &styled_node.children {
+        let mut child_index = 0;
+        let child_len = styled_node.children.len();
+
+        while child_index < child_len {
+            let style_node = &styled_node.children[child_index];
+
+            if style_node.style.display.outside == Some(OutsideDisplay::Inline) {
+                let mut inline_end = child_index + 1;
+                while inline_end < child_len
+                    && styled_node.children[inline_end].style.display.outside
+                        == Some(OutsideDisplay::Inline)
+                {
+                    inline_end += 1;
+                }
+
+                let items = InlineLayout::collect_inline_items_from_nodes(
+                    &styled_node.children[child_index..inline_end],
+                );
+
+                let inline_y = y + child_cursor.y;
+                let (inline_nodes, inline_height) = InlineLayout::layout(
+                    &items,
+                    text_ctx,
+                    child_ctx.containing_block.width,
+                    x,
+                    inline_y,
+                );
+
+                child_cursor.y += inline_height;
+                if !inline_nodes.is_empty() {
+                    children.extend(inline_nodes);
+                }
+
+                child_index = inline_end;
+                continue;
+            }
+
             let child_node =
                 LayoutEngine::layout_node(style_node, &child_ctx, &mut child_cursor, text_ctx);
 
             if child_node.is_none() {
                 // For `display: none`
+                child_index += 1;
                 continue;
-            }
-
-            if style_node.style.display.outside == Some(OutsideDisplay::Inline) {
-                let items = InlineLayout::collect_inline_items(styled_node);
-                let childs =
-                    InlineLayout::layout(&items, text_ctx, child_ctx.containing_block.width, x, y);
-
-                children = childs.0;
-                child_cursor.y += childs.1;
-
-                break;
             }
 
             let child_node = child_node.unwrap();
@@ -108,6 +134,7 @@ impl BlockLayout {
                 + child_node.dimensions.height;
 
             children.push(child_node);
+            child_index += 1;
         }
 
         content_height += PropertyResolver::calculate_height(
