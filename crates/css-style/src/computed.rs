@@ -1,7 +1,7 @@
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    cascade::{GeneratedRule, cascade, collect_declarations},
+    cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
     resolver::PropertyResolver,
     types::{
         border::Border,
@@ -36,6 +36,7 @@ pub struct ComputedStyle {
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
+    pub variables: Vec<(String, String)>,
 }
 
 impl ComputedStyle {
@@ -62,11 +63,27 @@ impl ComputedStyle {
             None => return computed_style,
         };
 
-        let declarations = &mut collect_declarations(node, dom, rules);
+        let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
         let properties = cascade(declarations);
+        computed_style.variables = cascade_variables(variables);
 
         for (key, value) in properties {
-            let v = value.as_str();
+            let mut v = value.as_str();
+
+            if v.starts_with("var")
+                && let Some(start) = v.find('(')
+                && let Some(end) = v.rfind(')')
+            {
+                let var_name = v[start + 1..end].trim();
+                if let Some((_, var_value)) = computed_style
+                    .variables
+                    .iter()
+                    .find(|(name, _)| name == var_name)
+                {
+                    v = var_value.as_str();
+                }
+            }
+
             match key.as_str() {
                 "background" | "background-color" => {
                     if let Some(color) = PropertyResolver::resolve_color(v) {
@@ -166,6 +183,7 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         ComputedStyle {
+            variables: vec![],
             background_color: Color::Named(NamedColor::Transparent),
             border: Border::none(),
             color: Color::Named(NamedColor::Black),
