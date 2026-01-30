@@ -12,3 +12,8 @@ pub mod padding;
 pub mod position;
 pub mod text_align;
 pub mod width;
+
+/// A trait for types that can be parsed from a string representation.
+pub trait Parseable: Sized {
+    fn parse(value: &str) -> Option<Self>;
+}

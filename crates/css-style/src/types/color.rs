@@ -1,4 +1,9 @@
-use crate::{resolver::PropertyResolver, types::angle::Angle};
+use crate::{
+    types::{Parseable, angle::Angle},
+    unit::Unit,
+};
+
+pub type HexColor = [u8; 3];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SystemColor {
@@ -21,9 +26,6 @@ pub enum SystemColor {
     SelectedItem,
     SelectedItemText,
     VisitedText,
-
-    /// Used only for getting a default value in From<&str>
-    Unknown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -170,12 +172,9 @@ pub enum NamedColor {
     WhiteSmoke,
     Yellow,
     YellowGreen,
-
-    /// Used only for getting a default value in From<&str>
-    Unknown,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SRGBAColor {
     RGB(u8, u8, u8),
     RGBA(u8, u8, u8, f32),
@@ -184,136 +183,41 @@ pub enum SRGBAColor {
     HWB(f32, f32, f32),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CIELAB {
     Lab(f32, f32, f32),
     Lch(f32, f32, f32),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Oklab {
     Oklab(f32, f32, f32),
     Oklch(f32, f32, f32),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FunctionColor {
     SRGBA(SRGBAColor),
     CIELAB(CIELAB),
     Oklab(Oklab),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
     System(SystemColor),
     Named(NamedColor),
-    Hex([u8; 3]),
+    Hex(HexColor),
     Functional(FunctionColor),
     CurrentColor,
 }
 
-impl Color {
-    pub fn hex(value: &str) -> Option<Self> {
-        let hex = value.trim_start_matches('#');
-        if hex.len() == 6
-            && let Ok(parsed) = u32::from_str_radix(hex, 16)
-        {
-            let r = ((parsed >> 16) & 0xFF) as u8;
-            let g = ((parsed >> 8) & 0xFF) as u8;
-            let b = (parsed & 0xFF) as u8;
-            return Some(Color::Hex([r, g, b]));
-        }
-
-        None
-    }
-
-    pub fn from_rgb_string(value: &str) -> Option<Self> {
-        let value = value.trim();
-
-        if value.starts_with("rgb(") && value.ends_with(')') {
-            let content = &value[4..value.len() - 1];
-            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
-            if parts.len() == 3
-                && let (Ok(r), Ok(g), Ok(b)) = (
-                    parts[0].parse::<u8>(),
-                    parts[1].parse::<u8>(),
-                    parts[2].parse::<u8>(),
-                )
-            {
-                return Some(Color::Functional(FunctionColor::SRGBA(SRGBAColor::RGB(
-                    r, g, b,
-                ))));
-            }
-        } else if value.starts_with("rgba(") && value.ends_with(')') {
-            let content = &value[5..value.len() - 1];
-            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
-            if parts.len() == 4
-                && let (Ok(r), Ok(g), Ok(b), Ok(a)) = (
-                    parts[0].parse::<u8>(),
-                    parts[1].parse::<u8>(),
-                    parts[2].parse::<u8>(),
-                    parts[3].parse::<f32>(),
-                )
-            {
-                return Some(Color::Functional(FunctionColor::SRGBA(SRGBAColor::RGBA(
-                    r, g, b, a,
-                ))));
-            }
-        }
-
-        None
-    }
-
-    pub fn from_oklch_string(value: &str) -> Option<Self> {
-        let value = value.trim();
-
-        if value.starts_with("oklch(") && value.ends_with(')') {
-            let content = &value[6..value.len() - 1];
-
-            // TODO: Handle relative values: `from <color> L C H [ / A]`
-            let parts: Vec<&str> = if content.contains(',') {
-                content.split(',').map(|s| s.trim()).collect()
-            } else {
-                content.split_whitespace().map(|s| s.trim()).collect()
-            };
-
-            if parts.len() != 3 {
-                // TODO: Handle optional alpha channel
-                return None;
-            }
-
-            let l = if parts[0].contains('%') {
-                PropertyResolver::resolve_percentage(parts[0])? / 100.0
-            } else if parts[0].eq_ignore_ascii_case("none") {
-                0.0
-            } else {
-                parts[0].parse::<f32>().ok()?
-            };
-
-            let c = if parts[1].contains('%') {
-                PropertyResolver::resolve_percentage(parts[1])? / 100.0
-            } else if parts[1].eq_ignore_ascii_case("none") {
-                0.0
-            } else {
-                parts[1].parse::<f32>().ok()?
-            };
-
-            let h = if let Some(angle) = Angle::parse(parts[2]) {
-                angle.to_degrees()
-            } else {
-                parts[2].parse::<f32>().ok()?
-            };
-
-            return Some(Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
-                l, c, h,
-            ))));
-        }
-
-        None
-    }
-}
-
 impl NamedColor {
+    #[inline(always)]
+    fn lower_ascii_first_byte(s: &str) -> u8 {
+        let b = s.as_bytes()[0];
+        if b.is_ascii_uppercase() { b + 32 } else { b }
+    }
+
     /// Converts the NamedColor to its hexadecimal string representation
     ///
     /// # Returns
@@ -485,191 +389,784 @@ impl NamedColor {
     }
 }
 
-impl From<&str> for SystemColor {
-    fn from(value: &str) -> Self {
-        match value {
-            "AccentColor" => SystemColor::AccentColor,
-            "AccentColorText" => SystemColor::AccentColorText,
-            "ActiveText" => SystemColor::ActiveText,
-            "ButtonBorder" => SystemColor::ButtonBorder,
-            "ButtonFace" => SystemColor::ButtonFace,
-            "ButtonText" => SystemColor::ButtonText,
-            "Canvas" => SystemColor::Canvas,
-            "CanvasText" => SystemColor::CanvasText,
-            "Field" => SystemColor::Field,
-            "FieldText" => SystemColor::FieldText,
-            "GrayText" => SystemColor::GrayText,
-            "Highlight" => SystemColor::Highlight,
-            "HighlightText" => SystemColor::HighlightText,
-            "LinkText" => SystemColor::LinkText,
-            "Mark" => SystemColor::Mark,
-            "MarkText" => SystemColor::MarkText,
-            "SelectedItem" => SystemColor::SelectedItem,
-            "SelectedItemText" => SystemColor::SelectedItemText,
-            "VisitedText" => SystemColor::VisitedText,
-            _ => SystemColor::Unknown, // Default case
+impl Parseable for SystemColor {
+    fn parse(s: &str) -> Option<Self> {
+        match s.len() {
+            4 if s.eq_ignore_ascii_case("mark") => Some(SystemColor::Mark),
+            6 if s.eq_ignore_ascii_case("canvas") => Some(SystemColor::Canvas),
+            9 if s.eq_ignore_ascii_case("gray-text") => Some(SystemColor::GrayText),
+            9 if s.eq_ignore_ascii_case("highlight") => Some(SystemColor::Highlight),
+            9 if s.eq_ignore_ascii_case("mark-text") => Some(SystemColor::MarkText),
+            9 if s.eq_ignore_ascii_case("link-text") => Some(SystemColor::LinkText),
+            11 if s.eq_ignore_ascii_case("active-text") => Some(SystemColor::ActiveText),
+            11 if s.eq_ignore_ascii_case("button-face") => Some(SystemColor::ButtonFace),
+            11 if s.eq_ignore_ascii_case("button-text") => Some(SystemColor::ButtonText),
+            11 if s.eq_ignore_ascii_case("canvas-text") => Some(SystemColor::CanvasText),
+            12 if s.eq_ignore_ascii_case("accent-color") => Some(SystemColor::AccentColor),
+            12 if s.eq_ignore_ascii_case("visited-text") => Some(SystemColor::VisitedText),
+            13 if s.eq_ignore_ascii_case("button-border") => Some(SystemColor::ButtonBorder),
+            13 if s.eq_ignore_ascii_case("selected-item") => Some(SystemColor::SelectedItem),
+            14 if s.eq_ignore_ascii_case("highlight-text") => Some(SystemColor::HighlightText),
+            17 if s.eq_ignore_ascii_case("accent-color-text") => Some(SystemColor::AccentColorText),
+            18 if s.eq_ignore_ascii_case("selected-item-text") => {
+                Some(SystemColor::SelectedItemText)
+            }
+            _ => None,
         }
     }
 }
 
-impl From<String> for SystemColor {
-    fn from(value: String) -> Self {
-        SystemColor::from(value.as_str())
-    }
-}
-
-impl From<&str> for NamedColor {
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
-            "aliceblue" => NamedColor::AliceBlue,
-            "antiquewhite" => NamedColor::AntiqueWhite,
-            "aqua" => NamedColor::Aqua,
-            "aquamarine" => NamedColor::Aquamarine,
-            "azure" => NamedColor::Azure,
-            "beige" => NamedColor::Beige,
-            "bisque" => NamedColor::Bisque,
-            "black" => NamedColor::Black,
-            "blanchedalmond" => NamedColor::BlanchedAlmond,
-            "blue" => NamedColor::Blue,
-            "blueviolet" => NamedColor::BlueViolet,
-            "brown" => NamedColor::Brown,
-            "burlywood" => NamedColor::BurlyWood,
-            "cadetblue" => NamedColor::CadetBlue,
-            "chartreuse" => NamedColor::Chartreuse,
-            "chocolate" => NamedColor::Chocolate,
-            "coral" => NamedColor::Coral,
-            "cornflowerblue" => NamedColor::CornflowerBlue,
-            "cornsilk" => NamedColor::Cornsilk,
-            "crimson" => NamedColor::Crimson,
-            "cyan" => NamedColor::Cyan,
-            "darkblue" => NamedColor::DarkBlue,
-            "darkcyan" => NamedColor::DarkCyan,
-            "darkgoldenrod" => NamedColor::DarkGoldenRod,
-            "darkgray" => NamedColor::DarkGray,
-            "darkgreen" => NamedColor::DarkGreen,
-            "darkkhaki" => NamedColor::DarkKhaki,
-            "darkmagenta" => NamedColor::DarkMagenta,
-            "darkolivegreen" => NamedColor::DarkOliveGreen,
-            "darkorange" => NamedColor::DarkOrange,
-            "darkorchid" => NamedColor::DarkOrchid,
-            "darkred" => NamedColor::DarkRed,
-            "darksalmon" => NamedColor::DarkSalmon,
-            "darkseagreen" => NamedColor::DarkSeaGreen,
-            "darkslateblue" => NamedColor::DarkSlateBlue,
-            "darkslategray" | "darkslategrey" => NamedColor::DarkSlateGray,
-            "darkturquoise" => NamedColor::DarkTurquoise,
-            "darkviolet" => NamedColor::DarkViolet,
-            "deeppink" => NamedColor::DeepPink,
-            "deepskyblue" => NamedColor::DeepSkyBlue,
-            "dimgray" | "dimgrey" => NamedColor::DimGray,
-            "dodgerblue" => NamedColor::DodgerBlue,
-            "firebrick" => NamedColor::FireBrick,
-            "floralwhite" => NamedColor::FloralWhite,
-            "forestgreen" => NamedColor::ForestGreen,
-            "fuchsia" => NamedColor::Fuchsia,
-            "gainsboro" => NamedColor::Gainsboro,
-            "ghostwhite" => NamedColor::GhostWhite,
-            "gold" => NamedColor::Gold,
-            "goldenrod" => NamedColor::GoldenRod,
-            "gray" | "grey" => NamedColor::Gray,
-            "green" => NamedColor::Green,
-            "greenyellow" => NamedColor::GreenYellow,
-            "honeydew" => NamedColor::HoneyDew,
-            "hotpink" => NamedColor::HotPink,
-            "indianred" => NamedColor::IndianRed,
-            "indigo" => NamedColor::Indigo,
-            "ivory" => NamedColor::Ivory,
-            "khaki" => NamedColor::Khaki,
-            "lavender" => NamedColor::Lavender,
-            "lavenderblush" => NamedColor::LavenderBlush,
-            "lawngreen" => NamedColor::LawnGreen,
-            "lemonchiffon" => NamedColor::LemonChiffon,
-            "lightblue" => NamedColor::LightBlue,
-            "lightcoral" => NamedColor::LightCoral,
-            "lightcyan" => NamedColor::LightCyan,
-            "lightgoldenrodyellow" => NamedColor::LightGoldenRodYellow,
-            "lightgray" | "lightgrey" => NamedColor::LightGray,
-            "lightgreen" => NamedColor::LightGreen,
-            "lightpink" => NamedColor::LightPink,
-            "lightsalmon" => NamedColor::LightSalmon,
-            "lightseagreen" => NamedColor::LightSeaGreen,
-            "lightskyblue" => NamedColor::LightSkyBlue,
-            "lightslategray" | "lightslategrey" => NamedColor::LightSlateGray,
-            "lightsteelblue" => NamedColor::LightSteelBlue,
-            "lightyellow" => NamedColor::LightYellow,
-            "lime" => NamedColor::Lime,
-            "limegreen" => NamedColor::LimeGreen,
-            "linen" => NamedColor::Linen,
-            "magenta" => NamedColor::Magenta,
-            "maroon" => NamedColor::Maroon,
-            "mediumaquamarine" => NamedColor::MediumAquaMarine,
-            "mediumblue" => NamedColor::MediumBlue,
-            "mediumorchid" => NamedColor::MediumOrchid,
-            "mediumpurple" => NamedColor::MediumPurple,
-            "mediumseagreen" => NamedColor::MediumSeaGreen,
-            "mediumslateblue" => NamedColor::MediumSlateBlue,
-            "mediumspringgreen" => NamedColor::MediumSpringGreen,
-            "mediumturquoise" => NamedColor::MediumTurquoise,
-            "mediumvioletred" => NamedColor::MediumVioletRed,
-            "midnightblue" => NamedColor::MidnightBlue,
-            "mintcream" => NamedColor::MintCream,
-            "mistyrose" => NamedColor::MistyRose,
-            "moccasin" => NamedColor::Moccasin,
-            "mavajowhite" => NamedColor::NavajoWhite,
-            "navy" => NamedColor::Navy,
-            "oldlace" => NamedColor::OldLace,
-            "olive" => NamedColor::Olive,
-            "olivedrab" => NamedColor::OliveDrab,
-            "orange" => NamedColor::Orange,
-            "orangered" => NamedColor::OrangeRed,
-            "orchid" => NamedColor::Orchid,
-            "palegoldenrod" => NamedColor::PaleGoldenRod,
-            "palegreen" => NamedColor::PaleGreen,
-            "paleturquoise" => NamedColor::PaleTurquoise,
-            "palevioletred" => NamedColor::PaleVioletRed,
-            "papayawhip" => NamedColor::PapayaWhip,
-            "peachpuff" => NamedColor::PeachPuff,
-            "peru" => NamedColor::Peru,
-            "pink" => NamedColor::Pink,
-            "plum" => NamedColor::Plum,
-            "powderblue" => NamedColor::PowderBlue,
-            "purple" => NamedColor::Purple,
-            "rebeccapurple" => NamedColor::RebeccaPurple,
-            "red" => NamedColor::Red,
-            "rosybrown" => NamedColor::RosyBrown,
-            "royalblue" => NamedColor::RoyalBlue,
-            "saddlebrown" => NamedColor::SaddleBrown,
-            "salmon" => NamedColor::Salmon,
-            "sandybrown" => NamedColor::SandyBrown,
-            "seagreen" => NamedColor::SeaGreen,
-            "seashell" => NamedColor::SeaShell,
-            "sienna" => NamedColor::Sienna,
-            "silver" => NamedColor::Silver,
-            "skyblue" => NamedColor::SkyBlue,
-            "slateblue" => NamedColor::SlateBlue,
-            "slategray" | "slategrey" => NamedColor::SlateGray,
-            "snow" => NamedColor::Snow,
-            "springgreen" => NamedColor::SpringGreen,
-            "steelblue" => NamedColor::SteelBlue,
-            "tan" => NamedColor::Tan,
-            "teal" => NamedColor::Teal,
-            "thistle" => NamedColor::Thistle,
-            "tomato" => NamedColor::Tomato,
-            "transparent" => NamedColor::Transparent,
-            "turquoise" => NamedColor::Turquoise,
-            "violet" => NamedColor::Violet,
-            "wheat" => NamedColor::Violet,
-            "white" => NamedColor::White,
-            "whitesmoke" => NamedColor::WhiteSmoke,
-            "yellow" => NamedColor::Yellow,
-            "yellowgreen" => NamedColor::YellowGreen,
-            _ => NamedColor::Unknown,
+impl Parseable for NamedColor {
+    fn parse(value: &str) -> Option<Self> {
+        let s = value.trim();
+        if s.is_empty() {
+            return None;
         }
+
+        let len = s.len();
+        let first = Self::lower_ascii_first_byte(s);
+
+        macro_rules! ci {
+            ($lit:literal, $var:ident) => {
+                if s.eq_ignore_ascii_case($lit) {
+                    return Some(Self::$var);
+                }
+            };
+        }
+
+        match first {
+            b'a' => match len {
+                4 => {
+                    ci!("aqua", Aqua);
+                }
+                5 => {
+                    ci!("azure", Azure);
+                }
+                9 => {
+                    ci!("aliceblue", AliceBlue);
+                }
+                10 => {
+                    ci!("aquamarine", Aquamarine);
+                }
+                12 => {
+                    ci!("antiquewhite", AntiqueWhite);
+                }
+                _ => {}
+            },
+            b'b' => match len {
+                4 => {
+                    ci!("blue", Blue);
+                }
+                5 => {
+                    ci!("beige", Beige);
+                    ci!("black", Black);
+                    ci!("brown", Brown);
+                }
+                6 => {
+                    ci!("bisque", Bisque);
+                }
+                9 => {
+                    ci!("burlywood", BurlyWood);
+                }
+                10 => {
+                    ci!("blueviolet", BlueViolet);
+                }
+                14 => {
+                    ci!("blanchedalmond", BlanchedAlmond);
+                }
+                _ => {}
+            },
+            b'c' => match len {
+                4 => {
+                    ci!("cyan", Cyan);
+                }
+                5 => {
+                    ci!("coral", Coral);
+                }
+                7 => {
+                    ci!("crimson", Crimson);
+                }
+                8 => {
+                    ci!("cornsilk", Cornsilk);
+                }
+                9 => {
+                    ci!("cadetblue", CadetBlue);
+                    ci!("chocolate", Chocolate);
+                }
+                10 => {
+                    ci!("chartreuse", Chartreuse);
+                }
+                14 => {
+                    ci!("cornflowerblue", CornflowerBlue);
+                }
+                _ => {}
+            },
+            b'd' => match len {
+                7 => {
+                    ci!("dimgray", DimGray);
+                    ci!("dimgrey", DimGray);
+                    ci!("darkred", DarkRed);
+                }
+                8 => {
+                    ci!("darkblue", DarkBlue);
+                    ci!("darkcyan", DarkCyan);
+                    ci!("darkgray", DarkGray);
+                    ci!("darkgrey", DarkGray);
+                    ci!("deeppink", DeepPink);
+                }
+                9 => {
+                    ci!("darkgreen", DarkGreen);
+                    ci!("darkkhaki", DarkKhaki);
+                }
+                10 => {
+                    ci!("dodgerblue", DodgerBlue);
+                    ci!("darkorange", DarkOrange);
+                    ci!("darkorchid", DarkOrchid);
+                    ci!("darksalmon", DarkSalmon);
+                    ci!("darkviolet", DarkViolet);
+                }
+                11 => {
+                    ci!("darkmagenta", DarkMagenta);
+                    ci!("deepskyblue", DeepSkyBlue);
+                }
+                12 => {
+                    ci!("darkseagreen", DarkSeaGreen);
+                }
+                13 => {
+                    ci!("darkslateblue", DarkSlateBlue);
+                    ci!("darkslategray", DarkSlateGray);
+                    ci!("darkslategrey", DarkSlateGray);
+                    ci!("darkturquoise", DarkTurquoise);
+                    ci!("darkgoldenrod", DarkGoldenRod);
+                }
+                14 => {
+                    ci!("darkolivegreen", DarkOliveGreen);
+                }
+                _ => {}
+            },
+            b'f' => match len {
+                7 => {
+                    ci!("fuchsia", Fuchsia);
+                }
+                9 => {
+                    ci!("firebrick", FireBrick);
+                }
+                11 => {
+                    ci!("floralwhite", FloralWhite);
+                    ci!("forestgreen", ForestGreen);
+                }
+                _ => {}
+            },
+            b'g' => match len {
+                4 => {
+                    ci!("gold", Gold);
+                    ci!("gray", Gray);
+                    ci!("grey", Gray);
+                }
+                5 => {
+                    ci!("green", Green);
+                }
+                9 => {
+                    ci!("gainsboro", Gainsboro);
+                    ci!("goldenrod", GoldenRod);
+                }
+                10 => {
+                    ci!("ghostwhite", GhostWhite);
+                }
+                11 => {
+                    ci!("greenyellow", GreenYellow);
+                }
+
+                _ => {}
+            },
+            b'h' => match len {
+                7 => {
+                    ci!("hotpink", HotPink);
+                }
+                8 => {
+                    ci!("honeydew", HoneyDew);
+                }
+                _ => {}
+            },
+            b'i' => match len {
+                5 => {
+                    ci!("ivory", Ivory);
+                }
+                6 => {
+                    ci!("indigo", Indigo);
+                }
+                9 => {
+                    ci!("indianred", IndianRed);
+                }
+                _ => {}
+            },
+            b'k' => {
+                if len == 5 {
+                    ci!("khaki", Khaki);
+                }
+            }
+            b'l' => match len {
+                4 => {
+                    ci!("lime", Lime);
+                }
+                5 => {
+                    ci!("linen", Linen);
+                }
+                8 => {
+                    ci!("lavender", Lavender);
+                }
+                9 => {
+                    ci!("lawngreen", LawnGreen);
+                    ci!("lightblue", LightBlue);
+                    ci!("lightcyan", LightCyan);
+                    ci!("lightgray", LightGray);
+                    ci!("lightgrey", LightGray);
+                    ci!("limegreen", LimeGreen);
+                    ci!("lightpink", LightPink);
+                }
+                10 => {
+                    ci!("lightcoral", LightCoral);
+                    ci!("lightgreen", LightGreen);
+                }
+                11 => {
+                    ci!("lightsalmon", LightSalmon);
+                    ci!("lightyellow", LightYellow);
+                }
+                12 => {
+                    ci!("lemonchiffon", LemonChiffon);
+                    ci!("lightskyblue", LightSkyBlue);
+                }
+                13 => {
+                    ci!("lavenderblush", LavenderBlush);
+                    ci!("lightseagreen", LightSeaGreen);
+                }
+                14 => {
+                    ci!("lightslategray", LightSlateGray);
+                    ci!("lightslategrey", LightSlateGray);
+                    ci!("lightsteelblue", LightSteelBlue);
+                }
+                20 => {
+                    ci!("lightgoldenrodyellow", LightGoldenRodYellow);
+                }
+                _ => {}
+            },
+            b'm' => match len {
+                6 => {
+                    ci!("maroon", Maroon);
+                }
+                7 => {
+                    ci!("magenta", Magenta);
+                }
+                8 => {
+                    ci!("moccasin", Moccasin);
+                }
+                9 => {
+                    ci!("mistyrose", MistyRose);
+                    ci!("mintcream", MintCream);
+                }
+                10 => {
+                    ci!("mediumblue", MediumBlue);
+                }
+                12 => {
+                    ci!("mediumpurple", MediumPurple);
+                    ci!("mediumorchid", MediumOrchid);
+                    ci!("midnightblue", MidnightBlue);
+                }
+                14 => {
+                    ci!("mediumseagreen", MediumSeaGreen);
+                }
+                15 => {
+                    ci!("mediumslateblue", MediumSlateBlue);
+                    ci!("mediumturquoise", MediumTurquoise);
+                    ci!("mediumvioletred", MediumVioletRed);
+                }
+                16 => {
+                    ci!("mediumaquamarine", MediumAquaMarine);
+                }
+                17 => {
+                    ci!("mediumspringgreen", MediumSpringGreen);
+                }
+                _ => {}
+            },
+            b'n' => match len {
+                4 => {
+                    ci!("navy", Navy);
+                }
+                11 => {
+                    ci!("navajowhite", NavajoWhite);
+                }
+                _ => {}
+            },
+            b'o' => match len {
+                5 => {
+                    ci!("olive", Olive);
+                }
+                6 => {
+                    ci!("orange", Orange);
+                    ci!("orchid", Orchid);
+                }
+                7 => {
+                    ci!("oldlace", OldLace);
+                }
+                9 => {
+                    ci!("orangered", OrangeRed);
+                    ci!("olivedrab", OliveDrab);
+                }
+                _ => {}
+            },
+            b'p' => match len {
+                4 => {
+                    ci!("peru", Peru);
+                    ci!("pink", Pink);
+                    ci!("plum", Plum);
+                }
+                9 => {
+                    ci!("peachpuff", PeachPuff);
+                    ci!("palegreen", PaleGreen);
+                }
+                10 => {
+                    ci!("powderblue", PowderBlue);
+                    ci!("papayawhip", PapayaWhip);
+                    ci!("paleturquoise", PaleTurquoise);
+                }
+                13 => {
+                    ci!("palegoldenrod", PaleGoldenRod);
+                    ci!("palevioletred", PaleVioletRed);
+                }
+                _ => {}
+            },
+            b'r' => match len {
+                3 => {
+                    ci!("red", Red);
+                }
+                9 => {
+                    ci!("rosybrown", RosyBrown);
+                    ci!("royalblue", RoyalBlue);
+                }
+                13 => {
+                    ci!("rebeccapurple", RebeccaPurple);
+                }
+                _ => {}
+            },
+            b's' => match len {
+                4 => {
+                    ci!("snow", Snow);
+                }
+                6 => {
+                    ci!("sienna", Sienna);
+                    ci!("salmon", Salmon);
+                    ci!("silver", Silver);
+                }
+                7 => {
+                    ci!("skyblue", SkyBlue);
+                }
+                8 => {
+                    ci!("seashell", SeaShell);
+                    ci!("seagreen", SeaGreen);
+                }
+                9 => {
+                    ci!("slateblue", SlateBlue);
+                    ci!("slategray", SlateGray);
+                    ci!("slategrey", SlateGray);
+                    ci!("steelblue", SteelBlue);
+                }
+                10 => {
+                    ci!("sandybrown", SandyBrown);
+                }
+                11 => {
+                    ci!("springgreen", SpringGreen);
+                    ci!("saddlebrown", SaddleBrown);
+                }
+                _ => {}
+            },
+            b't' => match len {
+                3 => {
+                    ci!("tan", Tan);
+                }
+                4 => {
+                    ci!("teal", Teal);
+                }
+                6 => {
+                    ci!("tomato", Tomato);
+                }
+                7 => {
+                    ci!("thistle", Thistle);
+                }
+                9 => {
+                    ci!("turquoise", Turquoise);
+                }
+                11 => {
+                    ci!("transparent", Transparent);
+                }
+                _ => {}
+            },
+            b'v' => {
+                if len == 6 {
+                    ci!("violet", Violet);
+                }
+            }
+            b'w' => match len {
+                5 => {
+                    ci!("wheat", Wheat);
+                    ci!("white", White);
+                }
+                10 => {
+                    ci!("whitesmoke", WhiteSmoke);
+                }
+                _ => {}
+            },
+            b'y' => match len {
+                6 => {
+                    ci!("yellow", Yellow);
+                }
+                11 => {
+                    ci!("yellowgreen", YellowGreen);
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+
+        None
     }
 }
 
-impl From<String> for NamedColor {
-    fn from(value: String) -> Self {
-        NamedColor::from(value.as_str())
+impl Parseable for HexColor {
+    fn parse(value: &str) -> Option<Self> {
+        let hex = value.trim_start_matches('#');
+        if hex.len() == 6
+            && let Ok(parsed) = u32::from_str_radix(hex, 16)
+        {
+            let r = ((parsed >> 16) & 0xFF) as u8;
+            let g = ((parsed >> 8) & 0xFF) as u8;
+            let b = (parsed & 0xFF) as u8;
+            return Some([r, g, b]);
+        }
+
+        None
+    }
+}
+
+impl Parseable for SRGBAColor {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("rgb(") && value.ends_with(')') {
+            let content = &value[4..value.len() - 1];
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            if parts.len() == 3
+                && let (Ok(r), Ok(g), Ok(b)) = (
+                    parts[0].parse::<u8>(),
+                    parts[1].parse::<u8>(),
+                    parts[2].parse::<u8>(),
+                )
+            {
+                return Some(SRGBAColor::RGB(r, g, b));
+            }
+        } else if value.starts_with("rgba(") && value.ends_with(')') {
+            let content = &value[5..value.len() - 1];
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            if parts.len() == 4
+                && let (Ok(r), Ok(g), Ok(b), Ok(a)) = (
+                    parts[0].parse::<u8>(),
+                    parts[1].parse::<u8>(),
+                    parts[2].parse::<u8>(),
+                    parts[3].parse::<f32>(),
+                )
+            {
+                return Some(SRGBAColor::RGBA(r, g, b, a));
+            }
+        }
+
+        None
+    }
+}
+
+impl Parseable for CIELAB {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("lab(") && value.ends_with(')') {
+            let content = &value[4..value.len() - 1];
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])?
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let a = if parts[1].contains('%') {
+                (Unit::resolve_percentage(parts[1])? / 100.0) * 125.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let b = if parts[2].contains('%') {
+                (Unit::resolve_percentage(parts[2])? / 100.0) * 125.0
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(CIELAB::Lab(l, a, b));
+        } else if value.starts_with("lch(") && value.ends_with(')') {
+            let content = &value[4..value.len() - 1];
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])?
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let c = if parts[1].contains('%') {
+                (Unit::resolve_percentage(parts[1])? / 100.0) * 150.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let h = if let Some(angle) = Angle::parse(parts[2]) {
+                angle.to_degrees()
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(CIELAB::Lch(l, c, h));
+        }
+        None
+    }
+}
+
+impl Parseable for Oklab {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("oklch(") && value.ends_with(')') {
+            let content = &value[6..value.len() - 1];
+
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])? / 100.0
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let c = if parts[1].contains('%') {
+                Unit::resolve_percentage(parts[1])? / 100.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let h = if let Some(angle) = Angle::parse(parts[2]) {
+                angle.to_degrees()
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Oklab::Oklch(l, c, h));
+        } else if value.starts_with("oklab(") && value.ends_with(')') {
+            let content = &value[6..value.len() - 1];
+
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])? / 100.0
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let a = if parts[1].contains('%') {
+                Unit::resolve_percentage(parts[1])? / 100.0 * 0.4
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let b = if parts[2].contains('%') {
+                Unit::resolve_percentage(parts[2])? / 100.0 * 0.4
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Oklab::Oklab(l, a, b));
+        }
+
+        None
+    }
+}
+
+impl Parseable for FunctionColor {
+    fn parse(value: &str) -> Option<Self> {
+        if let Some(srgba) = SRGBAColor::parse(value) {
+            return Some(FunctionColor::SRGBA(srgba));
+        }
+
+        if let Some(cielab) = CIELAB::parse(value) {
+            return Some(FunctionColor::CIELAB(cielab));
+        }
+
+        if let Some(oklab) = Oklab::parse(value) {
+            return Some(FunctionColor::Oklab(oklab));
+        }
+
+        None
+    }
+}
+
+impl Parseable for Color {
+    fn parse(value: &str) -> Option<Self> {
+        let s = value.trim();
+
+        if let Some(hex_color) = HexColor::parse(s) {
+            return Some(Color::Hex(hex_color));
+        }
+
+        if let Some(function_color) = FunctionColor::parse(s) {
+            return Some(Color::Functional(function_color));
+        }
+
+        if let Some(system_color) = SystemColor::parse(s) {
+            return Some(Color::System(system_color));
+        }
+
+        if let Some(named_color) = NamedColor::parse(s) {
+            return Some(Color::Named(named_color));
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::{Parseable, color::HexColor};
+
+    use super::*;
+
+    #[test]
+    fn test_system_color_parsing() {
+        assert_eq!(
+            SystemColor::parse("highlight"),
+            Some(SystemColor::Highlight)
+        );
+        assert_eq!(SystemColor::parse("unknowncolor"), None);
+    }
+
+    #[test]
+    fn test_named_color_parsing() {
+        assert_eq!(
+            NamedColor::parse("rebeCCapurPLE"),
+            Some(NamedColor::RebeccaPurple)
+        );
+        assert_eq!(NamedColor::parse("invalidcolor"), None);
+    }
+
+    #[test]
+    fn test_color_hex_parsing() {
+        assert_eq!(HexColor::parse("#FF5733"), Some([255, 87, 51]));
+        assert_eq!(HexColor::parse("#ZZZZZZ"), None);
+    }
+
+    #[test]
+    fn test_color_srgba_parsing() {
+        assert_eq!(
+            SRGBAColor::parse("rgb(255, 0, 0)"),
+            Some(SRGBAColor::RGB(255, 0, 0))
+        );
+        assert_eq!(
+            SRGBAColor::parse("rgba(0, 255, 0, 0.5)"),
+            Some(SRGBAColor::RGBA(0, 255, 0, 0.5))
+        );
+        assert_eq!(SRGBAColor::parse("invalid"), None);
+    }
+
+    #[test]
+    fn test_color_cielab_parsing() {
+        assert_eq!(
+            CIELAB::parse("lab(50, 20, 30)"),
+            Some(CIELAB::Lab(50.0, 20.0, 30.0))
+        );
+        assert_eq!(
+            CIELAB::parse("lch(60, 40, 120)"),
+            Some(CIELAB::Lch(60.0, 40.0, 120.0))
+        );
+        assert_eq!(CIELAB::parse("invalid"), None);
+    }
+
+    #[test]
+    fn test_color_oklab_parsing() {
+        assert_eq!(
+            Oklab::parse("oklch(70%, 50%, 180)"),
+            Some(Oklab::Oklch(0.7, 0.5, 180.0))
+        );
+        assert_eq!(
+            Oklab::parse("oklab(0.6, 0.1, -0.1)"),
+            Some(Oklab::Oklab(0.6, 0.1, -0.1))
+        );
+
+        assert_eq!(Oklab::parse("invalid"), None);
     }
 }

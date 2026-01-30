@@ -10,7 +10,7 @@ mod cascade;
 mod computed;
 
 /// Resolves CSS property values from strings to usable types.
-mod resolver;
+mod unit;
 
 /// Represents the style tree structure for applying styles.
 mod tree;

@@ -1,4 +1,7 @@
-use crate::types::{global::Global, length::Length};
+use crate::{
+    types::{Parseable, global::Global, length::Length},
+    unit::Unit,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum GenericName {
@@ -14,26 +17,6 @@ pub enum GenericName {
     UiRounded,
     Math,
     FangSong,
-}
-
-impl GenericName {
-    pub fn parse(name: &str) -> Option<Self> {
-        match name.to_lowercase().as_str() {
-            "serif" => Some(GenericName::Serif),
-            "sans-serif" => Some(GenericName::SansSerif),
-            "monospace" => Some(GenericName::Monospace),
-            "cursive" => Some(GenericName::Cursive),
-            "fantasy" => Some(GenericName::Fantasy),
-            "system-ui" => Some(GenericName::SystemUi),
-            "ui-serif" => Some(GenericName::UiSerif),
-            "ui-sans-serif" => Some(GenericName::UiSansSerif),
-            "ui-monospace" => Some(GenericName::UiMonospace),
-            "ui-rounded" => Some(GenericName::UiRounded),
-            "math" => Some(GenericName::Math),
-            "fangsong" => Some(GenericName::FangSong),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -60,20 +43,6 @@ pub enum AbsoluteSize {
 }
 
 impl AbsoluteSize {
-    pub fn parse(size: &str) -> Option<Self> {
-        match size.to_lowercase().as_str() {
-            "xx-small" => Some(AbsoluteSize::XXSmall),
-            "x-small" => Some(AbsoluteSize::XSmall),
-            "small" => Some(AbsoluteSize::Small),
-            "medium" => Some(AbsoluteSize::Medium),
-            "large" => Some(AbsoluteSize::Large),
-            "x-large" => Some(AbsoluteSize::XLarge),
-            "xx-large" => Some(AbsoluteSize::XXLarge),
-            "xxx-large" => Some(AbsoluteSize::XXXLarge),
-            _ => None,
-        }
-    }
-
     pub fn to_px(&self) -> f32 {
         match self {
             AbsoluteSize::XXSmall => 9.0,
@@ -95,14 +64,6 @@ pub enum RelativeSize {
 }
 
 impl RelativeSize {
-    pub fn parse(size: &str) -> Option<Self> {
-        match size.to_lowercase().as_str() {
-            "smaller" => Some(RelativeSize::Smaller),
-            "larger" => Some(RelativeSize::Larger),
-            _ => None,
-        }
-    }
-
     pub fn to_px(&self, parent_px: f32) -> f32 {
         match self {
             RelativeSize::Smaller => parent_px * 0.833,
@@ -111,7 +72,7 @@ impl RelativeSize {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FontSize {
     Absolute(AbsoluteSize),
     Relative(RelativeSize),
@@ -129,5 +90,234 @@ impl FontSize {
             FontSize::Relative(rel) => rel.to_px(parent_px),
             FontSize::Global(_) => parent_px,
         }
+    }
+}
+
+impl Parseable for GenericName {
+    fn parse(value: &str) -> Option<Self> {
+        match value.len() {
+            4 => {
+                if value.eq_ignore_ascii_case("math") {
+                    Some(Self::Math)
+                } else {
+                    None
+                }
+            }
+            5 => {
+                if value.eq_ignore_ascii_case("serif") {
+                    Some(Self::Serif)
+                } else {
+                    None
+                }
+            }
+            7 => {
+                if value.eq_ignore_ascii_case("cursive") {
+                    Some(Self::Cursive)
+                } else if value.eq_ignore_ascii_case("fantasy") {
+                    Some(Self::Fantasy)
+                } else {
+                    None
+                }
+            }
+            8 => {
+                if value.eq_ignore_ascii_case("ui-serif") {
+                    Some(Self::UiSerif)
+                } else if value.eq_ignore_ascii_case("fangsong") {
+                    Some(Self::FangSong)
+                } else {
+                    None
+                }
+            }
+            9 => {
+                if value.eq_ignore_ascii_case("monospace") {
+                    Some(Self::Monospace)
+                } else if value.eq_ignore_ascii_case("system-ui") {
+                    Some(Self::SystemUi)
+                } else {
+                    None
+                }
+            }
+            10 => {
+                if value.eq_ignore_ascii_case("sans-serif") {
+                    Some(Self::SansSerif)
+                } else if value.eq_ignore_ascii_case("ui-rounded") {
+                    Some(Self::UiRounded)
+                } else {
+                    None
+                }
+            }
+            12 => {
+                if value.eq_ignore_ascii_case("ui-monospace") {
+                    Some(Self::UiMonospace)
+                } else {
+                    None
+                }
+            }
+            13 => {
+                if value.eq_ignore_ascii_case("ui-sans-serif") {
+                    Some(Self::UiSansSerif)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Parseable for FontFamily {
+    fn parse(value: &str) -> Option<Self> {
+        let families = value
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<String>>();
+
+        if families.is_empty() {
+            return None;
+        }
+
+        Some(FontFamily {
+            names: families
+                .into_iter()
+                .map(|name| {
+                    if let Some(generic) = GenericName::parse(&name) {
+                        FontFamilyName::Generic(generic)
+                    } else {
+                        let unquoted = name.trim_matches('"').trim_matches('\'').to_string();
+                        FontFamilyName::Specific(unquoted)
+                    }
+                })
+                .collect(),
+        })
+    }
+}
+
+impl Parseable for AbsoluteSize {
+    fn parse(value: &str) -> Option<Self> {
+        match value.len() {
+            5 => {
+                if value.eq_ignore_ascii_case("small") {
+                    Some(AbsoluteSize::Small)
+                } else if value.eq_ignore_ascii_case("large") {
+                    Some(AbsoluteSize::Large)
+                } else {
+                    None
+                }
+            }
+            6 => {
+                if value.eq_ignore_ascii_case("medium") {
+                    Some(AbsoluteSize::Medium)
+                } else {
+                    None
+                }
+            }
+            7 => {
+                if value.eq_ignore_ascii_case("x-small") {
+                    Some(AbsoluteSize::XSmall)
+                } else if value.eq_ignore_ascii_case("x-large") {
+                    Some(AbsoluteSize::XLarge)
+                } else {
+                    None
+                }
+            }
+            8 => {
+                if value.eq_ignore_ascii_case("xx-small") {
+                    Some(AbsoluteSize::XXSmall)
+                } else if value.eq_ignore_ascii_case("xx-large") {
+                    Some(AbsoluteSize::XXLarge)
+                } else {
+                    None
+                }
+            }
+            9 => {
+                if value.eq_ignore_ascii_case("xxx-large") {
+                    Some(AbsoluteSize::XXXLarge)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Parseable for RelativeSize {
+    fn parse(value: &str) -> Option<Self> {
+        if value.eq_ignore_ascii_case("smaller") {
+            Some(RelativeSize::Smaller)
+        } else if value.eq_ignore_ascii_case("larger") {
+            Some(RelativeSize::Larger)
+        } else {
+            None
+        }
+    }
+}
+
+impl Parseable for FontSize {
+    fn parse(value: &str) -> Option<Self> {
+        if let Some(absolute_size) = AbsoluteSize::parse(value) {
+            return Some(FontSize::Absolute(absolute_size));
+        }
+
+        if let Some(relative_size) = RelativeSize::parse(value) {
+            return Some(FontSize::Relative(relative_size));
+        }
+
+        if let Some(length) = Length::parse(value) {
+            return Some(FontSize::Length(length));
+        }
+
+        if let Some(percentage) = Unit::resolve_percentage(value) {
+            return Some(FontSize::Percentage(percentage));
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generic_name_parse() {
+        let generic = GenericName::parse("serif").unwrap();
+        assert_eq!(generic, GenericName::Serif);
+
+        let generic = GenericName::parse("sans-serif").unwrap();
+        assert_eq!(generic, GenericName::SansSerif);
+
+        let generic = GenericName::parse("monospace").unwrap();
+        assert_eq!(generic, GenericName::Monospace);
+    }
+
+    #[test]
+    fn test_font_family_parse() {
+        let family = FontFamily::parse("Arial, 'Times New Roman', serif").unwrap();
+        assert_eq!(family.names.len(), 3);
+        assert_eq!(
+            family.names[0],
+            FontFamilyName::Specific("Arial".to_string())
+        );
+        assert_eq!(
+            family.names[1],
+            FontFamilyName::Specific("Times New Roman".to_string())
+        );
+        assert_eq!(family.names[2], FontFamilyName::Generic(GenericName::Serif));
+    }
+
+    #[test]
+    fn test_font_size_parse() {
+        let size = FontSize::parse("medium").unwrap();
+        assert_eq!(size, FontSize::Absolute(AbsoluteSize::Medium));
+
+        let size = FontSize::parse("larger").unwrap();
+        assert_eq!(size, FontSize::Relative(RelativeSize::Larger));
+
+        let size = FontSize::parse("16px").unwrap();
+        assert_eq!(size, FontSize::Length(Length::parse("16px").unwrap()));
+
+        let size = FontSize::parse("150%").unwrap();
+        assert_eq!(size, FontSize::Percentage(150.0));
     }
 }

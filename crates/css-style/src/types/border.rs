@@ -1,4 +1,5 @@
 use crate::types::{
+    Parseable,
     color::{Color, NamedColor},
     global::Global,
     length::Length,
@@ -84,24 +85,6 @@ pub enum BorderStyleValue {
     Inset,
     Outset,
     Global(Global),
-}
-
-impl BorderStyleValue {
-    pub fn parse(s: &str) -> Option<Self> {
-        match s {
-            "none" => Some(BorderStyleValue::None),
-            "hidden" => Some(BorderStyleValue::Hidden),
-            "dotted" => Some(BorderStyleValue::Dotted),
-            "dashed" => Some(BorderStyleValue::Dashed),
-            "solid" => Some(BorderStyleValue::Solid),
-            "double" => Some(BorderStyleValue::Double),
-            "groove" => Some(BorderStyleValue::Groove),
-            "ridge" => Some(BorderStyleValue::Ridge),
-            "inset" => Some(BorderStyleValue::Inset),
-            "outset" => Some(BorderStyleValue::Outset),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -240,5 +223,138 @@ impl Border {
             style: BorderStyle::all(BorderStyleValue::None),
             color: BorderColor::all(BorderColorValue::Color(Color::Named(NamedColor::Black))),
         }
+    }
+}
+
+impl Parseable for BorderStyleValue {
+    fn parse(value: &str) -> Option<Self> {
+        match value.len() {
+            4 if value.eq_ignore_ascii_case("none") => Some(BorderStyleValue::None),
+            5 => {
+                if value.eq_ignore_ascii_case("ridge") {
+                    Some(BorderStyleValue::Ridge)
+                } else if value.eq_ignore_ascii_case("inset") {
+                    Some(BorderStyleValue::Inset)
+                } else if value.eq_ignore_ascii_case("solid") {
+                    Some(BorderStyleValue::Solid)
+                } else {
+                    None
+                }
+            }
+            6 => {
+                if value.eq_ignore_ascii_case("hidden") {
+                    Some(BorderStyleValue::Hidden)
+                } else if value.eq_ignore_ascii_case("dotted") {
+                    Some(BorderStyleValue::Dotted)
+                } else if value.eq_ignore_ascii_case("dashed") {
+                    Some(BorderStyleValue::Dashed)
+                } else if value.eq_ignore_ascii_case("double") {
+                    Some(BorderStyleValue::Double)
+                } else if value.eq_ignore_ascii_case("groove") {
+                    Some(BorderStyleValue::Groove)
+                } else if value.eq_ignore_ascii_case("outset") {
+                    Some(BorderStyleValue::Outset)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Parseable for Border {
+    fn parse(value: &str) -> Option<Self> {
+        let mut border = Border::none();
+
+        let parts = value.split_whitespace().collect::<Vec<&str>>();
+
+        // Only supporting: '<length> <style> <color>' for now
+
+        for part in parts {
+            if let Some(length) = Length::parse(part) {
+                border.width = BorderWidth::all(BorderWidthValue::Length(length))
+            }
+
+            if let Some(style) = BorderStyleValue::parse(value) {
+                border.style = BorderStyle::all(style);
+            }
+
+            if let Some(color) = Color::parse(part) {
+                border.color = BorderColor::all(BorderColorValue::Color(color));
+            }
+        }
+
+        Some(border)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_border_width_all() {
+        let border_width = BorderWidth::all(BorderWidthValue::Thin);
+        assert!(matches!(border_width.top, BorderWidthValue::Thin));
+        assert!(matches!(border_width.right, BorderWidthValue::Thin));
+        assert!(matches!(border_width.bottom, BorderWidthValue::Thin));
+        assert!(matches!(border_width.left, BorderWidthValue::Thin));
+    }
+
+    #[test]
+    fn test_border_style_parse() {
+        assert_eq!(
+            BorderStyleValue::parse("none"),
+            Some(BorderStyleValue::None)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("hidden"),
+            Some(BorderStyleValue::Hidden)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("dotted"),
+            Some(BorderStyleValue::Dotted)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("dashed"),
+            Some(BorderStyleValue::Dashed)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("solid"),
+            Some(BorderStyleValue::Solid)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("double"),
+            Some(BorderStyleValue::Double)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("groove"),
+            Some(BorderStyleValue::Groove)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("ridge"),
+            Some(BorderStyleValue::Ridge)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("inset"),
+            Some(BorderStyleValue::Inset)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("outset"),
+            Some(BorderStyleValue::Outset)
+        );
+    }
+
+    #[test]
+    fn test_border_style_case_parse() {
+        assert_eq!(
+            BorderStyleValue::parse("noNE"),
+            Some(BorderStyleValue::None)
+        );
+        assert_eq!(
+            BorderStyleValue::parse("HidDen"),
+            Some(BorderStyleValue::Hidden)
+        );
     }
 }
