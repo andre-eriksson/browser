@@ -332,7 +332,7 @@ impl PropertyResolver {
         Some(Length::new(value, unit))
     }
 
-    fn resolve_percentage(value: &str) -> Option<f32> {
+    pub fn resolve_percentage(value: &str) -> Option<f32> {
         if let Some(stripped) = value.strip_suffix('%')
             && let Ok(num) = stripped.trim().parse::<f32>()
         {

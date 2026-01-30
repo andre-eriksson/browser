@@ -1,3 +1,5 @@
+use crate::{resolver::PropertyResolver, types::angle::Angle};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SystemColor {
     AccentColor,
@@ -266,52 +268,45 @@ impl Color {
         let value = value.trim();
 
         if value.starts_with("oklch(") && value.ends_with(')') {
-            fn handle_percent(s: &str) -> Option<f32> {
-                if let Some(number_part) = s.strip_suffix('%')
-                    && let Ok(num) = number_part.parse::<f32>()
-                {
-                    return Some(num / 100.0);
-                }
-                None
-            }
-
             let content = &value[6..value.len() - 1];
-            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
-            if parts.len() == 3 {
-                let l = if parts[0].contains('%') {
-                    handle_percent(parts[0])?
-                } else {
-                    parts[0].parse::<f32>().ok()?
-                };
-                let c = if parts[1].contains('%') {
-                    handle_percent(parts[1])?
-                } else {
-                    parts[1].parse::<f32>().ok()?
-                };
-                let h = parts[2].parse::<f32>().ok()?; // TODO: Handle degrees later
-                return Some(Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
-                    l, c, h,
-                ))));
+
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
             }
 
-            let parts_space: Vec<&str> = content.split_whitespace().map(|s| s.trim()).collect();
-            if parts_space.len() == 3 {
-                let l = if parts_space[0].contains('%') {
-                    handle_percent(parts_space[0])?
-                } else {
-                    parts_space[0].parse::<f32>().ok()?
-                };
-                let c = if parts_space[1].contains('%') {
-                    handle_percent(parts_space[1])?
-                } else {
-                    parts_space[1].parse::<f32>().ok()?
-                };
-                let h = parts_space[2].parse::<f32>().ok()?; // TODO: Handle degrees later
+            let l = if parts[0].contains('%') {
+                PropertyResolver::resolve_percentage(parts[0])? / 100.0
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
 
-                return Some(Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
-                    l, c, h,
-                ))));
-            }
+            let c = if parts[1].contains('%') {
+                PropertyResolver::resolve_percentage(parts[1])? / 100.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let h = if let Some(angle) = Angle::parse(parts[2]) {
+                angle.to_degrees()
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
+                l, c, h,
+            ))));
         }
 
         None
