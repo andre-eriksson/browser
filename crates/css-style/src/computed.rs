@@ -1,8 +1,7 @@
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    cached_stylesheet::CachedStylesheets,
-    cascade::{cascade, collect_declarations},
+    cascade::{GeneratedRule, cascade, collect_declarations},
     resolver::PropertyResolver,
     types::{
         border::Border,
@@ -43,12 +42,12 @@ impl ComputedStyle {
     /// # Arguments
     /// * `node_id` - The NodeId of the DOM node to compute the style for.
     /// * `dom` - The DocumentRoot representing the DOM tree.
-    /// * `cached_stylesheets` - Pre-cached stylesheets with parsed selector sequences.
+    /// * `rules` - A slice of GeneratedRule representing the CSS rules to apply.
     /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
     pub fn from_node(
         node_id: &NodeId,
         dom: &DocumentRoot,
-        cached_stylesheets: &CachedStylesheets,
+        rules: &[GeneratedRule],
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
         let mut computed_style = match parent_style {
@@ -61,7 +60,7 @@ impl ComputedStyle {
             None => return computed_style,
         };
 
-        let declarations = &mut collect_declarations(node, dom, cached_stylesheets);
+        let declarations = &mut collect_declarations(node, dom, rules);
         let properties = cascade(declarations);
 
         for (key, value) in properties {

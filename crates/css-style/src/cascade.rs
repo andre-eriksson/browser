@@ -1,10 +1,40 @@
 use std::collections::HashMap;
 
 use css_cssom::{CSSDeclaration, CSSStyleSheet, StylesheetOrigin};
-use css_selectors::{SelectorSpecificity, SpecificityCalculable, matches_compound};
+use css_selectors::{
+    CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list,
+    matches_compound,
+};
 use html_dom::{DocumentRoot, DomNode};
 
-use crate::cached_stylesheet::CachedStylesheets;
+#[derive(Debug)]
+pub struct GeneratedRule<'a> {
+    pub selector_sequences: Vec<CompoundSelectorSequence>,
+    pub declarations: &'a [CSSDeclaration],
+    pub origin: StylesheetOrigin,
+}
+
+impl<'a> GeneratedRule<'a> {
+    pub fn build(stylesheets: &'a [CSSStyleSheet]) -> Vec<GeneratedRule<'a>> {
+        let mut generated_rules = Vec::new();
+
+        for stylesheet in stylesheets {
+            let style_rules = stylesheet.get_style_rules();
+            for rule in style_rules {
+                let selector_list = generate_selector_list(&rule.prelude);
+                for selector_sequence in selector_list {
+                    generated_rules.push(GeneratedRule {
+                        selector_sequences: selector_sequence,
+                        declarations: rule.declarations(),
+                        origin: stylesheet.origin(),
+                    });
+                }
+            }
+        }
+
+        generated_rules
+    }
+}
 
 /// Full cascade specificity including inline styles
 ///
@@ -73,11 +103,11 @@ impl CascadedDeclaration {
     }
 }
 
-/// Collect declarations for a node using pre-cached selector sequences.
+/// Collect declarations for a node using precomputed rules.
 pub fn collect_declarations(
     node: &DomNode,
     dom: &DocumentRoot,
-    cached_stylesheets: &CachedStylesheets,
+    rules: &[GeneratedRule],
 ) -> Vec<CascadedDeclaration> {
     let mut declarations = Vec::new();
     let mut source_order: usize = 0;
@@ -87,30 +117,28 @@ pub fn collect_declarations(
         None => return declarations,
     };
 
-    for cached_stylesheet in cached_stylesheets.iter() {
-        for cached_rule in cached_stylesheet.cached_rules() {
-            if matches_compound(&cached_rule.selector_sequences, dom, node) {
-                let specificity = cached_rule
-                    .selector_sequences
-                    .iter()
-                    .map(|seq| seq.specificity())
-                    .max()
-                    .unwrap_or_default();
+    for rule in rules {
+        if matches_compound(&rule.selector_sequences, dom, node) {
+            let specificity = rule
+                .selector_sequences
+                .iter()
+                .map(|seq| seq.specificity())
+                .max()
+                .unwrap_or_default();
 
-                for decl in cached_rule.declarations {
-                    let expanded = expand_shorthand_property(&decl.name, &decl.value);
+            for decl in rule.declarations {
+                let expanded = expand_shorthand_property(&decl.name, &decl.value);
 
-                    for (property, value) in expanded {
-                        declarations.push(CascadedDeclaration {
-                            property,
-                            value,
-                            important: decl.important,
-                            specificity: CascadeSpecificity::from(specificity),
-                            source_order,
-                            origin: cached_stylesheet.origin(),
-                        });
-                        source_order += 1;
-                    }
+                for (property, value) in expanded {
+                    declarations.push(CascadedDeclaration {
+                        property,
+                        value,
+                        important: decl.important,
+                        specificity: CascadeSpecificity::from(specificity),
+                        source_order,
+                        origin: rule.origin,
+                    });
+                    source_order += 1;
                 }
             }
         }
