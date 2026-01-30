@@ -54,6 +54,10 @@ impl PropertyResolver {
             return Some(rgb_color);
         }
 
+        if let Some(oklch_color) = Color::from_oklch_string(value) {
+            return Some(oklch_color);
+        }
+
         let named_color = NamedColor::from(value);
         if named_color != NamedColor::Unknown {
             return Some(Color::Named(named_color));

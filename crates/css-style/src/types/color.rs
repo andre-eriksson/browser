@@ -261,6 +261,61 @@ impl Color {
 
         None
     }
+
+    pub fn from_oklch_string(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("oklch(") && value.ends_with(')') {
+            fn handle_percent(s: &str) -> Option<f32> {
+                if let Some(number_part) = s.strip_suffix('%')
+                    && let Ok(num) = number_part.parse::<f32>()
+                {
+                    return Some(num / 100.0);
+                }
+                None
+            }
+
+            let content = &value[6..value.len() - 1];
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            if parts.len() == 3 {
+                let l = if parts[0].contains('%') {
+                    handle_percent(parts[0])?
+                } else {
+                    parts[0].parse::<f32>().ok()?
+                };
+                let c = if parts[1].contains('%') {
+                    handle_percent(parts[1])?
+                } else {
+                    parts[1].parse::<f32>().ok()?
+                };
+                let h = parts[2].parse::<f32>().ok()?; // TODO: Handle degrees later
+                return Some(Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
+                    l, c, h,
+                ))));
+            }
+
+            let parts_space: Vec<&str> = content.split_whitespace().map(|s| s.trim()).collect();
+            if parts_space.len() == 3 {
+                let l = if parts_space[0].contains('%') {
+                    handle_percent(parts_space[0])?
+                } else {
+                    parts_space[0].parse::<f32>().ok()?
+                };
+                let c = if parts_space[1].contains('%') {
+                    handle_percent(parts_space[1])?
+                } else {
+                    parts_space[1].parse::<f32>().ok()?
+                };
+                let h = parts_space[2].parse::<f32>().ok()?; // TODO: Handle degrees later
+
+                return Some(Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
+                    l, c, h,
+                ))));
+            }
+        }
+
+        None
+    }
 }
 
 impl NamedColor {
