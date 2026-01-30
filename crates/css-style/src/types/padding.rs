@@ -3,7 +3,7 @@ use crate::types::{
     length::{Length, LengthUnit},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PaddingValue {
     Percentage(f32),
     Length(Length),
@@ -11,7 +11,7 @@ pub enum PaddingValue {
     Auto,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Padding {
     pub top: PaddingValue,
     pub right: PaddingValue,
@@ -44,9 +44,9 @@ impl Padding {
     /// Set all paddings to the same value
     pub fn all(value: PaddingValue) -> Self {
         Self {
-            top: value.clone(),
-            right: value.clone(),
-            bottom: value.clone(),
+            top: value,
+            right: value,
+            bottom: value,
             left: value,
         }
     }
@@ -54,8 +54,8 @@ impl Padding {
     /// Set vertical and horizontal paddings
     pub fn two(vertical: PaddingValue, horizontal: PaddingValue) -> Self {
         Self {
-            top: vertical.clone(),
-            right: horizontal.clone(),
+            top: vertical,
+            right: horizontal,
             bottom: vertical,
             left: horizontal,
         }
@@ -65,7 +65,7 @@ impl Padding {
     pub fn three(top: PaddingValue, horizontal: PaddingValue, bottom: PaddingValue) -> Self {
         Self {
             top,
-            right: horizontal.clone(),
+            right: horizontal,
             bottom,
             left: horizontal,
         }

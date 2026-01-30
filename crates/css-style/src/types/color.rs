@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SystemColor {
     AccentColor,
     AccentColorText,
@@ -24,7 +24,7 @@ pub enum SystemColor {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum NamedColor {
     AliceBlue,
     AntiqueWhite,
@@ -173,7 +173,7 @@ pub enum NamedColor {
     Unknown,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum SRGBAColor {
     RGB(u8, u8, u8),
     RGBA(u8, u8, u8, f32),
@@ -182,26 +182,26 @@ pub enum SRGBAColor {
     HWB(f32, f32, f32),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum CIELAB {
     Lab(f32, f32, f32),
     Lch(f32, f32, f32),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Oklab {
     Oklab(f32, f32, f32),
     Oklch(f32, f32, f32),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum FunctionColor {
     SRGBA(SRGBAColor),
     CIELAB(CIELAB),
     Oklab(Oklab),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Color {
     System(SystemColor),
     Named(NamedColor),

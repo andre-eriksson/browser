@@ -1,9 +1,6 @@
-use crate::types::{
-    global::Global,
-    length::{Length, LengthUnit},
-};
+use crate::types::{global::Global, length::Length};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum GenericName {
     Serif,
     SansSerif,
@@ -50,7 +47,7 @@ pub struct FontFamily {
     pub names: Vec<FontFamilyName>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum AbsoluteSize {
     XXSmall,
     XSmall,
@@ -76,9 +73,22 @@ impl AbsoluteSize {
             _ => None,
         }
     }
+
+    pub fn to_px(&self) -> f32 {
+        match self {
+            AbsoluteSize::XXSmall => 9.0,
+            AbsoluteSize::XSmall => 10.0,
+            AbsoluteSize::Small => 13.0,
+            AbsoluteSize::Medium => 16.0,
+            AbsoluteSize::Large => 18.0,
+            AbsoluteSize::XLarge => 24.0,
+            AbsoluteSize::XXLarge => 32.0,
+            AbsoluteSize::XXXLarge => 48.0,
+        }
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum RelativeSize {
     Smaller,
     Larger,
@@ -92,9 +102,16 @@ impl RelativeSize {
             _ => None,
         }
     }
+
+    pub fn to_px(&self, parent_px: f32) -> f32 {
+        match self {
+            RelativeSize::Smaller => parent_px * 0.833,
+            RelativeSize::Larger => parent_px * 1.2,
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum FontSize {
     Absolute(AbsoluteSize),
     Relative(RelativeSize),
@@ -106,28 +123,10 @@ pub enum FontSize {
 impl FontSize {
     pub fn to_px(&self, parent_px: f32) -> f32 {
         match self {
-            FontSize::Absolute(abs) => match abs {
-                AbsoluteSize::XXSmall => 9.0,
-                AbsoluteSize::XSmall => 10.0,
-                AbsoluteSize::Small => 13.0,
-                AbsoluteSize::Medium => 16.0,
-                AbsoluteSize::Large => 18.0,
-                AbsoluteSize::XLarge => 24.0,
-                AbsoluteSize::XXLarge => 32.0,
-                AbsoluteSize::XXXLarge => 48.0,
-            },
-            FontSize::Length(len) => match len.unit {
-                LengthUnit::Px => len.value,
-                LengthUnit::Em => len.value * parent_px,
-                LengthUnit::Rem => len.value * 16.0,
-                LengthUnit::Pt => len.value * 96.0 / 72.0,
-                _ => len.value * parent_px,
-            },
+            FontSize::Absolute(abs) => abs.to_px(),
+            FontSize::Length(len) => len.to_px(parent_px),
             FontSize::Percentage(pct) => parent_px * pct / 100.0,
-            FontSize::Relative(rel) => match rel {
-                RelativeSize::Smaller => parent_px * 0.833,
-                RelativeSize::Larger => parent_px * 1.2,
-            },
+            FontSize::Relative(rel) => rel.to_px(parent_px),
             FontSize::Global(_) => parent_px,
         }
     }

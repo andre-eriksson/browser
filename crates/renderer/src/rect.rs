@@ -7,7 +7,7 @@ use crate::{globals::Globals2D, vertex::VertexBuffer};
 
 /// A single vertex with position and color attributes
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct SolidVertex {
     /// `@location(0)`
     position: [f32; 2],

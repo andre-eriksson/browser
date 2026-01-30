@@ -6,7 +6,7 @@ use wgpu::RenderPipeline;
 use crate::{globals::Globals2D, vertex::VertexBuffer};
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable)]
 pub struct TextureVertex {
     /// `@location(0)`
     position: [f32; 2],

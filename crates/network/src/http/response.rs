@@ -16,7 +16,7 @@ pub struct HeaderResponse {
 /// Represents a complete HTTP response, including headers, status code, and body.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Response>
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Response {
     /// The status code of the response.
     ///

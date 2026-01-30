@@ -1,6 +1,6 @@
 use crate::types::{global::Global, length::Length};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LineHeight {
     Normal,
     Number(f32),

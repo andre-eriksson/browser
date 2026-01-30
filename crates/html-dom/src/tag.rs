@@ -66,7 +66,7 @@ impl From<&str> for Tag {
 /// This enum includes common HTML tags that are recognized by the parser.
 ///
 /// <https://html.spec.whatwg.org/multipage/#toc-semantics>
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum HtmlTag {
     Html,
     Head,
@@ -624,7 +624,7 @@ impl TryFrom<String> for HtmlTag {
 /// This enum includes common SVG tags that are recognized by the parser.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Element>
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum SvgTag {
     A,
     Animate,

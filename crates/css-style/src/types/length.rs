@@ -1,4 +1,4 @@
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LengthUnit {
     // Relative length units based on font
     Cap,
@@ -67,7 +67,7 @@ pub enum LengthUnit {
     Pt,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Length {
     pub value: f32,
     pub unit: LengthUnit,

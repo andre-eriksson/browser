@@ -18,7 +18,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct ComputedStyle {
     pub background_color: Color,
     pub border: Border,
@@ -26,7 +26,6 @@ pub struct ComputedStyle {
     pub display: Display,
     pub font_family: FontFamily,
     pub font_size: FontSize,
-    pub computed_font_size_px: f32,
     pub height: Height,
     pub line_height: LineHeight,
     pub margin: Margin,
@@ -34,6 +33,9 @@ pub struct ComputedStyle {
     pub position: Position,
     pub text_align: TextAlign,
     pub width: Width,
+
+    // === Non-CSS properties ===
+    pub computed_font_size_px: f32,
 }
 
 impl ComputedStyle {
@@ -95,7 +97,7 @@ impl ComputedStyle {
                     if let Some(font_size) = PropertyResolver::resolve_font_size(v) {
                         let parent_px = parent_style
                             .map(|p| p.computed_font_size_px)
-                            .unwrap_or(16.0);
+                            .unwrap_or(AbsoluteSize::Medium.to_px());
                         computed_style.computed_font_size_px = font_size.to_px(parent_px);
                         computed_style.font_size = font_size;
                     }
@@ -150,12 +152,12 @@ impl ComputedStyle {
     /// Returns a subset of the ComputedStyle containing only inherited properties.
     pub fn inherited_subset(&self) -> Self {
         ComputedStyle {
-            color: self.color.clone(),
+            color: self.color,
             font_family: self.font_family.clone(),
-            font_size: self.font_size.clone(),
+            font_size: self.font_size,
             computed_font_size_px: self.computed_font_size_px,
-            line_height: self.line_height.clone(),
-            text_align: self.text_align.clone(),
+            line_height: self.line_height,
+            text_align: self.text_align,
             ..ComputedStyle::default()
         }
     }
@@ -178,7 +180,7 @@ impl Default for ComputedStyle {
                 names: vec![FontFamilyName::Generic(GenericName::Serif)],
             },
             font_size: FontSize::Absolute(AbsoluteSize::Medium),
-            computed_font_size_px: 16.0,
+            computed_font_size_px: AbsoluteSize::Medium.to_px(),
             height: Height::Auto,
             line_height: LineHeight::Normal,
             margin: Margin::zero(),

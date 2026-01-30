@@ -4,7 +4,7 @@ use crate::types::{
     length::Length,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BorderWidthValue {
     Length(Length),
     Thin,
@@ -13,7 +13,7 @@ pub enum BorderWidthValue {
     Global(Global),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BorderWidth {
     pub top: BorderWidthValue,
     pub right: BorderWidthValue,
@@ -39,9 +39,9 @@ impl BorderWidth {
     /// Set all border widths to the same value
     pub fn all(value: BorderWidthValue) -> Self {
         Self {
-            top: value.clone(),
-            right: value.clone(),
-            bottom: value.clone(),
+            top: value,
+            right: value,
+            bottom: value,
             left: value,
         }
     }
@@ -49,8 +49,8 @@ impl BorderWidth {
     /// Set vertical and horizontal border widths
     pub fn two(vertical: BorderWidthValue, horizontal: BorderWidthValue) -> Self {
         Self {
-            top: vertical.clone(),
-            right: horizontal.clone(),
+            top: vertical,
+            right: horizontal,
             bottom: vertical,
             left: horizontal,
         }
@@ -64,14 +64,14 @@ impl BorderWidth {
     ) -> Self {
         Self {
             top,
-            right: horizontal.clone(),
+            right: horizontal,
             bottom,
             left: horizontal,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BorderStyleValue {
     None,
     Hidden,
@@ -104,7 +104,7 @@ impl BorderStyleValue {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BorderStyle {
     pub top: BorderStyleValue,
     pub right: BorderStyleValue,
@@ -130,9 +130,9 @@ impl BorderStyle {
     /// Set all border styles to the same value
     pub fn all(value: BorderStyleValue) -> Self {
         Self {
-            top: value.clone(),
-            right: value.clone(),
-            bottom: value.clone(),
+            top: value,
+            right: value,
+            bottom: value,
             left: value,
         }
     }
@@ -140,8 +140,8 @@ impl BorderStyle {
     /// Set vertical and horizontal border styles
     pub fn two(vertical: BorderStyleValue, horizontal: BorderStyleValue) -> Self {
         Self {
-            top: vertical.clone(),
-            right: horizontal.clone(),
+            top: vertical,
+            right: horizontal,
             bottom: vertical,
             left: horizontal,
         }
@@ -155,20 +155,20 @@ impl BorderStyle {
     ) -> Self {
         Self {
             top,
-            right: horizontal.clone(),
+            right: horizontal,
             bottom,
             left: horizontal,
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BorderColorValue {
     Color(Color),
     Global(Global),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct BorderColor {
     pub top: BorderColorValue,
     pub right: BorderColorValue,
@@ -194,9 +194,9 @@ impl BorderColor {
     /// Set all border colors to the same value
     pub fn all(value: BorderColorValue) -> Self {
         Self {
-            top: value.clone(),
-            right: value.clone(),
-            bottom: value.clone(),
+            top: value,
+            right: value,
+            bottom: value,
             left: value,
         }
     }
@@ -204,8 +204,8 @@ impl BorderColor {
     /// Set vertical and horizontal border colors
     pub fn two(vertical: BorderColorValue, horizontal: BorderColorValue) -> Self {
         Self {
-            top: vertical.clone(),
-            right: horizontal.clone(),
+            top: vertical,
+            right: horizontal,
             bottom: vertical,
             left: horizontal,
         }
@@ -219,14 +219,14 @@ impl BorderColor {
     ) -> Self {
         Self {
             top,
-            right: horizontal.clone(),
+            right: horizontal,
             bottom,
             left: horizontal,
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Border {
     pub width: BorderWidth,
     pub style: BorderStyle,

@@ -3,7 +3,7 @@ use crate::types::{
     length::{Length, LengthUnit},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MarginValue {
     Percentage(f32),
     Length(Length),
@@ -11,7 +11,7 @@ pub enum MarginValue {
     Auto,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Margin {
     pub top: MarginValue,
     pub right: MarginValue,
@@ -43,12 +43,12 @@ impl Margin {
 
     pub fn block(value: MarginValue) -> Self {
         Self {
-            top: value.clone(),
+            top: value,
             right: MarginValue::Length(Length {
                 value: 0.0,
                 unit: LengthUnit::Px,
             }),
-            bottom: value.clone(),
+            bottom: value,
             left: MarginValue::Length(Length {
                 value: 0.0,
                 unit: LengthUnit::Px,
@@ -74,9 +74,9 @@ impl Margin {
     /// Set all margins to the same value
     pub fn all(value: MarginValue) -> Self {
         Self {
-            top: value.clone(),
-            right: value.clone(),
-            bottom: value.clone(),
+            top: value,
+            right: value,
+            bottom: value,
             left: value,
         }
     }
@@ -84,8 +84,8 @@ impl Margin {
     /// Set vertical and horizontal margins
     pub fn two(vertical: MarginValue, horizontal: MarginValue) -> Self {
         Self {
-            top: vertical.clone(),
-            right: horizontal.clone(),
+            top: vertical,
+            right: horizontal,
             bottom: vertical,
             left: horizontal,
         }
@@ -95,7 +95,7 @@ impl Margin {
     pub fn three(top: MarginValue, horizontal: MarginValue, bottom: MarginValue) -> Self {
         Self {
             top,
-            right: horizontal.clone(),
+            right: horizontal,
             bottom,
             left: horizontal,
         }

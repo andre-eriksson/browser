@@ -2,13 +2,13 @@
 
 use crate::types::global::Global;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum OutsideDisplay {
     Block,
     Inline,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum InsideDisplay {
     Flow,
     FlowRoot,
@@ -18,7 +18,7 @@ pub enum InsideDisplay {
     Ruby,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum InternalDisplay {
     TableRowGroup,
     TableHeaderGroup,
@@ -34,13 +34,13 @@ pub enum InternalDisplay {
     RubyTextContainer,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum BoxDisplay {
     Contents,
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Display {
     pub outside: Option<OutsideDisplay>,
     pub inside: Option<InsideDisplay>,
