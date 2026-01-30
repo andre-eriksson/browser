@@ -1,9 +1,9 @@
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    cascade::{GeneratedRule, cascade, collect_declarations},
-    resolver::PropertyResolver,
+    cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
     types::{
+        Parseable,
         border::Border,
         color::{Color, NamedColor},
         display::{Display, InsideDisplay, OutsideDisplay},
@@ -36,6 +36,7 @@ pub struct ComputedStyle {
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
+    pub variables: Vec<(String, String)>,
 }
 
 impl ComputedStyle {
@@ -62,39 +63,55 @@ impl ComputedStyle {
             None => return computed_style,
         };
 
-        let declarations = &mut collect_declarations(node, dom, rules);
+        let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
         let properties = cascade(declarations);
+        computed_style.variables = cascade_variables(variables);
 
         for (key, value) in properties {
-            let v = value.as_str();
+            let mut v = value.as_str();
+
+            if v.starts_with("var")
+                && let Some(start) = v.find('(')
+                && let Some(end) = v.rfind(')')
+            {
+                let var_name = v[start + 1..end].trim();
+                if let Some((_, var_value)) = computed_style
+                    .variables
+                    .iter()
+                    .find(|(name, _)| name == var_name)
+                {
+                    v = var_value.as_str();
+                }
+            }
+
             match key.as_str() {
                 "background" | "background-color" => {
-                    if let Some(color) = PropertyResolver::resolve_color(v) {
+                    if let Some(color) = Color::parse(v) {
                         computed_style.background_color = color;
                     }
                 }
                 "border" => {
-                    if let Some(border) = PropertyResolver::resolve_border(v) {
+                    if let Some(border) = Border::parse(v) {
                         computed_style.border = border;
                     }
                 }
                 "color" => {
-                    if let Some(color) = PropertyResolver::resolve_color(v) {
+                    if let Some(color) = Color::parse(v) {
                         computed_style.color = color;
                     }
                 }
                 "display" => {
-                    if let Some(display) = PropertyResolver::resolve_display(v) {
+                    if let Some(display) = Display::parse(v) {
                         computed_style.display = display;
                     }
                 }
                 "font-family" => {
-                    if let Some(font_family) = PropertyResolver::resolve_font_family(v) {
+                    if let Some(font_family) = FontFamily::parse(v) {
                         computed_style.font_family = font_family;
                     }
                 }
                 "font-size" => {
-                    if let Some(font_size) = PropertyResolver::resolve_font_size(v) {
+                    if let Some(font_size) = FontSize::parse(v) {
                         let parent_px = parent_style
                             .map(|p| p.computed_font_size_px)
                             .unwrap_or(AbsoluteSize::Medium.to_px());
@@ -103,42 +120,42 @@ impl ComputedStyle {
                     }
                 }
                 "height" => {
-                    if let Some(height) = PropertyResolver::resolve_height(v) {
+                    if let Some(height) = Height::parse(v) {
                         computed_style.height = height;
                     }
                 }
                 "line-height" => {
-                    if let Some(line_height) = PropertyResolver::resolve_line_height(v) {
+                    if let Some(line_height) = LineHeight::parse(v) {
                         computed_style.line_height = line_height;
                     }
                 }
                 "margin" => {
-                    if let Some(margin) = PropertyResolver::resolve_margin(v) {
+                    if let Some(margin) = Margin::parse(v) {
                         computed_style.margin = margin;
                     }
                 }
                 "margin-block" => {
-                    if let Some(margin) = PropertyResolver::resolve_margin_block(v) {
+                    if let Some(margin) = Margin::parse(v) {
                         computed_style.margin = margin;
                     }
                 }
                 "padding" => {
-                    if let Some(padding) = PropertyResolver::resolve_padding(v) {
+                    if let Some(padding) = Padding::parse(v) {
                         computed_style.padding = padding;
                     }
                 }
                 "position" => {
-                    if let Some(position) = PropertyResolver::resolve_position(v) {
+                    if let Some(position) = Position::parse(v) {
                         computed_style.position = position;
                     }
                 }
                 "text-align" => {
-                    if let Some(text_align) = PropertyResolver::resolve_text_align(v) {
+                    if let Some(text_align) = TextAlign::parse(v) {
                         computed_style.text_align = text_align;
                     }
                 }
                 "width" => {
-                    if let Some(width) = PropertyResolver::resolve_width(v) {
+                    if let Some(width) = Width::parse(v) {
                         computed_style.width = width;
                     }
                 }
@@ -166,7 +183,8 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         ComputedStyle {
-            background_color: Color::Named(NamedColor::Transparent),
+            variables: Vec::with_capacity(32),
+            background_color: Color::Transparent,
             border: Border::none(),
             color: Color::Named(NamedColor::Black),
             display: Display {

@@ -1,3 +1,5 @@
+use crate::types::Parseable;
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LengthUnit {
     // Relative length units based on font
@@ -102,59 +104,165 @@ impl Length {
     }
 }
 
-impl From<&str> for LengthUnit {
-    fn from(s: &str) -> Self {
-        match s {
-            "cap" => LengthUnit::Cap,
-            "ch" => LengthUnit::Ch,
-            "em" => LengthUnit::Em,
-            "ex" => LengthUnit::Ex,
-            "ic" => LengthUnit::Ic,
-            "lh" => LengthUnit::Lh,
-            "rcap" => LengthUnit::Rcap,
-            "rch" => LengthUnit::Rch,
-            "rem" => LengthUnit::Rem,
-            "rex" => LengthUnit::Rex,
-            "ric" => LengthUnit::Ric,
-            "rlh" => LengthUnit::Rlh,
-            "vw" => LengthUnit::Vw,
-            "vh" => LengthUnit::Vh,
-            "vmin" => LengthUnit::Vmin,
-            "vmax" => LengthUnit::Vmax,
-            "vb" => LengthUnit::Vb,
-            "vi" => LengthUnit::Vi,
-            "svh" => LengthUnit::Svh,
-            "svw" => LengthUnit::Svw,
-            "svmax" => LengthUnit::Svmax,
-            "svmin" => LengthUnit::Svmin,
-            "svb" => LengthUnit::Svb,
-            "svi" => LengthUnit::Svi,
-            "lvh" => LengthUnit::Lvh,
-            "lvw" => LengthUnit::Lvw,
-            "lvmax" => LengthUnit::Lvmax,
-            "lvmin" => LengthUnit::Lvmin,
-            "lvb" => LengthUnit::Lvb,
-            "lvi" => LengthUnit::Lvi,
-            "dvh" => LengthUnit::Dvh,
-            "dvw" => LengthUnit::Dvw,
-            "dvmax" => LengthUnit::Dvmax,
-            "dvmin" => LengthUnit::Dvmin,
-            "dvb" => LengthUnit::Dvb,
-            "dvi" => LengthUnit::Dvi,
-            "cqw" => LengthUnit::Cqw,
-            "cqh" => LengthUnit::Cqh,
-            "cqi" => LengthUnit::Cqi,
-            "cqb" => LengthUnit::Cqb,
-            "cqmin" => LengthUnit::Cqmin,
-            "cqmax" => LengthUnit::Cqmax,
-            "px" => LengthUnit::Px,
-            "cm" => LengthUnit::Cm,
-            "mm" => LengthUnit::Mm,
-            "q" => LengthUnit::Q,
-            "in" => LengthUnit::In,
-            "pc" => LengthUnit::Pc,
-            "pt" => LengthUnit::Pt,
-            _ => LengthUnit::Px,
+impl Parseable for LengthUnit {
+    fn parse(value: &str) -> Option<Self> {
+        match value.len() {
+            1 => {
+                if value.eq_ignore_ascii_case("q") {
+                    Some(Self::Q)
+                } else {
+                    None
+                }
+            }
+            2 => {
+                if value.eq_ignore_ascii_case("ch") {
+                    Some(Self::Ch)
+                } else if value.eq_ignore_ascii_case("em") {
+                    Some(Self::Em)
+                } else if value.eq_ignore_ascii_case("ex") {
+                    Some(Self::Ex)
+                } else if value.eq_ignore_ascii_case("ic") {
+                    Some(Self::Ic)
+                } else if value.eq_ignore_ascii_case("lh") {
+                    Some(Self::Lh)
+                } else if value.eq_ignore_ascii_case("vw") {
+                    Some(Self::Vw)
+                } else if value.eq_ignore_ascii_case("vh") {
+                    Some(Self::Vh)
+                } else if value.eq_ignore_ascii_case("vb") {
+                    Some(Self::Vw)
+                } else if value.eq_ignore_ascii_case("vi") {
+                    Some(Self::Vh)
+                } else if value.eq_ignore_ascii_case("px") {
+                    Some(Self::Px)
+                } else if value.eq_ignore_ascii_case("cm") {
+                    Some(Self::Cm)
+                } else if value.eq_ignore_ascii_case("mm") {
+                    Some(Self::Mm)
+                } else if value.eq_ignore_ascii_case("in") {
+                    Some(Self::In)
+                } else if value.eq_ignore_ascii_case("pc") {
+                    Some(Self::Pc)
+                } else if value.eq_ignore_ascii_case("pt") {
+                    Some(Self::Pt)
+                } else {
+                    None
+                }
+            }
+            3 => {
+                if value.eq_ignore_ascii_case("cap") {
+                    Some(Self::Cap)
+                } else if value.eq_ignore_ascii_case("rch") {
+                    Some(Self::Rch)
+                } else if value.eq_ignore_ascii_case("rem") {
+                    Some(Self::Rem)
+                } else if value.eq_ignore_ascii_case("rex") {
+                    Some(Self::Rex)
+                } else if value.eq_ignore_ascii_case("ric") {
+                    Some(Self::Ric)
+                } else if value.eq_ignore_ascii_case("rlh") {
+                    Some(Self::Rlh)
+                } else if value.eq_ignore_ascii_case("svh") {
+                    Some(Self::Svh)
+                } else if value.eq_ignore_ascii_case("svw") {
+                    Some(Self::Svw)
+                } else if value.eq_ignore_ascii_case("svb") {
+                    Some(Self::Svb)
+                } else if value.eq_ignore_ascii_case("svi") {
+                    Some(Self::Svi)
+                } else if value.eq_ignore_ascii_case("lvh") {
+                    Some(Self::Lvh)
+                } else if value.eq_ignore_ascii_case("lvw") {
+                    Some(Self::Lvw)
+                } else if value.eq_ignore_ascii_case("lvb") {
+                    Some(Self::Lvb)
+                } else if value.eq_ignore_ascii_case("lvi") {
+                    Some(Self::Lvi)
+                } else if value.eq_ignore_ascii_case("dvh") {
+                    Some(Self::Dvh)
+                } else if value.eq_ignore_ascii_case("dvw") {
+                    Some(Self::Dvw)
+                } else if value.eq_ignore_ascii_case("dvb") {
+                    Some(Self::Dvb)
+                } else if value.eq_ignore_ascii_case("dvi") {
+                    Some(Self::Dvi)
+                } else if value.eq_ignore_ascii_case("cqw") {
+                    Some(Self::Cqw)
+                } else if value.eq_ignore_ascii_case("cqh") {
+                    Some(Self::Cqh)
+                } else if value.eq_ignore_ascii_case("cqi") {
+                    Some(Self::Cqi)
+                } else if value.eq_ignore_ascii_case("cqb") {
+                    Some(Self::Cqb)
+                } else {
+                    None
+                }
+            }
+            4 => {
+                if value.eq_ignore_ascii_case("rcap") {
+                    Some(Self::Rcap)
+                } else if value.eq_ignore_ascii_case("vmin") {
+                    Some(Self::Vmin)
+                } else if value.eq_ignore_ascii_case("vmax") {
+                    Some(Self::Vmax)
+                } else {
+                    None
+                }
+            }
+            5 => {
+                if value.eq_ignore_ascii_case("svmax") {
+                    Some(Self::Svmax)
+                } else if value.eq_ignore_ascii_case("svmin") {
+                    Some(Self::Svmin)
+                } else if value.eq_ignore_ascii_case("lvmax") {
+                    Some(Self::Lvmax)
+                } else if value.eq_ignore_ascii_case("lvmin") {
+                    Some(Self::Lvmin)
+                } else if value.eq_ignore_ascii_case("dvmax") {
+                    Some(Self::Dvmax)
+                } else if value.eq_ignore_ascii_case("dvmin") {
+                    Some(Self::Dvmin)
+                } else if value.eq_ignore_ascii_case("cqmax") {
+                    Some(Self::Cqmax)
+                } else if value.eq_ignore_ascii_case("cqmin") {
+                    Some(Self::Cqmin)
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
+    }
+}
+
+impl Parseable for Length {
+    fn parse(value: &str) -> Option<Self> {
+        let s = value.trim();
+        let split_idx = s.find(|c: char| c.is_alphabetic()).unwrap_or(s.len());
+        let (value_str, unit_str) = s.split_at(split_idx);
+
+        let value = value_str.trim().parse::<f32>().ok()?;
+        let unit = LengthUnit::parse(unit_str)?;
+
+        Some(Self::new(value, unit))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_length_parse() {
+        let length = Length::parse("12px").unwrap();
+        assert_eq!(length.value, 12.0);
+        assert_eq!(length.unit, LengthUnit::Px);
+
+        let length = Length::parse("5.5em").unwrap();
+        assert_eq!(length.value, 5.5);
+        assert_eq!(length.unit, LengthUnit::Em);
+
+        let length = Length::parse("100%"); // Should be None
+        assert!(length.is_none());
     }
 }

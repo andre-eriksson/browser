@@ -1,3 +1,10 @@
+use crate::{
+    types::{Parseable, angle::Angle, global::Global},
+    unit::Unit,
+};
+
+pub type HexColor = [u8; 3];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SystemColor {
     AccentColor,
@@ -19,9 +26,6 @@ pub enum SystemColor {
     SelectedItem,
     SelectedItemText,
     VisitedText,
-
-    /// Used only for getting a default value in From<&str>
-    Unknown,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -160,7 +164,6 @@ pub enum NamedColor {
     Teal,
     Thistle,
     Tomato,
-    Transparent,
     Turquoise,
     Violet,
     Wheat,
@@ -168,12 +171,9 @@ pub enum NamedColor {
     WhiteSmoke,
     Yellow,
     YellowGreen,
-
-    /// Used only for getting a default value in From<&str>
-    Unknown,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SRGBAColor {
     RGB(u8, u8, u8),
     RGBA(u8, u8, u8, f32),
@@ -182,85 +182,34 @@ pub enum SRGBAColor {
     HWB(f32, f32, f32),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CIELAB {
     Lab(f32, f32, f32),
     Lch(f32, f32, f32),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Oklab {
     Oklab(f32, f32, f32),
     Oklch(f32, f32, f32),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FunctionColor {
     SRGBA(SRGBAColor),
     CIELAB(CIELAB),
     Oklab(Oklab),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
     System(SystemColor),
     Named(NamedColor),
-    Hex([u8; 3]),
+    Hex(HexColor),
     Functional(FunctionColor),
     CurrentColor,
-}
-
-impl Color {
-    pub fn hex(value: &str) -> Option<Self> {
-        let hex = value.trim_start_matches('#');
-        if hex.len() == 6
-            && let Ok(parsed) = u32::from_str_radix(hex, 16)
-        {
-            let r = ((parsed >> 16) & 0xFF) as u8;
-            let g = ((parsed >> 8) & 0xFF) as u8;
-            let b = (parsed & 0xFF) as u8;
-            return Some(Color::Hex([r, g, b]));
-        }
-
-        None
-    }
-
-    pub fn from_rgb_string(value: &str) -> Option<Self> {
-        let value = value.trim();
-
-        if value.starts_with("rgb(") && value.ends_with(')') {
-            let content = &value[4..value.len() - 1];
-            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
-            if parts.len() == 3
-                && let (Ok(r), Ok(g), Ok(b)) = (
-                    parts[0].parse::<u8>(),
-                    parts[1].parse::<u8>(),
-                    parts[2].parse::<u8>(),
-                )
-            {
-                return Some(Color::Functional(FunctionColor::SRGBA(SRGBAColor::RGB(
-                    r, g, b,
-                ))));
-            }
-        } else if value.starts_with("rgba(") && value.ends_with(')') {
-            let content = &value[5..value.len() - 1];
-            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
-            if parts.len() == 4
-                && let (Ok(r), Ok(g), Ok(b), Ok(a)) = (
-                    parts[0].parse::<u8>(),
-                    parts[1].parse::<u8>(),
-                    parts[2].parse::<u8>(),
-                    parts[3].parse::<f32>(),
-                )
-            {
-                return Some(Color::Functional(FunctionColor::SRGBA(SRGBAColor::RGBA(
-                    r, g, b, a,
-                ))));
-            }
-        }
-
-        None
-    }
+    Transparent,
+    Global(Global),
 }
 
 impl NamedColor {
@@ -411,7 +360,6 @@ impl NamedColor {
             NamedColor::WhiteSmoke => Some("#F5F5F5"),
             NamedColor::Yellow => Some("#FFFF00"),
             NamedColor::YellowGreen => Some("#9ACD32"),
-            _ => None,
         }
     }
 
@@ -435,191 +383,587 @@ impl NamedColor {
     }
 }
 
-impl From<&str> for SystemColor {
-    fn from(value: &str) -> Self {
-        match value {
-            "AccentColor" => SystemColor::AccentColor,
-            "AccentColorText" => SystemColor::AccentColorText,
-            "ActiveText" => SystemColor::ActiveText,
-            "ButtonBorder" => SystemColor::ButtonBorder,
-            "ButtonFace" => SystemColor::ButtonFace,
-            "ButtonText" => SystemColor::ButtonText,
-            "Canvas" => SystemColor::Canvas,
-            "CanvasText" => SystemColor::CanvasText,
-            "Field" => SystemColor::Field,
-            "FieldText" => SystemColor::FieldText,
-            "GrayText" => SystemColor::GrayText,
-            "Highlight" => SystemColor::Highlight,
-            "HighlightText" => SystemColor::HighlightText,
-            "LinkText" => SystemColor::LinkText,
-            "Mark" => SystemColor::Mark,
-            "MarkText" => SystemColor::MarkText,
-            "SelectedItem" => SystemColor::SelectedItem,
-            "SelectedItemText" => SystemColor::SelectedItemText,
-            "VisitedText" => SystemColor::VisitedText,
-            _ => SystemColor::Unknown, // Default case
+impl Parseable for SystemColor {
+    fn parse(s: &str) -> Option<Self> {
+        match s.len() {
+            4 if s.eq_ignore_ascii_case("mark") => Some(SystemColor::Mark),
+            6 if s.eq_ignore_ascii_case("canvas") => Some(SystemColor::Canvas),
+            9 if s.eq_ignore_ascii_case("gray-text") => Some(SystemColor::GrayText),
+            9 if s.eq_ignore_ascii_case("highlight") => Some(SystemColor::Highlight),
+            9 if s.eq_ignore_ascii_case("mark-text") => Some(SystemColor::MarkText),
+            9 if s.eq_ignore_ascii_case("link-text") => Some(SystemColor::LinkText),
+            11 if s.eq_ignore_ascii_case("active-text") => Some(SystemColor::ActiveText),
+            11 if s.eq_ignore_ascii_case("button-face") => Some(SystemColor::ButtonFace),
+            11 if s.eq_ignore_ascii_case("button-text") => Some(SystemColor::ButtonText),
+            11 if s.eq_ignore_ascii_case("canvas-text") => Some(SystemColor::CanvasText),
+            12 if s.eq_ignore_ascii_case("accent-color") => Some(SystemColor::AccentColor),
+            12 if s.eq_ignore_ascii_case("visited-text") => Some(SystemColor::VisitedText),
+            13 if s.eq_ignore_ascii_case("button-border") => Some(SystemColor::ButtonBorder),
+            13 if s.eq_ignore_ascii_case("selected-item") => Some(SystemColor::SelectedItem),
+            14 if s.eq_ignore_ascii_case("highlight-text") => Some(SystemColor::HighlightText),
+            17 if s.eq_ignore_ascii_case("accent-color-text") => Some(SystemColor::AccentColorText),
+            18 if s.eq_ignore_ascii_case("selected-item-text") => {
+                Some(SystemColor::SelectedItemText)
+            }
+            _ => None,
         }
     }
 }
 
-impl From<String> for SystemColor {
-    fn from(value: String) -> Self {
-        SystemColor::from(value.as_str())
-    }
-}
+impl Parseable for NamedColor {
+    fn parse(value: &str) -> Option<Self> {
+        let s = value.trim();
 
-impl From<&str> for NamedColor {
-    fn from(value: &str) -> Self {
-        match value.to_lowercase().as_str() {
-            "aliceblue" => NamedColor::AliceBlue,
-            "antiquewhite" => NamedColor::AntiqueWhite,
-            "aqua" => NamedColor::Aqua,
-            "aquamarine" => NamedColor::Aquamarine,
-            "azure" => NamedColor::Azure,
-            "beige" => NamedColor::Beige,
-            "bisque" => NamedColor::Bisque,
-            "black" => NamedColor::Black,
-            "blanchedalmond" => NamedColor::BlanchedAlmond,
-            "blue" => NamedColor::Blue,
-            "blueviolet" => NamedColor::BlueViolet,
-            "brown" => NamedColor::Brown,
-            "burlywood" => NamedColor::BurlyWood,
-            "cadetblue" => NamedColor::CadetBlue,
-            "chartreuse" => NamedColor::Chartreuse,
-            "chocolate" => NamedColor::Chocolate,
-            "coral" => NamedColor::Coral,
-            "cornflowerblue" => NamedColor::CornflowerBlue,
-            "cornsilk" => NamedColor::Cornsilk,
-            "crimson" => NamedColor::Crimson,
-            "cyan" => NamedColor::Cyan,
-            "darkblue" => NamedColor::DarkBlue,
-            "darkcyan" => NamedColor::DarkCyan,
-            "darkgoldenrod" => NamedColor::DarkGoldenRod,
-            "darkgray" => NamedColor::DarkGray,
-            "darkgreen" => NamedColor::DarkGreen,
-            "darkkhaki" => NamedColor::DarkKhaki,
-            "darkmagenta" => NamedColor::DarkMagenta,
-            "darkolivegreen" => NamedColor::DarkOliveGreen,
-            "darkorange" => NamedColor::DarkOrange,
-            "darkorchid" => NamedColor::DarkOrchid,
-            "darkred" => NamedColor::DarkRed,
-            "darksalmon" => NamedColor::DarkSalmon,
-            "darkseagreen" => NamedColor::DarkSeaGreen,
-            "darkslateblue" => NamedColor::DarkSlateBlue,
-            "darkslategray" | "darkslategrey" => NamedColor::DarkSlateGray,
-            "darkturquoise" => NamedColor::DarkTurquoise,
-            "darkviolet" => NamedColor::DarkViolet,
-            "deeppink" => NamedColor::DeepPink,
-            "deepskyblue" => NamedColor::DeepSkyBlue,
-            "dimgray" | "dimgrey" => NamedColor::DimGray,
-            "dodgerblue" => NamedColor::DodgerBlue,
-            "firebrick" => NamedColor::FireBrick,
-            "floralwhite" => NamedColor::FloralWhite,
-            "forestgreen" => NamedColor::ForestGreen,
-            "fuchsia" => NamedColor::Fuchsia,
-            "gainsboro" => NamedColor::Gainsboro,
-            "ghostwhite" => NamedColor::GhostWhite,
-            "gold" => NamedColor::Gold,
-            "goldenrod" => NamedColor::GoldenRod,
-            "gray" | "grey" => NamedColor::Gray,
-            "green" => NamedColor::Green,
-            "greenyellow" => NamedColor::GreenYellow,
-            "honeydew" => NamedColor::HoneyDew,
-            "hotpink" => NamedColor::HotPink,
-            "indianred" => NamedColor::IndianRed,
-            "indigo" => NamedColor::Indigo,
-            "ivory" => NamedColor::Ivory,
-            "khaki" => NamedColor::Khaki,
-            "lavender" => NamedColor::Lavender,
-            "lavenderblush" => NamedColor::LavenderBlush,
-            "lawngreen" => NamedColor::LawnGreen,
-            "lemonchiffon" => NamedColor::LemonChiffon,
-            "lightblue" => NamedColor::LightBlue,
-            "lightcoral" => NamedColor::LightCoral,
-            "lightcyan" => NamedColor::LightCyan,
-            "lightgoldenrodyellow" => NamedColor::LightGoldenRodYellow,
-            "lightgray" | "lightgrey" => NamedColor::LightGray,
-            "lightgreen" => NamedColor::LightGreen,
-            "lightpink" => NamedColor::LightPink,
-            "lightsalmon" => NamedColor::LightSalmon,
-            "lightseagreen" => NamedColor::LightSeaGreen,
-            "lightskyblue" => NamedColor::LightSkyBlue,
-            "lightslategray" | "lightslategrey" => NamedColor::LightSlateGray,
-            "lightsteelblue" => NamedColor::LightSteelBlue,
-            "lightyellow" => NamedColor::LightYellow,
-            "lime" => NamedColor::Lime,
-            "limegreen" => NamedColor::LimeGreen,
-            "linen" => NamedColor::Linen,
-            "magenta" => NamedColor::Magenta,
-            "maroon" => NamedColor::Maroon,
-            "mediumaquamarine" => NamedColor::MediumAquaMarine,
-            "mediumblue" => NamedColor::MediumBlue,
-            "mediumorchid" => NamedColor::MediumOrchid,
-            "mediumpurple" => NamedColor::MediumPurple,
-            "mediumseagreen" => NamedColor::MediumSeaGreen,
-            "mediumslateblue" => NamedColor::MediumSlateBlue,
-            "mediumspringgreen" => NamedColor::MediumSpringGreen,
-            "mediumturquoise" => NamedColor::MediumTurquoise,
-            "mediumvioletred" => NamedColor::MediumVioletRed,
-            "midnightblue" => NamedColor::MidnightBlue,
-            "mintcream" => NamedColor::MintCream,
-            "mistyrose" => NamedColor::MistyRose,
-            "moccasin" => NamedColor::Moccasin,
-            "mavajowhite" => NamedColor::NavajoWhite,
-            "navy" => NamedColor::Navy,
-            "oldlace" => NamedColor::OldLace,
-            "olive" => NamedColor::Olive,
-            "olivedrab" => NamedColor::OliveDrab,
-            "orange" => NamedColor::Orange,
-            "orangered" => NamedColor::OrangeRed,
-            "orchid" => NamedColor::Orchid,
-            "palegoldenrod" => NamedColor::PaleGoldenRod,
-            "palegreen" => NamedColor::PaleGreen,
-            "paleturquoise" => NamedColor::PaleTurquoise,
-            "palevioletred" => NamedColor::PaleVioletRed,
-            "papayawhip" => NamedColor::PapayaWhip,
-            "peachpuff" => NamedColor::PeachPuff,
-            "peru" => NamedColor::Peru,
-            "pink" => NamedColor::Pink,
-            "plum" => NamedColor::Plum,
-            "powderblue" => NamedColor::PowderBlue,
-            "purple" => NamedColor::Purple,
-            "rebeccapurple" => NamedColor::RebeccaPurple,
-            "red" => NamedColor::Red,
-            "rosybrown" => NamedColor::RosyBrown,
-            "royalblue" => NamedColor::RoyalBlue,
-            "saddlebrown" => NamedColor::SaddleBrown,
-            "salmon" => NamedColor::Salmon,
-            "sandybrown" => NamedColor::SandyBrown,
-            "seagreen" => NamedColor::SeaGreen,
-            "seashell" => NamedColor::SeaShell,
-            "sienna" => NamedColor::Sienna,
-            "silver" => NamedColor::Silver,
-            "skyblue" => NamedColor::SkyBlue,
-            "slateblue" => NamedColor::SlateBlue,
-            "slategray" | "slategrey" => NamedColor::SlateGray,
-            "snow" => NamedColor::Snow,
-            "springgreen" => NamedColor::SpringGreen,
-            "steelblue" => NamedColor::SteelBlue,
-            "tan" => NamedColor::Tan,
-            "teal" => NamedColor::Teal,
-            "thistle" => NamedColor::Thistle,
-            "tomato" => NamedColor::Tomato,
-            "transparent" => NamedColor::Transparent,
-            "turquoise" => NamedColor::Turquoise,
-            "violet" => NamedColor::Violet,
-            "wheat" => NamedColor::Violet,
-            "white" => NamedColor::White,
-            "whitesmoke" => NamedColor::WhiteSmoke,
-            "yellow" => NamedColor::Yellow,
-            "yellowgreen" => NamedColor::YellowGreen,
-            _ => NamedColor::Unknown,
+        if s.is_empty() || s.len() > 24 {
+            return None;
+        }
+
+        let mut buf = [0u8; 24];
+        let len = s.len();
+
+        for (i, b) in s.bytes().enumerate() {
+            buf[i] = b.to_ascii_lowercase();
+        }
+
+        match &buf[..len] {
+            // A
+            b"aliceblue" => Some(NamedColor::AliceBlue),
+            b"antiquewhite" => Some(NamedColor::AntiqueWhite),
+            b"aqua" => Some(NamedColor::Aqua),
+            b"aquamarine" => Some(NamedColor::Aquamarine),
+            b"azure" => Some(NamedColor::Azure),
+
+            // B
+            b"beige" => Some(NamedColor::Beige),
+            b"bisque" => Some(NamedColor::Bisque),
+            b"black" => Some(NamedColor::Black),
+            b"blanchedalmond" => Some(NamedColor::BlanchedAlmond),
+            b"blue" => Some(NamedColor::Blue),
+            b"blueviolet" => Some(NamedColor::BlueViolet),
+            b"brown" => Some(NamedColor::Brown),
+            b"burlywood" => Some(NamedColor::BurlyWood),
+
+            // C
+            b"cadetblue" => Some(NamedColor::CadetBlue),
+            b"chartreuse" => Some(NamedColor::Chartreuse),
+            b"chocolate" => Some(NamedColor::Chocolate),
+            b"coral" => Some(NamedColor::Coral),
+            b"cornflowerblue" => Some(NamedColor::CornflowerBlue),
+            b"cornsilk" => Some(NamedColor::Cornsilk),
+            b"crimson" => Some(NamedColor::Crimson),
+            b"cyan" => Some(NamedColor::Cyan),
+
+            // D
+            b"darkblue" => Some(NamedColor::DarkBlue),
+            b"darkcyan" => Some(NamedColor::DarkCyan),
+            b"darkgoldenrod" => Some(NamedColor::DarkGoldenRod),
+            b"darkgray" => Some(NamedColor::DarkGray),
+            b"darkgrey" => Some(NamedColor::DarkGray),
+            b"darkgreen" => Some(NamedColor::DarkGreen),
+            b"darkkhaki" => Some(NamedColor::DarkKhaki),
+            b"darkmagenta" => Some(NamedColor::DarkMagenta),
+            b"darkolivegreen" => Some(NamedColor::DarkOliveGreen),
+            b"darkorange" => Some(NamedColor::DarkOrange),
+            b"darkorchid" => Some(NamedColor::DarkOrchid),
+            b"darkred" => Some(NamedColor::DarkRed),
+            b"darksalmon" => Some(NamedColor::DarkSalmon),
+            b"darkseagreen" => Some(NamedColor::DarkSeaGreen),
+            b"darkslateblue" => Some(NamedColor::DarkSlateBlue),
+            b"darkslategray" => Some(NamedColor::DarkSlateGray),
+            b"darkslategrey" => Some(NamedColor::DarkSlateGray),
+            b"darkturquoise" => Some(NamedColor::DarkTurquoise),
+            b"darkviolet" => Some(NamedColor::DarkViolet),
+            b"deeppink" => Some(NamedColor::DeepPink),
+            b"deepskyblue" => Some(NamedColor::DeepSkyBlue),
+            b"dimgray" => Some(NamedColor::DimGray),
+            b"dimgrey" => Some(NamedColor::DimGray),
+            b"dodgerblue" => Some(NamedColor::DodgerBlue),
+
+            // F
+            b"firebrick" => Some(NamedColor::FireBrick),
+            b"floralwhite" => Some(NamedColor::FloralWhite),
+            b"forestgreen" => Some(NamedColor::ForestGreen),
+            b"fuchsia" => Some(NamedColor::Fuchsia),
+
+            // G
+            b"gainsboro" => Some(NamedColor::Gainsboro),
+            b"ghostwhite" => Some(NamedColor::GhostWhite),
+            b"gold" => Some(NamedColor::Gold),
+            b"goldenrod" => Some(NamedColor::GoldenRod),
+            b"gray" => Some(NamedColor::Gray),
+            b"grey" => Some(NamedColor::Gray),
+            b"green" => Some(NamedColor::Green),
+            b"greenyellow" => Some(NamedColor::GreenYellow),
+
+            // H
+            b"honeydew" => Some(NamedColor::HoneyDew),
+            b"hotpink" => Some(NamedColor::HotPink),
+
+            // I
+            b"indianred" => Some(NamedColor::IndianRed),
+            b"indigo" => Some(NamedColor::Indigo),
+            b"ivory" => Some(NamedColor::Ivory),
+
+            // K
+            b"khaki" => Some(NamedColor::Khaki),
+
+            // L
+            b"lavender" => Some(NamedColor::Lavender),
+            b"lavenderblush" => Some(NamedColor::LavenderBlush),
+            b"lawngreen" => Some(NamedColor::LawnGreen),
+            b"lemonchiffon" => Some(NamedColor::LemonChiffon),
+            b"lightblue" => Some(NamedColor::LightBlue),
+            b"lightcoral" => Some(NamedColor::LightCoral),
+            b"lightcyan" => Some(NamedColor::LightCyan),
+            b"lightgoldenrodyellow" => Some(NamedColor::LightGoldenRodYellow),
+            b"lightgray" => Some(NamedColor::LightGray),
+            b"lightgrey" => Some(NamedColor::LightGray),
+            b"lightgreen" => Some(NamedColor::LightGreen),
+            b"lightpink" => Some(NamedColor::LightPink),
+            b"lightsalmon" => Some(NamedColor::LightSalmon),
+            b"lightseagreen" => Some(NamedColor::LightSeaGreen),
+            b"lightskyblue" => Some(NamedColor::LightSkyBlue),
+            b"lightslategray" => Some(NamedColor::LightSlateGray),
+            b"lightslategrey" => Some(NamedColor::LightSlateGray),
+            b"lightsteelblue" => Some(NamedColor::LightSteelBlue),
+            b"lightyellow" => Some(NamedColor::LightYellow),
+            b"lime" => Some(NamedColor::Lime),
+            b"limegreen" => Some(NamedColor::LimeGreen),
+            b"linen" => Some(NamedColor::Linen),
+
+            // M
+            b"magenta" => Some(NamedColor::Magenta),
+            b"maroon" => Some(NamedColor::Maroon),
+            b"mediumaquamarine" => Some(NamedColor::MediumAquaMarine),
+            b"mediumblue" => Some(NamedColor::MediumBlue),
+            b"mediumorchid" => Some(NamedColor::MediumOrchid),
+            b"mediumpurple" => Some(NamedColor::MediumPurple),
+            b"mediumseagreen" => Some(NamedColor::MediumSeaGreen),
+            b"mediumslateblue" => Some(NamedColor::MediumSlateBlue),
+            b"mediumspringgreen" => Some(NamedColor::MediumSpringGreen),
+            b"mediumturquoise" => Some(NamedColor::MediumTurquoise),
+            b"mediumvioletred" => Some(NamedColor::MediumVioletRed),
+            b"midnightblue" => Some(NamedColor::MidnightBlue),
+            b"mintcream" => Some(NamedColor::MintCream),
+            b"mistyrose" => Some(NamedColor::MistyRose),
+            b"moccasin" => Some(NamedColor::Moccasin),
+
+            // N
+            b"navajowhite" => Some(NamedColor::NavajoWhite),
+            b"navy" => Some(NamedColor::Navy),
+
+            // O
+            b"oldlace" => Some(NamedColor::OldLace),
+            b"olive" => Some(NamedColor::Olive),
+            b"olivedrab" => Some(NamedColor::OliveDrab),
+            b"orange" => Some(NamedColor::Orange),
+            b"orangered" => Some(NamedColor::OrangeRed),
+            b"orchid" => Some(NamedColor::Orchid),
+
+            // P
+            b"palegoldenrod" => Some(NamedColor::PaleGoldenRod),
+            b"palegreen" => Some(NamedColor::PaleGreen),
+            b"paleturquoise" => Some(NamedColor::PaleTurquoise),
+            b"palevioletred" => Some(NamedColor::PaleVioletRed),
+            b"papayawhip" => Some(NamedColor::PapayaWhip),
+            b"peachpuff" => Some(NamedColor::PeachPuff),
+            b"peru" => Some(NamedColor::Peru),
+            b"pink" => Some(NamedColor::Pink),
+            b"plum" => Some(NamedColor::Plum),
+            b"powderblue" => Some(NamedColor::PowderBlue),
+            b"purple" => Some(NamedColor::Purple),
+
+            // R
+            b"rebeccapurple" => Some(NamedColor::RebeccaPurple),
+            b"red" => Some(NamedColor::Red),
+            b"rosybrown" => Some(NamedColor::RosyBrown),
+            b"royalblue" => Some(NamedColor::RoyalBlue),
+
+            // S
+            b"saddlebrown" => Some(NamedColor::SaddleBrown),
+            b"salmon" => Some(NamedColor::Salmon),
+            b"sandybrown" => Some(NamedColor::SandyBrown),
+            b"seagreen" => Some(NamedColor::SeaGreen),
+            b"seashell" => Some(NamedColor::SeaShell),
+            b"sienna" => Some(NamedColor::Sienna),
+            b"silver" => Some(NamedColor::Silver),
+            b"skyblue" => Some(NamedColor::SkyBlue),
+            b"slateblue" => Some(NamedColor::SlateBlue),
+            b"slategray" => Some(NamedColor::SlateGray),
+            b"slategrey" => Some(NamedColor::SlateGray),
+            b"snow" => Some(NamedColor::Snow),
+            b"springgreen" => Some(NamedColor::SpringGreen),
+            b"steelblue" => Some(NamedColor::SteelBlue),
+
+            // T
+            b"tan" => Some(NamedColor::Tan),
+            b"teal" => Some(NamedColor::Teal),
+            b"thistle" => Some(NamedColor::Thistle),
+            b"tomato" => Some(NamedColor::Tomato),
+            b"turquoise" => Some(NamedColor::Turquoise),
+
+            // V
+            b"violet" => Some(NamedColor::Violet),
+
+            // W
+            b"wheat" => Some(NamedColor::Wheat),
+            b"white" => Some(NamedColor::White),
+            b"whitesmoke" => Some(NamedColor::WhiteSmoke),
+
+            // Y
+            b"yellow" => Some(NamedColor::Yellow),
+            b"yellowgreen" => Some(NamedColor::YellowGreen),
+            _ => None,
         }
     }
 }
 
-impl From<String> for NamedColor {
-    fn from(value: String) -> Self {
-        NamedColor::from(value.as_str())
+impl Parseable for HexColor {
+    fn parse(value: &str) -> Option<Self> {
+        let hex = value.trim_start_matches('#');
+        if hex.len() == 6
+            && let Ok(parsed) = u32::from_str_radix(hex, 16)
+        {
+            let r = ((parsed >> 16) & 0xFF) as u8;
+            let g = ((parsed >> 8) & 0xFF) as u8;
+            let b = (parsed & 0xFF) as u8;
+            return Some([r, g, b]);
+        }
+
+        None
+    }
+}
+
+impl Parseable for SRGBAColor {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("rgb(") && value.ends_with(')') {
+            let content = &value[4..value.len() - 1];
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            if parts.len() == 3
+                && let (Ok(r), Ok(g), Ok(b)) = (
+                    parts[0].parse::<u8>(),
+                    parts[1].parse::<u8>(),
+                    parts[2].parse::<u8>(),
+                )
+            {
+                return Some(Self::RGB(r, g, b));
+            }
+        } else if value.starts_with("rgba(") && value.ends_with(')') {
+            let content = &value[5..value.len() - 1];
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            if parts.len() == 4
+                && let (Ok(r), Ok(g), Ok(b), Ok(a)) = (
+                    parts[0].parse::<u8>(),
+                    parts[1].parse::<u8>(),
+                    parts[2].parse::<u8>(),
+                    parts[3].parse::<f32>(),
+                )
+            {
+                return Some(Self::RGBA(r, g, b, a));
+            }
+        }
+
+        None
+    }
+}
+
+impl Parseable for CIELAB {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("lab(") && value.ends_with(')') {
+            let content = &value[4..value.len() - 1];
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])?
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let a = if parts[1].contains('%') {
+                (Unit::resolve_percentage(parts[1])? / 100.0) * 125.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let b = if parts[2].contains('%') {
+                (Unit::resolve_percentage(parts[2])? / 100.0) * 125.0
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Self::Lab(l, a, b));
+        } else if value.starts_with("lch(") && value.ends_with(')') {
+            let content = &value[4..value.len() - 1];
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])?
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let c = if parts[1].contains('%') {
+                (Unit::resolve_percentage(parts[1])? / 100.0) * 150.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let h = if let Some(angle) = Angle::parse(parts[2]) {
+                angle.to_degrees()
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Self::Lch(l, c, h));
+        }
+        None
+    }
+}
+
+impl Parseable for Oklab {
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+
+        if value.starts_with("oklch(") && value.ends_with(')') {
+            let content = &value[6..value.len() - 1];
+
+            // TODO: Handle relative values: `from <color> L C H [ / A]`
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])? / 100.0
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let c = if parts[1].contains('%') {
+                Unit::resolve_percentage(parts[1])? / 100.0
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let h = if let Some(angle) = Angle::parse(parts[2]) {
+                angle.to_degrees()
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Self::Oklch(l, c, h));
+        } else if value.starts_with("oklab(") && value.ends_with(')') {
+            let content = &value[6..value.len() - 1];
+
+            let parts: Vec<&str> = if content.contains(',') {
+                content.split(',').map(|s| s.trim()).collect()
+            } else {
+                content.split_whitespace().map(|s| s.trim()).collect()
+            };
+
+            if parts.len() != 3 {
+                // TODO: Handle optional alpha channel
+                return None;
+            }
+
+            let l = if parts[0].contains('%') {
+                Unit::resolve_percentage(parts[0])? / 100.0
+            } else if parts[0].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[0].parse::<f32>().ok()?
+            };
+
+            let a = if parts[1].contains('%') {
+                Unit::resolve_percentage(parts[1])? / 100.0 * 0.4
+            } else if parts[1].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[1].parse::<f32>().ok()?
+            };
+
+            let b = if parts[2].contains('%') {
+                Unit::resolve_percentage(parts[2])? / 100.0 * 0.4
+            } else if parts[2].eq_ignore_ascii_case("none") {
+                0.0
+            } else {
+                parts[2].parse::<f32>().ok()?
+            };
+
+            return Some(Self::Oklab(l, a, b));
+        }
+
+        None
+    }
+}
+
+impl Parseable for FunctionColor {
+    fn parse(value: &str) -> Option<Self> {
+        if let Some(srgba) = SRGBAColor::parse(value) {
+            return Some(Self::SRGBA(srgba));
+        }
+
+        if let Some(cielab) = CIELAB::parse(value) {
+            return Some(Self::CIELAB(cielab));
+        }
+
+        if let Some(oklab) = Oklab::parse(value) {
+            return Some(Self::Oklab(oklab));
+        }
+
+        None
+    }
+}
+
+impl Parseable for Color {
+    fn parse(value: &str) -> Option<Self> {
+        let s = value.trim();
+
+        if s.eq_ignore_ascii_case("currentColor") {
+            return Some(Self::CurrentColor);
+        } else if s.eq_ignore_ascii_case("transparent") {
+            return Some(Self::Transparent);
+        }
+
+        if let Some(global) = Global::parse(s) {
+            return Some(Self::Global(global));
+        }
+
+        if let Some(hex_color) = HexColor::parse(s) {
+            return Some(Self::Hex(hex_color));
+        }
+
+        if let Some(function_color) = FunctionColor::parse(s) {
+            return Some(Self::Functional(function_color));
+        }
+
+        if let Some(system_color) = SystemColor::parse(s) {
+            return Some(Self::System(system_color));
+        }
+
+        if let Some(named_color) = NamedColor::parse(s) {
+            return Some(Self::Named(named_color));
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::{Parseable, color::HexColor};
+
+    use super::*;
+
+    #[test]
+    fn test_system_color_parsing() {
+        assert_eq!(
+            SystemColor::parse("highlight"),
+            Some(SystemColor::Highlight)
+        );
+        assert_eq!(SystemColor::parse("unknowncolor"), None);
+    }
+
+    #[test]
+    fn test_named_color_parsing() {
+        assert_eq!(
+            NamedColor::parse("rebeCCapurPLE"),
+            Some(NamedColor::RebeccaPurple)
+        );
+        assert_eq!(NamedColor::parse("invalidcolor"), None);
+    }
+
+    #[test]
+    fn test_color_hex_parsing() {
+        assert_eq!(HexColor::parse("#FF5733"), Some([255, 87, 51]));
+        assert_eq!(HexColor::parse("#ZZZZZZ"), None);
+    }
+
+    #[test]
+    fn test_color_srgba_parsing() {
+        assert_eq!(
+            SRGBAColor::parse("rgb(255, 0, 0)"),
+            Some(SRGBAColor::RGB(255, 0, 0))
+        );
+        assert_eq!(
+            SRGBAColor::parse("rgba(0, 255, 0, 0.5)"),
+            Some(SRGBAColor::RGBA(0, 255, 0, 0.5))
+        );
+        assert_eq!(SRGBAColor::parse("invalid"), None);
+    }
+
+    #[test]
+    fn test_color_cielab_parsing() {
+        assert_eq!(
+            CIELAB::parse("lab(50, 20, 30)"),
+            Some(CIELAB::Lab(50.0, 20.0, 30.0))
+        );
+        assert_eq!(
+            CIELAB::parse("lch(60, 40, 120)"),
+            Some(CIELAB::Lch(60.0, 40.0, 120.0))
+        );
+        assert_eq!(CIELAB::parse("invalid"), None);
+    }
+
+    #[test]
+    fn test_color_oklab_parsing() {
+        assert_eq!(
+            Oklab::parse("oklch(70%, 50%, 180)"),
+            Some(Oklab::Oklch(0.7, 0.5, 180.0))
+        );
+        assert_eq!(
+            Oklab::parse("oklab(0.6, 0.1, -0.1)"),
+            Some(Oklab::Oklab(0.6, 0.1, -0.1))
+        );
+
+        assert_eq!(Oklab::parse("invalid"), None);
     }
 }

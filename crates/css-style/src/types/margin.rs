@@ -1,6 +1,10 @@
-use crate::types::{
-    global::Global,
-    length::{Length, LengthUnit},
+use crate::{
+    types::{
+        Parseable,
+        global::Global,
+        length::{Length, LengthUnit},
+    },
+    unit::Unit,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -99,5 +103,131 @@ impl Margin {
             bottom,
             left: horizontal,
         }
+    }
+}
+
+impl Parseable for MarginValue {
+    fn parse(value: &str) -> Option<Self> {
+        if value.eq_ignore_ascii_case("auto") {
+            return Some(Self::Auto);
+        }
+
+        if let Some(global) = Global::parse(value) {
+            return Some(Self::Global(global));
+        }
+
+        if let Some(length) = Length::parse(value) {
+            return Some(Self::Length(length));
+        }
+
+        if let Some(percentage) = Unit::resolve_percentage(value) {
+            return Some(Self::Percentage(percentage));
+        }
+
+        None
+    }
+}
+
+impl Parseable for Margin {
+    fn parse(value: &str) -> Option<Self> {
+        let parts = value.split_whitespace().collect::<Vec<&str>>();
+
+        match parts.len() {
+            1 => {
+                let value = MarginValue::parse(parts[0])?;
+                Some(Self::all(value))
+            }
+            2 => {
+                let vertical = MarginValue::parse(parts[0])?;
+                let horizontal = MarginValue::parse(parts[1])?;
+                Some(Self::two(vertical, horizontal))
+            }
+            3 => {
+                let top = MarginValue::parse(parts[0])?;
+                let horizontal = MarginValue::parse(parts[1])?;
+                let bottom = MarginValue::parse(parts[2])?;
+                Some(Self::three(top, horizontal, bottom))
+            }
+            4 => {
+                let top = MarginValue::parse(parts[0])?;
+                let right = MarginValue::parse(parts[1])?;
+                let bottom = MarginValue::parse(parts[2])?;
+                let left = MarginValue::parse(parts[3])?;
+                Some(Self::new(top, right, bottom, left))
+            }
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_margin() {
+        assert_eq!(
+            Margin::parse("10px"),
+            Some(Margin::all(MarginValue::Length(Length {
+                value: 10.0,
+                unit: LengthUnit::Px,
+            })))
+        );
+
+        assert_eq!(
+            Margin::parse("10px 20px"),
+            Some(Margin::two(
+                MarginValue::Length(Length {
+                    value: 10.0,
+                    unit: LengthUnit::Px,
+                }),
+                MarginValue::Length(Length {
+                    value: 20.0,
+                    unit: LengthUnit::Px,
+                })
+            ))
+        );
+
+        assert_eq!(
+            Margin::parse("10px 20px 30px"),
+            Some(Margin::three(
+                MarginValue::Length(Length {
+                    value: 10.0,
+                    unit: LengthUnit::Px,
+                }),
+                MarginValue::Length(Length {
+                    value: 20.0,
+                    unit: LengthUnit::Px,
+                }),
+                MarginValue::Length(Length {
+                    value: 30.0,
+                    unit: LengthUnit::Px,
+                })
+            ))
+        );
+
+        assert_eq!(
+            Margin::parse("10px 20px 30px 40px"),
+            Some(Margin::new(
+                MarginValue::Length(Length {
+                    value: 10.0,
+                    unit: LengthUnit::Px,
+                }),
+                MarginValue::Length(Length {
+                    value: 20.0,
+                    unit: LengthUnit::Px,
+                }),
+                MarginValue::Length(Length {
+                    value: 30.0,
+                    unit: LengthUnit::Px,
+                }),
+                MarginValue::Length(Length {
+                    value: 40.0,
+                    unit: LengthUnit::Px,
+                })
+            ))
+        );
+
+        assert_eq!(Margin::parse("auto"), Some(Margin::all(MarginValue::Auto)))
     }
 }
