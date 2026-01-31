@@ -32,8 +32,10 @@ impl Collector for TabCollector {
             self.in_title = true;
         }
 
-        if self.in_title && tag.data.is_some() {
-            self.title = Some(tag.data.unwrap().clone());
+        if self.in_title
+            && let Some(title) = tag.data
+        {
+            self.title = Some(title.to_string());
             self.in_title = false;
         }
     }
