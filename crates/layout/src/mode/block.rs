@@ -2,6 +2,7 @@ use css_style::{
     StyledNode,
     types::display::{BoxDisplay, OutsideDisplay},
 };
+use html_dom::{HtmlTag, Tag};
 
 use crate::{
     Color4f, LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
@@ -32,6 +33,8 @@ impl BlockLayout {
                 },
                 colors: LayoutColors::default(),
                 resolved_margin: SideOffset::zero(),
+                collapsed_margin_bottom: 0.0,
+                collapsed_margin_top: 0.0,
                 resolved_padding: SideOffset::zero(),
                 text_buffer: None,
                 children: vec![],
@@ -57,23 +60,32 @@ impl BlockLayout {
             color: Color4f::from_css_color(&styled_node.style.color),
         };
 
-        let x = ctx.containing_block.x + margin.left + padding.left;
-        let y = ctx.containing_block.y + cursor.y + margin.top + padding.top;
+        let x = ctx.containing_block.x + margin.left;
+        let mut y = ctx.containing_block.y + cursor.y + margin.top;
 
-        let content_width = PropertyResolver::calculate_width(
-            styled_node,
-            ctx.containing_block.width,
-            &margin,
-            &padding,
-        );
+        if ctx.margin.top != ctx.containing_block.y && ctx.padding.top > 0.0 {
+            y -= ctx.containing_block.y;
+        }
+
+        if ctx.margin.top == ctx.containing_block.y && margin.top > ctx.margin.top {
+            y -= ctx.margin.top;
+        }
+
+        let content_width =
+            PropertyResolver::calculate_width(styled_node, ctx.containing_block.width, &margin);
+
+        let mut collapsed_margin_top = 0.0;
+        let mut collapsed_margin_bottom = 0.0;
 
         let child_ctx = LayoutContext {
             containing_block: Rect {
-                x,
-                y,
-                width: content_width,
+                x: x + padding.left,
+                y: y + padding.top,
+                width: content_width - padding.horizontal(),
                 height: ctx.containing_block.height,
             },
+            margin,
+            padding,
         };
 
         let mut children = Vec::new();
@@ -129,9 +141,19 @@ impl BlockLayout {
 
             let child_node = child_node.unwrap();
 
-            child_cursor.y += child_node.resolved_margin.bottom
-                + child_node.resolved_padding.bottom
-                + child_node.dimensions.height;
+            if style_node.style.display.outside == Some(OutsideDisplay::Block) {
+                // Collapse margins with previous sibling
+                let collapsed_margin_top = if let Some(previous_sibling) = children.last() {
+                    f32::max(
+                        previous_sibling.resolved_margin.bottom,
+                        child_node.resolved_margin.top,
+                    )
+                } else {
+                    child_node.resolved_margin.top
+                };
+
+                child_cursor.y += child_node.dimensions.height + collapsed_margin_top;
+            }
 
             children.push(child_node);
             child_index += 1;
@@ -142,6 +164,53 @@ impl BlockLayout {
             ctx.containing_block.height,
             child_cursor.y,
         );
+
+        if styled_node.tag == Some(Tag::Html(HtmlTag::Body)) {
+            let first_child_margin_top = if let Some(first_child) = children.first() {
+                first_child.resolved_margin.top
+            } else {
+                0.0
+            };
+
+            let last_child_margin_bottom = if let Some(last_child) = children.last() {
+                last_child.resolved_margin.bottom
+            } else {
+                0.0
+            };
+
+            if padding.top == 0.0 {
+                y = first_child_margin_top;
+                collapsed_margin_top = first_child_margin_top;
+            } else {
+                y = padding.top;
+            }
+
+            if padding.bottom == 0.0 {
+                content_height -= last_child_margin_bottom;
+                collapsed_margin_bottom = last_child_margin_bottom;
+            } else {
+                content_height += last_child_margin_bottom;
+            }
+        } else if styled_node.tag == Some(Tag::Html(HtmlTag::Html))
+            && let Some(body_node) = children.first()
+        {
+            content_height = body_node.dimensions.height;
+            if body_node.collapsed_margin_top > 0.0 {
+                content_height += body_node.collapsed_margin_top;
+            } else {
+                content_height += body_node.resolved_margin.top;
+            }
+
+            if body_node.collapsed_margin_bottom > 0.0 {
+                content_height += body_node.collapsed_margin_bottom;
+            } else {
+                content_height += body_node.resolved_margin.bottom;
+            }
+
+            content_height += body_node.resolved_padding.vertical()
+        } else {
+            content_height += padding.vertical();
+        }
 
         let dimensions = Rect {
             x,
@@ -155,6 +224,8 @@ impl BlockLayout {
             dimensions,
             colors,
             resolved_margin: margin,
+            collapsed_margin_bottom,
+            collapsed_margin_top,
             resolved_padding: padding,
             text_buffer: None,
             children,

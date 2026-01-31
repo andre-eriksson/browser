@@ -101,9 +101,8 @@ impl PropertyResolver {
         styled_node: &StyledNode,
         width: f32,
         margin: &SideOffset,
-        padding: &SideOffset,
     ) -> f32 {
-        let available_width = width - margin.horizontal() - padding.horizontal();
+        let available_width = width - margin.horizontal();
 
         match &styled_node.style.width {
             Width::Auto => available_width.max(0.0),

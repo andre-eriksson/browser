@@ -30,6 +30,12 @@ pub struct LayoutNode {
     /// The resolved margin values
     pub resolved_margin: SideOffset,
 
+    /// The collapsed top margin value
+    pub collapsed_margin_top: f32,
+
+    /// The collapsed bottom margin value
+    pub collapsed_margin_bottom: f32,
+
     /// The resolved padding values
     pub resolved_padding: SideOffset,
 
@@ -55,4 +61,10 @@ pub struct LayoutTree {
 pub struct LayoutContext {
     /// The containing block's content rect (where children are positioned)
     pub containing_block: Rect,
+
+    /// The resolved margin values for the containing block
+    pub margin: SideOffset,
+
+    /// The resolved padding values for the containing block
+    pub padding: SideOffset,
 }

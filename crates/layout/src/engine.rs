@@ -43,6 +43,7 @@ impl LayoutEngine {
     ) -> LayoutTree {
         let ctx = LayoutContext {
             containing_block: viewport,
+            ..Default::default()
         };
 
         let mut total_height = 0.0;
@@ -60,8 +61,7 @@ impl LayoutEngine {
 
             let node = node.unwrap();
 
-            total_height +=
-                node.resolved_margin.bottom + node.resolved_padding.bottom + node.dimensions.height;
+            total_height += node.dimensions.height;
             root_nodes.push(node);
         }
 
