@@ -7,7 +7,7 @@ use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
 use browser_config::BrowserConfig;
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
-use errors::browser::{BrowserError, NavigationError};
+use errors::browser::BrowserError;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
 use iced::theme::{Custom, Palette};
@@ -17,7 +17,7 @@ use layout::{LayoutEngine, Rect, TextContext};
 use regex::Regex;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::info;
+use tracing::{error, warn};
 
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::UiEvent;
@@ -279,11 +279,13 @@ impl Application {
                             |result| match result {
                                 Ok(task) => Event::Browser(task),
                                 Err(err) => match err {
-                                    BrowserError::NavigationError(
-                                        NavigationError::RequestError(err),
-                                    ) => Event::Browser(BrowserEvent::NavigateError(err)),
-
-                                    _ => Event::None,
+                                    BrowserError::NavigationError(err) => {
+                                        Event::Browser(BrowserEvent::NavigateError(err))
+                                    }
+                                    err => {
+                                        error!("Browser error: {}", err);
+                                        Event::None
+                                    }
                                 },
                             },
                         );
@@ -321,7 +323,7 @@ impl Application {
                         }
                     }
                     BrowserEvent::NavigateError(err) => {
-                        info!("{}", err);
+                        warn!("{}", err);
                     }
                 }
             }

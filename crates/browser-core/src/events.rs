@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use errors::{browser::BrowserError, network::RequestError};
+use errors::browser::{BrowserError, NavigationError};
 
 use crate::tab::{page::Page, tabs::TabId};
 
@@ -33,7 +33,7 @@ pub enum BrowserEvent {
     NavigateSuccess(TabId, Page),
 
     /// Navigation failed with a network error.
-    NavigateError(RequestError),
+    NavigateError(NavigationError),
 }
 
 /// Represents commands that can be issued to the browser.

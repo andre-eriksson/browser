@@ -5,6 +5,7 @@ use errors::parsing::HtmlParsingError;
 use html_dom::{
     BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
 };
+use tracing::trace;
 
 use crate::{
     ResourceType,
@@ -289,6 +290,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                 let blocked_reason = match current_state {
                     TokenState::ScriptData => {
+                        trace!(
+                            "Blocking parser for script content at token: {:?}",
+                            tokens.last()
+                        );
+
                         let attributes = tokens
                             .last()
                             .map(|t| t.attributes.clone())
@@ -297,6 +303,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                         Some(BlockedReason::WaitingForScript(attributes))
                     }
                     TokenState::StyleData => {
+                        trace!(
+                            "Blocking parser for style content at token: {:?}",
+                            tokens.last()
+                        );
+
                         let attributes = tokens
                             .last()
                             .map(|t| t.attributes.clone())
@@ -304,7 +315,14 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                         Some(BlockedReason::WaitingForStyle(attributes))
                     }
-                    TokenState::SvgData => Some(BlockedReason::ParsingSVG),
+                    TokenState::SvgData => {
+                        trace!(
+                            "Blocking parser for SVG content at token: {:?}",
+                            tokens.last()
+                        );
+
+                        Some(BlockedReason::ParsingSVG)
+                    }
                     TokenState::AfterAttributeValueQuoted | TokenState::TagOpen => {
                         if let Some(last_token) = tokens.last()
                             && last_token.data.eq_ignore_ascii_case("link")
@@ -315,6 +333,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                             && rel_value == "stylesheet"
                         {
                             last_token.attributes.get("href").map(|href| {
+                                trace!(
+                                    "Blocking parser for stylesheet resource at token: {:?}",
+                                    last_token
+                                );
+
                                 BlockedReason::WaitingForResource(
                                     ResourceType::Style,
                                     href.to_string(),
