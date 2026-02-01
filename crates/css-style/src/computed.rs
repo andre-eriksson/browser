@@ -7,7 +7,7 @@ use crate::{
         border::Border,
         color::{Color, NamedColor},
         display::{Display, InsideDisplay, OutsideDisplay},
-        font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, GenericName},
+        font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, FontWeight, GenericName},
         height::Height,
         line_height::LineHeight,
         margin::Margin,
@@ -26,6 +26,7 @@ pub struct ComputedStyle {
     pub display: Display,
     pub font_family: FontFamily,
     pub font_size: FontSize,
+    pub font_weight: FontWeight,
     pub height: Height,
     pub line_height: LineHeight,
     pub margin: Margin,
@@ -119,6 +120,11 @@ impl ComputedStyle {
                         computed_style.font_size = font_size;
                     }
                 }
+                "font-weight" => {
+                    if let Some(font_weight) = FontWeight::parse(v) {
+                        computed_style.font_weight = font_weight;
+                    }
+                }
                 "height" => {
                     if let Some(height) = Height::parse(v) {
                         computed_style.height = height;
@@ -175,6 +181,7 @@ impl ComputedStyle {
             computed_font_size_px: self.computed_font_size_px,
             line_height: self.line_height,
             text_align: self.text_align,
+            font_weight: self.font_weight,
             ..ComputedStyle::default()
         }
     }
@@ -198,6 +205,7 @@ impl Default for ComputedStyle {
                 names: vec![FontFamilyName::Generic(GenericName::Serif)],
             },
             font_size: FontSize::Absolute(AbsoluteSize::Medium),
+            font_weight: FontWeight::Normal,
             computed_font_size_px: AbsoluteSize::Medium.to_px(),
             height: Height::Auto,
             line_height: LineHeight::Normal,

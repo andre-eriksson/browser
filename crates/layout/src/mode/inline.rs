@@ -4,8 +4,9 @@ use css_style::{ComputedStyle, StyledNode, types::display::OutsideDisplay};
 use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
-    Color4f, LayoutColors, LayoutNode, Rect, TextContext, resolver::PropertyResolver,
-    text::TextOffsetContext,
+    Color4f, LayoutColors, LayoutNode, Rect, TextContext,
+    resolver::PropertyResolver,
+    text::{TextDescription, TextOffsetContext},
 };
 
 #[derive(Debug, Clone)]
@@ -101,14 +102,19 @@ impl InlineLayout {
             match item {
                 InlineItem::TextRun { id, text, style } => {
                     let font_size_px = style.computed_font_size_px;
+                    let text_align = style.text_align;
                     let line_height = &style.line_height;
                     let font_family = &style.font_family;
+                    let font_weight = &style.font_weight;
 
                     let (i_text, r_text) = text_ctx.measure_multiline_text(
                         text,
-                        font_size_px,
-                        line_height,
-                        font_family,
+                        &TextDescription {
+                            font_size_px,
+                            font_family,
+                            font_weight,
+                            line_height,
+                        },
                         width,
                         TextOffsetContext {
                             available_width: cursor.remaining_width,

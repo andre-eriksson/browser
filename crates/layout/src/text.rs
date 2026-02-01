@@ -1,6 +1,8 @@
-use cosmic_text::{Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Wrap};
+use cosmic_text::{
+    Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap,
+};
 use css_style::types::{
-    font::{FontFamily, FontFamilyName, GenericName},
+    font::{FontFamily, FontFamilyName, FontWeight, GenericName},
     line_height::LineHeight,
 };
 
@@ -16,6 +18,13 @@ pub struct Text {
     pub height: f32,
     pub total_width: f32,
     pub buffer: Buffer,
+}
+
+pub struct TextDescription<'a> {
+    pub line_height: &'a LineHeight,
+    pub font_family: &'a FontFamily,
+    pub font_weight: &'a FontWeight,
+    pub font_size_px: f32,
 }
 
 /// TextContext provides functionality to measure and render text.
@@ -46,29 +55,27 @@ impl TextContext {
     pub fn measure_multiline_text(
         &mut self,
         text: &str,
-        font_size_px: f32,
-        line_height: &LineHeight,
-        font_family: &FontFamily,
+        text_description: &TextDescription,
         available_width: f32,
         offset_ctx: TextOffsetContext,
     ) -> (Text, Option<Text>) {
         if offset_ctx.offset_x == 0.0 {
             return (
-                self.measure_text(
-                    text,
-                    font_size_px,
-                    line_height,
-                    font_family,
-                    available_width,
-                ),
+                self.measure_text(text, text_description, available_width),
                 None,
             );
         }
 
-        let line_height_px = line_height.to_px(font_size_px);
-        let metrics = Metrics::new(font_size_px, line_height_px);
-        let family = resolve_font_family(font_family);
-        let attrs = Attrs::new().family(family);
+        let line_height_px = text_description
+            .line_height
+            .to_px(text_description.font_size_px);
+        let metrics = Metrics::new(text_description.font_size_px, line_height_px);
+        let family = Self::resolve_font_family(text_description.font_family);
+        let weight = Self::resolve_font_weight(text_description.font_weight);
+        let attrs = Attrs::new()
+            .family(family)
+            .weight(weight)
+            .stretch(Stretch::Normal);
 
         if text.trim().is_empty() {
             let buffer = Buffer::new(&mut self.font_system, metrics);
@@ -189,24 +196,29 @@ impl TextContext {
     }
 
     /// Measures the rendered size of the given text with specified styles and constraints.
-    pub fn measure_text(
+    fn measure_text(
         &mut self,
         text: &str,
-        font_size_px: f32,
-        line_height: &LineHeight,
-        font_family: &FontFamily,
+        text_description: &TextDescription,
         available_width: f32,
     ) -> Text {
-        let line_height_px = line_height.to_px(font_size_px);
+        let line_height_px = text_description
+            .line_height
+            .to_px(text_description.font_size_px);
 
-        let metrics = Metrics::new(font_size_px, line_height_px);
+        let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
 
         buffer.set_wrap(&mut self.font_system, Wrap::Word);
         buffer.set_size(&mut self.font_system, Some(available_width), None);
 
-        let family = resolve_font_family(font_family);
-        let attrs = Attrs::new().family(family);
+        let family = Self::resolve_font_family(text_description.font_family);
+        let weight = Self::resolve_font_weight(text_description.font_weight);
+
+        let attrs = Attrs::new()
+            .family(family)
+            .weight(weight)
+            .stretch(Stretch::Normal);
 
         if text.trim().is_empty() {
             return Text {
@@ -254,26 +266,32 @@ impl TextContext {
             buffer,
         }
     }
-}
 
-fn resolve_font_family(font_family: &FontFamily) -> Family<'_> {
-    for name in &font_family.names {
-        match name {
-            FontFamilyName::Generic(generic) => {
-                return match generic {
-                    GenericName::Serif => Family::Serif,
-                    GenericName::SansSerif => Family::SansSerif,
-                    GenericName::Monospace => Family::Monospace,
-                    GenericName::Cursive => Family::Cursive,
-                    GenericName::Fantasy => Family::Fantasy,
-                    _ => Family::SansSerif,
-                };
-            }
-            FontFamilyName::Specific(_name) => {
-                continue; // Specific font handling would go here
-            }
+    fn resolve_font_family(font_family: &FontFamily) -> Family<'_> {
+        match &font_family.names[0] {
+            FontFamilyName::Generic(generic) => match generic {
+                GenericName::Serif => Family::Serif,
+                GenericName::SansSerif => Family::SansSerif,
+                GenericName::Monospace => Family::Monospace,
+                GenericName::Cursive => Family::Cursive,
+                GenericName::Fantasy => Family::Fantasy,
+                _ => Family::SansSerif,
+            },
+            FontFamilyName::Specific(name) => Family::Name(name.as_str()),
         }
     }
 
-    Family::SansSerif
+    fn resolve_font_weight(font_weight: &FontWeight) -> Weight {
+        match font_weight {
+            FontWeight::Thin => Weight::THIN,
+            FontWeight::ExtraLight => Weight::EXTRA_LIGHT,
+            FontWeight::Light => Weight::LIGHT,
+            FontWeight::Normal => Weight::NORMAL,
+            FontWeight::Medium => Weight::MEDIUM,
+            FontWeight::SemiBold => Weight::SEMIBOLD,
+            FontWeight::Bold => Weight::BOLD,
+            FontWeight::ExtraBold => Weight::EXTRA_BOLD,
+            FontWeight::Black => Weight::BLACK,
+        }
+    }
 }

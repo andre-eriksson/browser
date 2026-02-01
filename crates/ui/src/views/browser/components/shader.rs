@@ -1,12 +1,6 @@
-use std::sync::Arc;
-
-use assets::{
-    ASSETS,
-    constants::{DEFAULT_FONT, MONOSPACE_FONT},
-};
-use cosmic_text::{FontSystem, fontdb::Source};
 use iced::{
     Rectangle,
+    advanced::graphics::text::cosmic_text::FontSystem,
     mouse::Cursor,
     wgpu::{self, RenderPass},
     widget::shader::{Pipeline, Primitive, Program, Viewport},
@@ -14,7 +8,10 @@ use iced::{
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{GlyphAtlas, RectPipeline, RenderRect, TextBlockInfo, TexturePipeline};
 
-use crate::core::{Event, ScrollOffset};
+use crate::{
+    core::{Event, ScrollOffset},
+    util::fonts::load_fallback_fonts,
+};
 
 /// The primitive that carries render data from draw() to prepare()/render()
 #[derive(Debug, Clone)]
@@ -66,13 +63,7 @@ impl Pipeline for HtmlPipeline {
         let text_pipeline =
             TexturePipeline::new_text(device, format, glyph_atlas.bind_group_layout());
 
-        let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
-        let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
-
-        let font_system = FontSystem::new_with_fonts(vec![
-            Source::Binary(Arc::new(default_font)),
-            Source::Binary(Arc::new(monospace_font)),
-        ]);
+        let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
 
         Self {
             rect_pipeline: RectPipeline::new(device, format),

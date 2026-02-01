@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use assets::{
     ASSETS,
-    constants::{DEFAULT_FONT, MONOSPACE_FONT},
+    constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
 use browser_config::BrowserConfig;
 use browser_core::{Browser, BrowserEvent};
@@ -39,8 +39,8 @@ impl Ui {
 
     /// Runs the UI runtime, initializing the application and starting the event loop.
     pub fn run(self) -> Result<(), SubsystemError> {
-        let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
-        let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
+        let default_font = ASSETS.read().unwrap().load_embedded(OPEN_SANS_REGULAR);
+        let monospace_font = ASSETS.read().unwrap().load_embedded(ROBOTO_MONO_REGULAR);
         let browser = self.browser;
         let config = self.config;
         let initial_url = self.args.url;

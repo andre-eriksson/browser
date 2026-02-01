@@ -18,7 +18,6 @@ html-parser.workspace = true
 html-dom.workspace = true
 renderer.workspace = true
 network.workspace = true
-cosmic-text.workspace = true
 constants.workspace = true
 
 # External dependencies

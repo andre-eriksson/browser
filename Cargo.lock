@@ -5585,7 +5585,6 @@ dependencies = [
  "cli",
  "constants",
  "cookies",
- "cosmic-text",
  "css-cssom",
  "css-style",
  "errors",

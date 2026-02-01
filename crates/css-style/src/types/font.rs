@@ -93,6 +93,19 @@ impl FontSize {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum FontWeight {
+    Thin,
+    ExtraLight,
+    Light,
+    Normal,
+    Medium,
+    SemiBold,
+    Bold,
+    ExtraBold,
+    Black,
+}
+
 impl Parseable for GenericName {
     fn parse(value: &str) -> Option<Self> {
         match value.len() {
@@ -275,6 +288,77 @@ impl Parseable for FontSize {
     }
 }
 
+impl Parseable for FontWeight {
+    fn parse(value: &str) -> Option<Self> {
+        if let Ok(weight) = value.parse::<u16>() {
+            return match weight {
+                100 => Some(Self::Thin),
+                200 => Some(Self::ExtraLight),
+                300 => Some(Self::Light),
+                400 => Some(Self::Normal),
+                500 => Some(Self::Medium),
+                600 => Some(Self::SemiBold),
+                700 => Some(Self::Bold),
+                800 => Some(Self::ExtraBold),
+                900 => Some(Self::Black),
+                _ => None,
+            };
+        }
+
+        match value.len() {
+            4 => {
+                if value.eq_ignore_ascii_case("thin") {
+                    Some(Self::Thin)
+                } else if value.eq_ignore_ascii_case("bold") {
+                    Some(Self::Bold)
+                } else {
+                    None
+                }
+            }
+            5 => {
+                if value.eq_ignore_ascii_case("light") {
+                    Some(Self::Light)
+                } else if value.eq_ignore_ascii_case("black") {
+                    Some(Self::Black)
+                } else {
+                    None
+                }
+            }
+            6 => {
+                if value.eq_ignore_ascii_case("normal") {
+                    Some(Self::Normal)
+                } else if value.eq_ignore_ascii_case("medium") {
+                    Some(Self::Medium)
+                } else {
+                    None
+                }
+            }
+            8 => {
+                if value.eq_ignore_ascii_case("semibold") {
+                    Some(Self::SemiBold)
+                } else {
+                    None
+                }
+            }
+            9 => {
+                if value.eq_ignore_ascii_case("extrabold") {
+                    Some(Self::ExtraBold)
+                } else {
+                    None
+                }
+            }
+            10 => {
+                if value.eq_ignore_ascii_case("extralight") {
+                    Some(Self::ExtraLight)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,5 +403,21 @@ mod tests {
 
         let size = FontSize::parse("150%").unwrap();
         assert_eq!(size, FontSize::Percentage(150.0));
+    }
+
+    #[test]
+    fn test_font_weight_parse() {
+        let weight = FontWeight::parse("bold").unwrap();
+        assert_eq!(weight, FontWeight::Bold);
+        let weight = FontWeight::parse("700").unwrap();
+        assert_eq!(weight, FontWeight::Bold);
+
+        let weight = FontWeight::parse("light").unwrap();
+        assert_eq!(weight, FontWeight::Light);
+        let weight = FontWeight::parse("300").unwrap();
+        assert_eq!(weight, FontWeight::Light);
+
+        let weight = FontWeight::parse("invalid");
+        assert!(weight.is_none());
     }
 }

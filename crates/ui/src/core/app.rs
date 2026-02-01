@@ -2,14 +2,11 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use assets::ASSETS;
-use assets::constants::{DEFAULT_FONT, MONOSPACE_FONT};
 use browser_config::BrowserConfig;
 use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
 use errors::browser::BrowserError;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
-use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
@@ -21,6 +18,7 @@ use tracing::{error, warn};
 
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::UiEvent;
+use crate::util::fonts::load_fallback_fonts;
 use crate::views::browser::window::BrowserWindow;
 use crate::{manager::WindowController, views::devtools};
 
@@ -73,9 +71,6 @@ impl Application {
         config: BrowserConfig,
         initial_url: Option<String>,
     ) -> (Self, Task<Event>) {
-        let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
-        let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
-
         let first_tab = UiTab::new(TabId(0));
 
         let mut window_controller = WindowController::new();
@@ -98,10 +93,9 @@ impl Application {
 
         viewports.insert(main_window_id, (width, height));
 
-        let text_context = TextContext::new(FontSystem::new_with_fonts(vec![
-            Source::Binary(Arc::new(default_font)),
-            Source::Binary(Arc::new(monospace_font)),
-        ]));
+        let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
+
+        let text_context = TextContext::new(font_system);
 
         let app = Application {
             id: main_window_id,
