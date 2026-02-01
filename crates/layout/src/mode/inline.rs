@@ -35,13 +35,13 @@ pub struct InlineLayout;
 
 impl InlineLayout {
     pub fn collect_inline_items_from_nodes(
-        style: Box<ComputedStyle>,
+        parent_style: &ComputedStyle,
         nodes: &[StyledNode],
     ) -> Vec<InlineItem> {
         let mut items = Vec::new();
 
         for node in nodes {
-            let result = Self::collect(style.clone(), node, &mut items);
+            let result = Self::collect(parent_style, node, &mut items);
 
             if result.is_err() {
                 break;
@@ -52,7 +52,7 @@ impl InlineLayout {
     }
 
     fn collect(
-        style: Box<ComputedStyle>,
+        style: &ComputedStyle,
         inline_node: &StyledNode,
         items: &mut Vec<InlineItem>,
     ) -> Result<(), ()> {
@@ -81,7 +81,7 @@ impl InlineLayout {
                 _ => {
                     if !inline_node.children.is_empty() {
                         for child in &inline_node.children {
-                            let result = Self::collect(style.clone(), child, items);
+                            let result = Self::collect(&inline_node.style, child, items);
 
                             if result.is_err() {
                                 return Err(());
@@ -267,7 +267,7 @@ mod tests {
 
         let style = Box::new(ComputedStyle::default());
         let nodes = vec![node_text, node_break];
-        let items = InlineLayout::collect_inline_items_from_nodes(style, &nodes);
+        let items = InlineLayout::collect_inline_items_from_nodes(&style, &nodes);
 
         assert_eq!(items.len(), 2);
         match &items[0] {
@@ -313,7 +313,7 @@ mod tests {
 
         let style = Box::new(ComputedStyle::default());
         let nodes = vec![node_text, node_block, node_break];
-        let items = InlineLayout::collect_inline_items_from_nodes(style, &nodes);
+        let items = InlineLayout::collect_inline_items_from_nodes(&style, &nodes);
 
         assert_eq!(items.len(), 1);
         match &items[0] {
