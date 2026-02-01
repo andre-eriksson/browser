@@ -46,6 +46,23 @@ pub struct LayoutNode {
     pub children: Vec<LayoutNode>,
 }
 
+impl LayoutNode {
+    /// Creates a new LayoutNode with default values
+    pub fn new(node_id: NodeId) -> Self {
+        Self {
+            node_id,
+            dimensions: Rect::default(),
+            colors: LayoutColors::default(),
+            resolved_margin: SideOffset::default(),
+            collapsed_margin_top: 0.0,
+            collapsed_margin_bottom: 0.0,
+            resolved_padding: SideOffset::default(),
+            text_buffer: None,
+            children: Vec::new(),
+        }
+    }
+}
+
 /// The root of the layout tree containing all layout nodes
 #[derive(Debug, Clone, Default)]
 pub struct LayoutTree {
@@ -62,9 +79,9 @@ pub struct LayoutContext {
     /// The containing block's content rect (where children are positioned)
     pub containing_block: Rect,
 
-    /// The resolved margin values for the containing block
-    pub margin: SideOffset,
+    /// The parent node's resolved padding top value
+    pub parent_padding_top: f32,
 
-    /// The resolved padding values for the containing block
-    pub padding: SideOffset,
+    /// Whether the current node is the first child of its parent
+    pub is_first_child: bool,
 }
