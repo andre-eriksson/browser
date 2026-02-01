@@ -14,7 +14,7 @@ use crate::{
         padding::Padding,
         position::Position,
         text_align::TextAlign,
-        width::Width,
+        width::{MaxWidth, Width},
     },
 };
 
@@ -34,6 +34,7 @@ pub struct ComputedStyle {
     pub position: Position,
     pub text_align: TextAlign,
     pub width: Width,
+    pub max_width: MaxWidth,
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
@@ -165,6 +166,11 @@ impl ComputedStyle {
                         computed_style.width = width;
                     }
                 }
+                "max-width" => {
+                    if let Some(max_width) = MaxWidth::parse(v) {
+                        computed_style.max_width = max_width;
+                    }
+                }
                 _ => {}
             }
         }
@@ -214,6 +220,7 @@ impl Default for ComputedStyle {
             position: Position::Static,
             text_align: TextAlign::Left,
             width: Width::Auto,
+            max_width: MaxWidth::None,
         }
     }
 }

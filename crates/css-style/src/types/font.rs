@@ -85,7 +85,7 @@ impl FontSize {
     pub fn to_px(&self, parent_px: f32) -> f32 {
         match self {
             FontSize::Absolute(abs) => abs.to_px(),
-            FontSize::Length(len) => len.to_px(parent_px),
+            FontSize::Length(len) => len.to_px(0.0, parent_px),
             FontSize::Percentage(pct) => parent_px * pct / 100.0,
             FontSize::Relative(rel) => rel.to_px(parent_px),
             FontSize::Global(_) => parent_px,

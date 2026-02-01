@@ -4,7 +4,7 @@ use css_style::{
         height::Height,
         margin::{Margin, MarginValue},
         padding::{Padding, PaddingValue},
-        width::Width,
+        width::{MaxWidth, Width},
     },
 };
 
@@ -48,7 +48,7 @@ impl PropertyResolver {
         font_size_px: f32,
     ) -> f32 {
         match value {
-            MarginValue::Length(len) => len.to_px(font_size_px),
+            MarginValue::Length(len) => len.to_px(0.0, font_size_px),
             MarginValue::Percentage(pct) => pct * containing_width / 100.0,
             MarginValue::Auto => 0.0,
             MarginValue::Global(_) => 0.0,
@@ -89,7 +89,7 @@ impl PropertyResolver {
         font_size_px: f32,
     ) -> f32 {
         match value {
-            PaddingValue::Length(len) => len.to_px(font_size_px),
+            PaddingValue::Length(len) => len.to_px(0.0, font_size_px),
             PaddingValue::Percentage(pct) => pct * containing_width / 100.0,
             PaddingValue::Auto => 0.0,
             PaddingValue::Global(_) => 0.0,
@@ -102,11 +102,26 @@ impl PropertyResolver {
         width: f32,
         margin: &SideOffset,
     ) -> f32 {
-        let available_width = width - margin.horizontal();
+        let font_size = styled_node.style.computed_font_size_px;
+
+        let max_width = match &styled_node.style.max_width {
+            MaxWidth::None => f32::INFINITY,
+            MaxWidth::Length(len) => len.to_px(width, font_size),
+            MaxWidth::Percentage(pct) => pct * width / 100.0,
+            MaxWidth::Global(_) => f32::INFINITY,
+            MaxWidth::MaxContent
+            | MaxWidth::MinContent
+            | MaxWidth::FitContent(_)
+            | MaxWidth::Stretch => {
+                f32::INFINITY // TODO: implement intrinsic sizing
+            }
+        };
+
+        let available_width = f32::min(width - margin.horizontal(), max_width);
 
         match &styled_node.style.width {
             Width::Auto => available_width.max(0.0),
-            Width::Length(len) => len.to_px(available_width),
+            Width::Length(len) => len.to_px(available_width, font_size),
             Width::Percentage(pct) => (pct * width / 100.0).max(0.0),
             Width::Global(_) => available_width.max(0.0),
             Width::MaxContent | Width::MinContent | Width::FitContent(_) | Width::Stretch => {

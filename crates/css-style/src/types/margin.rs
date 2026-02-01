@@ -22,7 +22,7 @@ impl MarginValue {
 
     pub fn to_px(&self, reference: f32) -> Option<f32> {
         match self {
-            MarginValue::Length(length) => Some(length.to_px(reference)),
+            MarginValue::Length(length) => Some(length.to_px(reference, 0.0)),
             MarginValue::Percentage(percent) => Some(reference * (percent / 100.0)),
             _ => None,
         }

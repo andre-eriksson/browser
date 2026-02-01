@@ -94,7 +94,7 @@ impl Length {
         }
     }
 
-    pub fn to_px(&self, relative_to: f32) -> f32 {
+    pub fn to_px(&self, viewport: f32, font_size: f32) -> f32 {
         match self.unit {
             LengthUnit::Px => self.value,
             LengthUnit::Cm => self.value * 96.0 / 2.54,
@@ -103,9 +103,11 @@ impl Length {
             LengthUnit::In => self.value * 96.0,
             LengthUnit::Pc => self.value * 16.0,
             LengthUnit::Pt => self.value * 96.0 / 72.0,
-            LengthUnit::Vw => relative_to * self.value / 100.0,
-            LengthUnit::Vh => relative_to * self.value / 100.0,
-            LengthUnit::Rem | LengthUnit::Em => relative_to * self.value,
+            LengthUnit::Vw => viewport * self.value / 100.0,
+            LengthUnit::Vh => viewport * self.value / 100.0,
+
+            LengthUnit::Ch | LengthUnit::Cap => font_size * 0.5 * self.value,
+            LengthUnit::Rem | LengthUnit::Em => font_size * self.value,
             _ => self.value, // TODO: Handle other units properly
         }
     }

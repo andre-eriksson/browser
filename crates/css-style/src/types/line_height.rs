@@ -17,7 +17,7 @@ impl LineHeight {
         match self {
             LineHeight::Normal => font_size_px * 1.2,
             LineHeight::Number(num) => font_size_px * num,
-            LineHeight::Length(len) => len.to_px(font_size_px),
+            LineHeight::Length(len) => len.to_px(0.0, font_size_px),
             LineHeight::Percentage(pct) => font_size_px * pct / 100.0,
             LineHeight::Global(_) => font_size_px * 1.2, // Placeholder for global values
         }
