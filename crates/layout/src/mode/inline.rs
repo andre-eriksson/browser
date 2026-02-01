@@ -34,13 +34,17 @@ impl InlineLayout {
         let mut items = Vec::new();
 
         for node in nodes {
-            Self::collect(node, &mut items);
+            let result = Self::collect(node, &mut items);
+
+            if result.is_err() {
+                break;
+            }
         }
 
         items
     }
 
-    fn collect(inline_node: &StyledNode, items: &mut Vec<InlineItem>) {
+    fn collect(inline_node: &StyledNode, items: &mut Vec<InlineItem>) -> Result<(), ()> {
         if let Some(text) = inline_node.text_content.as_ref() {
             items.push(InlineItem::TextRun {
                 id: inline_node.node_id,
@@ -53,7 +57,7 @@ impl InlineLayout {
             if inline_node.style.display.outside != Some(OutsideDisplay::Inline)
                 && !items.is_empty()
             {
-                return;
+                return Err(());
             }
 
             match tag {
@@ -64,12 +68,18 @@ impl InlineLayout {
                 _ => {
                     if !inline_node.children.is_empty() {
                         for child in &inline_node.children {
-                            Self::collect(child, items);
+                            let result = Self::collect(child, items);
+
+                            if result.is_err() {
+                                return Err(());
+                            }
                         }
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     pub fn layout(
@@ -118,8 +128,9 @@ impl InlineLayout {
                     };
 
                     let first_x = x + cursor.x + margin.left + padding.left;
-                    let first_y = y + cursor.y + margin.top + padding.top;
-                    total_height += i_text.height + margin.vertical() + padding.vertical();
+
+                    let first_y = y + cursor.y;
+                    total_height = i_text.height;
 
                     let node = LayoutNode {
                         node_id: *id,
@@ -147,7 +158,7 @@ impl InlineLayout {
 
                         let rest_x = x + margin.left + padding.left;
                         let rest_y = y + cursor.y + margin.top + padding.top;
-                        total_height += r_text.height + margin.vertical() + padding.vertical();
+                        total_height += r_text.height - line_height_px;
 
                         let node = LayoutNode {
                             node_id: *id,

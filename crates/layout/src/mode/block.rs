@@ -72,12 +72,12 @@ impl BlockLayout {
                     &styled_node.children[child_index..inline_end],
                 );
 
-                let inline_y = y + child_cursor.y;
+                let inline_y = y + child_cursor.y + padding.top;
                 let (inline_nodes, inline_height) = InlineLayout::layout(
                     &items,
                     text_ctx,
                     content_width - padding.horizontal(),
-                    x,
+                    x + padding.left,
                     inline_y,
                 );
 
