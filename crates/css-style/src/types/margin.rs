@@ -16,6 +16,13 @@ pub enum MarginValue {
 }
 
 impl MarginValue {
+    pub fn zero() -> Self {
+        Self::Length(Length {
+            value: 0.0,
+            unit: LengthUnit::Px,
+        })
+    }
+
     pub fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
@@ -31,10 +38,7 @@ impl MarginValue {
 
 impl Default for MarginValue {
     fn default() -> Self {
-        Self::Length(Length {
-            value: 0.0,
-            unit: LengthUnit::Px,
-        })
+        Self::zero()
     }
 }
 
@@ -145,6 +149,10 @@ impl Default for Margin {
 
 impl Parseable for MarginValue {
     fn parse(value: &str) -> Option<Self> {
+        if value.eq("0") {
+            return Some(MarginValue::zero());
+        }
+
         if value.eq_ignore_ascii_case("auto") {
             return Some(Self::Auto);
         }
