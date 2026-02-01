@@ -326,3 +326,560 @@ impl BlockLayout {
         content_height
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use css_style::{ComputedStyle, types::display::Display};
+    use html_dom::NodeId;
+
+    use super::*;
+
+    fn viewport() -> Rect {
+        Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 600.0,
+        }
+    }
+
+    #[test]
+    fn test_collapsing_margins() {
+        assert_eq!(BlockLayout::collapse_margins(10.0, 20.0), 20.0);
+        assert_eq!(BlockLayout::collapse_margins(-10.0, -20.0), -20.0);
+        assert_eq!(BlockLayout::collapse_margins(10.0, -5.0), 5.0);
+        assert_eq!(BlockLayout::collapse_margins(-10.0, 5.0), -5.0);
+        assert_eq!(BlockLayout::collapse_margins(0.0, 15.0), 15.0);
+        assert_eq!(BlockLayout::collapse_margins(-5.0, 0.0), -5.0);
+    }
+
+    #[test]
+    fn test_html_height_adjustment_with_all_collapse() {
+        let body_node = LayoutNode {
+            dimensions: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 500.0,
+            },
+            resolved_margin: SideOffset {
+                top: 10.0,
+                right: 0.0,
+                bottom: 15.0,
+                left: 0.0,
+            },
+            collapsed_margin_top: 5.0,
+            collapsed_margin_bottom: 7.0,
+            ..LayoutNode::new(NodeId(1))
+        };
+
+        let adjustment = BlockLayout::html_height_adjustment(&body_node);
+        assert_eq!(adjustment, 12.0);
+    }
+
+    #[test]
+    fn test_html_height_adjustment_with_top_collapse() {
+        let body_node = LayoutNode {
+            dimensions: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 500.0,
+            },
+            resolved_margin: SideOffset {
+                top: 10.0,
+                right: 0.0,
+                bottom: 15.0,
+                left: 0.0,
+            },
+            collapsed_margin_top: 5.0,
+            collapsed_margin_bottom: 0.0,
+            ..LayoutNode::new(NodeId(1))
+        };
+
+        let adjustment = BlockLayout::html_height_adjustment(&body_node);
+        assert_eq!(adjustment, 20.0);
+    }
+
+    #[test]
+    fn test_html_height_adjustment_with_bottom_collapse() {
+        let body_node = LayoutNode {
+            dimensions: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 800.0,
+                height: 500.0,
+            },
+            resolved_margin: SideOffset {
+                top: 10.0,
+                right: 0.0,
+                bottom: 15.0,
+                left: 0.0,
+            },
+            collapsed_margin_top: 0.0,
+            collapsed_margin_bottom: 7.0,
+            ..LayoutNode::new(NodeId(1))
+        };
+
+        let adjustment = BlockLayout::html_height_adjustment(&body_node);
+        assert_eq!(adjustment, 17.0);
+    }
+
+    #[test]
+    fn test_body_height_adjustment_no_padding() {
+        let padding = SideOffset {
+            top: 0.0,
+            right: 0.0,
+            bottom: 0.0,
+            left: 0.0,
+        };
+        let mut collapsed_margin_top = 0.0;
+        let mut collapsed_margin_bottom = 0.0;
+        let children = vec![
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 10.0,
+                    right: 0.0,
+                    bottom: 5.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(1))
+            },
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 15.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(2))
+            },
+        ];
+
+        let adjustment = BlockLayout::body_height_adjustment(
+            padding,
+            &mut collapsed_margin_top,
+            &mut collapsed_margin_bottom,
+            &children,
+        );
+
+        assert_eq!(adjustment, -15.0); // Body height same as the lowest margin bottom
+        assert_eq!(collapsed_margin_top, 10.0);
+        assert_eq!(collapsed_margin_bottom, 15.0);
+    }
+
+    #[test]
+    fn test_body_height_adjustment_vertical_padding() {
+        let padding = SideOffset {
+            top: 5.0,
+            right: 0.0,
+            bottom: 5.0,
+            left: 0.0,
+        };
+        let mut collapsed_margin_top = 0.0;
+        let mut collapsed_margin_bottom = 0.0;
+        let children = vec![
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 10.0,
+                    right: 0.0,
+                    bottom: 5.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(1))
+            },
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 15.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(2))
+            },
+        ];
+
+        let adjustment = BlockLayout::body_height_adjustment(
+            padding,
+            &mut collapsed_margin_top,
+            &mut collapsed_margin_bottom,
+            &children,
+        );
+
+        assert_eq!(adjustment, 10.0);
+        assert_eq!(collapsed_margin_top, 0.0);
+        assert_eq!(collapsed_margin_bottom, 0.0);
+    }
+
+    #[test]
+    fn test_body_height_adjustment_top_padding() {
+        let padding = SideOffset {
+            top: 5.0,
+            right: 0.0,
+            bottom: 0.0,
+            left: 0.0,
+        };
+        let mut collapsed_margin_top = 0.0;
+        let mut collapsed_margin_bottom = 0.0;
+        let children = vec![
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 10.0,
+                    right: 0.0,
+                    bottom: 5.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(1))
+            },
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 15.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(2))
+            },
+        ];
+
+        let adjustment = BlockLayout::body_height_adjustment(
+            padding,
+            &mut collapsed_margin_top,
+            &mut collapsed_margin_bottom,
+            &children,
+        );
+
+        assert_eq!(adjustment, -10.0);
+        assert_eq!(collapsed_margin_top, 0.0);
+        assert_eq!(collapsed_margin_bottom, 15.0);
+    }
+
+    #[test]
+    fn test_body_height_adjustment_bottom_padding() {
+        let padding = SideOffset {
+            top: 0.0,
+            right: 0.0,
+            bottom: 5.0,
+            left: 0.0,
+        };
+        let mut collapsed_margin_top = 0.0;
+        let mut collapsed_margin_bottom = 0.0;
+        let children = vec![
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 10.0,
+                    right: 0.0,
+                    bottom: 5.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(1))
+            },
+            LayoutNode {
+                dimensions: Rect::default(),
+                resolved_margin: SideOffset {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 15.0,
+                    left: 0.0,
+                },
+                ..LayoutNode::new(NodeId(2))
+            },
+        ];
+
+        let adjustment = BlockLayout::body_height_adjustment(
+            padding,
+            &mut collapsed_margin_top,
+            &mut collapsed_margin_bottom,
+            &children,
+        );
+
+        assert_eq!(adjustment, 5.0);
+        assert_eq!(collapsed_margin_top, 10.0);
+        assert_eq!(collapsed_margin_bottom, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_not_first_child() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(1))
+        };
+
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 10.0,
+            is_first_child: false,
+        };
+
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 0.0;
+
+        let y_pos =
+            BlockLayout::calculate_y_pos(&styled_node, &ctx, &cursor, margin_top, padding_top);
+
+        assert_eq!(y_pos, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_first_child_no_padding() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(1))
+        };
+
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 0.0,
+            is_first_child: true,
+        };
+
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 0.0;
+
+        let y_pos =
+            BlockLayout::calculate_y_pos(&styled_node, &ctx, &cursor, margin_top, padding_top);
+
+        assert_eq!(y_pos, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_first_child_padding() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(1))
+        };
+
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 10.0,
+            is_first_child: true,
+        };
+
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 0.0;
+
+        let y_pos =
+            BlockLayout::calculate_y_pos(&styled_node, &ctx, &cursor, margin_top, padding_top);
+
+        assert_eq!(y_pos, 20.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_with_child() {
+        let child_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(2))
+        };
+        let parent_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            children: vec![child_node],
+            ..StyledNode::new(NodeId(1))
+        };
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 0.0,
+            is_first_child: false,
+        };
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 0.0;
+        let y_pos =
+            BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
+        assert_eq!(y_pos, 20.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_body_with_padding() {
+        let child_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(2))
+        };
+        let parent_node = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Body)),
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            children: vec![child_node],
+            ..StyledNode::new(NodeId(1))
+        };
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 0.0,
+            is_first_child: false,
+        };
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 10.0;
+        let y_pos =
+            BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
+        assert_eq!(y_pos, 20.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_body_without_padding() {
+        let child_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(2))
+        };
+        let parent_node = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Body)),
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            children: vec![child_node],
+            ..StyledNode::new(NodeId(1))
+        };
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 0.0,
+            is_first_child: false,
+        };
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 0.0;
+        let y_pos =
+            BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
+        assert_eq!(y_pos, 20.0);
+    }
+
+    #[test]
+    fn test_calculate_y_pos_body_first_child() {
+        let child_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(2))
+        };
+        let parent_node = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Body)),
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                computed_font_size_px: 16.0,
+                ..Default::default()
+            },
+            children: vec![child_node],
+            ..StyledNode::new(NodeId(1))
+        };
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 0.0,
+            is_first_child: true,
+        };
+        let cursor = BlockCursor { y: 0.0 };
+        let margin_top = 20.0;
+        let padding_top = 0.0;
+        let y_pos =
+            BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
+        assert_eq!(y_pos, 20.0);
+    }
+
+    #[test]
+    fn test_layout_empty() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext {
+            containing_block: viewport(),
+            parent_padding_top: 0.0,
+            is_first_child: true,
+        };
+
+        let mut cursor = BlockCursor { y: 0.0 };
+        let mut text_ctx = TextContext::default();
+
+        let layout_node = BlockLayout::layout(&styled_node, &ctx, &mut cursor, &mut text_ctx);
+
+        assert_eq!(layout_node.node_id, styled_node.node_id);
+        assert_eq!(layout_node.dimensions.x, 0.0);
+        assert_eq!(layout_node.dimensions.y, 0.0);
+        assert_eq!(layout_node.dimensions.width, 800.0);
+        assert_eq!(layout_node.dimensions.height, 0.0);
+        assert_eq!(layout_node.children.len(), 0);
+    }
+}

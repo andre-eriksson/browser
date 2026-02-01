@@ -15,6 +15,12 @@ pub enum Height {
     Global(Global),
 }
 
+impl Height {
+    pub fn px(value: f32) -> Self {
+        Self::Length(Length::px(value))
+    }
+}
+
 impl Parseable for Height {
     fn parse(value: &str) -> Option<Self> {
         if let Some(global) = Global::parse(value) {

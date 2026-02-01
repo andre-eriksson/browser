@@ -13,6 +13,18 @@ pub struct StyledNode {
     pub text_content: Option<String>,
 }
 
+impl StyledNode {
+    pub fn new(node_id: NodeId) -> Self {
+        Self {
+            node_id,
+            tag: None,
+            style: ComputedStyle::default(),
+            children: Vec::new(),
+            text_content: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StyleTree {
     pub root_nodes: Vec<StyledNode>,
@@ -59,5 +71,13 @@ impl StyleTree {
             .collect();
 
         StyleTree { root_nodes }
+    }
+}
+
+impl From<StyledNode> for StyleTree {
+    fn from(value: StyledNode) -> Self {
+        Self {
+            root_nodes: vec![value],
+        }
     }
 }

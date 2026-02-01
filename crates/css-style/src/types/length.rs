@@ -87,6 +87,13 @@ impl Length {
         }
     }
 
+    pub fn px(value: f32) -> Self {
+        Self {
+            value,
+            unit: LengthUnit::Px,
+        }
+    }
+
     pub fn to_px(&self, relative_to: f32) -> f32 {
         match self.unit {
             LengthUnit::Px => self.value,

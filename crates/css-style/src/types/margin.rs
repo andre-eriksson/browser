@@ -15,6 +15,20 @@ pub enum MarginValue {
     Auto,
 }
 
+impl MarginValue {
+    pub fn px(value: f32) -> Self {
+        Self::Length(Length::px(value))
+    }
+
+    pub fn to_px(&self, reference: f32) -> Option<f32> {
+        match self {
+            MarginValue::Length(length) => Some(length.to_px(reference)),
+            MarginValue::Percentage(percent) => Some(reference * (percent / 100.0)),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Margin {
     pub top: MarginValue,

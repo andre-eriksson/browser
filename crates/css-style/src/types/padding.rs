@@ -15,6 +15,15 @@ pub enum PaddingValue {
     Auto,
 }
 
+impl PaddingValue {
+    pub fn px(value: f32) -> Self {
+        Self::Length(Length {
+            value,
+            unit: LengthUnit::Px,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Padding {
     pub top: PaddingValue,

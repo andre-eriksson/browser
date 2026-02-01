@@ -2805,6 +2805,7 @@ dependencies = [
 name = "layout"
 version = "0.1.0"
 dependencies = [
+ "assets",
  "cosmic-text",
  "css-style",
  "html-dom",

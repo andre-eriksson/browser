@@ -11,3 +11,6 @@ html-dom.workspace = true
 # External dependencies
 cosmic-text.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+assets.workspace = true

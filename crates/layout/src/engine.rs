@@ -19,7 +19,7 @@ pub(crate) enum LayoutMode {
 }
 
 impl LayoutMode {
-    pub fn from_styled_node(styled_node: &StyledNode) -> Option<Self> {
+    pub fn new(styled_node: &StyledNode) -> Option<Self> {
         if styled_node.style.display.box_display == Some(BoxDisplay::None) {
             return None;
         }
@@ -78,7 +78,7 @@ impl LayoutEngine {
         block_cursor: &mut BlockCursor,
         text_ctx: &mut TextContext,
     ) -> Option<LayoutNode> {
-        let layout_mode = LayoutMode::from_styled_node(styled_node)?;
+        let layout_mode = LayoutMode::new(styled_node)?;
 
         match layout_mode {
             LayoutMode::Block => Some(BlockLayout::layout(
@@ -105,15 +105,18 @@ impl LayoutEngine {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use css_style::ComputedStyle;
-    use css_style::types::{
-        height::Height,
-        length::{Length, LengthUnit},
-        margin::Margin,
-        margin::MarginValue,
+    use css_style::{
+        ComputedStyle,
+        types::{
+            display::{Display, OutsideDisplay},
+            height::Height,
+            margin::{Margin, MarginValue},
+            padding::{Padding, PaddingValue},
+        },
     };
-    use html_dom::NodeId;
+    use html_dom::{HtmlTag, NodeId, Tag};
+
+    use super::*;
 
     fn viewport() -> Rect {
         Rect {
@@ -125,230 +128,249 @@ mod tests {
     }
 
     #[test]
-    fn test_single_block_with_margin() {
-        let style_tree = StyleTree {
-            root_nodes: vec![StyledNode {
-                node_id: NodeId(0),
-                tag: None,
-                style: ComputedStyle {
-                    height: Height::Length(Length {
-                        value: 100.0,
-                        unit: LengthUnit::Px,
-                    }),
-                    margin: Margin::all(MarginValue::Length(Length {
-                        value: 10.0,
-                        unit: LengthUnit::Px,
-                    })),
+    fn test_layout_mode_none() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    box_display: Some(BoxDisplay::None),
                     ..Default::default()
                 },
-                children: vec![],
-                text_content: None,
-            }],
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(0))
         };
 
-        let layout_tree =
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut TextContext::default());
-
-        assert_eq!(layout_tree.root_nodes.len(), 1);
-        let layout_node = &layout_tree.root_nodes[0];
-
-        assert_eq!(layout_node.dimensions.x, 10.0);
-        assert_eq!(layout_node.dimensions.y, 10.0);
-        assert_eq!(layout_node.dimensions.height, 100.0);
-        assert_eq!(layout_node.dimensions.width, 780.0);
+        assert_eq!(LayoutMode::new(&styled_node), None);
     }
 
     #[test]
-    fn test_parent_with_child() {
-        let style_node_child = StyledNode {
-            node_id: NodeId(1),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Length(Length {
-                    value: 50.0,
-                    unit: LengthUnit::Px,
-                }),
-                margin: Margin::all(MarginValue::Length(Length {
-                    value: 5.0,
-                    unit: LengthUnit::Px,
-                })),
-                ..Default::default()
-            },
-            children: vec![],
-            text_content: None,
-        };
-
-        let style_node_parent = StyledNode {
-            node_id: NodeId(0),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Length(Length {
-                    value: 100.0,
-                    unit: LengthUnit::Px,
-                }),
-                margin: Margin::all(MarginValue::Length(Length {
-                    value: 10.0,
-                    unit: LengthUnit::Px,
-                })),
-                ..Default::default()
-            },
-            children: vec![style_node_child],
-            text_content: None,
-        };
-
-        let style_tree = StyleTree {
-            root_nodes: vec![style_node_parent],
-        };
-
-        let layout_tree =
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut TextContext::default());
-
-        assert_eq!(layout_tree.root_nodes.len(), 1);
-        let parent = &layout_tree.root_nodes[0];
-
-        assert_eq!(parent.dimensions.x, 10.0);
-        assert_eq!(parent.dimensions.y, 10.0);
-
-        let child = &parent.children[0];
-        assert_eq!(child.dimensions.x, 15.0);
-        assert_eq!(child.dimensions.y, 15.0);
-        assert_eq!(child.dimensions.height, 50.0);
-    }
-
-    #[test]
-    fn test_siblings_do_not_accumulate_x() {
-        let sibling1 = StyledNode {
-            node_id: NodeId(1),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Length(Length {
-                    value: 30.0,
-                    unit: LengthUnit::Px,
-                }),
-                margin: Margin::all(MarginValue::Length(Length {
-                    value: 20.0,
-                    unit: LengthUnit::Px,
-                })),
-                ..Default::default()
-            },
-            children: vec![],
-            text_content: None,
-        };
-
-        let sibling2 = StyledNode {
-            node_id: NodeId(2),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Length(Length {
-                    value: 30.0,
-                    unit: LengthUnit::Px,
-                }),
-                margin: Margin::all(MarginValue::Length(Length {
-                    value: 20.0,
-                    unit: LengthUnit::Px,
-                })),
-                ..Default::default()
-            },
-            children: vec![],
-            text_content: None,
-        };
-
-        let parent = StyledNode {
-            node_id: NodeId(0),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Auto,
-                margin: Margin::zero(),
-                ..Default::default()
-            },
-            children: vec![sibling1, sibling2],
-            text_content: None,
-        };
-
-        let style_tree = StyleTree {
-            root_nodes: vec![parent],
-        };
-
-        let layout_tree =
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut TextContext::default());
-
-        let parent = &layout_tree.root_nodes[0];
-        let child1 = &parent.children[0];
-        let child2 = &parent.children[1];
-
-        assert_eq!(child1.dimensions.x, 20.0);
-        assert_eq!(child2.dimensions.x, 20.0);
-        assert_eq!(child1.dimensions.y, 20.0);
-        assert_eq!(child2.dimensions.y, 90.0);
-    }
-
-    #[test]
-    fn test_auto_height_from_children() {
-        let child = StyledNode {
-            node_id: NodeId(1),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Length(Length {
-                    value: 50.0,
-                    unit: LengthUnit::Px,
-                }),
-                margin: Margin::zero(),
-                ..Default::default()
-            },
-            children: vec![],
-            text_content: None,
-        };
-
-        let parent = StyledNode {
-            node_id: NodeId(0),
-            tag: None,
-            style: ComputedStyle {
-                height: Height::Auto,
-                margin: Margin::zero(),
-                ..Default::default()
-            },
-            children: vec![child],
-            text_content: None,
-        };
-
-        let style_tree = StyleTree {
-            root_nodes: vec![parent],
-        };
-
-        let layout_tree =
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut TextContext::default());
-
-        let parent = &layout_tree.root_nodes[0];
-        assert_eq!(parent.dimensions.height, 50.0);
-    }
-
-    #[test]
-    fn test_color_extraction() {
-        use css_style::types::color::{Color, NamedColor};
-
+    fn test_layout_mode_block() {
         let styled_node = StyledNode {
-            node_id: NodeId(0),
-            tag: None,
             style: ComputedStyle {
-                background_color: Color::Hex([255, 0, 0]),
-                color: Color::Named(NamedColor::White),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
                 ..Default::default()
             },
-            children: vec![],
-            text_content: None,
+            ..StyledNode::new(NodeId(0))
         };
 
-        let style_tree = StyleTree {
-            root_nodes: vec![styled_node],
+        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Block));
+    }
+
+    #[test]
+    fn test_layout_mode_flex() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    inside: Some(InsideDisplay::Flex),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(0))
+        };
+        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Flex));
+    }
+
+    #[test]
+    fn test_layout_mode_grid() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display {
+                    inside: Some(InsideDisplay::Grid),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(0))
+        };
+        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Grid));
+    }
+
+    #[test]
+    fn test_layout_example_1() {
+        let node1 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(20.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(2))
         };
 
-        let layout_tree =
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut TextContext::default());
+        let node2 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(20.0)),
+                padding: Padding::all(PaddingValue::px(10.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(3))
+        };
 
-        let colors = &layout_tree.root_nodes[0].colors;
-        assert_eq!(colors.background_color.r, 1.0);
-        assert_eq!(colors.background_color.g, 0.0);
-        assert_eq!(colors.background_color.b, 0.0);
-        assert_eq!(colors.background_color.a, 1.0);
+        let node3 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(20.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(4))
+        };
+
+        let node4 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(100.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(5))
+        };
+
+        let body = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Body)),
+            style: ComputedStyle {
+                margin: Margin::all(MarginValue::px(8.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            children: vec![node1, node2, node3, node4],
+            ..StyledNode::new(NodeId(1))
+        };
+
+        let html = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Html)),
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            children: vec![body],
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let mut text_ctx = TextContext::default();
+        let style_tree = StyleTree::from(html);
+
+        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_ctx);
+        let body_layout = &layout_tree.root_nodes[0].children[0];
+
+        assert_eq!(layout_tree.content_height, 400.0);
+        assert_eq!(body_layout.dimensions.height, 280.0);
+    }
+
+    #[test]
+    fn test_layout_example_1_with_padding() {
+        let node1 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(20.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(2))
+        };
+
+        let node2 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(20.0)),
+                padding: Padding::all(PaddingValue::px(10.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(3))
+        };
+
+        let node3 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(20.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(4))
+        };
+
+        let node4 = StyledNode {
+            style: ComputedStyle {
+                height: Height::px(30.0),
+                margin: Margin::all(MarginValue::px(100.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(5))
+        };
+
+        let body = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Body)),
+            style: ComputedStyle {
+                padding: Padding::all(PaddingValue::px(10.0)),
+                margin: Margin::all(MarginValue::px(8.0)),
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            children: vec![node1, node2, node3, node4],
+            ..StyledNode::new(NodeId(1))
+        };
+
+        let html = StyledNode {
+            tag: Some(Tag::Html(HtmlTag::Html)),
+            style: ComputedStyle {
+                display: Display {
+                    outside: Some(OutsideDisplay::Block),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            children: vec![body],
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let mut text_ctx = TextContext::default();
+        let style_tree = StyleTree::from(html);
+
+        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_ctx);
+        let body_layout = &layout_tree.root_nodes[0].children[0];
+
+        assert_eq!(layout_tree.content_height, 436.0);
+        assert_eq!(body_layout.dimensions.height, 420.0);
     }
 }
