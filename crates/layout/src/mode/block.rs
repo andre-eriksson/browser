@@ -69,6 +69,7 @@ impl BlockLayout {
                 }
 
                 let items = InlineLayout::collect_inline_items_from_nodes(
+                    Box::new(styled_node.style.clone()),
                     &styled_node.children[child_index..inline_end],
                 );
 

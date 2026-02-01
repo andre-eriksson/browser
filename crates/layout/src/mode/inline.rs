@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use css_style::{ComputedStyle, StyledNode, types::display::OutsideDisplay};
+use css_style::{
+    ComputedStyle, StyledNode,
+    types::{display::OutsideDisplay, text_align::TextAlign},
+};
 use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
@@ -31,11 +34,14 @@ pub enum InlineItem {
 pub struct InlineLayout;
 
 impl InlineLayout {
-    pub fn collect_inline_items_from_nodes(nodes: &[StyledNode]) -> Vec<InlineItem> {
+    pub fn collect_inline_items_from_nodes(
+        style: Box<ComputedStyle>,
+        nodes: &[StyledNode],
+    ) -> Vec<InlineItem> {
         let mut items = Vec::new();
 
         for node in nodes {
-            let result = Self::collect(node, &mut items);
+            let result = Self::collect(style.clone(), node, &mut items);
 
             if result.is_err() {
                 break;
@@ -45,12 +51,16 @@ impl InlineLayout {
         items
     }
 
-    fn collect(inline_node: &StyledNode, items: &mut Vec<InlineItem>) -> Result<(), ()> {
+    fn collect(
+        style: Box<ComputedStyle>,
+        inline_node: &StyledNode,
+        items: &mut Vec<InlineItem>,
+    ) -> Result<(), ()> {
         if let Some(text) = inline_node.text_content.as_ref() {
             items.push(InlineItem::TextRun {
                 id: inline_node.node_id,
                 text: text.clone(),
-                style: Box::new(inline_node.style.clone()),
+                style: style.clone(),
             });
         }
 
@@ -69,7 +79,7 @@ impl InlineLayout {
                 _ => {
                     if !inline_node.children.is_empty() {
                         for child in &inline_node.children {
-                            let result = Self::collect(child, items);
+                            let result = Self::collect(style.clone(), child, items);
 
                             if result.is_err() {
                                 return Err(());
@@ -133,7 +143,19 @@ impl InlineLayout {
                         color: Color4f::from_css_color(&style.color),
                     };
 
-                    let first_x = x + cursor.x + margin.left + padding.left;
+                    let mut first_x = x + cursor.x + margin.left;
+
+                    match text_align {
+                        TextAlign::Center => {
+                            let total_line_width = i_text.width + margin.horizontal();
+                            first_x = x + (width - total_line_width) / 2.0 + margin.left + cursor.x;
+                        }
+                        TextAlign::Right => {
+                            let total_line_width = i_text.width + margin.horizontal();
+                            first_x = x + width - total_line_width + margin.left;
+                        }
+                        _ => {}
+                    }
 
                     let first_y = y + cursor.y;
                     total_height = i_text.height;
@@ -162,7 +184,7 @@ impl InlineLayout {
                         cursor.y += line_height_px;
                         cursor.x = 0.0;
 
-                        let rest_x = x + margin.left + padding.left;
+                        let rest_x = x + margin.left;
                         let rest_y = y + cursor.y + margin.top + padding.top;
                         total_height += r_text.height - line_height_px;
 
@@ -217,10 +239,7 @@ impl InlineLayout {
 
 #[cfg(test)]
 mod tests {
-    use assets::{
-        ASSETS,
-        constants::{DEFAULT_FONT, MONOSPACE_FONT},
-    };
+    use assets::{ASSETS, constants::OPEN_SANS_REGULAR};
     use cosmic_text::{FontSystem, fontdb::Source};
 
     use super::*;
@@ -244,8 +263,9 @@ mod tests {
             ..StyledNode::new(NodeId(1))
         };
 
+        let style = Box::new(ComputedStyle::default());
         let nodes = vec![node_text, node_break];
-        let items = InlineLayout::collect_inline_items_from_nodes(&nodes);
+        let items = InlineLayout::collect_inline_items_from_nodes(style, &nodes);
 
         assert_eq!(items.len(), 2);
         match &items[0] {
@@ -289,8 +309,9 @@ mod tests {
             ..StyledNode::new(NodeId(1))
         };
 
+        let style = Box::new(ComputedStyle::default());
         let nodes = vec![node_text, node_block, node_break];
-        let items = InlineLayout::collect_inline_items_from_nodes(&nodes);
+        let items = InlineLayout::collect_inline_items_from_nodes(style, &nodes);
 
         assert_eq!(items.len(), 1);
         match &items[0] {
@@ -325,13 +346,11 @@ mod tests {
 
     #[test]
     fn test_inline_layout_multiline_text() {
-        let default_font = ASSETS.read().unwrap().load_embedded(DEFAULT_FONT);
-        let monospace_font = ASSETS.read().unwrap().load_embedded(MONOSPACE_FONT);
+        let default_font = ASSETS.read().unwrap().load_embedded(OPEN_SANS_REGULAR);
 
-        let mut text_context = TextContext::new(FontSystem::new_with_fonts(vec![
-            Source::Binary(Arc::new(default_font)),
-            Source::Binary(Arc::new(monospace_font)),
-        ]));
+        let mut text_context = TextContext::new(FontSystem::new_with_fonts(vec![Source::Binary(
+            Arc::new(default_font),
+        )]));
 
         let items = vec![
             InlineItem::TextRun {
