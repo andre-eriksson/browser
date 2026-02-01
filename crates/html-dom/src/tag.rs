@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-// === Master Tag ===
-
 /// Represents an HTML tag, which can be either a known tag or an unknown tag.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Tag {
@@ -300,6 +298,7 @@ impl HtmlTag {
                 | (HtmlTag::Th, HtmlTag::Th)
                 | (HtmlTag::Th, HtmlTag::Td)
                 | (HtmlTag::Th, HtmlTag::Tr)
+                | (HtmlTag::Head, HtmlTag::Body)
         )
     }
 }
