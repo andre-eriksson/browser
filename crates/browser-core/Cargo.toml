@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 assets.workspace = true
+cli.workspace = true
 cookies.workspace = true
 constants.workspace = true
 css-cssom.workspace = true

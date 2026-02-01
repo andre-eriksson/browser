@@ -665,6 +665,7 @@ version = "0.1.0"
 dependencies = [
  "assets",
  "async-trait",
+ "cli",
  "constants",
  "cookies",
  "css-cssom",
@@ -919,7 +920,6 @@ checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 name = "cli"
 version = "0.1.0"
 dependencies = [
- "browser-core",
  "clap",
  "constants",
  "tokio",

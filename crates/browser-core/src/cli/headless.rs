@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
+use cli::args::BrowserArgs;
 use cookies::CookieJar;
 use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
@@ -29,15 +30,12 @@ pub struct HeadlessBrowser {
 }
 
 impl HeadlessBrowser {
-    pub fn new(
-        custom_headers: &Vec<String>,
-        emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-    ) -> Self {
+    pub fn new(args: &BrowserArgs, emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = RwLock::new(CookieJar::load());
 
         let mut headers = DefaultHeaders::create_browser_headers(HeaderType::HeadlessBrowser);
-        for header in custom_headers {
+        for header in args.headers.iter() {
             if let Some((key, value)) = header.split_once(':')
                 && let Ok(header_name) = http::header::HeaderName::from_bytes(key.trim().as_bytes())
                 && let Ok(header_value) = http::header::HeaderValue::from_str(value.trim())

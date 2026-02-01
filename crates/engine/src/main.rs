@@ -3,8 +3,8 @@ mod message;
 use std::{str::FromStr, sync::Arc};
 
 use browser_config::BrowserConfig;
-use browser_core::{Browser, BrowserEvent, HeadlessBrowser};
-use cli::{Parser, args::BrowserArgs, headless::HeadlessEngine};
+use browser_core::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
+use cli::{Parser, args::BrowserArgs};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
@@ -47,7 +47,7 @@ fn main() {
     let emitter = Box::new(ChannelEmitter::new(event_sender));
 
     if args.headless {
-        let browser = HeadlessBrowser::new(&args.headers, emitter);
+        let browser = HeadlessBrowser::new(&args, emitter);
         let mut engine = HeadlessEngine::new(browser);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -58,7 +58,7 @@ fn main() {
         return runtime.block_on(engine.main(&args));
     }
 
-    let browser = Browser::new(&args.headers, emitter);
+    let browser = Browser::new(&args, emitter);
     let browser = Arc::new(tokio::sync::Mutex::new(browser));
 
     let ui_runtime = Ui::new(browser, event_receiver, args, config);

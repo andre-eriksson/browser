@@ -5,6 +5,7 @@ use std::{
 
 use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
+use cli::args::BrowserArgs;
 use constants::files::CACHE_USER_AGENT;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
@@ -33,21 +34,18 @@ use crate::{
 
 pub struct Browser {
     tab_manager: TabManager,
-    default_stylesheet: CSSStyleSheet,
+    default_stylesheet: Option<CSSStyleSheet>,
     _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
     network: NetworkService,
 }
 
 impl Browser {
-    pub fn new(
-        custom_headers: &Vec<String>,
-        emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-    ) -> Self {
+    pub fn new(args: &BrowserArgs, emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = RwLock::new(CookieJar::load());
 
         let mut headers = DefaultHeaders::create_browser_headers(HeaderType::Browser);
-        for header in custom_headers {
+        for header in args.headers.iter() {
             if let Some((key, value)) = header.split_once(':')
                 && let Ok(header_name) = http::header::HeaderName::from_bytes(key.trim().as_bytes())
                 && let Ok(header_value) = http::header::HeaderValue::from_str(value.trim())
@@ -58,31 +56,35 @@ impl Browser {
 
         let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
 
-        let stylesheet = match read_file_from_cache(CACHE_USER_AGENT) {
-            Ok(data) => {
-                let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
-                    CSSStyleSheet::from_css(
+        let stylesheet = if args.enable_ua_css {
+            match read_file_from_cache(CACHE_USER_AGENT) {
+                Ok(data) => {
+                    let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
+                        CSSStyleSheet::from_css(
+                            std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+                            StylesheetOrigin::UserAgent,
+                            false,
+                        )
+                    });
+
+                    Some(out)
+                }
+                Err(_) => {
+                    let parsed = CSSStyleSheet::from_css(
                         std::str::from_utf8(&user_agent_css).unwrap_or_default(),
                         StylesheetOrigin::UserAgent,
                         false,
-                    )
-                });
+                    );
 
-                out
+                    let serialized = to_stdvec(&parsed).unwrap();
+
+                    write_file_to_cache(CACHE_USER_AGENT, serialized.as_slice()).ok();
+
+                    Some(parsed)
+                }
             }
-            Err(_) => {
-                let parsed = CSSStyleSheet::from_css(
-                    std::str::from_utf8(&user_agent_css).unwrap_or_default(),
-                    StylesheetOrigin::UserAgent,
-                    false,
-                );
-
-                let serialized = to_stdvec(&parsed).unwrap();
-
-                write_file_to_cache(CACHE_USER_AGENT, serialized.as_slice()).ok();
-
-                parsed
-            }
+        } else {
+            None
         };
 
         let tab_manager = TabManager::new(Tab::new(TabId(0)));
@@ -133,7 +135,11 @@ impl Commandable for Browser {
     async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError> {
         match command {
             BrowserCommand::Navigate { tab_id, url } => {
-                let stylesheets = vec![self.default_stylesheet.clone()];
+                let stylesheets = if let Some(default) = &self.default_stylesheet {
+                    vec![default.clone()]
+                } else {
+                    vec![]
+                };
 
                 let page = navigate(self, tab_id, &url, stylesheets).await?;
 

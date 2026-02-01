@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use constants::APP_NAME;
 
 #[derive(Parser, Debug)]
@@ -10,6 +10,9 @@ use constants::APP_NAME;
 pub struct BrowserArgs {
     #[arg(short = 'u', long, help = "The initial URL to load")]
     pub url: Option<String>,
+
+    #[arg(long = "disable-ua-css", action = ArgAction::SetFalse, help = "Disable user agent stylesheets.")]
+    pub enable_ua_css: bool,
 
     #[arg(
         name = "header",

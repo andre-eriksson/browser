@@ -1,8 +1,8 @@
-use browser_core::{BrowserCommand, Commandable, HeadlessBrowser, TabId};
+use cli::args::BrowserArgs;
 use std::io::{self, Write};
 use tracing::{error, info};
 
-use crate::args::BrowserArgs;
+use crate::{BrowserCommand, Commandable, HeadlessBrowser, TabId};
 
 pub struct HeadlessEngine {
     browser: HeadlessBrowser,
