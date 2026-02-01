@@ -97,11 +97,7 @@ impl PropertyResolver {
     }
 
     /// Calculate content width (top-down from containing block)
-    pub(crate) fn calculate_width(
-        styled_node: &StyledNode,
-        width: f32,
-        margin: &SideOffset,
-    ) -> f32 {
+    pub(crate) fn calculate_width(styled_node: &StyledNode, width: f32) -> f32 {
         let font_size = styled_node.style.computed_font_size_px;
 
         let max_width = match &styled_node.style.max_width {
@@ -117,7 +113,11 @@ impl PropertyResolver {
             }
         };
 
-        let available_width = f32::min(width - margin.horizontal(), max_width);
+        let font_size = styled_node.style.computed_font_size_px;
+        let (lm, rm) = styled_node.style.margin.horizontal();
+        let left_margin = lm.to_px(width, font_size).unwrap_or(0.0);
+        let right_margin = rm.to_px(width, font_size).unwrap_or(0.0);
+        let available_width = f32::min(width - (left_margin + right_margin), max_width);
 
         match &styled_node.style.width {
             Width::Auto => available_width.max(0.0),

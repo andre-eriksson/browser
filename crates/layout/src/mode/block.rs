@@ -1,4 +1,7 @@
-use css_style::{StyledNode, types::display::OutsideDisplay};
+use css_style::{
+    StyledNode,
+    types::{display::OutsideDisplay, margin::MarginValue},
+};
 use html_dom::{HtmlTag, Tag};
 
 use crate::{
@@ -21,6 +24,9 @@ impl BlockLayout {
     ) -> LayoutNode {
         let font_size_px = styled_node.style.computed_font_size_px;
 
+        let content_width =
+            PropertyResolver::calculate_width(styled_node, ctx.containing_block.width);
+
         let margin = PropertyResolver::resolve_node_margins(
             styled_node,
             ctx.containing_block.width,
@@ -38,11 +44,17 @@ impl BlockLayout {
             color: Color4f::from_css_color(&styled_node.style.color),
         };
 
-        let x = ctx.containing_block.x + margin.left;
-        let y = Self::calculate_y_pos(styled_node, ctx, cursor, margin.top, padding.top);
+        let mut x = ctx.containing_block.x + margin.left;
 
-        let content_width =
-            PropertyResolver::calculate_width(styled_node, ctx.containing_block.width, &margin);
+        if styled_node.style.margin.left == MarginValue::Auto
+            && styled_node.style.margin.right == MarginValue::Auto
+        {
+            x = (ctx.containing_block.width - content_width) / 2.0;
+        } else if styled_node.style.margin.left == MarginValue::Auto {
+            x = ctx.containing_block.x + ctx.containing_block.width - margin.right - content_width;
+        }
+
+        let y = Self::calculate_y_pos(styled_node, ctx, cursor, margin.top, padding.top);
 
         let mut collapsed_margin_top = 0.0;
         let mut collapsed_margin_bottom = 0.0;

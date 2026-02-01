@@ -20,12 +20,21 @@ impl MarginValue {
         Self::Length(Length::px(value))
     }
 
-    pub fn to_px(&self, reference: f32) -> Option<f32> {
+    pub fn to_px(&self, viewport: f32, font_size: f32) -> Option<f32> {
         match self {
-            MarginValue::Length(length) => Some(length.to_px(reference, 0.0)),
-            MarginValue::Percentage(percent) => Some(reference * (percent / 100.0)),
+            MarginValue::Length(length) => Some(length.to_px(viewport, font_size)),
+            MarginValue::Percentage(percent) => Some(viewport * (percent / 100.0)),
             _ => None,
         }
+    }
+}
+
+impl Default for MarginValue {
+    fn default() -> Self {
+        Self::Length(Length {
+            value: 0.0,
+            unit: LengthUnit::Px,
+        })
     }
 }
 
@@ -117,6 +126,20 @@ impl Margin {
             bottom,
             left: horizontal,
         }
+    }
+
+    pub fn vertical(&self) -> (MarginValue, MarginValue) {
+        (self.top, self.bottom)
+    }
+
+    pub fn horizontal(&self) -> (MarginValue, MarginValue) {
+        (self.left, self.right)
+    }
+}
+
+impl Default for Margin {
+    fn default() -> Self {
+        Self::zero()
     }
 }
 
