@@ -7,13 +7,25 @@ A from-scratch (sort of) web browser built in Rust! It supports basic HTML and C
 
 ## Preview
 
-<img src="./docs/preview.png" alt="A screenshot of the app displaying some HTML, CSS and UI elements like tabs.">
+[HTML file used for the preview](./docs/preview.html)
+
+<img src="./docs/preview.png" alt="A screenshot of the app displaying a rainbow colored webpage" width="800" />
 
 ## How to Run
+
 1. Install Rust (https://www.rust-lang.org/tools/install)
 2. Run
+
 ```sh
 $ cargo run
+```
+
+## Testing
+
+To run the tests, use the following command:
+
+```sh
+$ cargo test
 ```
 
 ## License
