@@ -57,10 +57,12 @@ impl InlineLayout {
         items: &mut Vec<InlineItem>,
     ) -> Result<(), ()> {
         if let Some(text) = inline_node.text_content.as_ref() {
+            let inherited_styles = style.inherited_subset();
+
             items.push(InlineItem::TextRun {
                 id: inline_node.node_id,
                 text: text.clone(),
-                style: style.clone(),
+                style: Box::new(inherited_styles),
             });
         }
 

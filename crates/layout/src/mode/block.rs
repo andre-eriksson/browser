@@ -197,6 +197,10 @@ impl BlockLayout {
                 return base_y + margin_top;
             }
 
+            if child.style.display.outside == Some(OutsideDisplay::Inline) {
+                return base_y;
+            }
+
             let child_margin_top = PropertyResolver::resolve_node_margins(
                 child,
                 ctx.containing_block.width,
