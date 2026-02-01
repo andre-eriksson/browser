@@ -8,7 +8,7 @@
 //! ```
 //! use css_tokenizer::{CssTokenizer, CssToken, CssTokenKind};
 //!
-//! let tokens = CssTokenizer::tokenize("div { color: red; }");
+//! let tokens = CssTokenizer::tokenize("div { color: red; }", false);
 //! for token in tokens {
 //!     println!("{:?}", token);
 //! }

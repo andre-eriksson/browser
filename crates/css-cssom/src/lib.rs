@@ -23,7 +23,7 @@
 //! use css_cssom::CSSStyleSheet;
 //!
 //! let mut parser = CssParser::default();
-//! let parsed = parser.parse_css("div { color: red; }");
+//! let parsed = parser.parse_css("div { color: red; }", false);
 //! let stylesheet = CSSStyleSheet::from(parsed);
 //! ```
 

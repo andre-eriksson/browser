@@ -9,7 +9,7 @@
 //! use css_parser::CssParser;
 //!
 //! let mut parser = CssParser::default();
-//! let stylesheet = parser.parse_css("div { color: red; }");
+//! let stylesheet = parser.parse_css("div { color: red; }", false);
 //! ```
 
 mod consumers;
