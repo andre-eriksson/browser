@@ -323,14 +323,13 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                         Some(BlockedReason::ParsingSVG)
                     }
-                    TokenState::AfterAttributeValueQuoted | TokenState::TagOpen => {
+                    TokenState::Data => {
                         if let Some(last_token) = tokens.last()
                             && last_token.data.eq_ignore_ascii_case("link")
-                            && let Some(rel_value) = last_token
-                                .attributes
-                                .get("rel")
-                                .map(|v| v.to_ascii_lowercase())
-                            && rel_value == "stylesheet"
+                            && let Some(rel_value) = last_token.attributes.get("rel")
+                            && rel_value
+                                .split_whitespace()
+                                .any(|rel| rel.eq_ignore_ascii_case("stylesheet"))
                         {
                             last_token.attributes.get("href").map(|href| {
                                 trace!(
