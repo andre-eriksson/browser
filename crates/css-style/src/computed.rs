@@ -10,8 +10,8 @@ use crate::{
         font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, FontWeight, GenericName},
         height::Height,
         line_height::LineHeight,
-        margin::Margin,
-        padding::Padding,
+        margin::{Margin, MarginValue},
+        padding::{Padding, PaddingValue},
         position::Position,
         text_align::TextAlign,
         width::{MaxWidth, Width},
@@ -66,6 +66,7 @@ impl ComputedStyle {
         };
 
         let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
+
         let properties = cascade(declarations);
         computed_style.variables = cascade_variables(variables);
 
@@ -141,16 +142,58 @@ impl ComputedStyle {
                         computed_style.margin = margin;
                     }
                 }
+                "margin-top" => {
+                    if let Some(margin_value) = MarginValue::parse(v) {
+                        computed_style.margin.top = margin_value;
+                    }
+                }
+                "margin-right" => {
+                    if let Some(margin_value) = MarginValue::parse(v) {
+                        computed_style.margin.right = margin_value;
+                    }
+                }
+                "margin-bottom" => {
+                    if let Some(margin_value) = MarginValue::parse(v) {
+                        computed_style.margin.bottom = margin_value;
+                    }
+                }
+                "margin-left" => {
+                    if let Some(margin_value) = MarginValue::parse(v) {
+                        computed_style.margin.left = margin_value;
+                    }
+                }
                 "margin-block" => {
                     if let Some(margin) = Margin::parse(v) {
                         computed_style.margin = margin;
                     }
                 }
+
                 "padding" => {
                     if let Some(padding) = Padding::parse(v) {
                         computed_style.padding = padding;
                     }
                 }
+                "padding-top" => {
+                    if let Some(padding_value) = PaddingValue::parse(v) {
+                        computed_style.padding.top = padding_value;
+                    }
+                }
+                "padding-right" => {
+                    if let Some(padding_value) = PaddingValue::parse(v) {
+                        computed_style.padding.right = padding_value;
+                    }
+                }
+                "padding-bottom" => {
+                    if let Some(padding_value) = PaddingValue::parse(v) {
+                        computed_style.padding.bottom = padding_value;
+                    }
+                }
+                "padding-left" => {
+                    if let Some(padding_value) = PaddingValue::parse(v) {
+                        computed_style.padding.left = padding_value;
+                    }
+                }
+
                 "position" => {
                     if let Some(position) = Position::parse(v) {
                         computed_style.position = position;

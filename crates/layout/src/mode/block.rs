@@ -233,50 +233,52 @@ impl BlockLayout {
         next_sibling: Option<&StyledNode>,
         child_cursor: f32,
     ) -> f32 {
-        if style_node.style.display.outside == Some(OutsideDisplay::Block) {
-            if let Some(next) = next_sibling {
-                let next_margin_top = PropertyResolver::resolve_node_margins(
-                    next,
-                    0.0,
-                    next.style.computed_font_size_px,
-                )
-                .top;
-
-                let collapsed_margin =
-                    Self::collapse_margins(child_node.resolved_margin.bottom, next_margin_top);
-
-                if next_margin_top == collapsed_margin {
-                    if ctx.is_first_child && ctx.parent_padding_top != 0.0 {
-                        return child_cursor
-                            + child_node.resolved_margin.top
-                            + child_node.dimensions.height
-                            + collapsed_margin;
-                    }
-
-                    return child_cursor + child_node.dimensions.height + collapsed_margin;
-                }
-            }
-
-            if let Some(previous_sibling) = children.last() {
-                let collapsed_margin = Self::collapse_margins(
-                    child_node.resolved_margin.top,
-                    previous_sibling.resolved_margin.bottom,
-                );
-
-                let y = child_cursor
-                    + if collapsed_margin > previous_sibling.resolved_margin.bottom {
-                        collapsed_margin
-                    } else {
-                        child_node.resolved_margin.top
-                    };
-
-                return y + child_node.dimensions.height;
-            }
-
-            return child_cursor + child_node.dimensions.height + child_node.resolved_margin.top;
+        if style_node.style.display.outside != Some(OutsideDisplay::Block) {
+            return child_node.dimensions.height;
         }
 
-        child_node.dimensions.height
+        if let Some(next) = next_sibling {
+            let next_margin_top =
+                PropertyResolver::resolve_node_margins(next, 0.0, next.style.computed_font_size_px)
+                    .top;
+
+            let collapsed_margin =
+                Self::collapse_margins(child_node.resolved_margin.bottom, next_margin_top);
+
+            if next_margin_top == collapsed_margin {
+                if ctx.is_first_child && ctx.parent_padding_top != 0.0 {
+                    return child_cursor
+                        + child_node.resolved_margin.top
+                        + child_node.dimensions.height
+                        + collapsed_margin;
+                }
+
+                return child_cursor + child_node.dimensions.height + collapsed_margin;
+            }
+        }
+
+        if let Some(previous_sibling) = children.last() {
+            let collapsed_margin = Self::collapse_margins(
+                child_node.resolved_margin.top,
+                previous_sibling.resolved_margin.bottom,
+            );
+
+            let y = child_cursor
+                + if collapsed_margin > previous_sibling.resolved_margin.bottom {
+                    collapsed_margin
+                } else {
+                    child_node.resolved_margin.top
+                };
+
+            return y + child_node.dimensions.height;
+        }
+
+        let collapsed_margin = Self::collapse_margins(
+            child_node.resolved_margin.bottom,
+            child_node.resolved_margin.top,
+        );
+
+        child_cursor + child_node.dimensions.height + collapsed_margin
     }
 
     fn collapse_margins(margin1: f32, margin2: f32) -> f32 {

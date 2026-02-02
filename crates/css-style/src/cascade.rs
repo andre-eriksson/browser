@@ -229,8 +229,8 @@ impl CascadedDeclaration {
                     };
                     origin_order_b.cmp(&origin_order_a)
                 })
-                .then_with(|| b.specificity.cmp(&a.specificity))
-                .then_with(|| b.source_order.cmp(&a.source_order))
+                .then_with(|| a.specificity.cmp(&b.specificity))
+                .then_with(|| a.source_order.cmp(&b.source_order))
         });
     }
 }
@@ -242,14 +242,17 @@ fn expand_shorthand_property(property: &str, value: &str) -> Vec<(String, String
     }
 }
 
-pub fn cascade(declarations: &mut [CascadedDeclaration]) -> HashMap<String, String> {
+pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(String, String)> {
     CascadedDeclaration::sort_declarations(declarations);
 
-    let mut cascaded_styles: HashMap<String, String> = HashMap::new();
+    let mut cascaded_styles: Vec<(String, String)> = Vec::with_capacity(32);
 
     for decl in declarations.iter() {
-        if !cascaded_styles.contains_key(&decl.property) {
-            cascaded_styles.insert(decl.property.clone(), decl.value.clone());
+        if !cascaded_styles
+            .iter()
+            .any(|(prop, _)| prop == &decl.property)
+        {
+            cascaded_styles.push((decl.property.clone(), decl.value.clone()));
         }
     }
 
