@@ -72,7 +72,15 @@ impl ComputedStyle {
         let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
 
         let properties = cascade(declarations);
-        computed_style.variables = cascade_variables(variables);
+        let mut merged_variables = computed_style.variables.clone();
+        for (name, value) in cascade_variables(variables) {
+            if let Some(existing) = merged_variables.iter_mut().find(|(n, _)| n == &name) {
+                existing.1 = value;
+            } else {
+                merged_variables.push((name, value));
+            }
+        }
+        computed_style.variables = merged_variables;
 
         for (key, value) in properties {
             let mut v = value.as_str();
@@ -324,6 +332,7 @@ impl ComputedStyle {
             font_weight: self.font_weight,
             whitespace: self.whitespace,
             writing_mode: self.writing_mode,
+            variables: self.variables.clone(),
             ..ComputedStyle::default()
         }
     }

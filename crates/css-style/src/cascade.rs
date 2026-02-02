@@ -117,22 +117,6 @@ impl CascadedDeclaration {
         };
 
         for rule in rules {
-            if !rule.declarations.is_empty() {
-                for decl in rule.declarations {
-                    if decl.name.starts_with("--") {
-                        variables.push(CascadedDeclaration {
-                            property: decl.name.clone(),
-                            value: decl.value.clone(),
-                            important: decl.important,
-                            specificity: CascadeSpecificity::from(SelectorSpecificity(0, 0, 0)),
-                            source_order,
-                            origin: rule.origin,
-                        });
-                        source_order += 1;
-                    }
-                }
-            }
-
             if matches_compound(&rule.selector_sequences, dom, node) {
                 let specificity = rule
                     .selector_sequences
@@ -142,6 +126,19 @@ impl CascadedDeclaration {
                     .unwrap_or_default();
 
                 for decl in rule.declarations {
+                    if decl.name.starts_with("--") {
+                        variables.push(CascadedDeclaration {
+                            property: decl.name.clone(),
+                            value: decl.value.clone(),
+                            important: decl.important,
+                            specificity: CascadeSpecificity::from(specificity),
+                            source_order,
+                            origin: rule.origin,
+                        });
+                        source_order += 1;
+                        continue;
+                    }
+
                     let expanded = expand_shorthand_property(&decl.name, &decl.value);
 
                     for (property, value) in expanded {
