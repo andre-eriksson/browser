@@ -548,7 +548,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] view-transition-name
 - [ ] visibility
 - [ ] white-space-collapse
-- [ ] white-space
+- [x] white-space
 - [ ] widows
 - [x] width
 - [ ] will-change

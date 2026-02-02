@@ -16,11 +16,19 @@ A web browser built in Rust! It currently supports a subset of HTML and CSS when
 - UI theming with user configurable TOML file
 - Tabbed browsing
 
-## Preview
+## Screenshots
 
-[HTML file used for the preview](./docs/preview.html)
+https://www.rfc-editor.org/rfc/rfc6265.html
 
-<img src="./docs/preview.png" alt="A screenshot of the app displaying a rainbow colored webpage" width="800" />
+<img src="./docs/rfc6265.png" alt="A screenshot of the app rendering the RFC 6265 page" width="800"/>
+
+https://flask.palletsprojects.com/en/stable/quickstart/#routing
+
+<img src="./docs/flask.png" alt="A screenshot of the app rendering the Flask quickstart page" width="800"/>
+
+https://en.wikipedia.org/wiki/Sweden
+
+<img src="./docs/sweden.png" alt="A screenshot of the app rendering the Wikipedia page for Sweden" width="800"/>
 
 ## Architecture
 
