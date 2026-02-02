@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use css_style::{
     ComputedStyle, StyledNode,
-    types::{display::OutsideDisplay, text_align::TextAlign},
+    types::{display::OutsideDisplay, text_align::TextAlign, whitespace::Whitespace},
 };
 use html_dom::{HtmlTag, NodeId, Tag};
 
@@ -59,11 +59,55 @@ impl InlineLayout {
         if let Some(text) = inline_node.text_content.as_ref() {
             let inherited_styles = style.inherited_subset();
 
-            items.push(InlineItem::TextRun {
-                id: inline_node.node_id,
-                text: text.clone(),
-                style: Box::new(inherited_styles),
-            });
+            match inherited_styles.whitespace {
+                Whitespace::Normal => {
+                    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                    if !collapsed.is_empty() {
+                        items.push(InlineItem::TextRun {
+                            id: inline_node.node_id,
+                            text: collapsed,
+                            style: Box::new(inherited_styles.clone()),
+                        });
+                    }
+                }
+                Whitespace::PreLine => {
+                    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                    items.push(InlineItem::TextRun {
+                        id: inline_node.node_id,
+                        text: collapsed,
+                        style: Box::new(inherited_styles.clone()),
+                    });
+                }
+                Whitespace::PreWrap | Whitespace::Pre => {
+                    let mut text = text.as_str();
+                    if items.is_empty() {
+                        text = text.trim_start_matches('\n');
+                    }
+
+                    let lines: Vec<&str> = text.split('\n').collect();
+
+                    for (i, line) in lines.iter().enumerate() {
+                        if !line.is_empty() || i == 0 {
+                            items.push(InlineItem::TextRun {
+                                id: inline_node.node_id,
+                                text: line.to_string(),
+                                style: Box::new(inherited_styles.clone()),
+                            });
+                        }
+
+                        if i < lines.len() - 1 {
+                            items.push(InlineItem::Break {
+                                font_size_px: style.computed_font_size_px,
+                            });
+                        }
+                    }
+                }
+                Whitespace::Global(_global) => {
+                    // TODO: Handle global values appropriately
+                }
+            }
         }
 
         if let Some(tag) = inline_node.tag.as_ref() {
@@ -113,6 +157,7 @@ impl InlineLayout {
         for item in items {
             match item {
                 InlineItem::TextRun { id, text, style } => {
+                    let whitespace = &style.whitespace;
                     let font_size_px = style.computed_font_size_px;
                     let text_align = style.text_align;
                     let line_height = &style.line_height;
@@ -122,6 +167,7 @@ impl InlineLayout {
                     let (i_text, r_text) = text_ctx.measure_multiline_text(
                         text,
                         &TextDescription {
+                            whitespace,
                             font_size_px,
                             font_family,
                             font_weight,
@@ -160,7 +206,7 @@ impl InlineLayout {
                     }
 
                     let first_y = y + cursor.y;
-                    total_height = i_text.height;
+                    total_height = f32::max(total_height, i_text.height + cursor.y);
 
                     let node = LayoutNode {
                         node_id: *id,

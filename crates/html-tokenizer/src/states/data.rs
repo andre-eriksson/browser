@@ -59,43 +59,7 @@ pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<
             if !state.temporary_buffer.is_empty() {
                 let processed_text = preserve_significant_whitespace(state);
 
-                if state.context.inside_preformatted {
-                    let mut current_pos = 0;
-                    let chars: Vec<char> = processed_text.chars().collect();
-
-                    while current_pos < chars.len() {
-                        let mut line = String::new();
-
-                        while current_pos < chars.len() {
-                            let ch = chars[current_pos];
-                            current_pos += 1;
-
-                            if ch == '\n' {
-                                line.push(ch);
-                                break;
-                            } else if ch == '\r' {
-                                line.push(ch);
-                                if current_pos < chars.len() && chars[current_pos] == '\n' {
-                                    line.push(chars[current_pos]);
-                                    current_pos += 1;
-                                }
-                                break;
-                            }
-                            line.push(ch);
-                        }
-
-                        if !line.is_empty() {
-                            HtmlTokenizer::emit_token(
-                                tokens,
-                                Token {
-                                    kind: TokenKind::Text,
-                                    attributes: HashMap::new(),
-                                    data: line,
-                                },
-                            );
-                        }
-                    }
-                } else if !processed_text.is_empty() {
+                if !processed_text.is_empty() {
                     HtmlTokenizer::emit_token(
                         tokens,
                         Token {

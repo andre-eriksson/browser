@@ -11,6 +11,7 @@ pub mod margin;
 pub mod padding;
 pub mod position;
 pub mod text_align;
+pub mod whitespace;
 pub mod width;
 pub mod writing_mode;
 

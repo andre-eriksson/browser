@@ -187,6 +187,10 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
         state.current_attribute_name.clear();
         state.current_attribute_value.clear();
 
+        if token.data == "pre" {
+            state.context.inside_preformatted = !state.context.inside_preformatted;
+        }
+
         if token.data == "script" && token.kind != TokenKind::EndTag {
             state.state = TokenState::ScriptData;
         } else if token.data == "style" && token.kind != TokenKind::EndTag {
@@ -194,13 +198,6 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
         } else if token.data == "svg" && token.kind != TokenKind::EndTag {
             state.state = TokenState::SvgData
         } else {
-            if token.data == "pre" {
-                if token.kind == TokenKind::StartTag {
-                    state.context.inside_preformatted = true;
-                } else if token.kind == TokenKind::EndTag {
-                    state.context.inside_preformatted = false;
-                }
-            }
             state.state = TokenState::Data;
         }
 

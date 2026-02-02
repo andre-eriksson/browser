@@ -14,6 +14,7 @@ use crate::{
         padding::{Padding, PaddingValue},
         position::Position,
         text_align::TextAlign,
+        whitespace::Whitespace,
         width::{MaxWidth, Width},
         writing_mode::WritingMode,
     },
@@ -34,6 +35,7 @@ pub struct ComputedStyle {
     pub padding: Padding,
     pub position: Position,
     pub text_align: TextAlign,
+    pub whitespace: Whitespace,
     pub width: Width,
     pub max_width: MaxWidth,
     pub writing_mode: WritingMode,
@@ -283,6 +285,11 @@ impl ComputedStyle {
                         computed_style.text_align = text_align;
                     }
                 }
+                "white-space" => {
+                    if let Some(whitespace) = Whitespace::parse(v) {
+                        computed_style.whitespace = whitespace;
+                    }
+                }
                 "width" => {
                     if let Some(width) = Width::parse(v) {
                         computed_style.width = width;
@@ -315,6 +322,7 @@ impl ComputedStyle {
             line_height: self.line_height,
             text_align: self.text_align,
             font_weight: self.font_weight,
+            whitespace: self.whitespace,
             writing_mode: self.writing_mode,
             ..ComputedStyle::default()
         }
@@ -347,6 +355,7 @@ impl Default for ComputedStyle {
             padding: Padding::zero(),
             position: Position::Static,
             text_align: TextAlign::Left,
+            whitespace: Whitespace::Normal,
             width: Width::Auto,
             max_width: MaxWidth::None,
             writing_mode: WritingMode::HorizontalTb,

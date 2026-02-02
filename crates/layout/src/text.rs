@@ -4,6 +4,7 @@ use cosmic_text::{
 use css_style::types::{
     font::{FontFamily, FontFamilyName, FontWeight, GenericName},
     line_height::LineHeight,
+    whitespace::Whitespace,
 };
 
 pub struct TextOffsetContext {
@@ -21,6 +22,7 @@ pub struct Text {
 }
 
 pub struct TextDescription<'a> {
+    pub whitespace: &'a Whitespace,
     pub line_height: &'a LineHeight,
     pub font_family: &'a FontFamily,
     pub font_weight: &'a FontWeight,
@@ -59,9 +61,17 @@ impl TextContext {
         available_width: f32,
         offset_ctx: TextOffsetContext,
     ) -> (Text, Option<Text>) {
+        let wrap_mode = match text_description.whitespace {
+            Whitespace::Normal
+            | Whitespace::PreLine
+            | Whitespace::PreWrap
+            | Whitespace::Global(_) => Wrap::Word,
+            Whitespace::Pre => Wrap::None,
+        };
+
         if offset_ctx.offset_x == 0.0 {
             return (
-                self.measure_text(text, text_description, available_width),
+                self.measure_text(text, text_description, available_width, wrap_mode),
                 None,
             );
         }
@@ -69,6 +79,7 @@ impl TextContext {
         let line_height_px = text_description
             .line_height
             .to_px(text_description.font_size_px);
+
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let family = Self::resolve_font_family(text_description.font_family);
         let weight = Self::resolve_font_weight(text_description.font_weight);
@@ -92,7 +103,7 @@ impl TextContext {
         }
 
         let mut temp_buffer = Buffer::new(&mut self.font_system, metrics);
-        temp_buffer.set_wrap(&mut self.font_system, Wrap::Word);
+        temp_buffer.set_wrap(&mut self.font_system, wrap_mode);
         temp_buffer.set_size(
             &mut self.font_system,
             Some(offset_ctx.available_width),
@@ -123,7 +134,12 @@ impl TextContext {
         };
 
         let first_line_text = &text[..first_line_end];
-        let remaining_text = &text[first_line_end..].trim_start();
+        let remaining_text = match text_description.whitespace {
+            Whitespace::Normal | Whitespace::PreLine | Whitespace::Global(_) => {
+                text[first_line_end..].trim_start()
+            }
+            Whitespace::Pre | Whitespace::PreWrap => &text[first_line_end..],
+        };
 
         let mut first_buffer = Buffer::new(&mut self.font_system, metrics);
         first_buffer.set_wrap(&mut self.font_system, Wrap::Word);
@@ -160,7 +176,7 @@ impl TextContext {
         }
 
         let mut rest_buffer = Buffer::new(&mut self.font_system, metrics);
-        rest_buffer.set_wrap(&mut self.font_system, Wrap::Word);
+        rest_buffer.set_wrap(&mut self.font_system, wrap_mode);
         rest_buffer.set_size(&mut self.font_system, Some(available_width), None);
         rest_buffer.set_text(
             &mut self.font_system,
@@ -201,6 +217,7 @@ impl TextContext {
         text: &str,
         text_description: &TextDescription,
         available_width: f32,
+        wrap_mode: Wrap,
     ) -> Text {
         let line_height_px = text_description
             .line_height
@@ -209,7 +226,7 @@ impl TextContext {
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
 
-        buffer.set_wrap(&mut self.font_system, Wrap::Word);
+        buffer.set_wrap(&mut self.font_system, wrap_mode);
         buffer.set_size(&mut self.font_system, Some(available_width), None);
 
         let family = Self::resolve_font_family(text_description.font_family);
