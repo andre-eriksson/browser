@@ -210,6 +210,13 @@ impl BlockLayout {
 
             let collapsed_margin = Self::collapse_margins(margin_top, child_margin_top);
 
+            if base_y != 0.0
+                && base_y != margin_top
+                && child.style.margin.top != MarginValue::zero()
+            {
+                return base_y;
+            }
+
             return base_y + collapsed_margin;
         }
 
@@ -304,16 +311,33 @@ impl BlockLayout {
     ) -> f32 {
         let mut content_height = 0.0;
 
-        let last_child_margin_bottom = if let Some(last_child) = children.last() {
-            last_child.resolved_margin.bottom
-        } else {
-            0.0
+        let last_child_margin_bottom = {
+            let mut current = children.last();
+            let mut last_margin = 0.0;
+
+            while let Some(child) = current {
+                if child.resolved_margin.bottom != 0.0 {
+                    last_margin = child.resolved_margin.bottom;
+                    break;
+                }
+                current = child.children.last();
+            }
+
+            last_margin
         };
 
-        let first_child_margin_top = if let Some(first_child) = children.first() {
-            first_child.resolved_margin.top
-        } else {
-            0.0
+        let first_child_margin_top = {
+            let mut current = children.first();
+            let mut first_margin = 0.0;
+            while let Some(child) = current {
+                if child.resolved_margin.top != 0.0 {
+                    first_margin = child.resolved_margin.top;
+                    break;
+                }
+                current = child.children.first();
+            }
+
+            first_margin
         };
 
         if padding.top == 0.0 {
