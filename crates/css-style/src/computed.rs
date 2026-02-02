@@ -15,6 +15,7 @@ use crate::{
         position::Position,
         text_align::TextAlign,
         width::{MaxWidth, Width},
+        writing_mode::WritingMode,
     },
 };
 
@@ -35,6 +36,7 @@ pub struct ComputedStyle {
     pub text_align: TextAlign,
     pub width: Width,
     pub max_width: MaxWidth,
+    pub writing_mode: WritingMode,
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
@@ -164,7 +166,43 @@ impl ComputedStyle {
                 }
                 "margin-block" => {
                     if let Some(margin) = Margin::parse(v) {
-                        computed_style.margin = margin;
+                        match computed_style.writing_mode {
+                            WritingMode::HorizontalTb => {
+                                computed_style.margin.top = margin.top;
+                                computed_style.margin.bottom = margin.bottom;
+                            }
+                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
+                                computed_style.margin.left = margin.left;
+                                computed_style.margin.right = margin.right;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "margin-block-start" => {
+                    if let Some(margin_value) = MarginValue::parse(v) {
+                        match computed_style.writing_mode {
+                            WritingMode::HorizontalTb => {
+                                computed_style.margin.top = margin_value;
+                            }
+                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
+                                computed_style.margin.right = margin_value;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "margin-block-end" => {
+                    if let Some(margin_value) = MarginValue::parse(v) {
+                        match computed_style.writing_mode {
+                            WritingMode::HorizontalTb => {
+                                computed_style.margin.bottom = margin_value;
+                            }
+                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
+                                computed_style.margin.left = margin_value;
+                            }
+                            _ => {}
+                        }
                     }
                 }
 
@@ -193,6 +231,47 @@ impl ComputedStyle {
                         computed_style.padding.left = padding_value;
                     }
                 }
+                "padding-block" => {
+                    if let Some(padding) = Padding::parse(v) {
+                        match computed_style.writing_mode {
+                            WritingMode::HorizontalTb => {
+                                computed_style.padding.top = padding.top;
+                                computed_style.padding.bottom = padding.bottom;
+                            }
+                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
+                                computed_style.padding.left = padding.left;
+                                computed_style.padding.right = padding.right;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "padding-block-start" => {
+                    if let Some(padding_value) = PaddingValue::parse(v) {
+                        match computed_style.writing_mode {
+                            WritingMode::HorizontalTb => {
+                                computed_style.padding.top = padding_value;
+                            }
+                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
+                                computed_style.padding.right = padding_value;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "padding-block-end" => {
+                    if let Some(padding_value) = PaddingValue::parse(v) {
+                        match computed_style.writing_mode {
+                            WritingMode::HorizontalTb => {
+                                computed_style.padding.bottom = padding_value;
+                            }
+                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
+                                computed_style.padding.left = padding_value;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
 
                 "position" => {
                     if let Some(position) = Position::parse(v) {
@@ -214,6 +293,11 @@ impl ComputedStyle {
                         computed_style.max_width = max_width;
                     }
                 }
+                "writing-mode" => {
+                    if let Some(writing_mode) = WritingMode::parse(v) {
+                        computed_style.writing_mode = writing_mode;
+                    }
+                }
                 _ => {}
             }
         }
@@ -231,6 +315,7 @@ impl ComputedStyle {
             line_height: self.line_height,
             text_align: self.text_align,
             font_weight: self.font_weight,
+            writing_mode: self.writing_mode,
             ..ComputedStyle::default()
         }
     }
@@ -264,6 +349,7 @@ impl Default for ComputedStyle {
             text_align: TextAlign::Left,
             width: Width::Auto,
             max_width: MaxWidth::None,
+            writing_mode: WritingMode::HorizontalTb,
         }
     }
 }

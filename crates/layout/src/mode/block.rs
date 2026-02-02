@@ -255,6 +255,11 @@ impl BlockLayout {
 
                 return child_cursor + child_node.dimensions.height + collapsed_margin;
             }
+
+            return child_cursor
+                + child_node.dimensions.height
+                + collapsed_margin
+                + child_node.resolved_margin.top;
         }
 
         if let Some(previous_sibling) = children.last() {
