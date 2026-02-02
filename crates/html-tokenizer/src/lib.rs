@@ -15,5 +15,5 @@ mod tokenizer;
 mod tokens;
 
 pub use state::TokenState;
-pub use tokenizer::{HtmlTokenizer, TokenizerContext, TokenizerState};
+pub use tokenizer::{HtmlTokenizer, TokenizerState};
 pub use tokens::{Token, TokenKind};

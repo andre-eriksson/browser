@@ -192,6 +192,27 @@ impl BlockLayout {
     ) -> f32 {
         let base_y = ctx.containing_block.y + cursor.y;
 
+        if node.tag == Some(Tag::Html(HtmlTag::Body)) && padding_top == 0.0 {
+            let mut child_margin_top = 0.0;
+            let mut current = node.children.first();
+            while let Some(c) = current {
+                current = c.children.first();
+                let resolved_margin = PropertyResolver::resolve_node_margins(
+                    c,
+                    ctx.containing_block.width,
+                    c.style.computed_font_size_px,
+                );
+
+                if resolved_margin.top != 0.0 {
+                    child_margin_top = resolved_margin.top;
+                    break;
+                }
+            }
+
+            let collapsed_margin = Self::collapse_margins(margin_top, child_margin_top);
+            return base_y + collapsed_margin;
+        }
+
         if let Some(child) = node.children.first() {
             if node.tag == Some(Tag::Html(HtmlTag::Body)) && padding_top != 0.0 {
                 return base_y + margin_top;
@@ -263,10 +284,7 @@ impl BlockLayout {
                 return child_cursor + child_node.dimensions.height + collapsed_margin;
             }
 
-            return child_cursor
-                + child_node.dimensions.height
-                + collapsed_margin
-                + child_node.resolved_margin.top;
+            return child_cursor + child_node.dimensions.height + collapsed_margin;
         }
 
         if let Some(previous_sibling) = children.last() {

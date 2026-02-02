@@ -26,13 +26,6 @@ use crate::{
     },
 };
 
-/// Context for the tokenizer that keeps track of the current parsing state between chunks.
-#[derive(Debug, Default)]
-pub struct TokenizerContext {
-    /// A boolean indicating whether the tokenizer is currently inside a preformatted text block (e.g., `<pre>` tag).
-    pub inside_preformatted: bool,
-}
-
 #[derive(Debug, Default)]
 pub struct TokenizerState {
     /// The current state of the HTML parser.
@@ -49,9 +42,6 @@ pub struct TokenizerState {
 
     /// The value of the current attribute being processed.
     pub current_attribute_value: String,
-
-    /// The tokenizer context that maintains state information between chunks.
-    pub context: TokenizerContext,
 }
 
 /// A tokenizer for HTML content that processes chunks of HTML and emits tokens.

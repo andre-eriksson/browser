@@ -31,6 +31,10 @@ pub enum InlineItem {
     },
 }
 
+pub struct InlineContext {
+    pub inside_preformatted: bool,
+}
+
 pub struct InlineLayout;
 
 impl InlineLayout {
@@ -39,9 +43,12 @@ impl InlineLayout {
         nodes: &[StyledNode],
     ) -> Vec<InlineItem> {
         let mut items = Vec::new();
+        let mut ctx = InlineContext {
+            inside_preformatted: false,
+        };
 
         for node in nodes {
-            let result = Self::collect(parent_style, node, &mut items);
+            let result = Self::collect(&mut ctx, parent_style, node, &mut items);
 
             if result.is_err() {
                 break;
@@ -52,6 +59,7 @@ impl InlineLayout {
     }
 
     fn collect(
+        ctx: &mut InlineContext,
         style: &ComputedStyle,
         inline_node: &StyledNode,
         items: &mut Vec<InlineItem>,
@@ -59,9 +67,19 @@ impl InlineLayout {
         if let Some(text) = inline_node.text_content.as_ref() {
             let inherited_styles = style.inherited_subset();
 
+            ctx.inside_preformatted = matches!(
+                inherited_styles.whitespace,
+                Whitespace::Pre | Whitespace::PreWrap
+            );
+
+            let adjusted_text = Self::preserve_significant_whitespace(ctx, text);
+
             match inherited_styles.whitespace {
                 Whitespace::Normal => {
-                    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                    let collapsed = adjusted_text
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ");
 
                     if !collapsed.is_empty() {
                         items.push(InlineItem::TextRun {
@@ -72,7 +90,10 @@ impl InlineLayout {
                     }
                 }
                 Whitespace::PreLine => {
-                    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                    let collapsed = adjusted_text
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .join(" ");
 
                     items.push(InlineItem::TextRun {
                         id: inline_node.node_id,
@@ -81,9 +102,9 @@ impl InlineLayout {
                     });
                 }
                 Whitespace::PreWrap | Whitespace::Pre => {
-                    let mut text = text.as_str();
+                    let mut text = adjusted_text;
                     if items.is_empty() {
-                        text = text.trim_start_matches('\n');
+                        text = text.trim_start_matches('\n').to_string();
                     }
 
                     let lines: Vec<&str> = text.split('\n').collect();
@@ -125,7 +146,7 @@ impl InlineLayout {
                 _ => {
                     if !inline_node.children.is_empty() {
                         for child in &inline_node.children {
-                            let result = Self::collect(&inline_node.style, child, items);
+                            let result = Self::collect(ctx, &inline_node.style, child, items);
 
                             if result.is_err() {
                                 return Err(());
@@ -282,6 +303,30 @@ impl InlineLayout {
         }
 
         (nodes, total_height)
+    }
+
+    pub fn preserve_significant_whitespace(ctx: &InlineContext, text: &str) -> String {
+        if ctx.inside_preformatted {
+            return text.to_string();
+        }
+
+        let has_leading_ws = text.starts_with(char::is_whitespace);
+        let has_trailing_ws = text.ends_with(char::is_whitespace);
+        let has_leading_newline = text.starts_with('\n') || text.starts_with('\r');
+        let has_trailing_newline = text.ends_with('\n') || text.ends_with('\r');
+
+        let normalized_middle = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        let mut result = String::new();
+        if has_leading_ws && !normalized_middle.is_empty() && !has_leading_newline {
+            result.push(' ');
+        }
+        result.push_str(&normalized_middle);
+        if has_trailing_ws && !normalized_middle.is_empty() && !has_trailing_newline {
+            result.push(' ');
+        }
+
+        result
     }
 }
 
