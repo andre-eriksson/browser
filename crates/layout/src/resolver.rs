@@ -1,12 +1,4 @@
-use css_style::{
-    StyledNode,
-    types::{
-        height::Height,
-        margin::{Margin, MarginValue},
-        padding::{Padding, PaddingValue},
-        width::{MaxWidth, Width},
-    },
-};
+use css_style::{Dimension, MaxDimension, Offset, OffsetValue, Property, StyledNode};
 
 use crate::SideOffset;
 
@@ -19,39 +11,45 @@ impl PropertyResolver {
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        let margin = &styled_node.style.margin;
-        SideOffset {
-            top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
-            right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
-            bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
-            left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
+        if let Ok(margin) = Property::resolve(&styled_node.style.margin) {
+            SideOffset {
+                top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
+                right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
+                bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
+                left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
+            }
+        } else {
+            SideOffset::default()
         }
     }
 
     pub(crate) fn resolve_margins(
-        margin: &Margin,
+        margin: &Property<Offset>,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        SideOffset {
-            top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
-            right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
-            bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
-            left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
+        if let Ok(margin) = Property::resolve(margin) {
+            SideOffset {
+                top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
+                right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
+                bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
+                left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
+            }
+        } else {
+            SideOffset::default()
         }
     }
 
     /// Resolve a single margin value to pixels
     pub(crate) fn resolve_margin_value(
-        value: &MarginValue,
+        value: &OffsetValue,
         containing_width: f32,
         font_size_px: f32,
     ) -> f32 {
         match value {
-            MarginValue::Length(len) => len.to_px(0.0, font_size_px),
-            MarginValue::Percentage(pct) => pct * containing_width / 100.0,
-            MarginValue::Auto => 0.0,
-            MarginValue::Global(_) => 0.0,
+            OffsetValue::Length(len) => len.to_px(0.0, font_size_px),
+            OffsetValue::Percentage(pct) => pct.to_px(containing_width),
+            OffsetValue::Auto => 0.0,
         }
     }
 
@@ -61,38 +59,52 @@ impl PropertyResolver {
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        let padding = &styled_node.style.padding;
-        SideOffset {
-            top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
-            right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
-            bottom: Self::resolve_padding_value(&padding.bottom, containing_width, font_size_px),
-            left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
+        if let Ok(padding) = Property::resolve(&styled_node.style.padding) {
+            SideOffset {
+                top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
+                right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
+                bottom: Self::resolve_padding_value(
+                    &padding.bottom,
+                    containing_width,
+                    font_size_px,
+                ),
+                left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
+            }
+        } else {
+            SideOffset::default()
         }
     }
 
     pub(crate) fn resolve_padding(
-        padding: &Padding,
+        padding: &Property<Offset>,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        SideOffset {
-            top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
-            right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
-            bottom: Self::resolve_padding_value(&padding.bottom, containing_width, font_size_px),
-            left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
+        if let Ok(padding) = Property::resolve(padding) {
+            SideOffset {
+                top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
+                right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
+                bottom: Self::resolve_padding_value(
+                    &padding.bottom,
+                    containing_width,
+                    font_size_px,
+                ),
+                left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
+            }
+        } else {
+            SideOffset::default()
         }
     }
 
     pub(crate) fn resolve_padding_value(
-        value: &PaddingValue,
+        value: &OffsetValue,
         containing_width: f32,
         font_size_px: f32,
     ) -> f32 {
         match value {
-            PaddingValue::Length(len) => len.to_px(0.0, font_size_px),
-            PaddingValue::Percentage(pct) => pct * containing_width / 100.0,
-            PaddingValue::Auto => 0.0,
-            PaddingValue::Global(_) => 0.0,
+            OffsetValue::Length(len) => len.to_px(0.0, font_size_px),
+            OffsetValue::Percentage(pct) => pct.to_px(containing_width),
+            OffsetValue::Auto => 0.0,
         }
     }
 
@@ -100,34 +112,47 @@ impl PropertyResolver {
     pub(crate) fn calculate_width(styled_node: &StyledNode, width: f32) -> f32 {
         let font_size = styled_node.style.computed_font_size_px;
 
-        let max_width = match &styled_node.style.max_width {
-            MaxWidth::None => f32::INFINITY,
-            MaxWidth::Length(len) => len.to_px(width, font_size),
-            MaxWidth::Percentage(pct) => pct * width / 100.0,
-            MaxWidth::Global(_) => f32::INFINITY,
-            MaxWidth::MaxContent
-            | MaxWidth::MinContent
-            | MaxWidth::FitContent(_)
-            | MaxWidth::Stretch => {
-                f32::INFINITY // TODO: implement intrinsic sizing
+        let max_width = if let Ok(max_width_prop) = Property::resolve(&styled_node.style.max_width)
+        {
+            match &max_width_prop {
+                MaxDimension::None => f32::INFINITY,
+                MaxDimension::Length(len) => len.to_px(width, font_size),
+                MaxDimension::Percentage(pct) => pct.to_px(width),
+                MaxDimension::MaxContent
+                | MaxDimension::MinContent
+                | MaxDimension::FitContent(_)
+                | MaxDimension::Stretch => {
+                    f32::INFINITY // TODO: implement intrinsic sizing
+                }
             }
+        } else {
+            f32::INFINITY
         };
 
         let font_size = styled_node.style.computed_font_size_px;
-        let (lm, rm) = styled_node.style.margin.horizontal();
-        let left_margin = lm.to_px(width, font_size).unwrap_or(0.0);
-        let right_margin = rm.to_px(width, font_size).unwrap_or(0.0);
-        let available_width = f32::min(width - (left_margin + right_margin), max_width);
 
-        match &styled_node.style.width {
-            Width::Auto => available_width.max(0.0),
-            Width::Length(len) => len.to_px(available_width, font_size),
-            Width::Percentage(pct) => (pct * width / 100.0).max(0.0),
-            Width::Global(_) => available_width.max(0.0),
-            Width::MaxContent | Width::MinContent | Width::FitContent(_) | Width::Stretch => {
-                // TODO: implement intrinsic sizing
-                available_width.max(0.0)
+        if let (Ok(margin), Ok(node_width)) = (
+            Property::resolve(&styled_node.style.margin),
+            Property::resolve(&styled_node.style.width),
+        ) {
+            let left_margin = Self::resolve_margin_value(&margin.left, width, font_size);
+            let right_margin = Self::resolve_margin_value(&margin.right, width, font_size);
+            let available_width = f32::min(width - (left_margin + right_margin), max_width);
+
+            match &node_width {
+                Dimension::Auto => available_width.max(0.0),
+                Dimension::Length(len) => len.to_px(available_width, font_size),
+                Dimension::Percentage(pct) => pct.to_px(width).max(0.0),
+                Dimension::MaxContent
+                | Dimension::MinContent
+                | Dimension::FitContent(_)
+                | Dimension::Stretch => {
+                    // TODO: implement intrinsic sizing
+                    available_width.max(0.0)
+                }
             }
+        } else {
+            max_width
         }
     }
 
@@ -136,15 +161,21 @@ impl PropertyResolver {
         height: f32,
         children_height: f32,
     ) -> f32 {
-        match &styled_node.style.height {
-            Height::Auto => children_height,
-            Height::Length(len) => len.value,
-            Height::Percentage(pct) => pct * height / 100.0,
-            Height::Global(_) => children_height,
-            Height::MaxContent | Height::MinContent | Height::FitContent(_) | Height::Stretch => {
-                // TODO: implement intrinsic sizing
-                children_height
+        if let Ok(node_height) = Property::resolve(&styled_node.style.height) {
+            match &node_height {
+                Dimension::Auto => children_height,
+                Dimension::Length(len) => len.value(),
+                Dimension::Percentage(pct) => pct.to_px(height),
+                Dimension::MaxContent
+                | Dimension::MinContent
+                | Dimension::FitContent(_)
+                | Dimension::Stretch => {
+                    // TODO: implement intrinsic sizing
+                    children_height
+                }
             }
+        } else {
+            children_height
         }
     }
 }

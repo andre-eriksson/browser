@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use css_style::{
-    ComputedStyle, StyledNode,
-    types::{display::OutsideDisplay, text_align::TextAlign, whitespace::Whitespace},
+    ComputedStyle, Property, StyledNode, TextAlign, Whitespace, display::OutsideDisplay,
 };
 use html_dom::{HtmlTag, NodeId, Tag};
 
@@ -67,72 +66,72 @@ impl InlineLayout {
         if let Some(text) = inline_node.text_content.as_ref() {
             let inherited_styles = style.inherited_subset();
 
-            ctx.inside_preformatted = matches!(
-                inherited_styles.whitespace,
-                Whitespace::Pre | Whitespace::PreWrap
-            );
+            if let Ok(whitespace) = Property::resolve(&inherited_styles.whitespace) {
+                ctx.inside_preformatted =
+                    matches!(whitespace, Whitespace::Pre | Whitespace::PreWrap);
 
-            let adjusted_text = Self::preserve_significant_whitespace(ctx, text);
+                let adjusted_text = Self::preserve_significant_whitespace(ctx, text);
 
-            match inherited_styles.whitespace {
-                Whitespace::Normal => {
-                    let collapsed = adjusted_text
-                        .split_whitespace()
-                        .collect::<Vec<_>>()
-                        .join(" ");
+                match whitespace {
+                    Whitespace::Normal => {
+                        let collapsed = adjusted_text
+                            .split_whitespace()
+                            .collect::<Vec<_>>()
+                            .join(" ");
 
-                    if !collapsed.is_empty() {
+                        if !collapsed.is_empty() {
+                            items.push(InlineItem::TextRun {
+                                id: inline_node.node_id,
+                                text: collapsed,
+                                style: Box::new(inherited_styles.clone()),
+                            });
+                        }
+                    }
+                    Whitespace::PreLine => {
+                        let collapsed = adjusted_text
+                            .split_whitespace()
+                            .collect::<Vec<_>>()
+                            .join(" ");
+
                         items.push(InlineItem::TextRun {
                             id: inline_node.node_id,
                             text: collapsed,
                             style: Box::new(inherited_styles.clone()),
                         });
                     }
-                }
-                Whitespace::PreLine => {
-                    let collapsed = adjusted_text
-                        .split_whitespace()
-                        .collect::<Vec<_>>()
-                        .join(" ");
-
-                    items.push(InlineItem::TextRun {
-                        id: inline_node.node_id,
-                        text: collapsed,
-                        style: Box::new(inherited_styles.clone()),
-                    });
-                }
-                Whitespace::PreWrap | Whitespace::Pre => {
-                    let mut text = adjusted_text;
-                    if items.is_empty() {
-                        text = text.trim_start_matches('\n').to_string();
-                    }
-
-                    let lines: Vec<&str> = text.split('\n').collect();
-
-                    for (i, line) in lines.iter().enumerate() {
-                        if !line.is_empty() || i == 0 {
-                            items.push(InlineItem::TextRun {
-                                id: inline_node.node_id,
-                                text: line.to_string(),
-                                style: Box::new(inherited_styles.clone()),
-                            });
+                    Whitespace::PreWrap | Whitespace::Pre => {
+                        let mut text = adjusted_text;
+                        if items.is_empty() {
+                            text = text.trim_start_matches('\n').to_string();
                         }
 
-                        if i < lines.len() - 1 {
-                            items.push(InlineItem::Break {
-                                font_size_px: style.computed_font_size_px,
-                            });
+                        let lines: Vec<&str> = text.split('\n').collect();
+
+                        for (i, line) in lines.iter().enumerate() {
+                            if !line.is_empty() || i == 0 {
+                                items.push(InlineItem::TextRun {
+                                    id: inline_node.node_id,
+                                    text: line.to_string(),
+                                    style: Box::new(inherited_styles.clone()),
+                                });
+                            }
+
+                            if i < lines.len() - 1 {
+                                items.push(InlineItem::Break {
+                                    font_size_px: style.computed_font_size_px,
+                                });
+                            }
                         }
                     }
                 }
-                Whitespace::Global(_global) => {
-                    // TODO: Handle global values appropriately
-                }
+            } else {
+                return Err(());
             }
         }
 
         if let Some(tag) = inline_node.tag.as_ref() {
-            if inline_node.style.display.outside != Some(OutsideDisplay::Inline)
+            if let Ok(display) = Property::resolve(&inline_node.style.display)
+                && display.outside() != Some(OutsideDisplay::Inline)
                 && !items.is_empty()
             {
                 return Err(());
@@ -178,12 +177,24 @@ impl InlineLayout {
         for item in items {
             match item {
                 InlineItem::TextRun { id, text, style } => {
-                    let whitespace = &style.whitespace;
                     let font_size_px = style.computed_font_size_px;
-                    let text_align = style.text_align;
-                    let line_height = &style.line_height;
-                    let font_family = &style.font_family;
-                    let font_weight = &style.font_weight;
+
+                    let (
+                        Ok(whitespace),
+                        Ok(text_align),
+                        Ok(line_height),
+                        Ok(font_family),
+                        Ok(font_weight),
+                    ) = (
+                        Property::resolve(&style.whitespace),
+                        Property::resolve(&style.text_align),
+                        Property::resolve(&style.line_height),
+                        Property::resolve(&style.font_family),
+                        Property::resolve(&style.font_weight),
+                    )
+                    else {
+                        continue;
+                    };
 
                     let (i_text, r_text) = text_ctx.measure_multiline_text(
                         text,
@@ -334,6 +345,7 @@ impl InlineLayout {
 mod tests {
     use assets::{ASSETS, constants::OPEN_SANS_REGULAR};
     use cosmic_text::{FontSystem, fontdb::Source};
+    use css_style::Display;
 
     use super::*;
 
@@ -347,10 +359,7 @@ mod tests {
         let node_break = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Br)),
             style: ComputedStyle {
-                display: css_style::types::display::Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Inline)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(1))
@@ -381,10 +390,7 @@ mod tests {
         let node_block = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Div)),
             style: ComputedStyle {
-                display: css_style::types::display::Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(2))
@@ -393,10 +399,7 @@ mod tests {
         let node_break = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Br)),
             style: ComputedStyle {
-                display: css_style::types::display::Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Inline)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(1))

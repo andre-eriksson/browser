@@ -1,10 +1,8 @@
 use cosmic_text::{
     Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap,
 };
-use css_style::types::{
-    font::{FontFamily, FontFamilyName, FontWeight, GenericName},
-    line_height::LineHeight,
-    whitespace::Whitespace,
+use css_style::{
+    FontFamily, FontFamilyName, FontWeight, LineHeight, Whitespace, font::GenericName,
 };
 
 pub struct TextOffsetContext {
@@ -62,10 +60,7 @@ impl TextContext {
         offset_ctx: TextOffsetContext,
     ) -> (Text, Option<Text>) {
         let wrap_mode = match text_description.whitespace {
-            Whitespace::Normal
-            | Whitespace::PreLine
-            | Whitespace::PreWrap
-            | Whitespace::Global(_) => Wrap::Word,
+            Whitespace::Normal | Whitespace::PreLine | Whitespace::PreWrap => Wrap::Word,
             Whitespace::Pre => Wrap::None,
         };
 
@@ -135,9 +130,7 @@ impl TextContext {
 
         let first_line_text = &text[..first_line_end];
         let remaining_text = match text_description.whitespace {
-            Whitespace::Normal | Whitespace::PreLine | Whitespace::Global(_) => {
-                text[first_line_end..].trim_start()
-            }
+            Whitespace::Normal | Whitespace::PreLine => text[first_line_end..].trim_start(),
             Whitespace::Pre | Whitespace::PreWrap => &text[first_line_end..],
         };
 
@@ -285,7 +278,7 @@ impl TextContext {
     }
 
     fn resolve_font_family(font_family: &FontFamily) -> Family<'_> {
-        match &font_family.names[0] {
+        match &font_family.names()[0] {
             FontFamilyName::Generic(generic) => match generic {
                 GenericName::Serif => Family::Serif,
                 GenericName::SansSerif => Family::SansSerif,

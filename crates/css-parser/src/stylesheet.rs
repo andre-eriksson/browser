@@ -8,7 +8,7 @@ use crate::{
 
 /// A CSS stylesheet containing a list of rules
 ///
-/// <https://www.w3.org/TR/css-syntax-3/#css-stylesheet>
+/// <https://www.w3.org/TR/css-syntax-3/#parsing>
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Stylesheet {
     /// The list of rules in the stylesheet

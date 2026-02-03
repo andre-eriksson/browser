@@ -1,4 +1,7 @@
-use css_style::types::color::{Color, FunctionColor, NamedColor, Oklab, SRGBAColor};
+use css_style::{
+    Color, Property,
+    color::{FunctionColor, NamedColor, Oklab, SRGBAColor},
+};
 
 /// Rectangle representation for layout dimensions and positions
 #[repr(C)] // Prevent struct reordering
@@ -26,17 +29,28 @@ impl Color4f {
     }
 
     /// Converts a CSS color to Color4f
-    pub fn from_css_color(color: &Color) -> Self {
-        match color {
-            Color::Named(named) => Self::from_named_color(named),
-            Color::Hex([r, g, b]) => {
-                Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
+    pub fn from_css_color(color: &Property<Color>) -> Self {
+        if let Ok(resolved_color) = Property::resolve(color) {
+            match resolved_color {
+                Color::Named(named) => Self::from_named_color(named),
+                Color::Hex(srgb) => {
+                    match srgb {
+                        SRGBAColor::Rgb(r, g, b) => {
+                            Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
+                        }
+                        SRGBAColor::Rgba(r, g, b, a) => {
+                            Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, *a)
+                        }
+                        _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HSL/HSLA/HWB
+                    }
+                }
+                Color::Functional(func) => Self::from_functional_color(func),
+                Color::Current => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle currentColor properly
+                Color::System(_) => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle system colors
+                Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
             }
-            Color::Functional(func) => Self::from_functional_color(func),
-            Color::CurrentColor => Self::new(0.0, 0.0, 0.0, 1.0), // Default to black
-            Color::System(_) => Self::new(0.0, 0.0, 0.0, 1.0), // Default to black for system colors
-            Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
-            Color::Global(_) => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle global colors
+        } else {
+            Self::new(1.0, 0.0, 0.0, 1.0) // Default to red for error indication
         }
     }
 
@@ -81,11 +95,11 @@ impl Color4f {
 
     fn from_functional_color(func: &FunctionColor) -> Self {
         match func {
-            FunctionColor::SRGBA(srgba) => match srgba {
-                SRGBAColor::RGB(r, g, b) => {
+            FunctionColor::Srgba(srgba) => match srgba {
+                SRGBAColor::Rgb(r, g, b) => {
                     Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
                 }
-                SRGBAColor::RGBA(r, g, b, a) => {
+                SRGBAColor::Rgba(r, g, b, a) => {
                     Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, *a)
                 }
                 _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HSL/HSLA/HWB

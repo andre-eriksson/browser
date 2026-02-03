@@ -52,13 +52,11 @@ impl QualifiedRule {
     ///
     /// This is useful for style rules where the block contains property declarations.
     pub fn parse_declarations(&self, collect_positions: bool) -> Vec<Declaration> {
-        // Collect tokens from the block
         let mut tokens: Vec<CssTokenKind> = Vec::new();
         for cv in &self.block.value {
             Self::collect_tokens_from_component_value(cv, &mut tokens);
         }
 
-        // Reconstruct input string and parse
         let input = tokens.iter().map(|t| t.to_string()).collect::<String>();
 
         let mut parser = CssParser::default();

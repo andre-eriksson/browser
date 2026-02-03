@@ -37,10 +37,8 @@ impl CSSDeclaration {
         let mut value_parts: Vec<String> = Vec::new();
         let mut important = false;
 
-        // Check for !important at the end
         let mut check_values = values.clone();
 
-        // Remove trailing whitespace
         while let Some(ComponentValue::Token(token)) = check_values.last() {
             if matches!(
                 token,
@@ -55,7 +53,6 @@ impl CSSDeclaration {
             }
         }
 
-        // Check for important flag
         if check_values.len() >= 2 {
             let len = check_values.len();
             let last = &check_values[len - 1];
@@ -91,7 +88,6 @@ impl CSSDeclaration {
             }
         }
 
-        // Build value string
         for cv in &check_values {
             value_parts.push(component_value_to_string(cv));
         }

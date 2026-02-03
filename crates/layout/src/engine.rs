@@ -1,6 +1,6 @@
 use css_style::{
-    StyleTree, StyledNode,
-    types::display::{BoxDisplay, InsideDisplay},
+    Property, StyleTree, StyledNode,
+    display::{BoxDisplay, InsideDisplay},
 };
 
 use crate::{
@@ -20,14 +20,18 @@ pub(crate) enum LayoutMode {
 
 impl LayoutMode {
     pub fn new(styled_node: &StyledNode) -> Option<Self> {
-        if styled_node.style.display.box_display == Some(BoxDisplay::None) {
-            return None;
-        }
+        if let Ok(display) = Property::resolve(&styled_node.style.display) {
+            if display.box_display() == Some(BoxDisplay::None) {
+                return None;
+            }
 
-        match styled_node.style.display.inside {
-            Some(InsideDisplay::Flex) => Some(LayoutMode::Flex),
-            Some(InsideDisplay::Grid) => Some(LayoutMode::Grid),
-            _ => Some(LayoutMode::Block),
+            match display.inside() {
+                Some(InsideDisplay::Flex) => Some(LayoutMode::Flex),
+                Some(InsideDisplay::Grid) => Some(LayoutMode::Grid),
+                _ => Some(LayoutMode::Block),
+            }
+        } else {
+            Some(LayoutMode::Block)
         }
     }
 }
@@ -106,13 +110,7 @@ impl LayoutEngine {
 #[cfg(test)]
 mod tests {
     use css_style::{
-        ComputedStyle,
-        types::{
-            display::{Display, OutsideDisplay},
-            height::Height,
-            margin::{Margin, MarginValue},
-            padding::{Padding, PaddingValue},
-        },
+        ComputedStyle, Dimension, Display, Offset, OffsetValue, display::OutsideDisplay,
     };
     use html_dom::{HtmlTag, NodeId, Tag};
 
@@ -131,10 +129,7 @@ mod tests {
     fn test_layout_mode_none() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    box_display: Some(BoxDisplay::None),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(BoxDisplay::None)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -147,10 +142,7 @@ mod tests {
     fn test_layout_mode_block() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -163,10 +155,7 @@ mod tests {
     fn test_layout_mode_flex() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    inside: Some(InsideDisplay::Flex),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(InsideDisplay::Flex)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -178,10 +167,7 @@ mod tests {
     fn test_layout_mode_grid() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    inside: Some(InsideDisplay::Grid),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(InsideDisplay::Grid)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -193,12 +179,9 @@ mod tests {
     fn test_layout_example_1() {
         let node1 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(20.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(2))
@@ -206,13 +189,10 @@ mod tests {
 
         let node2 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(20.0)),
-                padding: Padding::all(PaddingValue::px(10.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
+                padding: Property::from(Offset::all(OffsetValue::px(10.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(3))
@@ -220,12 +200,9 @@ mod tests {
 
         let node3 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(20.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(4))
@@ -233,12 +210,9 @@ mod tests {
 
         let node4 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(100.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(100.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(5))
@@ -247,11 +221,8 @@ mod tests {
         let body = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Body)),
             style: ComputedStyle {
-                margin: Margin::all(MarginValue::px(8.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                margin: Property::from(Offset::all(OffsetValue::px(8.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             children: vec![node1, node2, node3, node4],
@@ -261,10 +232,7 @@ mod tests {
         let html = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Html)),
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             children: vec![body],
@@ -285,12 +253,9 @@ mod tests {
     fn test_layout_example_1_with_padding() {
         let node1 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(20.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(2))
@@ -298,13 +263,10 @@ mod tests {
 
         let node2 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(20.0)),
-                padding: Padding::all(PaddingValue::px(10.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
+                padding: Property::from(Offset::all(OffsetValue::px(10.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(3))
@@ -312,12 +274,9 @@ mod tests {
 
         let node3 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(20.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(4))
@@ -325,12 +284,9 @@ mod tests {
 
         let node4 = StyledNode {
             style: ComputedStyle {
-                height: Height::px(30.0),
-                margin: Margin::all(MarginValue::px(100.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                height: Property::from(Dimension::px(30.0)),
+                margin: Property::from(Offset::all(OffsetValue::px(100.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(5))
@@ -339,12 +295,9 @@ mod tests {
         let body = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Body)),
             style: ComputedStyle {
-                padding: Padding::all(PaddingValue::px(10.0)),
-                margin: Margin::all(MarginValue::px(8.0)),
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                padding: Property::from(Offset::all(OffsetValue::px(10.0))),
+                margin: Property::from(Offset::all(OffsetValue::px(8.0))),
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             children: vec![node1, node2, node3, node4],
@@ -354,10 +307,7 @@ mod tests {
         let html = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Html)),
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             children: vec![body],

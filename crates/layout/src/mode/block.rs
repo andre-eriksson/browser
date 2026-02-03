@@ -1,7 +1,4 @@
-use css_style::{
-    StyledNode,
-    types::{display::OutsideDisplay, margin::MarginValue},
-};
+use css_style::{OffsetValue, Property, StyledNode, display::OutsideDisplay};
 use html_dom::{HtmlTag, Tag};
 
 use crate::{
@@ -46,12 +43,14 @@ impl BlockLayout {
 
         let mut x = ctx.containing_block.x + margin.left;
 
-        if styled_node.style.margin.left == MarginValue::Auto
-            && styled_node.style.margin.right == MarginValue::Auto
-        {
-            x = (ctx.containing_block.width - content_width) / 2.0;
-        } else if styled_node.style.margin.left == MarginValue::Auto {
-            x = ctx.containing_block.x + ctx.containing_block.width - margin.right - content_width;
+        if let Ok(node_margin) = Property::resolve(&styled_node.style.margin) {
+            if node_margin.left == OffsetValue::Auto && node_margin.right == OffsetValue::Auto {
+                x = (ctx.containing_block.width - content_width) / 2.0;
+            } else if node_margin.left == OffsetValue::Auto {
+                x = ctx.containing_block.x + ctx.containing_block.width
+                    - margin.right
+                    - content_width;
+            }
         }
 
         let y = Self::calculate_y_pos(styled_node, ctx, cursor, margin.top, padding.top);
@@ -70,12 +69,16 @@ impl BlockLayout {
 
         while child_index < child_len {
             let style_node = &styled_node.children[child_index];
+            let display = Property::resolve(&style_node.style.display);
 
-            if style_node.style.display.outside == Some(OutsideDisplay::Inline) {
+            if let Ok(display) = display
+                && display.outside() == Some(OutsideDisplay::Inline)
+            {
                 let mut inline_end = child_index + 1;
                 while inline_end < child_len
-                    && styled_node.children[inline_end].style.display.outside
-                        == Some(OutsideDisplay::Inline)
+                    && let Ok(child_display) =
+                        Property::resolve(&styled_node.children[inline_end].style.display)
+                    && child_display.outside() == Some(OutsideDisplay::Inline)
                 {
                     inline_end += 1;
                 }
@@ -103,8 +106,11 @@ impl BlockLayout {
                 continue;
             }
 
-            let is_first_child =
-                child_index == 0 && style_node.style.display.outside == Some(OutsideDisplay::Block);
+            let is_first_child = if let Ok(display) = display {
+                child_index == 0 && display.outside() == Some(OutsideDisplay::Block)
+            } else {
+                false
+            };
 
             let child_ctx = LayoutContext {
                 containing_block: Rect {
@@ -218,7 +224,9 @@ impl BlockLayout {
                 return base_y + margin_top;
             }
 
-            if child.style.display.outside == Some(OutsideDisplay::Inline) {
+            if let Ok(display) = Property::resolve(&child.style.display)
+                && display.outside() == Some(OutsideDisplay::Inline)
+            {
                 return base_y;
             }
 
@@ -231,9 +239,10 @@ impl BlockLayout {
 
             let collapsed_margin = Self::collapse_margins(margin_top, child_margin_top);
 
-            if base_y != 0.0
+            if let Ok(child_margin) = Property::resolve(&child.style.margin)
+                && base_y != 0.0
                 && base_y != margin_top
-                && child.style.margin.top != MarginValue::zero()
+                && child_margin.top != OffsetValue::zero()
             {
                 return base_y;
             }
@@ -241,13 +250,15 @@ impl BlockLayout {
             return base_y + collapsed_margin;
         }
 
-        if ctx.is_first_child
-            && ctx.parent_padding_top == 0.0
-            && node.style.display.outside == Some(OutsideDisplay::Block)
-        {
-            return base_y;
-        } else if ctx.is_first_child && node.style.display.outside == Some(OutsideDisplay::Block) {
-            return base_y + margin_top;
+        if let Ok(display) = Property::resolve(&node.style.display) {
+            if ctx.is_first_child
+                && ctx.parent_padding_top == 0.0
+                && display.outside() == Some(OutsideDisplay::Block)
+            {
+                return base_y;
+            } else if ctx.is_first_child && display.outside() == Some(OutsideDisplay::Block) {
+                return base_y + margin_top;
+            }
         }
 
         base_y
@@ -261,7 +272,9 @@ impl BlockLayout {
         next_sibling: Option<&StyledNode>,
         child_cursor: f32,
     ) -> f32 {
-        if style_node.style.display.outside != Some(OutsideDisplay::Block) {
+        if let Ok(display) = Property::resolve(&style_node.style.display)
+            && display.outside() != Some(OutsideDisplay::Block)
+        {
             return child_node.dimensions.height;
         }
 
@@ -396,7 +409,7 @@ impl BlockLayout {
 #[cfg(test)]
 mod tests {
 
-    use css_style::{ComputedStyle, types::display::Display};
+    use css_style::{ComputedStyle, Display, display::OutsideDisplay};
     use html_dom::NodeId;
 
     use super::*;
@@ -676,10 +689,7 @@ mod tests {
     fn test_calculate_y_pos_not_first_child() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -706,10 +716,7 @@ mod tests {
     fn test_calculate_y_pos_first_child_no_padding() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -736,10 +743,7 @@ mod tests {
     fn test_calculate_y_pos_first_child_padding() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -766,10 +770,7 @@ mod tests {
     fn test_calculate_y_pos_with_child() {
         let child_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -777,10 +778,7 @@ mod tests {
         };
         let parent_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -804,10 +802,7 @@ mod tests {
     fn test_calculate_y_pos_body_with_padding() {
         let child_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -816,10 +811,7 @@ mod tests {
         let parent_node = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Body)),
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -843,10 +835,7 @@ mod tests {
     fn test_calculate_y_pos_body_without_padding() {
         let child_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -855,10 +844,7 @@ mod tests {
         let parent_node = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Body)),
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -882,10 +868,7 @@ mod tests {
     fn test_calculate_y_pos_body_first_child() {
         let child_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -894,10 +877,7 @@ mod tests {
         let parent_node = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Body)),
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 computed_font_size_px: 16.0,
                 ..Default::default()
             },
@@ -921,10 +901,7 @@ mod tests {
     fn test_layout_empty() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display {
-                    outside: Some(OutsideDisplay::Block),
-                    ..Default::default()
-                },
+                display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))

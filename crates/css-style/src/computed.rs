@@ -2,43 +2,63 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
-    types::{
-        Parseable,
-        border::Border,
-        color::{Color, NamedColor},
-        display::{Display, InsideDisplay, OutsideDisplay},
-        font::{AbsoluteSize, FontFamily, FontFamilyName, FontSize, FontWeight, GenericName},
-        height::Height,
-        line_height::LineHeight,
-        margin::{Margin, MarginValue},
-        padding::{Padding, PaddingValue},
+    handler::{
+        PropertyUpdateContext, handle_background_color, handle_border, handle_border_color,
+        handle_border_style, handle_border_width, handle_color, handle_display, handle_font_family,
+        handle_font_size, handle_font_weight, handle_height, handle_line_height, handle_margin,
+        handle_margin_block, handle_margin_block_end, handle_margin_block_start,
+        handle_margin_bottom, handle_margin_left, handle_margin_right, handle_margin_top,
+        handle_max_height, handle_max_width, handle_padding, handle_padding_block,
+        handle_padding_block_end, handle_padding_block_start, handle_padding_bottom,
+        handle_padding_left, handle_padding_right, handle_padding_top, handle_position,
+        handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
+        resolve_css_variable,
+    },
+    primitives::{
+        color::NamedColor,
+        display::{InsideDisplay, OutsideDisplay},
+        font::{AbsoluteSize, GenericName},
+    },
+    properties::{
+        BorderColorProperty, BorderProperty, BorderStyleProperty, BorderWidthProperty,
+        ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
+        HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetProperty,
+        PositionProperty, Property, TextAlignProperty, WhitespaceProperty, WidthProperty,
+        WritingModeProperty,
+        border::{Border, BorderColor, BorderStyle, BorderWidth},
+        color::Color,
+        dimension::{Dimension, MaxDimension},
+        display::Display,
+        font::{FontFamily, FontFamilyName, FontSize, FontWeight},
+        offset::Offset,
         position::Position,
-        text_align::TextAlign,
-        whitespace::Whitespace,
-        width::{MaxWidth, Width},
-        writing_mode::WritingMode,
+        text::{LineHeight, TextAlign, Whitespace, WritingMode},
     },
 };
 
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
-    pub background_color: Color,
-    pub border: Border,
-    pub color: Color,
-    pub display: Display,
-    pub font_family: FontFamily,
-    pub font_size: FontSize,
-    pub font_weight: FontWeight,
-    pub height: Height,
-    pub line_height: LineHeight,
-    pub margin: Margin,
-    pub padding: Padding,
-    pub position: Position,
-    pub text_align: TextAlign,
-    pub whitespace: Whitespace,
-    pub width: Width,
-    pub max_width: MaxWidth,
-    pub writing_mode: WritingMode,
+    pub background_color: ColorProperty,
+    pub border: BorderProperty,
+    pub border_color: BorderColorProperty,
+    pub border_style: BorderStyleProperty,
+    pub border_width: BorderWidthProperty,
+    pub color: ColorProperty,
+    pub display: DisplayProperty,
+    pub font_family: FontFamilyProperty,
+    pub font_size: FontSizeProperty,
+    pub font_weight: FontWeightProperty,
+    pub height: HeightProperty,
+    pub max_height: MaxHeightProperty,
+    pub line_height: LineHeightProperty,
+    pub margin: OffsetProperty,
+    pub padding: OffsetProperty,
+    pub position: PositionProperty,
+    pub text_align: TextAlignProperty,
+    pub whitespace: WhitespaceProperty,
+    pub width: WidthProperty,
+    pub max_width: MaxWidthProperty,
+    pub writing_mode: WritingModeProperty,
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
@@ -53,6 +73,7 @@ impl ComputedStyle {
     /// * `dom` - The DocumentRoot representing the DOM tree.
     /// * `rules` - A slice of GeneratedRule representing the CSS rules to apply.
     /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
+    #[allow(clippy::single_match)]
     pub fn from_node(
         node_id: &NodeId,
         dom: &DocumentRoot,
@@ -70,8 +91,8 @@ impl ComputedStyle {
         };
 
         let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
-
         let properties = cascade(declarations);
+
         let mut merged_variables = computed_style.variables.clone();
         for (name, value) in cascade_variables(variables) {
             if let Some(existing) = merged_variables.iter_mut().find(|(n, _)| n == &name) {
@@ -82,240 +103,53 @@ impl ComputedStyle {
         }
         computed_style.variables = merged_variables;
 
-        for (key, value) in properties {
-            let mut v = value.as_str();
+        let mut ctx = PropertyUpdateContext::new(&mut computed_style, parent_style);
 
-            if v.starts_with("var")
-                && let Some(start) = v.find('(')
-                && let Some(end) = v.rfind(')')
-            {
-                let var_name = v[start + 1..end].trim();
-                if let Some((_, var_value)) = computed_style
-                    .variables
-                    .iter()
-                    .find(|(name, _)| name == var_name)
-                {
-                    v = var_value.as_str();
-                }
-            }
+        for (key, value) in properties {
+            let val = resolve_css_variable(&ctx.computed_style.variables, value);
+            let v = val.as_str();
 
             match key.as_str() {
-                "background" | "background-color" => {
-                    if let Some(color) = Color::parse(v) {
-                        computed_style.background_color = color;
-                    }
-                }
-                "border" => {
-                    if let Some(border) = Border::parse(v) {
-                        computed_style.border = border;
-                    }
-                }
-                "color" => {
-                    if let Some(color) = Color::parse(v) {
-                        computed_style.color = color;
-                    }
-                }
-                "display" => {
-                    if let Some(display) = Display::parse(v) {
-                        computed_style.display = display;
-                    }
-                }
-                "font-family" => {
-                    if let Some(font_family) = FontFamily::parse(v) {
-                        computed_style.font_family = font_family;
-                    }
-                }
-                "font-size" => {
-                    if let Some(font_size) = FontSize::parse(v) {
-                        let parent_px = parent_style
-                            .map(|p| p.computed_font_size_px)
-                            .unwrap_or(AbsoluteSize::Medium.to_px());
-                        computed_style.computed_font_size_px = font_size.to_px(parent_px);
-                        computed_style.font_size = font_size;
-                    }
-                }
-                "font-weight" => {
-                    if let Some(font_weight) = FontWeight::parse(v) {
-                        computed_style.font_weight = font_weight;
-                    }
-                }
-                "height" => {
-                    if let Some(height) = Height::parse(v) {
-                        computed_style.height = height;
-                    }
-                }
-                "line-height" => {
-                    if let Some(line_height) = LineHeight::parse(v) {
-                        computed_style.line_height = line_height;
-                    }
-                }
-                "margin" => {
-                    if let Some(margin) = Margin::parse(v) {
-                        computed_style.margin = margin;
-                    }
-                }
-                "margin-top" => {
-                    if let Some(margin_value) = MarginValue::parse(v) {
-                        computed_style.margin.top = margin_value;
-                    }
-                }
-                "margin-right" => {
-                    if let Some(margin_value) = MarginValue::parse(v) {
-                        computed_style.margin.right = margin_value;
-                    }
-                }
-                "margin-bottom" => {
-                    if let Some(margin_value) = MarginValue::parse(v) {
-                        computed_style.margin.bottom = margin_value;
-                    }
-                }
-                "margin-left" => {
-                    if let Some(margin_value) = MarginValue::parse(v) {
-                        computed_style.margin.left = margin_value;
-                    }
-                }
-                "margin-block" => {
-                    if let Some(margin) = Margin::parse(v) {
-                        match computed_style.writing_mode {
-                            WritingMode::HorizontalTb => {
-                                computed_style.margin.top = margin.top;
-                                computed_style.margin.bottom = margin.bottom;
-                            }
-                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                                computed_style.margin.left = margin.left;
-                                computed_style.margin.right = margin.right;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "margin-block-start" => {
-                    if let Some(margin_value) = MarginValue::parse(v) {
-                        match computed_style.writing_mode {
-                            WritingMode::HorizontalTb => {
-                                computed_style.margin.top = margin_value;
-                            }
-                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                                computed_style.margin.right = margin_value;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "margin-block-end" => {
-                    if let Some(margin_value) = MarginValue::parse(v) {
-                        match computed_style.writing_mode {
-                            WritingMode::HorizontalTb => {
-                                computed_style.margin.bottom = margin_value;
-                            }
-                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                                computed_style.margin.left = margin_value;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-
-                "padding" => {
-                    if let Some(padding) = Padding::parse(v) {
-                        computed_style.padding = padding;
-                    }
-                }
-                "padding-top" => {
-                    if let Some(padding_value) = PaddingValue::parse(v) {
-                        computed_style.padding.top = padding_value;
-                    }
-                }
-                "padding-right" => {
-                    if let Some(padding_value) = PaddingValue::parse(v) {
-                        computed_style.padding.right = padding_value;
-                    }
-                }
-                "padding-bottom" => {
-                    if let Some(padding_value) = PaddingValue::parse(v) {
-                        computed_style.padding.bottom = padding_value;
-                    }
-                }
-                "padding-left" => {
-                    if let Some(padding_value) = PaddingValue::parse(v) {
-                        computed_style.padding.left = padding_value;
-                    }
-                }
-                "padding-block" => {
-                    if let Some(padding) = Padding::parse(v) {
-                        match computed_style.writing_mode {
-                            WritingMode::HorizontalTb => {
-                                computed_style.padding.top = padding.top;
-                                computed_style.padding.bottom = padding.bottom;
-                            }
-                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                                computed_style.padding.left = padding.left;
-                                computed_style.padding.right = padding.right;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "padding-block-start" => {
-                    if let Some(padding_value) = PaddingValue::parse(v) {
-                        match computed_style.writing_mode {
-                            WritingMode::HorizontalTb => {
-                                computed_style.padding.top = padding_value;
-                            }
-                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                                computed_style.padding.right = padding_value;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                "padding-block-end" => {
-                    if let Some(padding_value) = PaddingValue::parse(v) {
-                        match computed_style.writing_mode {
-                            WritingMode::HorizontalTb => {
-                                computed_style.padding.bottom = padding_value;
-                            }
-                            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                                computed_style.padding.left = padding_value;
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-
-                "position" => {
-                    if let Some(position) = Position::parse(v) {
-                        computed_style.position = position;
-                    }
-                }
-                "text-align" => {
-                    if let Some(text_align) = TextAlign::parse(v) {
-                        computed_style.text_align = text_align;
-                    }
-                }
-                "white-space" => {
-                    if let Some(whitespace) = Whitespace::parse(v) {
-                        computed_style.whitespace = whitespace;
-                    }
-                }
-                "width" => {
-                    if let Some(width) = Width::parse(v) {
-                        computed_style.width = width;
-                    }
-                }
-                "max-width" => {
-                    if let Some(max_width) = MaxWidth::parse(v) {
-                        computed_style.max_width = max_width;
-                    }
-                }
-                "writing-mode" => {
-                    if let Some(writing_mode) = WritingMode::parse(v) {
-                        computed_style.writing_mode = writing_mode;
-                    }
-                }
+                "background-color" => handle_background_color(&mut ctx, v),
+                "border" => handle_border(&mut ctx, v),
+                "border-color" => handle_border_color(&mut ctx, v),
+                "border-style" => handle_border_style(&mut ctx, v),
+                "border-width" => handle_border_width(&mut ctx, v),
+                "color" => handle_color(&mut ctx, v),
+                "display" => handle_display(&mut ctx, v),
+                "font-family" => handle_font_family(&mut ctx, v),
+                "font-size" => handle_font_size(&mut ctx, v),
+                "font-weight" => handle_font_weight(&mut ctx, v),
+                "height" => handle_height(&mut ctx, v),
+                "max-height" => handle_max_height(&mut ctx, v),
+                "line-height" => handle_line_height(&mut ctx, v),
+                "margin" => handle_margin(&mut ctx, v),
+                "margin-top" => handle_margin_top(&mut ctx, v),
+                "margin-right" => handle_margin_right(&mut ctx, v),
+                "margin-bottom" => handle_margin_bottom(&mut ctx, v),
+                "margin-left" => handle_margin_left(&mut ctx, v),
+                "margin-block" => handle_margin_block(&mut ctx, v),
+                "margin-block-start" => handle_margin_block_start(&mut ctx, v),
+                "margin-block-end" => handle_margin_block_end(&mut ctx, v),
+                "padding" => handle_padding(&mut ctx, v),
+                "padding-top" => handle_padding_top(&mut ctx, v),
+                "padding-right" => handle_padding_right(&mut ctx, v),
+                "padding-bottom" => handle_padding_bottom(&mut ctx, v),
+                "padding-left" => handle_padding_left(&mut ctx, v),
+                "padding-block" => handle_padding_block(&mut ctx, v),
+                "padding-block-start" => handle_padding_block_start(&mut ctx, v),
+                "padding-block-end" => handle_padding_block_end(&mut ctx, v),
+                "position" => handle_position(&mut ctx, v),
+                "text-align" => handle_text_align(&mut ctx, v),
+                "white-space" => handle_whitespace(&mut ctx, v),
+                "width" => handle_width(&mut ctx, v),
+                "max-width" => handle_max_width(&mut ctx, v),
+                "writing-mode" => handle_writing_mode(&mut ctx, v),
                 _ => {}
             }
         }
+
+        ctx.log_errors();
 
         computed_style
     }
@@ -340,34 +174,39 @@ impl ComputedStyle {
 
 impl Default for ComputedStyle {
     fn default() -> Self {
+        let black = Color::Named(NamedColor::Black);
+
         ComputedStyle {
             variables: Vec::with_capacity(32),
-            background_color: Color::Transparent,
-            border: Border::none(),
-            color: Color::Named(NamedColor::Black),
-            display: Display {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Flow),
-                internal: None,
-                box_display: None,
-                global: None,
-            },
-            font_family: FontFamily {
-                names: vec![FontFamilyName::Generic(GenericName::Serif)],
-            },
-            font_size: FontSize::Absolute(AbsoluteSize::Medium),
-            font_weight: FontWeight::Normal,
+            background_color: Property::from(Color::Transparent),
+            border: Property::from(Border::none()),
+            border_color: Property::from(BorderColor::all(black)),
+            border_style: Property::from(BorderStyle::none()),
+            border_width: Property::from(BorderWidth::zero()),
+            color: Property::from(black),
+            display: Property::from(Display::new(
+                Some(OutsideDisplay::Inline),
+                Some(InsideDisplay::Flow),
+                None,
+                None,
+            )),
+            font_family: Property::from(FontFamily::new(&[FontFamilyName::Generic(
+                GenericName::Serif,
+            )])),
+            font_size: Property::from(FontSize::Absolute(AbsoluteSize::Medium)),
+            font_weight: Property::from(FontWeight::Normal),
             computed_font_size_px: AbsoluteSize::Medium.to_px(),
-            height: Height::Auto,
-            line_height: LineHeight::Normal,
-            margin: Margin::zero(),
-            padding: Padding::zero(),
-            position: Position::Static,
-            text_align: TextAlign::Left,
-            whitespace: Whitespace::Normal,
-            width: Width::Auto,
-            max_width: MaxWidth::None,
-            writing_mode: WritingMode::HorizontalTb,
+            height: Property::from(Dimension::Auto),
+            max_height: Property::from(MaxDimension::None),
+            line_height: Property::from(LineHeight::Normal),
+            margin: Property::from(Offset::zero()),
+            padding: Property::from(Offset::zero()),
+            position: Property::from(Position::Static),
+            text_align: Property::from(TextAlign::Left),
+            whitespace: Property::from(Whitespace::Normal),
+            width: Property::from(Dimension::Auto),
+            max_width: Property::from(MaxDimension::None),
+            writing_mode: Property::from(WritingMode::HorizontalTb),
         }
     }
 }

@@ -17,7 +17,6 @@ mod parser;
 mod rules;
 mod stylesheet;
 
-// Re-export main types for convenience
 pub use parser::CssParser;
 pub use rules::{AtRule, QualifiedRule, Rule};
 pub use stylesheet::{
