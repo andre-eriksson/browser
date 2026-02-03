@@ -2807,10 +2807,14 @@ name = "layout"
 version = "0.1.0"
 dependencies = [
  "assets",
+ "browser-core",
  "cosmic-text",
+ "css-cssom",
  "css-style",
  "html-dom",
+ "html-parser",
  "tracing",
+ "ui",
 ]
 
 [[package]]

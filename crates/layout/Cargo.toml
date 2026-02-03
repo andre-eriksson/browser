@@ -13,4 +13,8 @@ cosmic-text.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+browser-core.workspace = true
+html-parser.workspace = true
+css-cssom.workspace = true
+ui.workspace = true
 assets.workspace = true

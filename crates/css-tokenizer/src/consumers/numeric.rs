@@ -42,17 +42,14 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
     let mut repr = String::new();
     let mut type_flag = NumberType::Integer;
 
-    // Optional sign
     if matches!(tokenizer.stream.peek(), Some('+') | Some('-')) {
         repr.push(tokenizer.stream.consume().unwrap());
     }
 
-    // Integer part
     while tokenizer.stream.peek().is_some_and(is_digit) {
         repr.push(tokenizer.stream.consume().unwrap());
     }
 
-    // Decimal part
     if tokenizer.stream.peek() == Some('.') && tokenizer.stream.peek_at(1).is_some_and(is_digit) {
         repr.push(tokenizer.stream.consume().unwrap()); // .
         type_flag = NumberType::Number;
@@ -62,7 +59,6 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
         }
     }
 
-    // Exponent part
     if matches!(tokenizer.stream.peek(), Some('e') | Some('E')) {
         let next = tokenizer.stream.peek_at(1);
         let next2 = tokenizer.stream.peek_at(2);

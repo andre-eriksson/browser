@@ -22,12 +22,9 @@ pub(crate) fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<De
                 declarations.push(DeclarationOrAtRule::AtRule(consume_at_rule(css_parser)));
             }
             CssTokenKind::Ident(_) => {
-                // Initialize a temporary list with the current token
                 let mut temp_tokens: Vec<CssToken> = Vec::new();
 
                 temp_tokens.push(css_parser.consume().unwrap());
-
-                // Consume until semicolon or EOF
                 while let Some(token) = css_parser.peek() {
                     if matches!(token.kind, CssTokenKind::Eof | CssTokenKind::Semicolon) {
                         break;
@@ -36,7 +33,6 @@ pub(crate) fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<De
                     CssParser::append_component_value_tokens(&cv, &mut temp_tokens);
                 }
 
-                // Try to consume a declaration from the temporary list
                 if let Some(decl) = consume_declaration_from_tokens(&temp_tokens) {
                     declarations.push(DeclarationOrAtRule::Declaration(decl));
                 }

@@ -10,18 +10,15 @@ use crate::{
 pub(crate) fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken {
     let string = consume_ident_sequence(tokenizer);
 
-    // Check for url( special case
     if string.eq_ignore_ascii_case("url") && tokenizer.stream.peek() == Some('(') {
-        tokenizer.stream.consume(); // consume (
+        tokenizer.stream.consume();
 
-        // Consume whitespace
         while tokenizer.stream.peek().is_some_and(is_whitespace)
             && tokenizer.stream.peek_at(1).is_some_and(is_whitespace)
         {
             tokenizer.stream.consume();
         }
 
-        // Check for quoted URL (which becomes a function token)
         let next = tokenizer.stream.peek();
         let next2 = tokenizer.stream.peek_at(1);
 
