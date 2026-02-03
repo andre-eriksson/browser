@@ -159,12 +159,7 @@ impl Application {
 
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
-                            Rect {
-                                x: 0.0,
-                                y: 0.0,
-                                width,
-                                height,
-                            },
+                            Rect::new(0.0, 0.0, width, height),
                             &mut self.text_context,
                         );
 
@@ -294,18 +289,8 @@ impl Application {
                                 &style_tree,
                                 self.viewports
                                     .get(&self.id)
-                                    .map(|(w, h)| Rect {
-                                        x: 0.0,
-                                        y: 0.0,
-                                        width: *w,
-                                        height: *h,
-                                    })
-                                    .unwrap_or(Rect {
-                                        x: 0.0,
-                                        y: 0.0,
-                                        width: 800.0,
-                                        height: 600.0,
-                                    }),
+                                    .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
+                                    .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
                                 &mut self.text_context,
                             );
 

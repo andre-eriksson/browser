@@ -26,12 +26,12 @@ pub struct GlyphRegion {
 impl GlyphRegion {
     /// Calculate UV coordinates for this region in a texture of given size
     pub fn uv_rect(&self, atlas_width: u32, atlas_height: u32) -> Rect {
-        Rect {
-            x: self.x as f32 / atlas_width as f32,
-            y: self.y as f32 / atlas_height as f32,
-            width: self.width as f32 / atlas_width as f32,
-            height: self.height as f32 / atlas_height as f32,
-        }
+        Rect::new(
+            self.x as f32 / atlas_width as f32,
+            self.y as f32 / atlas_height as f32,
+            self.width as f32 / atlas_width as f32,
+            self.height as f32 / atlas_height as f32,
+        )
     }
 }
 

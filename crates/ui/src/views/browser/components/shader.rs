@@ -96,12 +96,12 @@ impl Primitive for HtmlPrimitive {
         pipeline.text_pipeline.clear();
 
         for render_rect in &self.rects {
-            let offset_rect = Rect {
-                x: render_rect.rect.x - self.scroll_offset.x,
-                y: render_rect.rect.y - self.scroll_offset.y,
-                width: render_rect.rect.width,
-                height: render_rect.rect.height,
-            };
+            let offset_rect = Rect::new(
+                render_rect.rect.x - self.scroll_offset.x,
+                render_rect.rect.y - self.scroll_offset.y,
+                render_rect.rect.width,
+                render_rect.rect.height,
+            );
             pipeline
                 .rect_pipeline
                 .push_quad(offset_rect, render_rect.background);
@@ -131,12 +131,12 @@ impl Primitive for HtmlPrimitive {
 
                 let uv_rect = region.uv_rect(atlas_width, atlas_height);
 
-                let screen_rect = Rect {
-                    x: screen_x,
-                    y: screen_y,
-                    width: region.width as f32,
-                    height: region.height as f32,
-                };
+                let screen_rect = Rect::new(
+                    screen_x,
+                    screen_y,
+                    region.width as f32,
+                    region.height as f32,
+                );
 
                 pipeline
                     .text_pipeline
@@ -273,12 +273,12 @@ pub fn collect_render_data_from_layout(
 
         if bg.a > 0.0 {
             data.rects.push(RenderRect {
-                rect: Rect {
-                    x: node.dimensions.x,
-                    y: node.dimensions.y,
-                    width: node.dimensions.width,
-                    height: node.dimensions.height,
-                },
+                rect: Rect::new(
+                    node.dimensions.x,
+                    node.dimensions.y,
+                    node.dimensions.width,
+                    node.dimensions.height,
+                ),
                 background: bg,
             });
         }
