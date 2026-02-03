@@ -226,8 +226,8 @@ impl CascadedDeclaration {
                     };
                     origin_order_b.cmp(&origin_order_a)
                 })
-                .then_with(|| a.specificity.cmp(&b.specificity))
-                .then_with(|| a.source_order.cmp(&b.source_order))
+                .then_with(|| b.specificity.cmp(&a.specificity))
+                .then_with(|| b.source_order.cmp(&a.source_order))
         });
     }
 }

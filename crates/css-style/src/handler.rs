@@ -1,10 +1,7 @@
-use crate::length::Length;
 use crate::primitives::font::AbsoluteSize;
 use crate::properties::Property;
 use crate::properties::text::WritingMode;
-use crate::{
-    BorderColor, BorderStyle, BorderStyleValue, BorderWidth, BorderWidthValue, Color, ComputedStyle,
-};
+use crate::{BorderStyleValue, BorderWidthValue, Color, ComputedStyle, OffsetValue};
 
 pub struct PropertyUpdateContext<'a> {
     pub computed_style: &'a mut ComputedStyle,
@@ -59,20 +56,6 @@ macro_rules! simple_property_handler {
     };
 }
 
-macro_rules! simple_property_field_handler {
-    ($fn_name:ident, $field:ident, $subfield:ident, $prop_name:expr) => {
-        pub fn $fn_name(ctx: &mut PropertyUpdateContext, value: &str) {
-            if let Err(e) = Property::update_property_field(
-                &mut ctx.computed_style.$field,
-                |f| &mut f.$subfield,
-                value,
-            ) {
-                ctx.record_error($prop_name, value, e);
-            }
-        }
-    };
-}
-
 pub fn resolve_css_variable(variables: &Vec<(String, String)>, value: String) -> String {
     if let Some(stripped) = value.strip_prefix("var(").and_then(|s| s.strip_suffix(')')) {
         let var_name = stripped.trim();
@@ -90,9 +73,66 @@ simple_property_handler!(
     background_color,
     "background-color"
 );
-simple_property_handler!(handle_border_color, border_color, "border-color");
-simple_property_handler!(handle_border_width, border_width, "border-width");
-simple_property_handler!(handle_border_style, border_style, "border-style");
+simple_property_handler!(
+    handle_border_top_color,
+    border_top_color,
+    "border-top-color"
+);
+simple_property_handler!(
+    handle_border_right_color,
+    border_right_color,
+    "border-right-color"
+);
+simple_property_handler!(
+    handle_border_bottom_color,
+    border_bottom_color,
+    "border-bottom-color"
+);
+simple_property_handler!(
+    handle_border_left_color,
+    border_left_color,
+    "border-left-color"
+);
+simple_property_handler!(
+    handle_border_top_style,
+    border_top_style,
+    "border-top-style"
+);
+simple_property_handler!(
+    handle_border_right_style,
+    border_right_style,
+    "border-right-style"
+);
+simple_property_handler!(
+    handle_border_bottom_style,
+    border_bottom_style,
+    "border-bottom-style"
+);
+simple_property_handler!(
+    handle_border_left_style,
+    border_left_style,
+    "border-left-style"
+);
+simple_property_handler!(
+    handle_border_top_width,
+    border_top_width,
+    "border-top-width"
+);
+simple_property_handler!(
+    handle_border_right_width,
+    border_right_width,
+    "border-right-width"
+);
+simple_property_handler!(
+    handle_border_bottom_width,
+    border_bottom_width,
+    "border-bottom-width"
+);
+simple_property_handler!(
+    handle_border_left_width,
+    border_left_width,
+    "border-left-width"
+);
 simple_property_handler!(handle_color, color, "color");
 simple_property_handler!(handle_display, display, "display");
 simple_property_handler!(handle_font_family, font_family, "font-family");
@@ -100,16 +140,14 @@ simple_property_handler!(handle_font_weight, font_weight, "font-weight");
 simple_property_handler!(handle_height, height, "height");
 simple_property_handler!(handle_max_height, max_height, "max-height");
 simple_property_handler!(handle_line_height, line_height, "line-height");
-simple_property_handler!(handle_margin, margin, "margin");
-simple_property_field_handler!(handle_margin_top, margin, top, "margin-top");
-simple_property_field_handler!(handle_margin_bottom, margin, bottom, "margin-bottom");
-simple_property_field_handler!(handle_margin_left, margin, left, "margin-left");
-simple_property_field_handler!(handle_margin_right, margin, right, "margin-right");
-simple_property_handler!(handle_padding, padding, "padding");
-simple_property_field_handler!(handle_padding_top, padding, top, "padding-top");
-simple_property_field_handler!(handle_padding_bottom, padding, bottom, "padding-bottom");
-simple_property_field_handler!(handle_padding_left, padding, left, "padding-left");
-simple_property_field_handler!(handle_padding_right, padding, right, "padding-right");
+simple_property_handler!(handle_margin_top, margin_top, "margin-top");
+simple_property_handler!(handle_margin_bottom, margin_bottom, "margin-bottom");
+simple_property_handler!(handle_margin_left, margin_left, "margin-left");
+simple_property_handler!(handle_margin_right, margin_top, "margin-right");
+simple_property_handler!(handle_padding_top, padding_top, "padding-top");
+simple_property_handler!(handle_padding_bottom, padding_bottom, "padding-bottom");
+simple_property_handler!(handle_padding_left, padding_left, "padding-left");
+simple_property_handler!(handle_padding_right, padding_right, "padding-right");
 simple_property_handler!(handle_position, position, "position");
 simple_property_handler!(handle_text_align, text_align, "text-align");
 simple_property_handler!(handle_whitespace, whitespace, "white-space");
@@ -117,29 +155,269 @@ simple_property_handler!(handle_width, width, "width");
 simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
 
+pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &str) {
+    let parts: Vec<&str> = value.split_whitespace().collect();
+    match parts.len() {
+        1 => {
+            if let Ok(all) = parts[0].parse::<OffsetValue>() {
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.margin_top,
+                        &mut ctx.computed_style.margin_right,
+                        &mut ctx.computed_style.margin_bottom,
+                        &mut ctx.computed_style.margin_left,
+                    ],
+                    all.into(),
+                );
+            } else {
+                ctx.record_error(
+                    "margin",
+                    value,
+                    format!("Invalid OffsetValue: {}", parts[0]),
+                );
+            }
+        }
+        2 => {
+            if let (Ok(vertical), Ok(horizontal)) = (
+                parts[0].parse::<OffsetValue>(),
+                parts[1].parse::<OffsetValue>(),
+            ) {
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.margin_top,
+                        &mut ctx.computed_style.margin_bottom,
+                    ],
+                    vertical.into(),
+                );
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.margin_right,
+                        &mut ctx.computed_style.margin_left,
+                    ],
+                    horizontal.into(),
+                );
+            } else {
+                ctx.record_error(
+                    "margin",
+                    value,
+                    format!("Invalid OffsetValues: {} {}", parts[0], parts[1]),
+                );
+            }
+        }
+        3 => {
+            if let (Ok(top), Ok(horizontal), Ok(bottom)) = (
+                parts[0].parse::<OffsetValue>(),
+                parts[1].parse::<OffsetValue>(),
+                parts[2].parse::<OffsetValue>(),
+            ) {
+                Property::update(&mut ctx.computed_style.margin_top, top.into());
+                Property::update(&mut ctx.computed_style.margin_bottom, bottom.into());
+
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.margin_right,
+                        &mut ctx.computed_style.margin_left,
+                    ],
+                    horizontal.into(),
+                );
+            } else {
+                ctx.record_error(
+                    "margin",
+                    value,
+                    format!(
+                        "Invalid OffsetValues: {} {} {}",
+                        parts[0], parts[1], parts[2]
+                    ),
+                );
+            }
+        }
+        4 => {
+            if let (Ok(top), Ok(right), Ok(bottom), Ok(left)) = (
+                parts[0].parse::<OffsetValue>(),
+                parts[1].parse::<OffsetValue>(),
+                parts[2].parse::<OffsetValue>(),
+                parts[3].parse::<OffsetValue>(),
+            ) {
+                {
+                    Property::update(&mut ctx.computed_style.margin_top, top.into());
+                    Property::update(&mut ctx.computed_style.margin_right, right.into());
+                    Property::update(&mut ctx.computed_style.margin_bottom, bottom.into());
+                    Property::update(&mut ctx.computed_style.margin_left, left.into());
+                }
+            } else {
+                ctx.record_error(
+                    "margin",
+                    value,
+                    format!(
+                        "Invalid OffsetValues: {} {} {} {}",
+                        parts[0], parts[1], parts[2], parts[3]
+                    ),
+                );
+            }
+        }
+        _ => {
+            ctx.record_error(
+                "margin",
+                value,
+                format!("Invalid number of values: {}", parts.len()),
+            );
+        }
+    }
+}
+
+pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
+    let parts: Vec<&str> = value.split_whitespace().collect();
+    match parts.len() {
+        1 => {
+            if let Ok(all) = parts[0].parse::<OffsetValue>() {
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.padding_top,
+                        &mut ctx.computed_style.padding_right,
+                        &mut ctx.computed_style.padding_bottom,
+                        &mut ctx.computed_style.padding_left,
+                    ],
+                    all.into(),
+                );
+            } else {
+                ctx.record_error(
+                    "padding",
+                    value,
+                    format!("Invalid OffsetValue: {}", parts[0]),
+                );
+            }
+        }
+        2 => {
+            if let (Ok(vertical), Ok(horizontal)) = (
+                parts[0].parse::<OffsetValue>(),
+                parts[1].parse::<OffsetValue>(),
+            ) {
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.padding_top,
+                        &mut ctx.computed_style.padding_bottom,
+                    ],
+                    vertical.into(),
+                );
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.padding_right,
+                        &mut ctx.computed_style.padding_left,
+                    ],
+                    horizontal.into(),
+                );
+            } else {
+                ctx.record_error(
+                    "padding",
+                    value,
+                    format!("Invalid OffsetValues: {} {}", parts[0], parts[1]),
+                );
+            }
+        }
+        3 => {
+            if let (Ok(top), Ok(horizontal), Ok(bottom)) = (
+                parts[0].parse::<OffsetValue>(),
+                parts[1].parse::<OffsetValue>(),
+                parts[2].parse::<OffsetValue>(),
+            ) {
+                Property::update(&mut ctx.computed_style.padding_top, top.into());
+                Property::update(&mut ctx.computed_style.padding_bottom, bottom.into());
+                Property::update_multiple(
+                    &mut [
+                        &mut ctx.computed_style.padding_right,
+                        &mut ctx.computed_style.padding_left,
+                    ],
+                    horizontal.into(),
+                );
+            } else {
+                ctx.record_error(
+                    "padding",
+                    value,
+                    format!(
+                        "Invalid OffsetValues: {} {} {}",
+                        parts[0], parts[1], parts[2]
+                    ),
+                );
+            }
+        }
+        4 => {
+            if let (Ok(top), Ok(right), Ok(bottom), Ok(left)) = (
+                parts[0].parse::<OffsetValue>(),
+                parts[1].parse::<OffsetValue>(),
+                parts[2].parse::<OffsetValue>(),
+                parts[3].parse::<OffsetValue>(),
+            ) {
+                {
+                    Property::update(&mut ctx.computed_style.padding_top, top.into());
+                    Property::update(&mut ctx.computed_style.padding_right, right.into());
+                    Property::update(&mut ctx.computed_style.padding_bottom, bottom.into());
+                    Property::update(&mut ctx.computed_style.padding_left, left.into());
+                }
+            } else {
+                ctx.record_error(
+                    "padding",
+                    value,
+                    format!(
+                        "Invalid OffsetValues: {} {} {} {}",
+                        parts[0], parts[1], parts[2], parts[3]
+                    ),
+                );
+            }
+        }
+        _ => {
+            ctx.record_error(
+                "padding",
+                value,
+                format!("Invalid number of values: {}", parts.len()),
+            );
+        }
+    }
+}
+
 pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
     let parts = value.split_whitespace().collect::<Vec<&str>>();
 
     for part in parts {
-        if let Ok(length) = part.parse::<Length>() {
-            Property::update(
-                &mut ctx.computed_style.border_width,
-                Property::wrap_value(BorderWidth::all(BorderWidthValue::Length(length))),
-            )
+        if let Ok(width) = part.parse::<BorderWidthValue>() {
+            Property::update_multiple(
+                &mut [
+                    &mut ctx.computed_style.border_top_width,
+                    &mut ctx.computed_style.border_right_width,
+                    &mut ctx.computed_style.border_bottom_width,
+                    &mut ctx.computed_style.border_left_width,
+                ],
+                width.into(),
+            );
+        } else {
+            ctx.record_error(
+                "border",
+                value,
+                format!("Invalid BorderWidthValue: {}", part),
+            );
         }
 
         if let Ok(style) = part.parse::<BorderStyleValue>() {
-            Property::update(
-                &mut ctx.computed_style.border_style,
-                Property::wrap_value(BorderStyle::all(style)),
-            )
+            Property::update_multiple(
+                &mut [
+                    &mut ctx.computed_style.border_top_style,
+                    &mut ctx.computed_style.border_right_style,
+                    &mut ctx.computed_style.border_bottom_style,
+                    &mut ctx.computed_style.border_left_style,
+                ],
+                style.into(),
+            );
         }
 
         if let Ok(color) = part.parse::<Color>() {
-            Property::update(
-                &mut ctx.computed_style.border_color,
-                Property::wrap_value(BorderColor::all(color)),
-            )
+            Property::update_multiple(
+                &mut [
+                    &mut ctx.computed_style.border_top_color,
+                    &mut ctx.computed_style.border_right_color,
+                    &mut ctx.computed_style.border_bottom_color,
+                    &mut ctx.computed_style.border_left_color,
+                ],
+                color.into(),
+            );
         }
     }
 }
@@ -167,38 +445,25 @@ pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &str) {
         }
         Property::Value(val) => match val {
             WritingMode::HorizontalTb => {
-                let res_top = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.top,
-                    value,
-                );
-                let res_bottom = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.bottom,
-                    value,
-                );
-                if let Err(e) = res_top {
+                if let Err(e) = Property::update_property(&mut ctx.computed_style.margin_top, value)
+                {
                     ctx.record_error("margin-block", value, e);
                 }
-                if let Err(e) = res_bottom {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_bottom, value)
+                {
                     ctx.record_error("margin-block", value, e);
                 }
             }
             WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                let res_left = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.left,
-                    value,
-                );
-                let res_right = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.right,
-                    value,
-                );
-                if let Err(e) = res_left {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_left, value)
+                {
                     ctx.record_error("margin-block", value, e);
                 }
-                if let Err(e) = res_right {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_right, value)
+                {
                     ctx.record_error("margin-block", value, e);
                 }
             }
@@ -224,29 +489,22 @@ pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
         }
         Property::Value(val) => match val {
             WritingMode::HorizontalTb => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.top,
-                    value,
-                ) {
+                if let Err(e) = Property::update_property(&mut ctx.computed_style.margin_top, value)
+                {
                     ctx.record_error("margin-block-start", value, e);
                 }
             }
             WritingMode::VerticalRl => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.right,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_right, value)
+                {
                     ctx.record_error("margin-block-start", value, e);
                 }
             }
             WritingMode::VerticalLr => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.left,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_left, value)
+                {
                     ctx.record_error("margin-block-start", value, e);
                 }
             }
@@ -272,29 +530,23 @@ pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
         }
         Property::Value(val) => match val {
             WritingMode::HorizontalTb => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.bottom,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_bottom, value)
+                {
                     ctx.record_error("margin-block-end", value, e);
                 }
             }
             WritingMode::VerticalRl => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.left,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_left, value)
+                {
                     ctx.record_error("margin-block-end", value, e);
                 }
             }
             WritingMode::VerticalLr => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.margin,
-                    |m| &mut m.right,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.margin_right, value)
+                {
                     ctx.record_error("margin-block-end", value, e);
                 }
             }
@@ -320,38 +572,26 @@ pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &str) {
         }
         Property::Value(val) => match val {
             WritingMode::HorizontalTb => {
-                let res_top = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.top,
-                    value,
-                );
-                let res_bottom = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.bottom,
-                    value,
-                );
-                if let Err(e) = res_top {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_top, value)
+                {
                     ctx.record_error("padding-block", value, e);
                 }
-                if let Err(e) = res_bottom {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_bottom, value)
+                {
                     ctx.record_error("padding-block", value, e);
                 }
             }
             WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                let res_left = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.left,
-                    value,
-                );
-                let res_right = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.right,
-                    value,
-                );
-                if let Err(e) = res_left {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_left, value)
+                {
                     ctx.record_error("padding-block", value, e);
                 }
-                if let Err(e) = res_right {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_right, value)
+                {
                     ctx.record_error("padding-block", value, e);
                 }
             }
@@ -377,29 +617,23 @@ pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &str) 
         }
         Property::Value(val) => match val {
             WritingMode::HorizontalTb => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.top,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_top, value)
+                {
                     ctx.record_error("padding-block-start", value, e);
                 }
             }
             WritingMode::VerticalRl => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.right,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_right, value)
+                {
                     ctx.record_error("padding-block-start", value, e);
                 }
             }
             WritingMode::VerticalLr => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.left,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_left, value)
+                {
                     ctx.record_error("padding-block-start", value, e);
                 }
             }
@@ -425,29 +659,23 @@ pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
         }
         Property::Value(val) => match val {
             WritingMode::HorizontalTb => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.bottom,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_bottom, value)
+                {
                     ctx.record_error("padding-block-end", value, e);
                 }
             }
             WritingMode::VerticalRl => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.left,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_left, value)
+                {
                     ctx.record_error("padding-block-end", value, e);
                 }
             }
             WritingMode::VerticalLr => {
-                if let Err(e) = Property::update_property_field(
-                    &mut ctx.computed_style.padding,
-                    |m| &mut m.right,
-                    value,
-                ) {
+                if let Err(e) =
+                    Property::update_property(&mut ctx.computed_style.padding_right, value)
+                {
                     ctx.record_error("padding-block-end", value, e);
                 }
             }

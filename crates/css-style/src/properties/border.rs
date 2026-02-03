@@ -164,7 +164,7 @@ impl FromStr for BorderWidth {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum BorderStyleValue {
     None,
     Hidden,

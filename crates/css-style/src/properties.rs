@@ -1,14 +1,13 @@
 use std::str::FromStr;
 
 use crate::{
+    BorderStyleValue, BorderWidthValue, OffsetValue,
     primitives::global::Global,
     properties::{
-        border::{BorderColor, BorderStyle, BorderWidth},
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
         font::{FontFamily, FontSize, FontWeight},
-        offset::Offset,
         position::Position,
         text::{LineHeight, TextAlign, Whitespace, WritingMode},
     },
@@ -53,56 +52,12 @@ impl<T: FromStr<Err = String>> Property<T> {
         *property = value;
     }
 
-    pub fn update_property_field<U>(
-        property: &mut Property<T>,
-        field_selector: impl FnOnce(&mut T) -> &mut U,
-        value: &str,
-    ) -> Result<(), String>
+    pub fn update_multiple(properties: &mut [&mut T], value: T)
     where
-        U: FromStr<Err = String>,
+        T: Clone,
     {
-        match property {
-            Property::Value(val) => {
-                let field = field_selector(val);
-                Property::update_property(field, value)
-            }
-            Property::Global(global) => {
-                let new_global = value.parse::<Global>()?;
-                *global = new_global;
-                Ok(())
-            }
-        }
-    }
-
-    pub fn update_property_fields<U>(
-        property: &mut Property<T>,
-        field_selectors: Vec<impl FnOnce(&mut T) -> &mut U>,
-        values: Vec<&str>,
-    ) -> Result<(), String>
-    where
-        T: FromStr<Err = String>,
-        U: FromStr<Err = String>,
-    {
-        if field_selectors.len() != values.len() {
-            return Err("Field selectors and values length mismatch".to_string());
-        }
-
-        match property {
-            Property::Value(val) => {
-                for (selector, value) in field_selectors.into_iter().zip(values.into_iter()) {
-                    let field = selector(val);
-                    Property::update_property(field, value)?;
-                }
-                Ok(())
-            }
-            Property::Global(global) => {
-                if values.len() != 1 {
-                    return Err("Multiple values provided for global property".to_string());
-                }
-                let new_global = values[0].parse::<Global>()?;
-                *global = new_global;
-                Ok(())
-            }
+        for property in properties {
+            **property = value.clone();
         }
     }
 }
@@ -131,9 +86,8 @@ where
 }
 
 // Border
-pub type BorderWidthProperty = Property<BorderWidth>;
-pub type BorderColorProperty = Property<BorderColor>;
-pub type BorderStyleProperty = Property<BorderStyle>;
+pub type BorderWidthValueProperty = Property<BorderWidthValue>;
+pub type BorderStyleValueProperty = Property<BorderStyleValue>;
 
 // Color
 pub type ColorProperty = Property<Color>;
@@ -153,7 +107,7 @@ pub type FontFamilyProperty = Property<FontFamily>;
 pub type FontSizeProperty = Property<FontSize>;
 
 // Margin & Padding
-pub type OffsetProperty = Property<Offset>;
+pub type OffsetValueProperty = Property<OffsetValue>;
 
 // Position
 pub type PositionProperty = Property<Position>;
