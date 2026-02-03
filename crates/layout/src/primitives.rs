@@ -13,6 +13,17 @@ pub struct Rect {
     pub height: f32,
 }
 
+impl Rect {
+    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
+
 /// RGBA color representation for rendering (values 0.0-1.0)
 #[repr(C)] // Prevent struct reordering
 #[derive(Debug, Clone, Copy, Default)]
@@ -28,27 +39,31 @@ impl Color4f {
         Self { r, g, b, a }
     }
 
-    /// Converts a CSS color to Color4f
-    pub fn from_css_color(color: &Property<Color>) -> Self {
-        if let Ok(resolved_color) = Property::resolve(color) {
-            match resolved_color {
-                Color::Named(named) => Self::from_named_color(named),
-                Color::Hex(srgb) => {
-                    match srgb {
-                        SRGBAColor::Rgb(r, g, b) => {
-                            Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
-                        }
-                        SRGBAColor::Rgba(r, g, b, a) => {
-                            Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, *a)
-                        }
-                        _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HSL/HSLA/HWB
+    pub fn from_css_color(color: &Color) -> Self {
+        match color {
+            Color::Named(named) => Self::from_named_color(named),
+            Color::Hex(srgb) => {
+                match srgb {
+                    SRGBAColor::Rgb(r, g, b) => {
+                        Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
                     }
+                    SRGBAColor::Rgba(r, g, b, a) => {
+                        Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, *a)
+                    }
+                    _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HSL/HSLA/HWB
                 }
-                Color::Functional(func) => Self::from_functional_color(func),
-                Color::Current => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle currentColor properly
-                Color::System(_) => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle system colors
-                Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
             }
+            Color::Functional(func) => Self::from_functional_color(func),
+            Color::Current => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle currentColor properly
+            Color::System(_) => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle system colors
+            Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
+        }
+    }
+
+    /// Converts a CSS color to Color4f
+    pub fn from_css_color_property(color: &Property<Color>) -> Self {
+        if let Ok(resolved_color) = Property::resolve(color) {
+            Self::from_css_color(resolved_color)
         } else {
             Self::new(1.0, 0.0, 0.0, 1.0) // Default to red for error indication
         }

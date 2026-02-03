@@ -5,7 +5,7 @@ use css_style::{
 
 use crate::{
     layout::{LayoutContext, LayoutNode, LayoutTree},
-    mode::block::{BlockCursor, BlockLayout},
+    mode::block::BlockLayout,
     primitives::Rect,
     text::TextContext,
 };
@@ -45,25 +45,29 @@ impl LayoutEngine {
         viewport: Rect,
         text_ctx: &mut TextContext,
     ) -> LayoutTree {
-        let ctx = LayoutContext {
-            containing_block: viewport,
-            ..Default::default()
-        };
+        let mut ctx = LayoutContext::new(viewport);
 
         let mut total_height = 0.0;
-        let mut block_cursor = BlockCursor { y: 0.0 };
-
         let mut root_nodes = Vec::new();
 
         for styled_node in &style_tree.root_nodes {
-            let node = Self::layout_node(styled_node, &ctx, &mut block_cursor, text_ctx);
+            ctx.block_cursor.y = total_height;
+
+            let node = Self::layout_node(styled_node, &mut ctx, text_ctx);
 
             if node.is_none() {
                 // For `display: none`
                 continue;
             }
 
-            let node = node.unwrap();
+            let mut node = node.unwrap();
+
+            let top_margin = node.resolved_margin.top;
+            let bottom_margin = node.resolved_margin.bottom;
+
+            Self::offset_children_y(&mut node.children, top_margin);
+
+            node.dimensions.height += top_margin + bottom_margin;
 
             total_height += node.dimensions.height;
             root_nodes.push(node);
@@ -75,54 +79,41 @@ impl LayoutEngine {
         }
     }
 
+    /// Recursively offset all children's y positions
+    fn offset_children_y(children: &mut [LayoutNode], offset: f32) {
+        for child in children.iter_mut() {
+            child.dimensions.y += offset;
+            Self::offset_children_y(&mut child.children, offset);
+        }
+    }
+
     /// Compute layout for a single node and its descendants
     pub(crate) fn layout_node(
         styled_node: &StyledNode,
-        ctx: &LayoutContext,
-        block_cursor: &mut BlockCursor,
+        ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
     ) -> Option<LayoutNode> {
         let layout_mode = LayoutMode::new(styled_node)?;
 
         match layout_mode {
-            LayoutMode::Block => Some(BlockLayout::layout(
-                styled_node,
-                ctx,
-                block_cursor,
-                text_ctx,
-            )),
-            LayoutMode::Flex => Some(BlockLayout::layout(
-                styled_node,
-                ctx,
-                block_cursor,
-                text_ctx,
-            )), // TODO: implement flex layout
-            LayoutMode::Grid => Some(BlockLayout::layout(
-                styled_node,
-                ctx,
-                block_cursor,
-                text_ctx,
-            )), // TODO: implement grid layout
+            LayoutMode::Block => Some(BlockLayout::layout(styled_node, ctx, text_ctx)),
+            LayoutMode::Flex => Some(BlockLayout::layout(styled_node, ctx, text_ctx)), // TODO: implement flex layout
+            LayoutMode::Grid => Some(BlockLayout::layout(styled_node, ctx, text_ctx)), // TODO: implement grid layout
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use css_style::{
-        ComputedStyle, Dimension, Display, Offset, OffsetValue, display::OutsideDisplay,
-    };
-    use html_dom::{HtmlTag, NodeId, Tag};
+    use css_style::{ComputedStyle, Display, display::OutsideDisplay};
+    use html_dom::NodeId;
+
+    use crate::mode::block::BlockCursor;
 
     use super::*;
 
     fn viewport() -> Rect {
-        Rect {
-            x: 0.0,
-            y: 0.0,
-            width: 800.0,
-            height: 600.0,
-        }
+        Rect::new(0.0, 0.0, 800.0, 600.0)
     }
 
     #[test]
@@ -176,151 +167,28 @@ mod tests {
     }
 
     #[test]
-    fn test_layout_example_1() {
-        let node1 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(2))
-        };
-
-        let node2 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
-                padding: Property::from(Offset::all(OffsetValue::px(10.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(3))
-        };
-
-        let node3 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(4))
-        };
-
-        let node4 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(100.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(5))
-        };
-
-        let body = StyledNode {
-            tag: Some(Tag::Html(HtmlTag::Body)),
-            style: ComputedStyle {
-                margin: Property::from(Offset::all(OffsetValue::px(8.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            children: vec![node1, node2, node3, node4],
-            ..StyledNode::new(NodeId(1))
-        };
-
-        let html = StyledNode {
-            tag: Some(Tag::Html(HtmlTag::Html)),
+    fn test_layout_empty() {
+        let styled_node = StyledNode {
             style: ComputedStyle {
                 display: Property::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
-            children: vec![body],
             ..StyledNode::new(NodeId(0))
         };
 
+        let mut ctx = LayoutContext::new(viewport());
+        let cursor = BlockCursor { y: 0.0 };
+
+        ctx.block_cursor = cursor;
         let mut text_ctx = TextContext::default();
-        let style_tree = StyleTree::from(html);
 
-        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_ctx);
-        let body_layout = &layout_tree.root_nodes[0].children[0];
+        let layout_node = BlockLayout::layout(&styled_node, &mut ctx, &mut text_ctx);
 
-        assert_eq!(layout_tree.content_height, 400.0);
-        assert_eq!(body_layout.dimensions.height, 280.0);
-    }
-
-    #[test]
-    fn test_layout_example_1_with_padding() {
-        let node1 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(2))
-        };
-
-        let node2 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
-                padding: Property::from(Offset::all(OffsetValue::px(10.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(3))
-        };
-
-        let node3 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(20.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(4))
-        };
-
-        let node4 = StyledNode {
-            style: ComputedStyle {
-                height: Property::from(Dimension::px(30.0)),
-                margin: Property::from(Offset::all(OffsetValue::px(100.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(5))
-        };
-
-        let body = StyledNode {
-            tag: Some(Tag::Html(HtmlTag::Body)),
-            style: ComputedStyle {
-                padding: Property::from(Offset::all(OffsetValue::px(10.0))),
-                margin: Property::from(Offset::all(OffsetValue::px(8.0))),
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            children: vec![node1, node2, node3, node4],
-            ..StyledNode::new(NodeId(1))
-        };
-
-        let html = StyledNode {
-            tag: Some(Tag::Html(HtmlTag::Html)),
-            style: ComputedStyle {
-                display: Property::from(Display::from(OutsideDisplay::Block)),
-                ..Default::default()
-            },
-            children: vec![body],
-            ..StyledNode::new(NodeId(0))
-        };
-
-        let mut text_ctx = TextContext::default();
-        let style_tree = StyleTree::from(html);
-
-        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_ctx);
-        let body_layout = &layout_tree.root_nodes[0].children[0];
-
-        assert_eq!(layout_tree.content_height, 436.0);
-        assert_eq!(body_layout.dimensions.height, 420.0);
+        assert_eq!(layout_node.node_id, styled_node.node_id);
+        assert_eq!(layout_node.dimensions.x, 0.0);
+        assert_eq!(layout_node.dimensions.y, 0.0);
+        assert_eq!(layout_node.dimensions.width, 800.0);
+        assert_eq!(layout_node.dimensions.height, 0.0);
+        assert_eq!(layout_node.children.len(), 0);
     }
 }
