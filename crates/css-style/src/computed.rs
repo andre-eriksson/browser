@@ -20,12 +20,11 @@ use crate::{
         font::{AbsoluteSize, GenericName},
     },
     properties::{
-        BorderColorProperty, BorderProperty, BorderStyleProperty, BorderWidthProperty,
-        ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
-        HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetProperty,
-        PositionProperty, Property, TextAlignProperty, WhitespaceProperty, WidthProperty,
-        WritingModeProperty,
-        border::{Border, BorderColor, BorderStyle, BorderWidth},
+        BorderColorProperty, BorderStyleProperty, BorderWidthProperty, ColorProperty,
+        DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty,
+        LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetProperty, PositionProperty,
+        Property, TextAlignProperty, WhitespaceProperty, WidthProperty, WritingModeProperty,
+        border::{BorderColor, BorderStyle, BorderWidth},
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -39,7 +38,6 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
     pub background_color: ColorProperty,
-    pub border: BorderProperty,
     pub border_color: BorderColorProperty,
     pub border_style: BorderStyleProperty,
     pub border_width: BorderWidthProperty,
@@ -179,7 +177,6 @@ impl Default for ComputedStyle {
         ComputedStyle {
             variables: Vec::with_capacity(32),
             background_color: Property::from(Color::Transparent),
-            border: Property::from(Border::none()),
             border_color: Property::from(BorderColor::all(black)),
             border_style: Property::from(BorderStyle::none()),
             border_width: Property::from(BorderWidth::zero()),

@@ -1,4 +1,6 @@
-use css_style::{Dimension, MaxDimension, Offset, OffsetValue, Property, StyledNode};
+use css_style::{
+    BorderWidthValue, Dimension, MaxDimension, Offset, OffsetValue, Property, StyledNode,
+};
 
 use crate::SideOffset;
 
@@ -105,6 +107,28 @@ impl PropertyResolver {
             OffsetValue::Length(len) => len.to_px(0.0, font_size_px),
             OffsetValue::Percentage(pct) => pct.to_px(containing_width),
             OffsetValue::Auto => 0.0,
+        }
+    }
+
+    pub(crate) fn resolve_node_borders(styled_node: &StyledNode, font_size_px: f32) -> SideOffset {
+        if let Ok(border) = Property::resolve(&styled_node.style.border_width) {
+            SideOffset {
+                top: Self::resolve_border_value(&border.top(), font_size_px),
+                right: Self::resolve_border_value(&border.right(), font_size_px),
+                bottom: Self::resolve_border_value(&border.bottom(), font_size_px),
+                left: Self::resolve_border_value(&border.left(), font_size_px),
+            }
+        } else {
+            SideOffset::default()
+        }
+    }
+
+    pub(crate) fn resolve_border_value(value: &BorderWidthValue, font_size_px: f32) -> f32 {
+        match value {
+            BorderWidthValue::Length(len) => len.to_px(0.0, font_size_px),
+            BorderWidthValue::Thin => 1.0,
+            BorderWidthValue::Medium => 3.0,
+            BorderWidthValue::Thick => 5.0,
         }
     }
 

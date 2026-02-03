@@ -29,12 +29,12 @@ impl BlockLayout {
             ctx.containing_block.width,
             font_size_px,
         );
-
         let padding = PropertyResolver::resolve_node_padding(
             styled_node,
             ctx.containing_block.width,
             font_size_px,
         );
+        let border = PropertyResolver::resolve_node_borders(styled_node, font_size_px);
 
         let colors = LayoutColors {
             background_color: Color4f::from_css_color(&styled_node.style.background_color),
@@ -88,7 +88,7 @@ impl BlockLayout {
                     &styled_node.children[child_index..inline_end],
                 );
 
-                let inline_y = y + child_cursor.y + padding.top;
+                let inline_y = y + child_cursor.y + padding.top + border.top;
                 let (inline_nodes, inline_height) = InlineLayout::layout(
                     &items,
                     text_ctx,
@@ -114,8 +114,8 @@ impl BlockLayout {
 
             let child_ctx = LayoutContext {
                 containing_block: Rect {
-                    x: x + padding.left,
-                    y: y + padding.top,
+                    x: x + padding.left + border.left,
+                    y: y + padding.top + border.top,
                     width: content_width - padding.horizontal(),
                     height: ctx.containing_block.height,
                 },
@@ -166,7 +166,7 @@ impl BlockLayout {
         {
             content_height = body_node.dimensions.height + Self::html_height_adjustment(body_node);
         } else {
-            content_height += padding.vertical();
+            content_height += padding.vertical() + border.vertical();
         }
 
         let dimensions = Rect {
@@ -793,6 +793,7 @@ mod tests {
         let cursor = BlockCursor { y: 0.0 };
         let margin_top = 20.0;
         let padding_top = 0.0;
+
         let y_pos =
             BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
         assert_eq!(y_pos, 20.0);
@@ -826,6 +827,7 @@ mod tests {
         let cursor = BlockCursor { y: 0.0 };
         let margin_top = 20.0;
         let padding_top = 10.0;
+
         let y_pos =
             BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
         assert_eq!(y_pos, 20.0);
@@ -859,6 +861,7 @@ mod tests {
         let cursor = BlockCursor { y: 0.0 };
         let margin_top = 20.0;
         let padding_top = 0.0;
+
         let y_pos =
             BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
         assert_eq!(y_pos, 20.0);
@@ -892,6 +895,7 @@ mod tests {
         let cursor = BlockCursor { y: 0.0 };
         let margin_top = 20.0;
         let padding_top = 0.0;
+
         let y_pos =
             BlockLayout::calculate_y_pos(&parent_node, &ctx, &cursor, margin_top, padding_top);
         assert_eq!(y_pos, 20.0);

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::{
     primitives::global::Global,
     properties::{
-        border::{Border, BorderColor, BorderStyle, BorderWidth},
+        border::{BorderColor, BorderStyle, BorderWidth},
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -47,6 +47,10 @@ impl<T: FromStr<Err = String>> Property<T> {
         let new_value = value.parse::<T>()?;
         *property = new_value;
         Ok(())
+    }
+
+    pub fn update(property: &mut T, value: T) {
+        *property = value;
     }
 
     pub fn update_property_field<U>(
@@ -130,7 +134,6 @@ where
 pub type BorderWidthProperty = Property<BorderWidth>;
 pub type BorderColorProperty = Property<BorderColor>;
 pub type BorderStyleProperty = Property<BorderStyle>;
-pub type BorderProperty = Property<Border>;
 
 // Color
 pub type ColorProperty = Property<Color>;

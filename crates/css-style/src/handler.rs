@@ -1,7 +1,10 @@
-use crate::ComputedStyle;
+use crate::length::Length;
 use crate::primitives::font::AbsoluteSize;
 use crate::properties::Property;
 use crate::properties::text::WritingMode;
+use crate::{
+    BorderColor, BorderStyle, BorderStyleValue, BorderWidth, BorderWidthValue, Color, ComputedStyle,
+};
 
 pub struct PropertyUpdateContext<'a> {
     pub computed_style: &'a mut ComputedStyle,
@@ -70,7 +73,6 @@ macro_rules! simple_property_field_handler {
     };
 }
 
-/// Resolves CSS variable references in the given value string using the provided context, otherwise returns the original value.
 pub fn resolve_css_variable(variables: &Vec<(String, String)>, value: String) -> String {
     if let Some(stripped) = value.strip_prefix("var(").and_then(|s| s.strip_suffix(')')) {
         let var_name = stripped.trim();
@@ -88,7 +90,6 @@ simple_property_handler!(
     background_color,
     "background-color"
 );
-simple_property_handler!(handle_border, border, "border");
 simple_property_handler!(handle_border_color, border_color, "border-color");
 simple_property_handler!(handle_border_width, border_width, "border-width");
 simple_property_handler!(handle_border_style, border_style, "border-style");
@@ -115,6 +116,33 @@ simple_property_handler!(handle_whitespace, whitespace, "white-space");
 simple_property_handler!(handle_width, width, "width");
 simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
+
+pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
+    let parts = value.split_whitespace().collect::<Vec<&str>>();
+
+    for part in parts {
+        if let Ok(length) = part.parse::<Length>() {
+            Property::update(
+                &mut ctx.computed_style.border_width,
+                Property::wrap_value(BorderWidth::all(BorderWidthValue::Length(length))),
+            )
+        }
+
+        if let Ok(style) = part.parse::<BorderStyleValue>() {
+            Property::update(
+                &mut ctx.computed_style.border_style,
+                Property::wrap_value(BorderStyle::all(style)),
+            )
+        }
+
+        if let Ok(color) = part.parse::<Color>() {
+            Property::update(
+                &mut ctx.computed_style.border_color,
+                Property::wrap_value(BorderColor::all(color)),
+            )
+        }
+    }
+}
 
 pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &str) {
     if let Ok(font_size) = Property::resolve(&ctx.computed_style.font_size) {
