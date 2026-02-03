@@ -1,35 +1,39 @@
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
+    BorderStyleValue, BorderWidthValue, OffsetValue,
     cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
     handler::{
-        PropertyUpdateContext, handle_background_color, handle_border, handle_border_color,
-        handle_border_style, handle_border_width, handle_color, handle_display, handle_font_family,
-        handle_font_size, handle_font_weight, handle_height, handle_line_height, handle_margin,
-        handle_margin_block, handle_margin_block_end, handle_margin_block_start,
-        handle_margin_bottom, handle_margin_left, handle_margin_right, handle_margin_top,
-        handle_max_height, handle_max_width, handle_padding, handle_padding_block,
-        handle_padding_block_end, handle_padding_block_start, handle_padding_bottom,
-        handle_padding_left, handle_padding_right, handle_padding_top, handle_position,
-        handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
+        PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
+        handle_border_bottom_style, handle_border_bottom_width, handle_border_left_color,
+        handle_border_left_style, handle_border_left_width, handle_border_right_color,
+        handle_border_right_style, handle_border_right_width, handle_border_top_color,
+        handle_border_top_style, handle_border_top_width, handle_color, handle_display,
+        handle_font_family, handle_font_size, handle_font_weight, handle_height,
+        handle_line_height, handle_margin, handle_margin_block, handle_margin_block_end,
+        handle_margin_block_start, handle_margin_bottom, handle_margin_left, handle_margin_right,
+        handle_margin_top, handle_max_height, handle_max_width, handle_padding,
+        handle_padding_block, handle_padding_block_end, handle_padding_block_start,
+        handle_padding_bottom, handle_padding_left, handle_padding_right, handle_padding_top,
+        handle_position, handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
         resolve_css_variable,
     },
+    length::Length,
     primitives::{
         color::NamedColor,
         display::{InsideDisplay, OutsideDisplay},
         font::{AbsoluteSize, GenericName},
     },
     properties::{
-        BorderColorProperty, BorderStyleProperty, BorderWidthProperty, ColorProperty,
-        DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty,
-        LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetProperty, PositionProperty,
-        Property, TextAlignProperty, WhitespaceProperty, WidthProperty, WritingModeProperty,
-        border::{BorderColor, BorderStyle, BorderWidth},
+        BorderStyleValueProperty, BorderWidthValueProperty, ColorProperty, DisplayProperty,
+        FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty,
+        LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetValueProperty,
+        PositionProperty, Property, TextAlignProperty, WhitespaceProperty, WidthProperty,
+        WritingModeProperty,
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
         font::{FontFamily, FontFamilyName, FontSize, FontWeight},
-        offset::Offset,
         position::Position,
         text::{LineHeight, TextAlign, Whitespace, WritingMode},
     },
@@ -38,9 +42,18 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ComputedStyle {
     pub background_color: ColorProperty,
-    pub border_color: BorderColorProperty,
-    pub border_style: BorderStyleProperty,
-    pub border_width: BorderWidthProperty,
+    pub border_top_color: ColorProperty,
+    pub border_right_color: ColorProperty,
+    pub border_bottom_color: ColorProperty,
+    pub border_left_color: ColorProperty,
+    pub border_top_style: BorderStyleValueProperty,
+    pub border_right_style: BorderStyleValueProperty,
+    pub border_bottom_style: BorderStyleValueProperty,
+    pub border_left_style: BorderStyleValueProperty,
+    pub border_top_width: BorderWidthValueProperty,
+    pub border_right_width: BorderWidthValueProperty,
+    pub border_bottom_width: BorderWidthValueProperty,
+    pub border_left_width: BorderWidthValueProperty,
     pub color: ColorProperty,
     pub display: DisplayProperty,
     pub font_family: FontFamilyProperty,
@@ -49,8 +62,14 @@ pub struct ComputedStyle {
     pub height: HeightProperty,
     pub max_height: MaxHeightProperty,
     pub line_height: LineHeightProperty,
-    pub margin: OffsetProperty,
-    pub padding: OffsetProperty,
+    pub margin_top: OffsetValueProperty,
+    pub margin_right: OffsetValueProperty,
+    pub margin_bottom: OffsetValueProperty,
+    pub margin_left: OffsetValueProperty,
+    pub padding_top: OffsetValueProperty,
+    pub padding_right: OffsetValueProperty,
+    pub padding_bottom: OffsetValueProperty,
+    pub padding_left: OffsetValueProperty,
     pub position: PositionProperty,
     pub text_align: TextAlignProperty,
     pub whitespace: WhitespaceProperty,
@@ -110,9 +129,18 @@ impl ComputedStyle {
             match key.as_str() {
                 "background-color" => handle_background_color(&mut ctx, v),
                 "border" => handle_border(&mut ctx, v),
-                "border-color" => handle_border_color(&mut ctx, v),
-                "border-style" => handle_border_style(&mut ctx, v),
-                "border-width" => handle_border_width(&mut ctx, v),
+                "border-left-color" => handle_border_left_color(&mut ctx, v),
+                "border-right-color" => handle_border_right_color(&mut ctx, v),
+                "border-top-color" => handle_border_top_color(&mut ctx, v),
+                "border-bottom-color" => handle_border_bottom_color(&mut ctx, v),
+                "border-left-style" => handle_border_left_style(&mut ctx, v),
+                "border-right-style" => handle_border_right_style(&mut ctx, v),
+                "border-top-style" => handle_border_top_style(&mut ctx, v),
+                "border-bottom-style" => handle_border_bottom_style(&mut ctx, v),
+                "border-bottom-width" => handle_border_bottom_width(&mut ctx, v),
+                "border-left-width" => handle_border_left_width(&mut ctx, v),
+                "border-right-width" => handle_border_right_width(&mut ctx, v),
+                "border-top-width" => handle_border_top_width(&mut ctx, v),
                 "color" => handle_color(&mut ctx, v),
                 "display" => handle_display(&mut ctx, v),
                 "font-family" => handle_font_family(&mut ctx, v),
@@ -168,6 +196,20 @@ impl ComputedStyle {
             ..ComputedStyle::default()
         }
     }
+
+    pub fn set_margin_all(&mut self, value: OffsetValue) {
+        self.margin_top = value.into();
+        self.margin_right = value.into();
+        self.margin_bottom = value.into();
+        self.margin_left = value.into();
+    }
+
+    pub fn set_padding_all(&mut self, value: OffsetValue) {
+        self.padding_top = value.into();
+        self.padding_right = value.into();
+        self.padding_bottom = value.into();
+        self.padding_left = value.into();
+    }
 }
 
 impl Default for ComputedStyle {
@@ -177,9 +219,18 @@ impl Default for ComputedStyle {
         ComputedStyle {
             variables: Vec::with_capacity(32),
             background_color: Property::from(Color::Transparent),
-            border_color: Property::from(BorderColor::all(black)),
-            border_style: Property::from(BorderStyle::none()),
-            border_width: Property::from(BorderWidth::zero()),
+            border_bottom_color: Property::from(black),
+            border_left_color: Property::from(black),
+            border_right_color: Property::from(black),
+            border_top_color: Property::from(black),
+            border_top_style: Property::from(BorderStyleValue::None),
+            border_right_style: Property::from(BorderStyleValue::None),
+            border_bottom_style: Property::from(BorderStyleValue::None),
+            border_left_style: Property::from(BorderStyleValue::None),
+            border_top_width: Property::from(BorderWidthValue::Length(Length::zero())),
+            border_right_width: Property::from(BorderWidthValue::Length(Length::zero())),
+            border_bottom_width: Property::from(BorderWidthValue::Length(Length::zero())),
+            border_left_width: Property::from(BorderWidthValue::Length(Length::zero())),
             color: Property::from(black),
             display: Property::from(Display::new(
                 Some(OutsideDisplay::Inline),
@@ -196,8 +247,14 @@ impl Default for ComputedStyle {
             height: Property::from(Dimension::Auto),
             max_height: Property::from(MaxDimension::None),
             line_height: Property::from(LineHeight::Normal),
-            margin: Property::from(Offset::zero()),
-            padding: Property::from(Offset::zero()),
+            margin_top: Property::from(OffsetValue::zero()),
+            margin_right: Property::from(OffsetValue::zero()),
+            margin_bottom: Property::from(OffsetValue::zero()),
+            margin_left: Property::from(OffsetValue::zero()),
+            padding_top: Property::from(OffsetValue::zero()),
+            padding_right: Property::from(OffsetValue::zero()),
+            padding_bottom: Property::from(OffsetValue::zero()),
+            padding_left: Property::from(OffsetValue::zero()),
             position: Property::from(Position::Static),
             text_align: Property::from(TextAlign::Left),
             whitespace: Property::from(Whitespace::Normal),

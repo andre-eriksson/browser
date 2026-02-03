@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use css_style::{
-    ComputedStyle, Property, StyledNode, TextAlign, Whitespace, display::OutsideDisplay,
+    ComputedStyle, LineHeight, Property, StyledNode, TextAlign, Whitespace, display::OutsideDisplay,
 };
 use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
-    Color4f, LayoutColors, LayoutNode, Rect, TextContext,
+    LayoutColors, LayoutNode, Rect, TextContext,
     resolver::PropertyResolver,
     text::{TextDescription, TextOffsetContext},
 };
@@ -26,7 +26,7 @@ pub enum InlineItem {
         style: Box<ComputedStyle>,
     },
     Break {
-        font_size_px: f32,
+        line_height_px: f32,
     },
 }
 
@@ -117,8 +117,12 @@ impl InlineLayout {
                             }
 
                             if i < lines.len() - 1 {
+                                let font_size = inline_node.style.computed_font_size_px;
                                 items.push(InlineItem::Break {
-                                    font_size_px: style.computed_font_size_px,
+                                    line_height_px: Property::resolve(&style.line_height)
+                                        .map_or(LineHeight::default().to_px(font_size), |lh| {
+                                            lh.to_px(font_size)
+                                        }),
                                 });
                             }
                         }
@@ -139,8 +143,13 @@ impl InlineLayout {
 
             match tag {
                 Tag::Html(HtmlTag::Br) => {
-                    let font_size_px = inline_node.style.computed_font_size_px;
-                    items.push(InlineItem::Break { font_size_px });
+                    let font_size = inline_node.style.computed_font_size_px;
+                    items.push(InlineItem::Break {
+                        line_height_px: Property::resolve(&inline_node.style.line_height)
+                            .map_or(LineHeight::default().to_px(font_size), |lh| {
+                                lh.to_px(font_size)
+                            }),
+                    });
                 }
                 _ => {
                     if !inline_node.children.is_empty() {
@@ -212,16 +221,10 @@ impl InlineLayout {
                         },
                     );
 
-                    let margin =
-                        PropertyResolver::resolve_margins(&style.margin, width, font_size_px);
+                    let (margin, padding, _border) =
+                        PropertyResolver::resolve_box_model(style, width, font_size_px);
 
-                    let padding =
-                        PropertyResolver::resolve_padding(&style.padding, width, font_size_px);
-
-                    let colors = LayoutColors {
-                        background_color: Color4f::from_css_color(&style.background_color),
-                        color: Color4f::from_css_color(&style.color),
-                    };
+                    let colors = LayoutColors::from(style);
 
                     let mut first_x = x + cursor.x + margin.left;
 
@@ -242,16 +245,9 @@ impl InlineLayout {
 
                     let node = LayoutNode {
                         node_id: *id,
-                        dimensions: Rect {
-                            x: first_x,
-                            y: first_y,
-                            width: i_text.width,
-                            height: i_text.height,
-                        },
-                        colors,
+                        dimensions: Rect::new(first_x, first_y, i_text.width, i_text.height),
+                        colors: colors.clone(),
                         resolved_margin: margin,
-                        collapsed_margin_top: 0.0,
-                        collapsed_margin_bottom: 0.0,
                         resolved_padding: padding,
                         text_buffer: Some(Arc::new(i_text.buffer)),
                         children: vec![],
@@ -270,16 +266,9 @@ impl InlineLayout {
 
                         let node = LayoutNode {
                             node_id: *id,
-                            dimensions: Rect {
-                                x: rest_x,
-                                y: rest_y,
-                                width: r_text.width,
-                                height: r_text.height,
-                            },
+                            dimensions: Rect::new(rest_x, rest_y, r_text.width, r_text.height),
                             colors,
                             resolved_margin: margin,
-                            collapsed_margin_top: 0.0,
-                            collapsed_margin_bottom: 0.0,
                             resolved_padding: padding,
                             text_buffer: Some(Arc::new(r_text.buffer)),
                             children: vec![],
@@ -303,8 +292,7 @@ impl InlineLayout {
 
                     cursor.remaining_width = width - cursor.x;
                 }
-                InlineItem::Break { font_size_px } => {
-                    let line_height_px = *font_size_px * 1.2;
+                InlineItem::Break { line_height_px } => {
                     cursor.y += line_height_px;
                     cursor.x = 0.0;
                     cursor.remaining_width = width;
@@ -424,7 +412,9 @@ mod tests {
                 text: String::from("Hello, world! This is a test of inline layout."),
                 style: Box::new(ComputedStyle::default()),
             },
-            InlineItem::Break { font_size_px: 16.0 },
+            InlineItem::Break {
+                line_height_px: 1.5,
+            },
             InlineItem::TextRun {
                 id: NodeId(1),
                 text: String::from("This is the second line after a break."),

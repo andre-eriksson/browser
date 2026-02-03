@@ -19,3 +19,4 @@ mod util;
 mod views;
 
 pub use runtime::Ui;
+pub use util::fonts::load_fallback_fonts;

@@ -1,5 +1,5 @@
 use css_style::{
-    BorderWidthValue, Dimension, MaxDimension, Offset, OffsetValue, Property, StyledNode,
+    BorderWidthValue, ComputedStyle, Dimension, MaxDimension, OffsetValue, Property, StyledNode,
 };
 
 use crate::SideOffset;
@@ -7,39 +7,25 @@ use crate::SideOffset;
 pub struct PropertyResolver;
 
 impl PropertyResolver {
+    pub(crate) fn resolve_box_model(
+        style: &ComputedStyle,
+        containing_width: f32,
+        font_size_px: f32,
+    ) -> (SideOffset, SideOffset, SideOffset) {
+        let margins = Self::resolve_margin(style, containing_width, font_size_px);
+        let padding = Self::resolve_padding(style, containing_width, font_size_px);
+        let borders = Self::resolve_border(style, font_size_px);
+
+        (margins, padding, borders)
+    }
+
     /// Resolve margin values to pixels
     pub(crate) fn resolve_node_margins(
         styled_node: &StyledNode,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        if let Ok(margin) = Property::resolve(&styled_node.style.margin) {
-            SideOffset {
-                top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
-                right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
-                bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
-                left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
-            }
-        } else {
-            SideOffset::default()
-        }
-    }
-
-    pub(crate) fn resolve_margins(
-        margin: &Property<Offset>,
-        containing_width: f32,
-        font_size_px: f32,
-    ) -> SideOffset {
-        if let Ok(margin) = Property::resolve(margin) {
-            SideOffset {
-                top: Self::resolve_margin_value(&margin.top, containing_width, font_size_px),
-                right: Self::resolve_margin_value(&margin.right, containing_width, font_size_px),
-                bottom: Self::resolve_margin_value(&margin.bottom, containing_width, font_size_px),
-                left: Self::resolve_margin_value(&margin.left, containing_width, font_size_px),
-            }
-        } else {
-            SideOffset::default()
-        }
+        Self::resolve_margin(&styled_node.style, containing_width, font_size_px)
     }
 
     /// Resolve a single margin value to pixels
@@ -55,47 +41,63 @@ impl PropertyResolver {
         }
     }
 
-    /// Resolve padding values to pixels
-    pub(crate) fn resolve_node_padding(
-        styled_node: &StyledNode,
+    fn resolve_margin(
+        style: &ComputedStyle,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        if let Ok(padding) = Property::resolve(&styled_node.style.padding) {
-            SideOffset {
-                top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
-                right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
-                bottom: Self::resolve_padding_value(
-                    &padding.bottom,
-                    containing_width,
-                    font_size_px,
-                ),
-                left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
-            }
-        } else {
-            SideOffset::default()
+        let mut margins = SideOffset::default();
+        if let Ok(top) = Property::resolve(&style.margin_top) {
+            margins.top = Self::resolve_margin_value(top, containing_width, font_size_px);
         }
+        if let Ok(right) = Property::resolve(&style.margin_right) {
+            margins.right = Self::resolve_margin_value(right, containing_width, font_size_px);
+        }
+        if let Ok(bottom) = Property::resolve(&style.margin_bottom) {
+            margins.bottom = Self::resolve_margin_value(bottom, containing_width, font_size_px);
+        }
+        if let Ok(left) = Property::resolve(&style.margin_left) {
+            margins.left = Self::resolve_margin_value(left, containing_width, font_size_px);
+        }
+        margins
     }
 
-    pub(crate) fn resolve_padding(
-        padding: &Property<Offset>,
+    fn resolve_padding(
+        style: &ComputedStyle,
         containing_width: f32,
         font_size_px: f32,
     ) -> SideOffset {
-        if let Ok(padding) = Property::resolve(padding) {
-            SideOffset {
-                top: Self::resolve_padding_value(&padding.top, containing_width, font_size_px),
-                right: Self::resolve_padding_value(&padding.right, containing_width, font_size_px),
-                bottom: Self::resolve_padding_value(
-                    &padding.bottom,
-                    containing_width,
-                    font_size_px,
-                ),
-                left: Self::resolve_padding_value(&padding.left, containing_width, font_size_px),
-            }
-        } else {
-            SideOffset::default()
+        let mut padding = SideOffset::default();
+        if let Ok(top) = Property::resolve(&style.padding_top) {
+            padding.top = Self::resolve_padding_value(top, containing_width, font_size_px);
         }
+        if let Ok(right) = Property::resolve(&style.padding_right) {
+            padding.right = Self::resolve_padding_value(right, containing_width, font_size_px);
+        }
+        if let Ok(bottom) = Property::resolve(&style.padding_bottom) {
+            padding.bottom = Self::resolve_padding_value(bottom, containing_width, font_size_px);
+        }
+        if let Ok(left) = Property::resolve(&style.padding_left) {
+            padding.left = Self::resolve_padding_value(left, containing_width, font_size_px);
+        }
+        padding
+    }
+
+    fn resolve_border(style: &ComputedStyle, font_size_px: f32) -> SideOffset {
+        let mut borders = SideOffset::default();
+        if let Ok(top) = Property::resolve(&style.border_top_width) {
+            borders.top = Self::resolve_border_value(top, font_size_px);
+        }
+        if let Ok(right) = Property::resolve(&style.border_right_width) {
+            borders.right = Self::resolve_border_value(right, font_size_px);
+        }
+        if let Ok(bottom) = Property::resolve(&style.border_bottom_width) {
+            borders.bottom = Self::resolve_border_value(bottom, font_size_px);
+        }
+        if let Ok(left) = Property::resolve(&style.border_left_width) {
+            borders.left = Self::resolve_border_value(left, font_size_px);
+        }
+        borders
     }
 
     pub(crate) fn resolve_padding_value(
@@ -107,19 +109,6 @@ impl PropertyResolver {
             OffsetValue::Length(len) => len.to_px(0.0, font_size_px),
             OffsetValue::Percentage(pct) => pct.to_px(containing_width),
             OffsetValue::Auto => 0.0,
-        }
-    }
-
-    pub(crate) fn resolve_node_borders(styled_node: &StyledNode, font_size_px: f32) -> SideOffset {
-        if let Ok(border) = Property::resolve(&styled_node.style.border_width) {
-            SideOffset {
-                top: Self::resolve_border_value(&border.top(), font_size_px),
-                right: Self::resolve_border_value(&border.right(), font_size_px),
-                bottom: Self::resolve_border_value(&border.bottom(), font_size_px),
-                left: Self::resolve_border_value(&border.left(), font_size_px),
-            }
-        } else {
-            SideOffset::default()
         }
     }
 
@@ -155,12 +144,13 @@ impl PropertyResolver {
 
         let font_size = styled_node.style.computed_font_size_px;
 
-        if let (Ok(margin), Ok(node_width)) = (
-            Property::resolve(&styled_node.style.margin),
+        if let (Ok(margin_left), Ok(margin_right), Ok(node_width)) = (
+            Property::resolve(&styled_node.style.margin_left),
+            Property::resolve(&styled_node.style.margin_right),
             Property::resolve(&styled_node.style.width),
         ) {
-            let left_margin = Self::resolve_margin_value(&margin.left, width, font_size);
-            let right_margin = Self::resolve_margin_value(&margin.right, width, font_size);
+            let left_margin = Self::resolve_margin_value(margin_left, width, font_size);
+            let right_margin = Self::resolve_margin_value(margin_right, width, font_size);
             let available_width = f32::min(width - (left_margin + right_margin), max_width);
 
             match &node_width {

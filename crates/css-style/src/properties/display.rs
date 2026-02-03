@@ -181,10 +181,10 @@ impl FromStr for Display {
             },
             2 => {
                 let outside = parts[0]
-                    .parse::<OutsideDisplay>()
+                    .parse()
                     .map_err(|_| format!("Invalid outside display value: {}", parts[0]))?;
                 let inside = parts[1]
-                    .parse::<InsideDisplay>()
+                    .parse()
                     .map_err(|_| format!("Invalid inside display value: {}", parts[1]))?;
 
                 Ok(Display {

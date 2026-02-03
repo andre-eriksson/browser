@@ -2,10 +2,11 @@ use std::str::FromStr;
 
 use crate::primitives::{length::Length, percentage::Percentage};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum Dimension {
     Percentage(Percentage),
     Length(Length),
+    #[default]
     Auto,
     MaxContent,
     MinContent,
@@ -24,10 +25,10 @@ impl FromStr for Dimension {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('%')
-            && let Ok(percentage) = s.parse::<Percentage>()
+            && let Ok(percentage) = s.parse()
         {
             Ok(Self::Percentage(percentage))
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             Ok(Self::Length(length))
         } else if s.eq_ignore_ascii_case("auto") {
             Ok(Self::Auto)
@@ -45,10 +46,11 @@ impl FromStr for Dimension {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum MaxDimension {
     Length(Length),
     Percentage(Percentage),
+    #[default]
     None,
     MaxContent,
     MinContent,
@@ -61,10 +63,10 @@ impl FromStr for MaxDimension {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('%')
-            && let Ok(percentage) = s.parse::<Percentage>()
+            && let Ok(percentage) = s.parse()
         {
             Ok(Self::Percentage(percentage))
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             Ok(Self::Length(length))
         } else if s.eq_ignore_ascii_case("none") {
             Ok(Self::None)

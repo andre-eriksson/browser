@@ -1,18 +1,72 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
+use css_style::{ComputedStyle, Property, StyledNode};
 use html_dom::NodeId;
 
-use crate::primitives::{Color4f, Rect, SideOffset};
+use crate::{
+    mode::block::BlockCursor,
+    primitives::{Color4f, Rect, SideOffset},
+};
+
+#[derive(Debug, Clone, Default)]
+pub struct BorderColor {
+    pub top: Color4f,
+    pub right: Color4f,
+    pub bottom: Color4f,
+    pub left: Color4f,
+}
 
 /// Color properties extracted for rendering
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct LayoutColors {
     /// The background color of the layout node
     pub background_color: Color4f,
 
     /// Text color of the layout node
     pub color: Color4f,
+
+    /// Border color of the layout node
+    pub border_color: BorderColor,
+}
+
+impl From<&ComputedStyle> for LayoutColors {
+    fn from(style: &ComputedStyle) -> Self {
+        let background_color = Color4f::from_css_color_property(&style.background_color);
+        let color = Color4f::from_css_color_property(&style.color);
+        let mut border_color = BorderColor::default();
+
+        if let Ok(top) = Property::resolve(&style.border_top_color) {
+            border_color.top = Color4f::from_css_color(top);
+        }
+        if let Ok(right) = Property::resolve(&style.border_right_color) {
+            border_color.right = Color4f::from_css_color(right);
+        }
+        if let Ok(bottom) = Property::resolve(&style.border_bottom_color) {
+            border_color.bottom = Color4f::from_css_color(bottom);
+        }
+        if let Ok(left) = Property::resolve(&style.border_left_color) {
+            border_color.left = Color4f::from_css_color(left);
+        }
+
+        Self {
+            background_color,
+            color,
+            border_color,
+        }
+    }
+}
+
+impl From<&Box<ComputedStyle>> for LayoutColors {
+    fn from(style: &Box<ComputedStyle>) -> Self {
+        Self::from(style.as_ref())
+    }
+}
+
+impl From<&StyledNode> for LayoutColors {
+    fn from(styled_node: &StyledNode) -> Self {
+        Self::from(&styled_node.style)
+    }
 }
 
 /// A node in the layout tree representing a rendered element
@@ -29,12 +83,6 @@ pub struct LayoutNode {
 
     /// The resolved margin values
     pub resolved_margin: SideOffset,
-
-    /// The collapsed top margin value
-    pub collapsed_margin_top: f32,
-
-    /// The collapsed bottom margin value
-    pub collapsed_margin_bottom: f32,
 
     /// The resolved padding values
     pub resolved_padding: SideOffset,
@@ -54,8 +102,6 @@ impl LayoutNode {
             dimensions: Rect::default(),
             colors: LayoutColors::default(),
             resolved_margin: SideOffset::default(),
-            collapsed_margin_top: 0.0,
-            collapsed_margin_bottom: 0.0,
             resolved_padding: SideOffset::default(),
             text_buffer: None,
             children: Vec::new(),
@@ -77,11 +123,23 @@ pub struct LayoutTree {
 #[derive(Debug, Clone, Default)]
 pub struct LayoutContext {
     /// The containing block's content rect (where children are positioned)
-    pub containing_block: Rect,
+    containing_block: Rect,
 
-    /// The parent node's resolved padding top value
-    pub parent_padding_top: f32,
+    /// The current block cursor position
+    pub block_cursor: BlockCursor,
+}
 
-    /// Whether the current node is the first child of its parent
-    pub is_first_child: bool,
+impl LayoutContext {
+    /// Creates a new LayoutContext with the given containing block
+    pub fn new(containing_block: Rect) -> Self {
+        Self {
+            containing_block,
+            block_cursor: BlockCursor::from(containing_block.y),
+        }
+    }
+
+    /// Returns the containing block rect
+    pub fn containing_block(&self) -> Rect {
+        self.containing_block
+    }
 }

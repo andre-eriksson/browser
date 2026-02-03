@@ -4,9 +4,10 @@ use strum::EnumString;
 
 use crate::primitives::{length::Length, percentage::Percentage};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum WritingMode {
+    #[default]
     HorizontalTb,
     VerticalRl,
     VerticalLr,
@@ -69,9 +70,9 @@ impl FromStr for LineHeight {
             Ok(Self::Normal)
         } else if let Ok(number) = s.parse::<f32>() {
             Ok(Self::Number(number))
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             Ok(Self::Length(length))
-        } else if let Ok(percentage) = s.parse::<Percentage>() {
+        } else if let Ok(percentage) = s.parse() {
             Ok(Self::Percentage(percentage))
         } else {
             Err(format!("Invalid line-height value: {}", s))
