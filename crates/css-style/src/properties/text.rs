@@ -36,6 +36,12 @@ pub enum Whitespace {
     Pre,
     PreWrap,
     PreLine,
+
+    // Shorthands, TODO: expand these into their full equivalents when parsing
+    Nowrap,
+    Wrap,
+    BreakSpaces,
+    Collapse,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]

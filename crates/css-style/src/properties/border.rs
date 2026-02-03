@@ -22,7 +22,11 @@ impl FromStr for BorderWidthValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(length) = s.parse() {
+        if let Ok(num) = s.parse::<f32>()
+            && num == 0.0
+        {
+            Ok(BorderWidthValue::Length(Length::zero()))
+        } else if let Ok(length) = s.parse() {
             Ok(BorderWidthValue::Length(length))
         } else if s.eq_ignore_ascii_case("thin") {
             Ok(BorderWidthValue::Thin)

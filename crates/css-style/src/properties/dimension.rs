@@ -24,7 +24,11 @@ impl FromStr for Dimension {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains('%')
+        if let Ok(num) = s.parse::<f32>()
+            && num == 0.0
+        {
+            Ok(Self::Length(Length::px(0.0)))
+        } else if s.contains('%')
             && let Ok(percentage) = s.parse()
         {
             Ok(Self::Percentage(percentage))

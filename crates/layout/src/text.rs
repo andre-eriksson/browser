@@ -62,6 +62,7 @@ impl TextContext {
         let wrap_mode = match text_description.whitespace {
             Whitespace::Normal | Whitespace::PreLine | Whitespace::PreWrap => Wrap::Word,
             Whitespace::Pre => Wrap::None,
+            _ => Wrap::Word,
         };
 
         if offset_ctx.offset_x == 0.0 {
@@ -132,6 +133,7 @@ impl TextContext {
         let remaining_text = match text_description.whitespace {
             Whitespace::Normal | Whitespace::PreLine => text[first_line_end..].trim_start(),
             Whitespace::Pre | Whitespace::PreWrap => &text[first_line_end..],
+            _ => &text[first_line_end..],
         };
 
         let mut first_buffer = Buffer::new(&mut self.font_system, metrics);

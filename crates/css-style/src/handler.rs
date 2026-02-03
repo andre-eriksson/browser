@@ -375,6 +375,19 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
+    if value.eq_ignore_ascii_case("none") {
+        Property::update_multiple(
+            &mut [
+                &mut ctx.computed_style.border_top_style,
+                &mut ctx.computed_style.border_right_style,
+                &mut ctx.computed_style.border_bottom_style,
+                &mut ctx.computed_style.border_left_style,
+            ],
+            BorderStyleValue::None.into(),
+        );
+        return;
+    }
+
     let parts = value.split_whitespace().collect::<Vec<&str>>();
 
     for part in parts {
@@ -387,12 +400,6 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
                     &mut ctx.computed_style.border_left_width,
                 ],
                 width.into(),
-            );
-        } else {
-            ctx.record_error(
-                "border",
-                value,
-                format!("Invalid BorderWidthValue: {}", part),
             );
         }
 

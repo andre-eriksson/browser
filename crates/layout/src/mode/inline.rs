@@ -127,6 +127,7 @@ impl InlineLayout {
                             }
                         }
                     }
+                    _ => {}
                 }
             } else {
                 return Err(());

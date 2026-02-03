@@ -1,15 +1,12 @@
 use std::str::FromStr;
 
-use strum::EnumString;
-
 use crate::primitives::{
     font::{AbsoluteSize, GenericName, RelativeSize},
     length::Length,
     percentage::Percentage,
 };
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FontWeight {
     Thin = 100,
     ExtraLight = 200,
@@ -21,6 +18,43 @@ pub enum FontWeight {
     Bold = 700,
     ExtraBold = 800,
     Black = 900,
+}
+
+impl TryFrom<u16> for FontWeight {
+    type Error = String;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            100 => Ok(FontWeight::Thin),
+            200 => Ok(FontWeight::ExtraLight),
+            300 => Ok(FontWeight::Light),
+            400 => Ok(FontWeight::Normal),
+            500 => Ok(FontWeight::Medium),
+            600 => Ok(FontWeight::SemiBold),
+            700 => Ok(FontWeight::Bold),
+            800 => Ok(FontWeight::ExtraBold),
+            900 => Ok(FontWeight::Black),
+            _ => Err(format!("Invalid font weight numeric value: {}", value)),
+        }
+    }
+}
+
+impl FromStr for FontWeight {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(num) = s.parse::<u16>()
+            && let Ok(font) = FontWeight::try_from(num)
+        {
+            Ok(font)
+        } else if s.eq_ignore_ascii_case("normal") {
+            Ok(FontWeight::Normal)
+        } else if s.eq_ignore_ascii_case("bold") {
+            Ok(FontWeight::Bold)
+        } else {
+            Err(format!("Invalid font weight value: {}", s))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
