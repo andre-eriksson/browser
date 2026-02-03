@@ -9,6 +9,12 @@ pub enum OffsetValue {
     Auto,
 }
 
+impl Default for OffsetValue {
+    fn default() -> Self {
+        OffsetValue::zero()
+    }
+}
+
 impl OffsetValue {
     pub fn zero() -> Self {
         Self::Length(Length::zero())

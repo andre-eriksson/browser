@@ -89,6 +89,12 @@ pub enum FontSize {
     Percentage(Percentage),
 }
 
+impl Default for FontSize {
+    fn default() -> Self {
+        FontSize::Absolute(AbsoluteSize::Medium)
+    }
+}
+
 impl FontSize {
     pub fn px(value: f32) -> Self {
         Self::Length(Length::px(value))

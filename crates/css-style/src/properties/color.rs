@@ -12,6 +12,12 @@ pub enum Color {
     Transparent,
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Color::Named(NamedColor::Black)
+    }
+}
+
 impl FromStr for Color {
     type Err = String;
 

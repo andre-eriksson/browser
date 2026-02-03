@@ -2,10 +2,11 @@ use std::str::FromStr;
 
 use crate::primitives::{length::Length, percentage::Percentage};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum Dimension {
     Percentage(Percentage),
     Length(Length),
+    #[default]
     Auto,
     MaxContent,
     MinContent,
@@ -45,10 +46,11 @@ impl FromStr for Dimension {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum MaxDimension {
     Length(Length),
     Percentage(Percentage),
+    #[default]
     None,
     MaxContent,
     MinContent,

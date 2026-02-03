@@ -12,6 +12,12 @@ pub enum BorderWidthValue {
     Thick,
 }
 
+impl Default for BorderWidthValue {
+    fn default() -> Self {
+        BorderWidthValue::Length(Length::px(0.0))
+    }
+}
+
 impl FromStr for BorderWidthValue {
     type Err = String;
 
@@ -163,9 +169,10 @@ impl FromStr for BorderWidth {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum BorderStyleValue {
+    #[default]
     None,
     Hidden,
     Dotted,
@@ -178,7 +185,7 @@ pub enum BorderStyleValue {
     Outset,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
 pub struct BorderStyle {
     top: BorderStyleValue,
     right: BorderStyleValue,
