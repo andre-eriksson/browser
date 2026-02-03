@@ -68,7 +68,7 @@ impl FromStr for FontFamily {
             .split(',')
             .map(|name| name.trim())
             .map(|name| {
-                if let Ok(generic) = name.parse::<GenericName>() {
+                if let Ok(generic) = name.parse() {
                     FontFamilyName::Generic(generic)
                 } else {
                     let unquoted = name.trim_matches('\'').trim_matches('"').to_string();
@@ -110,13 +110,13 @@ impl FromStr for FontSize {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
 
-        if let Ok(abs_size) = s.parse::<AbsoluteSize>() {
+        if let Ok(abs_size) = s.parse() {
             Ok(FontSize::Absolute(abs_size))
-        } else if let Ok(rel_size) = s.parse::<RelativeSize>() {
+        } else if let Ok(rel_size) = s.parse() {
             Ok(FontSize::Relative(rel_size))
         } else if s.ends_with('%') {
-            Ok(FontSize::Percentage(s.parse::<Percentage>()?))
-        } else if let Ok(length) = s.parse::<Length>() {
+            Ok(FontSize::Percentage(s.parse()?))
+        } else if let Ok(length) = s.parse() {
             Ok(FontSize::Length(length))
         } else {
             Err(format!("Invalid font size value: {}", s))

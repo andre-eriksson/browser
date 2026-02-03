@@ -16,7 +16,7 @@ impl FromStr for BorderWidthValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(length) = s.parse::<Length>() {
+        if let Ok(length) = s.parse() {
             Ok(BorderWidthValue::Length(length))
         } else if s.eq_ignore_ascii_case("thin") {
             Ok(BorderWidthValue::Thin)
@@ -97,7 +97,7 @@ impl FromStr for BorderWidth {
         match parts.len() {
             1 => {
                 let width = parts[0]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
 
                 Ok(BorderWidth {
@@ -109,10 +109,10 @@ impl FromStr for BorderWidth {
             }
             2 => {
                 let vertical = parts[0]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
                 let horizontal = parts[1]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
                 Ok(BorderWidth {
                     top: vertical,
@@ -123,13 +123,13 @@ impl FromStr for BorderWidth {
             }
             3 => {
                 let top = parts[0]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
                 let horizontal = parts[1]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
                 let bottom = parts[2]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[2]))?;
                 Ok(BorderWidth {
                     top,
@@ -140,16 +140,16 @@ impl FromStr for BorderWidth {
             }
             4 => {
                 let top = parts[0]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
                 let right = parts[1]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
                 let bottom = parts[2]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[2]))?;
                 let left = parts[3]
-                    .parse::<BorderWidthValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border width: {}", parts[3]))?;
                 Ok(BorderWidth {
                     top,
@@ -231,7 +231,7 @@ impl FromStr for BorderStyle {
         match parts.len() {
             1 => {
                 let style = parts[0]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
 
                 Ok(BorderStyle {
@@ -243,10 +243,10 @@ impl FromStr for BorderStyle {
             }
             2 => {
                 let top_bottom = parts[0]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
                 let left_right = parts[1]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[1]))?;
                 Ok(BorderStyle {
                     top: top_bottom,
@@ -257,13 +257,13 @@ impl FromStr for BorderStyle {
             }
             3 => {
                 let top = parts[0]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
                 let left_right = parts[1]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[1]))?;
                 let bottom = parts[2]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[2]))?;
                 Ok(BorderStyle {
                     top,
@@ -274,16 +274,16 @@ impl FromStr for BorderStyle {
             }
             4 => {
                 let top = parts[0]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
                 let right = parts[1]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[1]))?;
                 let bottom = parts[2]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[2]))?;
                 let left = parts[3]
-                    .parse::<BorderStyleValue>()
+                    .parse()
                     .map_err(|_| format!("Invalid border style: {}", parts[3]))?;
                 Ok(BorderStyle {
                     top,
@@ -341,7 +341,7 @@ impl FromStr for BorderColor {
         match parts.len() {
             1 => {
                 let color = parts[0]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[0]))?;
 
                 Ok(BorderColor {
@@ -353,10 +353,10 @@ impl FromStr for BorderColor {
             }
             2 => {
                 let top_bottom = parts[0]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[0]))?;
                 let left_right = parts[1]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[1]))?;
                 Ok(BorderColor {
                     top: top_bottom,
@@ -367,13 +367,13 @@ impl FromStr for BorderColor {
             }
             3 => {
                 let top = parts[0]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[0]))?;
                 let left_right = parts[1]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[1]))?;
                 let bottom = parts[2]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[2]))?;
                 Ok(BorderColor {
                     top,
@@ -384,16 +384,16 @@ impl FromStr for BorderColor {
             }
             4 => {
                 let top = parts[0]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[0]))?;
                 let right = parts[1]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[1]))?;
                 let bottom = parts[2]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[2]))?;
                 let left = parts[3]
-                    .parse::<Color>()
+                    .parse()
                     .map_err(|_| format!("Invalid color: {}", parts[3]))?;
                 Ok(BorderColor {
                     top,

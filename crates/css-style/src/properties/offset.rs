@@ -23,11 +23,17 @@ impl FromStr for OffsetValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(num) = s.parse::<f32>()
+            && num == 0.0
+        {
+            return Ok(Self::zero());
+        }
+
         if s.contains('%') {
-            if let Ok(percentage) = s.parse::<Percentage>() {
+            if let Ok(percentage) = s.parse() {
                 return Ok(Self::Percentage(percentage));
             }
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             return Ok(Self::Length(length));
         } else if s.eq_ignore_ascii_case("auto") {
             return Ok(Self::Auto);
@@ -104,7 +110,7 @@ impl FromStr for Offset {
         let parts: Vec<&str> = s.split_whitespace().collect();
         match parts.len() {
             1 => {
-                let value = parts[0].parse::<OffsetValue>()?;
+                let value = parts[0].parse()?;
                 Ok(Offset {
                     top: value,
                     right: value,
@@ -113,8 +119,8 @@ impl FromStr for Offset {
                 })
             }
             2 => {
-                let vertical = parts[0].parse::<OffsetValue>()?;
-                let horizontal = parts[1].parse::<OffsetValue>()?;
+                let vertical = parts[0].parse()?;
+                let horizontal = parts[1].parse()?;
                 Ok(Offset {
                     top: vertical,
                     right: horizontal,
@@ -123,9 +129,9 @@ impl FromStr for Offset {
                 })
             }
             3 => {
-                let top = parts[0].parse::<OffsetValue>()?;
-                let horizontal = parts[1].parse::<OffsetValue>()?;
-                let bottom = parts[2].parse::<OffsetValue>()?;
+                let top = parts[0].parse()?;
+                let horizontal = parts[1].parse()?;
+                let bottom = parts[2].parse()?;
                 Ok(Offset {
                     top,
                     right: horizontal,
@@ -134,10 +140,10 @@ impl FromStr for Offset {
                 })
             }
             4 => {
-                let top = parts[0].parse::<OffsetValue>()?;
-                let right = parts[1].parse::<OffsetValue>()?;
-                let bottom = parts[2].parse::<OffsetValue>()?;
-                let left = parts[3].parse::<OffsetValue>()?;
+                let top = parts[0].parse()?;
+                let right = parts[1].parse()?;
+                let bottom = parts[2].parse()?;
+                let left = parts[3].parse()?;
                 Ok(Offset {
                     top,
                     right,

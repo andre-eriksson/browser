@@ -23,14 +23,14 @@ impl FromStr for Color {
         } else if s.eq_ignore_ascii_case("transparent") {
             Ok(Self::Transparent)
         } else if s.starts_with('#')
-            && let Ok(hex_color) = s.parse::<SRGBAColor>()
+            && let Ok(hex_color) = s.parse()
         {
             Ok(Self::Hex(hex_color))
-        } else if let Ok(function_color) = s.parse::<FunctionColor>() {
+        } else if let Ok(function_color) = s.parse() {
             Ok(Self::Functional(function_color))
-        } else if let Ok(system_color) = s.parse::<SystemColor>() {
+        } else if let Ok(system_color) = s.parse() {
             Ok(Self::System(system_color))
-        } else if let Ok(named_color) = s.parse::<NamedColor>() {
+        } else if let Ok(named_color) = s.parse() {
             Ok(Self::Named(named_color))
         } else {
             Err(format!("Invalid color value: {}", s))

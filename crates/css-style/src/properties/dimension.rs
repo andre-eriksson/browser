@@ -24,10 +24,10 @@ impl FromStr for Dimension {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('%')
-            && let Ok(percentage) = s.parse::<Percentage>()
+            && let Ok(percentage) = s.parse()
         {
             Ok(Self::Percentage(percentage))
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             Ok(Self::Length(length))
         } else if s.eq_ignore_ascii_case("auto") {
             Ok(Self::Auto)
@@ -61,10 +61,10 @@ impl FromStr for MaxDimension {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains('%')
-            && let Ok(percentage) = s.parse::<Percentage>()
+            && let Ok(percentage) = s.parse()
         {
             Ok(Self::Percentage(percentage))
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             Ok(Self::Length(length))
         } else if s.eq_ignore_ascii_case("none") {
             Ok(Self::None)

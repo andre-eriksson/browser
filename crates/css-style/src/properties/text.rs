@@ -69,9 +69,9 @@ impl FromStr for LineHeight {
             Ok(Self::Normal)
         } else if let Ok(number) = s.parse::<f32>() {
             Ok(Self::Number(number))
-        } else if let Ok(length) = s.parse::<Length>() {
+        } else if let Ok(length) = s.parse() {
             Ok(Self::Length(length))
-        } else if let Ok(percentage) = s.parse::<Percentage>() {
+        } else if let Ok(percentage) = s.parse() {
             Ok(Self::Percentage(percentage))
         } else {
             Err(format!("Invalid line-height value: {}", s))
