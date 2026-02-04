@@ -31,8 +31,5 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(output: VertexOutput) -> @location(0) vec4<f32> {
-
-    let srgb = pow(output.frag_color.rgb, vec3<f32>(1.0 / 2.2));
-
-    return vec4<f32>(srgb, output.frag_color.a);
+    return vec4<f32>(output.frag_color.rgba);
 }

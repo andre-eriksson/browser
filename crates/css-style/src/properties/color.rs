@@ -1,12 +1,18 @@
 use std::str::FromStr;
 
-use crate::primitives::color::{FunctionColor, NamedColor, SRGBAColor, SystemColor};
+use crate::{
+    color::{
+        hex::HexColor,
+        named::{NamedColor, SystemColor},
+    },
+    primitives::color::FunctionColor,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
     System(SystemColor),
     Named(NamedColor),
-    Hex(SRGBAColor),
+    Hex(HexColor),
     Functional(FunctionColor),
     Current,
     Transparent,

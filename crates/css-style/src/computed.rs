@@ -3,6 +3,7 @@ use html_dom::{DocumentRoot, NodeId};
 use crate::{
     BorderStyleValue, BorderWidthValue, OffsetValue,
     cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
+    color::named::NamedColor,
     handler::{
         PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
         handle_border_bottom_style, handle_border_bottom_width, handle_border_left_color,
@@ -20,7 +21,6 @@ use crate::{
     },
     length::Length,
     primitives::{
-        color::NamedColor,
         display::{InsideDisplay, OutsideDisplay},
         font::{AbsoluteSize, GenericName},
     },

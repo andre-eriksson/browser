@@ -25,6 +25,22 @@ impl Angle {
             Angle::Turn(v) => v * 360.0,
         }
     }
+
+    pub fn from_degrees(deg: f32) -> Self {
+        Angle::Deg(deg)
+    }
+
+    pub fn from_radians(rad: f32) -> Self {
+        Angle::Rad(rad)
+    }
+
+    pub fn from_gradians(grad: f32) -> Self {
+        Angle::Grad(grad)
+    }
+
+    pub fn from_turns(turn: f32) -> Self {
+        Angle::Turn(turn)
+    }
 }
 
 impl FromStr for Angle {

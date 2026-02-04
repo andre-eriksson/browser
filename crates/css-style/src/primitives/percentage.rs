@@ -10,8 +10,22 @@ impl Percentage {
         Self { value }
     }
 
+    pub fn from_fraction(fraction: f32) -> Self {
+        Self {
+            value: fraction * 100.0,
+        }
+    }
+
+    pub fn from_percent(value: f32) -> Self {
+        Self { value }
+    }
+
     pub fn value(&self) -> f32 {
         self.value
+    }
+
+    pub fn as_fraction(&self) -> f32 {
+        self.value / 100.0
     }
 
     pub fn to_px(self, parent_px: f32) -> f32 {

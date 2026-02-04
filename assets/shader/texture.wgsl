@@ -45,10 +45,8 @@ fn fs_text(input: VertexOutput) -> @location(0) vec4<f32> {
     let glyph_alpha = textureSample(t_texture, s_texture, input.frag_uv).r;
     let final_alpha = glyph_alpha * input.frag_color.a;
 
-    let srgb = pow(input.frag_color.rgb, vec3<f32>(1.0 / 2.2));
-
     return vec4<f32>(
-        srgb * final_alpha,
+        input.frag_color.rgb * final_alpha,
         final_alpha
     );
 }

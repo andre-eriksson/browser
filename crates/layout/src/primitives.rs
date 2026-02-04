@@ -1,6 +1,6 @@
 use css_style::{
     Color, Property,
-    color::{FunctionColor, NamedColor, Oklab, SRGBAColor},
+    color::{ColorValue, FunctionColor, Hue, named::NamedColor, oklab::Oklab, srgba::SRGBAColor},
 };
 
 /// Rectangle representation for layout dimensions and positions
@@ -42,17 +42,12 @@ impl Color4f {
     pub fn from_css_color(color: &Color) -> Self {
         match color {
             Color::Named(named) => Self::from_named_color(named),
-            Color::Hex(srgb) => {
-                match srgb {
-                    SRGBAColor::Rgb(r, g, b) => {
-                        Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
-                    }
-                    SRGBAColor::Rgba(r, g, b, a) => {
-                        Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, *a)
-                    }
-                    _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HSL/HSLA/HWB
-                }
-            }
+            Color::Hex(hex) => Self {
+                r: hex.r as f32 / 255.0,
+                g: hex.g as f32 / 255.0,
+                b: hex.b as f32 / 255.0,
+                a: hex.a as f32 / 255.0,
+            },
             Color::Functional(func) => Self::from_functional_color(func),
             Color::Current => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle currentColor properly
             Color::System(_) => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: Handle system colors
@@ -83,7 +78,10 @@ impl Color4f {
 
     pub fn from_oklab(oklab: Oklab) -> Self {
         match oklab {
-            Oklab::Oklab(l, a, b) => {
+            Oklab::Oklab(l, a, b, alpha) => {
+                let l = l.as_number();
+                let a = a.as_number();
+                let b = b.as_number();
                 let l_ = l + 0.396_337_78 * a + 0.215_803_76 * b;
                 let m_ = l - 0.105_561_346 * a - 0.063_854_17 * b;
                 let s_ = l - 0.089_484_18 * a - 1.291_485_5 * b;
@@ -96,14 +94,22 @@ impl Color4f {
                     r: 4.076_741_7 * l_lin - 3.307_711_6 * m_lin + 0.230_969_94 * s_lin,
                     g: -1.268_438 * l_lin + 2.609_757_4 * m_lin - 0.341_319_38 * s_lin,
                     b: -0.0041960863 * l_lin - 0.703_419 * m_lin + 1.707_614_7 * s_lin,
-                    a: 1.0,
+                    a: alpha.as_fraction(),
                 }
             }
-            Oklab::Oklch(l, c, h) => {
-                let h_rad = h.to_radians();
-                let a = c * h_rad.cos();
-                let b = c * h_rad.sin();
-                Self::from_oklab(Oklab::Oklab(l, a, b))
+            Oklab::Oklch(l, c, h, alpha) => {
+                let h_rad = match h {
+                    Hue::Angle(deg) => deg.to_degrees().to_radians(),
+                    Hue::Number(num) => num * std::f32::consts::TAU,
+                };
+                let a = c.as_number() * h_rad.cos();
+                let b = c.as_number() * h_rad.sin();
+                Self::from_oklab(Oklab::Oklab(
+                    l,
+                    ColorValue::Number(a),
+                    ColorValue::Number(b),
+                    alpha,
+                ))
             }
         }
     }
@@ -111,13 +117,42 @@ impl Color4f {
     fn from_functional_color(func: &FunctionColor) -> Self {
         match func {
             FunctionColor::Srgba(srgba) => match srgba {
-                SRGBAColor::Rgb(r, g, b) => {
-                    Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0)
+                SRGBAColor::Rgb(r, g, b, a) => Self::new(
+                    r.as_number() / 255.0,
+                    g.as_number() / 255.0,
+                    b.as_number() / 255.0,
+                    a.as_fraction(),
+                ),
+                SRGBAColor::Hsl(h, s, l, a) => {
+                    let h_deg = match h {
+                        Hue::Angle(deg) => deg.to_degrees(),
+                        Hue::Number(num) => *num,
+                    };
+
+                    let s = s.as_fraction();
+                    let l = l.as_fraction();
+
+                    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+                    let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
+                    let m = l - c / 2.0;
+
+                    let (r1, g1, b1) = if (0.0..60.0).contains(&h_deg) {
+                        (c, x, 0.0)
+                    } else if (60.0..120.0).contains(&h_deg) {
+                        (x, c, 0.0)
+                    } else if (120.0..180.0).contains(&h_deg) {
+                        (0.0, c, x)
+                    } else if (180.0..240.0).contains(&h_deg) {
+                        (0.0, x, c)
+                    } else if (240.0..300.0).contains(&h_deg) {
+                        (x, 0.0, c)
+                    } else {
+                        (c, 0.0, x)
+                    };
+
+                    Self::new(r1 + m, g1 + m, b1 + m, a.as_fraction())
                 }
-                SRGBAColor::Rgba(r, g, b, a) => {
-                    Self::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, *a)
-                }
-                _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HSL/HSLA/HWB
+                _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HWB
             },
             FunctionColor::Oklab(oklab) => Self::from_oklab(*oklab),
             _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: CIELAB
