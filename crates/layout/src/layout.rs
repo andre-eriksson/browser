@@ -119,6 +119,30 @@ pub struct LayoutTree {
     pub content_height: f32,
 }
 
+impl LayoutTree {
+    /// Resolves the layout node at the given (x, y) coordinates
+    pub fn resolve(&self, x: f32, y: f32) -> Option<&LayoutNode> {
+        for node in &self.root_nodes {
+            if let Some(found) = Self::resolve_in_node(node, x, y) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    fn resolve_in_node(node: &LayoutNode, x: f32, y: f32) -> Option<&LayoutNode> {
+        if node.dimensions.contains_point(x, y) {
+            for child in &node.children {
+                if let Some(found) = Self::resolve_in_node(child, x, y) {
+                    return Some(found);
+                }
+            }
+            return Some(node);
+        }
+        None
+    }
+}
+
 /// Context passed down during layout computation
 #[derive(Debug, Clone, Default)]
 pub struct LayoutContext {

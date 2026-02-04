@@ -1,9 +1,13 @@
+use html_dom::{DocumentRoot, HtmlTag, Tag};
 use iced::{
     Rectangle,
     advanced::graphics::text::cosmic_text::FontSystem,
-    mouse::Cursor,
+    mouse::{self, Cursor},
     wgpu::{self, RenderPass},
-    widget::shader::{Pipeline, Primitive, Program, Viewport},
+    widget::{
+        Action,
+        shader::{Pipeline, Primitive, Program, Viewport},
+    },
 };
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{GlyphAtlas, RectPipeline, RenderRect, TextBlockInfo, TexturePipeline};
@@ -176,17 +180,33 @@ impl Primitive for HtmlPrimitive {
 }
 
 /// HTML/CSS renderer using wgpu
-#[derive(Debug, Clone, Default)]
-pub struct HtmlRenderer {
+#[derive(Debug, Clone)]
+pub struct HtmlRenderer<'a> {
     /// Rectangles to render (populated by layout engine)
     pub rects: Vec<RenderRect>,
     /// Text blocks to render (populated by layout engine)
     pub text_blocks: Vec<TextBlockInfo>,
     /// The scroll offset for viewport-based rendering
     pub scroll_offset: ScrollOffset,
+
+    /// The DOM tree being rendered
+    pub dom_tree: &'a DocumentRoot,
+
+    /// The layout tree being rendered
+    pub layout_tree: &'a LayoutTree,
 }
 
-impl HtmlRenderer {
+impl<'a> HtmlRenderer<'a> {
+    pub fn new(dom_tree: &'a DocumentRoot, layout_tree: &'a LayoutTree) -> Self {
+        Self {
+            rects: Vec::new(),
+            text_blocks: Vec::new(),
+            scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
+            dom_tree,
+            layout_tree,
+        }
+    }
+
     pub fn clear(&mut self) {
         self.rects.clear();
         self.text_blocks.clear();
@@ -207,11 +227,13 @@ impl HtmlRenderer {
 
 /// State for the shader widget
 #[derive(Default)]
-pub struct ShaderState;
+pub struct HtmlProgram;
 
-impl Program<Event> for HtmlRenderer {
+pub const UI_VERTICAL_OFFSET: f32 = 95.0;
+
+impl<'a> Program<Event> for HtmlRenderer<'a> {
     type Primitive = HtmlPrimitive;
-    type State = ShaderState;
+    type State = HtmlProgram;
 
     fn draw(&self, _state: &Self::State, _cursor: Cursor, bounds: Rectangle) -> Self::Primitive {
         let mut primitive = HtmlPrimitive::new(bounds.width, bounds.height, self.scroll_offset);
@@ -225,6 +247,81 @@ impl Program<Event> for HtmlRenderer {
         }
 
         primitive
+    }
+
+    fn update(
+        &self,
+        _state: &mut Self::State,
+        event: &iced::Event,
+        _bounds: Rectangle,
+        cursor: iced::advanced::mouse::Cursor,
+    ) -> Option<iced::widget::Action<Event>> {
+        if let Some(position) = cursor.position() {
+            let x = position.x + self.scroll_offset.x;
+            let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+
+            let node = self.layout_tree.resolve(x, y)?;
+
+            let parent_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
+                dom_node.parent
+            } else {
+                return None;
+            };
+
+            if let Some(node) = parent_node
+                && let Some(element) = self
+                    .dom_tree
+                    .get_node(&node)
+                    .and_then(|n| n.data.as_element())
+                && element.tag == Tag::Html(HtmlTag::A)
+                && let iced::Event::Mouse(e) = event
+                && let mouse::Event::ButtonReleased(_) = e
+            {
+                return Some(Action::publish(Event::Browser(
+                    browser_core::BrowserEvent::NavigateTo(
+                        element.attributes.get("href").cloned().unwrap_or_default(),
+                    ),
+                )));
+            }
+        }
+
+        None
+    }
+
+    fn mouse_interaction(
+        &self,
+        _state: &Self::State,
+        _bounds: Rectangle,
+        cursor: iced::advanced::mouse::Cursor,
+    ) -> iced::advanced::mouse::Interaction {
+        if let Some(position) = cursor.position() {
+            let x = position.x + self.scroll_offset.x;
+            let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+
+            let node = if let Some(node) = self.layout_tree.resolve(x, y) {
+                node
+            } else {
+                return iced::advanced::mouse::Interaction::default();
+            };
+
+            let parent_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
+                dom_node.parent
+            } else {
+                return iced::advanced::mouse::Interaction::default();
+            };
+
+            if let Some(node) = parent_node
+                && let Some(element) = self
+                    .dom_tree
+                    .get_node(&node)
+                    .and_then(|n| n.data.as_element())
+                && element.tag == Tag::Html(HtmlTag::A)
+            {
+                return iced::advanced::mouse::Interaction::Pointer;
+            }
+        }
+
+        iced::advanced::mouse::Interaction::default()
     }
 }
 
@@ -256,11 +353,12 @@ impl ViewportBounds {
 }
 
 /// Helper function to collect all render data from a layout tree with viewport culling
-pub fn collect_render_data_from_layout(
-    layout_tree: &LayoutTree,
+pub fn collect_render_data_from_layout<'a>(
+    dom_tree: &'a DocumentRoot,
+    layout_tree: &'a LayoutTree,
     viewport: Option<ViewportBounds>,
-) -> HtmlRenderer {
-    let mut data = HtmlRenderer::default();
+) -> HtmlRenderer<'a> {
+    let mut data = HtmlRenderer::new(dom_tree, layout_tree);
 
     fn collect_node(node: &LayoutNode, data: &mut HtmlRenderer, viewport: Option<&ViewportBounds>) {
         if let Some(vp) = viewport

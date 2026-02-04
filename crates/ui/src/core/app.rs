@@ -15,6 +15,7 @@ use regex::Regex;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{error, warn};
+use url::Url;
 
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::UiEvent;
@@ -222,90 +223,96 @@ impl Application {
                 }
             },
 
-            Event::Browser(browser_event) => {
-                match browser_event {
-                    BrowserEvent::TabAdded(new_tab_id) => {
-                        let new_tab = UiTab::new(new_tab_id);
-                        self.tabs.push(new_tab);
-                    }
-                    BrowserEvent::TabClosed(tab_id, next_tab_id) => {
-                        self.tabs.retain(|tab| tab.id != tab_id);
+            Event::Browser(browser_event) => match browser_event {
+                BrowserEvent::TabAdded(new_tab_id) => {
+                    let new_tab = UiTab::new(new_tab_id);
+                    self.tabs.push(new_tab);
+                }
+                BrowserEvent::TabClosed(tab_id, next_tab_id) => {
+                    self.tabs.retain(|tab| tab.id != tab_id);
 
-                        if let Some(next_id) = next_tab_id {
-                            self.active_tab = next_id;
-                        }
-                    }
-                    BrowserEvent::ActiveTabChanged(tab_id) => {
-                        self.active_tab = tab_id;
-                    }
-
-                    BrowserEvent::NavigateTo(new_url) => {
-                        let browser = self.browser.clone();
-                        let active_tab = self.active_tab;
-
-                        let local_regex = Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
-
-                        let adjusted_url =
-                            if new_url.starts_with("http://") || new_url.starts_with("https://") {
-                                new_url
-                            } else if local_regex.is_match(new_url.as_str()) {
-                                format!("http://{}", new_url)
-                            } else {
-                                format!("https://{}", new_url)
-                            };
-
-                        self.current_url = adjusted_url.clone();
-
-                        return Task::perform(
-                            async move {
-                                let mut lock = browser.lock().await;
-                                lock.execute(BrowserCommand::Navigate {
-                                    tab_id: active_tab,
-                                    url: adjusted_url,
-                                })
-                                .await
-                            },
-                            |result| match result {
-                                Ok(task) => Event::Browser(task),
-                                Err(err) => match err {
-                                    BrowserError::NavigationError(err) => {
-                                        Event::Browser(BrowserEvent::NavigateError(err))
-                                    }
-                                    err => {
-                                        error!("Browser error: {}", err);
-                                        Event::None
-                                    }
-                                },
-                            },
-                        );
-                    }
-                    BrowserEvent::NavigateSuccess(tab_id, page) => {
-                        let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
-
-                        if let Some(tab) = current_tab {
-                            let style_tree = StyleTree::build(page.document(), page.stylesheets());
-
-                            let layout_tree = LayoutEngine::compute_layout(
-                                &style_tree,
-                                self.viewports
-                                    .get(&self.id)
-                                    .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
-                                    .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
-                                &mut self.text_context,
-                            );
-
-                            tab.document = page.document().clone();
-                            tab.stylesheets = page.stylesheets().clone();
-                            tab.current_url = Some(self.current_url.parse().unwrap());
-                            tab.layout_tree = layout_tree;
-                            tab.title = Some(page.title().to_string());
-                        }
-                    }
-                    BrowserEvent::NavigateError(err) => {
-                        warn!("{}", err);
+                    if let Some(next_id) = next_tab_id {
+                        self.active_tab = next_id;
                     }
                 }
-            }
+                BrowserEvent::ActiveTabChanged(tab_id) => {
+                    self.active_tab = tab_id;
+                }
+
+                BrowserEvent::NavigateTo(new_url) => {
+                    let browser = self.browser.clone();
+                    let active_tab = self.active_tab;
+                    let current_url = self.current_url.clone();
+                    let relative = Url::parse(&current_url)
+                        .ok()
+                        .and_then(|base| base.join(&new_url).ok())
+                        .map(|url| url.to_string());
+
+                    let url = if let Some(rel_url) = relative {
+                        rel_url
+                    } else {
+                        let local_regex = Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
+
+                        if new_url.starts_with("http://") || new_url.starts_with("https://") {
+                            new_url
+                        } else if local_regex.is_match(new_url.as_str()) {
+                            format!("http://{}", new_url)
+                        } else {
+                            format!("https://{}", new_url)
+                        }
+                    };
+
+                    self.current_url = url.clone();
+
+                    return Task::perform(
+                        async move {
+                            let mut lock = browser.lock().await;
+                            lock.execute(BrowserCommand::Navigate {
+                                tab_id: active_tab,
+                                url,
+                            })
+                            .await
+                        },
+                        |result| match result {
+                            Ok(task) => Event::Browser(task),
+                            Err(err) => match err {
+                                BrowserError::NavigationError(err) => {
+                                    Event::Browser(BrowserEvent::NavigateError(err))
+                                }
+                                err => {
+                                    error!("Browser error: {}", err);
+                                    Event::None
+                                }
+                            },
+                        },
+                    );
+                }
+                BrowserEvent::NavigateSuccess(tab_id, page) => {
+                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
+
+                    if let Some(tab) = current_tab {
+                        let style_tree = StyleTree::build(page.document(), page.stylesheets());
+
+                        let layout_tree = LayoutEngine::compute_layout(
+                            &style_tree,
+                            self.viewports
+                                .get(&self.id)
+                                .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
+                                .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
+                            &mut self.text_context,
+                        );
+
+                        tab.document = page.document().clone();
+                        tab.stylesheets = page.stylesheets().clone();
+                        tab.current_url = Some(self.current_url.parse().unwrap());
+                        tab.layout_tree = layout_tree;
+                        tab.title = Some(page.title().to_string());
+                    }
+                }
+                BrowserEvent::NavigateError(err) => {
+                    warn!("{}", err);
+                }
+            },
         }
         Task::none()
     }

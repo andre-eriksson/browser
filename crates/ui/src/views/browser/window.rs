@@ -25,7 +25,18 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
     ) -> iced::Element<'window, Event, Theme, Renderer> {
         let header = BrowserHeader::render(app);
         let footer = BrowserFooter::render(app);
-        let mut renderer = HtmlRenderer::default();
+
+        let (dom, layout) = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
+            Some(tab) => (&tab.document, &tab.layout_tree),
+            None => {
+                return container(column![header, footer].spacing(10.0))
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into();
+            }
+        };
+
+        let mut renderer = HtmlRenderer::new(dom, layout);
 
         let active_tab = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
             Some(tab) => tab,

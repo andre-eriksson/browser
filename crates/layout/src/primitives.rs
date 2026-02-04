@@ -22,6 +22,10 @@ impl Rect {
             height,
         }
     }
+
+    pub fn contains_point(&self, px: f32, py: f32) -> bool {
+        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
+    }
 }
 
 /// RGBA color representation for rendering (values 0.0-1.0)

@@ -17,12 +17,12 @@ use crate::{
     },
 };
 
-pub struct BrowserHtml {
-    renderer: HtmlRenderer,
+pub struct BrowserHtml<'h> {
+    renderer: HtmlRenderer<'h>,
 }
 
-impl BrowserHtml {
-    pub fn new(renderer: HtmlRenderer) -> Self {
+impl<'h> BrowserHtml<'h> {
+    pub fn new(renderer: HtmlRenderer<'h>) -> Self {
         Self { renderer }
     }
 
@@ -30,7 +30,10 @@ impl BrowserHtml {
         mut self,
         app: &'a Application,
         active_tab: &'a UiTab,
-    ) -> container::Container<'a, Event> {
+    ) -> container::Container<'a, Event>
+    where
+        'h: 'a,
+    {
         let (_, viewport_height) = app
             .viewports
             .get(&app.id)
@@ -42,8 +45,11 @@ impl BrowserHtml {
         let viewport_bounds =
             ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);
 
-        let render_data =
-            collect_render_data_from_layout(&active_tab.layout_tree, Some(viewport_bounds));
+        let render_data = collect_render_data_from_layout(
+            &active_tab.document,
+            &active_tab.layout_tree,
+            Some(viewport_bounds),
+        );
         self.renderer.set_rects(render_data.rects);
         self.renderer.set_text_blocks(render_data.text_blocks);
         self.renderer.set_scroll_offset(active_tab.scroll_offset);
@@ -74,7 +80,7 @@ impl BrowserHtml {
         container(content_stack)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(|_| container::Style {
+            .style(move |_| container::Style {
                 background: Some(Background::Color(
                     Color::from_str(app.config.theme().background.as_str()).unwrap_or(
                         Color::from_str(&browser_config::Theme::default().background).unwrap(),
