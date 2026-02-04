@@ -1,5 +1,5 @@
 use css_cssom::{CssToken, CssTokenKind, HashType};
-use html_dom::{DocumentRoot, DomNode, Element, NodeId};
+use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeId, Tag};
 
 use crate::{
     parser::CaseSensitivity,
@@ -265,8 +265,22 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
                     return false;
                 }
             }
-            CssTokenKind::Colon => return false, // TODO: Handle pseudo-classes and pseudo-elements
-            _ => continue,                       // TODO: Handle other simple selectors
+            CssTokenKind::Colon => {
+                let _prev = previous_token.map(|t| &t.kind);
+                let next = next_token.map(|t| &t.kind);
+
+                #[allow(clippy::collapsible_if)]
+                if let Some(CssTokenKind::Ident(ident)) = next {
+                    if ident.eq_ignore_ascii_case("root") {
+                        return element.tag == Tag::Html(HtmlTag::Html);
+                    }
+                }
+
+                // TODO: Handle more pseudo-classes and pseudo-elements
+
+                return false;
+            }
+            _ => continue, // TODO: Handle other simple selectors
         }
     }
 
