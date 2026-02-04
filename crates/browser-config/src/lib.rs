@@ -8,6 +8,12 @@ use storage::{
 /// Hex color representation as a string.
 pub type Color = String;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum PresetTheme {
+    Light,
+    Dark,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
     pub background: Color,
@@ -37,12 +43,35 @@ impl Default for Theme {
     }
 }
 
+impl From<PresetTheme> for Theme {
+    fn from(preset: PresetTheme) -> Self {
+        match preset {
+            PresetTheme::Light => Theme::default(),
+            PresetTheme::Dark => Self {
+                background: "#121212".to_string(),
+                foreground: "#1E1E1E".to_string(),
+                text: "#E0E0E0".to_string(),
+                primary: "#BB86FC".to_string(),
+                secondary: "#3700B3".to_string(),
+                tertiary: "#03DAC6".to_string(),
+                success: "#03DAC6".to_string(),
+                warning: "#CF6679".to_string(),
+                danger: "#CF6679".to_string(),
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BrowserConfig {
     theme: Theme,
 }
 
 impl BrowserConfig {
+    pub fn new(theme: Theme) -> Self {
+        Self { theme }
+    }
+
     pub fn load() -> Self {
         match read_file_from_config(SETTINGS) {
             Err(_) => {
@@ -82,6 +111,17 @@ impl BrowserConfig {
                 let config: BrowserConfig = out.unwrap();
 
                 config
+            }
+        }
+    }
+
+    pub fn set_theme(&mut self, theme: Theme) {
+        self.theme = theme;
+        if let Some(base_path) = get_config_path() {
+            let path = base_path.join(SETTINGS);
+            let serialized = toml::to_string(self);
+            if let Ok(serialized) = serialized {
+                let _ = std::fs::write(path, serialized);
             }
         }
     }

@@ -2,7 +2,7 @@ mod message;
 
 use std::{str::FromStr, sync::Arc};
 
-use browser_config::BrowserConfig;
+use browser_config::{BrowserConfig, PresetTheme, Theme};
 use browser_core::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
 use cli::{Parser, args::BrowserArgs};
 use tokio::sync::mpsc::unbounded_channel;
@@ -41,7 +41,7 @@ fn main() {
         .init();
 
     let args = BrowserArgs::parse();
-    let config = BrowserConfig::default();
+    let config = BrowserConfig::new(Theme::from(PresetTheme::Dark));
 
     let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
     let emitter = Box::new(ChannelEmitter::new(event_sender));
