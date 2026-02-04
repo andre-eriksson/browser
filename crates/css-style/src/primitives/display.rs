@@ -1,14 +1,14 @@
 use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum OutsideDisplay {
     Block,
     Inline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum InsideDisplay {
     Flow,
     FlowRoot,
@@ -19,7 +19,13 @@ pub enum InsideDisplay {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+pub enum ListItemDisplay {
+    ListItem,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum InternalDisplay {
     TableRowGroup,
     TableHeaderGroup,
@@ -36,7 +42,7 @@ pub enum InternalDisplay {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum BoxDisplay {
     Contents,
     None,

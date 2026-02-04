@@ -237,6 +237,7 @@ impl Default for ComputedStyle {
                 Some(InsideDisplay::Flow),
                 None,
                 None,
+                None,
             )),
             font_family: Property::from(FontFamily::new(&[FontFamilyName::Generic(
                 GenericName::Serif,
