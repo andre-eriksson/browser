@@ -21,7 +21,7 @@ pub enum BlockedReason {
     WaitingForResource(ResourceType, String),
 
     /// The parser is waiting for SVG parsing to complete.
-    ParsingSVG,
+    SVGContent,
 }
 
 /// Represents the current state of the HTML parser.

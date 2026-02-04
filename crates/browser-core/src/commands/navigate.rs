@@ -7,6 +7,7 @@ use errors::{
 };
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
 use network::http::request::RequestBuilder;
+use tracing::warn;
 use url::Url;
 
 use crate::{
@@ -67,48 +68,52 @@ pub async fn navigate(
             ParserState::Running => continue,
             ParserState::Blocked(reason) => match reason {
                 BlockedReason::WaitingForScript(attributes) => {
-                    if attributes.get("src").is_some() {
-                        let src = attributes.get("src").unwrap();
-
-                        let src_url = match url.join(src) {
-                            Ok(u) => u,
+                    if let Some(src) = attributes.get("src") {
+                        match url.join(src) {
+                            Ok(_url) => {
+                                // TODO: Uncomment when we have script execution implemented
+                                //
+                                // let script_request = RequestBuilder::from(url).build();
+                                // let script_resp =
+                                //     ctx.network_service().fetch(&mut page, script_request);
+                                // let script_response = match script_resp.await {
+                                //     RequestResult::Failed(err) => {
+                                //         return Err(NavigationError::RequestError(err));
+                                //     }
+                                //     RequestResult::ClientError(resp)
+                                //     | RequestResult::ServerError(resp)
+                                //     | RequestResult::Success(resp) => resp,
+                                // };
+                                // let script_body = match script_response.body().await {
+                                //     Ok(resp) => match resp.body {
+                                //         Some(b) => b,
+                                //         None => {
+                                //             return Err(NavigationError::RequestError(
+                                //                 RequestError::EmptyBody,
+                                //             ));
+                                //         }
+                                //     },
+                                //     Err(e) => {
+                                //         return Err(NavigationError::RequestError(
+                                //             RequestError::Network(e),
+                                //         ));
+                                //     }
+                                // };
+                                //
+                                // let script_text =
+                                //     String::from_utf8_lossy(script_body.as_slice()).to_string();
+                                // let _ = parser.extract_script_content()?;
+                                // ctx.script_executor().execute_script(&script_text);
+                            }
                             Err(e) => {
-                                return Err(NavigationError::RequestError(RequestError::Network(
-                                    NetworkError::InvalidUrl(e.to_string()),
-                                )));
+                                warn!(
+                                    "{}",
+                                    NavigationError::RequestError(RequestError::Network(
+                                        NetworkError::InvalidUrl(e.to_string()),
+                                    ))
+                                );
                             }
-                        };
-
-                        let script_request = RequestBuilder::from(src_url).build();
-                        let script_resp = ctx.network_service().fetch(&mut page, script_request);
-                        let script_response = match script_resp.await {
-                            RequestResult::Failed(err) => {
-                                return Err(NavigationError::RequestError(err));
-                            }
-                            RequestResult::ClientError(resp)
-                            | RequestResult::ServerError(resp)
-                            | RequestResult::Success(resp) => resp,
-                        };
-                        let script_body = match script_response.body().await {
-                            Ok(resp) => match resp.body {
-                                Some(b) => b,
-                                None => {
-                                    return Err(NavigationError::RequestError(
-                                        RequestError::EmptyBody,
-                                    ));
-                                }
-                            },
-                            Err(e) => {
-                                return Err(NavigationError::RequestError(RequestError::Network(
-                                    e,
-                                )));
-                            }
-                        };
-
-                        let script_text =
-                            String::from_utf8_lossy(script_body.as_slice()).to_string();
-                        let _ = parser.extract_script_content()?;
-                        ctx.script_executor().execute_script(&script_text);
+                        }
                     } else {
                         let script_content = parser.extract_script_content()?;
                         ctx.script_executor().execute_script(&script_content);
@@ -125,50 +130,54 @@ pub async fn navigate(
                 }
                 BlockedReason::WaitingForResource(resource_type, href) => match resource_type {
                     ResourceType::Style => {
-                        let style_url = match url.join(href) {
-                            Ok(u) => u,
-                            Err(e) => {
-                                return Err(NavigationError::RequestError(RequestError::Network(
-                                    NetworkError::InvalidUrl(e.to_string()),
-                                )));
-                            }
-                        };
+                        match url.join(href) {
+                            Ok(url) => {
+                                let style_request = RequestBuilder::from(url).build();
+                                let style_resp =
+                                    ctx.network_service().fetch(&mut page, style_request);
+                                let style_response = match style_resp.await {
+                                    RequestResult::Failed(err) => {
+                                        return Err(NavigationError::RequestError(err));
+                                    }
+                                    RequestResult::ClientError(resp)
+                                    | RequestResult::ServerError(resp)
+                                    | RequestResult::Success(resp) => resp,
+                                };
+                                let style_body = match style_response.body().await {
+                                    Ok(resp) => match resp.body {
+                                        Some(b) => b,
+                                        None => {
+                                            return Err(NavigationError::RequestError(
+                                                RequestError::EmptyBody,
+                                            ));
+                                        }
+                                    },
+                                    Err(e) => {
+                                        return Err(NavigationError::RequestError(
+                                            RequestError::Network(e),
+                                        ));
+                                    }
+                                };
 
-                        let style_request = RequestBuilder::from(style_url).build();
-                        let style_resp = ctx.network_service().fetch(&mut page, style_request);
-                        let style_response = match style_resp.await {
-                            RequestResult::Failed(err) => {
-                                return Err(NavigationError::RequestError(err));
+                                let css_content =
+                                    String::from_utf8_lossy(style_body.as_slice()).to_string();
+                                ctx.style_processor()
+                                    .process_css(&css_content, &mut stylesheets);
                             }
-                            RequestResult::ClientError(resp)
-                            | RequestResult::ServerError(resp)
-                            | RequestResult::Success(resp) => resp,
-                        };
-                        let style_body = match style_response.body().await {
-                            Ok(resp) => match resp.body {
-                                Some(b) => b,
-                                None => {
-                                    return Err(NavigationError::RequestError(
-                                        RequestError::EmptyBody,
-                                    ));
-                                }
-                            },
                             Err(e) => {
-                                return Err(NavigationError::RequestError(RequestError::Network(
-                                    e,
-                                )));
+                                warn!(
+                                    "{}",
+                                    NavigationError::RequestError(RequestError::Network(
+                                        NetworkError::InvalidUrl(e.to_string()),
+                                    ))
+                                )
                             }
                         };
-
-                        let css_content =
-                            String::from_utf8_lossy(style_body.as_slice()).to_string();
-                        ctx.style_processor()
-                            .process_css(&css_content, &mut stylesheets);
 
                         parser.resume()?;
                     }
                 },
-                BlockedReason::ParsingSVG => {
+                BlockedReason::SVGContent => {
                     let _svg_content = parser.extract_svg_content()?;
 
                     // TODO: Process SVG content

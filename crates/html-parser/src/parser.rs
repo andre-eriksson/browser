@@ -197,7 +197,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// * `Ok(String)` - The content of the `<svg>` tag.
     /// * `Err(String)` - An error message if the parser is not blocked parsing SVG or if extraction fails.
     pub fn extract_svg_content(&mut self) -> Result<String, HtmlParsingError> {
-        if !matches!(self.state, ParserState::Blocked(BlockedReason::ParsingSVG),) {
+        if !matches!(self.state, ParserState::Blocked(BlockedReason::SVGContent),) {
             return Err(HtmlParsingError::InvalidBlockReason("svg".to_string()));
         }
 
@@ -321,7 +321,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                             tokens.last()
                         );
 
-                        Some(BlockedReason::ParsingSVG)
+                        Some(BlockedReason::SVGContent)
                     }
                     TokenState::Data => {
                         if let Some(last_token) = tokens.last()

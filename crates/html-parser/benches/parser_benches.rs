@@ -54,7 +54,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                                 println!("Extracted Style Content: {}", style_content.unwrap());
                                 let _ = parser.resume();
                             }
-                            BlockedReason::ParsingSVG => {
+                            BlockedReason::SVGContent => {
                                 let svg_content = parser.extract_svg_content();
 
                                 if let Err(e) = svg_content {
