@@ -121,7 +121,6 @@ rt { display: ruby-text; }
 
 :link { color: #0000EE; }
 :visited { color: #551A8B; }
-:link:active, :visited:active { color: #FF0000; }
 :link, :visited { text-decoration: underline; cursor: pointer; }
 
 :focus-visible { outline: auto; }

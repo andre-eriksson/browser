@@ -269,10 +269,12 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
                 let _prev = previous_token.map(|t| &t.kind);
                 let next = next_token.map(|t| &t.kind);
 
-                #[allow(clippy::collapsible_if)]
                 if let Some(CssTokenKind::Ident(ident)) = next {
                     if ident.eq_ignore_ascii_case("root") {
                         return element.tag == Tag::Html(HtmlTag::Html);
+                    } else if ident.eq_ignore_ascii_case("link") {
+                        return element.tag == Tag::Html(HtmlTag::A)
+                            && element.has_attribute("href");
                     }
                 }
 
