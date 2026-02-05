@@ -4,7 +4,7 @@ use crate::color::{Alpha, ColorValue, FunctionColor, Hue};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Cielab {
-    Lab(ColorValue<u8>, ColorValue<i8>, ColorValue<i8>, Alpha),
+    Lab(ColorValue<u8>, ColorValue<f32>, ColorValue<f32>, Alpha),
     Lch(ColorValue<u8>, ColorValue<u8>, Hue, Alpha),
 }
 
@@ -27,28 +27,28 @@ impl FromStr for Cielab {
                 [l, a, b] => {
                     let l = l
                         .parse::<ColorValue<u8>>()
-                        .map_err(|_| format!("Invalid L value: {}", l))?;
+                        .map_err(|_| format!("Invalid 'L' value: {}", l))?;
                     let a = a
-                        .parse::<ColorValue<i8>>()
-                        .map_err(|_| format!("Invalid a value: {}", a))?;
+                        .parse::<ColorValue<f32>>()
+                        .map_err(|_| format!("Invalid 'a' value: {}", a))?;
                     let b = b
-                        .parse::<ColorValue<i8>>()
-                        .map_err(|_| format!("Invalid b value: {}", b))?;
+                        .parse::<ColorValue<f32>>()
+                        .map_err(|_| format!("Invalid 'b' value: {}", b))?;
                     Ok(Cielab::Lab(l, a, b, Alpha::Number(1.0)))
                 }
                 [l, a, b, alpha] => {
                     let l = l
                         .parse::<ColorValue<u8>>()
-                        .map_err(|_| format!("Invalid L value: {}", l))?;
+                        .map_err(|_| format!("Invalid 'L' value: {}", l))?;
                     let a = a
-                        .parse::<ColorValue<i8>>()
-                        .map_err(|_| format!("Invalid a value: {}", a))?;
+                        .parse::<ColorValue<f32>>()
+                        .map_err(|_| format!("Invalid 'a' value: {}", a))?;
                     let b = b
-                        .parse::<ColorValue<i8>>()
-                        .map_err(|_| format!("Invalid b value: {}", b))?;
+                        .parse::<ColorValue<f32>>()
+                        .map_err(|_| format!("Invalid 'b' value: {}", b))?;
                     let alpha = alpha
                         .parse::<Alpha>()
-                        .map_err(|_| format!("Invalid alpha value: {}", alpha))?;
+                        .map_err(|_| format!("Invalid 'alpha' value: {}", alpha))?;
                     Ok(Cielab::Lab(l, a, b, alpha))
                 }
                 _ => Err(format!("Invalid number of components for lab: {}", s)),
@@ -101,8 +101,8 @@ mod tests {
             color,
             Cielab::Lab(
                 ColorValue::Number(50),
-                ColorValue::Number(20),
-                ColorValue::Number(-30),
+                ColorValue::Number(20.0),
+                ColorValue::Number(-30.0),
                 Alpha::Number(1.0)
             )
         );
@@ -111,8 +111,8 @@ mod tests {
             color,
             Cielab::Lab(
                 ColorValue::Number(90),
-                ColorValue::Number(0),
-                ColorValue::Number(10),
+                ColorValue::Number(0.0),
+                ColorValue::Number(10.0),
                 Alpha::Number(1.0)
             )
         );
@@ -122,8 +122,8 @@ mod tests {
             color,
             Cielab::Lab(
                 ColorValue::Number(70),
-                ColorValue::Number(-10),
-                ColorValue::Number(15),
+                ColorValue::Number(-10.0),
+                ColorValue::Number(15.0),
                 Alpha::Number(0.5)
             )
         );

@@ -26,6 +26,15 @@ impl Angle {
         }
     }
 
+    pub fn to_radians(self) -> f32 {
+        match self {
+            Angle::Deg(v) => v.to_radians(),
+            Angle::Rad(v) => v,
+            Angle::Grad(v) => v * 0.9 * std::f32::consts::PI / 180.0,
+            Angle::Turn(v) => v * 2.0 * std::f32::consts::PI,
+        }
+    }
+
     pub fn from_degrees(deg: f32) -> Self {
         Angle::Deg(deg)
     }

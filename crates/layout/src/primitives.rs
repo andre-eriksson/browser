@@ -1,6 +1,9 @@
 use css_style::{
     Color, Property,
-    color::{ColorValue, FunctionColor, Hue, named::NamedColor, oklab::Oklab, srgba::SRGBAColor},
+    color::{
+        ColorValue, FunctionColor, Hue, cielab::Cielab, named::NamedColor, oklab::Oklab,
+        srgba::SRGBAColor,
+    },
 };
 
 /// Rectangle representation for layout dimensions and positions
@@ -80,7 +83,7 @@ impl Color4f {
         Self::new(0.0, 0.0, 0.0, 1.0)
     }
 
-    pub fn from_oklab(oklab: Oklab) -> Self {
+    fn from_oklab(oklab: Oklab) -> Self {
         match oklab {
             Oklab::Oklab(l, a, b, alpha) => {
                 let l = l.as_number();
@@ -109,6 +112,80 @@ impl Color4f {
                 let a = c.as_number() * h_rad.cos();
                 let b = c.as_number() * h_rad.sin();
                 Self::from_oklab(Oklab::Oklab(
+                    l,
+                    ColorValue::Number(a),
+                    ColorValue::Number(b),
+                    alpha,
+                ))
+            }
+        }
+    }
+
+    fn from_cielab(cielab: Cielab) -> Self {
+        match cielab {
+            Cielab::Lab(l, a, b, alpha) => {
+                let fy = (l.as_fraction() + 16.0) / 116.0;
+                let fx = a.as_fraction() / 500.0 + fy;
+                let fz = fy - b.as_fraction() / 200.0;
+
+                let x_ref = if fx.powi(3) > 0.008856 {
+                    fx.powi(3)
+                } else {
+                    (116.0 * fx - 16.0) / 903.3
+                };
+                let y_ref = if fy.powi(3) > 0.008856 {
+                    fy.powi(3)
+                } else {
+                    (116.0 * fy - 16.0) / 903.3
+                };
+                let z_ref = if fz.powi(3) > 0.008856 {
+                    fz.powi(3)
+                } else {
+                    (116.0 * fz - 16.0) / 903.3
+                };
+
+                // D65 white point
+                let x_final = x_ref * 0.95047;
+                let y_final = y_ref * 1.00000;
+                let z_final = z_ref * 1.08883;
+
+                // XYZ to sRGB (D65)
+                let r = x_final * 3.2406 + y_final * -1.5372 + z_final * -0.4986;
+                let g = x_final * -0.9689 + y_final * 1.8758 + z_final * 0.0415;
+                let b = x_final * 0.0557 + y_final * -0.2040 + z_final * 1.0570;
+
+                // sRGB gamma correction
+                let r_corrected = if r > 0.0031308 {
+                    1.055 * r.powf(1.0 / 2.4) - 0.055
+                } else {
+                    12.92 * r
+                };
+                let g_corrected = if g > 0.0031308 {
+                    1.055 * g.powf(1.0 / 2.4) - 0.055
+                } else {
+                    12.92 * g
+                };
+                let b_corrected = if b > 0.0031308 {
+                    1.055 * b.powf(1.0 / 2.4) - 0.055
+                } else {
+                    12.92 * b
+                };
+
+                Self::new(
+                    r_corrected.clamp(0.0, 1.0),
+                    g_corrected.clamp(0.0, 1.0),
+                    b_corrected.clamp(0.0, 1.0),
+                    alpha.as_fraction(),
+                )
+            }
+            Cielab::Lch(l, c, h, alpha) => {
+                let h_rad = match h {
+                    Hue::Angle(deg) => deg.to_radians(),
+                    Hue::Number(num) => num * std::f32::consts::TAU,
+                };
+                let a = c.as_number() * h_rad.cos();
+                let b = c.as_number() * h_rad.sin();
+                Self::from_cielab(Cielab::Lab(
                     l,
                     ColorValue::Number(a),
                     ColorValue::Number(b),
@@ -159,7 +236,7 @@ impl Color4f {
                 _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: HWB
             },
             FunctionColor::Oklab(oklab) => Self::from_oklab(*oklab),
-            _ => Self::new(0.0, 0.0, 0.0, 1.0), // TODO: CIELAB
+            FunctionColor::Cielab(cielab) => Self::from_cielab(*cielab),
         }
     }
 

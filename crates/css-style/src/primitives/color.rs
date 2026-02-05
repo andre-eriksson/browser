@@ -78,6 +78,13 @@ impl<T: FromStr + AsFloat> ColorValue<T> {
             ColorValue::Percentage(pct) => pct.value(),
         }
     }
+
+    pub fn as_fraction(&self) -> f32 {
+        match self {
+            ColorValue::Number(num) => num.as_float(),
+            ColorValue::Percentage(pct) => pct.as_fraction(),
+        }
+    }
 }
 
 impl<T: FromStr + AsFloat> FromStr for ColorValue<T>
