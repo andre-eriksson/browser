@@ -1,7 +1,4 @@
-use std::{
-    net::Ipv4Addr,
-    sync::{Arc, RwLock, RwLockReadGuard},
-};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use constants::keys::STATUS_CODE;
 use cookies::CookieJar;
@@ -18,7 +15,7 @@ use network::{
     },
 };
 use tracing::{debug, instrument, trace};
-use url::{Host, Url};
+use url::Url;
 
 use crate::{
     service::network::{
@@ -213,12 +210,7 @@ impl NetworkService {
     fn handle_response_headers(&mut self, response: &HeaderResponse, url: &Url) {
         for (name, value) in response.headers.iter() {
             if name == SET_COOKIE {
-                let host = url
-                    .host()
-                    .unwrap_or(Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)))
-                    .to_owned();
-
-                CookieMiddleware::handle_response_cookie(&mut self.cookie_jar, host, value);
+                CookieMiddleware::handle_response_cookie(&mut self.cookie_jar, url, value);
             }
 
             // TODO: Handle other response headers as needed

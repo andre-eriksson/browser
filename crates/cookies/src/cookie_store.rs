@@ -101,7 +101,7 @@ impl CookieJar {
     ///
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
-    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: Host) {
+    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: Host<&str>) {
         if let Some(domain) = cookie.domain()
             && !request_domain
                 .to_string()

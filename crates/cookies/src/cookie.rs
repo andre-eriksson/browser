@@ -4,7 +4,7 @@ use crate::errors::CookieParsingError;
 use time::{
     Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description,
 };
-use url::Host;
+use url::{Host, Url};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Expiration {
@@ -82,7 +82,7 @@ impl Cookie {
         CookieBuilder::default()
     }
 
-    pub fn parse(cookie_str: &str) -> Result<Self, CookieParsingError> {
+    pub fn parse(cookie_str: &str, request_url: &Url) -> Result<Self, CookieParsingError> {
         let parts = cookie_str.split(';');
         let mut cookie = Cookie::default();
 
@@ -119,7 +119,7 @@ impl Cookie {
             } else if k.eq_ignore_ascii_case("domain") {
                 Self::parse_domain(&mut cookie, value)?;
             } else if k.eq_ignore_ascii_case("path") {
-                Self::parse_path(&mut cookie, value);
+                Self::parse_path(&mut cookie, value, request_url);
             } else if k.eq_ignore_ascii_case("samesite") {
                 Self::parse_same_site(&mut cookie, value);
             } else if k.eq_ignore_ascii_case("secure") {
@@ -129,7 +129,77 @@ impl Cookie {
             }
         }
 
+        Self::validate_cookie_prefix(&cookie)?;
+
         Ok(cookie)
+    }
+
+    pub(crate) fn validate_cookie_prefix(cookie: &Cookie) -> Result<(), CookieParsingError> {
+        if cookie.name().starts_with("__Host-Http-") {
+            if !cookie.secure() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-Http-"),
+                    message: String::from("have the Secure attribute"),
+                });
+            }
+            if !cookie.http_only() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-Http-"),
+                    message: String::from("have the HttpOnly attribute"),
+                });
+            }
+            if cookie.domain().is_some() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-Http-"),
+                    message: String::from("not have a Domain attribute"),
+                });
+            }
+            if cookie.path() != "/" {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-Http-"),
+                    message: String::from("have Path set to /"),
+                });
+            }
+        } else if cookie.name().starts_with("__Host-") {
+            if !cookie.secure() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-"),
+                    message: String::from("have the Secure attribute"),
+                });
+            }
+            if cookie.domain().is_some() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-"),
+                    message: String::from("not have a Domain attribute"),
+                });
+            }
+            if cookie.path() != "/" {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Host-"),
+                    message: String::from("have Path set to /"),
+                });
+            }
+        } else if cookie.name().starts_with("__Http-") {
+            if !cookie.secure() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Http-"),
+                    message: String::from("have the Secure attribute"),
+                });
+            }
+            if !cookie.http_only() {
+                return Err(CookieParsingError::PrefixMismatch {
+                    prefix: String::from("__Http-"),
+                    message: String::from("have the HttpOnly attribute"),
+                });
+            }
+        } else if cookie.name().starts_with("__Secure-") && !cookie.secure() {
+            return Err(CookieParsingError::PrefixMismatch {
+                prefix: String::from("__Secure-"),
+                message: String::from("have the Secure attribute"),
+            });
+        }
+
+        Ok(())
     }
 
     fn parse_expires(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
@@ -218,7 +288,6 @@ impl Cookie {
     fn parse_max_age(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
         if let Some(max_age) = value {
             let value = if max_age.starts_with('-') {
-                // TODO: Something?
                 "0"
             } else {
                 max_age
@@ -266,12 +335,13 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_path(cookie: &mut Cookie, value: Option<&str>) {
+    fn parse_path(cookie: &mut Cookie, value: Option<&str>, request_url: &Url) {
         if let Some(path) = value
             && (path.starts_with('/') || !path.is_empty())
         {
             cookie.path = path.into();
-            // TODO: Handle "default-path"
+        } else {
+            cookie.path = request_url.path().into();
         }
     }
 
@@ -405,7 +475,26 @@ impl CookieBuilder {
         self
     }
 
-    pub fn build(self) -> Cookie {
+    pub fn build(self) -> Result<Cookie, CookieParsingError> {
+        let cookie = Cookie {
+            name: self.name,
+            value: self.value,
+            expires: self.expires,
+            max_age: self.max_age,
+            domain: self.domain,
+            path: self.path,
+            secure: self.secure,
+            http_only: self.http_only,
+            same_site: self.same_site,
+        };
+
+        Cookie::validate_cookie_prefix(&cookie)?;
+
+        Ok(cookie)
+    }
+
+    /// Builds a cookie without validating the prefix. Use with caution, as this may result in cookies that do not adhere to the expected security and formatting rules.
+    pub fn build_unchecked(self) -> Cookie {
         Cookie {
             name: self.name,
             value: self.value,

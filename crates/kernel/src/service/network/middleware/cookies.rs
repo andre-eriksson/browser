@@ -5,7 +5,7 @@ use cookies::{Cookie, CookieJar};
 use http::{HeaderValue, header::COOKIE};
 use network::http::request::Request;
 use tracing::{debug, trace, trace_span, warn};
-use url::Host;
+use url::Url;
 
 pub struct CookieMiddleware;
 
@@ -69,15 +69,23 @@ impl CookieMiddleware {
     /// * `header_value` - The value of the Set-Cookie header from the response.
     pub fn handle_response_cookie(
         cookie_jar: &mut RwLock<CookieJar>,
-        request_domain: Host,
+        request_url: &Url,
         header_value: &HeaderValue,
     ) {
+        let host = match request_url.host() {
+            Some(h) => h,
+            _ => {
+                debug!("Request URL does not have a valid domain host");
+                return;
+            }
+        };
+
         let cookie_str = match header_value.to_str() {
             Ok(s) => s,
             Err(_) => return,
         };
 
-        let cookie = match Cookie::parse(cookie_str) {
+        let cookie = match Cookie::parse(cookie_str, request_url) {
             Ok(c) => c,
             Err(e) => {
                 debug!("Error parsing the cookie: {e}");
@@ -95,7 +103,7 @@ impl CookieMiddleware {
         trace!("Storing cookie from response");
 
         if let Ok(jar) = cookie_jar.get_mut() {
-            jar.add_cookie(cookie, request_domain);
+            jar.add_cookie(cookie, host);
         }
     }
 }

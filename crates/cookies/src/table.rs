@@ -40,9 +40,9 @@ impl CookieTable {
                 .domain(domain)
                 .path(row.get(4)?)
                 .secure(row.get(5)?)
-                .secure(row.get(6)?)
+                .http_only(row.get(6)?)
                 .same_site(SameSite::from(row.get::<usize, String>(7)?))
-                .build();
+                .build_unchecked();
 
             Ok(cookie)
         });
@@ -95,7 +95,7 @@ impl CookieTable {
                 .secure(row.get(5)?)
                 .secure(row.get(6)?)
                 .same_site(SameSite::from(row.get::<usize, String>(7)?))
-                .build();
+                .build_unchecked();
 
             Ok(cookie)
         });

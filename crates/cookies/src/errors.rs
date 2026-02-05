@@ -13,4 +13,7 @@ pub enum CookieParsingError {
 
     #[error("Unable to parse {0}: {1}")]
     Parsing(String, String),
+
+    #[error("{prefix} prefixed cookies must {message}")]
+    PrefixMismatch { prefix: String, message: String },
 }
