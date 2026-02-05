@@ -3,11 +3,11 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use css_style::StyleTree;
-use errors::browser::BrowserError;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
+use kernel::errors::BrowserError;
 use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use layout::{LayoutEngine, Rect, TextContext};
 use preferences::BrowserConfig;

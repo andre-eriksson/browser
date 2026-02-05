@@ -1,7 +1,7 @@
 use std::io::BufRead;
 use std::mem;
 
-use errors::parsing::HtmlParsingError;
+use crate::errors::HtmlParsingError;
 use html_dom::{
     BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
 };

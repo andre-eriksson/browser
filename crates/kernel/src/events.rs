@@ -1,5 +1,5 @@
+use crate::errors::{BrowserError, NavigationError};
 use async_trait::async_trait;
-use errors::browser::{BrowserError, NavigationError};
 
 use crate::tab::{page::Page, tabs::TabId};
 

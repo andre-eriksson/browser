@@ -18,5 +18,7 @@ mod util;
 /// UI views and components.
 mod views;
 
+pub mod errors;
+
 pub use runtime::Ui;
 pub use util::fonts::load_fallback_fonts;

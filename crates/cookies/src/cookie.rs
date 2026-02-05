@@ -1,6 +1,6 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
-use errors::parsing::CookieParsingError;
+use crate::errors::CookieParsingError;
 use time::{
     Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description,
 };

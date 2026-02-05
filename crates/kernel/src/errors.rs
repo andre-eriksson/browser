@@ -1,6 +1,15 @@
+use html_parser::errors::HtmlParsingError;
+use network::errors::RequestError;
 use thiserror::Error;
 
-use crate::{network::RequestError, parsing::HtmlParsingError};
+#[derive(Error, Debug, Clone)]
+pub enum NavigationError {
+    #[error("Navigation failed due to a parsing error: {0}")]
+    ParsingError(#[from] HtmlParsingError),
+
+    #[error("Navigation failed due to a request error: {0}")]
+    RequestError(#[from] RequestError),
+}
 
 #[derive(Error, Debug, Clone)]
 pub enum BrowserError {
@@ -21,13 +30,4 @@ pub enum TabError {
 
     #[error("No active tab available")]
     NoActiveTab,
-}
-
-#[derive(Error, Debug, Clone)]
-pub enum NavigationError {
-    #[error("Navigation failed due to a parsing error: {0}")]
-    ParsingError(#[from] HtmlParsingError),
-
-    #[error("Navigation failed due to a request error: {0}")]
-    RequestError(#[from] RequestError),
 }

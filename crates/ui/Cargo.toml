@@ -12,7 +12,6 @@ cookies.workspace = true
 css-cssom.workspace = true
 css-style.workspace = true
 layout.workspace = true
-errors.workspace = true
 html-parser.workspace = true
 html-dom.workspace = true
 renderer.workspace = true
@@ -30,6 +29,7 @@ iced = { version = "0.14.0", features = [
 ] }
 image = "0.25"
 regex.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 http.workspace = true

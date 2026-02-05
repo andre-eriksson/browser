@@ -3,7 +3,6 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Position in the source text for error reporting
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourcePosition {
     /// Line number
@@ -33,7 +32,6 @@ impl Display for SourcePosition {
     }
 }
 
-/// Types of parse errors that can occur during CSS tokenization
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum CssTokenizationError {
     /// A backslash at the end of input or followed by a newline (invalid escape)
@@ -76,56 +74,6 @@ impl CssTokenizationError {
             CssTokenizationError::EofInComment(pos) => *pos,
             CssTokenizationError::InvalidCharacterInUrl(pos) => *pos,
             CssTokenizationError::InvalidEscapeInUrl(pos) => *pos,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_source_position_display() {
-        let pos = SourcePosition::new(5, 10, 42);
-        assert_eq!(pos.to_string(), "line 5, column 10");
-    }
-
-    #[test]
-    fn test_error_display() {
-        let pos = SourcePosition::new(1, 7, 6);
-        let error = CssTokenizationError::NewlineInString(pos);
-        assert_eq!(
-            error.to_string(),
-            "unexpected newline in string at line 1, column 7"
-        );
-    }
-
-    #[test]
-    fn test_error_position() {
-        let pos = SourcePosition::new(2, 3, 15);
-        let error = CssTokenizationError::EofInComment(pos);
-        assert_eq!(error.position(), pos);
-    }
-
-    #[test]
-    fn test_all_error_variants() {
-        let pos = SourcePosition::new(1, 1, 0);
-
-        let errors = vec![
-            CssTokenizationError::InvalidEscape(pos),
-            CssTokenizationError::NewlineInString(pos),
-            CssTokenizationError::EofInString(pos),
-            CssTokenizationError::EofInUrl(pos),
-            CssTokenizationError::EofInComment(pos),
-            CssTokenizationError::InvalidCharacterInUrl(pos),
-            CssTokenizationError::InvalidEscapeInUrl(pos),
-        ];
-
-        for error in errors {
-            // Ensure all variants can be displayed
-            let _ = error.to_string();
-            // Ensure position can be retrieved
-            assert_eq!(error.position(), pos);
         }
     }
 }

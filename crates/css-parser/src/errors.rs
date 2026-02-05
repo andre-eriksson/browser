@@ -1,6 +1,5 @@
+use css_tokenizer::SourcePosition;
 use thiserror::Error;
-
-use crate::tokenization::SourcePosition;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum CssParsingError {
@@ -39,37 +38,4 @@ pub enum CssParsingError {
 
     #[error("missing colon in declaration at {0}")]
     MissingColonInDeclaration(SourcePosition),
-}
-
-#[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub enum HtmlParsingError {
-    #[error("HTML parsing has already finished")]
-    AlreadyFinished,
-
-    #[error("Parser is not blocked waiting for {0}")]
-    InvalidBlockReason(String),
-
-    #[error("Unable to read from stream: {0}")]
-    UnableToReadStream(String),
-
-    #[error("Malformed document: {0}")]
-    MalformedDocument(String),
-
-    #[error("Unexpected UTF-8 error: {0}")]
-    UnexpectedUtf8Error(String),
-}
-
-#[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub enum CookieParsingError {
-    #[error("Cookie must have at least a name=value pair")]
-    InvalidCookie,
-
-    #[error("Invalid date format: {0}")]
-    DateError(String),
-
-    #[error("Invalid time format: {0}")]
-    TimeError(String),
-
-    #[error("Unable to parse {0}: {1}")]
-    Parsing(String, String),
 }

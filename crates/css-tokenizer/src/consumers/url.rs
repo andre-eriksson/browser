@@ -1,3 +1,4 @@
+use crate::errors::CssTokenizationError;
 use crate::{
     char::{is_non_printable, is_whitespace},
     consumers::{string::consume_escaped_code_point, token::consume_whitespace},
@@ -5,7 +6,6 @@ use crate::{
     tokens::{CssToken, CssTokenKind},
     validator::starts_with_valid_escape,
 };
-use errors::tokenization::CssTokenizationError;
 
 /// Consume a URL token (§4.3.6)
 pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {

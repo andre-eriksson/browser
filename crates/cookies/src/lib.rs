@@ -2,6 +2,7 @@
 
 mod cookie;
 mod cookie_store;
+pub mod errors;
 mod table;
 
 pub use cookie::{Cookie, Expiration};

@@ -2,5 +2,5 @@
 
 /// This module contains various HTTP client implementations.
 pub mod clients;
-
+pub mod errors;
 pub mod http;

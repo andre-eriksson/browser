@@ -1,5 +1,5 @@
+use crate::errors::CssParsingError;
 use css_tokenizer::{CssTokenKind, SourcePosition};
-use errors::parsing::CssParsingError;
 
 use crate::{CssParser, Function, consumers::component::consume_component_value};
 

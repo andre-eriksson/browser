@@ -1,5 +1,5 @@
+use crate::errors::CssParsingError;
 use css_tokenizer::{CssToken, CssTokenKind, SourcePosition};
-use errors::parsing::CssParsingError;
 
 use crate::{
     ComponentValue, CssParser, Declaration, DeclarationOrAtRule,

@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 css-parser.workspace = true
-errors.workspace = true
 
 # External dependencies
 serde.workspace = true

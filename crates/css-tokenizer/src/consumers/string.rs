@@ -1,10 +1,10 @@
+use crate::errors::CssTokenizationError;
 use crate::{
     char::is_hex_digit,
     consumers::token::consume_whitespace,
     tokenizer::CssTokenizer,
     tokens::{CssToken, CssTokenKind},
 };
-use errors::tokenization::CssTokenizationError;
 
 /// Consume a string token (§4.3.5)
 pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -> CssToken {

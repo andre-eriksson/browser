@@ -1,6 +1,7 @@
 mod browser;
 mod cli;
 mod commands;
+pub mod errors;
 mod events;
 mod headless;
 mod navigation;

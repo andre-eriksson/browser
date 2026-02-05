@@ -6,9 +6,9 @@ license.workspace = true
 
 [dependencies]
 css-tokenizer.workspace = true
-errors.workspace = true
 
 # External dependencies
+thiserror.workspace = true
 tracing.workspace = true
 serde.workspace = true
 

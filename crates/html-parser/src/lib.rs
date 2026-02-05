@@ -13,6 +13,9 @@
 //! 5. Once the content is available, the parser resumes processing.
 //! 6. The parser continues until the entire HTML content is processed.
 
+/// The error types for HTML parsing.
+pub mod errors;
+
 /// The provided HTML parser.
 mod parser;
 

@@ -1,4 +1,4 @@
-use errors::network::RequestError;
+use network::errors::RequestError;
 
 pub enum RequestResult<T> {
     Success(T),

@@ -1,4 +1,4 @@
-use errors::browser::BrowserError;
+use crate::errors::BrowserError;
 use tracing::trace;
 
 use crate::{

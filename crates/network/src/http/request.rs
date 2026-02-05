@@ -1,4 +1,4 @@
-use errors::network::NetworkError;
+use crate::errors::NetworkError;
 use http::{HeaderMap, HeaderName, HeaderValue, Method};
 use url::{Origin, Url};
 

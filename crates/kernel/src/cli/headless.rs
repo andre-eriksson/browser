@@ -1,9 +1,9 @@
 use std::sync::{Arc, RwLock};
 
+use crate::errors::{BrowserError, TabError};
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use cookies::CookieJar;
-use errors::browser::{BrowserError, TabError};
 use network::clients::reqwest::ReqwestClient;
 
 use crate::{

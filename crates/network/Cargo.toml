@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 cookies.workspace = true
-errors.workspace = true
 
 # External dependencies
 tokio.workspace = true
@@ -21,3 +20,4 @@ reqwest = { version = "0.13.1", features = [
     "deflate",
     "rustls",
 ] }
+thiserror.workspace = true

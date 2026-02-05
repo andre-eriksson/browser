@@ -2,11 +2,11 @@
 //!
 //! <https://www.w3.org/TR/css-syntax-3/#parsing>
 
+use crate::errors::CssParsingError;
 use css_tokenizer::CssToken;
 use css_tokenizer::CssTokenKind;
 use css_tokenizer::CssTokenizer;
 use css_tokenizer::SourcePosition;
-use errors::parsing::CssParsingError;
 use tracing::debug;
 
 use crate::consumers::declaration::consume_list_of_declarations;

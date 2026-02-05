@@ -5,15 +5,17 @@ use std::{
 
 use constants::keys::STATUS_CODE;
 use cookies::CookieJar;
-use errors::network::{NetworkError, RequestError};
 use http::{
     HeaderMap, Method,
     header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN, SET_COOKIE},
 };
-use network::http::{
-    client::{HttpClient, ResponseHandle},
-    request::{Request, RequestBuilder},
-    response::HeaderResponse,
+use network::{
+    errors::{NetworkError, RequestError},
+    http::{
+        client::{HttpClient, ResponseHandle},
+        request::{Request, RequestBuilder},
+        response::HeaderResponse,
+    },
 };
 use tracing::{debug, instrument, trace};
 use url::{Host, Url};

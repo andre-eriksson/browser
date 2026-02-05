@@ -5,13 +5,12 @@ use assets::{
     constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
 use cli::args::BrowserArgs;
-use errors::subsystem::SubsystemError;
 use iced::{Font, Settings};
 use kernel::{Browser, BrowserEvent};
 use preferences::BrowserConfig;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-use crate::core::Application;
+use crate::{core::Application, errors::UiError};
 
 /// The main runtime for the UI, responsible for initializing and running the application.
 pub struct Ui {
@@ -38,7 +37,7 @@ impl Ui {
     }
 
     /// Runs the UI runtime, initializing the application and starting the event loop.
-    pub fn run(self) -> Result<(), SubsystemError> {
+    pub fn run(self) -> Result<(), UiError> {
         let default_font = ASSETS.read().unwrap().load_embedded(OPEN_SANS_REGULAR);
         let monospace_font = ASSETS.read().unwrap().load_embedded(ROBOTO_MONO_REGULAR);
         let browser = self.browser;
@@ -75,17 +74,20 @@ impl Ui {
 
         match result {
             Ok(_) => Ok(()),
-            Err(e) => match e {
-                iced::Error::ExecutorCreationFailed(msg) => Err(SubsystemError::RuntimeError(
-                    format!("UI Executor Creation Failed: {}", msg),
-                )),
-                iced::Error::GraphicsCreationFailed(msg) => Err(SubsystemError::RuntimeError(
-                    format!("UI Graphics Creation Failed: {}", msg),
-                )),
-                iced::Error::WindowCreationFailed(msg) => Err(SubsystemError::RuntimeError(
-                    format!("UI Window Creation Failed: {}", msg),
-                )),
-            },
+            Err(e) => {
+                match e {
+                    iced::Error::ExecutorCreationFailed(msg) => Err(UiError::RuntimeError(
+                        format!("Executor Creation Failed: {}", msg),
+                    )),
+                    iced::Error::GraphicsCreationFailed(msg) => Err(UiError::RuntimeError(
+                        format!("Graphics Creation Failed: {}", msg),
+                    )),
+                    iced::Error::WindowCreationFailed(msg) => Err(UiError::RuntimeError(format!(
+                        "Window Creation Failed: {}",
+                        msg
+                    ))),
+                }
+            }
         }
     }
 }

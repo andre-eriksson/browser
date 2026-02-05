@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use errors::tokenization::SourcePosition;
+use crate::errors::SourcePosition;
 use serde::{Deserialize, Serialize};
 
 /// Hash token type flag as per CSS Syntax Module Level 3

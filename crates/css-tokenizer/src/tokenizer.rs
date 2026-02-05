@@ -1,11 +1,11 @@
 //! CSS Tokenizer implementation following CSS Syntax Module Level 3
 //! <https://www.w3.org/TR/css-syntax-3/#tokenization>
 
+use crate::errors::{CssTokenizationError, SourcePosition};
 use crate::{
     consumers::token::consume_token,
     tokens::{CssToken, CssTokenKind},
 };
-use errors::tokenization::{CssTokenizationError, SourcePosition};
 use tracing::debug;
 
 /// Input stream for the tokenizer
@@ -235,8 +235,8 @@ impl Iterator for CssTokenizer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::CssTokenizationError;
     use crate::tokens::{HashType, NumberType, NumericValue};
-    use errors::tokenization::CssTokenizationError;
 
     fn has_errors(tokenizer: &CssTokenizer) -> bool {
         !tokenizer.errors.is_empty()

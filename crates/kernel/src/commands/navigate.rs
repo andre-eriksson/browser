@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
+use crate::errors::NavigationError;
 use css_cssom::CSSStyleSheet;
-use errors::{
-    browser::NavigationError,
-    network::{NetworkError, RequestError},
-};
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
-use network::http::request::RequestBuilder;
+use network::{
+    errors::{NetworkError, RequestError},
+    http::request::RequestBuilder,
+};
 use tracing::warn;
 use url::Url;
 

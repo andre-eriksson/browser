@@ -33,7 +33,9 @@ pub mod tokens;
 /// Validation utilities for ensuring compliance with CSS Syntax Module Level 3
 mod validator;
 
+pub mod errors;
+
 // Re-exports
-pub use errors::tokenization::{CssTokenizationError, SourcePosition};
+pub use errors::SourcePosition;
 pub use tokenizer::CssTokenizer;
 pub use tokens::{CssToken, CssTokenKind, HashType, NumberType};

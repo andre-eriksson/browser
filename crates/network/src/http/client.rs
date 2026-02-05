@@ -1,5 +1,5 @@
+use crate::errors::NetworkError;
 use async_trait::async_trait;
-use errors::network::NetworkError;
 
 use crate::http::{
     request::Request,

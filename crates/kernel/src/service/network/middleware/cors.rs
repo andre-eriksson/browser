@@ -1,4 +1,3 @@
-use errors::network::RequestError;
 use http::{
     HeaderMap, Method,
     header::{
@@ -6,6 +5,7 @@ use http::{
         ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
     },
 };
+use network::errors::RequestError;
 use network::http::{request::Credentials, response::HeaderResponse};
 use url::{Origin, Url};
 

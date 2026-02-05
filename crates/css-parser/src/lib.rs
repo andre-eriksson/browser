@@ -13,6 +13,7 @@
 //! ```
 
 mod consumers;
+pub mod errors;
 mod parser;
 mod rules;
 mod stylesheet;

@@ -1,3 +1,4 @@
+use crate::errors::CssTokenizationError;
 use crate::{
     char::{is_digit, is_ident_code_point, is_ident_start_code_point, is_whitespace},
     consumers::{
@@ -12,7 +13,6 @@ use crate::{
         three_code_points_would_start_ident, two_code_points_are_valid_escape,
     },
 };
-use errors::tokenization::CssTokenizationError;
 
 /// Consume a token (§4.3.1)
 pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {

@@ -1,6 +1,7 @@
-use errors::browser::TabError;
-
-use crate::tab::tabs::{Tab, TabId};
+use crate::{
+    errors::TabError,
+    tab::tabs::{Tab, TabId},
+};
 
 pub struct TabManager {
     active_tab: TabId,
