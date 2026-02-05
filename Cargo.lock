@@ -632,9 +632,9 @@ dependencies = [
 name = "bootstrap"
 version = "0.1.0"
 dependencies = [
- "browser-config",
  "cli",
  "kernel",
+ "preferences",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -660,16 +660,6 @@ checksum = "874bb8112abecc98cbd6d81ea4fa7e94fb9449648c93cc89aa40c81c24d7de03"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
-]
-
-[[package]]
-name = "browser-config"
-version = "0.1.0"
-dependencies = [
- "constants",
- "serde",
- "storage",
- "toml",
 ]
 
 [[package]]
@@ -3979,6 +3969,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "preferences"
+version = "0.1.0"
+dependencies = [
+ "constants",
+ "serde",
+ "storage",
+ "toml",
+]
+
+[[package]]
 name = "presser"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5606,7 +5606,6 @@ name = "ui"
 version = "0.1.0"
 dependencies = [
  "assets",
- "browser-config",
  "cli",
  "constants",
  "cookies",
@@ -5621,6 +5620,7 @@ dependencies = [
  "kernel",
  "layout",
  "network",
+ "preferences",
  "regex",
  "renderer",
  "tokio",

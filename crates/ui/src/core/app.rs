@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use browser_config::BrowserConfig;
-use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
 use errors::browser::BrowserError;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
+use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use layout::{LayoutEngine, Rect, TextContext};
+use preferences::BrowserConfig;
 use regex::Regex;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -347,15 +347,15 @@ impl Application {
         let palette = Palette {
             background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),
             text: Color::from_str(app_theme.text.as_str())
-                .unwrap_or(Color::from_str(&browser_config::Theme::default().text).unwrap()),
+                .unwrap_or(Color::from_str(&preferences::Theme::default().text).unwrap()),
             primary: Color::from_str(app_theme.primary.as_str())
-                .unwrap_or(Color::from_str(&browser_config::Theme::default().primary).unwrap()),
+                .unwrap_or(Color::from_str(&preferences::Theme::default().primary).unwrap()),
             success: Color::from_str(app_theme.success.as_str())
-                .unwrap_or(Color::from_str(&browser_config::Theme::default().success).unwrap()),
+                .unwrap_or(Color::from_str(&preferences::Theme::default().success).unwrap()),
             warning: Color::from_str(app_theme.warning.as_str())
-                .unwrap_or(Color::from_str(&browser_config::Theme::default().warning).unwrap()),
+                .unwrap_or(Color::from_str(&preferences::Theme::default().warning).unwrap()),
             danger: Color::from_str(app_theme.danger.as_str())
-                .unwrap_or(Color::from_str(&browser_config::Theme::default().danger).unwrap()),
+                .unwrap_or(Color::from_str(&preferences::Theme::default().danger).unwrap()),
         };
 
         let custom = Custom::new(String::from("Settings"), palette);

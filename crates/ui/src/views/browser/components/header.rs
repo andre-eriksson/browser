@@ -42,7 +42,7 @@ impl BrowserHeader {
                                     background: Some(Background::Color(
                                         Color::from_str(theme.secondary.as_str()).unwrap_or(
                                             Color::from_str(
-                                                &browser_config::Theme::default().secondary,
+                                                &preferences::Theme::default().secondary,
                                             )
                                             .unwrap(),
                                         ),
@@ -61,8 +61,7 @@ impl BrowserHeader {
                     .style(|_, _| button::Style {
                         background: Some(Background::Color(
                             Color::from_str(theme.tertiary.as_str()).unwrap_or(
-                                Color::from_str(&browser_config::Theme::default().tertiary)
-                                    .unwrap(),
+                                Color::from_str(&preferences::Theme::default().tertiary).unwrap(),
                             ),
                         )),
                         ..Default::default()
@@ -98,7 +97,7 @@ impl BrowserHeader {
             .style(|_| container::Style {
                 background: Some(Background::Color(
                     Color::from_str(theme.foreground.as_str()).unwrap_or(
-                        Color::from_str(&browser_config::Theme::default().foreground).unwrap(),
+                        Color::from_str(&preferences::Theme::default().foreground).unwrap(),
                     ),
                 )),
                 ..Default::default()

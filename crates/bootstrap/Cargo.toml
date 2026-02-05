@@ -5,9 +5,9 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-browser-config.workspace = true
-kernel.workspace = true
 cli.workspace = true
+kernel.workspace = true
+preferences.workspace = true
 ui.workspace = true
 
 # External dependencies

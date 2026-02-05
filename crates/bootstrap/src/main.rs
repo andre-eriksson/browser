@@ -2,9 +2,9 @@ mod message;
 
 use std::{str::FromStr, sync::Arc};
 
-use browser_config::{BrowserConfig, PresetTheme, Theme};
 use cli::{Parser, args::BrowserArgs};
 use kernel::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
+use preferences::{BrowserConfig, PresetTheme, Theme};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{

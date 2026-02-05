@@ -3,7 +3,6 @@ resolver = "3"
 members = [
     "crates/assets",
     "crates/bootstrap",
-    "crates/browser-config",
     "crates/cli",
     "crates/constants",
     "crates/cookies",
@@ -20,6 +19,7 @@ members = [
     "crates/kernel",
     "crates/layout",
     "crates/network",
+    "crates/preferences",
     "crates/renderer",
     "crates/storage",
     "crates/ui",
@@ -32,7 +32,6 @@ license      = "MIT"
 [workspace.dependencies]
 assets         = { path = "crates/assets" }
 cookies        = { path = "crates/cookies" }
-browser-config = { path = "crates/browser-config" }
 cli            = { path = "crates/cli" }
 css-cssom      = { path = "crates/css-cssom" }
 css-parser     = { path = "crates/css-parser" }
@@ -47,6 +46,7 @@ html-tokenizer = { path = "crates/html-tokenizer" }
 kernel         = { path = "crates/kernel" }
 layout         = { path = "crates/layout" }
 network        = { path = "crates/network" }
+preferences    = { path = "crates/preferences" }
 renderer       = { path = "crates/renderer" }
 storage        = { path = "crates/storage" }
 ui             = { path = "crates/ui" }

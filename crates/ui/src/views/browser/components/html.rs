@@ -83,7 +83,7 @@ impl<'h> BrowserHtml<'h> {
             .style(move |_| container::Style {
                 background: Some(Background::Color(
                     Color::from_str(app.config.theme().background.as_str()).unwrap_or(
-                        Color::from_str(&browser_config::Theme::default().background).unwrap(),
+                        Color::from_str(&preferences::Theme::default().background).unwrap(),
                     ),
                 )),
                 ..Default::default()

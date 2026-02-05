@@ -4,11 +4,11 @@ use assets::{
     ASSETS,
     constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
-use browser_config::BrowserConfig;
 use cli::args::BrowserArgs;
 use errors::subsystem::SubsystemError;
 use iced::{Font, Settings};
 use kernel::{Browser, BrowserEvent};
+use preferences::BrowserConfig;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
 use crate::core::Application;

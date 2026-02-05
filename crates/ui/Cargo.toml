@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 assets.workspace = true
-browser-config.workspace = true
 kernel.workspace = true
 cli.workspace = true
 cookies.workspace = true
@@ -18,6 +17,7 @@ html-parser.workspace = true
 html-dom.workspace = true
 renderer.workspace = true
 network.workspace = true
+preferences.workspace = true
 constants.workspace = true
 
 # External dependencies
