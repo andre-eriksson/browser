@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::Arc;
 
 use constants::keys::STATUS_CODE;
 use cookies::CookieJar;
@@ -13,42 +13,38 @@ use network::{
 use tracing::{debug, instrument, trace};
 use url::Url;
 
-use crate::{
-    service::network::{
-        middleware::{
-            cookies::CookieMiddleware, cors::CorsMiddleware, referrer::ReferrerMiddleware,
-            simple::SimpleMiddleware,
-        },
-        request::RequestResult,
+use crate::network::{
+    middleware::{
+        cookies::CookieMiddleware, cors::CorsMiddleware, referrer::ReferrerMiddleware,
+        simple::SimpleMiddleware,
     },
-    tab::page::Page,
+    policy::DocumentPolicy,
 };
 
-pub struct NetworkService {
-    client: Box<dyn HttpClient>,
-    cookie_jar: RwLock<CookieJar>,
-    browser_headers: Arc<HeaderMap>,
+pub enum RequestResult<T> {
+    Success(T),
+    ClientError(T),
+    ServerError(T),
+    Failed(RequestError),
 }
 
-impl NetworkService {
+pub struct NetworkService<'a> {
+    client: &'a dyn HttpClient,
+    cookie_jar: &'a mut CookieJar,
+    browser_headers: &'a Arc<HeaderMap>,
+}
+
+impl<'a> NetworkService<'a> {
     pub fn new(
-        client: Box<dyn HttpClient>,
-        cookie_jar: RwLock<CookieJar>,
-        browser_headers: Arc<HeaderMap>,
+        client: &'a dyn HttpClient,
+        cookie_jar: &'a mut CookieJar,
+        browser_headers: &'a Arc<HeaderMap>,
     ) -> Self {
         NetworkService {
             client,
             cookie_jar,
             browser_headers,
         }
-    }
-
-    pub fn cookie_jar(&self) -> RwLockReadGuard<'_, CookieJar> {
-        self.cookie_jar.read().unwrap()
-    }
-
-    pub fn browser_headers(&self) -> Arc<HeaderMap> {
-        self.browser_headers.clone()
     }
 
     fn convert_response(
@@ -74,10 +70,11 @@ impl NetworkService {
         Self::convert_response(response)
     }
 
-    #[instrument(skip(self, page, request), fields(method = %request.method, url = %request.url))]
+    #[instrument(skip(self, page_url, policies, request), fields(method = %request.method, url = %request.url))]
     pub async fn fetch(
         &mut self,
-        page: &mut Page,
+        page_url: Option<Url>,
+        policies: &DocumentPolicy,
         request: Request,
     ) -> RequestResult<Box<dyn ResponseHandle>> {
         let mut request = request;
@@ -87,14 +84,14 @@ impl NetworkService {
             .extend(self.browser_headers.as_ref().clone());
 
         // First request to set document URL
-        if page.document_url.is_none() {
+        if page_url.is_none() {
             if request.method != Method::GET {
                 return RequestResult::Failed(RequestError::InvalidMethod(
                     "First request must be a GET request".to_string(),
                 ));
             }
 
-            CookieMiddleware::apply_cookies(&mut request, &self.cookie_jar);
+            CookieMiddleware::apply_cookies(&mut request, self.cookie_jar);
 
             let url = request.url.clone();
             let resp = self.raw_fetch(request).await;
@@ -113,7 +110,7 @@ impl NetworkService {
                         },
                         &url,
                     );
-                    page.document_url = Some(url);
+                    // TODO: page.document_url = Some(url);
 
                     debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
 
@@ -132,17 +129,13 @@ impl NetworkService {
             };
         }
 
-        if let Some(current_url) = &page.document_url {
-            ReferrerMiddleware::apply_referrer(
-                current_url,
-                &mut request,
-                &page.policies().as_ref().referrer,
-            );
+        if let Some(current_url) = &page_url {
+            ReferrerMiddleware::apply_referrer(current_url, &mut request, &policies.referrer);
         }
 
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
             trace!("Simple request detected, skipping CORS preflight");
-            CookieMiddleware::apply_cookies(&mut request, &self.cookie_jar);
+            CookieMiddleware::apply_cookies(&mut request, self.cookie_jar);
 
             let url = &request.url.clone();
             let resp = self.client.send(request).await;
@@ -163,7 +156,7 @@ impl NetworkService {
         }
 
         let preflight_response = match self
-            .preflight_request(page, &user_headers, &request.url, &request.method)
+            .preflight_request(page_url, &user_headers, &request.url, &request.method)
             .await
         {
             RequestResult::Success(resp) => resp,
@@ -183,7 +176,7 @@ impl NetworkService {
             return RequestResult::Failed(e);
         }
 
-        CookieMiddleware::apply_cookies(&mut request, &self.cookie_jar);
+        CookieMiddleware::apply_cookies(&mut request, self.cookie_jar);
 
         let url = &request.url.clone();
         let resp = self.client.send(request).await;
@@ -206,7 +199,7 @@ impl NetworkService {
     fn handle_response_headers(&mut self, response: &HeaderResponse, url: &Url) {
         for (name, value) in response.headers.iter() {
             if name == SET_COOKIE {
-                CookieMiddleware::handle_response_cookie(&mut self.cookie_jar, url, value);
+                CookieMiddleware::handle_response_cookie(self.cookie_jar, url, value);
             }
 
             // TODO: Handle other response headers as needed
@@ -215,12 +208,12 @@ impl NetworkService {
 
     async fn preflight_request(
         &self,
-        page: &Page,
+        page_url: Option<Url>,
         headers: &HeaderMap,
         url: &Url,
         method: &Method,
     ) -> RequestResult<HeaderResponse> {
-        let page = match page.document_url.as_ref() {
+        let page = match page_url.as_ref() {
             Some(u) => u,
             None => {
                 return RequestResult::Failed(RequestError::InvalidMethod(

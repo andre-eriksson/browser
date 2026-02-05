@@ -4,7 +4,7 @@ use cli::args::BrowserArgs;
 use iced::{Font, Settings};
 use io::{
     ASSETS,
-    constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
+    embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
 use kernel::{Browser, BrowserEvent};
 use preferences::BrowserConfig;

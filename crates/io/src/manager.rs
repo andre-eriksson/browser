@@ -1,135 +1,120 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use constants::{
     events::{EVENT_ASSET_CACHE_HIT, EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET},
     keys::EVENT,
 };
-use tracing::{debug, instrument, trace, warn};
+use tracing::{instrument, trace, warn};
 
-use crate::backends::{AssetBackend, AssetError, Backend};
+use crate::{
+    backends::{AsyncBackend, Backend, SyncBackend},
+    errors::AssetError,
+};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EmbededAsset<'a> {
+    Icon(&'a str),
+    Font(&'a str),
+    Image(&'a str),
+    Shader(&'a str),
+    Browser(&'a str),
+}
+
+impl EmbededAsset<'_> {
+    pub fn path(&self) -> String {
+        match self {
+            EmbededAsset::Icon(name) => format!("icon/{}", name),
+            EmbededAsset::Font(name) => format!("font/{}", name),
+            EmbededAsset::Image(name) => format!("image/{}", name),
+            EmbededAsset::Shader(name) => format!("shader/{}", name),
+            EmbededAsset::Browser(name) => format!("browser/{}", name),
+        }
+    }
+}
 
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum AssetType {
-    /// Represents an icon asset, default path would be `"icon/{name}"`.j
-    Icon(&'static str),
+pub enum ResourceType<'a> {
+    FileSystem(&'a str),
+    Remote(&'a str),
+    Absolute {
+        /// embed://, file://, http://, https://, etc.
+        protocol: &'a str,
+        location: &'a str,
+    },
+}
 
-    /// Represents a font asset, default path would be `"font/{name}"`.
-    Font(&'static str),
+impl ResourceType<'_> {
+    pub fn resolve_absolute(&'_ self) -> ResourceType<'_> {
+        match self {
+            ResourceType::Absolute { protocol, location } => match *protocol {
+                "file" => ResourceType::FileSystem(location),
+                "http" | "https" => ResourceType::Remote(location),
+                _ => panic!("Unsupported protocol: {}", protocol),
+            },
+            other => other.clone(),
+        }
+    }
 
-    /// Represents an image asset, default path would be `"image/{name}"`.
-    Image(&'static str),
-
-    /// Represents a shader asset, default path would be `"shader/{name}"`.
-    Shader(&'static str),
-
-    /// Represents a browser asset (e.g., defaults used by the browser), default path would be `"browser/{name}"`.
-    Browser(&'static str),
+    pub fn path(&self) -> String {
+        match self {
+            ResourceType::FileSystem(path) => path.to_string(),
+            ResourceType::Remote(url) => url.to_string(),
+            ResourceType::Absolute { protocol, location } => format!("{}://{}", protocol, location),
+        }
+    }
 }
 
 /// AssetManager is responsible for managing and loading assets from various backends.
-pub struct AssetManager {
-    /// A vector of backends to load assets from, in order of priority.
-    backends: Vec<Backend>,
+pub struct Resource;
 
-    /// A cache to store loaded assets to avoid redundant loading.
-    cache: HashMap<String, Vec<u8>>,
-}
+impl Resource {
+    #[instrument(fields(resource = ?resource))]
+    pub async fn load_async<'a>(
+        resource: ResourceType<'_>,
+        cache: &mut HashMap<String, Vec<u8>>,
+        backends: Vec<Backend<'a>>,
+    ) -> Result<Vec<u8>, AssetError> {
+        let key = if let ResourceType::Absolute { protocol, location } = resource {
+            format!("{}://{}", protocol, location)
+        } else {
+            resource.resolve_absolute().path()
+        };
 
-impl Default for AssetManager {
-    fn default() -> Self {
-        Self {
-            backends: vec![
-                Backend::FileSystem(PathBuf::from("assets")),
-                Backend::Embedded,
-            ],
-            cache: HashMap::new(),
-        }
-    }
-}
+        if let Some(cached) = cache.get(&key) {
+            trace!({ EVENT } = EVENT_ASSET_CACHE_HIT);
 
-impl AssetManager {
-    /// Creates a new AssetManager with the specified backends.
-    ///
-    /// # Arguments
-    /// * `backends` - A vector of backends to use for loading assets, will prioritize the first one.
-    pub fn new(backends: Vec<Backend>) -> Self {
-        Self {
-            backends,
-            cache: HashMap::new(),
-        }
-    }
-
-    fn match_asset(&self, asset: &AssetType) -> String {
-        match asset {
-            AssetType::Icon(name) => format!("icon/{}", name),
-            AssetType::Font(name) => format!("font/{}", name),
-            AssetType::Image(name) => format!("image/{}", name),
-            AssetType::Shader(name) => format!("shader/{}", name),
-            AssetType::Browser(name) => format!("browser/{}", name),
-        }
-    }
-
-    /// Loads an asset, testing the suppplied backends in order until the asset is found.
-    /// If an asset is found it is stored in a in-memory cache.
-    ///
-    /// # Arguments
-    /// * `asset` - The type of asset to retrieve.
-    ///
-    /// # Returns
-    /// A `Result<Vec<u8>, AssetError>` representing the asset data or an error message.
-    #[instrument(skip(self), fields(asset = ?asset))]
-    pub fn load(&mut self, asset: AssetType) -> Result<Vec<u8>, AssetError> {
-        let key = self.match_asset(&asset);
-
-        trace!({ EVENT } = EVENT_LOAD_ASSET);
-
-        if let Some(data) = self.cache.get(&key) {
-            debug!({ EVENT } = EVENT_ASSET_CACHE_HIT);
-            return Ok(data.clone());
+            return Ok(cached.clone());
         }
 
-        for backend in &self.backends {
-            match backend.load_asset(&key) {
-                Ok(data) => {
-                    trace!({ EVENT } = EVENT_ASSET_LOADED);
+        for backend in backends {
+            if let Ok(data) = backend.await_asset(&key).await {
+                trace!({ EVENT } = EVENT_ASSET_LOADED);
 
-                    self.cache.insert(key, data.clone());
-                    return Ok(data);
-                }
-                Err(AssetError::NotFound(_)) => continue,
-                Err(e) => return Err(e),
+                cache.insert(key.clone(), data.clone());
+
+                return Ok(data);
             }
         }
 
-        warn!({ EVENT } = EVENT_ASSET_NOT_FOUND);
+        trace!({ EVENT } = EVENT_ASSET_NOT_FOUND);
 
         Err(AssetError::NotFound(key))
     }
 
-    /// Loads an embedded asset by its type, with either a guaranteed return value or a panic.
-    ///
-    /// # Arguments
-    /// * `asset` - The type of asset to load.
-    ///
-    /// # Returns
-    /// A vector of bytes representing the asset data.
-    ///
-    /// # Panics
-    /// If the asset cannot be found in the embedded backend.
-    #[instrument(skip(self), fields(asset = ?asset))]
-    pub fn load_embedded(&self, asset: AssetType) -> Vec<u8> {
-        let key = self.match_asset(&asset);
+    #[instrument(fields(embeded_asset = ?embeded_asset))]
+    pub fn load_embedded(embeded_asset: EmbededAsset) -> Vec<u8> {
+        let location = embeded_asset.path();
 
         trace!({ EVENT } = EVENT_LOAD_ASSET);
 
-        if let Ok(data) = Backend::Embedded.load_asset(&key) {
+        if let Ok(data) = Backend::Embedded.load_asset(&location) {
             trace!({ EVENT } = EVENT_ASSET_LOADED);
 
             return data;
         }
 
-        panic!("Embedded asset not found: {}", key);
+        panic!("Embedded asset not found: {}", location);
     }
 }

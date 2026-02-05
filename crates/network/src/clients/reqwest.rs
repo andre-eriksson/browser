@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// An HTTP client implementation using the `reqwest` library.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ReqwestClient {
     /// The underlying reqwest client.
     client: reqwest::Client,

@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::errors::NetworkError;
 use async_trait::async_trait;
 
@@ -16,7 +18,7 @@ pub trait ResponseHandle: Send + Sync {
 ///
 /// This trait defines the interface for sending HTTP requests and receiving responses.
 #[async_trait]
-pub trait HttpClient: Send + Sync {
+pub trait HttpClient: Send + Sync + Debug {
     /// Sends an HTTP request and returns the response.
     ///
     /// # Arguments

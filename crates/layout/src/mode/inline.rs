@@ -334,7 +334,7 @@ impl InlineLayout {
 mod tests {
     use cosmic_text::{FontSystem, fontdb::Source};
     use css_style::Display;
-    use io::{ASSETS, constants::OPEN_SANS_REGULAR};
+    use io::{ASSETS, embeded::OPEN_SANS_REGULAR};
 
     use super::*;
 

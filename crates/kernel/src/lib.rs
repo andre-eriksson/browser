@@ -3,9 +3,9 @@ mod cli;
 mod commands;
 pub mod errors;
 mod events;
+mod header;
 mod headless;
 mod navigation;
-mod service;
 mod tab;
 
 pub use browser::Browser;
