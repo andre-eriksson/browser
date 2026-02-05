@@ -1,4 +1,4 @@
-use http::{HeaderMap, HeaderValue, Method};
+use network::{HeaderMap, HeaderValue, Method};
 
 pub struct SimpleMiddleware;
 
@@ -34,7 +34,7 @@ impl SimpleMiddleware {
     ///
     /// # Returns
     /// * `bool` - True if all headers are simple, false otherwise.
-    pub fn is_simple_headers(headers: &http::HeaderMap) -> bool {
+    pub fn is_simple_headers(headers: &HeaderMap) -> bool {
         for (name, value) in headers.iter() {
             let name_str = name.as_str().to_lowercase();
             if name_str != "accept"

@@ -4,7 +4,7 @@ use crate::errors::{BrowserError, TabError};
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use cookies::CookieJar;
-use network::clients::reqwest::ReqwestClient;
+use network::{HeaderName, HeaderValue, clients::reqwest::ReqwestClient};
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter,
@@ -37,8 +37,8 @@ impl HeadlessBrowser {
         let mut headers = DefaultHeaders::create_browser_headers(HeaderType::HeadlessBrowser);
         for header in args.headers.iter() {
             if let Some((key, value)) = header.split_once(':')
-                && let Ok(header_name) = http::header::HeaderName::from_bytes(key.trim().as_bytes())
-                && let Ok(header_value) = http::header::HeaderValue::from_str(value.trim())
+                && let Ok(header_name) = HeaderName::from_bytes(key.trim().as_bytes())
+                && let Ok(header_value) = HeaderValue::from_str(value.trim())
             {
                 headers.insert(header_name, header_value);
             }

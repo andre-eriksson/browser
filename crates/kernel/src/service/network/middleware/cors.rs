@@ -1,12 +1,8 @@
-use http::{
-    HeaderMap, Method,
-    header::{
-        ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_HEADERS,
-        ACCESS_CONTROL_ALLOW_METHODS, ACCESS_CONTROL_ALLOW_ORIGIN,
-    },
+use network::{
+    ACCESS_CONTROL_ALLOW_CREDENTIALS, ACCESS_CONTROL_ALLOW_HEADERS, ACCESS_CONTROL_ALLOW_METHODS,
+    ACCESS_CONTROL_ALLOW_ORIGIN, HeaderMap, Method, errors::RequestError, request::Credentials,
+    response::HeaderResponse,
 };
-use network::errors::RequestError;
-use network::http::{request::Credentials, response::HeaderResponse};
 use url::{Origin, Url};
 
 use crate::service::network::middleware::simple::SimpleMiddleware;

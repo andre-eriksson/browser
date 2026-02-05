@@ -1,7 +1,7 @@
 use crate::errors::NetworkError;
 use async_trait::async_trait;
 
-use crate::http::{
+use crate::{
     client::{HttpClient, ResponseHandle},
     request::Request,
     response::{HeaderResponse, Response},

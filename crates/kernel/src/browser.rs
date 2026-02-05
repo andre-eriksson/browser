@@ -10,7 +10,7 @@ use constants::files::CACHE_USER_AGENT;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use io::{ASSETS, constants::DEFAULT_CSS};
-use network::clients::reqwest::ReqwestClient;
+use network::{HeaderName, HeaderValue, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use storage::files::{read_file_from_cache, write_file_to_cache};
 use tracing::instrument;
@@ -47,8 +47,8 @@ impl Browser {
         let mut headers = DefaultHeaders::create_browser_headers(HeaderType::Browser);
         for header in args.headers.iter() {
             if let Some((key, value)) = header.split_once(':')
-                && let Ok(header_name) = http::header::HeaderName::from_bytes(key.trim().as_bytes())
-                && let Ok(header_value) = http::header::HeaderValue::from_str(value.trim())
+                && let Ok(header_name) = HeaderName::from_bytes(key.trim().as_bytes())
+                && let Ok(header_value) = HeaderValue::from_str(value.trim())
             {
                 headers.insert(header_name, header_value);
             }

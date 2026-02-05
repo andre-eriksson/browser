@@ -1,5 +1,4 @@
-use http::{HeaderValue, header::REFERER};
-use network::http::request::Request;
+use network::{HeaderValue, REFERER, request::Request};
 use url::Url;
 
 use crate::service::network::policies::referrer::ReferrerPolicy;

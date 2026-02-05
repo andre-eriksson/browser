@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use constants::APP_NAME;
-use http::{
-    HeaderMap, HeaderValue,
-    header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, USER_AGENT},
+use network::{
+    ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue,
+    USER_AGENT,
 };
 
 pub struct DefaultHeaders;

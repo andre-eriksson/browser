@@ -2,17 +2,13 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 use constants::keys::STATUS_CODE;
 use cookies::CookieJar;
-use http::{
-    HeaderMap, Method,
-    header::{ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN, SET_COOKIE},
-};
 use network::{
+    ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, HeaderMap, Method, ORIGIN,
+    SET_COOKIE,
+    client::{HttpClient, ResponseHandle},
     errors::{NetworkError, RequestError},
-    http::{
-        client::{HttpClient, ResponseHandle},
-        request::{Request, RequestBuilder},
-        response::HeaderResponse,
-    },
+    request::{Request, RequestBuilder},
+    response::HeaderResponse,
 };
 use tracing::{debug, instrument, trace};
 use url::Url;

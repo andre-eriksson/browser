@@ -5,7 +5,7 @@ use css_cssom::CSSStyleSheet;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
 use network::{
     errors::{NetworkError, RequestError},
-    http::request::RequestBuilder,
+    request::RequestBuilder,
 };
 use tracing::warn;
 use url::Url;

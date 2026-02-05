@@ -2,8 +2,7 @@ use std::sync::RwLock;
 
 use constants::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
 use cookies::{Cookie, CookieJar};
-use http::{HeaderValue, header::COOKIE};
-use network::http::request::Request;
+use network::{COOKIE, HeaderValue, request::Request};
 use tracing::{debug, trace, trace_span, warn};
 use url::Url;
 

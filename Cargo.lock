@@ -2735,7 +2735,6 @@ dependencies = [
  "css-style",
  "html-dom",
  "html-parser",
- "http",
  "io",
  "network",
  "postcard",
