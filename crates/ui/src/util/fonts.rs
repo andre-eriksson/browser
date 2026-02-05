@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use assets::{
+use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
+use io::{
     ASSETS,
     constants::{
         OPEN_SANS_BOLD, OPEN_SANS_EXTRA_BOLD, OPEN_SANS_LIGHT, OPEN_SANS_MEDIUM, OPEN_SANS_REGULAR,
@@ -8,7 +9,6 @@ use assets::{
         ROBOTO_MONO_MEDIUM, ROBOTO_MONO_REGULAR, ROBOTO_MONO_SEMI_BOLD, ROBOTO_MONO_THIN,
     },
 };
-use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
 
 /// Load the default fonts used by the UI
 pub fn load_fallback_fonts() -> [Source; 13] {

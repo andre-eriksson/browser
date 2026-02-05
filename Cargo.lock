@@ -258,16 +258,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assets"
-version = "0.1.0"
-dependencies = [
- "constants",
- "once_cell",
- "rust-embed",
- "tracing",
-]
-
-[[package]]
 name = "async-broadcast"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2627,6 +2617,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "io"
+version = "0.1.0"
+dependencies = [
+ "constants",
+ "once_cell",
+ "rust-embed",
+ "tracing",
+]
+
+[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2727,7 +2727,6 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
- "assets",
  "async-trait",
  "cli",
  "constants",
@@ -2737,6 +2736,7 @@ dependencies = [
  "html-dom",
  "html-parser",
  "http",
+ "io",
  "network",
  "postcard",
  "serde",
@@ -2788,12 +2788,12 @@ dependencies = [
 name = "layout"
 version = "0.1.0"
 dependencies = [
- "assets",
  "cosmic-text",
  "css-cssom",
  "css-style",
  "html-dom",
  "html-parser",
+ "io",
  "kernel",
  "tracing",
  "ui",
@@ -3142,7 +3142,6 @@ name = "network"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "cookies",
  "http",
  "reqwest",
  "thiserror 2.0.17",
@@ -4323,9 +4322,9 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 name = "renderer"
 version = "0.1.0"
 dependencies = [
- "assets",
  "bytemuck",
  "cosmic-text",
+ "io",
  "layout",
  "wgpu",
 ]
@@ -5597,7 +5596,6 @@ dependencies = [
 name = "ui"
 version = "0.1.0"
 dependencies = [
- "assets",
  "cli",
  "constants",
  "cookies",
@@ -5608,6 +5606,7 @@ dependencies = [
  "http",
  "iced",
  "image",
+ "io",
  "kernel",
  "layout",
  "network",

@@ -1,11 +1,11 @@
 use std::{borrow::Cow, sync::Arc};
 
-use assets::{
+use cli::args::BrowserArgs;
+use iced::{Font, Settings};
+use io::{
     ASSETS,
     constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
-use cli::args::BrowserArgs;
-use iced::{Font, Settings};
 use kernel::{Browser, BrowserEvent};
 use preferences::BrowserConfig;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};

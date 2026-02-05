@@ -1,10 +1,10 @@
-use assets::{ASSETS, constants::WINDOW_ICON};
 use constants::APP_NAME;
 use iced::{
     Length, Renderer, Size, Theme,
     widget::{column, container},
     window::{Position, Settings},
 };
+use io::{ASSETS, constants::WINDOW_ICON};
 
 use crate::{
     core::{Application, ApplicationWindow, Event},

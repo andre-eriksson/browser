@@ -1,7 +1,6 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/assets",
     "crates/bootstrap",
     "crates/cli",
     "crates/constants",
@@ -15,6 +14,7 @@ members = [
     "crates/html-dom",
     "crates/html-parser",
     "crates/html-tokenizer",
+    "crates/io",
     "crates/kernel",
     "crates/layout",
     "crates/network",
@@ -29,7 +29,6 @@ edition      = "2024"
 license      = "MIT"
 
 [workspace.dependencies]
-assets         = { path = "crates/assets" }
 cookies        = { path = "crates/cookies" }
 cli            = { path = "crates/cli" }
 css-cssom      = { path = "crates/css-cssom" }
@@ -41,6 +40,7 @@ database       = { path = "crates/database" }
 html-dom       = { path = "crates/html-dom" }
 html-parser    = { path = "crates/html-parser" }
 html-tokenizer = { path = "crates/html-tokenizer" }
+io             = { path = "crates/io" }
 kernel         = { path = "crates/kernel" }
 layout         = { path = "crates/layout" }
 network        = { path = "crates/network" }

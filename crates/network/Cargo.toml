@@ -5,9 +5,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-cookies.workspace = true
-
-# External dependencies
 tokio.workspace = true
 tracing.workspace = true
 http.workspace = true

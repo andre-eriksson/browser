@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use assets::{ASSETS, constants::DEFAULT_CSS};
     use cosmic_text::FontSystem;
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
     use css_style::StyleTree;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
+    use io::{ASSETS, constants::DEFAULT_CSS};
     use kernel::TabCollector;
     use layout::{LayoutEngine, Rect, TextContext};
     use ui::load_fallback_fonts;

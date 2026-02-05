@@ -332,9 +332,9 @@ impl InlineLayout {
 
 #[cfg(test)]
 mod tests {
-    use assets::{ASSETS, constants::OPEN_SANS_REGULAR};
     use cosmic_text::{FontSystem, fontdb::Source};
     use css_style::Display;
+    use io::{ASSETS, constants::OPEN_SANS_REGULAR};
 
     use super::*;
 

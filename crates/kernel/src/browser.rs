@@ -4,12 +4,12 @@ use std::{
 };
 
 use crate::errors::{BrowserError, TabError};
-use assets::{ASSETS, constants::DEFAULT_CSS};
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use constants::files::CACHE_USER_AGENT;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use io::{ASSETS, constants::DEFAULT_CSS};
 use network::clients::reqwest::ReqwestClient;
 use postcard::{from_bytes, to_stdvec};
 use storage::files::{read_file_from_cache, write_file_to_cache};

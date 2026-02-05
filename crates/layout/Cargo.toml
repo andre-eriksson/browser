@@ -17,4 +17,4 @@ kernel.workspace = true
 html-parser.workspace = true
 css-cssom.workspace = true
 ui.workspace = true
-assets.workspace = true
+io.workspace = true
