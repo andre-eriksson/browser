@@ -149,10 +149,16 @@ pub async fn navigate(
                                 .get_mut()
                                 .map_err(|_| NavigationError::CookieJarLocked)?;
 
+                            let relative_url = url.join(href).map_err(|e| {
+                                NavigationError::RequestError(RequestError::Network(
+                                    NetworkError::InvalidUrl(e.to_string()),
+                                ))
+                            })?;
+
                             Resource::load_async(
                                 io::manager::ResourceType::Absolute {
                                     protocol,
-                                    location: href.as_str(),
+                                    location: relative_url.as_str(),
                                     client: client.as_ref(),
                                     cookie_jar,
                                     browser_headers: &headers,
