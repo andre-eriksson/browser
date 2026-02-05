@@ -4,7 +4,7 @@ use iced::{
     widget::{column, container},
     window::{Position, Settings},
 };
-use io::{ASSETS, embeded::WINDOW_ICON};
+use io::{embeded::WINDOW_ICON, manager::Resource};
 
 use crate::{
     core::{Application, ApplicationWindow, Event},
@@ -59,7 +59,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
     }
 
     fn settings(&self) -> iced::window::Settings {
-        let icon = ASSETS.read().unwrap().load_embedded(WINDOW_ICON);
+        let icon = Resource::load_embedded(WINDOW_ICON);
 
         let browser_icon = load_icon(icon);
 

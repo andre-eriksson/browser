@@ -3,14 +3,19 @@ use std::{
     vec,
 };
 
-use crate::errors::{BrowserError, TabError};
+use crate::{
+    errors::{BrowserError, TabError},
+    header::{DefaultHeaders, HeaderType},
+};
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use constants::files::CACHE_USER_AGENT;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use io::{ASSETS, constants::DEFAULT_CSS};
-use network::{HeaderName, HeaderValue, clients::reqwest::ReqwestClient};
+use io::{embeded::DEFAULT_CSS, manager::Resource};
+use network::{
+    HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient,
+};
 use postcard::{from_bytes, to_stdvec};
 use storage::files::{read_file_from_cache, write_file_to_cache};
 use tracing::instrument;
@@ -22,10 +27,6 @@ use crate::{
     },
     events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
     navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
-    service::network::{
-        header::{DefaultHeaders, HeaderType},
-        service::NetworkService,
-    },
     tab::{
         manager::TabManager,
         tabs::{Tab, TabId},
@@ -35,8 +36,10 @@ use crate::{
 pub struct Browser {
     tab_manager: TabManager,
     default_stylesheet: Option<CSSStyleSheet>,
+    cookie_jar: RwLock<CookieJar>,
+    http_client: Box<dyn HttpClient>,
+    headers: Arc<HeaderMap>,
     _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-    network: NetworkService,
 }
 
 impl Browser {
@@ -54,7 +57,7 @@ impl Browser {
             }
         }
 
-        let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
+        let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
         let stylesheet = if args.enable_ua_css {
             match read_file_from_cache(CACHE_USER_AGENT) {
@@ -93,7 +96,9 @@ impl Browser {
             tab_manager,
             default_stylesheet: stylesheet,
             _emitter: emitter,
-            network: NetworkService::new(http_client, cookie_jar, Arc::new(headers)),
+            cookie_jar,
+            http_client,
+            headers: Arc::new(headers),
         }
     }
 }
@@ -116,12 +121,20 @@ impl NavigationContext for Browser {
         self
     }
 
-    fn style_processor(&self) -> &dyn StyleProcessor {
-        self
+    fn cookie_jar(&mut self) -> &mut RwLock<CookieJar> {
+        &mut self.cookie_jar
     }
 
-    fn network_service(&mut self) -> &mut NetworkService {
-        &mut self.network
+    fn headers(&self) -> &Arc<HeaderMap> {
+        &self.headers
+    }
+
+    fn http_client(&self) -> &dyn HttpClient {
+        self.http_client.as_ref()
+    }
+
+    fn style_processor(&self) -> &dyn StyleProcessor {
+        self
     }
 
     fn tab_manager(&mut self) -> &mut TabManager {

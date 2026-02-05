@@ -38,8 +38,8 @@ impl EmbededAsset<'_> {
 pub enum ResourceType<'a> {
     FileSystem(&'a str),
     Remote(&'a str),
+    /// embed://, file://, http://, https://, etc.
     Absolute {
-        /// embed://, file://, http://, https://, etc.
         protocol: &'a str,
         location: &'a str,
     },
@@ -50,8 +50,7 @@ impl ResourceType<'_> {
         match self {
             ResourceType::Absolute { protocol, location } => match *protocol {
                 "file" => ResourceType::FileSystem(location),
-                "http" | "https" => ResourceType::Remote(location),
-                _ => panic!("Unsupported protocol: {}", protocol),
+                _ => ResourceType::Remote(location),
             },
             other => other.clone(),
         }
@@ -61,7 +60,7 @@ impl ResourceType<'_> {
         match self {
             ResourceType::FileSystem(path) => path.to_string(),
             ResourceType::Remote(url) => url.to_string(),
-            ResourceType::Absolute { protocol, location } => format!("{}://{}", protocol, location),
+            ResourceType::Absolute { location, .. } => location.to_string(),
         }
     }
 }
@@ -76,11 +75,7 @@ impl Resource {
         cache: &mut HashMap<String, Vec<u8>>,
         backends: Vec<Backend<'a>>,
     ) -> Result<Vec<u8>, AssetError> {
-        let key = if let ResourceType::Absolute { protocol, location } = resource {
-            format!("{}://{}", protocol, location)
-        } else {
-            resource.resolve_absolute().path()
-        };
+        let key = resource.resolve_absolute().path();
 
         if let Some(cached) = cache.get(&key) {
             trace!({ EVENT } = EVENT_ASSET_CACHE_HIT);
@@ -101,6 +96,26 @@ impl Resource {
         trace!({ EVENT } = EVENT_ASSET_NOT_FOUND);
 
         Err(AssetError::NotFound(key))
+    }
+
+    pub fn load_sync(resource: ResourceType<'_>, backends: Vec<Backend<'_>>) -> Vec<u8> {
+        let key = if let ResourceType::Absolute { protocol, location } = resource {
+            format!("{}://{}", protocol, location)
+        } else {
+            resource.resolve_absolute().path()
+        };
+
+        for backend in backends {
+            if let Ok(data) = backend.load_asset(&key) {
+                trace!({ EVENT } = EVENT_ASSET_LOADED);
+
+                return data;
+            }
+        }
+
+        trace!({ EVENT } = EVENT_ASSET_NOT_FOUND);
+
+        panic!("Asset not found: {}", key);
     }
 
     #[instrument(fields(embeded_asset = ?embeded_asset))]

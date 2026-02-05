@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
+use io::DocumentPolicy;
 use url::Url;
-
-use crate::service::network::policy::DocumentPolicy;
 
 /// Represents a web page loaded in a tab.
 #[derive(Debug, Clone)]
