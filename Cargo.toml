@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/assets",
+    "crates/bootstrap",
     "crates/browser-config",
     "crates/cli",
     "crates/constants",
@@ -12,7 +13,6 @@ members = [
     "crates/css-style",
     "crates/css-tokenizer",
     "crates/database",
-    "crates/engine",
     "crates/errors",
     "crates/html-dom",
     "crates/html-parser",
