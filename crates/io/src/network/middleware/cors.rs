@@ -5,7 +5,7 @@ use network::{
 };
 use url::{Origin, Url};
 
-use crate::service::network::middleware::simple::SimpleMiddleware;
+use crate::network::middleware::simple::SimpleMiddleware;
 
 pub struct CorsMiddleware;
 

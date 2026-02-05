@@ -1,10 +1,15 @@
 use std::sync::{Arc, RwLock};
 
-use crate::errors::{BrowserError, TabError};
+use crate::{
+    errors::{BrowserError, TabError},
+    header::{DefaultHeaders, HeaderType},
+};
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use cookies::CookieJar;
-use network::{HeaderName, HeaderValue, clients::reqwest::ReqwestClient};
+use network::{
+    HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient,
+};
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter,
@@ -13,10 +18,6 @@ use crate::{
         tab::{add_tab, change_active_tab, close_tab},
     },
     navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
-    service::network::{
-        header::{DefaultHeaders, HeaderType},
-        service::NetworkService,
-    },
     tab::{
         manager::TabManager,
         tabs::{Tab, TabId},
@@ -26,7 +27,9 @@ use crate::{
 pub struct HeadlessBrowser {
     tab_manager: TabManager,
     _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-    network: NetworkService,
+    cookie_jar: RwLock<CookieJar>,
+    http_client: Box<dyn HttpClient>,
+    headers: Arc<HeaderMap>,
 }
 
 impl HeadlessBrowser {
@@ -49,12 +52,14 @@ impl HeadlessBrowser {
         HeadlessBrowser {
             tab_manager,
             _emitter: emitter,
-            network: NetworkService::new(http_client, cookie_jar, Arc::new(headers)),
+            cookie_jar,
+            http_client,
+            headers: Arc::new(headers),
         }
     }
 
     pub fn print_headers(&mut self) {
-        for header in self.network_service().browser_headers().iter() {
+        for header in self.headers.iter() {
             println!("{}: {}", header.0, header.1.to_str().unwrap_or(""));
         }
     }
@@ -68,8 +73,13 @@ impl HeadlessBrowser {
     }
 
     pub fn print_cookies(&mut self, domain: Option<&str>) {
+        let jar = match self.cookie_jar.read() {
+            Ok(jar) => jar,
+            Err(_) => return,
+        };
+
         if domain.is_none() {
-            for cookie in self.network_service().cookie_jar().cookies() {
+            for cookie in jar.cookies() {
                 println!("{}", cookie);
             }
             return;
@@ -77,11 +87,7 @@ impl HeadlessBrowser {
 
         let domain = domain.unwrap();
 
-        for cookie in self
-            .network_service()
-            .cookie_jar()
-            .get_cookies_for_domain(domain)
-        {
+        for cookie in jar.get_cookies_for_domain(domain) {
             println!("{}", cookie);
         }
     }
@@ -100,16 +106,24 @@ impl ScriptExecutor for HeadlessBrowser {
 }
 
 impl NavigationContext for HeadlessBrowser {
-    fn network_service(&mut self) -> &mut NetworkService {
-        &mut self.network
-    }
-
     fn script_executor(&self) -> &dyn ScriptExecutor {
         self
     }
 
     fn style_processor(&self) -> &dyn StyleProcessor {
         self
+    }
+
+    fn cookie_jar(&mut self) -> &mut RwLock<CookieJar> {
+        &mut self.cookie_jar
+    }
+
+    fn headers(&self) -> &Arc<HeaderMap> {
+        &self.headers
+    }
+
+    fn http_client(&self) -> &dyn HttpClient {
+        self.http_client.as_ref()
     }
 
     fn tab_manager(&mut self) -> &mut TabManager {

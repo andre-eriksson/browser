@@ -3,6 +3,9 @@ use thiserror::Error;
 /// Errors related to network operations, preventing successful completion of a network request.
 #[derive(Error, Debug, Clone)]
 pub enum NetworkError {
+    #[error("Network error: {0}")]
+    RuntimeError(String),
+
     #[error("Connection timed out")]
     Timeout,
 

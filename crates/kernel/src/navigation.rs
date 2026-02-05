@@ -1,6 +1,10 @@
-use css_cssom::CSSStyleSheet;
+use std::sync::{Arc, RwLock};
 
-use crate::{service::network::service::NetworkService, tab::manager::TabManager};
+use cookies::CookieJar;
+use css_cssom::CSSStyleSheet;
+use network::{HeaderMap, client::HttpClient};
+
+use crate::tab::manager::TabManager;
 
 /// A trait representing the ability to process CSS styles within the browser context.
 pub trait StyleProcessor {
@@ -17,6 +21,8 @@ pub trait ScriptExecutor {
 pub trait NavigationContext: Send {
     fn script_executor(&self) -> &dyn ScriptExecutor;
     fn style_processor(&self) -> &dyn StyleProcessor;
-    fn network_service(&mut self) -> &mut NetworkService;
+    fn http_client(&self) -> &dyn HttpClient;
+    fn cookie_jar(&mut self) -> &mut RwLock<CookieJar>;
+    fn headers(&self) -> &Arc<HeaderMap>;
     fn tab_manager(&mut self) -> &mut TabManager;
 }

@@ -9,6 +9,9 @@ pub enum NavigationError {
 
     #[error("Navigation failed due to a request error: {0}")]
     RequestError(#[from] RequestError),
+
+    #[error("Navigation failed because the cookie jar is locked")]
+    CookieJarLocked,
 }
 
 #[derive(Error, Debug, Clone)]

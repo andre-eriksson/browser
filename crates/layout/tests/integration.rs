@@ -4,7 +4,8 @@ mod tests {
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
     use css_style::StyleTree;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
-    use io::{ASSETS, constants::DEFAULT_CSS};
+    use io::embeded::DEFAULT_CSS;
+    use io::manager::Resource;
     use kernel::TabCollector;
     use layout::{LayoutEngine, Rect, TextContext};
     use ui::load_fallback_fonts;
@@ -15,7 +16,7 @@ mod tests {
 
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr ) => {{
-            let user_agent_css = ASSETS.read().unwrap().load_embedded(DEFAULT_CSS);
+            let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
             let html = include_bytes!($path);
 
             let mut stylesheets = if $user_agent_css {

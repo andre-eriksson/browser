@@ -334,7 +334,7 @@ impl InlineLayout {
 mod tests {
     use cosmic_text::{FontSystem, fontdb::Source};
     use css_style::Display;
-    use io::{ASSETS, constants::OPEN_SANS_REGULAR};
+    use io::{embeded::OPEN_SANS_REGULAR, manager::Resource};
 
     use super::*;
 
@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     fn test_inline_layout_multiline_text() {
-        let default_font = ASSETS.read().unwrap().load_embedded(OPEN_SANS_REGULAR);
+        let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);
 
         let mut text_context = TextContext::new(FontSystem::new_with_fonts(vec![Source::Binary(
             Arc::new(default_font),

@@ -2620,10 +2620,15 @@ dependencies = [
 name = "io"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "constants",
- "once_cell",
+ "cookies",
+ "network",
  "rust-embed",
+ "thiserror 2.0.17",
+ "tokio",
  "tracing",
+ "url",
 ]
 
 [[package]]

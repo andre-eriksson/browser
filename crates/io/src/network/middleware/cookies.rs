@@ -1,5 +1,3 @@
-use std::sync::RwLock;
-
 use constants::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
 use cookies::{Cookie, CookieJar};
 use network::{COOKIE, HeaderValue, request::Request};
@@ -17,16 +15,12 @@ impl CookieMiddleware {
     ///
     /// # Notes
     /// This function modifies the `request` in place by adding the appropriate Cookie headers.
-    pub fn apply_cookies(request: &mut Request, cookie_jar: &RwLock<CookieJar>) {
-        let cookies = if let Ok(jar) = cookie_jar.read() {
-            jar.get_cookies(
-                request.url.host().unwrap(),
-                request.url.path(),
-                request.url.scheme() == "https",
-            )
-        } else {
-            Vec::new()
-        };
+    pub fn apply_cookies(request: &mut Request, cookie_jar: &mut CookieJar) {
+        let cookies = cookie_jar.get_cookies(
+            request.url.host().unwrap(),
+            request.url.path(),
+            request.url.scheme() == "https",
+        );
 
         trace!("Applying {} cookies to request", cookies.len());
 
@@ -67,7 +61,7 @@ impl CookieMiddleware {
     /// * `request_domain` - The domain of the request that received the response.
     /// * `header_value` - The value of the Set-Cookie header from the response.
     pub fn handle_response_cookie(
-        cookie_jar: &mut RwLock<CookieJar>,
+        cookie_jar: &mut CookieJar,
         request_url: &Url,
         header_value: &HeaderValue,
     ) {
@@ -101,8 +95,6 @@ impl CookieMiddleware {
 
         trace!("Storing cookie from response");
 
-        if let Ok(jar) = cookie_jar.get_mut() {
-            jar.add_cookie(cookie, host);
-        }
+        cookie_jar.add_cookie(cookie, host);
     }
 }

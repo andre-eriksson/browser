@@ -3,8 +3,8 @@ use std::{borrow::Cow, sync::Arc};
 use cli::args::BrowserArgs;
 use iced::{Font, Settings};
 use io::{
-    ASSETS,
-    constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
+    embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
+    manager::Resource,
 };
 use kernel::{Browser, BrowserEvent};
 use preferences::BrowserConfig;
@@ -38,8 +38,8 @@ impl Ui {
 
     /// Runs the UI runtime, initializing the application and starting the event loop.
     pub fn run(self) -> Result<(), UiError> {
-        let default_font = ASSETS.read().unwrap().load_embedded(OPEN_SANS_REGULAR);
-        let monospace_font = ASSETS.read().unwrap().load_embedded(ROBOTO_MONO_REGULAR);
+        let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);
+        let monospace_font = Resource::load_embedded(ROBOTO_MONO_REGULAR);
         let browser = self.browser;
         let config = self.config;
         let initial_url = self.args.url;

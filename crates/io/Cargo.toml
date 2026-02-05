@@ -6,8 +6,13 @@ license.workspace = true
 
 [dependencies]
 constants.workspace = true
+network.workspace = true
+cookies.workspace = true
 
 # External dependencies
+async-trait.workspace = true
+url.workspace = true
 tracing.workspace = true
-once_cell = "1.21.3"
+thiserror.workspace = true
+tokio.workspace = true
 rust-embed = { version = "8.9.0", features = ["include-exclude"] }

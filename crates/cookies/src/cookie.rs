@@ -64,7 +64,7 @@ impl Display for SameSite {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Cookie {
     name: Box<str>,
     value: Box<str>,

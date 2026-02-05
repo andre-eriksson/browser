@@ -1,19 +1,16 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::errors::NavigationError;
 use css_cssom::CSSStyleSheet;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
-use network::{
-    errors::{NetworkError, RequestError},
-    request::RequestBuilder,
-};
+use io::{DocumentPolicy, manager::Resource};
+use network::errors::{NetworkError, RequestError};
 use tracing::warn;
 use url::Url;
 
 use crate::{
     TabId,
     navigation::NavigationContext,
-    service::network::{policy::DocumentPolicy, request::RequestResult},
     tab::{collector::TabCollector, page::Page},
 };
 
@@ -33,23 +30,37 @@ pub async fn navigate(
         )))
     })?;
 
-    // TODO: Handle exceptions like about:blank or about:config
-    let request = RequestBuilder::from(url.clone()).build();
-    let header_response = match ctx.network_service().fetch(&mut page, request).await {
-        RequestResult::Failed(err) => return Err(NavigationError::RequestError(err)),
-        RequestResult::ClientError(resp)
-        | RequestResult::ServerError(resp)
-        | RequestResult::Success(resp) => resp,
+    let protocol = url.scheme();
+
+    let body = {
+        let client = ctx.http_client().box_clone();
+        let headers = Arc::clone(ctx.headers());
+        let cookie_jar = ctx
+            .cookie_jar()
+            .get_mut()
+            .map_err(|_| NavigationError::CookieJarLocked)?;
+
+        Resource::load_async(
+            io::manager::ResourceType::Absolute {
+                protocol,
+                location: url.as_str(),
+                client: client.as_ref(),
+                cookie_jar,
+                browser_headers: &headers,
+                page_url: &page.document_url,
+                policies: page.policies(),
+            },
+            &mut HashMap::default(),
+        )
+        .await
     };
-    let body = match header_response.body().await {
-        Ok(resp) => match resp.body {
-            Some(b) => b,
-            None => {
-                return Err(NavigationError::RequestError(RequestError::EmptyBody));
-            }
-        },
+
+    let body = match body {
+        Ok(b) => b,
         Err(e) => {
-            return Err(NavigationError::RequestError(RequestError::Network(e)));
+            return Err(NavigationError::RequestError(RequestError::Network(
+                NetworkError::RuntimeError(e.to_string()),
+            )));
         }
     };
 
@@ -130,49 +141,42 @@ pub async fn navigate(
                 }
                 BlockedReason::WaitingForResource(resource_type, href) => match resource_type {
                     ResourceType::Style => {
-                        match url.join(href) {
-                            Ok(url) => {
-                                let style_request = RequestBuilder::from(url).build();
-                                let style_resp =
-                                    ctx.network_service().fetch(&mut page, style_request);
-                                let style_response = match style_resp.await {
-                                    RequestResult::Failed(err) => {
-                                        return Err(NavigationError::RequestError(err));
-                                    }
-                                    RequestResult::ClientError(resp)
-                                    | RequestResult::ServerError(resp)
-                                    | RequestResult::Success(resp) => resp,
-                                };
-                                let style_body = match style_response.body().await {
-                                    Ok(resp) => match resp.body {
-                                        Some(b) => b,
-                                        None => {
-                                            return Err(NavigationError::RequestError(
-                                                RequestError::EmptyBody,
-                                            ));
-                                        }
-                                    },
-                                    Err(e) => {
-                                        return Err(NavigationError::RequestError(
-                                            RequestError::Network(e),
-                                        ));
-                                    }
-                                };
+                        let style_resp = {
+                            let client = ctx.http_client().box_clone();
+                            let headers = Arc::clone(ctx.headers());
+                            let cookie_jar = ctx
+                                .cookie_jar()
+                                .get_mut()
+                                .map_err(|_| NavigationError::CookieJarLocked)?;
 
-                                let css_content =
-                                    String::from_utf8_lossy(style_body.as_slice()).to_string();
-                                ctx.style_processor()
-                                    .process_css(&css_content, &mut stylesheets);
-                            }
+                            Resource::load_async(
+                                io::manager::ResourceType::Absolute {
+                                    protocol,
+                                    location: href.as_str(),
+                                    client: client.as_ref(),
+                                    cookie_jar,
+                                    browser_headers: &headers,
+                                    page_url: &page.document_url,
+                                    policies: page.policies(),
+                                },
+                                &mut HashMap::default(),
+                            )
+                            .await
+                        };
+
+                        let style_body = match style_resp {
+                            Ok(resp) => resp,
                             Err(e) => {
-                                warn!(
-                                    "{}",
-                                    NavigationError::RequestError(RequestError::Network(
-                                        NetworkError::InvalidUrl(e.to_string()),
-                                    ))
-                                )
+                                return Err(NavigationError::RequestError(RequestError::Network(
+                                    NetworkError::RuntimeError(e.to_string()),
+                                )));
                             }
                         };
+
+                        let css_content =
+                            String::from_utf8_lossy(style_body.as_slice()).to_string();
+                        ctx.style_processor()
+                            .process_css(&css_content, &mut stylesheets);
 
                         parser.resume()?;
                     }
@@ -193,7 +197,7 @@ pub async fn navigate(
 
     let result = parser.finalize();
     let policies = match ctx.tab_manager().get_tab_mut(tab_id) {
-        Some(tab) => tab.policies().clone(),
+        Some(tab) => *tab.policies(),
         None => DocumentPolicy::default(),
     };
 

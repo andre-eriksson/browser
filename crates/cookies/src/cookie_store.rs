@@ -8,7 +8,7 @@ use url::Host;
 use crate::{Expiration, cookie::Cookie, table::CookieTable};
 
 /// A simple in-memory cookie jar (for now).
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CookieJar {
     /// The list of stored cookies.
     cookies: Vec<Cookie>,

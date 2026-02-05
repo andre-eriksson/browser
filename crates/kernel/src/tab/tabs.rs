@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::{service::network::policy::DocumentPolicy, tab::page::Page};
+use io::DocumentPolicy;
+
+use crate::tab::page::Page;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TabId(pub usize);

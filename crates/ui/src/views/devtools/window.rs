@@ -4,7 +4,7 @@ use iced::{
     widget::{column, container},
     window::{Position, Settings},
 };
-use io::{ASSETS, constants::DEVTOOLS_ICON};
+use io::{embeded::DEVTOOLS_ICON, manager::Resource};
 
 use crate::{
     core::{Application, ApplicationWindow, Event},
@@ -48,7 +48,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
     }
 
     fn settings(&self) -> iced::window::Settings {
-        let icon = ASSETS.read().unwrap().load_embedded(DEVTOOLS_ICON);
+        let icon = Resource::load_embedded(DEVTOOLS_ICON);
 
         let devtools_icon = load_icon(icon);
 
