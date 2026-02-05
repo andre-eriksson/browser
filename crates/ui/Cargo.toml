@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 assets.workspace = true
 browser-config.workspace = true
-browser-core.workspace = true
+kernel.workspace = true
 cli.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true

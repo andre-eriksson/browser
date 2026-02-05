@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use browser_core::BrowserEvent;
 use iced::{
     Background, Color, Length, Theme,
     widget::{
@@ -9,6 +8,7 @@ use iced::{
         text, text_input,
     },
 };
+use kernel::BrowserEvent;
 
 use crate::{
     core::{Application, Event},

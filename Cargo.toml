@@ -3,7 +3,6 @@ resolver = "3"
 members = [
     "crates/assets",
     "crates/browser-config",
-    "crates/browser-core",
     "crates/cli",
     "crates/constants",
     "crates/cookies",
@@ -18,6 +17,7 @@ members = [
     "crates/html-dom",
     "crates/html-parser",
     "crates/html-tokenizer",
+    "crates/kernel",
     "crates/layout",
     "crates/network",
     "crates/renderer",
@@ -33,7 +33,6 @@ license      = "MIT"
 assets         = { path = "crates/assets" }
 cookies        = { path = "crates/cookies" }
 browser-config = { path = "crates/browser-config" }
-browser-core   = { path = "crates/browser-core" }
 cli            = { path = "crates/cli" }
 css-cssom      = { path = "crates/css-cssom" }
 css-parser     = { path = "crates/css-parser" }
@@ -45,6 +44,7 @@ errors         = { path = "crates/errors" }
 html-dom       = { path = "crates/html-dom" }
 html-parser    = { path = "crates/html-parser" }
 html-tokenizer = { path = "crates/html-tokenizer" }
+kernel         = { path = "crates/kernel" }
 layout         = { path = "crates/layout" }
 network        = { path = "crates/network" }
 renderer       = { path = "crates/renderer" }

@@ -3,8 +3,8 @@ mod message;
 use std::{str::FromStr, sync::Arc};
 
 use browser_config::{BrowserConfig, PresetTheme, Theme};
-use browser_core::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
 use cli::{Parser, args::BrowserArgs};
+use kernel::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{

@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use browser_core::BrowserEvent;
+use kernel::BrowserEvent;
 use iced::futures::{Stream, stream::unfold};
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 

@@ -5,10 +5,10 @@ use assets::{
     constants::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
 use browser_config::BrowserConfig;
-use browser_core::{Browser, BrowserEvent};
 use cli::args::BrowserArgs;
 use errors::subsystem::SubsystemError;
 use iced::{Font, Settings};
+use kernel::{Browser, BrowserEvent};
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
 use crate::core::Application;

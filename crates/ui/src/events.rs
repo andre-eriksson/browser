@@ -1,5 +1,5 @@
-use browser_core::TabId;
 use iced::window;
+use kernel::TabId;
 
 use crate::core::WindowType;
 

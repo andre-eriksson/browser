@@ -1,4 +1,4 @@
-use browser_core::Emitter;
+use kernel::Emitter;
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::error;
 

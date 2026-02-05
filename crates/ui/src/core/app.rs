@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use browser_config::BrowserConfig;
-use browser_core::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
+use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use css_style::StyleTree;
 use errors::browser::BrowserError;
 use iced::advanced::graphics::text::cosmic_text::FontSystem;

@@ -660,29 +660,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "browser-core"
-version = "0.1.0"
-dependencies = [
- "assets",
- "async-trait",
- "cli",
- "constants",
- "cookies",
- "css-cssom",
- "css-style",
- "errors",
- "html-dom",
- "html-parser",
- "http",
- "network",
- "postcard",
- "serde",
- "storage",
- "tracing",
- "url",
-]
-
-[[package]]
 name = "bstr"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1473,8 +1450,8 @@ name = "engine"
 version = "0.1.0"
 dependencies = [
  "browser-config",
- "browser-core",
  "cli",
+ "kernel",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -2765,6 +2742,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "kernel"
+version = "0.1.0"
+dependencies = [
+ "assets",
+ "async-trait",
+ "cli",
+ "constants",
+ "cookies",
+ "css-cssom",
+ "css-style",
+ "errors",
+ "html-dom",
+ "html-parser",
+ "http",
+ "network",
+ "postcard",
+ "serde",
+ "storage",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "khronos-egl"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2807,12 +2807,12 @@ name = "layout"
 version = "0.1.0"
 dependencies = [
  "assets",
- "browser-core",
  "cosmic-text",
  "css-cssom",
  "css-style",
  "html-dom",
  "html-parser",
+ "kernel",
  "tracing",
  "ui",
 ]
@@ -5607,7 +5607,6 @@ version = "0.1.0"
 dependencies = [
  "assets",
  "browser-config",
- "browser-core",
  "cli",
  "constants",
  "cookies",
@@ -5619,6 +5618,7 @@ dependencies = [
  "http",
  "iced",
  "image",
+ "kernel",
  "layout",
  "network",
  "regex",

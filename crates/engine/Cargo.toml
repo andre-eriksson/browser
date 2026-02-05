@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 browser-config.workspace = true
-browser-core.workspace = true
+kernel.workspace = true
 cli.workspace = true
 ui.workspace = true
 

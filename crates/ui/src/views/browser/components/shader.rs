@@ -9,6 +9,7 @@ use iced::{
         shader::{Pipeline, Primitive, Program, Viewport},
     },
 };
+use kernel::BrowserEvent;
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{GlyphAtlas, RectPipeline, RenderRect, TextBlockInfo, TexturePipeline};
 
@@ -277,11 +278,9 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
                 && let iced::Event::Mouse(e) = event
                 && let mouse::Event::ButtonReleased(_) = e
             {
-                return Some(Action::publish(Event::Browser(
-                    browser_core::BrowserEvent::NavigateTo(
-                        element.attributes.get("href").cloned().unwrap_or_default(),
-                    ),
-                )));
+                return Some(Action::publish(Event::Browser(BrowserEvent::NavigateTo(
+                    element.attributes.get("href").cloned().unwrap_or_default(),
+                ))));
             }
         }
 
