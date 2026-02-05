@@ -74,7 +74,6 @@ impl BrowserHeader {
 
         let tabs = scrollable::Scrollable::new(all_tabs)
             .direction(Direction::Horizontal(Scrollbar::new()))
-            .height(Length::Fixed(40.0))
             .width(Length::FillPortion(2));
 
         let search_bar = text_input("Search", &app.current_url)

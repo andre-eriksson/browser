@@ -18,6 +18,8 @@ use crate::{
     util::fonts::load_fallback_fonts,
 };
 
+pub const UI_VERTICAL_OFFSET: f32 = 88.0;
+
 /// The primitive that carries render data from draw() to prepare()/render()
 #[derive(Debug, Clone)]
 pub struct HtmlPrimitive {
@@ -229,8 +231,6 @@ impl<'a> HtmlRenderer<'a> {
 /// State for the shader widget
 #[derive(Default)]
 pub struct HtmlProgram;
-
-pub const UI_VERTICAL_OFFSET: f32 = 95.0;
 
 impl<'a> Program<Event> for HtmlRenderer<'a> {
     type Primitive = HtmlPrimitive;
