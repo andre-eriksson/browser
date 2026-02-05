@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use crate::errors::NavigationError;
 use css_cssom::CSSStyleSheet;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
-use io::{Backend, DocumentPolicy, manager::Resource};
+use io::{DocumentPolicy, manager::Resource};
 use network::errors::{NetworkError, RequestError};
 use tracing::warn;
 use url::Url;
@@ -30,6 +30,8 @@ pub async fn navigate(
         )))
     })?;
 
+    let protocol = url.scheme();
+
     let body = {
         let client = ctx.http_client().box_clone();
         let headers = Arc::clone(ctx.headers());
@@ -39,15 +41,16 @@ pub async fn navigate(
             .map_err(|_| NavigationError::CookieJarLocked)?;
 
         Resource::load_async(
-            io::manager::ResourceType::Remote(url.as_str()),
-            &mut HashMap::default(),
-            vec![Backend::Remote {
+            io::manager::ResourceType::Absolute {
+                protocol,
+                location: url.as_str(),
                 client: client.as_ref(),
                 cookie_jar,
                 browser_headers: &headers,
                 page_url: &page.document_url,
                 policies: page.policies(),
-            }],
+            },
+            &mut HashMap::default(),
         )
         .await
     };
@@ -147,15 +150,16 @@ pub async fn navigate(
                                 .map_err(|_| NavigationError::CookieJarLocked)?;
 
                             Resource::load_async(
-                                io::manager::ResourceType::Remote(href),
-                                &mut HashMap::default(),
-                                vec![Backend::Remote {
+                                io::manager::ResourceType::Absolute {
+                                    protocol,
+                                    location: href.as_str(),
                                     client: client.as_ref(),
                                     cookie_jar,
                                     browser_headers: &headers,
                                     page_url: &page.document_url,
                                     policies: page.policies(),
-                                }],
+                                },
+                                &mut HashMap::default(),
                             )
                             .await
                         };

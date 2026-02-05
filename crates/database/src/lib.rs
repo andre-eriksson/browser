@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 use storage::paths::{create_paths, get_data_path};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Database {
     domain: Domain,
 }

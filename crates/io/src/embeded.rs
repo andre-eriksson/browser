@@ -1,42 +1,48 @@
-use crate::manager::EmbededAsset;
+use crate::manager::EmbededType;
+use rust_embed::RustEmbed;
+
+#[derive(RustEmbed)]
+#[folder = "../../assets/"]
+#[include = "**/*"]
+pub(crate) struct EmbededResource;
 
 // === Icon Assets ===
 
 /// Represents the main icon asset.
-pub const WINDOW_ICON: EmbededAsset = EmbededAsset::Icon("icon.ico");
+pub const WINDOW_ICON: EmbededType = EmbededType::Icon("icon.ico");
 
 /// Represents the DevTools variant of the main icon asset.
-pub const DEVTOOLS_ICON: EmbededAsset = EmbededAsset::Icon("devtools.ico");
+pub const DEVTOOLS_ICON: EmbededType = EmbededType::Icon("devtools.ico");
 
 // === Font Assets ===
 
-pub const OPEN_SANS_LIGHT: EmbededAsset = EmbededAsset::Font("OpenSans-Light.ttf");
-pub const OPEN_SANS_MEDIUM: EmbededAsset = EmbededAsset::Font("OpenSans-Medium.ttf");
-pub const OPEN_SANS_REGULAR: EmbededAsset = EmbededAsset::Font("OpenSans-Regular.ttf");
-pub const OPEN_SANS_SEMI_BOLD: EmbededAsset = EmbededAsset::Font("OpenSans-SemiBold.ttf");
-pub const OPEN_SANS_BOLD: EmbededAsset = EmbededAsset::Font("OpenSans-Bold.ttf");
-pub const OPEN_SANS_EXTRA_BOLD: EmbededAsset = EmbededAsset::Font("OpenSans-ExtraBold.ttf");
+pub const OPEN_SANS_LIGHT: EmbededType = EmbededType::Font("OpenSans-Light.ttf");
+pub const OPEN_SANS_MEDIUM: EmbededType = EmbededType::Font("OpenSans-Medium.ttf");
+pub const OPEN_SANS_REGULAR: EmbededType = EmbededType::Font("OpenSans-Regular.ttf");
+pub const OPEN_SANS_SEMI_BOLD: EmbededType = EmbededType::Font("OpenSans-SemiBold.ttf");
+pub const OPEN_SANS_BOLD: EmbededType = EmbededType::Font("OpenSans-Bold.ttf");
+pub const OPEN_SANS_EXTRA_BOLD: EmbededType = EmbededType::Font("OpenSans-ExtraBold.ttf");
 
-pub const ROBOTO_MONO_THIN: EmbededAsset = EmbededAsset::Font("RobotoMono-Thin.ttf");
-pub const ROBOTO_MONO_EXTRA_LIGHT: EmbededAsset = EmbededAsset::Font("RobotoMono-ExtraLight.ttf");
-pub const ROBOTO_MONO_LIGHT: EmbededAsset = EmbededAsset::Font("RobotoMono-Light.ttf");
-pub const ROBOTO_MONO_MEDIUM: EmbededAsset = EmbededAsset::Font("RobotoMono-Medium.ttf");
-pub const ROBOTO_MONO_REGULAR: EmbededAsset = EmbededAsset::Font("RobotoMono-Regular.ttf");
-pub const ROBOTO_MONO_SEMI_BOLD: EmbededAsset = EmbededAsset::Font("RobotoMono-SemiBold.ttf");
-pub const ROBOTO_MONO_BOLD: EmbededAsset = EmbededAsset::Font("RobotoMono-Bold.ttf");
+pub const ROBOTO_MONO_THIN: EmbededType = EmbededType::Font("RobotoMono-Thin.ttf");
+pub const ROBOTO_MONO_EXTRA_LIGHT: EmbededType = EmbededType::Font("RobotoMono-ExtraLight.ttf");
+pub const ROBOTO_MONO_LIGHT: EmbededType = EmbededType::Font("RobotoMono-Light.ttf");
+pub const ROBOTO_MONO_MEDIUM: EmbededType = EmbededType::Font("RobotoMono-Medium.ttf");
+pub const ROBOTO_MONO_REGULAR: EmbededType = EmbededType::Font("RobotoMono-Regular.ttf");
+pub const ROBOTO_MONO_SEMI_BOLD: EmbededType = EmbededType::Font("RobotoMono-SemiBold.ttf");
+pub const ROBOTO_MONO_BOLD: EmbededType = EmbededType::Font("RobotoMono-Bold.ttf");
 
 // === Shader Assets ===
 
 /// Shader for rendering solid colors.
-pub const SOLID_SHADER: EmbededAsset = EmbededAsset::Shader("solid.wgsl");
+pub const SOLID_SHADER: EmbededType = EmbededType::Shader("solid.wgsl");
 
 /// Shader for rendering textures.
-pub const TEXTURE_SHADER: EmbededAsset = EmbededAsset::Shader("texture.wgsl");
+pub const TEXTURE_SHADER: EmbededType = EmbededType::Shader("texture.wgsl");
 
 // === Browser Assets ===
 
 /// Represents the default CSS stylesheet.
-pub const DEFAULT_CSS: EmbededAsset = EmbededAsset::Browser("default.css");
+pub const DEFAULT_CSS: EmbededType = EmbededType::Browser("default.css");
 
 /// Represents the "about:blank" HTML page.
-pub const ABOUT_BLANK_HTML: EmbededAsset = EmbededAsset::Browser("about_blank.html");
+pub const ABOUT_BLANK_HTML: EmbededType = EmbededType::Browser("about_blank.html");

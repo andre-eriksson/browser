@@ -12,4 +12,7 @@ pub enum AssetError {
 
     #[error("Remote request failed: {0}")]
     RemoteFailed(#[from] RequestError),
+
+    #[error("The resource: '{0}' is incompatible with: {1}")]
+    IncompatibleBackend(String, String),
 }
