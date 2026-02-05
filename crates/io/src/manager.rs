@@ -79,7 +79,6 @@ impl ResourceType<'_> {
 pub struct Resource;
 
 impl Resource {
-    #[instrument(fields(resource = ?resource))]
     pub async fn load_async(
         resource: ResourceType<'_>,
         cache: &mut HashMap<String, Vec<u8>>,

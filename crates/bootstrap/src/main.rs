@@ -22,8 +22,8 @@ use crate::message::ChannelEmitter;
 fn main() {
     let filter = EnvFilter::new("warn")
         .add_directive(Directive::from_str("engine=info").unwrap())
-        .add_directive(Directive::from_str("browser_core=debug").unwrap())
-        .add_directive(Directive::from_str("assets=debug").unwrap())
+        .add_directive(Directive::from_str("kernel=debug").unwrap())
+        .add_directive(Directive::from_str("io=debug").unwrap())
         .add_directive(Directive::from_str("css=debug").unwrap())
         .add_directive(Directive::from_str("cookies=debug").unwrap())
         .add_directive(Directive::from_str("html=debug").unwrap())
@@ -32,12 +32,7 @@ fn main() {
 
     tracing_subscriber::registry()
         .with(filter)
-        .with(
-            fmt::layer()
-                .pretty()
-                .with_file(false)
-                .with_line_number(false),
-        )
+        .with(fmt::layer().with_file(false).with_line_number(false))
         .init();
 
     let args = BrowserArgs::parse();
