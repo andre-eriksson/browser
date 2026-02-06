@@ -30,6 +30,6 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn fs_main(output: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(output.frag_color.rgba);
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    return input.frag_color;
 }
