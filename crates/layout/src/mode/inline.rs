@@ -100,31 +100,36 @@ impl InlineLayout {
                         });
                     }
                     Whitespace::PreWrap | Whitespace::Pre => {
-                        let mut text = adjusted_text;
-                        if items.is_empty() {
-                            text = text.trim_start_matches('\n').to_string();
-                        }
+                        let text = if items.is_empty() {
+                            adjusted_text.trim_start_matches('\n').to_string()
+                        } else {
+                            adjusted_text
+                        };
 
-                        let lines: Vec<&str> = text.split('\n').collect();
-
-                        for (i, line) in lines.iter().enumerate() {
-                            if !line.is_empty() || i == 0 {
+                        if !text.starts_with('\n') && text.contains('\n') {
+                            let split_pos = text.find('\n').unwrap_or(text.len());
+                            let before_newline = &text[..split_pos];
+                            let newlines = &text[split_pos..];
+                            if !text.is_empty() {
                                 items.push(InlineItem::TextRun {
                                     id: inline_node.node_id,
-                                    text: line.to_string(),
+                                    text: before_newline.to_string(),
                                     style: Box::new(inherited_styles.clone()),
                                 });
                             }
-
-                            if i < lines.len() - 1 {
-                                let font_size = inline_node.style.computed_font_size_px;
-                                items.push(InlineItem::Break {
-                                    line_height_px: Property::resolve(&style.line_height)
-                                        .map_or(LineHeight::default().to_px(font_size), |lh| {
-                                            lh.to_px(font_size)
-                                        }),
+                            if !text.is_empty() {
+                                items.push(InlineItem::TextRun {
+                                    id: inline_node.node_id,
+                                    text: newlines.to_string(),
+                                    style: Box::new(inherited_styles.clone()),
                                 });
                             }
+                        } else if !text.is_empty() {
+                            items.push(InlineItem::TextRun {
+                                id: inline_node.node_id,
+                                text,
+                                style: Box::new(inherited_styles.clone()),
+                            });
                         }
                     }
                     _ => {}
@@ -187,6 +192,10 @@ impl InlineLayout {
         for item in items {
             match item {
                 InlineItem::TextRun { id, text, style } => {
+                    if text.is_empty() {
+                        continue;
+                    }
+
                     let font_size_px = style.computed_font_size_px;
 
                     let (
@@ -205,6 +214,16 @@ impl InlineLayout {
                     else {
                         continue;
                     };
+
+                    if text.starts_with("\n")
+                        && matches!(
+                            whitespace,
+                            Whitespace::Pre | Whitespace::PreLine | Whitespace::PreWrap
+                        )
+                    {
+                        cursor.x = 0.0;
+                        cursor.remaining_width = width;
+                    }
 
                     let (i_text, r_text) = text_ctx.measure_multiline_text(
                         text,
@@ -270,12 +289,12 @@ impl InlineLayout {
                             node_id: *id,
                             dimensions: Rect::new(rest_x, rest_y, r_text.width, r_text.height),
                             colors,
-                        resolved_margin: margin,
-                        resolved_padding: padding,
-                        resolved_border: border,
-                        text_buffer: Some(Arc::new(r_text.buffer)),
-                        children: vec![],
-                    };
+                            resolved_margin: margin,
+                            resolved_padding: padding,
+                            resolved_border: border,
+                            text_buffer: Some(Arc::new(r_text.buffer)),
+                            children: vec![],
+                        };
 
                         nodes.push(node);
 

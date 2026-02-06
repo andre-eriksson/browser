@@ -65,7 +65,9 @@ impl TextContext {
             _ => Wrap::Word,
         };
 
-        if offset_ctx.offset_x == 0.0 {
+        let is_pre = matches!(text_description.whitespace, Whitespace::Pre);
+
+        if offset_ctx.offset_x == 0.0 || is_pre {
             return (
                 self.measure_text(text, text_description, available_width, wrap_mode),
                 None,
@@ -84,7 +86,11 @@ impl TextContext {
             .weight(weight)
             .stretch(Stretch::Normal);
 
-        if text.trim().is_empty() {
+        let preserve_whitespace = matches!(
+            text_description.whitespace,
+            Whitespace::Pre | Whitespace::PreWrap
+        );
+        if text.trim().is_empty() && !preserve_whitespace {
             let buffer = Buffer::new(&mut self.font_system, metrics);
             return (
                 Text {
@@ -116,15 +122,11 @@ impl TextContext {
 
         let first_line_end = if let Some(run) = temp_buffer.layout_runs().next() {
             run.glyphs.last().map(|g| g.end).unwrap_or(0)
+        } else if preserve_whitespace && text.starts_with('\n') {
+            1
         } else {
             return (
-                Text {
-                    width: 0.0,
-                    last_line_width: 0.0,
-                    height: 0.0,
-                    total_width: 0.0,
-                    buffer: temp_buffer,
-                },
+                self.measure_text(text, text_description, available_width, wrap_mode),
                 None,
             );
         };
@@ -136,74 +138,21 @@ impl TextContext {
             _ => &text[first_line_end..],
         };
 
-        let mut first_buffer = Buffer::new(&mut self.font_system, metrics);
-        first_buffer.set_wrap(&mut self.font_system, Wrap::Word);
-        first_buffer.set_size(
-            &mut self.font_system,
-            Some(offset_ctx.available_width),
-            None,
-        );
-        first_buffer.set_text(
-            &mut self.font_system,
+        let initial_text = self.measure_text(
             first_line_text,
-            &attrs,
-            Shaping::Advanced,
-            Some(Align::Left),
+            text_description,
+            offset_ctx.available_width,
+            wrap_mode,
         );
-        first_buffer.shape_until_scroll(&mut self.font_system, false);
-
-        let first_line_width = first_buffer
-            .layout_runs()
-            .next()
-            .map(|run| run.line_w)
-            .unwrap_or(0.0);
-
-        let initial_text = Text {
-            width: first_line_width,
-            last_line_width: first_line_width,
-            height: line_height_px,
-            total_width: first_line_width,
-            buffer: first_buffer,
-        };
 
         if remaining_text.is_empty() {
             return (initial_text, None);
         }
 
-        let mut rest_buffer = Buffer::new(&mut self.font_system, metrics);
-        rest_buffer.set_wrap(&mut self.font_system, wrap_mode);
-        rest_buffer.set_size(&mut self.font_system, Some(available_width), None);
-        rest_buffer.set_text(
-            &mut self.font_system,
-            remaining_text,
-            &attrs,
-            Shaping::Advanced,
-            Some(Align::Left),
-        );
-        rest_buffer.shape_until_scroll(&mut self.font_system, false);
+        let rest_text =
+            self.measure_text(remaining_text, text_description, available_width, wrap_mode);
 
-        let mut max_width: f32 = 0.0;
-        let mut last_line_width: f32 = 0.0;
-        let mut line_count: usize = 0;
-
-        for run in rest_buffer.layout_runs() {
-            max_width = max_width.max(run.line_w);
-            last_line_width = run.line_w;
-            line_count += 1;
-        }
-
-        let total_height = line_count as f32 * line_height_px;
-
-        (
-            initial_text,
-            Some(Text {
-                width: max_width,
-                last_line_width,
-                height: total_height,
-                total_width: max_width,
-                buffer: rest_buffer,
-            }),
-        )
+        (initial_text, Some(rest_text))
     }
 
     /// Measures the rendered size of the given text with specified styles and constraints.
@@ -232,7 +181,12 @@ impl TextContext {
             .weight(weight)
             .stretch(Stretch::Normal);
 
-        if text.trim().is_empty() {
+        let preserve_whitespace = matches!(
+            text_description.whitespace,
+            Whitespace::Pre | Whitespace::PreWrap
+        );
+
+        if text.trim().is_empty() && !preserve_whitespace {
             return Text {
                 width: 0.0,
                 last_line_width: 0.0,
@@ -262,13 +216,12 @@ impl TextContext {
             line_count += 1;
         }
 
-        let total_height = if line_count > 0 {
-            line_count as f32 * line_height_px
-        } else if !text.is_empty() {
-            line_height_px
-        } else {
-            0.0
-        };
+        let mut total_height = line_count as f32 * line_height_px;
+
+        if preserve_whitespace && text.ends_with('\n') {
+            total_height += line_height_px;
+            last_line_width = 0.0;
+        }
 
         Text {
             width: max_width,
