@@ -9,5 +9,6 @@ constants.workspace = true
 storage.workspace = true
 
 # External dependencies
+clap.workspace = true
 serde.workspace = true
 toml = "0.9.11"

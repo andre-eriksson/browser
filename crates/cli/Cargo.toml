@@ -6,8 +6,9 @@ license.workspace = true
 
 [dependencies]
 constants.workspace = true
+preferences.workspace = true
 
 # External dependencies
+clap.workspace = true
 tracing.workspace = true
 tokio.workspace = true
-clap = { version = "4.5.54", features = ["derive"] }

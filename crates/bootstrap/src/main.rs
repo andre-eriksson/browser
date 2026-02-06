@@ -4,7 +4,7 @@ use std::{str::FromStr, sync::Arc};
 
 use cli::{Parser, args::BrowserArgs};
 use kernel::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
-use preferences::{BrowserConfig, PresetTheme, Theme};
+use preferences::{BrowserConfig, Theme};
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
@@ -36,7 +36,11 @@ fn main() {
         .init();
 
     let args = BrowserArgs::parse();
-    let config = BrowserConfig::new(Theme::from(PresetTheme::Dark));
+    let config = if let Some(theme) = args.theme {
+        BrowserConfig::new(Theme::from(theme))
+    } else {
+        BrowserConfig::load()
+    };
 
     let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
     let emitter = Box::new(ChannelEmitter::new(event_sender));

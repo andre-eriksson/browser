@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use constants::files::SETTINGS;
 use serde::{Deserialize, Serialize};
 use storage::{
@@ -8,8 +9,9 @@ use storage::{
 /// Hex color representation as a string.
 pub type Color = String;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Copy, Serialize, Deserialize, ValueEnum)]
 pub enum PresetTheme {
+    #[default]
     Light,
     Dark,
 }
@@ -64,12 +66,14 @@ impl From<PresetTheme> for Theme {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BrowserConfig {
-    theme: Theme,
+    theme: Box<Theme>,
 }
 
 impl BrowserConfig {
     pub fn new(theme: Theme) -> Self {
-        Self { theme }
+        Self {
+            theme: Box::new(theme),
+        }
     }
 
     pub fn load() -> Self {
@@ -80,11 +84,11 @@ impl BrowserConfig {
 
                 let path = base_path.join(SETTINGS);
 
-                let serialized = toml::to_string(&BrowserConfig::default());
+                let serialized = toml::to_string(&Self::default());
 
                 if serialized.is_err() {
                     eprintln!("Unable to serialize config file");
-                    return BrowserConfig::default();
+                    return Self::default();
                 }
 
                 let res = std::fs::write(path, serialized.unwrap());
@@ -93,19 +97,19 @@ impl BrowserConfig {
                     eprintln!("Unable to create settings file")
                 }
 
-                BrowserConfig::default()
+                Self::default()
             }
             Ok(data) => {
                 let val = str::from_utf8(&data);
 
                 if val.is_err() {
-                    return BrowserConfig::default();
+                    return Self::default();
                 }
 
                 let out = toml::from_str(val.unwrap());
 
                 if out.is_err() {
-                    return BrowserConfig::default();
+                    return Self::default();
                 }
 
                 let config: BrowserConfig = out.unwrap();
@@ -116,7 +120,7 @@ impl BrowserConfig {
     }
 
     pub fn set_theme(&mut self, theme: Theme) {
-        self.theme = theme;
+        *self.theme = theme;
         if let Some(base_path) = get_config_path() {
             let path = base_path.join(SETTINGS);
             let serialized = toml::to_string(self);

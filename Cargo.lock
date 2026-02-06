@@ -893,6 +893,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "constants",
+ "preferences",
  "tokio",
  "tracing",
 ]
@@ -3967,6 +3968,7 @@ dependencies = [
 name = "preferences"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "constants",
  "serde",
  "storage",
