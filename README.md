@@ -26,9 +26,9 @@ https://flask.palletsprojects.com/en/stable/quickstart/#routing
 
 <img src="./docs/flask.png" alt="A screenshot of the app rendering the Flask quickstart page" width="800"/>
 
-https://en.wikipedia.org/wiki/Sweden
+https://tailwindcss.com/docs/colors
 
-<img src="./docs/sweden.png" alt="A screenshot of the app rendering the Wikipedia page for Sweden" width="800"/>
+<img src="./docs/tailwind.png" alt="A screenshot of the app rendering a tailwindcss page" width="800"/>
 
 ## Architecture
 
