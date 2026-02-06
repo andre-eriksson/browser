@@ -51,6 +51,7 @@ impl<'h> BrowserHtml<'h> {
             Some(viewport_bounds),
         );
         self.renderer.set_rects(render_data.rects);
+        self.renderer.set_tris(render_data.tris);
         self.renderer.set_text_blocks(render_data.text_blocks);
         self.renderer.set_scroll_offset(active_tab.scroll_offset);
 

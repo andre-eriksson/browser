@@ -96,7 +96,7 @@ impl BlockLayout {
             box_width
         };
 
-        let x = Self::calculate_x(styled_node, ctx, &margin, &border, content_width);
+        let x = Self::calculate_x(styled_node, ctx, &margin, &padding, &border, content_width);
         let y = ctx.containing_block().y + ctx.block_cursor.y;
 
         let mut children = Vec::new();
@@ -231,6 +231,7 @@ impl BlockLayout {
             ),
             resolved_margin: margin,
             resolved_padding: padding,
+            resolved_border: border,
             colors,
             children,
             text_buffer: None,
@@ -249,20 +250,22 @@ impl BlockLayout {
         styled_node: &StyledNode,
         ctx: &LayoutContext,
         margin: &SideOffset,
+        padding: &SideOffset,
         border: &SideOffset,
         content_width: f32,
     ) -> f32 {
         let container_width = ctx.containing_block().width;
-        let mut x = ctx.containing_block().x + margin.left + border.left;
+        let total_width = content_width + padding.horizontal() + border.horizontal();
+        let mut x = ctx.containing_block().x + margin.left;
 
         if let (Ok(margin_left), Ok(margin_right)) = (
             Property::resolve(&styled_node.style.margin_left),
             Property::resolve(&styled_node.style.margin_right),
         ) {
             if margin_left == &OffsetValue::Auto && margin_right == &OffsetValue::Auto {
-                x = (container_width - content_width) / 2.0;
+                x = ctx.containing_block().x + (container_width - total_width) / 2.0;
             } else if margin_left == &OffsetValue::Auto {
-                x = ctx.containing_block().x + container_width - margin.right - content_width;
+                x = ctx.containing_block().x + container_width - margin.right - total_width;
             }
         }
 
@@ -328,6 +331,12 @@ mod tests {
             bottom: 0.0,
             left: 0.0,
         };
+        let padding = SideOffset {
+            top: 0.0,
+            right: 0.0,
+            bottom: 0.0,
+            left: 0.0,
+        };
         let border = SideOffset {
             top: 0.0,
             right: 0.0,
@@ -336,7 +345,14 @@ mod tests {
         };
         let content_width = 400.0;
 
-        let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &border, content_width);
+        let x = BlockLayout::calculate_x(
+            &styled_node,
+            &ctx,
+            &margin,
+            &padding,
+            &border,
+            content_width,
+        );
 
         assert_eq!(x, 200.0);
     }

@@ -16,6 +16,22 @@ pub struct SolidVertex {
     color: [f32; 4],
 }
 
+/// Data for rectangles to be rendered
+#[derive(Debug, Clone)]
+pub struct RenderRect {
+    pub rect: Rect,
+    pub background: Color4f,
+}
+
+/// Data for triangles to be rendered
+#[derive(Debug, Clone)]
+pub struct RenderTri {
+    pub p0: [f32; 2],
+    pub p1: [f32; 2],
+    pub p2: [f32; 2],
+    pub color: Color4f,
+}
+
 /// A GPU pipeline for rendering solid-colored rectangles using position and color attributes
 pub struct RectPipeline {
     pipeline: RenderPipeline,
@@ -162,6 +178,36 @@ impl RectPipeline {
         self.vertices.extend_from_slice(&quad_vertices);
     }
 
+    /// Pushes a solid-colored triangle to be rendered
+    pub fn push_triangle(&mut self, p0: [f32; 2], p1: [f32; 2], p2: [f32; 2], color: Color4f) {
+        if self.vertices.len() + 3 > self.max_vertices {
+            eprintln!("RectPipeline: max vertex capacity reached, skipping triangle");
+            return;
+        }
+
+        if color.a <= 0.0 {
+            return;
+        }
+
+        let color = color.to_array();
+        let tri_vertices = [
+            SolidVertex {
+                position: p0,
+                color,
+            },
+            SolidVertex {
+                position: p1,
+                color,
+            },
+            SolidVertex {
+                position: p2,
+                color,
+            },
+        ];
+
+        self.vertices.extend_from_slice(&tri_vertices);
+    }
+
     /// Flushes all queued vertices to the GPU
     pub fn flush(&mut self, queue: &Queue) {
         if self.vertices.is_empty() {
@@ -197,11 +243,4 @@ impl RectPipeline {
     pub fn vertex_count(&self) -> u32 {
         self.vertex_count
     }
-}
-
-/// Data for rectangles to be rendered
-#[derive(Debug, Clone)]
-pub struct RenderRect {
-    pub rect: Rect,
-    pub background: Color4f,
 }

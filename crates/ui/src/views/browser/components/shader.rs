@@ -11,7 +11,7 @@ use iced::{
 };
 use kernel::BrowserEvent;
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
-use renderer::{GlyphAtlas, RectPipeline, RenderRect, TextBlockInfo, TexturePipeline};
+use renderer::{GlyphAtlas, RectPipeline, RenderRect, RenderTri, TextBlockInfo, TexturePipeline};
 
 use crate::{
     core::{Event, ScrollOffset},
@@ -24,6 +24,7 @@ pub const UI_VERTICAL_OFFSET: f32 = 88.0;
 #[derive(Debug, Clone)]
 pub struct HtmlPrimitive {
     pub rects: Vec<RenderRect>,
+    pub tris: Vec<RenderTri>,
     pub text_blocks: Vec<TextBlockInfo>,
     pub viewport_width: f32,
     pub viewport_height: f32,
@@ -34,6 +35,7 @@ impl HtmlPrimitive {
     pub fn new(viewport_width: f32, viewport_height: f32, scroll_offset: ScrollOffset) -> Self {
         Self {
             rects: Vec::new(),
+            tris: Vec::new(),
             text_blocks: Vec::new(),
             viewport_width,
             viewport_height,
@@ -44,6 +46,11 @@ impl HtmlPrimitive {
     /// Add a rectangle to be rendered
     pub fn push_rect(&mut self, rect: Rect, background: Color4f) {
         self.rects.push(RenderRect { rect, background });
+    }
+
+    /// Add a triangle to be rendered
+    pub fn push_triangle(&mut self, p0: [f32; 2], p1: [f32; 2], p2: [f32; 2], color: Color4f) {
+        self.tris.push(RenderTri { p0, p1, p2, color });
     }
 
     /// Add a text block to be rendered
@@ -112,6 +119,22 @@ impl Primitive for HtmlPrimitive {
             pipeline
                 .rect_pipeline
                 .push_quad(offset_rect, render_rect.background);
+        }
+
+        for tri in &self.tris {
+            let p0 = [
+                tri.p0[0] - self.scroll_offset.x,
+                tri.p0[1] - self.scroll_offset.y,
+            ];
+            let p1 = [
+                tri.p1[0] - self.scroll_offset.x,
+                tri.p1[1] - self.scroll_offset.y,
+            ];
+            let p2 = [
+                tri.p2[0] - self.scroll_offset.x,
+                tri.p2[1] - self.scroll_offset.y,
+            ];
+            pipeline.rect_pipeline.push_triangle(p0, p1, p2, tri.color);
         }
 
         let (atlas_width, atlas_height) = pipeline.glyph_atlas.size();
@@ -187,6 +210,8 @@ impl Primitive for HtmlPrimitive {
 pub struct HtmlRenderer<'a> {
     /// Rectangles to render (populated by layout engine)
     pub rects: Vec<RenderRect>,
+    /// Triangles to render (populated by layout engine)
+    pub tris: Vec<RenderTri>,
     /// Text blocks to render (populated by layout engine)
     pub text_blocks: Vec<TextBlockInfo>,
     /// The scroll offset for viewport-based rendering
@@ -203,6 +228,7 @@ impl<'a> HtmlRenderer<'a> {
     pub fn new(dom_tree: &'a DocumentRoot, layout_tree: &'a LayoutTree) -> Self {
         Self {
             rects: Vec::new(),
+            tris: Vec::new(),
             text_blocks: Vec::new(),
             scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
             dom_tree,
@@ -212,11 +238,16 @@ impl<'a> HtmlRenderer<'a> {
 
     pub fn clear(&mut self) {
         self.rects.clear();
+        self.tris.clear();
         self.text_blocks.clear();
     }
 
     pub fn set_rects(&mut self, rects: Vec<RenderRect>) {
         self.rects = rects;
+    }
+
+    pub fn set_tris(&mut self, tris: Vec<RenderTri>) {
+        self.tris = tris;
     }
 
     pub fn set_text_blocks(&mut self, text_blocks: Vec<TextBlockInfo>) {
@@ -238,6 +269,10 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
 
     fn draw(&self, _state: &Self::State, _cursor: Cursor, bounds: Rectangle) -> Self::Primitive {
         let mut primitive = HtmlPrimitive::new(bounds.width, bounds.height, self.scroll_offset);
+
+        for tri in &self.tris {
+            primitive.push_triangle(tri.p0, tri.p1, tri.p2, tri.color);
+        }
 
         for render_rect in &self.rects {
             primitive.push_rect(render_rect.rect, render_rect.background);
@@ -368,14 +403,96 @@ pub fn collect_render_data_from_layout<'a>(
 
         let bg = node.colors.background_color;
 
+        let border = node.resolved_border;
+        let border_color = &node.colors.border_color;
+        if (border.top > 0.0 || border.right > 0.0 || border.bottom > 0.0 || border.left > 0.0)
+            && node.dimensions.width > 0.0
+            && node.dimensions.height > 0.0
+        {
+            let x = node.dimensions.x;
+            let y = node.dimensions.y;
+            let w = node.dimensions.width;
+            let h = node.dimensions.height;
+
+            let inner_x = x + border.left;
+            let inner_y = y + border.top;
+            let inner_w = (w - border.horizontal()).max(0.0);
+            let inner_h = (h - border.vertical()).max(0.0);
+            let inner_right = inner_x + inner_w;
+            let inner_bottom = inner_y + inner_h;
+
+            let outer_right = x + w;
+            let outer_bottom = y + h;
+
+            if border.top > 0.0 && border_color.top.a > 0.0 {
+                data.tris.push(RenderTri {
+                    p0: [x, y],
+                    p1: [outer_right, y],
+                    p2: [inner_right, inner_y],
+                    color: border_color.top,
+                });
+                data.tris.push(RenderTri {
+                    p0: [x, y],
+                    p1: [inner_right, inner_y],
+                    p2: [inner_x, inner_y],
+                    color: border_color.top,
+                });
+            }
+
+            if border.right > 0.0 && border_color.right.a > 0.0 {
+                data.tris.push(RenderTri {
+                    p0: [outer_right, y],
+                    p1: [outer_right, outer_bottom],
+                    p2: [inner_right, inner_bottom],
+                    color: border_color.right,
+                });
+                data.tris.push(RenderTri {
+                    p0: [outer_right, y],
+                    p1: [inner_right, inner_bottom],
+                    p2: [inner_right, inner_y],
+                    color: border_color.right,
+                });
+            }
+
+            if border.bottom > 0.0 && border_color.bottom.a > 0.0 {
+                data.tris.push(RenderTri {
+                    p0: [outer_right, outer_bottom],
+                    p1: [x, outer_bottom],
+                    p2: [inner_x, inner_bottom],
+                    color: border_color.bottom,
+                });
+                data.tris.push(RenderTri {
+                    p0: [outer_right, outer_bottom],
+                    p1: [inner_x, inner_bottom],
+                    p2: [inner_right, inner_bottom],
+                    color: border_color.bottom,
+                });
+            }
+
+            if border.left > 0.0 && border_color.left.a > 0.0 {
+                data.tris.push(RenderTri {
+                    p0: [x, outer_bottom],
+                    p1: [x, y],
+                    p2: [inner_x, inner_y],
+                    color: border_color.left,
+                });
+                data.tris.push(RenderTri {
+                    p0: [x, outer_bottom],
+                    p1: [inner_x, inner_y],
+                    p2: [inner_x, inner_bottom],
+                    color: border_color.left,
+                });
+            }
+        }
+
         if bg.a > 0.0 {
+            let border = node.resolved_border;
+            let inner_x = node.dimensions.x + border.left;
+            let inner_y = node.dimensions.y + border.top;
+            let inner_width = (node.dimensions.width - border.horizontal()).max(0.0);
+            let inner_height = (node.dimensions.height - border.vertical()).max(0.0);
             data.rects.push(RenderRect {
-                rect: Rect::new(
-                    node.dimensions.x,
-                    node.dimensions.y,
-                    node.dimensions.width,
-                    node.dimensions.height,
-                ),
+                rect: Rect::new(inner_x, inner_y, inner_width, inner_height),
                 background: bg,
             });
         }

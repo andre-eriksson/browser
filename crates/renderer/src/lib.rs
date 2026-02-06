@@ -16,5 +16,5 @@ mod texture;
 mod vertex;
 
 pub use atlas::{GlyphAtlas, TextBlockInfo};
-pub use rect::{RectPipeline, RenderRect};
+pub use rect::{RectPipeline, RenderRect, RenderTri};
 pub use texture::TexturePipeline;

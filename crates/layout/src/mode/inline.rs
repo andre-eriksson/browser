@@ -222,7 +222,7 @@ impl InlineLayout {
                         },
                     );
 
-                    let (margin, padding, _border) =
+                    let (margin, padding, border) =
                         PropertyResolver::resolve_box_model(style, width, font_size_px);
 
                     let colors = LayoutColors::from(style);
@@ -250,6 +250,7 @@ impl InlineLayout {
                         colors: colors.clone(),
                         resolved_margin: margin,
                         resolved_padding: padding,
+                        resolved_border: border,
                         text_buffer: Some(Arc::new(i_text.buffer)),
                         children: vec![],
                     };
@@ -269,11 +270,12 @@ impl InlineLayout {
                             node_id: *id,
                             dimensions: Rect::new(rest_x, rest_y, r_text.width, r_text.height),
                             colors,
-                            resolved_margin: margin,
-                            resolved_padding: padding,
-                            text_buffer: Some(Arc::new(r_text.buffer)),
-                            children: vec![],
-                        };
+                        resolved_margin: margin,
+                        resolved_padding: padding,
+                        resolved_border: border,
+                        text_buffer: Some(Arc::new(r_text.buffer)),
+                        children: vec![],
+                    };
 
                         nodes.push(node);
 

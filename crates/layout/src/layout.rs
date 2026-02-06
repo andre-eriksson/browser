@@ -87,6 +87,9 @@ pub struct LayoutNode {
     /// The resolved padding values
     pub resolved_padding: SideOffset,
 
+    /// The resolved border widths
+    pub resolved_border: SideOffset,
+
     /// Optional text buffer for rendered text
     pub text_buffer: Option<Arc<Buffer>>,
 
@@ -103,6 +106,7 @@ impl LayoutNode {
             colors: LayoutColors::default(),
             resolved_margin: SideOffset::default(),
             resolved_padding: SideOffset::default(),
+            resolved_border: SideOffset::default(),
             text_buffer: None,
             children: Vec::new(),
         }
