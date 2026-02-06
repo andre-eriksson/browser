@@ -36,7 +36,8 @@ The browser is composed of 7 subsystems, each responsible for a specific aspect 
 
 ### Subsystems
 
-- [**HTTP Client**](./crates/network): Responsible for making HTTP requests and handling responses.
+- [**IO Subsystem**](./crates/io): Responsible for handling all input/output operations, including file system access and network communication.
+  - [**HTTP Client**](./crates/network): Responsible for making HTTP requests and handling responses.
 - [**HTML Parser**](./crates/html-parser): Parses HTML documents and builds the DOM tree.
   - [**Tokenizer**](./crates/html-tokenizer): Breaks HTML into tokens.
   - [**DOM Builder**](./crates/html-dom): Builds the DOM tree from tokens.
@@ -47,25 +48,8 @@ The browser is composed of 7 subsystems, each responsible for a specific aspect 
   - [**Selector Generation**](./crates/css-selectors): Converts CSSOM to selectors that can be applied to the DOM.
   - [**Styletree Builder**](./crates/css-style): Combines CSS selectors, and DOM to create the style tree.
 - [**Rendering Engine**](./crates/renderer): Renders the layout tree to the screen using GPU acceleration.
-- [**Browser Core**](./crates/browser-core): Manages the overall browser state, including tabs, and cookies.
+- [**Kernel (Browser Core)**](./crates/kernel): Manages the overall browser state, including tabs, and cookies.
 - [**UI Layer**](./crates/ui): Manages the user interface elements like tabs, address bar, etc.
-
-### Flowchart
-
-The following flowchart illustrates the high-level process of how the browser handles a URL request:
-
-```mermaid
-flowchart TD
-    A[Start] --> B[Input URL]
-    B --> C[HTTP Request]
-    C --> D[Receive HTML]
-    D --> E[Parse HTML]
-    E --> F[Build DOM Tree]
-    F --> G[Apply CSS]
-    G --> H[Layout Calculation]
-    H --> I[Render Tree]
-    I --> J[Display Content]
-```
 
 ## Non-Goals (for now)
 

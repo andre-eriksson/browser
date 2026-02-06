@@ -1,6 +1,6 @@
 # CSS Properties
 
-This document provides an overview of the CSS properties supported by the browser.
+This document provides an overview of the CSS properties supported by the browser. A "supported" property, means that we can parse it and apply it to the layout tree. It does not necessarily mean that the property is fully implemented or behaves exactly as specified in the CSS specification.
 
 List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties at 2026-02-02
 
@@ -68,11 +68,11 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-block-style
 - [ ] border-block-width
 - [ ] border-block (shorthand)
-- [ ] border-bottom-color
+- [x] border-bottom-color
 - [ ] border-bottom-left-radius
 - [ ] border-bottom-right-radius
 - [ ] border-bottom-style
-- [ ] border-bottom-width
+- [x] border-bottom-width
 - [ ] border-bottom (shorthand)
 - [ ] border-collapse
 - [ ] border-color (shorthand)
@@ -96,24 +96,24 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-inline-style
 - [ ] border-inline-width
 - [ ] border-inline (shorthand)
-- [ ] border-left-color
+- [x] border-left-color
 - [ ] border-left-style
-- [ ] border-left-width
+- [x] border-left-width
 - [ ] border-left (shorthand)
 - [ ] border-radius (shorthand)
-- [ ] border-right-color
+- [x] border-right-color
 - [ ] border-right-style
-- [ ] border-right-width
+- [x] border-right-width
 - [ ] border-right (shorthand)
 - [ ] border-spacing
 - [ ] border-start-end-radius
 - [ ] border-start-start-radius
 - [ ] border-style (shorthand)
-- [ ] border-top-color
+- [x] border-top-color
 - [ ] border-top-left-radius
 - [ ] border-top-right-radius
 - [ ] border-top-style
-- [ ] border-top-width
+- [x] border-top-width
 - [ ] border-top (shorthand)
 - [ ] border-width (shorthand)
 - [ ] border (shorthand)
