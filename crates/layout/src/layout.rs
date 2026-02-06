@@ -125,23 +125,27 @@ pub struct LayoutTree {
 
 impl LayoutTree {
     /// Resolves the layout node at the given (x, y) coordinates
-    pub fn resolve(&self, x: f32, y: f32) -> Option<&LayoutNode> {
+    pub fn resolve(&self, x: f32, y: f32) -> Vec<&LayoutNode> {
+        let mut collected = Vec::new();
         for node in &self.root_nodes {
-            if let Some(found) = Self::resolve_in_node(node, x, y) {
-                return Some(found);
-            }
+            Self::resolve_in_node(&mut collected, node, x, y);
         }
-        None
+        collected
     }
 
-    fn resolve_in_node(node: &LayoutNode, x: f32, y: f32) -> Option<&LayoutNode> {
+    fn resolve_in_node<'a>(
+        collected: &mut Vec<&'a LayoutNode>,
+        node: &'a LayoutNode,
+        x: f32,
+        y: f32,
+    ) -> Option<&'a LayoutNode> {
         if node.dimensions.contains_point(x, y) {
             for child in &node.children {
-                if let Some(found) = Self::resolve_in_node(child, x, y) {
-                    return Some(found);
+                if let Some(found) = Self::resolve_in_node(collected, child, x, y) {
+                    collected.push(found);
                 }
             }
-            return Some(node);
+            collected.push(node);
         }
         None
     }

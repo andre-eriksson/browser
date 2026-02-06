@@ -296,20 +296,28 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             let x = position.x + self.scroll_offset.x;
             let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
 
-            let node = self.layout_tree.resolve(x, y)?;
+            let nodes = self.layout_tree.resolve(x, y);
+            let mut found_link = false;
+            let mut element = None;
 
-            let parent_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
-                dom_node.parent
-            } else {
-                return None;
-            };
+            for node in nodes {
+                let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
+                    dom_node
+                } else {
+                    continue;
+                };
 
-            if let Some(node) = parent_node
-                && let Some(element) = self
-                    .dom_tree
-                    .get_node(&node)
-                    .and_then(|n| n.data.as_element())
-                && element.tag == Tag::Html(HtmlTag::A)
+                if let Some(n) = dom_node.data.as_element()
+                    && n.tag == Tag::Html(HtmlTag::A)
+                {
+                    element = Some(n);
+                    found_link = true;
+                    break;
+                }
+            }
+
+            if found_link
+                && let Some(element) = element
                 && let iced::Event::Mouse(e) = event
                 && let mouse::Event::ButtonReleased(_) = e
             {
@@ -332,25 +340,25 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             let x = position.x + self.scroll_offset.x;
             let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
 
-            let node = if let Some(node) = self.layout_tree.resolve(x, y) {
-                node
-            } else {
-                return iced::advanced::mouse::Interaction::default();
-            };
+            let nodes = self.layout_tree.resolve(x, y);
+            let mut found_link = false;
 
-            let parent_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
-                dom_node.parent
-            } else {
-                return iced::advanced::mouse::Interaction::default();
-            };
+            for node in nodes {
+                let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
+                    dom_node
+                } else {
+                    continue;
+                };
 
-            if let Some(node) = parent_node
-                && let Some(element) = self
-                    .dom_tree
-                    .get_node(&node)
-                    .and_then(|n| n.data.as_element())
-                && element.tag == Tag::Html(HtmlTag::A)
-            {
+                if let Some(n) = dom_node.data.as_element()
+                    && n.tag == Tag::Html(HtmlTag::A)
+                {
+                    found_link = true;
+                    break;
+                }
+            }
+
+            if found_link {
                 return iced::advanced::mouse::Interaction::Pointer;
             }
         }

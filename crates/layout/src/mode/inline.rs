@@ -25,6 +25,11 @@ pub enum InlineItem {
         text: String,
         style: Box<ComputedStyle>,
     },
+    Link {
+        id: NodeId,
+        content: Box<[InlineItem]>,
+        style: Box<ComputedStyle>,
+    },
     Break {
         line_height_px: f32,
     },
@@ -155,6 +160,26 @@ impl InlineLayout {
                             .map_or(LineHeight::default().to_px(font_size), |lh| {
                                 lh.to_px(font_size)
                             }),
+                    });
+                }
+                Tag::Html(HtmlTag::A) => {
+                    let mut link_items = Vec::new();
+
+                    if !inline_node.children.is_empty() {
+                        for child in &inline_node.children {
+                            let result =
+                                Self::collect(ctx, &inline_node.style, child, &mut link_items);
+
+                            if result.is_err() {
+                                return Err(());
+                            }
+                        }
+                    }
+
+                    items.push(InlineItem::Link {
+                        id: inline_node.node_id,
+                        content: link_items.into_boxed_slice(),
+                        style: Box::new(inline_node.style.clone()),
                     });
                 }
                 _ => {
@@ -313,6 +338,59 @@ impl InlineLayout {
                     }
 
                     cursor.remaining_width = width - cursor.x;
+                }
+                InlineItem::Link { id, content, style } => {
+                    let (link_nodes, link_height) =
+                        Self::layout(content, text_ctx, width, x + cursor.x, y + cursor.y);
+
+                    let mut total_width = 0.0;
+                    let mut total_node_height = 0.0;
+
+                    let mut self_nodes = Vec::new();
+
+                    if !link_nodes.is_empty() {
+                        let colors = LayoutColors::from(style);
+
+                        for node in link_nodes {
+                            let mut node = node.clone();
+                            node.colors = colors.clone();
+                            total_width += node.dimensions.width;
+                            self_nodes.push(node);
+                        }
+
+                        cursor.remaining_width = width;
+                        total_node_height += link_height;
+                    }
+
+                    if self_nodes.is_empty() {
+                        continue;
+                    }
+
+                    cursor.x += total_width;
+
+                    let (margin, padding, border) = PropertyResolver::resolve_box_model(
+                        style,
+                        width,
+                        style.computed_font_size_px,
+                    );
+
+                    let link_node = LayoutNode {
+                        node_id: *id,
+                        dimensions: Rect::new(
+                            self_nodes[0].dimensions.x,
+                            self_nodes[0].dimensions.y,
+                            total_width,
+                            total_node_height,
+                        ),
+                        colors: LayoutColors::from(style),
+                        resolved_margin: margin,
+                        resolved_padding: padding,
+                        resolved_border: border,
+                        text_buffer: None,
+                        children: self_nodes,
+                    };
+
+                    nodes.push(link_node);
                 }
                 InlineItem::Break { line_height_px } => {
                     cursor.y += line_height_px;
