@@ -1,10 +1,32 @@
-use crate::manager::EmbededType;
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "../../assets/"]
 #[include = "**/*"]
 pub(crate) struct EmbededResource;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EmbededType<'a> {
+    Icon(&'a str),
+    Font(&'a str),
+    Image(&'a str),
+    Shader(&'a str),
+    Browser(&'a str),
+    Root(&'a str),
+}
+
+impl EmbededType<'_> {
+    pub fn path(&self) -> String {
+        match self {
+            EmbededType::Icon(name) => format!("icon/{}", name),
+            EmbededType::Font(name) => format!("font/{}", name),
+            EmbededType::Image(name) => format!("image/{}", name),
+            EmbededType::Shader(name) => format!("shader/{}", name),
+            EmbededType::Browser(name) => format!("browser/{}", name),
+            EmbededType::Root(name) => name.to_string(),
+        }
+    }
+}
 
 // === Icon Assets ===
 

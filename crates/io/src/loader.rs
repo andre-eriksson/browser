@@ -8,9 +8,9 @@ use url::Url;
 
 use crate::{
     RequestResult,
-    embeded::EmbededResource,
+    embeded::{EmbededResource, EmbededType},
     errors::AssetError,
-    manager::{EmbededType, ResourceType},
+    manager::ResourceType,
     network::request::NetworkService,
 };
 
@@ -44,15 +44,8 @@ impl<'a> AsyncLoader for ResourceType<'a> {
                         .ok_or(AssetError::NotFound(asset.path()))
                 }
             }
-            ResourceType::Remote {
-                url,
-                client,
-                cookie_jar,
-                browser_headers,
-                page_url,
-                policies,
-            } => {
-                let url = page_url.as_ref().map_or(
+            ResourceType::Remote { url, ctx } => {
+                let url = ctx.page_url.as_ref().map_or(
                     Url::parse(url).map_err(|e| {
                         RequestError::Network(NetworkError::InvalidUrl(e.to_string()))
                     }),
@@ -64,8 +57,11 @@ impl<'a> AsyncLoader for ResourceType<'a> {
                 )?;
 
                 let request = RequestBuilder::from(url).build();
-                let mut service = NetworkService::new(client, cookie_jar, browser_headers);
-                let header_response = match service.fetch(page_url.clone(), policies, request).await
+                let mut service =
+                    NetworkService::new(ctx.client, ctx.cookie_jar, ctx.browser_headers);
+                let header_response = match service
+                    .fetch(ctx.page_url.clone(), ctx.policies, request)
+                    .await
                 {
                     RequestResult::Failed(err) => return Err(AssetError::RemoteFailed(err)),
                     RequestResult::ClientError(resp)
@@ -90,11 +86,7 @@ impl<'a> AsyncLoader for ResourceType<'a> {
             ResourceType::Absolute {
                 protocol,
                 location,
-                client,
-                cookie_jar,
-                browser_headers,
-                page_url,
-                policies,
+                ctx,
             } => match protocol {
                 "file" => {
                     let adjusted_location = if location.starts_with("file://") {
@@ -127,17 +119,7 @@ impl<'a> AsyncLoader for ResourceType<'a> {
                     )))
                     .await
                 }
-                _ => {
-                    Self::await_asset(ResourceType::Remote {
-                        url: location,
-                        client,
-                        cookie_jar,
-                        browser_headers,
-                        page_url,
-                        policies,
-                    })
-                    .await
-                }
+                _ => Self::await_asset(ResourceType::Remote { url: location, ctx }).await,
             },
         }
     }
@@ -152,14 +134,7 @@ impl<'a> SyncLoader for ResourceType<'a> {
             ResourceType::Embeded(asset) => EmbededResource::get(&asset.path())
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| AssetError::NotFound(asset.path())),
-            ResourceType::Remote {
-                url,
-                client,
-                cookie_jar,
-                browser_headers,
-                page_url,
-                policies,
-            } => {
+            ResourceType::Remote { url, ctx } => {
                 let runtime = Runtime::new().map_err(|e| {
                     AssetError::RemoteFailed(RequestError::Network(NetworkError::RuntimeError(
                         e.to_string(),
@@ -167,7 +142,7 @@ impl<'a> SyncLoader for ResourceType<'a> {
                 })?;
 
                 runtime.block_on(async {
-                    let url = page_url.as_ref().map_or(
+                    let url = ctx.page_url.as_ref().map_or(
                         Url::parse(url).map_err(|e| {
                             RequestError::Network(NetworkError::InvalidUrl(e.to_string()))
                         }),
@@ -179,9 +154,10 @@ impl<'a> SyncLoader for ResourceType<'a> {
                     )?;
 
                     let request = RequestBuilder::from(url).build();
-                    let mut service = NetworkService::new(client, cookie_jar, browser_headers);
+                    let mut service =
+                        NetworkService::new(ctx.client, ctx.cookie_jar, ctx.browser_headers);
                     let header_response = match service
-                        .fetch(page_url.clone(), policies, request)
+                        .fetch(ctx.page_url.clone(), ctx.policies, request)
                         .await
                     {
                         RequestResult::Failed(err) => return Err(AssetError::RemoteFailed(err)),
@@ -208,11 +184,7 @@ impl<'a> SyncLoader for ResourceType<'a> {
             ResourceType::Absolute {
                 protocol,
                 location,
-                client,
-                cookie_jar,
-                browser_headers,
-                page_url,
-                policies,
+                ctx,
             } => match protocol {
                 "file://" => {
                     let adjusted_location = location.trim_start_matches("file://");
@@ -228,14 +200,7 @@ impl<'a> SyncLoader for ResourceType<'a> {
                         adjusted_location,
                     )))
                 }
-                _ => Self::load_asset(ResourceType::Remote {
-                    url: location,
-                    client,
-                    cookie_jar,
-                    browser_headers,
-                    page_url,
-                    policies,
-                }),
+                _ => Self::load_asset(ResourceType::Remote { url: location, ctx }),
             },
         }
     }

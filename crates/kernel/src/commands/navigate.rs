@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Arc};
 use crate::errors::NavigationError;
 use css_cssom::CSSStyleSheet;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
-use io::{DocumentPolicy, manager::Resource};
+use io::{
+    DocumentPolicy,
+    manager::{RequestContext, Resource},
+};
 use network::errors::{NetworkError, RequestError};
 use tracing::warn;
 use url::Url;
@@ -44,11 +47,13 @@ pub async fn navigate(
             io::manager::ResourceType::Absolute {
                 protocol,
                 location: url.as_str(),
-                client: client.as_ref(),
-                cookie_jar,
-                browser_headers: &headers,
-                page_url: &page.document_url,
-                policies: page.policies(),
+                ctx: &mut RequestContext {
+                    client: client.as_ref(),
+                    cookie_jar,
+                    browser_headers: &headers,
+                    page_url: &page.document_url,
+                    policies: page.policies(),
+                },
             },
             &mut HashMap::default(),
         )
@@ -159,11 +164,13 @@ pub async fn navigate(
                                 io::manager::ResourceType::Absolute {
                                     protocol,
                                     location: relative_url.as_str(),
-                                    client: client.as_ref(),
-                                    cookie_jar,
-                                    browser_headers: &headers,
-                                    page_url: &page.document_url,
-                                    policies: page.policies(),
+                                    ctx: &mut RequestContext {
+                                        client: client.as_ref(),
+                                        cookie_jar,
+                                        browser_headers: &headers,
+                                        page_url: &page.document_url,
+                                        policies: page.policies(),
+                                    },
                                 },
                                 &mut HashMap::default(),
                             )

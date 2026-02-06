@@ -11,31 +11,18 @@ use url::Url;
 
 use crate::{
     DocumentPolicy,
+    embeded::EmbededType,
     errors::AssetError,
     loader::{AsyncLoader, SyncLoader},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EmbededType<'a> {
-    Icon(&'a str),
-    Font(&'a str),
-    Image(&'a str),
-    Shader(&'a str),
-    Browser(&'a str),
-    Root(&'a str),
-}
-
-impl EmbededType<'_> {
-    pub fn path(&self) -> String {
-        match self {
-            EmbededType::Icon(name) => format!("icon/{}", name),
-            EmbededType::Font(name) => format!("font/{}", name),
-            EmbededType::Image(name) => format!("image/{}", name),
-            EmbededType::Shader(name) => format!("shader/{}", name),
-            EmbededType::Browser(name) => format!("browser/{}", name),
-            EmbededType::Root(name) => name.to_string(),
-        }
-    }
+#[derive(Debug)]
+pub struct RequestContext<'a> {
+    pub client: &'a dyn HttpClient,
+    pub cookie_jar: &'a mut CookieJar,
+    pub browser_headers: &'a Arc<HeaderMap>,
+    pub page_url: &'a Option<Url>,
+    pub policies: &'a DocumentPolicy,
 }
 
 /// AssetType represents the type of asset being managed by the AssetManager.
@@ -46,21 +33,13 @@ pub enum ResourceType<'a> {
     FileSystem(&'a str),
     Remote {
         url: &'a str,
-        client: &'a dyn HttpClient,
-        cookie_jar: &'a mut CookieJar,
-        browser_headers: &'a Arc<HeaderMap>,
-        page_url: &'a Option<Url>,
-        policies: &'a DocumentPolicy,
+        ctx: &'a mut RequestContext<'a>,
     },
     /// embed://, file://, http://, https://, etc.
     Absolute {
         protocol: &'a str,
         location: &'a str,
-        client: &'a dyn HttpClient,
-        cookie_jar: &'a mut CookieJar,
-        browser_headers: &'a Arc<HeaderMap>,
-        page_url: &'a Option<Url>,
-        policies: &'a DocumentPolicy,
+        ctx: &'a mut RequestContext<'a>,
     },
 }
 
