@@ -1,7 +1,7 @@
 use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum SystemColor {
     AccentColor,
     AccentColorText,
@@ -22,6 +22,32 @@ pub enum SystemColor {
     SelectedItem,
     SelectedItemText,
     VisitedText,
+}
+
+impl SystemColor {
+    pub fn to_hex(self) -> Option<&'static str> {
+        match self {
+            SystemColor::AccentColor => Some("#0078D7"),
+            SystemColor::AccentColorText => Some("#FFFFFF"),
+            SystemColor::ActiveText => Some("#0000FF"),
+            SystemColor::ButtonBorder => Some("#A9A9A9"),
+            SystemColor::ButtonFace => Some("#F0F0F0"),
+            SystemColor::ButtonText => Some("#000000"),
+            SystemColor::Canvas => Some("#FFFFFF"),
+            SystemColor::CanvasText => Some("#000000"),
+            SystemColor::Field => Some("#FFFFFF"),
+            SystemColor::FieldText => Some("#000000"),
+            SystemColor::GrayText => Some("#A9A9A9"),
+            SystemColor::Highlight => Some("#3399FF"),
+            SystemColor::HighlightText => Some("#FFFFFF"),
+            SystemColor::LinkText => Some("#0000FF"),
+            SystemColor::Mark => Some("#FFFF00"),
+            SystemColor::MarkText => Some("#000000"),
+            SystemColor::SelectedItem => Some("#3399FF"),
+            SystemColor::SelectedItemText => Some("#FFFFFF"),
+            SystemColor::VisitedText => Some("#800080"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -320,23 +346,33 @@ impl NamedColor {
             NamedColor::YellowGreen => Some("#9ACD32"),
         }
     }
+}
 
-    /// Converts the NamedColor to an RGB tuple (r, g, b)
-    ///
-    /// # Returns
-    /// An Option containing a tuple of (r, g, b) if the color is valid, or None if not.
-    pub fn to_rgb_tuple(self) -> Option<(u8, u8, u8)> {
-        self.to_hex().and_then(|hex| {
-            let hex = hex.trim_start_matches('#');
-            if hex.len() == 6
-                && let Ok(parsed) = u32::from_str_radix(hex, 16)
-            {
-                let r = ((parsed >> 16) & 0xFF) as u8;
-                let g = ((parsed >> 8) & 0xFF) as u8;
-                let b = (parsed & 0xFF) as u8;
-                return Some((r, g, b));
-            }
-            None
-        })
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_system_color() {
+        let color: SystemColor = "accentColor".parse().unwrap();
+        assert_eq!(color, SystemColor::AccentColor);
+
+        let color: SystemColor = "LinkText".parse().unwrap();
+        assert_eq!(color, SystemColor::LinkText);
+
+        let color = "invalidColor".parse::<SystemColor>();
+        assert!(color.is_err());
+    }
+
+    #[test]
+    fn parse_named_color() {
+        let color: NamedColor = "AliceBlue".parse().unwrap();
+        assert_eq!(color, NamedColor::AliceBlue);
+
+        let color: NamedColor = "rebeccapurple".parse().unwrap();
+        assert_eq!(color, NamedColor::RebeccaPurple);
+
+        let color = "invalidColor".parse::<NamedColor>();
+        assert!(color.is_err());
     }
 }

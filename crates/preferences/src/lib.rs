@@ -7,8 +7,6 @@ use storage::{
 };
 
 /// Hex color representation as a string.
-pub type Color = String;
-
 #[derive(Debug, Clone, Default, Copy, Serialize, Deserialize, ValueEnum)]
 pub enum PresetTheme {
     #[default]
@@ -18,15 +16,15 @@ pub enum PresetTheme {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
-    pub background: Color,
-    pub foreground: Color,
-    pub text: Color,
-    pub primary: Color,
-    pub secondary: Color,
-    pub tertiary: Color,
-    pub success: Color,
-    pub warning: Color,
-    pub danger: Color,
+    pub background: String,
+    pub foreground: String,
+    pub text: String,
+    pub primary: String,
+    pub secondary: String,
+    pub tertiary: String,
+    pub success: String,
+    pub warning: String,
+    pub danger: String,
 }
 
 impl Default for Theme {
