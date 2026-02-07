@@ -123,7 +123,7 @@ impl ComputedStyle {
         let mut ctx = PropertyUpdateContext::new(&mut computed_style, parent_style);
 
         for (key, value) in properties {
-            let val = resolve_css_variable(&ctx.computed_style.variables, value);
+            let val = resolve_css_variable(&ctx.computed_style.variables, value, String::from("0"));
             let v = val.as_str();
 
             match key.as_str() {

@@ -56,16 +56,78 @@ macro_rules! simple_property_handler {
     };
 }
 
-pub fn resolve_css_variable(variables: &Vec<(String, String)>, value: String) -> String {
-    if let Some(stripped) = value.strip_prefix("var(").and_then(|s| s.strip_suffix(')')) {
-        let var_name = stripped.trim();
-        for (name, val) in variables {
-            if name == var_name {
-                return val.clone();
+pub fn resolve_css_variable(
+    variables: &[(String, String)],
+    value: String,
+    variable_fallback: String,
+) -> String {
+    let mut result = value;
+    let max_iterations = 10;
+
+    for _ in 0..max_iterations {
+        let Some(var_start) = result.find("var(") else {
+            break;
+        };
+
+        let content_start = var_start + 4;
+        let mut depth = 1;
+        let mut end_pos = None;
+        for (i, ch) in result[content_start..].char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end_pos = Some(content_start + i);
+                        break;
+                    }
+                }
+                _ => {}
             }
         }
+
+        let Some(closing_paren) = end_pos else {
+            break;
+        };
+
+        let inner = &result[content_start..closing_paren];
+
+        let mut comma_pos = None;
+        let mut depth = 0;
+        for (i, ch) in inner.char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => depth -= 1,
+                ',' if depth == 0 => {
+                    comma_pos = Some(i);
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let var_name = match comma_pos {
+            Some(pos) => inner[..pos].trim(),
+            None => inner.trim(),
+        };
+
+        let fallback = comma_pos.map(|pos| inner[pos + 1..].trim().to_string());
+
+        let resolved = if let Some((_, val)) = variables.iter().find(|(name, _)| name == var_name) {
+            val.clone()
+        } else {
+            fallback.unwrap_or_else(|| variable_fallback.clone())
+        };
+
+        result = format!(
+            "{}{}{}",
+            &result[..var_start],
+            resolved,
+            &result[closing_paren + 1..]
+        );
     }
-    value
+
+    result
 }
 
 simple_property_handler!(
