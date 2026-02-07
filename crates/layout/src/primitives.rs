@@ -1,5 +1,5 @@
 use css_style::{
-    Color, CSSProperty,
+    CSSProperty, Color,
     color::{
         ColorValue, FunctionColor, Hue,
         cielab::Cielab,

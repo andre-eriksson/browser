@@ -1,6 +1,6 @@
-use kernel::TabId;
 use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
+use kernel::TabId;
 use layout::LayoutTree;
 use url::Url;
 

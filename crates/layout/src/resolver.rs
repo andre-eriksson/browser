@@ -1,5 +1,5 @@
 use css_style::{
-    BorderWidthValue, ComputedStyle, Dimension, MaxDimension, OffsetValue, CSSProperty, StyledNode,
+    BorderWidthValue, CSSProperty, ComputedStyle, Dimension, MaxDimension, OffsetValue, StyledNode,
 };
 
 use crate::SideOffset;
@@ -125,22 +125,22 @@ impl PropertyResolver {
     pub(crate) fn calculate_width(styled_node: &StyledNode, width: f32) -> f32 {
         let font_size = styled_node.style.computed_font_size_px;
 
-        let max_width = if let Ok(max_width_prop) = CSSProperty::resolve(&styled_node.style.max_width)
-        {
-            match &max_width_prop {
-                MaxDimension::None => f32::INFINITY,
-                MaxDimension::Length(len) => len.to_px(width, font_size),
-                MaxDimension::Percentage(pct) => pct.to_px(width),
-                MaxDimension::MaxContent
-                | MaxDimension::MinContent
-                | MaxDimension::FitContent(_)
-                | MaxDimension::Stretch => {
-                    f32::INFINITY // TODO: implement intrinsic sizing
+        let max_width =
+            if let Ok(max_width_prop) = CSSProperty::resolve(&styled_node.style.max_width) {
+                match &max_width_prop {
+                    MaxDimension::None => f32::INFINITY,
+                    MaxDimension::Length(len) => len.to_px(width, font_size),
+                    MaxDimension::Percentage(pct) => pct.to_px(width),
+                    MaxDimension::MaxContent
+                    | MaxDimension::MinContent
+                    | MaxDimension::FitContent(_)
+                    | MaxDimension::Stretch => {
+                        f32::INFINITY // TODO: implement intrinsic sizing
+                    }
                 }
-            }
-        } else {
-            f32::INFINITY
-        };
+            } else {
+                f32::INFINITY
+            };
 
         let font_size = styled_node.style.computed_font_size_px;
 

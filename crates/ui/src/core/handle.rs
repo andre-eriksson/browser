@@ -4,8 +4,8 @@ use std::{
     sync::Arc,
 };
 
-use kernel::BrowserEvent;
 use iced::futures::{Stream, stream::unfold};
+use kernel::BrowserEvent;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
 use crate::core::app::Event;

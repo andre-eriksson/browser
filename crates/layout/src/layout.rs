@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
-use css_style::{ComputedStyle, CSSProperty, StyledNode};
+use css_style::{CSSProperty, ComputedStyle, StyledNode};
 use html_dom::NodeId;
 
 use crate::{
