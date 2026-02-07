@@ -370,6 +370,7 @@ impl InlineLayout {
                         continue;
                     }
 
+                    total_height = f32::max(total_height, total_node_height + cursor.y);
                     cursor.x += total_width;
 
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(

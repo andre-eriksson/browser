@@ -133,13 +133,15 @@ impl BlockLayout {
                         inline_y,
                     );
 
-                    for inline_node in inline_layout_nodes {
-                        children.push(inline_node);
-                    }
+                    if !inline_layout_nodes.is_empty() || inline_height > 0.0 {
+                        for inline_node in inline_layout_nodes {
+                            children.push(inline_node);
+                        }
 
-                    flow.current_y += inline_height;
-                    flow.previous_margin_bottom = 0.0;
-                    flow.is_first_child = false;
+                        flow.current_y += inline_height;
+                        flow.previous_margin_bottom = 0.0;
+                        flow.is_first_child = false;
+                    }
                 }
 
                 continue;
