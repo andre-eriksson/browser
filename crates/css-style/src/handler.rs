@@ -504,46 +504,23 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.computed_style.writing_mode {
-        Property::Global(global) => {
+    let parts: Vec<&str> = value.split_whitespace().collect();
+    match parts.len() {
+        1 => {
+            handle_margin_block_start(ctx, parts[0]);
+            handle_margin_block_end(ctx, parts[0]);
+        }
+        2 => {
+            handle_margin_block_start(ctx, parts[0]);
+            handle_margin_block_end(ctx, parts[1]);
+        }
+        _ => {
             ctx.record_error(
                 "margin-block",
                 value,
-                format!("Unsupported global value: {:?}", global),
+                format!("Invalid number of values: {}", parts.len()),
             );
         }
-        Property::Value(val) => match val {
-            WritingMode::HorizontalTb => {
-                if let Err(e) = Property::update_property(&mut ctx.computed_style.margin_top, value)
-                {
-                    ctx.record_error("margin-block", value, e);
-                }
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.margin_bottom, value)
-                {
-                    ctx.record_error("margin-block", value, e);
-                }
-            }
-            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.margin_left, value)
-                {
-                    ctx.record_error("margin-block", value, e);
-                }
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.margin_right, value)
-                {
-                    ctx.record_error("margin-block", value, e);
-                }
-            }
-            _ => {
-                ctx.record_error(
-                    "margin-block",
-                    value,
-                    String::from("Unsupported writing mode"),
-                );
-            }
-        },
     }
 }
 
@@ -631,47 +608,24 @@ pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.computed_style.writing_mode {
-        Property::Global(global) => {
+    let parts = value.split_whitespace().collect::<Vec<&str>>();
+
+    match parts.len() {
+        1 => {
+            handle_padding_block_start(ctx, parts[0]);
+            handle_padding_block_end(ctx, parts[0]);
+        }
+        2 => {
+            handle_padding_block_start(ctx, parts[0]);
+            handle_padding_block_end(ctx, parts[1]);
+        }
+        _ => {
             ctx.record_error(
                 "padding-block",
                 value,
-                format!("Unsupported global value: {:?}", global),
+                format!("Invalid number of values: {}", parts.len()),
             );
         }
-        Property::Value(val) => match val {
-            WritingMode::HorizontalTb => {
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.padding_top, value)
-                {
-                    ctx.record_error("padding-block", value, e);
-                }
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.padding_bottom, value)
-                {
-                    ctx.record_error("padding-block", value, e);
-                }
-            }
-            WritingMode::VerticalRl | WritingMode::VerticalLr => {
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.padding_left, value)
-                {
-                    ctx.record_error("padding-block", value, e);
-                }
-                if let Err(e) =
-                    Property::update_property(&mut ctx.computed_style.padding_right, value)
-                {
-                    ctx.record_error("padding-block", value, e);
-                }
-            }
-            _ => {
-                ctx.record_error(
-                    "padding-block",
-                    value,
-                    String::from("Unsupported writing mode"),
-                );
-            }
-        },
     }
 }
 
