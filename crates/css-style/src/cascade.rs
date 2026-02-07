@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use css_cssom::{CSSDeclaration, CSSStyleSheet, StylesheetOrigin};
+use css_cssom::{CSSDeclaration, CSSStyleSheet, Property, StylesheetOrigin};
 use css_selectors::{
     ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable,
     generate_selector_list, matches_compound,
@@ -90,7 +90,7 @@ impl Ord for CascadeSpecificity {
 
 #[derive(Debug, Clone)]
 pub struct CascadedDeclaration {
-    pub property: String,
+    pub property: Property,
     pub value: String,
     pub important: bool,
     pub specificity: CascadeSpecificity,
@@ -101,7 +101,7 @@ pub struct CascadedDeclaration {
 impl CascadedDeclaration {
     pub fn from_inline(decl: &CSSDeclaration, order: usize) -> Self {
         CascadedDeclaration {
-            property: decl.name.clone(),
+            property: decl.property.clone(),
             value: decl.value.clone(),
             important: decl.important,
             specificity: CascadeSpecificity::inline(),
@@ -129,9 +129,9 @@ impl CascadedDeclaration {
         for rule in rules {
             if matches_compound(&rule.selector_sequences, dom, node, &class_set) {
                 for decl in rule.declarations {
-                    if decl.name.starts_with("--") {
+                    if decl.property.is_custom() {
                         variables.push(CascadedDeclaration {
-                            property: decl.name.clone(),
+                            property: decl.property.clone(),
                             value: decl.value.clone(),
                             important: decl.important,
                             specificity: CascadeSpecificity::from(rule.specificity),
@@ -143,7 +143,7 @@ impl CascadedDeclaration {
                     }
 
                     declarations.push(CascadedDeclaration {
-                        property: decl.name.clone(),
+                        property: decl.property.clone(),
                         value: decl.value.clone(),
                         important: decl.important,
                         specificity: CascadeSpecificity::from(rule.specificity),
@@ -231,10 +231,10 @@ impl CascadedDeclaration {
     }
 }
 
-pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(String, String)> {
+pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, String)> {
     CascadedDeclaration::sort_declarations(declarations);
 
-    let mut cascaded_styles: Vec<(String, String)> = Vec::with_capacity(32);
+    let mut cascaded_styles: Vec<(Property, String)> = Vec::with_capacity(32);
 
     for decl in declarations.iter() {
         if !cascaded_styles
@@ -248,10 +248,10 @@ pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(String, String)
     cascaded_styles
 }
 
-pub fn cascade_variables(declarations: &mut [CascadedDeclaration]) -> Vec<(String, String)> {
+pub fn cascade_variables(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, String)> {
     CascadedDeclaration::sort_declarations(declarations);
 
-    let mut cascaded_variables: HashMap<String, String> = HashMap::with_capacity(32);
+    let mut cascaded_variables: HashMap<Property, String> = HashMap::with_capacity(32);
 
     for decl in declarations.iter() {
         if !cascaded_variables.contains_key(&decl.property) {

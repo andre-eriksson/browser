@@ -1,5 +1,5 @@
 use css_parser::{
-    AssociatedToken, AtRule, ComponentValue, CssTokenKind, QualifiedRule, SimpleBlock,
+    AssociatedToken, AtRule, ComponentValue, CssTokenKind, Property, QualifiedRule, SimpleBlock,
 };
 use serde::{Deserialize, Serialize};
 
@@ -186,7 +186,8 @@ impl CSSAtRule {
                     }
                     CssTokenKind::Semicolon if in_declaration => {
                         if let Some(name) = temp_ident.take() {
-                            let decl = CSSDeclaration::from_values(name, temp_values.clone());
+                            let property = Property::from(name);
+                            let decl = CSSDeclaration::from_values(property, temp_values.clone());
                             self.declarations.push(decl);
                         }
                         temp_values.clear();
@@ -214,7 +215,8 @@ impl CSSAtRule {
         }
 
         if in_declaration && let Some(name) = temp_ident {
-            let decl = CSSDeclaration::from_values(name, temp_values);
+            let property = Property::from(name);
+            let decl = CSSDeclaration::from_values(property, temp_values);
             self.declarations.push(decl);
         }
     }

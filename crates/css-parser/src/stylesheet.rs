@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     CssParser,
+    property::Property,
     rules::{AtRule, Rule},
 };
 
@@ -27,8 +28,8 @@ impl From<Vec<CssToken>> for Stylesheet {
 /// <https://www.w3.org/TR/css-syntax-3/#declaration>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Declaration {
-    /// The property name
-    pub name: String,
+    /// The property type (known or custom)
+    pub property: Property,
     /// The value as a list of component values
     pub value: Vec<ComponentValue>,
     /// Whether this declaration has !important
@@ -37,9 +38,9 @@ pub struct Declaration {
 
 impl Declaration {
     /// Create a new declaration
-    pub fn new(name: String) -> Self {
+    pub fn new(property: Property) -> Self {
         Declaration {
-            name,
+            property,
             value: Vec::new(),
             important: false,
         }

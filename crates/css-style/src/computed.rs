@@ -1,3 +1,4 @@
+use css_cssom::{KnownProperty, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -25,10 +26,10 @@ use crate::{
         font::{AbsoluteSize, GenericName},
     },
     properties::{
-        BorderStyleValueProperty, BorderWidthValueProperty, ColorProperty, DisplayProperty,
-        FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty,
+        BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty, ColorProperty,
+        DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty,
         LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetValueProperty,
-        PositionProperty, Property, TextAlignProperty, WhitespaceProperty, WidthProperty,
+        PositionProperty, TextAlignProperty, WhitespaceProperty, WidthProperty,
         WritingModeProperty,
         color::Color,
         dimension::{Dimension, MaxDimension},
@@ -79,7 +80,7 @@ pub struct ComputedStyle {
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
-    pub variables: Vec<(String, String)>,
+    pub variables: Vec<(Property, String)>,
 }
 
 impl ComputedStyle {
@@ -108,8 +109,8 @@ impl ComputedStyle {
         };
 
         let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
-        let properties = cascade(declarations);
 
+        let properties = cascade(declarations);
         let mut merged_variables = computed_style.variables.clone();
         for (name, value) in cascade_variables(variables) {
             if let Some(existing) = merged_variables.iter_mut().find(|(n, _)| n == &name) {
@@ -126,53 +127,57 @@ impl ComputedStyle {
             let val = resolve_css_variable(&ctx.computed_style.variables, value.clone(), value);
             let v = val.as_str();
 
-            match key.as_str() {
-                "background" => handle_background_color(&mut ctx, v), // TODO: handle other background properties
-                "background-color" => handle_background_color(&mut ctx, v),
-                "border" => handle_border(&mut ctx, v),
-                "border-left-color" => handle_border_left_color(&mut ctx, v),
-                "border-right-color" => handle_border_right_color(&mut ctx, v),
-                "border-top-color" => handle_border_top_color(&mut ctx, v),
-                "border-bottom-color" => handle_border_bottom_color(&mut ctx, v),
-                "border-left-style" => handle_border_left_style(&mut ctx, v),
-                "border-right-style" => handle_border_right_style(&mut ctx, v),
-                "border-top-style" => handle_border_top_style(&mut ctx, v),
-                "border-bottom-style" => handle_border_bottom_style(&mut ctx, v),
-                "border-bottom-width" => handle_border_bottom_width(&mut ctx, v),
-                "border-left-width" => handle_border_left_width(&mut ctx, v),
-                "border-right-width" => handle_border_right_width(&mut ctx, v),
-                "border-top-width" => handle_border_top_width(&mut ctx, v),
-                "color" => handle_color(&mut ctx, v),
-                "display" => handle_display(&mut ctx, v),
-                "font-family" => handle_font_family(&mut ctx, v),
-                "font-size" => handle_font_size(&mut ctx, v),
-                "font-weight" => handle_font_weight(&mut ctx, v),
-                "height" => handle_height(&mut ctx, v),
-                "max-height" => handle_max_height(&mut ctx, v),
-                "line-height" => handle_line_height(&mut ctx, v),
-                "margin" => handle_margin(&mut ctx, v),
-                "margin-top" => handle_margin_top(&mut ctx, v),
-                "margin-right" => handle_margin_right(&mut ctx, v),
-                "margin-bottom" => handle_margin_bottom(&mut ctx, v),
-                "margin-left" => handle_margin_left(&mut ctx, v),
-                "margin-block" => handle_margin_block(&mut ctx, v),
-                "margin-block-start" => handle_margin_block_start(&mut ctx, v),
-                "margin-block-end" => handle_margin_block_end(&mut ctx, v),
-                "padding" => handle_padding(&mut ctx, v),
-                "padding-top" => handle_padding_top(&mut ctx, v),
-                "padding-right" => handle_padding_right(&mut ctx, v),
-                "padding-bottom" => handle_padding_bottom(&mut ctx, v),
-                "padding-left" => handle_padding_left(&mut ctx, v),
-                "padding-block" => handle_padding_block(&mut ctx, v),
-                "padding-block-start" => handle_padding_block_start(&mut ctx, v),
-                "padding-block-end" => handle_padding_block_end(&mut ctx, v),
-                "position" => handle_position(&mut ctx, v),
-                "text-align" => handle_text_align(&mut ctx, v),
-                "white-space" => handle_whitespace(&mut ctx, v),
-                "width" => handle_width(&mut ctx, v),
-                "max-width" => handle_max_width(&mut ctx, v),
-                "writing-mode" => handle_writing_mode(&mut ctx, v),
-                _ => {}
+            match key {
+                Property::Known(prop) => match prop {
+                    KnownProperty::Background => handle_background_color(&mut ctx, v), // TODO: handle other background properties
+                    KnownProperty::BackgroundColor => handle_background_color(&mut ctx, v),
+                    KnownProperty::Border => handle_border(&mut ctx, v),
+                    KnownProperty::BorderBottomColor => handle_border_bottom_color(&mut ctx, v),
+                    KnownProperty::BorderBottomStyle => handle_border_bottom_style(&mut ctx, v),
+                    KnownProperty::BorderBottomWidth => handle_border_bottom_width(&mut ctx, v),
+                    KnownProperty::BorderLeftColor => handle_border_left_color(&mut ctx, v),
+                    KnownProperty::BorderLeftStyle => handle_border_left_style(&mut ctx, v),
+                    KnownProperty::BorderLeftWidth => handle_border_left_width(&mut ctx, v),
+                    KnownProperty::BorderRightColor => handle_border_right_color(&mut ctx, v),
+                    KnownProperty::BorderRightStyle => handle_border_right_style(&mut ctx, v),
+                    KnownProperty::BorderRightWidth => handle_border_right_width(&mut ctx, v),
+                    KnownProperty::BorderTopColor => handle_border_top_color(&mut ctx, v),
+                    KnownProperty::BorderTopStyle => handle_border_top_style(&mut ctx, v),
+                    KnownProperty::BorderTopWidth => handle_border_top_width(&mut ctx, v),
+                    KnownProperty::Color => handle_color(&mut ctx, v),
+                    KnownProperty::Display => handle_display(&mut ctx, v),
+                    KnownProperty::FontFamily => handle_font_family(&mut ctx, v),
+                    KnownProperty::FontSize => handle_font_size(&mut ctx, v),
+                    KnownProperty::FontWeight => handle_font_weight(&mut ctx, v),
+                    KnownProperty::Height => handle_height(&mut ctx, v),
+                    KnownProperty::LineHeight => handle_line_height(&mut ctx, v),
+                    KnownProperty::Margin => handle_margin(&mut ctx, v),
+                    KnownProperty::MarginBlock => handle_margin_block(&mut ctx, v),
+                    KnownProperty::MarginBlockEnd => handle_margin_block_end(&mut ctx, v),
+                    KnownProperty::MarginBlockStart => handle_margin_block_start(&mut ctx, v),
+                    KnownProperty::MarginBottom => handle_margin_bottom(&mut ctx, v),
+                    KnownProperty::MarginLeft => handle_margin_left(&mut ctx, v),
+                    KnownProperty::MarginRight => handle_margin_right(&mut ctx, v),
+                    KnownProperty::MarginTop => handle_margin_top(&mut ctx, v),
+                    KnownProperty::MaxHeight => handle_max_height(&mut ctx, v),
+                    KnownProperty::MaxWidth => handle_max_width(&mut ctx, v),
+                    KnownProperty::Padding => handle_padding(&mut ctx, v),
+                    KnownProperty::PaddingBlock => handle_padding_block(&mut ctx, v),
+                    KnownProperty::PaddingBlockEnd => handle_padding_block_end(&mut ctx, v),
+                    KnownProperty::PaddingBlockStart => handle_padding_block_start(&mut ctx, v),
+                    KnownProperty::PaddingBottom => handle_padding_bottom(&mut ctx, v),
+                    KnownProperty::PaddingLeft => handle_padding_left(&mut ctx, v),
+                    KnownProperty::PaddingRight => handle_padding_right(&mut ctx, v),
+                    KnownProperty::PaddingTop => handle_padding_top(&mut ctx, v),
+                    KnownProperty::Position => handle_position(&mut ctx, v),
+                    KnownProperty::TextAlign => handle_text_align(&mut ctx, v),
+                    KnownProperty::WhiteSpace => handle_whitespace(&mut ctx, v),
+                    KnownProperty::Width => handle_width(&mut ctx, v),
+                    KnownProperty::WritingMode => handle_writing_mode(&mut ctx, v),
+                    _ => {}
+                },
+                Property::Custom(_) => { /* Ignore custom properties here since they are already resolved */
+                }
             }
         }
 
@@ -219,50 +224,50 @@ impl Default for ComputedStyle {
 
         ComputedStyle {
             variables: Vec::with_capacity(32),
-            background_color: Property::from(Color::Transparent),
-            border_bottom_color: Property::from(black),
-            border_left_color: Property::from(black),
-            border_right_color: Property::from(black),
-            border_top_color: Property::from(black),
-            border_top_style: Property::from(BorderStyleValue::None),
-            border_right_style: Property::from(BorderStyleValue::None),
-            border_bottom_style: Property::from(BorderStyleValue::None),
-            border_left_style: Property::from(BorderStyleValue::None),
-            border_top_width: Property::from(BorderWidthValue::Length(Length::zero())),
-            border_right_width: Property::from(BorderWidthValue::Length(Length::zero())),
-            border_bottom_width: Property::from(BorderWidthValue::Length(Length::zero())),
-            border_left_width: Property::from(BorderWidthValue::Length(Length::zero())),
-            color: Property::from(black),
-            display: Property::from(Display::new(
+            background_color: CSSProperty::from(Color::Transparent),
+            border_bottom_color: CSSProperty::from(black),
+            border_left_color: CSSProperty::from(black),
+            border_right_color: CSSProperty::from(black),
+            border_top_color: CSSProperty::from(black),
+            border_top_style: CSSProperty::from(BorderStyleValue::None),
+            border_right_style: CSSProperty::from(BorderStyleValue::None),
+            border_bottom_style: CSSProperty::from(BorderStyleValue::None),
+            border_left_style: CSSProperty::from(BorderStyleValue::None),
+            border_top_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
+            border_right_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
+            border_bottom_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
+            border_left_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
+            color: CSSProperty::from(black),
+            display: CSSProperty::from(Display::new(
                 Some(OutsideDisplay::Inline),
                 Some(InsideDisplay::Flow),
                 None,
                 None,
                 None,
             )),
-            font_family: Property::from(FontFamily::new(&[FontFamilyName::Generic(
+            font_family: CSSProperty::from(FontFamily::new(&[FontFamilyName::Generic(
                 GenericName::Serif,
             )])),
-            font_size: Property::from(FontSize::Absolute(AbsoluteSize::Medium)),
-            font_weight: Property::from(FontWeight::Normal),
+            font_size: CSSProperty::from(FontSize::Absolute(AbsoluteSize::Medium)),
+            font_weight: CSSProperty::from(FontWeight::Normal),
             computed_font_size_px: AbsoluteSize::Medium.to_px(),
-            height: Property::from(Dimension::Auto),
-            max_height: Property::from(MaxDimension::None),
-            line_height: Property::from(LineHeight::Normal),
-            margin_top: Property::from(OffsetValue::zero()),
-            margin_right: Property::from(OffsetValue::zero()),
-            margin_bottom: Property::from(OffsetValue::zero()),
-            margin_left: Property::from(OffsetValue::zero()),
-            padding_top: Property::from(OffsetValue::zero()),
-            padding_right: Property::from(OffsetValue::zero()),
-            padding_bottom: Property::from(OffsetValue::zero()),
-            padding_left: Property::from(OffsetValue::zero()),
-            position: Property::from(Position::Static),
-            text_align: Property::from(TextAlign::Left),
-            whitespace: Property::from(Whitespace::Normal),
-            width: Property::from(Dimension::Auto),
-            max_width: Property::from(MaxDimension::None),
-            writing_mode: Property::from(WritingMode::HorizontalTb),
+            height: CSSProperty::from(Dimension::Auto),
+            max_height: CSSProperty::from(MaxDimension::None),
+            line_height: CSSProperty::from(LineHeight::Normal),
+            margin_top: CSSProperty::from(OffsetValue::zero()),
+            margin_right: CSSProperty::from(OffsetValue::zero()),
+            margin_bottom: CSSProperty::from(OffsetValue::zero()),
+            margin_left: CSSProperty::from(OffsetValue::zero()),
+            padding_top: CSSProperty::from(OffsetValue::zero()),
+            padding_right: CSSProperty::from(OffsetValue::zero()),
+            padding_bottom: CSSProperty::from(OffsetValue::zero()),
+            padding_left: CSSProperty::from(OffsetValue::zero()),
+            position: CSSProperty::from(Position::Static),
+            text_align: CSSProperty::from(TextAlign::Left),
+            whitespace: CSSProperty::from(Whitespace::Normal),
+            width: CSSProperty::from(Dimension::Auto),
+            max_width: CSSProperty::from(MaxDimension::None),
+            writing_mode: CSSProperty::from(WritingMode::HorizontalTb),
         }
     }
 }

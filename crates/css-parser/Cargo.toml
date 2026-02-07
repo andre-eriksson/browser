@@ -11,6 +11,7 @@ css-tokenizer.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 serde.workspace = true
+strum.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

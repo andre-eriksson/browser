@@ -12,7 +12,7 @@ mod tree;
 
 pub use computed::ComputedStyle;
 pub use primitives::*;
-pub use properties::Property;
+pub use properties::CSSProperty;
 pub use properties::border::*;
 pub use properties::color::*;
 pub use properties::dimension::*;

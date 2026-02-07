@@ -1245,6 +1245,7 @@ dependencies = [
  "criterion",
  "css-tokenizer",
  "serde",
+ "strum",
  "thiserror 2.0.17",
  "tracing",
 ]

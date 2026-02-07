@@ -1,4 +1,4 @@
-use css_parser::{ComponentValue, CssToken, CssTokenKind, Declaration};
+use css_parser::{ComponentValue, CssToken, CssTokenKind, Declaration, Property};
 use serde::{Deserialize, Serialize};
 
 use crate::string::component_value_to_string;
@@ -9,7 +9,7 @@ use crate::string::component_value_to_string;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CSSDeclaration {
     /// The property name
-    pub name: String,
+    pub property: Property,
 
     /// The value as a string
     pub value: String,
@@ -23,9 +23,9 @@ pub struct CSSDeclaration {
 
 impl CSSDeclaration {
     /// Create a new declaration
-    pub fn new(name: String, value: String, important: bool) -> Self {
+    pub fn new(property: Property, value: String, important: bool) -> Self {
         CSSDeclaration {
-            name,
+            property,
             value,
             important,
             original_values: Vec::new(),
@@ -33,7 +33,7 @@ impl CSSDeclaration {
     }
 
     /// Create a declaration from component values
-    pub fn from_values(name: String, values: Vec<ComponentValue>) -> Self {
+    pub fn from_values(property: Property, values: Vec<ComponentValue>) -> Self {
         let mut value_parts: Vec<String> = Vec::new();
         let mut important = false;
 
@@ -95,7 +95,7 @@ impl CSSDeclaration {
         let value = value_parts.join("").trim().to_string();
 
         CSSDeclaration {
-            name,
+            property,
             value,
             important,
             original_values: values,
@@ -112,7 +112,7 @@ impl CSSDeclaration {
         let value = value_parts.join("").trim().to_string();
 
         CSSDeclaration {
-            name: declaration.name,
+            property: declaration.property,
             value,
             important: declaration.important,
             original_values: declaration.value,
@@ -120,8 +120,8 @@ impl CSSDeclaration {
     }
 
     /// Get the property name
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn property(&self) -> &Property {
+        &self.property
     }
 
     /// Get the property value
@@ -142,9 +142,9 @@ impl CSSDeclaration {
     /// Serialize this declaration to CSS text
     pub fn to_css_string(&self) -> String {
         if self.important {
-            format!("{}: {} !important", self.name, self.value)
+            format!("{:?}: {} !important", self.property, self.value)
         } else {
-            format!("{}: {}", self.name, self.value)
+            format!("{:?}: {}", self.property, self.value)
         }
     }
 }

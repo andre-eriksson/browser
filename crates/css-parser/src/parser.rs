@@ -235,7 +235,10 @@ impl CssParser {
 
 #[cfg(test)]
 mod tests {
-    use crate::Rule;
+    use crate::{
+        Rule,
+        property::{KnownProperty, Property},
+    };
 
     use super::*;
 
@@ -305,7 +308,7 @@ mod tests {
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
             DeclarationOrAtRule::Declaration(decl) => {
-                assert_eq!(decl.name, "color");
+                assert_eq!(decl.property, Property::Known(KnownProperty::Color));
                 assert!(decl.important);
             }
             _ => panic!("Expected declaration"),
@@ -320,7 +323,7 @@ mod tests {
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
             DeclarationOrAtRule::Declaration(decl) => {
-                assert_eq!(decl.name, "background");
+                assert_eq!(decl.property, Property::Known(KnownProperty::Background));
                 // Check that the value contains a function or URL token
                 assert!(!decl.value.is_empty());
             }
@@ -358,9 +361,18 @@ mod tests {
             Rule::QualifiedRule(qr) => {
                 let declarations = qr.parse_declarations(true);
                 assert_eq!(declarations.len(), 3);
-                assert_eq!(declarations[0].name, "color");
-                assert_eq!(declarations[1].name, "margin");
-                assert_eq!(declarations[2].name, "padding");
+                assert_eq!(
+                    declarations[0].property,
+                    Property::Known(KnownProperty::Color)
+                );
+                assert_eq!(
+                    declarations[1].property,
+                    Property::Known(KnownProperty::Margin)
+                );
+                assert_eq!(
+                    declarations[2].property,
+                    Property::Known(KnownProperty::Padding)
+                );
             }
             _ => panic!("Expected qualified rule"),
         }
@@ -451,8 +463,7 @@ mod tests {
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
             DeclarationOrAtRule::Declaration(decl) => {
-                assert_eq!(decl.name, "width");
-                // Value should contain a calc function
+                assert_eq!(decl.property, Property::Known(KnownProperty::Width));
                 let has_calc = decl.value.iter().any(|cv| {
                     matches!(cv, ComponentValue::Function(f) if f.name.eq_ignore_ascii_case("calc"))
                 });
@@ -470,7 +481,7 @@ mod tests {
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
             DeclarationOrAtRule::Declaration(decl) => {
-                assert_eq!(decl.name, "color");
+                assert_eq!(decl.property, Property::Known(KnownProperty::Color));
                 // Value should contain rgb function
                 let has_rgb = decl.value.iter().any(|cv| {
                     matches!(cv, ComponentValue::Function(f) if f.name.eq_ignore_ascii_case("rgb"))
@@ -538,7 +549,7 @@ mod tests {
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
             DeclarationOrAtRule::Declaration(decl) => {
-                assert_eq!(decl.name, "color");
+                assert_eq!(decl.property, Property::Known(KnownProperty::Color));
                 // Value should contain var function
                 let has_var = decl
                     .value
@@ -558,7 +569,8 @@ mod tests {
         assert_eq!(declarations.len(), 1);
         match &declarations[0] {
             DeclarationOrAtRule::Declaration(decl) => {
-                assert_eq!(decl.name, "--primary-color");
+                assert_eq!(decl.property, Property::Custom("--primary-color".into()));
+                assert_eq!(decl.value.len(), 1);
             }
             _ => panic!("Expected declaration"),
         }

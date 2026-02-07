@@ -134,7 +134,7 @@ impl From<Stylesheet> for CSSStyleSheet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use css_parser::CssParser;
+    use css_parser::{CssParser, KnownProperty, Property};
 
     #[test]
     fn test_parse_simple_stylesheet() {
@@ -148,7 +148,10 @@ mod tests {
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert_eq!(style.selector_text(), "div");
             assert_eq!(style.declarations().len(), 1);
-            assert_eq!(style.declarations()[0].name(), "color");
+            assert_eq!(
+                *style.declarations()[0].property(),
+                Property::Known(KnownProperty::Color)
+            );
             assert_eq!(style.declarations()[0].value(), "red");
         }
     }
@@ -164,8 +167,14 @@ mod tests {
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert_eq!(style.selector_text(), "p");
             assert_eq!(style.declarations().len(), 2);
-            assert_eq!(style.get_property_value("margin"), Some("10px"));
-            assert_eq!(style.get_property_value("padding"), Some("5px"));
+            assert_eq!(
+                style.get_property_value(Property::Known(KnownProperty::Margin)),
+                Some("10px")
+            );
+            assert_eq!(
+                style.get_property_value(Property::Known(KnownProperty::Padding)),
+                Some("5px")
+            );
         }
     }
 
@@ -177,7 +186,10 @@ mod tests {
 
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert!(style.declarations()[0].is_important());
-            assert_eq!(style.get_property_priority("color"), "important");
+            assert_eq!(
+                style.get_property_priority(Property::Known(KnownProperty::Color)),
+                "important"
+            );
         }
     }
 
@@ -260,14 +272,34 @@ mod tests {
     #[test]
     fn test_style_rule_set_property() {
         let mut style_rule = CSSStyleRule::new("div".to_string());
-        style_rule.set_property("color".to_string(), "blue".to_string(), false);
+        style_rule.set_property(
+            Property::Known(KnownProperty::Color),
+            "blue".to_string(),
+            false,
+        );
 
-        assert_eq!(style_rule.get_property_value("color"), Some("blue"));
-        assert_eq!(style_rule.get_property_priority("color"), "");
+        assert_eq!(
+            style_rule.get_property_value(Property::Known(KnownProperty::Color)),
+            Some("blue")
+        );
+        assert_eq!(
+            style_rule.get_property_priority(Property::Known(KnownProperty::Color)),
+            ""
+        );
 
-        style_rule.set_property("color".to_string(), "red".to_string(), true);
-        assert_eq!(style_rule.get_property_value("color"), Some("red"));
-        assert_eq!(style_rule.get_property_priority("color"), "important");
+        style_rule.set_property(
+            Property::Known(KnownProperty::Color),
+            "red".to_string(),
+            true,
+        );
+        assert_eq!(
+            style_rule.get_property_value(Property::Known(KnownProperty::Color)),
+            Some("red")
+        );
+        assert_eq!(
+            style_rule.get_property_priority(Property::Known(KnownProperty::Color)),
+            "important"
+        );
     }
 
     #[test]

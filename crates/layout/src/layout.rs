@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
-use css_style::{ComputedStyle, Property, StyledNode};
+use css_style::{ComputedStyle, CSSProperty, StyledNode};
 use html_dom::NodeId;
 
 use crate::{
@@ -36,16 +36,16 @@ impl From<&ComputedStyle> for LayoutColors {
         let color = Color4f::from_css_color_property(&style.color);
         let mut border_color = BorderColor::default();
 
-        if let Ok(top) = Property::resolve(&style.border_top_color) {
+        if let Ok(top) = CSSProperty::resolve(&style.border_top_color) {
             border_color.top = Color4f::from_css_color(top);
         }
-        if let Ok(right) = Property::resolve(&style.border_right_color) {
+        if let Ok(right) = CSSProperty::resolve(&style.border_right_color) {
             border_color.right = Color4f::from_css_color(right);
         }
-        if let Ok(bottom) = Property::resolve(&style.border_bottom_color) {
+        if let Ok(bottom) = CSSProperty::resolve(&style.border_bottom_color) {
             border_color.bottom = Color4f::from_css_color(bottom);
         }
-        if let Ok(left) = Property::resolve(&style.border_left_color) {
+        if let Ok(left) = CSSProperty::resolve(&style.border_left_color) {
             border_color.left = Color4f::from_css_color(left);
         }
 

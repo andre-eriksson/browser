@@ -1,5 +1,5 @@
 use css_style::{
-    Color, Property,
+    Color, CSSProperty,
     color::{
         ColorValue, FunctionColor, Hue,
         cielab::Cielab,
@@ -77,8 +77,8 @@ impl Color4f {
     }
 
     /// Converts a CSS color to Color4f
-    pub fn from_css_color_property(color: &Property<Color>) -> Self {
-        if let Ok(resolved_color) = Property::resolve(color) {
+    pub fn from_css_color_property(color: &CSSProperty<Color>) -> Self {
+        if let Ok(resolved_color) = CSSProperty::resolve(color) {
             Self::from_css_color(resolved_color)
         } else {
             Self::new(0.0, 0.0, 0.0, 1.0)

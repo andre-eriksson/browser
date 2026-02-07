@@ -7,7 +7,7 @@
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use css_cssom::{CSSRule, CSSStyleRule, CSSStyleSheet, StylesheetOrigin};
-use css_parser::{CssParser, Stylesheet};
+use css_parser::{CssParser, KnownProperty, Property, Stylesheet};
 use std::hint::black_box;
 
 /// Simple CSS input
@@ -363,9 +363,11 @@ fn bench_property_access(c: &mut Criterion) {
         b.iter(|| {
             let rules = stylesheet.css_rules();
             if let Some(CSSRule::Style(style_rule)) = rules.first() {
-                let color = style_rule.get_property_value("color");
-                let margin = style_rule.get_property_value("margin-top");
-                let font = style_rule.get_property_value("font-family");
+                let color = style_rule.get_property_value(Property::Known(KnownProperty::Color));
+                let margin =
+                    style_rule.get_property_value(Property::Known(KnownProperty::MarginTop));
+                let font =
+                    style_rule.get_property_value(Property::Known(KnownProperty::FontFamily));
                 black_box((color, margin, font));
             }
         })
@@ -379,9 +381,21 @@ fn bench_property_modification(c: &mut Criterion) {
         b.iter_batched(
             || CSSStyleRule::new("div".to_string()),
             |mut style_rule| {
-                style_rule.set_property("color".to_string(), "blue".to_string(), false);
-                style_rule.set_property("margin".to_string(), "10px".to_string(), false);
-                style_rule.set_property("padding".to_string(), "5px".to_string(), true);
+                style_rule.set_property(
+                    Property::Known(KnownProperty::Color),
+                    "blue".to_string(),
+                    false,
+                );
+                style_rule.set_property(
+                    Property::Known(KnownProperty::Margin),
+                    "10px".to_string(),
+                    false,
+                );
+                style_rule.set_property(
+                    Property::Known(KnownProperty::Padding),
+                    "5px".to_string(),
+                    true,
+                );
                 black_box(style_rule)
             },
             criterion::BatchSize::SmallInput,
@@ -401,7 +415,7 @@ fn bench_declaration_iteration(c: &mut Criterion) {
             for rule in rules {
                 if let CSSRule::Style(style_rule) = rule {
                     for decl in style_rule.declarations() {
-                        black_box(decl.name());
+                        black_box(decl.property());
                         black_box(decl.value());
                         count += 1;
                     }

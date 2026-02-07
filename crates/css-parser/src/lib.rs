@@ -15,14 +15,15 @@
 mod consumers;
 pub mod errors;
 mod parser;
+mod property;
 mod rules;
 mod stylesheet;
 
+pub use css_tokenizer::{CssToken, CssTokenKind, HashType, NumberType};
 pub use parser::CssParser;
+pub use property::{KnownProperty, Property};
 pub use rules::{AtRule, QualifiedRule, Rule};
 pub use stylesheet::{
     AssociatedToken, ComponentValue, Declaration, DeclarationOrAtRule, Function, SimpleBlock,
     StyleBlockContents, Stylesheet,
 };
-
-pub use css_tokenizer::{CssToken, CssTokenKind, HashType, NumberType};

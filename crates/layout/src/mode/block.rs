@@ -1,4 +1,4 @@
-use css_style::{Dimension, OffsetValue, Property, StyledNode, display::OutsideDisplay};
+use css_style::{Dimension, OffsetValue, CSSProperty, StyledNode, display::OutsideDisplay};
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, layout::LayoutContext,
@@ -88,7 +88,7 @@ impl BlockLayout {
             PropertyResolver::resolve_box_model(&styled_node.style, container_width, font_size_px);
         let box_width = PropertyResolver::calculate_width(styled_node, container_width);
 
-        let content_width = if let Ok(width) = Property::resolve(&styled_node.style.width)
+        let content_width = if let Ok(width) = CSSProperty::resolve(&styled_node.style.width)
             && width == &Dimension::Auto
         {
             (box_width - padding.horizontal() - border.horizontal()).max(0.0)
@@ -200,7 +200,7 @@ impl BlockLayout {
             content_height_from_children,
         );
 
-        let final_height = if let Ok(height) = Property::resolve(&styled_node.style.height)
+        let final_height = if let Ok(height) = CSSProperty::resolve(&styled_node.style.height)
             && height == &Dimension::Auto
         {
             content_height_from_children + padding.vertical() + border.vertical()
@@ -239,7 +239,7 @@ impl BlockLayout {
     }
 
     fn is_inline(node: &StyledNode) -> bool {
-        if let Ok(display) = Property::resolve(&node.style.display) {
+        if let Ok(display) = CSSProperty::resolve(&node.style.display) {
             display.outside() == Some(OutsideDisplay::Inline)
         } else {
             false
@@ -259,8 +259,8 @@ impl BlockLayout {
         let mut x = ctx.containing_block().x + margin.left;
 
         if let (Ok(margin_left), Ok(margin_right)) = (
-            Property::resolve(&styled_node.style.margin_left),
-            Property::resolve(&styled_node.style.margin_right),
+            CSSProperty::resolve(&styled_node.style.margin_left),
+            CSSProperty::resolve(&styled_node.style.margin_right),
         ) {
             if margin_left == &OffsetValue::Auto && margin_right == &OffsetValue::Auto {
                 x = ctx.containing_block().x + (container_width - total_width) / 2.0;

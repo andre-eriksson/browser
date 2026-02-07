@@ -1,4 +1,4 @@
-use crate::errors::CssParsingError;
+use crate::{errors::CssParsingError, property::Property};
 use css_tokenizer::{CssToken, CssTokenKind, SourcePosition};
 
 use crate::{
@@ -78,7 +78,8 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
         }
     };
 
-    let mut declaration = Declaration::new(name);
+    let property_id = Property::from(name);
+    let mut declaration = Declaration::new(property_id);
 
     sub_parser.skip_whitespace();
 

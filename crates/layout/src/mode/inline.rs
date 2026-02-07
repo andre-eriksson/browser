@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use css_style::{
-    ComputedStyle, LineHeight, Property, StyledNode, TextAlign, Whitespace, display::OutsideDisplay,
+    ComputedStyle, LineHeight, CSSProperty, StyledNode, TextAlign, Whitespace, display::OutsideDisplay,
 };
 use html_dom::{HtmlTag, NodeId, Tag};
 
@@ -71,7 +71,7 @@ impl InlineLayout {
         if let Some(text) = inline_node.text_content.as_ref() {
             let inherited_styles = style.inherited_subset();
 
-            if let Ok(whitespace) = Property::resolve(&inherited_styles.whitespace) {
+            if let Ok(whitespace) = CSSProperty::resolve(&inherited_styles.whitespace) {
                 ctx.inside_preformatted =
                     matches!(whitespace, Whitespace::Pre | Whitespace::PreWrap);
 
@@ -145,7 +145,7 @@ impl InlineLayout {
         }
 
         if let Some(tag) = inline_node.tag.as_ref() {
-            if let Ok(display) = Property::resolve(&inline_node.style.display)
+            if let Ok(display) = CSSProperty::resolve(&inline_node.style.display)
                 && display.outside() != Some(OutsideDisplay::Inline)
                 && !items.is_empty()
             {
@@ -156,7 +156,7 @@ impl InlineLayout {
                 Tag::Html(HtmlTag::Br) => {
                     let font_size = inline_node.style.computed_font_size_px;
                     items.push(InlineItem::Break {
-                        line_height_px: Property::resolve(&inline_node.style.line_height)
+                        line_height_px: CSSProperty::resolve(&inline_node.style.line_height)
                             .map_or(LineHeight::default().to_px(font_size), |lh| {
                                 lh.to_px(font_size)
                             }),
@@ -230,11 +230,11 @@ impl InlineLayout {
                         Ok(font_family),
                         Ok(font_weight),
                     ) = (
-                        Property::resolve(&style.whitespace),
-                        Property::resolve(&style.text_align),
-                        Property::resolve(&style.line_height),
-                        Property::resolve(&style.font_family),
-                        Property::resolve(&style.font_weight),
+                        CSSProperty::resolve(&style.whitespace),
+                        CSSProperty::resolve(&style.text_align),
+                        CSSProperty::resolve(&style.line_height),
+                        CSSProperty::resolve(&style.font_family),
+                        CSSProperty::resolve(&style.font_weight),
                     )
                     else {
                         continue;
@@ -447,7 +447,7 @@ mod tests {
         let node_break = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Br)),
             style: ComputedStyle {
-                display: Property::from(Display::from(OutsideDisplay::Inline)),
+                display: CSSProperty::from(Display::from(OutsideDisplay::Inline)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(1))
@@ -478,7 +478,7 @@ mod tests {
         let node_block = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Div)),
             style: ComputedStyle {
-                display: Property::from(Display::from(OutsideDisplay::Block)),
+                display: CSSProperty::from(Display::from(OutsideDisplay::Block)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(2))
@@ -487,7 +487,7 @@ mod tests {
         let node_break = StyledNode {
             tag: Some(Tag::Html(HtmlTag::Br)),
             style: ComputedStyle {
-                display: Property::from(Display::from(OutsideDisplay::Inline)),
+                display: CSSProperty::from(Display::from(OutsideDisplay::Inline)),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(1))

@@ -1,4 +1,4 @@
-use css_parser::{ComponentValue, QualifiedRule};
+use css_parser::{ComponentValue, Property, QualifiedRule};
 use serde::{Deserialize, Serialize};
 
 use crate::{declaration::CSSDeclaration, rules::css::CSSRule, string::prelude_to_selector_text};
@@ -72,20 +72,20 @@ impl CSSStyleRule {
         &self.declarations
     }
 
-    /// Get the value of a property by name
-    pub fn get_property_value(&self, property: &str) -> Option<&str> {
+    /// Get the value of a property by property
+    pub fn get_property_value(&self, property: Property) -> Option<&str> {
         for decl in self.declarations.iter().rev() {
-            if decl.name.eq_ignore_ascii_case(property) {
+            if decl.property == property {
                 return Some(&decl.value);
             }
         }
         None
     }
 
-    /// Get the priority of a property by name (returns "important" or "")
-    pub fn get_property_priority(&self, property: &str) -> &str {
+    /// Get the priority of a property (returns "important" or "")
+    pub fn get_property_priority(&self, property: Property) -> &str {
         for decl in self.declarations.iter().rev() {
-            if decl.name.eq_ignore_ascii_case(property) {
+            if decl.property == property {
                 return if decl.important { "important" } else { "" };
             }
         }
@@ -93,12 +93,9 @@ impl CSSStyleRule {
     }
 
     /// Set a property value
-    pub fn set_property(&mut self, property: String, value: String, priority: bool) {
-        self.declarations
-            .retain(|d| !d.name.eq_ignore_ascii_case(&property));
-
+    pub fn set_property(&mut self, property: Property, value: String, priority: bool) {
         self.declarations.push(CSSDeclaration {
-            name: property,
+            property,
             value,
             important: priority,
             original_values: Vec::new(),

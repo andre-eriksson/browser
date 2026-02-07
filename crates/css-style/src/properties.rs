@@ -23,20 +23,20 @@ pub mod position;
 pub mod text;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Property<T> {
+pub enum CSSProperty<T> {
     Value(T),
     Global(Global),
 }
 
-impl<T: FromStr<Err = String>> Property<T> {
+impl<T: FromStr<Err = String>> CSSProperty<T> {
     pub fn wrap_value(value: T) -> Self {
-        Property::Value(value)
+        CSSProperty::Value(value)
     }
 
-    pub fn resolve(property: &Property<T>) -> Result<&T, String> {
+    pub fn resolve(property: &CSSProperty<T>) -> Result<&T, String> {
         match property {
-            Property::Value(val) => Ok(val),
-            Property::Global(global) => {
+            CSSProperty::Value(val) => Ok(val),
+            CSSProperty::Global(global) => {
                 Err(format!("Cannot resolve global property: {:?}", global))
             }
         }
@@ -62,13 +62,13 @@ impl<T: FromStr<Err = String>> Property<T> {
     }
 }
 
-impl<T> From<T> for Property<T> {
+impl<T> From<T> for CSSProperty<T> {
     fn from(value: T) -> Self {
-        Property::Value(value)
+        CSSProperty::Value(value)
     }
 }
 
-impl<T> FromStr for Property<T>
+impl<T> FromStr for CSSProperty<T>
 where
     T: FromStr<Err = String>,
 {
@@ -76,44 +76,44 @@ where
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(global) = s.parse::<Global>() {
-            Ok(Property::Global(global))
+            Ok(CSSProperty::Global(global))
         } else {
             T::from_str(s)
-                .map(Property::Value)
+                .map(CSSProperty::Value)
                 .map_err(|e| format!("{:?}", e))
         }
     }
 }
 
 // Border
-pub type BorderWidthValueProperty = Property<BorderWidthValue>;
-pub type BorderStyleValueProperty = Property<BorderStyleValue>;
+pub type BorderWidthValueProperty = CSSProperty<BorderWidthValue>;
+pub type BorderStyleValueProperty = CSSProperty<BorderStyleValue>;
 
 // Color
-pub type ColorProperty = Property<Color>;
+pub type ColorProperty = CSSProperty<Color>;
 
 // Dimensions
-pub type HeightProperty = Property<Dimension>;
-pub type MaxHeightProperty = Property<MaxDimension>;
-pub type WidthProperty = Property<Dimension>;
-pub type MaxWidthProperty = Property<MaxDimension>;
+pub type HeightProperty = CSSProperty<Dimension>;
+pub type MaxHeightProperty = CSSProperty<MaxDimension>;
+pub type WidthProperty = CSSProperty<Dimension>;
+pub type MaxWidthProperty = CSSProperty<MaxDimension>;
 
 // Display
-pub type DisplayProperty = Property<Display>;
+pub type DisplayProperty = CSSProperty<Display>;
 
 // Font
-pub type FontWeightProperty = Property<FontWeight>;
-pub type FontFamilyProperty = Property<FontFamily>;
-pub type FontSizeProperty = Property<FontSize>;
+pub type FontWeightProperty = CSSProperty<FontWeight>;
+pub type FontFamilyProperty = CSSProperty<FontFamily>;
+pub type FontSizeProperty = CSSProperty<FontSize>;
 
 // Margin & Padding
-pub type OffsetValueProperty = Property<OffsetValue>;
+pub type OffsetValueProperty = CSSProperty<OffsetValue>;
 
 // Position
-pub type PositionProperty = Property<Position>;
+pub type PositionProperty = CSSProperty<Position>;
 
 // Text
-pub type LineHeightProperty = Property<LineHeight>;
-pub type TextAlignProperty = Property<TextAlign>;
-pub type WritingModeProperty = Property<WritingMode>;
-pub type WhitespaceProperty = Property<Whitespace>;
+pub type LineHeightProperty = CSSProperty<LineHeight>;
+pub type TextAlignProperty = CSSProperty<TextAlign>;
+pub type WritingModeProperty = CSSProperty<WritingMode>;
+pub type WhitespaceProperty = CSSProperty<Whitespace>;
