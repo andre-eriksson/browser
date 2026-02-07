@@ -18,6 +18,18 @@ impl Dimension {
     pub fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
+
+    pub fn to_px(&self, viewport: f32, parent_size: f32) -> f32 {
+        match self {
+            Dimension::Percentage(p) => p.to_px(parent_size),
+            Dimension::Length(l) => l.to_px(viewport, parent_size),
+            Dimension::Auto => viewport,
+            Dimension::MaxContent => 0.0,
+            Dimension::MinContent => 0.0,
+            Dimension::FitContent(_) => 0.0,
+            Dimension::Stretch => 0.0,
+        }
+    }
 }
 
 impl FromStr for Dimension {

@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use css_style::{
-    ComputedStyle, LineHeight, CSSProperty, StyledNode, TextAlign, Whitespace, display::OutsideDisplay,
+    CSSProperty, ComputedStyle, LineHeight, StyledNode, TextAlign, Whitespace,
+    display::{InsideDisplay, OutsideDisplay},
 };
 use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
-    LayoutColors, LayoutNode, Rect, TextContext,
+    LayoutColors, LayoutEngine, LayoutNode, Rect, TextContext,
+    layout::LayoutContext,
     resolver::PropertyResolver,
     text::{TextDescription, TextOffsetContext},
 };
@@ -20,19 +22,25 @@ pub struct InlineCursor {
 
 #[derive(Debug, Clone)]
 pub enum InlineItem {
+    /// A run of text with the same style
     TextRun {
         id: NodeId,
         text: String,
         style: Box<ComputedStyle>,
     },
-    Link {
+    /// Pure inline element with only inline content, like <span> or <a>
+    InlineNode {
         id: NodeId,
         content: Box<[InlineItem]>,
         style: Box<ComputedStyle>,
     },
-    Break {
-        line_height_px: f32,
+    /// inline-block or inline flow-root
+    InlineFlowRoot {
+        node: Box<StyledNode>,
+        style: Box<ComputedStyle>,
     },
+    /// A line break, <br>
+    Break { line_height_px: f32 },
 }
 
 pub struct InlineContext {
@@ -145,11 +153,21 @@ impl InlineLayout {
         }
 
         if let Some(tag) = inline_node.tag.as_ref() {
-            if let Ok(display) = CSSProperty::resolve(&inline_node.style.display)
-                && display.outside() != Some(OutsideDisplay::Inline)
-                && !items.is_empty()
-            {
-                return Err(());
+            if let Ok(display) = CSSProperty::resolve(&inline_node.style.display) {
+                if display.outside() == Some(OutsideDisplay::Inline)
+                    && display.inside() == Some(InsideDisplay::FlowRoot)
+                {
+                    items.push(InlineItem::InlineFlowRoot {
+                        node: inline_node.clone().into(),
+                        style: Box::new(inline_node.style.clone()),
+                    });
+
+                    return Ok(());
+                }
+
+                if display.outside() != Some(OutsideDisplay::Inline) && !items.is_empty() {
+                    return Err(());
+                }
             }
 
             match tag {
@@ -162,36 +180,22 @@ impl InlineLayout {
                             }),
                     });
                 }
-                Tag::Html(HtmlTag::A) => {
-                    let mut link_items = Vec::new();
+                _ => {
+                    let mut node_items = Vec::new();
 
-                    if !inline_node.children.is_empty() {
-                        for child in &inline_node.children {
-                            let result =
-                                Self::collect(ctx, &inline_node.style, child, &mut link_items);
+                    for child in &inline_node.children {
+                        let result = Self::collect(ctx, &inline_node.style, child, &mut node_items);
 
-                            if result.is_err() {
-                                return Err(());
-                            }
+                        if result.is_err() {
+                            return Err(());
                         }
                     }
 
-                    items.push(InlineItem::Link {
+                    items.push(InlineItem::InlineNode {
                         id: inline_node.node_id,
-                        content: link_items.into_boxed_slice(),
+                        content: node_items.into_boxed_slice(),
                         style: Box::new(inline_node.style.clone()),
                     });
-                }
-                _ => {
-                    if !inline_node.children.is_empty() {
-                        for child in &inline_node.children {
-                            let result = Self::collect(ctx, &inline_node.style, child, items);
-
-                            if result.is_err() {
-                                return Err(());
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -339,8 +343,8 @@ impl InlineLayout {
 
                     cursor.remaining_width = width - cursor.x;
                 }
-                InlineItem::Link { id, content, style } => {
-                    let (link_nodes, link_height) =
+                InlineItem::InlineNode { id, content, style } => {
+                    let (inline_nodes, inline_height) =
                         Self::layout(content, text_ctx, width, x + cursor.x, y + cursor.y);
 
                     let mut total_width = 0.0;
@@ -348,10 +352,10 @@ impl InlineLayout {
 
                     let mut self_nodes = Vec::new();
 
-                    if !link_nodes.is_empty() {
+                    if !inline_nodes.is_empty() {
                         let colors = LayoutColors::from(style);
 
-                        for node in link_nodes {
+                        for node in inline_nodes {
                             let mut node = node.clone();
                             node.colors = colors.clone();
                             total_width += node.dimensions.width;
@@ -359,7 +363,7 @@ impl InlineLayout {
                         }
 
                         cursor.remaining_width = width;
-                        total_node_height += link_height;
+                        total_node_height += inline_height;
                     }
 
                     if self_nodes.is_empty() {
@@ -391,6 +395,58 @@ impl InlineLayout {
                     };
 
                     nodes.push(link_node);
+                }
+                InlineItem::InlineFlowRoot { node, style } => {
+                    let width = if let Ok(w) = CSSProperty::resolve(&style.width) {
+                        w.to_px(width, style.computed_font_size_px)
+                    } else {
+                        0.0
+                    };
+                    let height = if let Ok(h) = CSSProperty::resolve(&style.height) {
+                        h.to_px(width, style.computed_font_size_px)
+                    } else {
+                        0.0
+                    };
+
+                    let mut total_height = 0.0;
+                    let mut total_width = 0.0;
+                    let mut children = Vec::new();
+
+                    let viewport = Rect::new(x + cursor.x, y + cursor.y, width, height);
+                    let mut ctx = LayoutContext::new(viewport);
+
+                    for child in node.children.iter() {
+                        let node = LayoutEngine::layout_node(child, &mut ctx, text_ctx);
+
+                        if let Some(node) = node {
+                            total_width = f32::max(total_width, node.dimensions.width);
+                            total_height = f32::max(total_height, node.dimensions.height);
+                            ctx.block_cursor.y += node.dimensions.height;
+                            children.push(node);
+                        }
+                    }
+
+                    let (margin, padding, border) = PropertyResolver::resolve_box_model(
+                        style,
+                        width,
+                        style.computed_font_size_px,
+                    );
+
+                    let flow_root_node = LayoutNode {
+                        node_id: node.node_id,
+                        dimensions: Rect::new(x + cursor.x, y + cursor.y, width, height),
+                        colors: LayoutColors::from(style),
+                        resolved_margin: margin,
+                        resolved_padding: padding,
+                        resolved_border: border,
+                        text_buffer: None,
+                        children,
+                    };
+
+                    cursor.x += width;
+                    cursor.y = f32::max(cursor.y, total_height - height);
+
+                    nodes.push(flow_root_node);
                 }
                 InlineItem::Break { line_height_px } => {
                     cursor.y += line_height_px;

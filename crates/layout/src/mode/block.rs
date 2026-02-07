@@ -1,4 +1,4 @@
-use css_style::{Dimension, OffsetValue, CSSProperty, StyledNode, display::OutsideDisplay};
+use css_style::{CSSProperty, Dimension, OffsetValue, StyledNode, display::OutsideDisplay};
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, layout::LayoutContext,
