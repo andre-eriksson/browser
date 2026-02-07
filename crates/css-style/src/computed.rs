@@ -123,10 +123,11 @@ impl ComputedStyle {
         let mut ctx = PropertyUpdateContext::new(&mut computed_style, parent_style);
 
         for (key, value) in properties {
-            let val = resolve_css_variable(&ctx.computed_style.variables, value, String::from("0"));
+            let val = resolve_css_variable(&ctx.computed_style.variables, value.clone(), value);
             let v = val.as_str();
 
             match key.as_str() {
+                "background" => handle_background_color(&mut ctx, v), // TODO: handle other background properties
                 "background-color" => handle_background_color(&mut ctx, v),
                 "border" => handle_border(&mut ctx, v),
                 "border-left-color" => handle_border_left_color(&mut ctx, v),

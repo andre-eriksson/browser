@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use css_cssom::{CssToken, CssTokenKind, HashType};
 use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeId, Tag};
 
@@ -50,6 +52,33 @@ pub enum Combinator {
     GeneralSibling,
 }
 
+/// A set of classes for efficient lookup
+pub struct ClassSet {
+    classes: HashSet<String>,
+}
+
+impl ClassSet {
+    #[cfg(test)]
+    pub fn empty() -> Self {
+        Self {
+            classes: HashSet::new(),
+        }
+    }
+
+    pub fn new<'a>(classes: impl IntoIterator<Item = &'a str>) -> Self {
+        let class_set = classes
+            .into_iter()
+            .map(|class| class.to_string())
+            .collect::<HashSet<String>>();
+
+        Self { classes: class_set }
+    }
+
+    pub fn contains(&self, class: &str) -> bool {
+        self.classes.contains(class)
+    }
+}
+
 /// Check if an element matches a list of compound selectors
 ///
 /// # Arguments
@@ -58,9 +87,13 @@ pub enum Combinator {
 ///
 /// # Returns
 /// * `bool` - True if the element matches the compound selectors, false otherwise
-fn matches_compound_selectors(compound_selectors: &[CompoundSelector], element: &Element) -> bool {
+fn matches_compound_selectors(
+    compound_selectors: &[CompoundSelector],
+    element: &Element,
+    class_set: &ClassSet,
+) -> bool {
     for compound_selector in compound_selectors {
-        if !matches_simple_selectors(&compound_selector.tokens, element) {
+        if !matches_simple_selectors(&compound_selector.tokens, element, class_set) {
             return false;
         }
 
@@ -216,7 +249,11 @@ fn matches_compound_selectors(compound_selectors: &[CompoundSelector], element: 
 ///
 /// # Returns
 /// * `bool` - True if the element matches the simple selectors, false otherwise
-fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) -> bool {
+fn matches_simple_selectors(
+    simple_selectors: &[CssToken],
+    element: &Element,
+    class_set: &ClassSet,
+) -> bool {
     for i in 0..simple_selectors.len() {
         let previous_token = &simple_selectors.get(i.wrapping_sub(1));
         let current_token = &simple_selectors[i];
@@ -239,11 +276,7 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element) ->
                         _ => {}
                     }
                 } else if let Some(CssTokenKind::Delim(delim)) = prev {
-                    if delim == &'.'
-                        && !element
-                            .classes()
-                            .any(|class| class.eq_ignore_ascii_case(ident))
-                    {
+                    if *delim == '.' && !class_set.contains(ident) {
                         return false;
                     }
                 } else if let Some(CssTokenKind::Colon) = prev {
@@ -302,6 +335,7 @@ pub fn matches_compound(
     sequence: &[CompoundSelectorSequence],
     tree: &DocumentRoot,
     node: &DomNode,
+    class_set: &ClassSet,
 ) -> bool {
     let element = match node.data.as_element() {
         Some(elem) => elem,
@@ -309,7 +343,7 @@ pub fn matches_compound(
     };
 
     for sequence in sequence.iter().rev() {
-        let matched = matches_compound_selectors(&sequence.compound_selectors, element);
+        let matched = matches_compound_selectors(&sequence.compound_selectors, element, class_set);
 
         if sequence.combinator.is_none() && !matched {
             return false;
@@ -334,10 +368,18 @@ pub fn matches_compound(
 
         match &sequence.combinator {
             Some(Combinator::Child) => {
-                return matches_compound_selectors(&sequence.compound_selectors, parent_element);
+                return matches_compound_selectors(
+                    &sequence.compound_selectors,
+                    parent_element,
+                    class_set,
+                );
             }
             Some(Combinator::Descendant) => {
-                if matches_compound_selectors(&sequence.compound_selectors, parent_element) {
+                if matches_compound_selectors(
+                    &sequence.compound_selectors,
+                    parent_element,
+                    class_set,
+                ) {
                     return true;
                 }
 
@@ -352,8 +394,11 @@ pub fn matches_compound(
                         None => break,
                     };
 
-                    if matches_compound_selectors(&sequence.compound_selectors, grandparent_element)
-                    {
+                    if matches_compound_selectors(
+                        &sequence.compound_selectors,
+                        grandparent_element,
+                        class_set,
+                    ) {
                         return true;
                     }
 
@@ -394,6 +439,7 @@ pub fn matches_compound(
                     return matches_compound_selectors(
                         &sequence.compound_selectors,
                         previous_sibling_element,
+                        class_set,
                     );
                 }
             }
@@ -415,7 +461,11 @@ pub fn matches_compound(
                         None => continue,
                     };
 
-                    if matches_compound_selectors(&sequence.compound_selectors, sibling_element) {
+                    if matches_compound_selectors(
+                        &sequence.compound_selectors,
+                        sibling_element,
+                        class_set,
+                    ) {
                         return true;
                     }
                 }

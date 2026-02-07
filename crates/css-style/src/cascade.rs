@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use css_cssom::{CSSDeclaration, CSSStyleSheet, StylesheetOrigin};
 use css_selectors::{
-    CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list,
-    matches_compound,
+    ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable,
+    generate_selector_list, matches_compound,
 };
 use html_dom::{DocumentRoot, DomNode};
 
@@ -12,6 +12,7 @@ pub struct GeneratedRule<'a> {
     pub selector_sequences: Vec<CompoundSelectorSequence>,
     pub declarations: &'a [CSSDeclaration],
     pub origin: StylesheetOrigin,
+    pub specificity: SelectorSpecificity,
 }
 
 impl<'a> GeneratedRule<'a> {
@@ -23,10 +24,17 @@ impl<'a> GeneratedRule<'a> {
             for rule in style_rules {
                 let selector_list = generate_selector_list(&rule.prelude);
                 for selector_sequence in selector_list {
+                    let specificity = selector_sequence
+                        .iter()
+                        .map(|seq| seq.specificity())
+                        .max()
+                        .unwrap_or_default();
+
                     generated_rules.push(GeneratedRule {
                         selector_sequences: selector_sequence,
                         declarations: rule.declarations(),
                         origin: stylesheet.origin(),
+                        specificity,
                     });
                 }
             }
@@ -116,22 +124,17 @@ impl CascadedDeclaration {
             None => return (declarations, variables),
         };
 
-        for rule in rules {
-            if matches_compound(&rule.selector_sequences, dom, node) {
-                let specificity = rule
-                    .selector_sequences
-                    .iter()
-                    .map(|seq| seq.specificity())
-                    .max()
-                    .unwrap_or_default();
+        let class_set = ClassSet::new(element.classes());
 
+        for rule in rules {
+            if matches_compound(&rule.selector_sequences, dom, node, &class_set) {
                 for decl in rule.declarations {
                     if decl.name.starts_with("--") {
                         variables.push(CascadedDeclaration {
                             property: decl.name.clone(),
                             value: decl.value.clone(),
                             important: decl.important,
-                            specificity: CascadeSpecificity::from(specificity),
+                            specificity: CascadeSpecificity::from(rule.specificity),
                             source_order,
                             origin: rule.origin,
                         });
@@ -139,19 +142,15 @@ impl CascadedDeclaration {
                         continue;
                     }
 
-                    let expanded = expand_shorthand_property(&decl.name, &decl.value);
-
-                    for (property, value) in expanded {
-                        declarations.push(CascadedDeclaration {
-                            property,
-                            value,
-                            important: decl.important,
-                            specificity: CascadeSpecificity::from(specificity),
-                            source_order,
-                            origin: rule.origin,
-                        });
-                        source_order += 1;
-                    }
+                    declarations.push(CascadedDeclaration {
+                        property: decl.name.clone(),
+                        value: decl.value.clone(),
+                        important: decl.important,
+                        specificity: CascadeSpecificity::from(rule.specificity),
+                        source_order,
+                        origin: rule.origin,
+                    });
+                    source_order += 1;
                 }
             }
         }
@@ -229,13 +228,6 @@ impl CascadedDeclaration {
                 .then_with(|| b.specificity.cmp(&a.specificity))
                 .then_with(|| b.source_order.cmp(&a.source_order))
         });
-    }
-}
-
-fn expand_shorthand_property(property: &str, value: &str) -> Vec<(String, String)> {
-    match property {
-        "background" => vec![("background-color".to_string(), value.to_string())], // For now treat background as background-color
-        _ => vec![(property.to_string(), value.to_string())],
     }
 }
 
