@@ -160,7 +160,7 @@ mod tests {
         assert_eq!(first_div.dimensions.x, 38.0);
         assert_eq!(first_div.dimensions.y, 38.0);
         assert_eq!(first_div.dimensions.height, 30.0);
-        assert_eq!(first_div.dimensions.width, 704.0);
+        assert_eq!(first_div.dimensions.width, 724.0);
         assert_eq!(first_div.resolved_margin.top, 20.0);
         assert_eq!(
             first_div.resolved_margin.top,
@@ -171,7 +171,7 @@ mod tests {
         assert_eq!(second_div.dimensions.x, 38.0);
         assert_eq!(second_div.dimensions.y, 88.0);
         assert_eq!(second_div.dimensions.height, 50.0);
-        assert_eq!(second_div.dimensions.width, 704.0);
+        assert_eq!(second_div.dimensions.width, 724.0);
         assert_eq!(second_div.resolved_padding.top, 10.0);
         assert_eq!(second_div.resolved_padding.bottom, 10.0);
         assert_eq!(second_div.resolved_margin.top, 20.0);
@@ -184,7 +184,7 @@ mod tests {
         assert_eq!(third_div.dimensions.x, 38.0);
         assert_eq!(third_div.dimensions.y, 158.0);
         assert_eq!(third_div.dimensions.height, 30.0);
-        assert_eq!(third_div.dimensions.width, 704.0);
+        assert_eq!(third_div.dimensions.width, 724.0);
         assert_eq!(third_div.resolved_margin.top, 20.0);
         assert_eq!(
             third_div.resolved_margin.top,
@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(fourth_div.dimensions.x, 118.0);
         assert_eq!(fourth_div.dimensions.y, 288.0);
         assert_eq!(fourth_div.dimensions.height, 30.0);
-        assert_eq!(fourth_div.dimensions.width, 544.0);
+        assert_eq!(fourth_div.dimensions.width, 564.0);
         assert_eq!(fourth_div.resolved_margin.top, 100.0);
         assert_eq!(
             fourth_div.resolved_margin.top,

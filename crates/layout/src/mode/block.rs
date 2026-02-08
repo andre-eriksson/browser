@@ -189,7 +189,7 @@ impl BlockLayout {
             let mut child_ctx = LayoutContext::new(Rect::new(
                 x + padding.left + border.left,
                 y + padding.top + border.top,
-                content_width - padding.horizontal(),
+                content_width,
                 child_containing_height,
             ));
 
