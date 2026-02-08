@@ -23,6 +23,32 @@ pub mod position;
 pub mod text;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RelativeType {
+    FontSize,
+    ParentWidth,
+    ParentHeight,
+    RootFontSize,
+    ViewportWidth,
+    ViewportHeight,
+}
+
+#[derive(Debug, Clone, Default, Copy, PartialEq)]
+pub struct AbsoluteContext {
+    pub root_font_size: f32,
+    pub viewport_width: f32,
+    pub viewport_height: f32,
+}
+
+#[derive(Debug, Clone, Default, Copy, PartialEq)]
+pub struct RelativeContext {
+    pub parent_width: f32,
+    pub parent_height: f32,
+    pub parent_font_size: f32,
+    pub font_size: f32,
+    pub line_height: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CSSProperty<T> {
     Value(T),
     Global(Global),

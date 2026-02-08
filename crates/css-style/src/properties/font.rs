@@ -1,9 +1,11 @@
 use std::str::FromStr;
 
-use crate::primitives::{
-    font::{AbsoluteSize, GenericName, RelativeSize},
-    length::Length,
-    percentage::Percentage,
+use crate::{
+    RelativeType, calculate::CalcExpression, primitives::{
+        font::{AbsoluteSize, GenericName, RelativeSize},
+        length::Length,
+        percentage::Percentage,
+    }, properties::{AbsoluteContext, RelativeContext}
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -115,12 +117,13 @@ impl FromStr for FontFamily {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FontSize {
     Absolute(AbsoluteSize),
     Relative(RelativeSize),
     Length(Length),
     Percentage(Percentage),
+    Calc(CalcExpression),
 }
 
 impl Default for FontSize {
@@ -134,12 +137,20 @@ impl FontSize {
         Self::Length(Length::px(value))
     }
 
-    pub fn to_px(self, parent_px: f32) -> f32 {
+    pub fn to_px(&self, abs_ctx: &AbsoluteContext, parent_px: f32) -> f32 {
+        let rel_ctx = RelativeContext {
+            font_size: parent_px,
+            ..Default::default()
+        };
+
         match self {
             FontSize::Absolute(abs) => abs.to_px(),
-            FontSize::Length(len) => len.to_px(0.0, parent_px),
-            FontSize::Percentage(pct) => pct.to_px(parent_px),
+            FontSize::Length(len) => len.to_px(&rel_ctx, abs_ctx),
+            FontSize::Percentage(pct) => pct.as_fraction() * parent_px,
             FontSize::Relative(rel) => rel.to_px(parent_px),
+            FontSize::Calc(calc) => {
+                calc.to_px(RelativeType::FontSize, &rel_ctx, abs_ctx)
+            }
         }
     }
 }
@@ -150,7 +161,9 @@ impl FromStr for FontSize {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim();
 
-        if let Ok(abs_size) = s.parse() {
+        if s.starts_with("calc(") {
+            Ok(FontSize::Calc(CalcExpression::parse(s)?))
+        } else if let Ok(abs_size) = s.parse() {
             Ok(FontSize::Absolute(abs_size))
         } else if let Ok(rel_size) = s.parse() {
             Ok(FontSize::Relative(rel_size))

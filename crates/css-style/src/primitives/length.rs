@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use strum::EnumString;
 
+use crate::properties::{AbsoluteContext, RelativeContext};
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum LengthUnit {
@@ -105,7 +107,7 @@ impl Length {
         }
     }
 
-    pub fn to_px(self, viewport: f32, font_size: f32) -> f32 {
+    pub fn to_px(self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self.unit {
             LengthUnit::Px => self.value,
             LengthUnit::Cm => self.value * 96.0 / 2.54,
@@ -114,11 +116,12 @@ impl Length {
             LengthUnit::In => self.value * 96.0,
             LengthUnit::Pc => self.value * 16.0,
             LengthUnit::Pt => self.value * 96.0 / 72.0,
-            LengthUnit::Vw => viewport * self.value / 100.0,
-            LengthUnit::Vh => viewport * self.value / 100.0,
+            LengthUnit::Vw => abs_ctx.viewport_width * self.value / 100.0,
+            LengthUnit::Vh => abs_ctx.viewport_height * self.value / 100.0,
 
-            LengthUnit::Ch | LengthUnit::Cap => font_size * 0.5 * self.value,
-            LengthUnit::Rem | LengthUnit::Em => font_size * self.value,
+            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.font_size * 0.5 * self.value,
+            LengthUnit::Rem => abs_ctx.root_font_size * self.value,
+            LengthUnit::Em => rel_ctx.font_size * self.value,
             _ => self.value, // TODO: Handle other units properly
         }
     }

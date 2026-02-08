@@ -3,6 +3,7 @@ use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
 use crate::cascade::GeneratedRule;
 use crate::computed::ComputedStyle;
+use crate::properties::AbsoluteContext;
 
 #[derive(Debug, Clone)]
 pub struct StyledNode {
@@ -31,16 +32,22 @@ pub struct StyleTree {
 }
 
 impl StyleTree {
-    pub fn build(dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
+    pub fn build(
+        absolute_ctx: &AbsoluteContext,
+        dom: &DocumentRoot,
+        stylesheets: &[CSSStyleSheet],
+    ) -> Self {
         let rules = GeneratedRule::build(stylesheets);
 
         fn build_styled_node(
+            absolute_ctx: &AbsoluteContext,
             node_id: NodeId,
             dom: &DocumentRoot,
             rules: &[GeneratedRule],
             parent_style: Option<&ComputedStyle>,
         ) -> StyledNode {
-            let computed_style = ComputedStyle::from_node(&node_id, dom, rules, parent_style);
+            let computed_style =
+                ComputedStyle::from_node(absolute_ctx, &node_id, dom, rules, parent_style);
 
             let node = dom.get_node(&node_id).unwrap();
 
@@ -52,7 +59,9 @@ impl StyleTree {
             let children = node
                 .children
                 .iter()
-                .map(|&child_id| build_styled_node(child_id, dom, rules, Some(&computed_style)))
+                .map(|&child_id| {
+                    build_styled_node(absolute_ctx, child_id, dom, rules, Some(&computed_style))
+                })
                 .collect();
 
             StyledNode {
@@ -67,7 +76,7 @@ impl StyleTree {
         let root_nodes = dom
             .root_nodes
             .iter()
-            .map(|&root_id| build_styled_node(root_id, dom, &rules, None))
+            .map(|&root_id| build_styled_node(absolute_ctx, root_id, dom, &rules, None))
             .collect();
 
         StyleTree { root_nodes }

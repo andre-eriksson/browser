@@ -27,10 +27,6 @@ impl Percentage {
     pub fn as_fraction(&self) -> f32 {
         self.value / 100.0
     }
-
-    pub fn to_px(self, parent_px: f32) -> f32 {
-        parent_px * self.value / 100.0
-    }
 }
 
 impl FromStr for Percentage {

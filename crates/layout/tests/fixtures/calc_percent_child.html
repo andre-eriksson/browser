@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <style>
+            html,
+            body,
+            div {
+                display: block;
+            }
+
+            .one {
+                height: 300px;
+                width: 300px;
+                margin: 20px;
+                background: red;
+            }
+
+            .child {
+                background: green;
+                height: calc(100% - 40px);
+                width: calc(100% - 40px);
+            }
+
+            .two {
+                height: 300px;
+                width: 300px;
+                margin: 20px;
+                background: blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="one">
+            <div class="child"></div>
+        </div>
+        <div class="two"></div>
+    </body>
+</html>

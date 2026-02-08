@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use css_style::{
-    CSSProperty, ComputedStyle, LineHeight, StyledNode, TextAlign, Whitespace,
+    AbsoluteContext, CSSProperty, ComputedStyle, LineHeight, RelativeContext, RelativeType,
+    StyledNode, TextAlign, Whitespace,
     display::{InsideDisplay, OutsideDisplay},
 };
 use html_dom::{HtmlTag, NodeId, Tag};
@@ -51,6 +52,7 @@ pub struct InlineLayout;
 
 impl InlineLayout {
     pub fn collect_inline_items_from_nodes(
+        absolute_ctx: &AbsoluteContext,
         parent_style: &ComputedStyle,
         nodes: &[StyledNode],
     ) -> Vec<InlineItem> {
@@ -60,7 +62,7 @@ impl InlineLayout {
         };
 
         for node in nodes {
-            let result = Self::collect(&mut ctx, parent_style, node, &mut items);
+            let result = Self::collect(absolute_ctx, &mut ctx, parent_style, node, &mut items);
 
             if result.is_err() {
                 break;
@@ -71,6 +73,7 @@ impl InlineLayout {
     }
 
     fn collect(
+        absolute_ctx: &AbsoluteContext,
         ctx: &mut InlineContext,
         style: &ComputedStyle,
         inline_node: &StyledNode,
@@ -175,8 +178,8 @@ impl InlineLayout {
                     let font_size = inline_node.style.computed_font_size_px;
                     items.push(InlineItem::Break {
                         line_height_px: CSSProperty::resolve(&inline_node.style.line_height)
-                            .map_or(LineHeight::default().to_px(font_size), |lh| {
-                                lh.to_px(font_size)
+                            .map_or(LineHeight::default().to_px(absolute_ctx, font_size), |lh| {
+                                lh.to_px(absolute_ctx, font_size)
                             }),
                     });
                 }
@@ -184,7 +187,13 @@ impl InlineLayout {
                     let mut node_items = Vec::new();
 
                     for child in &inline_node.children {
-                        let result = Self::collect(ctx, &inline_node.style, child, &mut node_items);
+                        let result = Self::collect(
+                            absolute_ctx,
+                            ctx,
+                            &inline_node.style,
+                            child,
+                            &mut node_items,
+                        );
 
                         if result.is_err() {
                             return Err(());
@@ -204,6 +213,7 @@ impl InlineLayout {
     }
 
     pub fn layout(
+        absolute_ctx: &AbsoluteContext,
         items: &[InlineItem],
         text_ctx: &mut TextContext,
         width: f32,
@@ -255,6 +265,7 @@ impl InlineLayout {
                     }
 
                     let (i_text, r_text) = text_ctx.measure_multiline_text(
+                        absolute_ctx,
                         text,
                         &TextDescription {
                             whitespace,
@@ -270,8 +281,12 @@ impl InlineLayout {
                         },
                     );
 
-                    let (margin, padding, border) =
-                        PropertyResolver::resolve_box_model(style, width, font_size_px);
+                    let (margin, padding, border) = PropertyResolver::resolve_box_model(
+                        absolute_ctx,
+                        style,
+                        width,
+                        font_size_px,
+                    );
 
                     let colors = LayoutColors::from(style);
 
@@ -306,7 +321,7 @@ impl InlineLayout {
                     nodes.push(node);
 
                     if let Some(r_text) = r_text {
-                        let line_height_px = line_height.to_px(font_size_px);
+                        let line_height_px = line_height.to_px(absolute_ctx, font_size_px);
                         cursor.y += line_height_px;
                         cursor.x = 0.0;
 
@@ -331,7 +346,7 @@ impl InlineLayout {
                             (r_text.height - line_height_px) + margin.bottom + padding.bottom;
                         cursor.x = r_text.last_line_width + margin.right + padding.right;
                     } else {
-                        let line_height_px = line_height.to_px(font_size_px);
+                        let line_height_px = line_height.to_px(absolute_ctx, font_size_px);
 
                         if i_text.height > line_height_px + 0.1 {
                             cursor.y += i_text.height - line_height_px;
@@ -344,8 +359,14 @@ impl InlineLayout {
                     cursor.remaining_width = width - cursor.x;
                 }
                 InlineItem::InlineNode { id, content, style } => {
-                    let (inline_nodes, inline_height) =
-                        Self::layout(content, text_ctx, width, x + cursor.x, y + cursor.y);
+                    let (inline_nodes, inline_height) = Self::layout(
+                        absolute_ctx,
+                        content,
+                        text_ctx,
+                        width,
+                        x + cursor.x,
+                        y + cursor.y,
+                    );
 
                     let mut total_width = 0.0;
                     let mut total_node_height = 0.0;
@@ -374,6 +395,7 @@ impl InlineLayout {
                     cursor.x += total_width;
 
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(
+                        absolute_ctx,
                         style,
                         width,
                         style.computed_font_size_px,
@@ -398,13 +420,19 @@ impl InlineLayout {
                     nodes.push(link_node);
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
+                    let rel_ctx = RelativeContext {
+                        font_size: style.computed_font_size_px,
+                        parent_width: width,
+                        ..Default::default()
+                    };
+
                     let width = if let Ok(w) = CSSProperty::resolve(&style.width) {
-                        w.to_px(width, style.computed_font_size_px)
+                        w.to_px(RelativeType::ParentWidth, &rel_ctx, absolute_ctx)
                     } else {
                         0.0
                     };
                     let height = if let Ok(h) = CSSProperty::resolve(&style.height) {
-                        h.to_px(width, style.computed_font_size_px)
+                        h.to_px(RelativeType::ParentHeight, &rel_ctx, absolute_ctx)
                     } else {
                         0.0
                     };
@@ -417,7 +445,8 @@ impl InlineLayout {
                     let mut ctx = LayoutContext::new(viewport);
 
                     for child in node.children.iter() {
-                        let node = LayoutEngine::layout_node(child, &mut ctx, text_ctx);
+                        let node =
+                            LayoutEngine::layout_node(absolute_ctx, child, &mut ctx, text_ctx);
 
                         if let Some(node) = node {
                             total_width = f32::max(total_width, node.dimensions.width);
@@ -428,6 +457,7 @@ impl InlineLayout {
                     }
 
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(
+                        absolute_ctx,
                         style,
                         width,
                         style.computed_font_size_px,
@@ -512,7 +542,11 @@ mod tests {
 
         let style = Box::new(ComputedStyle::default());
         let nodes = vec![node_text, node_break];
-        let items = InlineLayout::collect_inline_items_from_nodes(&style, &nodes);
+        let items = InlineLayout::collect_inline_items_from_nodes(
+            &AbsoluteContext::default(),
+            &style,
+            &nodes,
+        );
 
         assert_eq!(items.len(), 2);
         match &items[0] {
@@ -552,7 +586,11 @@ mod tests {
 
         let style = Box::new(ComputedStyle::default());
         let nodes = vec![node_text, node_block, node_break];
-        let items = InlineLayout::collect_inline_items_from_nodes(&style, &nodes);
+        let items = InlineLayout::collect_inline_items_from_nodes(
+            &AbsoluteContext::default(),
+            &style,
+            &nodes,
+        );
 
         assert_eq!(items.len(), 1);
         match &items[0] {
@@ -580,8 +618,14 @@ mod tests {
         ];
 
         let mut text_ctx = TextContext::default();
-        let (layout_nodes, total_height) =
-            InlineLayout::layout(&items, &mut text_ctx, 200.0, 0.0, 0.0);
+        let (layout_nodes, total_height) = InlineLayout::layout(
+            &AbsoluteContext::default(),
+            &items,
+            &mut text_ctx,
+            200.0,
+            0.0,
+            0.0,
+        );
 
         assert_eq!(layout_nodes.len(), 2);
         assert!(total_height > 16.0);
@@ -610,8 +654,14 @@ mod tests {
             },
         ];
 
-        let (layout_nodes, total_height) =
-            InlineLayout::layout(&items, &mut text_context, 50.0, 0.0, 0.0);
+        let (layout_nodes, total_height) = InlineLayout::layout(
+            &AbsoluteContext::default(),
+            &items,
+            &mut text_context,
+            50.0,
+            0.0,
+            0.0,
+        );
 
         assert_eq!(layout_nodes.len(), 3);
         assert!(total_height > 16.0);

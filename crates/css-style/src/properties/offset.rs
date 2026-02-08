@@ -1,11 +1,16 @@
 use std::str::FromStr;
 
-use crate::primitives::{length::Length, percentage::Percentage};
+use crate::{
+    calculate::CalcExpression,
+    primitives::{length::Length, percentage::Percentage},
+    properties::{AbsoluteContext, RelativeContext, RelativeType},
+};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OffsetValue {
     Percentage(Percentage),
     Length(Length),
+    Calc(CalcExpression),
     Auto,
 }
 
@@ -23,12 +28,39 @@ impl OffsetValue {
     pub fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
+
+    pub fn to_px(
+        &self,
+        rel_type: RelativeType,
+        rel_ctx: &RelativeContext,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
+        match self {
+            OffsetValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
+            OffsetValue::Percentage(pct) => match rel_type {
+                RelativeType::FontSize => rel_ctx.font_size * pct.as_fraction(),
+                RelativeType::ParentHeight => rel_ctx.parent_height * pct.as_fraction(),
+                RelativeType::ParentWidth => rel_ctx.parent_width * pct.as_fraction(),
+                RelativeType::RootFontSize => abs_ctx.root_font_size * pct.as_fraction(),
+                RelativeType::ViewportHeight => abs_ctx.viewport_height * pct.as_fraction(),
+                RelativeType::ViewportWidth => abs_ctx.viewport_width * pct.as_fraction(),
+            },
+            OffsetValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            OffsetValue::Auto => 0.0,
+        }
+    }
 }
 
 impl FromStr for OffsetValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+
+        if s.starts_with("calc(") {
+            return Ok(Self::Calc(CalcExpression::parse(s)?));
+        }
+
         if let Ok(num) = s.parse::<f32>()
             && num == 0.0
         {
@@ -83,17 +115,17 @@ impl Offset {
 
     pub fn all(value: OffsetValue) -> Self {
         Self {
-            top: value,
-            right: value,
-            bottom: value,
+            top: value.clone(),
+            right: value.clone(),
+            bottom: value.clone(),
             left: value,
         }
     }
 
     pub fn two(vertical: OffsetValue, horizontal: OffsetValue) -> Self {
         Self {
-            top: vertical,
-            right: horizontal,
+            top: vertical.clone(),
+            right: horizontal.clone(),
             bottom: vertical,
             left: horizontal,
         }
@@ -102,7 +134,7 @@ impl Offset {
     pub fn three(top: OffsetValue, horizontal: OffsetValue, bottom: OffsetValue) -> Self {
         Self {
             top,
-            right: horizontal,
+            right: horizontal.clone(),
             bottom,
             left: horizontal,
         }
@@ -116,40 +148,40 @@ impl FromStr for Offset {
         let parts: Vec<&str> = s.split_whitespace().collect();
         match parts.len() {
             1 => {
-                let value = parts[0].parse()?;
+                let value = parts[0].parse::<OffsetValue>()?;
                 Ok(Offset {
-                    top: value,
-                    right: value,
-                    bottom: value,
+                    top: value.clone(),
+                    right: value.clone(),
+                    bottom: value.clone(),
                     left: value,
                 })
             }
             2 => {
-                let vertical = parts[0].parse()?;
-                let horizontal = parts[1].parse()?;
+                let vertical = parts[0].parse::<OffsetValue>()?;
+                let horizontal = parts[1].parse::<OffsetValue>()?;
                 Ok(Offset {
-                    top: vertical,
-                    right: horizontal,
+                    top: vertical.clone(),
+                    right: horizontal.clone(),
                     bottom: vertical,
                     left: horizontal,
                 })
             }
             3 => {
-                let top = parts[0].parse()?;
-                let horizontal = parts[1].parse()?;
-                let bottom = parts[2].parse()?;
+                let top = parts[0].parse::<OffsetValue>()?;
+                let horizontal = parts[1].parse::<OffsetValue>()?;
+                let bottom = parts[2].parse::<OffsetValue>()?;
                 Ok(Offset {
                     top,
-                    right: horizontal,
+                    right: horizontal.clone(),
                     bottom,
                     left: horizontal,
                 })
             }
             4 => {
-                let top = parts[0].parse()?;
-                let right = parts[1].parse()?;
-                let bottom = parts[2].parse()?;
-                let left = parts[3].parse()?;
+                let top = parts[0].parse::<OffsetValue>()?;
+                let right = parts[1].parse::<OffsetValue>()?;
+                let bottom = parts[2].parse::<OffsetValue>()?;
+                let left = parts[3].parse::<OffsetValue>()?;
                 Ok(Offset {
                     top,
                     right,

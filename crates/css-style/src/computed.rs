@@ -26,11 +26,11 @@ use crate::{
         font::{AbsoluteSize, GenericName},
     },
     properties::{
-        BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty, ColorProperty,
-        DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty,
-        LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetValueProperty,
-        PositionProperty, TextAlignProperty, WhitespaceProperty, WidthProperty,
-        WritingModeProperty,
+        AbsoluteContext, BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty,
+        ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
+        HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty,
+        OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty,
+        WidthProperty, WritingModeProperty,
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -91,8 +91,8 @@ impl ComputedStyle {
     /// * `dom` - The DocumentRoot representing the DOM tree.
     /// * `rules` - A slice of GeneratedRule representing the CSS rules to apply.
     /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
-    #[allow(clippy::single_match)]
     pub fn from_node(
+        absolute_ctx: &AbsoluteContext,
         node_id: &NodeId,
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
@@ -121,7 +121,7 @@ impl ComputedStyle {
         }
         computed_style.variables = merged_variables;
 
-        let mut ctx = PropertyUpdateContext::new(&mut computed_style, parent_style);
+        let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut computed_style, parent_style);
 
         for (key, value) in properties {
             let val = resolve_css_variable(&ctx.computed_style.variables, value.clone(), value);
@@ -191,9 +191,9 @@ impl ComputedStyle {
         ComputedStyle {
             color: self.color,
             font_family: self.font_family.clone(),
-            font_size: self.font_size,
+            font_size: self.font_size.clone(),
             computed_font_size_px: self.computed_font_size_px,
-            line_height: self.line_height,
+            line_height: self.line_height.clone(),
             text_align: self.text_align,
             font_weight: self.font_weight,
             whitespace: self.whitespace,
@@ -204,16 +204,16 @@ impl ComputedStyle {
     }
 
     pub fn set_margin_all(&mut self, value: OffsetValue) {
-        self.margin_top = value.into();
-        self.margin_right = value.into();
-        self.margin_bottom = value.into();
+        self.margin_top = value.clone().into();
+        self.margin_right = value.clone().into();
+        self.margin_bottom = value.clone().into();
         self.margin_left = value.into();
     }
 
     pub fn set_padding_all(&mut self, value: OffsetValue) {
-        self.padding_top = value.into();
-        self.padding_right = value.into();
-        self.padding_bottom = value.into();
+        self.padding_top = value.clone().into();
+        self.padding_right = value.clone().into();
+        self.padding_bottom = value.clone().into();
         self.padding_left = value.into();
     }
 }

@@ -2,11 +2,16 @@ use std::str::FromStr;
 
 use strum::EnumString;
 
-use crate::{primitives::length::Length, properties::color::Color};
+use crate::{
+    calculate::CalcExpression,
+    primitives::length::Length,
+    properties::{AbsoluteContext, RelativeContext, RelativeType, color::Color},
+};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BorderWidthValue {
     Length(Length),
+    Calc(CalcExpression),
     Thin,
     Medium,
     Thick,
@@ -22,7 +27,11 @@ impl FromStr for BorderWidthValue {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(num) = s.parse::<f32>()
+        let s = s.trim();
+
+        if s.starts_with("calc(") {
+            Ok(BorderWidthValue::Calc(CalcExpression::parse(s)?))
+        } else if let Ok(num) = s.parse::<f32>()
             && num == 0.0
         {
             Ok(BorderWidthValue::Length(Length::zero()))
@@ -36,6 +45,23 @@ impl FromStr for BorderWidthValue {
             Ok(BorderWidthValue::Thick)
         } else {
             Err(format!("Invalid border width value: {}", s))
+        }
+    }
+}
+
+impl BorderWidthValue {
+    pub fn to_px(
+        &self,
+        rel_type: RelativeType,
+        rel_ctx: &RelativeContext,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
+        match self {
+            BorderWidthValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
+            BorderWidthValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            BorderWidthValue::Thin => 1.0,
+            BorderWidthValue::Medium => 3.0,
+            BorderWidthValue::Thick => 5.0,
         }
     }
 }
@@ -74,27 +100,27 @@ impl BorderWidth {
 
     pub fn all(value: BorderWidthValue) -> Self {
         Self {
-            top: value,
-            right: value,
-            bottom: value,
+            top: value.clone(),
+            right: value.clone(),
+            bottom: value.clone(),
             left: value,
         }
     }
 
     pub fn top(&self) -> BorderWidthValue {
-        self.top
+        self.top.clone()
     }
 
     pub fn right(&self) -> BorderWidthValue {
-        self.right
+        self.right.clone()
     }
 
     pub fn bottom(&self) -> BorderWidthValue {
-        self.bottom
+        self.bottom.clone()
     }
 
     pub fn left(&self) -> BorderWidthValue {
-        self.left
+        self.left.clone()
     }
 }
 
@@ -108,25 +134,28 @@ impl FromStr for BorderWidth {
             1 => {
                 let width = parts[0]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
 
                 Ok(BorderWidth {
-                    top: width,
-                    right: width,
-                    bottom: width,
+                    top: width.clone(),
+                    right: width.clone(),
+                    bottom: width.clone(),
                     left: width,
                 })
             }
             2 => {
                 let vertical = parts[0]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
                 let horizontal = parts[1]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
                 Ok(BorderWidth {
-                    top: vertical,
-                    right: horizontal,
+                    top: vertical.clone(),
+                    right: horizontal.clone(),
                     bottom: vertical,
                     left: horizontal,
                 })
@@ -134,16 +163,19 @@ impl FromStr for BorderWidth {
             3 => {
                 let top = parts[0]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
                 let horizontal = parts[1]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
                 let bottom = parts[2]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[2]))?;
                 Ok(BorderWidth {
                     top,
-                    right: horizontal,
+                    right: horizontal.clone(),
                     bottom,
                     left: horizontal,
                 })
@@ -151,15 +183,19 @@ impl FromStr for BorderWidth {
             4 => {
                 let top = parts[0]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
                 let right = parts[1]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
                 let bottom = parts[2]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[2]))?;
                 let left = parts[3]
                     .parse()
+                    .map(|v: BorderWidthValue| v)
                     .map_err(|_| format!("Invalid border width: {}", parts[3]))?;
                 Ok(BorderWidth {
                     top,

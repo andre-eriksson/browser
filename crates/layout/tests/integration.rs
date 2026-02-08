@@ -2,7 +2,7 @@
 mod tests {
     use cosmic_text::FontSystem;
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-    use css_style::StyleTree;
+    use css_style::{AbsoluteContext, StyleTree};
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::embeded::DEFAULT_CSS;
     use io::manager::Resource;
@@ -60,12 +60,18 @@ mod tests {
                 }
             }
 
+            let absolute_ctx = AbsoluteContext {
+                viewport_width: viewport().width,
+                viewport_height: viewport().height,
+                ..Default::default()
+            };
+
             let result = parser.finalize();
             let document = result.dom_tree;
-            let style_tree = StyleTree::build(&document, &stylesheets);
+            let style_tree = StyleTree::build(&absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
             let mut text_context = TextContext::new(font_system);
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context)
+            LayoutEngine::compute_layout(&absolute_ctx, &style_tree, viewport(), &mut text_context)
         }};
     }
 
@@ -232,5 +238,18 @@ mod tests {
         assert_eq!(second_div.dimensions.y, 126.0);
         assert_eq!(second_div.dimensions.height, 30.0);
         assert_eq!(second_div.dimensions.width, 744.0);
+    }
+
+    #[test]
+    fn test_child_calc_percentage_resolves_against_parent_size() {
+        let layout = process_html!("fixtures/calc_percent_child.html", false);
+
+        let root = &layout.root_nodes[0];
+        let body = &root.children[0];
+        let first_div = &body.children[0];
+        let child = &first_div.children[0];
+
+        assert_eq!(child.dimensions.width, 260.0);
+        assert_eq!(child.dimensions.height, 260.0);
     }
 }

@@ -3,11 +3,12 @@ use std::str::FromStr;
 use css_cssom::Property;
 
 use crate::primitives::font::AbsoluteSize;
-use crate::properties::CSSProperty;
 use crate::properties::text::WritingMode;
+use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::{BorderStyleValue, BorderWidthValue, Color, ComputedStyle, OffsetValue};
 
 pub struct PropertyUpdateContext<'a> {
+    pub absolute_ctx: &'a AbsoluteContext,
     pub computed_style: &'a mut ComputedStyle,
     pub parent_style: Option<&'a ComputedStyle>,
     pub errors: Vec<PropertyError>,
@@ -22,10 +23,12 @@ pub struct PropertyError {
 
 impl<'a> PropertyUpdateContext<'a> {
     pub fn new(
+        absolute_ctx: &'a AbsoluteContext,
         computed_style: &'a mut ComputedStyle,
         parent_style: Option<&'a ComputedStyle>,
     ) -> Self {
         Self {
+            absolute_ctx,
             computed_style,
             parent_style,
             errors: Vec::new(),
@@ -58,6 +61,37 @@ macro_rules! simple_property_handler {
             }
         }
     };
+}
+
+fn split_top_level_whitespace(input: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut depth = 0usize;
+    let mut token_start: Option<usize> = None;
+
+    for (idx, ch) in input.char_indices() {
+        if ch.is_whitespace() && depth == 0 {
+            if let Some(start) = token_start.take() {
+                parts.push(&input[start..idx]);
+            }
+            continue;
+        }
+
+        if token_start.is_none() {
+            token_start = Some(idx);
+        }
+
+        match ch {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+
+    if let Some(start) = token_start {
+        parts.push(&input[start..]);
+    }
+
+    parts
 }
 
 pub fn resolve_css_variable(
@@ -214,7 +248,7 @@ simple_property_handler!(handle_line_height, line_height, "line-height");
 simple_property_handler!(handle_margin_top, margin_top, "margin-top");
 simple_property_handler!(handle_margin_bottom, margin_bottom, "margin-bottom");
 simple_property_handler!(handle_margin_left, margin_left, "margin-left");
-simple_property_handler!(handle_margin_right, margin_top, "margin-right");
+simple_property_handler!(handle_margin_right, margin_right, "margin-right");
 simple_property_handler!(handle_padding_top, padding_top, "padding-top");
 simple_property_handler!(handle_padding_bottom, padding_bottom, "padding-bottom");
 simple_property_handler!(handle_padding_left, padding_left, "padding-left");
@@ -459,7 +493,7 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
         return;
     }
 
-    let parts = value.split_whitespace().collect::<Vec<&str>>();
+    let parts = split_top_level_whitespace(value);
 
     for part in parts {
         if let Ok(width) = part.parse::<BorderWidthValue>() {
@@ -501,15 +535,15 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &str) {
+    CSSProperty::update_property(&mut ctx.computed_style.font_size, value).unwrap_or(());
+
     if let Ok(font_size) = CSSProperty::resolve(&ctx.computed_style.font_size) {
         let parent_px = ctx
             .parent_style
             .map(|p| p.computed_font_size_px)
             .unwrap_or(AbsoluteSize::Medium.to_px());
-        ctx.computed_style.computed_font_size_px = font_size.to_px(parent_px);
+        ctx.computed_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, parent_px);
     }
-
-    CSSProperty::update_property(&mut ctx.computed_style.font_size, value).unwrap_or(())
 }
 
 pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &str) {
@@ -720,5 +754,39 @@ pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
                 );
             }
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{BorderStyleValue, BorderWidthValue};
+
+    #[test]
+    fn test_split_top_level_whitespace_preserves_functions() {
+        let parts = split_top_level_whitespace("calc(100% - 2px) solid rgb(255 0 0 / 0.5)");
+        assert_eq!(
+            parts,
+            vec!["calc(100% - 2px)", "solid", "rgb(255 0 0 / 0.5)"]
+        );
+    }
+
+    #[test]
+    fn test_handle_border_with_calc_and_function_color() {
+        let absolute_ctx = AbsoluteContext::default();
+        let mut style = ComputedStyle::default();
+        let mut ctx = PropertyUpdateContext::new(&absolute_ctx, &mut style, None);
+
+        handle_border(&mut ctx, "calc(100% - 2px) solid rgb(255 0 0 / 0.5)");
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(
+            CSSProperty::resolve(&ctx.computed_style.border_top_style),
+            Ok(&BorderStyleValue::Solid)
+        );
+        assert!(matches!(
+            CSSProperty::resolve(&ctx.computed_style.border_top_width),
+            Ok(BorderWidthValue::Calc(_))
+        ));
     }
 }

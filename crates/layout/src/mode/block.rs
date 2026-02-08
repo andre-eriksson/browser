@@ -1,4 +1,6 @@
-use css_style::{CSSProperty, Dimension, OffsetValue, StyledNode, display::OutsideDisplay};
+use css_style::{
+    AbsoluteContext, CSSProperty, Dimension, OffsetValue, StyledNode, display::OutsideDisplay,
+};
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, layout::LayoutContext,
@@ -77,6 +79,7 @@ pub struct BlockLayout;
 
 impl BlockLayout {
     pub fn layout(
+        absolute_ctx: &AbsoluteContext,
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
@@ -84,9 +87,14 @@ impl BlockLayout {
         let font_size_px = styled_node.style.computed_font_size_px;
         let container_width = ctx.containing_block().width;
 
-        let (margin, padding, border) =
-            PropertyResolver::resolve_box_model(&styled_node.style, container_width, font_size_px);
-        let box_width = PropertyResolver::calculate_width(styled_node, container_width);
+        let (margin, padding, border) = PropertyResolver::resolve_box_model(
+            absolute_ctx,
+            &styled_node.style,
+            container_width,
+            font_size_px,
+        );
+        let box_width =
+            PropertyResolver::calculate_width(absolute_ctx, styled_node, container_width);
 
         let content_width = if let Ok(width) = CSSProperty::resolve(&styled_node.style.width)
             && width == &Dimension::Auto
@@ -101,6 +109,16 @@ impl BlockLayout {
 
         let mut children = Vec::new();
         let mut flow = BlockFlow::new(padding.top, border.top);
+        let child_containing_height = match CSSProperty::resolve(&styled_node.style.height) {
+            Ok(Dimension::Auto) | Err(_) => 0.0,
+            Ok(_) => PropertyResolver::calculate_height(
+                absolute_ctx,
+                styled_node,
+                ctx.containing_block().height,
+                0.0,
+            )
+            .max(0.0),
+        };
 
         let child_len = styled_node.children.len();
         let mut child_idx = 0;
@@ -116,6 +134,7 @@ impl BlockLayout {
                 let inline_end = child_idx;
 
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
+                    absolute_ctx,
                     &styled_node.style,
                     &styled_node.children[inline_start..inline_end],
                 );
@@ -126,6 +145,7 @@ impl BlockLayout {
                     let inline_width = content_width - padding.horizontal();
 
                     let (inline_layout_nodes, inline_height) = InlineLayout::layout(
+                        absolute_ctx,
                         &inline_items,
                         text_ctx,
                         inline_width,
@@ -148,6 +168,7 @@ impl BlockLayout {
             }
 
             let child_margin = PropertyResolver::resolve_node_margins(
+                absolute_ctx,
                 child_style_node,
                 content_width,
                 font_size_px,
@@ -169,12 +190,13 @@ impl BlockLayout {
                 x + padding.left + border.left,
                 y + padding.top + border.top,
                 content_width - padding.horizontal(),
-                0.0,
+                child_containing_height,
             ));
 
             child_ctx.block_cursor.y = child_y_offset;
 
-            let child_node = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx);
+            let child_node =
+                LayoutEngine::layout_node(absolute_ctx, child_style_node, &mut child_ctx, text_ctx);
 
             if let Some(child_node) = child_node {
                 flow.advance(
@@ -197,6 +219,7 @@ impl BlockLayout {
         };
 
         let calculated_height = PropertyResolver::calculate_height(
+            absolute_ctx,
             styled_node,
             ctx.containing_block().height,
             content_height_from_children,

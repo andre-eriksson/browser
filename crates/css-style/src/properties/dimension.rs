@@ -1,11 +1,16 @@
 use std::str::FromStr;
 
-use crate::primitives::{length::Length, percentage::Percentage};
+use crate::{
+    calculate::CalcExpression,
+    primitives::{length::Length, percentage::Percentage},
+    properties::{AbsoluteContext, RelativeContext, RelativeType},
+};
 
-#[derive(Debug, Clone, Default, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum Dimension {
     Percentage(Percentage),
     Length(Length),
+    Calc(CalcExpression),
     #[default]
     Auto,
     MaxContent,
@@ -19,15 +24,28 @@ impl Dimension {
         Self::Length(Length::px(value))
     }
 
-    pub fn to_px(&self, viewport: f32, parent_size: f32) -> f32 {
+    pub fn to_px(
+        &self,
+        rel_type: RelativeType,
+        rel_ctx: &RelativeContext,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
-            Dimension::Percentage(p) => p.to_px(parent_size),
-            Dimension::Length(l) => l.to_px(viewport, parent_size),
-            Dimension::Auto => viewport,
+            Dimension::Length(l) => l.to_px(rel_ctx, abs_ctx),
             Dimension::MaxContent => 0.0,
             Dimension::MinContent => 0.0,
             Dimension::FitContent(_) => 0.0,
             Dimension::Stretch => 0.0,
+            Dimension::Auto => 0.0,
+            Dimension::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            Dimension::Percentage(p) => match rel_type {
+                RelativeType::FontSize => rel_ctx.font_size * p.as_fraction(),
+                RelativeType::ParentHeight => rel_ctx.parent_height * p.as_fraction(),
+                RelativeType::ParentWidth => rel_ctx.parent_width * p.as_fraction(),
+                RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),
+                RelativeType::ViewportHeight => abs_ctx.viewport_height * p.as_fraction(),
+                RelativeType::ViewportWidth => abs_ctx.viewport_width * p.as_fraction(),
+            },
         }
     }
 }
@@ -36,7 +54,11 @@ impl FromStr for Dimension {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(num) = s.parse::<f32>()
+        let s = s.trim();
+
+        if s.starts_with("calc(") {
+            Ok(Self::Calc(CalcExpression::parse(s)?))
+        } else if let Ok(num) = s.parse::<f32>()
             && num == 0.0
         {
             Ok(Self::Length(Length::px(0.0)))
@@ -62,10 +84,11 @@ impl FromStr for Dimension {
     }
 }
 
-#[derive(Debug, Clone, Default, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum MaxDimension {
     Length(Length),
     Percentage(Percentage),
+    Calc(CalcExpression),
     #[default]
     None,
     MaxContent,
@@ -78,7 +101,11 @@ impl FromStr for MaxDimension {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains('%')
+        let s = s.trim();
+
+        if s.starts_with("calc(") {
+            Ok(Self::Calc(CalcExpression::parse(s)?))
+        } else if s.contains('%')
             && let Ok(percentage) = s.parse()
         {
             Ok(Self::Percentage(percentage))

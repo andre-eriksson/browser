@@ -2,7 +2,8 @@ use cosmic_text::{
     Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap,
 };
 use css_style::{
-    FontFamily, FontFamilyName, FontWeight, LineHeight, Whitespace, font::GenericName,
+    AbsoluteContext, FontFamily, FontFamilyName, FontWeight, LineHeight, Whitespace,
+    font::GenericName,
 };
 
 pub struct TextOffsetContext {
@@ -54,6 +55,7 @@ impl TextContext {
 
     pub fn measure_multiline_text(
         &mut self,
+        absolute_ctx: &AbsoluteContext,
         text: &str,
         text_description: &TextDescription,
         available_width: f32,
@@ -69,14 +71,20 @@ impl TextContext {
 
         if offset_ctx.offset_x == 0.0 || is_pre {
             return (
-                self.measure_text(text, text_description, available_width, wrap_mode),
+                self.measure_text(
+                    absolute_ctx,
+                    text,
+                    text_description,
+                    available_width,
+                    wrap_mode,
+                ),
                 None,
             );
         }
 
         let line_height_px = text_description
             .line_height
-            .to_px(text_description.font_size_px);
+            .to_px(absolute_ctx, text_description.font_size_px);
 
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let family = Self::resolve_font_family(text_description.font_family);
@@ -126,7 +134,13 @@ impl TextContext {
             1
         } else {
             return (
-                self.measure_text(text, text_description, available_width, wrap_mode),
+                self.measure_text(
+                    absolute_ctx,
+                    text,
+                    text_description,
+                    available_width,
+                    wrap_mode,
+                ),
                 None,
             );
         };
@@ -139,6 +153,7 @@ impl TextContext {
         };
 
         let initial_text = self.measure_text(
+            absolute_ctx,
             first_line_text,
             text_description,
             offset_ctx.available_width,
@@ -149,8 +164,13 @@ impl TextContext {
             return (initial_text, None);
         }
 
-        let rest_text =
-            self.measure_text(remaining_text, text_description, available_width, wrap_mode);
+        let rest_text = self.measure_text(
+            absolute_ctx,
+            remaining_text,
+            text_description,
+            available_width,
+            wrap_mode,
+        );
 
         (initial_text, Some(rest_text))
     }
@@ -158,6 +178,7 @@ impl TextContext {
     /// Measures the rendered size of the given text with specified styles and constraints.
     fn measure_text(
         &mut self,
+        absolute_ctx: &AbsoluteContext,
         text: &str,
         text_description: &TextDescription,
         available_width: f32,
@@ -165,7 +186,7 @@ impl TextContext {
     ) -> Text {
         let line_height_px = text_description
             .line_height
-            .to_px(text_description.font_size_px);
+            .to_px(absolute_ctx, text_description.font_size_px);
 
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);

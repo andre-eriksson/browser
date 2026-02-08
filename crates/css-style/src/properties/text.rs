@@ -2,7 +2,12 @@ use std::str::FromStr;
 
 use strum::EnumString;
 
-use crate::primitives::{length::Length, percentage::Percentage};
+use crate::{
+    RelativeType,
+    calculate::CalcExpression,
+    primitives::{length::Length, percentage::Percentage},
+    properties::{AbsoluteContext, RelativeContext},
+};
 
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
@@ -44,13 +49,14 @@ pub enum Whitespace {
     Collapse,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum LineHeight {
     #[default]
     Normal,
     Number(f32),
     Length(Length),
     Percentage(Percentage),
+    Calc(CalcExpression),
 }
 
 impl LineHeight {
@@ -58,12 +64,18 @@ impl LineHeight {
         LineHeight::Length(Length::px(value))
     }
 
-    pub fn to_px(self, font_size_px: f32) -> f32 {
+    pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
+        let rel_ctx = RelativeContext {
+            font_size: font_size_px,
+            ..Default::default()
+        };
+
         match self {
             LineHeight::Normal => font_size_px * 1.2,
             LineHeight::Number(num) => font_size_px * num,
-            LineHeight::Length(len) => len.to_px(0.0, font_size_px),
-            LineHeight::Percentage(pct) => pct.to_px(font_size_px),
+            LineHeight::Length(len) => len.to_px(&rel_ctx, abs_ctx),
+            LineHeight::Percentage(pct) => pct.as_fraction() * font_size_px,
+            LineHeight::Calc(calc) => calc.to_px(RelativeType::FontSize, &rel_ctx, abs_ctx),
         }
     }
 }
@@ -72,7 +84,11 @@ impl FromStr for LineHeight {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.eq_ignore_ascii_case("normal") {
+        let s = s.trim();
+
+        if s.starts_with("calc(") {
+            Ok(Self::Calc(CalcExpression::parse(s)?))
+        } else if s.eq_ignore_ascii_case("normal") {
             Ok(Self::Normal)
         } else if let Ok(number) = s.parse::<f32>() {
             Ok(Self::Number(number))

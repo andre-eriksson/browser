@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use css_style::StyleTree;
+use css_style::{AbsoluteContext, StyleTree};
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
@@ -156,9 +156,23 @@ impl Application {
                         && let Some(tab) =
                             self.tabs.iter_mut().find(|tab| tab.id == self.active_tab)
                     {
-                        let style_tree = StyleTree::build(&tab.document, &tab.stylesheets);
+                        let ctx = AbsoluteContext {
+                            root_font_size: 16.0,
+                            viewport_width: self
+                                .viewports
+                                .get(&self.id)
+                                .map(|(w, _)| *w)
+                                .unwrap_or(800.0),
+                            viewport_height: self
+                                .viewports
+                                .get(&self.id)
+                                .map(|(_, h)| *h)
+                                .unwrap_or(600.0),
+                        };
+                        let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
 
                         let layout_tree = LayoutEngine::compute_layout(
+                            &ctx,
                             &style_tree,
                             Rect::new(0.0, 0.0, width, height),
                             &mut self.text_context,
@@ -295,9 +309,24 @@ impl Application {
                     let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
                     if let Some(tab) = current_tab {
-                        let style_tree = StyleTree::build(page.document(), page.stylesheets());
+                        let ctx = AbsoluteContext {
+                            root_font_size: 16.0,
+                            viewport_width: self
+                                .viewports
+                                .get(&self.id)
+                                .map(|(w, _)| *w)
+                                .unwrap_or(800.0),
+                            viewport_height: self
+                                .viewports
+                                .get(&self.id)
+                                .map(|(_, h)| *h)
+                                .unwrap_or(600.0),
+                        };
+                        let style_tree =
+                            StyleTree::build(&ctx, page.document(), page.stylesheets());
 
                         let layout_tree = LayoutEngine::compute_layout(
+                            &ctx,
                             &style_tree,
                             self.viewports
                                 .get(&self.id)
