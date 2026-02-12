@@ -1,4 +1,4 @@
-use css_cssom::{KnownProperty, Property};
+use css_cssom::{ComponentValue, KnownProperty, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
         handle_padding_block, handle_padding_block_end, handle_padding_block_start,
         handle_padding_bottom, handle_padding_left, handle_padding_right, handle_padding_top,
         handle_position, handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
-        resolve_css_variable,
+        resolve_css_variables,
     },
     length::Length,
     primitives::{
@@ -80,7 +80,7 @@ pub struct SpecifiedStyle {
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
-    pub variables: Vec<(Property, String)>,
+    pub variables: Vec<(Property, Vec<ComponentValue>)>,
 }
 
 impl SpecifiedStyle {
@@ -125,7 +125,7 @@ impl SpecifiedStyle {
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
 
         for (key, value) in properties {
-            let val = resolve_css_variable(&ctx.specified_style.variables, value.clone(), value);
+            let val = resolve_css_variables(&ctx.specified_style.variables, value);
             let v = val.as_str();
 
             match key {

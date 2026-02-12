@@ -1,7 +1,6 @@
-use std::str::FromStr;
+use css_cssom::{ComponentValue, CssTokenKind, Property};
 
-use css_cssom::Property;
-
+use crate::calculate::CalcExpression;
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::specified::SpecifiedStyle;
@@ -94,83 +93,143 @@ fn split_top_level_whitespace(input: &str) -> Vec<&str> {
     parts
 }
 
-pub fn resolve_css_variable(
-    variables: &[(Property, String)],
-    value: String,
-    variable_fallback: String,
-) -> String {
-    let mut result = value;
-    let max_iterations = 10;
+fn split_var_segments(value: &str) -> Vec<&str> {
+    let mut segments = Vec::new();
+    let mut start = 0;
+    let mut i = 0;
+    let bytes = value.as_bytes();
 
-    for _ in 0..max_iterations {
-        let Some(var_start) = result.find("var(") else {
-            break;
-        };
+    while i < bytes.len() {
+        if value[i..].starts_with("var(") {
+            if i > start {
+                segments.push(&value[start..i]);
+            }
 
-        let content_start = var_start + 4;
-        let mut depth = 1;
-        let mut end_pos = None;
-        for (i, ch) in result[content_start..].char_indices() {
-            match ch {
-                '(' => depth += 1,
-                ')' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        end_pos = Some(content_start + i);
-                        break;
+            let var_start = i;
+            let mut depth = 0;
+            while i < bytes.len() {
+                match bytes[i] {
+                    b'(' => depth += 1,
+                    b')' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            i += 1;
+                            break;
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
+                i += 1;
             }
-        }
 
-        let Some(closing_paren) = end_pos else {
-            break;
-        };
-
-        let inner = &result[content_start..closing_paren];
-
-        let mut comma_pos = None;
-        let mut depth = 0;
-        for (i, ch) in inner.char_indices() {
-            match ch {
-                '(' => depth += 1,
-                ')' => depth -= 1,
-                ',' if depth == 0 => {
-                    comma_pos = Some(i);
-                    break;
-                }
-                _ => {}
-            }
-        }
-
-        let var_name = match comma_pos {
-            Some(pos) => inner[..pos].trim(),
-            None => inner.trim(),
-        };
-        let prop = if let Ok(p) = Property::from_str(var_name) {
-            p
+            segments.push(&value[var_start..i]);
+            start = i;
         } else {
-            break;
-        };
-
-        let fallback = comma_pos.map(|pos| inner[pos + 1..].trim().to_string());
-
-        let resolved = if let Some((_, val)) = variables.iter().find(|(name, _)| *name == prop) {
-            val.clone()
-        } else {
-            fallback.unwrap_or_else(|| variable_fallback.clone())
-        };
-
-        result = format!(
-            "{}{}{}",
-            &result[..var_start],
-            resolved,
-            &result[closing_paren + 1..]
-        );
+            i += 1;
+        }
     }
 
-    result
+    if start < value.len() {
+        segments.push(&value[start..]);
+    }
+
+    segments
+}
+
+pub fn resolve_css_variables(
+    variables: &[(Property, Vec<ComponentValue>)],
+    value: String,
+) -> String {
+    let segments = split_var_segments(&value);
+
+    if segments.len() == 1 && !segments[0].starts_with("var(") {
+        return value;
+    }
+
+    let mut output = String::new();
+    let mut prev_was_var = false;
+
+    for segment in segments {
+        let is_var = segment.starts_with("var(");
+        let resolved = if is_var {
+            resolve_single_var(variables, segment)
+        } else {
+            segment.to_string()
+        };
+
+        if prev_was_var && is_var {
+            output.push(' ');
+        }
+
+        output.push_str(&resolved);
+        prev_was_var = is_var;
+    }
+
+    output
+}
+
+fn resolve_single_var(variables: &[(Property, Vec<ComponentValue>)], value: &str) -> String {
+    let Some(inner) = value.strip_prefix("var(").and_then(|s| s.strip_suffix(')')) else {
+        return value.to_string();
+    };
+
+    let (var_name, fallback) = match inner.find(',') {
+        Some(pos) => (inner[..pos].trim(), Some(inner[pos + 1..].trim())),
+        None => (inner.trim(), None),
+    };
+
+    if let Some(resolved) = try_resolve(variables, var_name) {
+        return resolved;
+    }
+
+    if let Some(fallback_value) = fallback {
+        if fallback_value.starts_with("var(") {
+            return resolve_single_var(variables, fallback_value);
+        }
+        return fallback_value.to_string();
+    }
+
+    value.to_string()
+}
+
+fn try_resolve(variables: &[(Property, Vec<ComponentValue>)], var_name: &str) -> Option<String> {
+    for (name, vals) in variables {
+        if name.to_string() != var_name {
+            continue;
+        }
+
+        let resolved = vals
+            .iter()
+            .filter_map(|cv| match cv {
+                ComponentValue::Token(token) => {
+                    if token.kind == CssTokenKind::Whitespace {
+                        Some(" ".to_string())
+                    } else {
+                        Some(cv.to_css_string())
+                    }
+                }
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("var") => {
+                    let inner = func
+                        .value
+                        .iter()
+                        .map(|cv| cv.to_css_string())
+                        .collect::<String>();
+                    let reconstructed = format!("var({})", inner);
+                    Some(resolve_single_var(variables, &reconstructed))
+                }
+                ComponentValue::Function(_) => Some(cv.to_css_string()),
+                _ => None,
+            })
+            .collect::<String>();
+
+        if resolved.is_empty() {
+            return None;
+        }
+
+        return Some(resolved.trim().to_string());
+    }
+
+    None
 }
 
 simple_property_handler!(
@@ -544,6 +603,31 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &str) {
+    if value.starts_with("calc") {
+        let calc = if let Ok(calc) = CalcExpression::parse(value) {
+            calc
+        } else {
+            ctx.record_error(
+                "margin-block",
+                value,
+                format!("Invalid calc expression: {}", value),
+            );
+            return;
+        };
+
+        let val = calc.to_px(None, ctx.relative_ctx, ctx.absolute_ctx);
+        CSSProperty::update_multiple(
+            &mut [
+                &mut ctx.specified_style.margin_top,
+                &mut ctx.specified_style.margin_right,
+                &mut ctx.specified_style.margin_bottom,
+                &mut ctx.specified_style.margin_left,
+            ],
+            OffsetValue::px(val).into(),
+        );
+        return;
+    }
+
     let parts: Vec<&str> = value.split_whitespace().collect();
     match parts.len() {
         1 => {
@@ -649,6 +733,31 @@ pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &str) {
+    if value.starts_with("calc") {
+        let calc = if let Ok(calc) = CalcExpression::parse(value) {
+            calc
+        } else {
+            ctx.record_error(
+                "padding-block",
+                value,
+                format!("Invalid calc expression: {}", value),
+            );
+            return;
+        };
+
+        let val = calc.to_px(None, ctx.relative_ctx, ctx.absolute_ctx);
+        CSSProperty::update_multiple(
+            &mut [
+                &mut ctx.specified_style.padding_top,
+                &mut ctx.specified_style.padding_right,
+                &mut ctx.specified_style.padding_bottom,
+                &mut ctx.specified_style.padding_left,
+            ],
+            OffsetValue::px(val).into(),
+        );
+        return;
+    }
+
     let parts = value.split_whitespace().collect::<Vec<&str>>();
 
     match parts.len() {
@@ -756,6 +865,8 @@ pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
 
 #[cfg(test)]
 mod tests {
+    use css_cssom::{CssToken, Function};
+
     use super::*;
     use crate::{BorderStyleValue, BorderWidthValue};
 
@@ -789,5 +900,147 @@ mod tests {
             CSSProperty::resolve(&ctx.specified_style.border_top_width),
             Ok(BorderWidthValue::Calc(_))
         ));
+    }
+
+    #[test]
+    fn test_simple_variable_parsing() {
+        let variables = vec![
+            (
+                Property::Custom("--main-color".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("blue".to_string()),
+                    position: None,
+                })],
+            ),
+            (
+                Property::Custom("--fallback-color".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("red".to_string()),
+                    position: None,
+                })],
+            ),
+        ];
+
+        let value = "var(--main-color, var(--fallback-color, green))".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "blue");
+    }
+
+    #[test]
+    fn test_variable_with_fallback() {
+        let variables = vec![(
+            Property::Custom("--bg-color".to_string()),
+            vec![ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("red".to_string()),
+                position: None,
+            })],
+        )];
+
+        let value = "var(--undefined-color, var(--bg-color, blue))".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "red");
+    }
+
+    #[test]
+    fn test_nested_variable_resolution() {
+        let variables = vec![
+            (
+                Property::Custom("--color-a".to_string()),
+                vec![ComponentValue::Function(Function {
+                    name: "var".to_string(),
+                    value: vec![ComponentValue::Token(CssToken {
+                        kind: CssTokenKind::Ident("--color-b".to_string()),
+                        position: None,
+                    })],
+                })],
+            ),
+            (
+                Property::Custom("--color-b".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("green".to_string()),
+                    position: None,
+                })],
+            ),
+        ];
+
+        let value = "var(--color-a, blue)".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "green");
+    }
+
+    #[test]
+    fn test_chained_variables() {
+        let variables = vec![
+            (
+                Property::Custom("--padding-vertical".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("20px".to_string()),
+                    position: None,
+                })],
+            ),
+            (
+                Property::Custom("--padding-horizontal".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("50px".to_string()),
+                    position: None,
+                })],
+            ),
+        ];
+
+        let value = "var(--padding-vertical) var(--padding-horizontal)".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "20px 50px");
+
+        let value = "var(--padding-vertical)var(--padding-horizontal)".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "20px 50px");
+    }
+
+    #[test]
+    fn test_variable_with_no_fallback() {
+        let variables = vec![];
+
+        let value = "var(--undefined-color)".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "var(--undefined-color)");
+    }
+
+    #[test]
+    fn test_mixed_variable_and_non_variable_segments() {
+        let variables = vec![(
+            Property::Custom("--main-color".to_string()),
+            vec![ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("blue".to_string()),
+                position: None,
+            })],
+        )];
+
+        let value = "1px solid var(--main-color)".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "1px solid blue");
+    }
+
+    #[test]
+    fn test_mixed_variable_suffix() {
+        let variables = vec![
+            (
+                Property::Custom("--padding-vertical".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("2".to_string()),
+                    position: None,
+                })],
+            ),
+            (
+                Property::Custom("--padding-horizontal".to_string()),
+                vec![ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Ident("5".to_string()),
+                    position: None,
+                })],
+            ),
+        ];
+
+        let value = "var(--padding-vertical)rem var(--padding-horizontal)vh".to_string();
+        let resolved = resolve_css_variables(&variables, value);
+        assert_eq!(resolved, "2rem 5vh");
     }
 }

@@ -1,4 +1,4 @@
-use css_cssom::Property;
+use css_cssom::{ComponentValue, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -61,7 +61,7 @@ pub struct ComputedStyle {
     pub width: Dimension,
     pub max_width: MaxDimension,
     pub writing_mode: WritingMode,
-    pub variables: Vec<(Property, String)>,
+    pub variables: Vec<(Property, Vec<ComponentValue>)>,
 }
 
 impl ComputedStyle {

@@ -59,26 +59,22 @@ impl FromStr for OffsetValue {
         let s = s.trim();
 
         if s.starts_with("calc(") {
-            return Ok(Self::Calc(CalcExpression::parse(s)?));
-        }
-
-        if let Ok(num) = s.parse::<f32>()
+            Ok(Self::Calc(CalcExpression::parse(s)?))
+        } else if let Ok(num) = s.parse::<f32>()
             && num == 0.0
         {
-            return Ok(Self::zero());
-        }
-
-        if s.contains('%') {
-            if let Ok(percentage) = s.parse() {
-                return Ok(Self::Percentage(percentage));
-            }
+            Ok(Self::zero())
+        } else if s.contains('%')
+            && let Ok(percentage) = s.parse()
+        {
+            Ok(Self::Percentage(percentage))
         } else if let Ok(length) = s.parse() {
-            return Ok(Self::Length(length));
+            Ok(Self::Length(length))
         } else if s.eq_ignore_ascii_case("auto") {
-            return Ok(Self::Auto);
+            Ok(Self::Auto)
+        } else {
+            Err(format!("Invalid OffsetValue: {}", s))
         }
-
-        Err(format!("Invalid OffsetValue: {}", s))
     }
 }
 

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use css_cssom::{CSSDeclaration, CSSStyleSheet, Property, StylesheetOrigin};
+use css_cssom::{CSSDeclaration, CSSStyleSheet, ComponentValue, Property, StylesheetOrigin};
 use css_selectors::{
     ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable,
     generate_selector_list, matches_compound,
@@ -92,6 +92,7 @@ impl Ord for CascadeSpecificity {
 pub struct CascadedDeclaration {
     pub property: Property,
     pub value: String,
+    pub original_values: Vec<ComponentValue>,
     pub important: bool,
     pub specificity: CascadeSpecificity,
     pub source_order: usize,
@@ -103,6 +104,7 @@ impl CascadedDeclaration {
         CascadedDeclaration {
             property: decl.property.clone(),
             value: decl.value.clone(),
+            original_values: decl.original_values.clone(),
             important: decl.important,
             specificity: CascadeSpecificity::inline(),
             source_order: order,
@@ -132,7 +134,8 @@ impl CascadedDeclaration {
                     if decl.property.is_custom() {
                         variables.push(CascadedDeclaration {
                             property: decl.property.clone(),
-                            value: decl.value.clone(),
+                            value: String::new(),
+                            original_values: decl.original_values.clone(),
                             important: decl.important,
                             specificity: CascadeSpecificity::from(rule.specificity),
                             source_order,
@@ -145,6 +148,7 @@ impl CascadedDeclaration {
                     declarations.push(CascadedDeclaration {
                         property: decl.property.clone(),
                         value: decl.value.clone(),
+                        original_values: decl.original_values.clone(),
                         important: decl.important,
                         specificity: CascadeSpecificity::from(rule.specificity),
                         source_order,
@@ -248,14 +252,16 @@ pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, Strin
     cascaded_styles
 }
 
-pub fn cascade_variables(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, String)> {
+pub fn cascade_variables(
+    declarations: &mut [CascadedDeclaration],
+) -> Vec<(Property, Vec<ComponentValue>)> {
     CascadedDeclaration::sort_declarations(declarations);
 
-    let mut cascaded_variables: HashMap<Property, String> = HashMap::with_capacity(32);
+    let mut cascaded_variables: HashMap<Property, Vec<ComponentValue>> = HashMap::with_capacity(32);
 
     for decl in declarations.iter() {
         if !cascaded_variables.contains_key(&decl.property) {
-            cascaded_variables.insert(decl.property.clone(), decl.value.clone());
+            cascaded_variables.insert(decl.property.clone(), decl.original_values.clone());
         }
     }
 
