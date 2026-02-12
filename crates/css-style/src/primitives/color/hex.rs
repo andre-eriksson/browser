@@ -1,10 +1,29 @@
+//! Hexadecimal color notation (e.g., #RRGGBB, #RGB, #RRGGBBAA, #RGBA)
+
 use std::str::FromStr;
 
+/// Hex color representations as defined in CSS Color Module Level 4
+///
+/// It is parsed via the hex formats:
+/// * #RRGGBB (6 hex digits)
+/// * #RRGGBBAA (8 hex digits)
+/// * #RGB (3 hex digits, where each digit is repeated to form the full value)
+/// * #RGBA (4 hex digits, where each digit is repeated to form the full value, and the last digit represents alpha)
+///
+/// However it is stored as separate RGBA components for easier manipulation and conversion to other color formats.
+/// The alpha component is optional and defaults to 255 (fully opaque) if not provided.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HexColor {
+    /// R component (0 to 255)
     pub r: u8,
+
+    /// G component (0 to 255)
     pub g: u8,
+
+    /// B component (0 to 255)
     pub b: u8,
+
+    /// A component (0 to 255, where 255 is fully opaque)
     pub a: u8,
 }
 

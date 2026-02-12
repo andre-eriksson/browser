@@ -1,5 +1,11 @@
+//! Named and system colors (e.g., "red", "blue", "LinkText", "CanvasText")
+
 use strum::EnumString;
 
+/// System colors defined in CSS specifications.
+///
+/// These are colors that correspond to the user's operating system or browser theme settings,
+/// for now only a fixed set of colors is provided.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum SystemColor {
@@ -25,7 +31,10 @@ pub enum SystemColor {
 }
 
 impl SystemColor {
+    /// Converts the SystemColor to its hexadecimal string representation, or returns None if the color is not recognized.
     pub fn to_hex(self) -> Option<&'static str> {
+        // TODO: Get actual system colors from the OS or the browser theme, i.e., the `prefs` crate.
+
         match self {
             SystemColor::AccentColor => Some("#0078D7"),
             SystemColor::AccentColorText => Some("#FFFFFF"),
@@ -50,162 +59,461 @@ impl SystemColor {
     }
 }
 
+/// Named colors defined in CSS specifications.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum NamedColor {
+    /// #F0F8FF
     AliceBlue,
+
+    /// #FAEBD7
     AntiqueWhite,
+
+    /// #00FFFF
     Aqua,
+
+    /// #7FFFD4
     Aquamarine,
+
+    /// #F0FFFF
     Azure,
+
+    /// #F5F5DC
     Beige,
+
+    /// #FFE4C4
     Bisque,
+
+    /// #000000
     Black,
+
+    /// #FFEBCD
     BlanchedAlmond,
+
+    /// #0000FF
     Blue,
+
+    /// #8A2BE2
     BlueViolet,
+
+    /// #A52A2A
     Brown,
+
+    /// #DEB887
     BurlyWood,
+
+    /// #5F9EA0
     CadetBlue,
+
+    /// #7FFF00
     Chartreuse,
+
+    /// #D2691E
     Chocolate,
+
+    /// #FF7F50
     Coral,
+
+    /// #6495ED
     CornflowerBlue,
+
+    /// #FFF8DC
     Cornsilk,
+
+    /// #DC143C
     Crimson,
+
+    /// #00FFFF (alias of Aqua)
     Cyan,
+
+    /// #00008B
     DarkBlue,
+
+    /// #008B8B
     DarkCyan,
+
+    /// #B8860B
     DarkGoldenRod,
+
+    /// #A9A9A9
     DarkGray,
+
+    /// #A9A9A9 (alias of DarkGray)
+    DarkGrey,
+
+    /// #006400
     DarkGreen,
+
+    /// #BDB76B
     DarkKhaki,
+
+    /// #8B008B
     DarkMagenta,
+
+    /// #556B2F
     DarkOliveGreen,
+
+    /// #FF8C00
     DarkOrange,
+
+    /// #9932CC
     DarkOrchid,
+
+    /// #8B0000
     DarkRed,
+
+    /// #E9967A
     DarkSalmon,
+
+    /// #8FBC8F
     DarkSeaGreen,
+
+    /// #483D8B
     DarkSlateBlue,
+
+    /// #2F4F4F
     DarkSlateGray,
+
+    /// #2F4F4F (alias of DarkSlateGray)
+    DarkSlateGrey,
+
+    /// #00CED1
     DarkTurquoise,
+
+    /// #9400D3
     DarkViolet,
+
+    /// #FF1493
     DeepPink,
+
+    /// #00BFFF
     DeepSkyBlue,
+
+    /// #696969
     DimGray,
+    /// #696969
+    DimGrey,
+
+    /// #1E90FF
     DodgerBlue,
+
+    /// #B22222
     FireBrick,
+
+    /// #FFFAF0
     FloralWhite,
+
+    /// #228B22
     ForestGreen,
+
+    /// #FF00FF
     Fuchsia,
+
+    /// #DCDCDC
     Gainsboro,
+
+    /// #F8F8FF
     GhostWhite,
+
+    /// #FFD700
     Gold,
+
+    /// #DAA520
     GoldenRod,
+
+    /// #808080
     Gray,
+
+    /// #808080 (alias of Gray)
+    Grey,
+
+    /// #008000
     Green,
+
+    /// #ADFF2F
     GreenYellow,
+
+    /// #F0FFF0
     HoneyDew,
+
+    /// #FF69B4
     HotPink,
+
+    /// #CD5C5C
     IndianRed,
+
+    /// #4B0082
     Indigo,
+
+    /// #FFFFF0
     Ivory,
+
+    /// #F0E68C
     Khaki,
+
+    /// #E6E6FA
     Lavender,
+
+    /// #FFF0F5
     LavenderBlush,
+
+    /// #7CFC00
     LawnGreen,
+
+    /// #FFFACD
     LemonChiffon,
+
+    /// #ADD8E6
     LightBlue,
+
+    /// #F08080
     LightCoral,
+
+    /// #E0FFFF
     LightCyan,
+
+    /// #FAFAD2
     LightGoldenRodYellow,
+
+    /// #D3D3D3
     LightGray,
+
+    /// #D3D3D3 (alias of LightGray)
+    LightGrey,
+
+    /// #90EE90
     LightGreen,
+
+    /// #FFB6C1
     LightPink,
+
+    /// #FFA07A
     LightSalmon,
+
+    /// #20B2AA
     LightSeaGreen,
+
+    /// #87CEFA
     LightSkyBlue,
+
+    /// #708090
     LightSlateGray,
+
+    /// #708090 (alias of LightSlateGray)
+    LightSlateGrey,
+
+    /// #B0C4DE
     LightSteelBlue,
+
+    /// #FFFFE0
     LightYellow,
+
+    /// #00FF00
     Lime,
+
+    /// #32CD32
     LimeGreen,
+
+    /// #FAF0E6
     Linen,
+
+    /// #FF00FF
     Magenta,
+
+    /// #800000
     Maroon,
+
+    /// #66CDAA
     MediumAquaMarine,
+
+    /// #0000CD
     MediumBlue,
+
+    /// #BA55D3
     MediumOrchid,
+
+    /// #9370DB
     MediumPurple,
+
+    /// #3CB371
     MediumSeaGreen,
+
+    /// #7B68EE
     MediumSlateBlue,
+
+    /// #00FA9A
     MediumSpringGreen,
+
+    /// #48D1CC
     MediumTurquoise,
+
+    /// #C71585
     MediumVioletRed,
+
+    /// #191970
     MidnightBlue,
+
+    /// #F5FFFA
     MintCream,
+
+    /// #FFE4E1
     MistyRose,
+
+    /// #FFE4B5
     Moccasin,
+
+    /// #FFDEAD
     NavajoWhite,
+
+    /// #000080
     Navy,
+
+    /// #FDF5E6
     OldLace,
+
+    /// #808000
     Olive,
+
+    /// #6B8E23
     OliveDrab,
+
+    /// #FFA500
     Orange,
+
+    /// #FF4500
     OrangeRed,
+
+    /// #DA70D6
     Orchid,
+
+    /// #EEE8AA
     PaleGoldenRod,
+
+    /// #98FB98
     PaleGreen,
+
+    /// #AFEEEE
     PaleTurquoise,
+
+    /// #DB7093
     PaleVioletRed,
+
+    /// #FFEFD5
     PapayaWhip,
+
+    /// #FFDAB9
     PeachPuff,
+
+    /// #CD853F
     Peru,
+
+    /// #FFC0CB
     Pink,
+
+    /// #DDA0DD
     Plum,
+
+    /// #B0E0E6
     PowderBlue,
+
+    /// #800080
     Purple,
+
+    /// #663399
     RebeccaPurple,
+
+    /// #FF0000
     Red,
+
+    /// #BC8F8F
     RosyBrown,
+
+    /// #4169E1
     RoyalBlue,
+
+    /// #8B4513
     SaddleBrown,
+
+    /// #FA8072
     Salmon,
+
+    /// #F4A460
     SandyBrown,
+
+    /// #2E8B57
     SeaGreen,
+
+    /// #FFF5EE
     SeaShell,
+
+    /// #A0522D
     Sienna,
+
+    /// #C0C0C0
     Silver,
+
+    /// #87CEEB
     SkyBlue,
+
+    /// #6A5ACD
     SlateBlue,
+
+    /// #708090
     SlateGray,
+
+    /// #708090 (alias of SlateGray)
+    SlateGrey,
+
+    /// #FFFAFA
     Snow,
+
+    /// #00FF7F
     SpringGreen,
+
+    /// #4682B4
     SteelBlue,
+
+    /// #D2B48C
     Tan,
+
+    /// #008080
     Teal,
+
+    /// #D8BFD8
     Thistle,
+
+    /// #FF6347
     Tomato,
+
+    /// #40E0D0
     Turquoise,
+
+    /// #EE82EE
     Violet,
+
+    /// #F5DEB3
     Wheat,
+
+    /// #FFFFFF
     White,
+
+    /// #F5F5F5
     WhiteSmoke,
+
+    /// #FFFF00
     Yellow,
+
+    /// #9ACD32
     YellowGreen,
 }
 
 impl NamedColor {
-    /// Converts the NamedColor to its hexadecimal string representation
-    ///
-    /// # Returns
-    /// An Option containing the hex string if the color is valid, or None if not.
+    /// Converts the NamedColor to its hexadecimal string representation, or returns None if the color is not recognized.
     pub fn to_hex(self) -> Option<&'static str> {
         match self {
             NamedColor::AliceBlue => Some("#F0F8FF"),
             NamedColor::AntiqueWhite => Some("#FAEBD7"),
-            NamedColor::Aqua => Some("#00FFFF"),
+            NamedColor::Aqua | NamedColor::Cyan => Some("#00FFFF"),
             NamedColor::Aquamarine => Some("#7FFFD4"),
             NamedColor::Azure => Some("#F0FFFF"),
             NamedColor::Beige => Some("#F5F5DC"),
@@ -223,11 +531,10 @@ impl NamedColor {
             NamedColor::CornflowerBlue => Some("#6495ED"),
             NamedColor::Cornsilk => Some("#FFF8DC"),
             NamedColor::Crimson => Some("#DC143C"),
-            NamedColor::Cyan => Some("#00FFFF"),
             NamedColor::DarkBlue => Some("#00008B"),
             NamedColor::DarkCyan => Some("#008B8B"),
             NamedColor::DarkGoldenRod => Some("#B8860B"),
-            NamedColor::DarkGray => Some("#A9A9A9"),
+            NamedColor::DarkGray | NamedColor::DarkGrey => Some("#A9A9A9"),
             NamedColor::DarkGreen => Some("#006400"),
             NamedColor::DarkKhaki => Some("#BDB76B"),
             NamedColor::DarkMagenta => Some("#8B008B"),
@@ -238,12 +545,12 @@ impl NamedColor {
             NamedColor::DarkSalmon => Some("#E9967A"),
             NamedColor::DarkSeaGreen => Some("#8FBC8F"),
             NamedColor::DarkSlateBlue => Some("#483D8B"),
-            NamedColor::DarkSlateGray => Some("#2F4F4F"),
+            NamedColor::DarkSlateGray | NamedColor::DarkSlateGrey => Some("#2F4F4F"),
             NamedColor::DarkTurquoise => Some("#00CED1"),
             NamedColor::DarkViolet => Some("#9400D3"),
             NamedColor::DeepPink => Some("#FF1493"),
             NamedColor::DeepSkyBlue => Some("#00BFFF"),
-            NamedColor::DimGray => Some("#696969"),
+            NamedColor::DimGray | NamedColor::DimGrey => Some("#696969"),
             NamedColor::DodgerBlue => Some("#1E90FF"),
             NamedColor::FireBrick => Some("#B22222"),
             NamedColor::FloralWhite => Some("#FFFAF0"),
@@ -253,7 +560,7 @@ impl NamedColor {
             NamedColor::GhostWhite => Some("#F8F8FF"),
             NamedColor::Gold => Some("#FFD700"),
             NamedColor::GoldenRod => Some("#DAA520"),
-            NamedColor::Gray => Some("#808080"),
+            NamedColor::Gray | NamedColor::Grey => Some("#808080"),
             NamedColor::Green => Some("#008000"),
             NamedColor::GreenYellow => Some("#ADFF2F"),
             NamedColor::HoneyDew => Some("#F0FFF0"),
@@ -270,13 +577,13 @@ impl NamedColor {
             NamedColor::LightCoral => Some("#F08080"),
             NamedColor::LightCyan => Some("#E0FFFF"),
             NamedColor::LightGoldenRodYellow => Some("#FAFAD2"),
-            NamedColor::LightGray => Some("#D3D3D3"),
+            NamedColor::LightGray | NamedColor::LightGrey => Some("#D3D3D3"),
             NamedColor::LightGreen => Some("#90EE90"),
             NamedColor::LightPink => Some("#FFB6C1"),
             NamedColor::LightSalmon => Some("#FFA07A"),
             NamedColor::LightSeaGreen => Some("#20B2AA"),
             NamedColor::LightSkyBlue => Some("#87CEFA"),
-            NamedColor::LightSlateGray => Some("#778899"),
+            NamedColor::LightSlateGray | NamedColor::LightSlateGrey => Some("#778899"),
             NamedColor::LightSteelBlue => Some("#B0C4DE"),
             NamedColor::LightYellow => Some("#FFFFE0"),
             NamedColor::Lime => Some("#00FF00"),
@@ -329,7 +636,7 @@ impl NamedColor {
             NamedColor::Silver => Some("#C0C0C0"),
             NamedColor::SkyBlue => Some("#87CEEB"),
             NamedColor::SlateBlue => Some("#6A5ACD"),
-            NamedColor::SlateGray => Some("#708090"),
+            NamedColor::SlateGray | NamedColor::SlateGrey => Some("#708090"),
             NamedColor::Snow => Some("#FFFAFA"),
             NamedColor::SpringGreen => Some("#00FF7F"),
             NamedColor::SteelBlue => Some("#4682B4"),

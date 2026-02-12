@@ -1,3 +1,5 @@
+//! CIELAB color function with L, a, b components, e.g., lab(50, 20, -30) or lch(50, 20, 30)
+
 use std::str::FromStr;
 
 use crate::color::{Alpha, ColorValue, FunctionColor, Hue};

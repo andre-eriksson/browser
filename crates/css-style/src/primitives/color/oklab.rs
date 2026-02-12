@@ -1,3 +1,5 @@
+//! Oklab color function with L, a, b components, e.g., oklab(0.5, 0.1, -0.1) or oklch(0.5, 0.1, 30)
+
 use std::str::FromStr;
 
 use crate::color::{Alpha, ColorValue, FunctionColor, Hue};

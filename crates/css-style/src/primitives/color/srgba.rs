@@ -1,3 +1,5 @@
+//! SRGBA color representations: rgb(), rgba(), hsl(), hsla(), and hwb() functions
+
 use std::str::FromStr;
 
 use crate::{
@@ -181,8 +183,8 @@ mod tests {
             color,
             SRGBAColor::Hsl(
                 Hue::from(120.0),
-                Percentage::from_percent(100.0),
-                Percentage::from_percent(50.0),
+                Percentage::new(100.0),
+                Percentage::new(50.0),
                 Alpha(1.0)
             )
         );
@@ -192,8 +194,8 @@ mod tests {
             color,
             SRGBAColor::Hsl(
                 Hue::from(120.0),
-                Percentage::from_percent(100.0),
-                Percentage::from_percent(50.0),
+                Percentage::new(100.0),
+                Percentage::new(50.0),
                 Alpha(0.3)
             )
         );
@@ -203,8 +205,8 @@ mod tests {
             color,
             SRGBAColor::Hwb(
                 Hue::from(240.0),
-                Percentage::from_percent(50.0),
-                Percentage::from_percent(25.0),
+                Percentage::new(50.0),
+                Percentage::new(25.0),
                 Alpha(1.0)
             )
         );
@@ -214,8 +216,8 @@ mod tests {
             color,
             SRGBAColor::Hwb(
                 Hue::from(240.0),
-                Percentage::from_percent(50.0),
-                Percentage::from_percent(25.0),
+                Percentage::new(50.0),
+                Percentage::new(25.0),
                 Alpha(0.7)
             )
         );
