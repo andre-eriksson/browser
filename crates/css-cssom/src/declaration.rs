@@ -142,9 +142,9 @@ impl CSSDeclaration {
     /// Serialize this declaration to CSS text
     pub fn to_css_string(&self) -> String {
         if self.important {
-            format!("{:?}: {} !important", self.property, self.value)
+            format!("{}: {} !important", self.property, self.value)
         } else {
-            format!("{:?}: {}", self.property, self.value)
+            format!("{}: {}", self.property, self.value)
         }
     }
 }

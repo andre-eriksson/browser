@@ -1,7 +1,7 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use serde::{Deserialize, Serialize};
-use strum::EnumString;
+use strum::{Display as StrumDisplay, EnumString};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Property {
@@ -9,6 +9,15 @@ pub enum Property {
     Custom(String),
     /// The property is a known property
     Known(KnownProperty),
+}
+
+impl Display for Property {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Property::Custom(name) => write!(f, "{}", name),
+            Property::Known(known) => write!(f, "{}", known),
+        }
+    }
 }
 
 impl Property {
@@ -48,7 +57,9 @@ impl FromStr for Property {
 /// A known CSS property
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties>
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumString, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, StrumDisplay, EnumString, Serialize, Deserialize,
+)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum KnownProperty {
     AccentColor,
