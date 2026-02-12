@@ -55,23 +55,29 @@ impl Angle {
 impl FromStr for Angle {
     type Err = ();
 
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if let Some(num_str) = Self::strip_unit(value, "grad")
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+
+        if s.eq_ignore_ascii_case("none") {
+            Ok(Self::Deg(0.0))
+        } else if let Some(num_str) = Self::strip_unit(s, "grad")
             && let Ok(num) = num_str.parse::<f32>()
         {
             Ok(Self::Grad(num))
-        } else if let Some(num_str) = Self::strip_unit(value, "rad")
+        } else if let Some(num_str) = Self::strip_unit(s, "rad")
             && let Ok(num) = num_str.parse::<f32>()
         {
             Ok(Self::Rad(num))
-        } else if let Some(num_str) = Self::strip_unit(value, "deg")
+        } else if let Some(num_str) = Self::strip_unit(s, "deg")
             && let Ok(num) = num_str.parse::<f32>()
         {
             Ok(Self::Deg(num))
-        } else if let Some(num_str) = Self::strip_unit(value, "turn")
+        } else if let Some(num_str) = Self::strip_unit(s, "turn")
             && let Ok(num) = num_str.parse::<f32>()
         {
             Ok(Self::Turn(num))
+        } else if let Ok(num) = s.trim().parse::<f32>() {
+            Ok(Self::Deg(num))
         } else {
             Err(())
         }

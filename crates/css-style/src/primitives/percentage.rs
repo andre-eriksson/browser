@@ -33,9 +33,15 @@ impl FromStr for Percentage {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some(stripped) = s.strip_suffix('%')
+        let s = s.trim();
+
+        if s.eq_ignore_ascii_case("none") {
+            Ok(Self { value: 0.0 })
+        } else if let Some(stripped) = s.strip_suffix('%')
             && let Ok(num) = stripped.trim().parse::<f32>()
         {
+            Ok(Self { value: num })
+        } else if let Ok(num) = s.trim().parse::<f32>() {
             Ok(Self { value: num })
         } else {
             Err(format!("Invalid percentage value: {}", s))

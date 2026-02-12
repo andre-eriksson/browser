@@ -1,7 +1,7 @@
 use css_style::{
     CSSProperty, Color,
     color::{
-        ColorValue, FunctionColor, Hue,
+        ColorValue, Fraction, FunctionColor, Hue,
         cielab::Cielab,
         hex::HexColor,
         named::{NamedColor, SystemColor},
@@ -174,10 +174,7 @@ impl Color4f {
     /// interpreted as **degrees**, not turns.
     #[inline]
     fn hue_to_radians(h: &Hue) -> f32 {
-        match h {
-            Hue::Angle(angle) => angle.to_radians(),
-            Hue::Number(deg) => deg.to_radians(), // bare number = degrees
-        }
+        h.value().to_radians()
     }
 }
 
@@ -236,9 +233,9 @@ impl From<Oklab> for Color4f {
     fn from(oklab: Oklab) -> Self {
         match oklab {
             Oklab::Oklab(l, a, b, alpha) => {
-                let l_val = l.as_number();
-                let a_val = a.as_number();
-                let b_val = b.as_number();
+                let l_val = l.value(0.0..=1.0, Fraction::Unsigned);
+                let a_val = a.value(-0.4..=0.4, Fraction::Signed);
+                let b_val = b.value(-0.4..=0.4, Fraction::Signed);
 
                 let l_ = l_val + 0.396_337_78 * a_val + 0.215_803_76 * b_val;
                 let m_ = l_val - 0.105_561_346 * a_val - 0.063_854_17 * b_val;
@@ -256,17 +253,17 @@ impl From<Oklab> for Color4f {
                     Self::linear_component_to_srgb(r_lin).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(g_lin).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(b_lin).clamp(0.0, 1.0),
-                    alpha.as_fraction(),
+                    alpha.value(),
                 )
             }
             Oklab::Oklch(l, c, h, alpha) => {
                 let h_rad = Self::hue_to_radians(&h);
-                let a = c.as_number() * h_rad.cos();
-                let b = c.as_number() * h_rad.sin();
+                let a = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.cos();
+                let b = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.sin();
                 Self::from(Oklab::Oklab(
                     l,
-                    ColorValue::Number(a),
-                    ColorValue::Number(b),
+                    ColorValue::from(a),
+                    ColorValue::from(b),
                     alpha,
                 ))
             }
@@ -278,9 +275,9 @@ impl From<Cielab> for Color4f {
     fn from(cielab: Cielab) -> Self {
         match cielab {
             Cielab::Lab(l, a, b, alpha) => {
-                let l_val = l.as_number();
-                let a_val = a.as_number();
-                let b_val = b.as_number();
+                let l_val = l.value(0.0..=100.0, Fraction::Unsigned);
+                let a_val = a.value(-125.0..=125.0, Fraction::Signed);
+                let b_val = b.value(-125.0..=125.0, Fraction::Signed);
 
                 let fy = (l_val + 16.0) / 116.0;
                 let fx = a_val / 500.0 + fy;
@@ -319,17 +316,17 @@ impl From<Cielab> for Color4f {
                     Self::linear_component_to_srgb(r).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(g).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(b).clamp(0.0, 1.0),
-                    alpha.as_fraction(),
+                    alpha.value(),
                 )
             }
             Cielab::Lch(l, c, h, alpha) => {
                 let h_rad = Self::hue_to_radians(&h);
-                let a = c.as_number() * h_rad.cos();
-                let b = c.as_number() * h_rad.sin();
+                let a = c.value(0.0..=125.0, Fraction::Unsigned) * h_rad.cos();
+                let b = c.value(0.0..=125.0, Fraction::Unsigned) * h_rad.sin();
                 Self::from(Cielab::Lab(
                     l,
-                    ColorValue::Number(a),
-                    ColorValue::Number(b),
+                    ColorValue::from(a),
+                    ColorValue::from(b),
                     alpha,
                 ))
             }
@@ -342,16 +339,13 @@ impl From<FunctionColor> for Color4f {
         match func {
             FunctionColor::Srgba(srgba) => match srgba {
                 SRGBAColor::Rgb(r, g, b, a) => Self::new(
-                    r.as_number() / 255.0,
-                    g.as_number() / 255.0,
-                    b.as_number() / 255.0,
-                    a.as_fraction(),
+                    r.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
+                    g.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
+                    b.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
+                    a.value(),
                 ),
                 SRGBAColor::Hsl(h, s, l, a) => {
-                    let h_deg = match h {
-                        Hue::Angle(deg) => deg.to_degrees(),
-                        Hue::Number(num) => num,
-                    };
+                    let h_deg = h.value();
 
                     let s = s.as_fraction();
                     let l = l.as_fraction();
@@ -380,14 +374,11 @@ impl From<FunctionColor> for Color4f {
                         (r1 + m).clamp(0.0, 1.0),
                         (g1 + m).clamp(0.0, 1.0),
                         (b1 + m).clamp(0.0, 1.0),
-                        a.as_fraction(),
+                        a.value(),
                     )
                 }
                 SRGBAColor::Hwb(h, w, b, a) => {
-                    let h_deg = match h {
-                        Hue::Angle(deg) => deg.to_degrees(),
-                        Hue::Number(num) => num,
-                    };
+                    let h_deg = h.value();
 
                     let mut w_frac = w.as_fraction();
                     let mut b_frac = b.as_fraction();
@@ -421,7 +412,7 @@ impl From<FunctionColor> for Color4f {
                         (r1 * scale + w_frac).clamp(0.0, 1.0),
                         (g1 * scale + w_frac).clamp(0.0, 1.0),
                         (b1 * scale + w_frac).clamp(0.0, 1.0),
-                        a.as_fraction(),
+                        a.value(),
                     )
                 }
             },

@@ -5,10 +5,29 @@ use crate::{
     percentage::Percentage,
 };
 
+/// SRGBA color representations as defined in CSS Color Module Level 4
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SRGBAColor {
-    Rgb(ColorValue<u8>, ColorValue<u8>, ColorValue<u8>, Alpha),
+    /// rgb() and rgba() functions with R, G, B components and optional alpha
+    ///
+    /// * R, G, B: 0 to 255 or 0% to 100%
+    /// * alpha: Opacity (0.0 to 1.0)
+    Rgb(ColorValue, ColorValue, ColorValue, Alpha),
+
+    /// hsl() and hsla() functions with H, S, L components and optional alpha
+    ///
+    /// * H: Hue angle in degrees (0 to 360 as degrees)
+    /// * S: Saturation (0% to 100%)
+    /// * L: Lightness (0% to 100%)
+    /// * alpha: Opacity (0.0 to 1.0)
     Hsl(Hue, Percentage, Percentage, Alpha),
+
+    /// hwb() function with H, W, B components and optional alpha
+    ///
+    /// * H: Hue angle in degrees (0 to 360 as degrees)
+    /// * W: Whiteness (0% to 100%)
+    /// * B: Blackness (0% to 100%)
+    /// * alpha: Opacity (0.0 to 1.0)
     Hwb(Hue, Percentage, Percentage, Alpha),
 }
 
@@ -21,6 +40,7 @@ impl FromStr for SRGBAColor {
         } else if s.contains("calc(") {
             return Err("CSS functions in color values not supported yet".to_string());
         }
+        let s = s.trim();
 
         let parts = FunctionColor::tokenize_color(s, "rgb(")
             .or_else(|| FunctionColor::tokenize_color(s, "rgba("))
@@ -33,25 +53,25 @@ impl FromStr for SRGBAColor {
             match parts.as_slice() {
                 [r, g, b] => {
                     let r = r
-                        .parse::<ColorValue<u8>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid red value: {}", r))?;
                     let g = g
-                        .parse::<ColorValue<u8>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid green value: {}", g))?;
                     let b = b
-                        .parse::<ColorValue<u8>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid blue value: {}", b))?;
-                    Ok(SRGBAColor::Rgb(r, g, b, Alpha::Number(1.0)))
+                    Ok(SRGBAColor::Rgb(r, g, b, Alpha(1.0)))
                 }
                 [r, g, b, a] => {
                     let r = r
-                        .parse::<ColorValue<u8>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid red value: {}", r))?;
                     let g = g
-                        .parse::<ColorValue<u8>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid green value: {}", g))?;
                     let b = b
-                        .parse::<ColorValue<u8>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid blue value: {}", b))?;
                     let a = a
                         .parse::<Alpha>()
@@ -72,7 +92,7 @@ impl FromStr for SRGBAColor {
                     let l = l
                         .parse::<Percentage>()
                         .map_err(|_| format!("Invalid lightness value: {}", l))?;
-                    Ok(SRGBAColor::Hsl(h, s, l, Alpha::Number(1.0)))
+                    Ok(SRGBAColor::Hsl(h, s, l, Alpha(1.0)))
                 }
                 [h, s, l, a] => {
                     let h = h
@@ -103,7 +123,7 @@ impl FromStr for SRGBAColor {
                     let b = b
                         .parse::<Percentage>()
                         .map_err(|_| format!("Invalid blackness value: {}", b))?;
-                    Ok(SRGBAColor::Hwb(h, w, b, Alpha::Number(1.0)))
+                    Ok(SRGBAColor::Hwb(h, w, b, Alpha(1.0)))
                 }
                 [h, w, b, a] => {
                     let h = h
@@ -138,10 +158,10 @@ mod tests {
         assert_eq!(
             color,
             SRGBAColor::Rgb(
-                ColorValue::from(255),
-                ColorValue::from(0),
-                ColorValue::from(0),
-                Alpha::Number(1.0)
+                ColorValue::Number(255.0),
+                ColorValue::Number(0.0),
+                ColorValue::Number(0.0),
+                Alpha(1.0)
             )
         );
 
@@ -149,10 +169,10 @@ mod tests {
         assert_eq!(
             color,
             SRGBAColor::Rgb(
-                ColorValue::from(255),
-                ColorValue::from(0),
-                ColorValue::from(0),
-                Alpha::Number(0.5)
+                ColorValue::Number(255.0),
+                ColorValue::Number(0.0),
+                ColorValue::Number(0.0),
+                Alpha(0.5)
             )
         );
 
@@ -163,7 +183,7 @@ mod tests {
                 Hue::from(120.0),
                 Percentage::from_percent(100.0),
                 Percentage::from_percent(50.0),
-                Alpha::Number(1.0)
+                Alpha(1.0)
             )
         );
 
@@ -174,7 +194,7 @@ mod tests {
                 Hue::from(120.0),
                 Percentage::from_percent(100.0),
                 Percentage::from_percent(50.0),
-                Alpha::Number(0.3)
+                Alpha(0.3)
             )
         );
 
@@ -185,7 +205,7 @@ mod tests {
                 Hue::from(240.0),
                 Percentage::from_percent(50.0),
                 Percentage::from_percent(25.0),
-                Alpha::Number(1.0)
+                Alpha(1.0)
             )
         );
 
@@ -196,7 +216,7 @@ mod tests {
                 Hue::from(240.0),
                 Percentage::from_percent(50.0),
                 Percentage::from_percent(25.0),
-                Alpha::Number(0.7)
+                Alpha(0.7)
             )
         );
     }

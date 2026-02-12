@@ -2,10 +2,24 @@ use std::str::FromStr;
 
 use crate::color::{Alpha, ColorValue, FunctionColor, Hue};
 
+/// Oklab and Oklch color representations as defined in CSS Color Module Level 4
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Oklab {
-    Oklab(ColorValue<f32>, ColorValue<f32>, ColorValue<f32>, Alpha),
-    Oklch(ColorValue<f32>, ColorValue<f32>, Hue, Alpha),
+    /// oklab() function with L, a, b components and optional alpha
+    ///
+    /// * L: Lightness (0 to 1) or (0% to 100%)
+    /// * a: Green-Red component (-0.4 to 0.4) or (-100% to 100%)
+    /// * b: Blue-Yellow component (-0.4 to 0.4) or (-100% to 100%)
+    /// * alpha: Opacity (0.0 to 1.0)
+    Oklab(ColorValue, ColorValue, ColorValue, Alpha),
+
+    /// oklch() function with L, C, H components and optional alpha
+    ///
+    /// * L: Lightness (0 to 1) or (0% to 100%)
+    /// * C: Chroma (0 to 0.4) or (0% to 100%)
+    /// * H: Hue angle in degrees
+    /// * alpha: Opacity (0.0 to 1.0)
+    Oklch(ColorValue, ColorValue, Hue, Alpha),
 }
 
 impl FromStr for Oklab {
@@ -26,25 +40,25 @@ impl FromStr for Oklab {
             match parts.as_slice() {
                 [l, a, b] => {
                     let l = l
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid L value: {}", l))?;
                     let a = a
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid a value: {}", a))?;
                     let b = b
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid b value: {}", b))?;
-                    Ok(Oklab::Oklab(l, a, b, Alpha::Number(1.0)))
+                    Ok(Oklab::Oklab(l, a, b, Alpha(1.0)))
                 }
                 [l, a, b, alpha] => {
                     let l = l
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid L value: {}", l))?;
                     let a = a
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid a value: {}", a))?;
                     let b = b
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid b value: {}", b))?;
                     let alpha = alpha
                         .parse::<Alpha>()
@@ -57,22 +71,22 @@ impl FromStr for Oklab {
             match parts.as_slice() {
                 [l, c, h] => {
                     let l = l
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid L value: {}", l))?;
                     let c = c
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid C value: {}", c))?;
                     let h = h
                         .parse::<Hue>()
                         .map_err(|_| format!("Invalid H value: {}", h))?;
-                    Ok(Oklab::Oklch(l, c, h, Alpha::Number(1.0)))
+                    Ok(Oklab::Oklch(l, c, h, Alpha(1.0)))
                 }
                 [l, c, h, alpha] => {
                     let l = l
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid L value: {}", l))?;
                     let c = c
-                        .parse::<ColorValue<f32>>()
+                        .parse::<ColorValue>()
                         .map_err(|_| format!("Invalid C value: {}", c))?;
                     let h = h
                         .parse::<Hue>()
@@ -103,7 +117,7 @@ mod tests {
                 ColorValue::Number(0.5),
                 ColorValue::Number(0.1),
                 ColorValue::Number(-0.1),
-                Alpha::Number(1.0)
+                Alpha(1.0)
             )
         );
         let color = "oklch(0.5, 0.2, 120)".parse::<Oklab>().unwrap();
@@ -112,8 +126,8 @@ mod tests {
             Oklab::Oklch(
                 ColorValue::Number(0.5),
                 ColorValue::Number(0.2),
-                Hue::Number(120.0),
-                Alpha::Number(1.0)
+                Hue(120.0),
+                Alpha(1.0)
             )
         );
     }
