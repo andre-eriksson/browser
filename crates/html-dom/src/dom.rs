@@ -140,6 +140,22 @@ impl DocumentRoot {
         self.nodes.get_mut(node_id.0)
     }
 
+    /// Walk up the DOM tree from the given node, returning all ancestor nodes
+    /// (parent, grandparent, etc.) in order from nearest to farthest.
+    pub fn ancestors(&self, node_id: &NodeId) -> Vec<&DomNode> {
+        let mut result = Vec::new();
+        let mut current = self.get_node(node_id).and_then(|n| n.parent);
+        while let Some(pid) = current {
+            if let Some(parent_node) = self.get_node(&pid) {
+                result.push(parent_node);
+                current = parent_node.parent;
+            } else {
+                break;
+            }
+        }
+        result
+    }
+
     pub fn push_node(&mut self, data: NodeData, parent: Option<NodeId>) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let new_node = DomNode {

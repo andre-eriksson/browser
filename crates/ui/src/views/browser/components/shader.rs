@@ -300,7 +300,7 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             let mut found_link = false;
             let mut element = None;
 
-            for node in nodes {
+            'outer: for node in nodes {
                 let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
                     dom_node
                 } else {
@@ -313,6 +313,16 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
                     element = Some(n);
                     found_link = true;
                     break;
+                }
+
+                for ancestor in self.dom_tree.ancestors(&node.node_id) {
+                    if let Some(n) = ancestor.data.as_element()
+                        && n.tag == Tag::Html(HtmlTag::A)
+                    {
+                        element = Some(n);
+                        found_link = true;
+                        break 'outer;
+                    }
                 }
             }
 
@@ -343,7 +353,7 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             let nodes = self.layout_tree.resolve(x, y);
             let mut found_link = false;
 
-            for node in nodes {
+            'outer: for node in nodes {
                 let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
                     dom_node
                 } else {
@@ -355,6 +365,15 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
                 {
                     found_link = true;
                     break;
+                }
+
+                for ancestor in self.dom_tree.ancestors(&node.node_id) {
+                    if let Some(n) = ancestor.data.as_element()
+                        && n.tag == Tag::Html(HtmlTag::A)
+                    {
+                        found_link = true;
+                        break 'outer;
+                    }
                 }
             }
 

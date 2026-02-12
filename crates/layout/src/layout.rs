@@ -30,6 +30,15 @@ pub struct LayoutColors {
     pub border_color: BorderColor,
 }
 
+impl LayoutColors {
+    pub fn inline(color: Color4f) -> Self {
+        Self {
+            color,
+            ..Default::default()
+        }
+    }
+}
+
 impl From<&ComputedStyle> for LayoutColors {
     fn from(style: &ComputedStyle) -> Self {
         Self {
