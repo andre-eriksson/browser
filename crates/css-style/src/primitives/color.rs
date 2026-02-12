@@ -148,6 +148,11 @@ impl FromStr for ColorValue {
 pub struct Alpha(f32);
 
 impl Alpha {
+    /// Create a new Alpha value from a floating-point number, which is clamped to the range [0.0, 1.0].
+    pub fn new(value: f32) -> Self {
+        Alpha(value.clamp(0.0, 1.0))
+    }
+
     /// Get the alpha value as a floating-point number in the range [0.0, 1.0].
     pub fn value(&self) -> f32 {
         self.0.clamp(0.0, 1.0)

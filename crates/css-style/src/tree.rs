@@ -2,8 +2,8 @@ use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
 use crate::cascade::GeneratedRule;
-use crate::computed::ComputedStyle;
 use crate::properties::AbsoluteContext;
+use crate::{ComputedStyle, RelativeContext};
 
 #[derive(Debug, Clone)]
 pub struct StyledNode {
@@ -38,16 +38,18 @@ impl StyleTree {
         stylesheets: &[CSSStyleSheet],
     ) -> Self {
         let rules = GeneratedRule::build(stylesheets);
+        let mut relative_ctx = RelativeContext::default();
 
         fn build_styled_node(
             absolute_ctx: &AbsoluteContext,
+            rel_ctx: &mut RelativeContext,
             node_id: NodeId,
             dom: &DocumentRoot,
             rules: &[GeneratedRule],
             parent_style: Option<&ComputedStyle>,
         ) -> StyledNode {
             let computed_style =
-                ComputedStyle::from_node(absolute_ctx, &node_id, dom, rules, parent_style);
+                ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, parent_style);
 
             let node = dom.get_node(&node_id).unwrap();
 
@@ -60,7 +62,14 @@ impl StyleTree {
                 .children
                 .iter()
                 .map(|&child_id| {
-                    build_styled_node(absolute_ctx, child_id, dom, rules, Some(&computed_style))
+                    build_styled_node(
+                        absolute_ctx,
+                        rel_ctx,
+                        child_id,
+                        dom,
+                        rules,
+                        Some(&computed_style),
+                    )
                 })
                 .collect();
 
@@ -76,7 +85,9 @@ impl StyleTree {
         let root_nodes = dom
             .root_nodes
             .iter()
-            .map(|&root_id| build_styled_node(absolute_ctx, root_id, dom, &rules, None))
+            .map(|&root_id| {
+                build_styled_node(absolute_ctx, &mut relative_ctx, root_id, dom, &rules, None)
+            })
             .collect();
 
         StyleTree { root_nodes }

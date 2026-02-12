@@ -1,5 +1,5 @@
 use css_style::{
-    AbsoluteContext, CSSProperty, StyleTree, StyledNode,
+    AbsoluteContext, StyleTree, StyledNode,
     display::{BoxDisplay, InsideDisplay},
 };
 
@@ -20,18 +20,14 @@ pub(crate) enum LayoutMode {
 
 impl LayoutMode {
     pub fn new(styled_node: &StyledNode) -> Option<Self> {
-        if let Ok(display) = CSSProperty::resolve(&styled_node.style.display) {
-            if display.box_display() == Some(BoxDisplay::None) {
-                return None;
-            }
+        if styled_node.style.display.box_display() == Some(BoxDisplay::None) {
+            return None;
+        }
 
-            match display.inside() {
-                Some(InsideDisplay::Flex) => Some(LayoutMode::Flex),
-                Some(InsideDisplay::Grid) => Some(LayoutMode::Grid),
-                _ => Some(LayoutMode::Block),
-            }
-        } else {
-            Some(LayoutMode::Block)
+        match styled_node.style.display.inside() {
+            Some(InsideDisplay::Flex) => Some(LayoutMode::Flex),
+            Some(InsideDisplay::Grid) => Some(LayoutMode::Grid),
+            _ => Some(LayoutMode::Block),
         }
     }
 }
@@ -137,7 +133,7 @@ mod tests {
     fn test_layout_mode_none() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: CSSProperty::from(Display::from(BoxDisplay::None)),
+                display: Display::from(BoxDisplay::None),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -150,7 +146,7 @@ mod tests {
     fn test_layout_mode_block() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: CSSProperty::from(Display::from(OutsideDisplay::Block)),
+                display: Display::from(OutsideDisplay::Block),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -163,7 +159,7 @@ mod tests {
     fn test_layout_mode_flex() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: CSSProperty::from(Display::from(InsideDisplay::Flex)),
+                display: Display::from(InsideDisplay::Flex),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -175,7 +171,7 @@ mod tests {
     fn test_layout_mode_grid() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: CSSProperty::from(Display::from(InsideDisplay::Grid)),
+                display: Display::from(InsideDisplay::Grid),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -187,7 +183,7 @@ mod tests {
     fn test_layout_empty() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: CSSProperty::from(Display::from(OutsideDisplay::Block)),
+                display: Display::from(OutsideDisplay::Block),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))

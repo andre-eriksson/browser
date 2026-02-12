@@ -66,7 +66,7 @@ impl LineHeight {
 
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            font_size: font_size_px,
+            parent_font_size: font_size_px,
             ..Default::default()
         };
 
@@ -75,7 +75,7 @@ impl LineHeight {
             LineHeight::Number(num) => font_size_px * num,
             LineHeight::Length(len) => len.to_px(&rel_ctx, abs_ctx),
             LineHeight::Percentage(pct) => pct.as_fraction() * font_size_px,
-            LineHeight::Calc(calc) => calc.to_px(RelativeType::FontSize, &rel_ctx, abs_ctx),
+            LineHeight::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
     }
 }

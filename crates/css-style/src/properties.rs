@@ -39,13 +39,21 @@ pub struct AbsoluteContext {
     pub viewport_height: f32,
 }
 
-#[derive(Debug, Clone, Default, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RelativeContext {
     pub parent_width: f32,
     pub parent_height: f32,
     pub parent_font_size: f32,
-    pub font_size: f32,
-    pub line_height: f32,
+}
+
+impl Default for RelativeContext {
+    fn default() -> Self {
+        RelativeContext {
+            parent_width: 0.0,
+            parent_height: 0.0,
+            parent_font_size: 16.0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,8 +63,18 @@ pub enum CSSProperty<T> {
 }
 
 impl<T: FromStr<Err = String>> CSSProperty<T> {
-    pub fn wrap_value(value: T) -> Self {
-        CSSProperty::Value(value)
+    pub fn as_value_owned(self) -> Option<T> {
+        match self {
+            CSSProperty::Value(val) => Some(val),
+            CSSProperty::Global(_) => None,
+        }
+    }
+
+    pub fn as_value_ref(&self) -> Option<&T> {
+        match self {
+            CSSProperty::Value(val) => Some(val),
+            CSSProperty::Global(_) => None,
+        }
     }
 
     pub fn resolve(property: &CSSProperty<T>) -> Result<&T, String> {
@@ -68,8 +86,20 @@ impl<T: FromStr<Err = String>> CSSProperty<T> {
         }
     }
 
-    pub fn update_property(property: &mut T, value: &str) -> Result<(), String> {
-        let new_value = value.parse::<T>()?;
+    pub fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, inital: &'a T) -> &'a T {
+        match self {
+            CSSProperty::Global(global) => match global {
+                Global::Initial => inital,
+                Global::Inherit => parent.unwrap_or(inital),
+                Global::Unset => parent.unwrap_or(inital),
+                Global::Revert | Global::RevertLayer => inital, // TODO: Implement user styles
+            },
+            CSSProperty::Value(val) => val,
+        }
+    }
+
+    pub fn update_property(property: &mut CSSProperty<T>, value: &str) -> Result<(), String> {
+        let new_value = value.parse::<CSSProperty<T>>()?;
         *property = new_value;
         Ok(())
     }

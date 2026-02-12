@@ -53,7 +53,7 @@ pub enum CalculateValue {
 impl CalculateValue {
     pub fn to_px(
         &self,
-        rel_type: RelativeType,
+        rel_type: Option<RelativeType>,
         rel_ctx: &RelativeContext,
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
@@ -63,12 +63,13 @@ impl CalculateValue {
             CalculateValue::Keyword(k) => k.to_f32(),
             CalculateValue::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
             CalculateValue::Percentage(p) => match rel_type {
-                RelativeType::FontSize => rel_ctx.font_size * p.as_fraction(),
-                RelativeType::ParentHeight => rel_ctx.parent_height * p.as_fraction(),
-                RelativeType::ParentWidth => rel_ctx.parent_width * p.as_fraction(),
-                RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),
-                RelativeType::ViewportHeight => abs_ctx.viewport_height * p.as_fraction(),
-                RelativeType::ViewportWidth => abs_ctx.viewport_width * p.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx.parent_font_size * p.as_fraction(),
+                Some(RelativeType::ParentHeight) => rel_ctx.parent_height * p.as_fraction(),
+                Some(RelativeType::ParentWidth) => rel_ctx.parent_width * p.as_fraction(),
+                Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
+                Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
+                Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
+                None => 0.0,
             },
         }
     }
@@ -84,7 +85,7 @@ pub enum CalculateProduct {
 impl CalculateProduct {
     pub fn to_px(
         &self,
-        rel_type: RelativeType,
+        rel_type: Option<RelativeType>,
         rel_ctx: &RelativeContext,
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
@@ -115,7 +116,7 @@ pub enum CalculateSum {
 impl CalculateSum {
     pub fn to_px(
         &self,
-        rel_type: RelativeType,
+        rel_type: Option<RelativeType>,
         rel_ctx: &RelativeContext,
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
@@ -139,7 +140,7 @@ pub struct CalcExpression {
 impl CalcExpression {
     pub fn to_px(
         &self,
-        rel_type: RelativeType,
+        rel_type: Option<RelativeType>,
         rel_ctx: &RelativeContext,
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
@@ -427,7 +428,11 @@ mod tests {
             ),
         };
 
-        let result = expr.to_px(RelativeType::FontSize, &ctx, &AbsoluteContext::default());
+        let result = expr.to_px(
+            Some(RelativeType::FontSize),
+            &ctx,
+            &AbsoluteContext::default(),
+        );
         assert_eq!(result, 15.0);
     }
 
@@ -451,7 +456,11 @@ mod tests {
             ),
         };
 
-        let result = expr.to_px(RelativeType::ParentWidth, &ctx, &AbsoluteContext::default());
+        let result = expr.to_px(
+            Some(RelativeType::ParentWidth),
+            &ctx,
+            &AbsoluteContext::default(),
+        );
         assert_eq!(result, 220.0);
     }
 
@@ -472,7 +481,11 @@ mod tests {
             ),
         };
 
-        let result = expr.to_px(RelativeType::FontSize, &ctx, &AbsoluteContext::default());
+        let result = expr.to_px(
+            Some(RelativeType::FontSize),
+            &ctx,
+            &AbsoluteContext::default(),
+        );
         assert!((result - (std::f32::consts::PI + 10.0)).abs() < f32::EPSILON);
     }
 
@@ -484,8 +497,11 @@ mod tests {
             parent_width: 400.0,
             ..Default::default()
         };
-        let result =
-            parsed_expr.to_px(RelativeType::ParentWidth, &ctx, &AbsoluteContext::default());
+        let result = parsed_expr.to_px(
+            Some(RelativeType::ParentWidth),
+            &ctx,
+            &AbsoluteContext::default(),
+        );
 
         assert_eq!(result, 218.0);
     }
@@ -494,7 +510,7 @@ mod tests {
     fn test_nested_parentheses() {
         let expr = CalcExpression::parse("calc((10px + 5px) * 2)").unwrap();
         let result = expr.to_px(
-            RelativeType::ParentWidth,
+            Some(RelativeType::ParentWidth),
             &RelativeContext::default(),
             &AbsoluteContext::default(),
         );

@@ -2,14 +2,8 @@ use cosmic_text::{
     Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap,
 };
 use css_style::{
-    AbsoluteContext, FontFamily, FontFamilyName, FontWeight, LineHeight, Whitespace,
-    font::GenericName,
+    AbsoluteContext, FontFamily, FontFamilyName, LineHeight, Whitespace, font::GenericName,
 };
-
-pub struct TextOffsetContext {
-    pub offset_x: f32,
-    pub available_width: f32,
-}
 
 #[derive(Debug)]
 pub struct Text {
@@ -24,7 +18,7 @@ pub struct TextDescription<'a> {
     pub whitespace: &'a Whitespace,
     pub line_height: &'a LineHeight,
     pub font_family: &'a FontFamily,
-    pub font_weight: &'a FontWeight,
+    pub font_weight: u16,
     pub font_size_px: f32,
 }
 
@@ -53,35 +47,13 @@ impl TextContext {
         &mut self.font_system
     }
 
-    pub fn measure_multiline_text(
+    pub fn measure_text_that_fits<'a>(
         &mut self,
         absolute_ctx: &AbsoluteContext,
-        text: &str,
+        text: &'a str,
         text_description: &TextDescription,
-        available_width: f32,
-        offset_ctx: TextOffsetContext,
-    ) -> (Text, Option<Text>) {
-        let wrap_mode = match text_description.whitespace {
-            Whitespace::Normal | Whitespace::PreLine | Whitespace::PreWrap => Wrap::Word,
-            Whitespace::Pre => Wrap::None,
-            _ => Wrap::Word,
-        };
-
-        let is_pre = matches!(text_description.whitespace, Whitespace::Pre);
-
-        if offset_ctx.offset_x == 0.0 || is_pre {
-            return (
-                self.measure_text(
-                    absolute_ctx,
-                    text,
-                    text_description,
-                    available_width,
-                    wrap_mode,
-                ),
-                None,
-            );
-        }
-
+        max_width: f32,
+    ) -> (Text, Option<&'a str>) {
         let line_height_px = text_description
             .line_height
             .to_px(absolute_ctx, text_description.font_size_px);
@@ -94,31 +66,17 @@ impl TextContext {
             .weight(weight)
             .stretch(Stretch::Normal);
 
-        let preserve_whitespace = matches!(
-            text_description.whitespace,
-            Whitespace::Pre | Whitespace::PreWrap
-        );
-        if text.trim().is_empty() && !preserve_whitespace {
-            let buffer = Buffer::new(&mut self.font_system, metrics);
-            return (
-                Text {
-                    width: 0.0,
-                    last_line_width: 0.0,
-                    height: 0.0,
-                    total_width: 0.0,
-                    buffer,
-                },
-                None,
-            );
-        }
+        let wrap_mode = match text_description.whitespace {
+            Whitespace::Normal | Whitespace::PreLine | Whitespace::PreWrap => Wrap::Word,
+            Whitespace::Pre => Wrap::None,
+            _ => Wrap::Word,
+        };
 
         let mut temp_buffer = Buffer::new(&mut self.font_system, metrics);
+
+        temp_buffer.set_size(&mut self.font_system, Some(max_width), None);
         temp_buffer.set_wrap(&mut self.font_system, wrap_mode);
-        temp_buffer.set_size(
-            &mut self.font_system,
-            Some(offset_ctx.available_width),
-            None,
-        );
+
         temp_buffer.set_text(
             &mut self.font_system,
             text,
@@ -126,53 +84,44 @@ impl TextContext {
             Shaping::Advanced,
             Some(Align::Left),
         );
+
         temp_buffer.shape_until_scroll(&mut self.font_system, false);
 
-        let first_line_end = if let Some(run) = temp_buffer.layout_runs().next() {
-            run.glyphs.last().map(|g| g.end).unwrap_or(0)
-        } else if preserve_whitespace && text.starts_with('\n') {
-            1
-        } else {
+        let runs: Vec<_> = temp_buffer.layout_runs().collect();
+
+        if runs.is_empty() {
+            return (
+                self.measure_text(absolute_ctx, text, text_description, max_width, wrap_mode),
+                None,
+            );
+        }
+
+        if runs.len() > 1 {
+            let first_run = &runs[0];
+
+            let split_index = first_run.glyphs.last().map(|g| g.end).unwrap_or(text.len());
+
+            let split_index = split_index.min(text.len());
+
+            let fitted_text = &text[..split_index];
+            let remaining_text = &text[split_index..];
+
             return (
                 self.measure_text(
                     absolute_ctx,
-                    text,
+                    fitted_text,
                     text_description,
-                    available_width,
+                    max_width,
                     wrap_mode,
                 ),
-                None,
+                Some(remaining_text),
             );
-        };
-
-        let first_line_text = &text[..first_line_end];
-        let remaining_text = match text_description.whitespace {
-            Whitespace::Normal | Whitespace::PreLine => text[first_line_end..].trim_start(),
-            Whitespace::Pre | Whitespace::PreWrap => &text[first_line_end..],
-            _ => &text[first_line_end..],
-        };
-
-        let initial_text = self.measure_text(
-            absolute_ctx,
-            first_line_text,
-            text_description,
-            offset_ctx.available_width,
-            wrap_mode,
-        );
-
-        if remaining_text.is_empty() {
-            return (initial_text, None);
         }
 
-        let rest_text = self.measure_text(
-            absolute_ctx,
-            remaining_text,
-            text_description,
-            available_width,
-            wrap_mode,
-        );
-
-        (initial_text, Some(rest_text))
+        (
+            self.measure_text(absolute_ctx, text, text_description, max_width, wrap_mode),
+            None,
+        )
     }
 
     /// Measures the rendered size of the given text with specified styles and constraints.
@@ -207,15 +156,7 @@ impl TextContext {
             Whitespace::Pre | Whitespace::PreWrap
         );
 
-        if text.trim().is_empty() && !preserve_whitespace {
-            return Text {
-                width: 0.0,
-                last_line_width: 0.0,
-                height: 0.0,
-                total_width: 0.0,
-                buffer,
-            };
-        }
+        let is_whitespace_only = text.trim().is_empty() && !preserve_whitespace;
 
         buffer.set_text(
             &mut self.font_system,
@@ -232,9 +173,30 @@ impl TextContext {
         let mut line_count: usize = 0;
 
         for run in buffer.layout_runs() {
-            max_width = max_width.max(run.line_w);
-            last_line_width = run.line_w;
+            let w = if is_whitespace_only {
+                // For whitespace-only text, `line_w` excludes trailing
+                // whitespace so it reports 0.  Use glyph advances instead
+                // to obtain the real space width.
+                run.glyphs.last().map(|g| g.x + g.w).unwrap_or(0.0)
+            } else {
+                run.line_w
+            };
+            max_width = max_width.max(w);
+            last_line_width = w;
             line_count += 1;
+        }
+
+        // Fallback: if cosmic-text produced no layout runs for the
+        // whitespace (or all glyph advances were zero), approximate the
+        // space width from the font size (~0.25 em is a reasonable default
+        // for most fonts) so that inter-element spacing is preserved.
+        if is_whitespace_only && max_width == 0.0 {
+            let space_count = text.chars().filter(|c| *c == ' ').count().max(1);
+            max_width = space_count as f32 * text_description.font_size_px * 0.25;
+            last_line_width = max_width;
+            if line_count == 0 {
+                line_count = 1;
+            }
         }
 
         let mut total_height = line_count as f32 * line_height_px;
@@ -267,17 +229,18 @@ impl TextContext {
         }
     }
 
-    fn resolve_font_weight(font_weight: &FontWeight) -> Weight {
+    fn resolve_font_weight(font_weight: u16) -> Weight {
         match font_weight {
-            FontWeight::Thin => Weight::THIN,
-            FontWeight::ExtraLight => Weight::EXTRA_LIGHT,
-            FontWeight::Light => Weight::LIGHT,
-            FontWeight::Normal => Weight::NORMAL,
-            FontWeight::Medium => Weight::MEDIUM,
-            FontWeight::SemiBold => Weight::SEMIBOLD,
-            FontWeight::Bold => Weight::BOLD,
-            FontWeight::ExtraBold => Weight::EXTRA_BOLD,
-            FontWeight::Black => Weight::BLACK,
+            100 => Weight::THIN,
+            200 => Weight::EXTRA_LIGHT,
+            300 => Weight::LIGHT,
+            400 => Weight::NORMAL,
+            500 => Weight::MEDIUM,
+            600 => Weight::SEMIBOLD,
+            700 => Weight::BOLD,
+            800 => Weight::EXTRA_BOLD,
+            900 => Weight::BLACK,
+            _ => Weight::NORMAL,
         }
     }
 }

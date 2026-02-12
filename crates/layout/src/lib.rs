@@ -19,7 +19,8 @@ mod text;
 mod mode;
 mod resolver;
 
+pub use css_style::Color4f;
 pub use engine::LayoutEngine;
 pub use layout::{LayoutColors, LayoutNode, LayoutTree};
-pub use primitives::{Color4f, Rect, SideOffset};
+pub use primitives::{Rect, SideOffset};
 pub use text::TextContext;

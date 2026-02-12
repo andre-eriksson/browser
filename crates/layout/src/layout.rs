@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
-use css_style::{CSSProperty, ComputedStyle, StyledNode};
+use css_style::{Color4f, ComputedStyle, StyledNode};
 use html_dom::NodeId;
 
 use crate::{
     mode::block::BlockCursor,
-    primitives::{Color4f, Rect, SideOffset},
+    primitives::{Rect, SideOffset},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -32,27 +32,15 @@ pub struct LayoutColors {
 
 impl From<&ComputedStyle> for LayoutColors {
     fn from(style: &ComputedStyle) -> Self {
-        let background_color = Color4f::from_css_color_property(&style.background_color);
-        let color = Color4f::from_css_color_property(&style.color);
-        let mut border_color = BorderColor::default();
-
-        if let Ok(top) = CSSProperty::resolve(&style.border_top_color) {
-            border_color.top = Color4f::from_css_color(top);
-        }
-        if let Ok(right) = CSSProperty::resolve(&style.border_right_color) {
-            border_color.right = Color4f::from_css_color(right);
-        }
-        if let Ok(bottom) = CSSProperty::resolve(&style.border_bottom_color) {
-            border_color.bottom = Color4f::from_css_color(bottom);
-        }
-        if let Ok(left) = CSSProperty::resolve(&style.border_left_color) {
-            border_color.left = Color4f::from_css_color(left);
-        }
-
         Self {
-            background_color,
-            color,
-            border_color,
+            background_color: style.background_color,
+            color: style.color,
+            border_color: BorderColor {
+                top: style.border_top_color,
+                right: style.border_right_color,
+                bottom: style.border_bottom_color,
+                left: style.border_left_color,
+            },
         }
     }
 }
@@ -138,16 +126,13 @@ impl LayoutTree {
         node: &'a LayoutNode,
         x: f32,
         y: f32,
-    ) -> Option<&'a LayoutNode> {
+    ) {
         if node.dimensions.contains_point(x, y) {
             for child in &node.children {
-                if let Some(found) = Self::resolve_in_node(collected, child, x, y) {
-                    collected.push(found);
-                }
+                Self::resolve_in_node(collected, child, x, y);
             }
             collected.push(node);
         }
-        None
     }
 }
 

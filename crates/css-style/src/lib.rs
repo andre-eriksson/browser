@@ -9,9 +9,10 @@ mod computed;
 mod handler;
 mod primitives;
 mod properties;
+mod specified;
 mod tree;
 
-pub use computed::ComputedStyle;
+pub use computed::{ComputedStyle, color::Color4f};
 pub use primitives::*;
 pub use properties::border::*;
 pub use properties::color::*;

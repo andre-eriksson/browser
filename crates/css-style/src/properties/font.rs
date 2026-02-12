@@ -1,11 +1,14 @@
 use std::str::FromStr;
 
 use crate::{
-    RelativeType, calculate::CalcExpression, primitives::{
+    RelativeType,
+    calculate::CalcExpression,
+    primitives::{
         font::{AbsoluteSize, GenericName, RelativeSize},
         length::Length,
         percentage::Percentage,
-    }, properties::{AbsoluteContext, RelativeContext}
+    },
+    properties::{AbsoluteContext, RelativeContext},
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -139,7 +142,7 @@ impl FontSize {
 
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, parent_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            font_size: parent_px,
+            parent_font_size: parent_px,
             ..Default::default()
         };
 
@@ -148,9 +151,7 @@ impl FontSize {
             FontSize::Length(len) => len.to_px(&rel_ctx, abs_ctx),
             FontSize::Percentage(pct) => pct.as_fraction() * parent_px,
             FontSize::Relative(rel) => rel.to_px(parent_px),
-            FontSize::Calc(calc) => {
-                calc.to_px(RelativeType::FontSize, &rel_ctx, abs_ctx)
-            }
+            FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
     }
 }

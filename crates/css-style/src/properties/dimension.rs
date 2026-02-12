@@ -37,9 +37,9 @@ impl Dimension {
             Dimension::FitContent(_) => 0.0,
             Dimension::Stretch => 0.0,
             Dimension::Auto => 0.0,
-            Dimension::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            Dimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
             Dimension::Percentage(p) => match rel_type {
-                RelativeType::FontSize => rel_ctx.font_size * p.as_fraction(),
+                RelativeType::FontSize => rel_ctx.parent_font_size * p.as_fraction(),
                 RelativeType::ParentHeight => rel_ctx.parent_height * p.as_fraction(),
                 RelativeType::ParentWidth => rel_ctx.parent_width * p.as_fraction(),
                 RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),

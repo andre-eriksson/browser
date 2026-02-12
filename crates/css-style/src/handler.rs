@@ -2,15 +2,15 @@ use std::str::FromStr;
 
 use css_cssom::Property;
 
-use crate::primitives::font::AbsoluteSize;
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
-use crate::{BorderStyleValue, BorderWidthValue, Color, ComputedStyle, OffsetValue};
+use crate::specified::SpecifiedStyle;
+use crate::{BorderStyleValue, BorderWidthValue, Color, OffsetValue, RelativeContext};
 
 pub struct PropertyUpdateContext<'a> {
     pub absolute_ctx: &'a AbsoluteContext,
-    pub computed_style: &'a mut ComputedStyle,
-    pub parent_style: Option<&'a ComputedStyle>,
+    pub specified_style: &'a mut SpecifiedStyle,
+    pub relative_ctx: &'a RelativeContext,
     pub errors: Vec<PropertyError>,
 }
 
@@ -24,13 +24,13 @@ pub struct PropertyError {
 impl<'a> PropertyUpdateContext<'a> {
     pub fn new(
         absolute_ctx: &'a AbsoluteContext,
-        computed_style: &'a mut ComputedStyle,
-        parent_style: Option<&'a ComputedStyle>,
+        specified_style: &'a mut SpecifiedStyle,
+        relative_ctx: &'a RelativeContext,
     ) -> Self {
         Self {
             absolute_ctx,
-            computed_style,
-            parent_style,
+            specified_style,
+            relative_ctx,
             errors: Vec::new(),
         }
     }
@@ -56,7 +56,7 @@ impl<'a> PropertyUpdateContext<'a> {
 macro_rules! simple_property_handler {
     ($fn_name:ident, $field:ident, $prop_name:expr) => {
         pub fn $fn_name(ctx: &mut PropertyUpdateContext, value: &str) {
-            if let Err(e) = CSSProperty::update_property(&mut ctx.computed_style.$field, value) {
+            if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.$field, value) {
                 ctx.record_error($prop_name, value, e);
             }
         }
@@ -264,15 +264,15 @@ pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &str) {
     let parts: Vec<&str> = value.split_whitespace().collect();
     match parts.len() {
         1 => {
-            if let Ok(all) = parts[0].parse::<OffsetValue>() {
+            if let Ok(all) = parts[0].parse::<CSSProperty<OffsetValue>>() {
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.margin_top,
-                        &mut ctx.computed_style.margin_right,
-                        &mut ctx.computed_style.margin_bottom,
-                        &mut ctx.computed_style.margin_left,
+                        &mut ctx.specified_style.margin_top,
+                        &mut ctx.specified_style.margin_right,
+                        &mut ctx.specified_style.margin_bottom,
+                        &mut ctx.specified_style.margin_left,
                     ],
-                    all.into(),
+                    all,
                 );
             } else {
                 ctx.record_error(
@@ -289,15 +289,15 @@ pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &str) {
             ) {
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.margin_top,
-                        &mut ctx.computed_style.margin_bottom,
+                        &mut ctx.specified_style.margin_top,
+                        &mut ctx.specified_style.margin_bottom,
                     ],
                     vertical.into(),
                 );
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.margin_right,
-                        &mut ctx.computed_style.margin_left,
+                        &mut ctx.specified_style.margin_right,
+                        &mut ctx.specified_style.margin_left,
                     ],
                     horizontal.into(),
                 );
@@ -315,13 +315,13 @@ pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &str) {
                 parts[1].parse::<OffsetValue>(),
                 parts[2].parse::<OffsetValue>(),
             ) {
-                CSSProperty::update(&mut ctx.computed_style.margin_top, top.into());
-                CSSProperty::update(&mut ctx.computed_style.margin_bottom, bottom.into());
+                CSSProperty::update(&mut ctx.specified_style.margin_top, top.into());
+                CSSProperty::update(&mut ctx.specified_style.margin_bottom, bottom.into());
 
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.margin_right,
-                        &mut ctx.computed_style.margin_left,
+                        &mut ctx.specified_style.margin_right,
+                        &mut ctx.specified_style.margin_left,
                     ],
                     horizontal.into(),
                 );
@@ -344,10 +344,10 @@ pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &str) {
                 parts[3].parse::<OffsetValue>(),
             ) {
                 {
-                    CSSProperty::update(&mut ctx.computed_style.margin_top, top.into());
-                    CSSProperty::update(&mut ctx.computed_style.margin_right, right.into());
-                    CSSProperty::update(&mut ctx.computed_style.margin_bottom, bottom.into());
-                    CSSProperty::update(&mut ctx.computed_style.margin_left, left.into());
+                    CSSProperty::update(&mut ctx.specified_style.margin_top, top.into());
+                    CSSProperty::update(&mut ctx.specified_style.margin_right, right.into());
+                    CSSProperty::update(&mut ctx.specified_style.margin_bottom, bottom.into());
+                    CSSProperty::update(&mut ctx.specified_style.margin_left, left.into());
                 }
             } else {
                 ctx.record_error(
@@ -377,10 +377,10 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
             if let Ok(all) = parts[0].parse::<OffsetValue>() {
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.padding_top,
-                        &mut ctx.computed_style.padding_right,
-                        &mut ctx.computed_style.padding_bottom,
-                        &mut ctx.computed_style.padding_left,
+                        &mut ctx.specified_style.padding_top,
+                        &mut ctx.specified_style.padding_right,
+                        &mut ctx.specified_style.padding_bottom,
+                        &mut ctx.specified_style.padding_left,
                     ],
                     all.into(),
                 );
@@ -399,15 +399,15 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
             ) {
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.padding_top,
-                        &mut ctx.computed_style.padding_bottom,
+                        &mut ctx.specified_style.padding_top,
+                        &mut ctx.specified_style.padding_bottom,
                     ],
                     vertical.into(),
                 );
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.padding_right,
-                        &mut ctx.computed_style.padding_left,
+                        &mut ctx.specified_style.padding_right,
+                        &mut ctx.specified_style.padding_left,
                     ],
                     horizontal.into(),
                 );
@@ -425,12 +425,12 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
                 parts[1].parse::<OffsetValue>(),
                 parts[2].parse::<OffsetValue>(),
             ) {
-                CSSProperty::update(&mut ctx.computed_style.padding_top, top.into());
-                CSSProperty::update(&mut ctx.computed_style.padding_bottom, bottom.into());
+                CSSProperty::update(&mut ctx.specified_style.padding_top, top.into());
+                CSSProperty::update(&mut ctx.specified_style.padding_bottom, bottom.into());
                 CSSProperty::update_multiple(
                     &mut [
-                        &mut ctx.computed_style.padding_right,
-                        &mut ctx.computed_style.padding_left,
+                        &mut ctx.specified_style.padding_right,
+                        &mut ctx.specified_style.padding_left,
                     ],
                     horizontal.into(),
                 );
@@ -453,10 +453,10 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
                 parts[3].parse::<OffsetValue>(),
             ) {
                 {
-                    CSSProperty::update(&mut ctx.computed_style.padding_top, top.into());
-                    CSSProperty::update(&mut ctx.computed_style.padding_right, right.into());
-                    CSSProperty::update(&mut ctx.computed_style.padding_bottom, bottom.into());
-                    CSSProperty::update(&mut ctx.computed_style.padding_left, left.into());
+                    CSSProperty::update(&mut ctx.specified_style.padding_top, top.into());
+                    CSSProperty::update(&mut ctx.specified_style.padding_right, right.into());
+                    CSSProperty::update(&mut ctx.specified_style.padding_bottom, bottom.into());
+                    CSSProperty::update(&mut ctx.specified_style.padding_left, left.into());
                 }
             } else {
                 ctx.record_error(
@@ -483,10 +483,10 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
     if value.eq_ignore_ascii_case("none") {
         CSSProperty::update_multiple(
             &mut [
-                &mut ctx.computed_style.border_top_style,
-                &mut ctx.computed_style.border_right_style,
-                &mut ctx.computed_style.border_bottom_style,
-                &mut ctx.computed_style.border_left_style,
+                &mut ctx.specified_style.border_top_style,
+                &mut ctx.specified_style.border_right_style,
+                &mut ctx.specified_style.border_bottom_style,
+                &mut ctx.specified_style.border_left_style,
             ],
             BorderStyleValue::None.into(),
         );
@@ -499,10 +499,10 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
         if let Ok(width) = part.parse::<BorderWidthValue>() {
             CSSProperty::update_multiple(
                 &mut [
-                    &mut ctx.computed_style.border_top_width,
-                    &mut ctx.computed_style.border_right_width,
-                    &mut ctx.computed_style.border_bottom_width,
-                    &mut ctx.computed_style.border_left_width,
+                    &mut ctx.specified_style.border_top_width,
+                    &mut ctx.specified_style.border_right_width,
+                    &mut ctx.specified_style.border_bottom_width,
+                    &mut ctx.specified_style.border_left_width,
                 ],
                 width.into(),
             );
@@ -511,10 +511,10 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
         if let Ok(style) = part.parse::<BorderStyleValue>() {
             CSSProperty::update_multiple(
                 &mut [
-                    &mut ctx.computed_style.border_top_style,
-                    &mut ctx.computed_style.border_right_style,
-                    &mut ctx.computed_style.border_bottom_style,
-                    &mut ctx.computed_style.border_left_style,
+                    &mut ctx.specified_style.border_top_style,
+                    &mut ctx.specified_style.border_right_style,
+                    &mut ctx.specified_style.border_bottom_style,
+                    &mut ctx.specified_style.border_left_style,
                 ],
                 style.into(),
             );
@@ -523,10 +523,10 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
         if let Ok(color) = part.parse::<Color>() {
             CSSProperty::update_multiple(
                 &mut [
-                    &mut ctx.computed_style.border_top_color,
-                    &mut ctx.computed_style.border_right_color,
-                    &mut ctx.computed_style.border_bottom_color,
-                    &mut ctx.computed_style.border_left_color,
+                    &mut ctx.specified_style.border_top_color,
+                    &mut ctx.specified_style.border_right_color,
+                    &mut ctx.specified_style.border_bottom_color,
+                    &mut ctx.specified_style.border_left_color,
                 ],
                 color.into(),
             );
@@ -535,14 +535,11 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &str) {
-    CSSProperty::update_property(&mut ctx.computed_style.font_size, value).unwrap_or(());
+    CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
 
-    if let Ok(font_size) = CSSProperty::resolve(&ctx.computed_style.font_size) {
-        let parent_px = ctx
-            .parent_style
-            .map(|p| p.computed_font_size_px)
-            .unwrap_or(AbsoluteSize::Medium.to_px());
-        ctx.computed_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, parent_px);
+    if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
+        let parent_px = ctx.relative_ctx.parent_font_size;
+        ctx.specified_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, parent_px);
     }
 }
 
@@ -568,7 +565,7 @@ pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.computed_style.writing_mode {
+    match ctx.specified_style.writing_mode {
         CSSProperty::Global(global) => {
             ctx.record_error(
                 "margin-block-start",
@@ -579,21 +576,21 @@ pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
         CSSProperty::Value(val) => match val {
             WritingMode::HorizontalTb => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.margin_top, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.margin_top, value)
                 {
                     ctx.record_error("margin-block-start", value, e);
                 }
             }
             WritingMode::VerticalRl => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.margin_right, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.margin_right, value)
                 {
                     ctx.record_error("margin-block-start", value, e);
                 }
             }
             WritingMode::VerticalLr => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.margin_left, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.margin_left, value)
                 {
                     ctx.record_error("margin-block-start", value, e);
                 }
@@ -610,7 +607,7 @@ pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.computed_style.writing_mode {
+    match ctx.specified_style.writing_mode {
         CSSProperty::Global(global) => {
             ctx.record_error(
                 "margin-block-end",
@@ -621,21 +618,21 @@ pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
         CSSProperty::Value(val) => match val {
             WritingMode::HorizontalTb => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.margin_bottom, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.margin_bottom, value)
                 {
                     ctx.record_error("margin-block-end", value, e);
                 }
             }
             WritingMode::VerticalRl => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.margin_left, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.margin_left, value)
                 {
                     ctx.record_error("margin-block-end", value, e);
                 }
             }
             WritingMode::VerticalLr => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.margin_right, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.margin_right, value)
                 {
                     ctx.record_error("margin-block-end", value, e);
                 }
@@ -674,7 +671,7 @@ pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &str) {
 }
 
 pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.computed_style.writing_mode {
+    match ctx.specified_style.writing_mode {
         CSSProperty::Global(global) => {
             ctx.record_error(
                 "padding-block-start",
@@ -685,21 +682,21 @@ pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &str) 
         CSSProperty::Value(val) => match val {
             WritingMode::HorizontalTb => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.padding_top, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.padding_top, value)
                 {
                     ctx.record_error("padding-block-start", value, e);
                 }
             }
             WritingMode::VerticalRl => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.padding_right, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.padding_right, value)
                 {
                     ctx.record_error("padding-block-start", value, e);
                 }
             }
             WritingMode::VerticalLr => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.padding_left, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.padding_left, value)
                 {
                     ctx.record_error("padding-block-start", value, e);
                 }
@@ -716,7 +713,7 @@ pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &str) 
 }
 
 pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.computed_style.writing_mode {
+    match ctx.specified_style.writing_mode {
         CSSProperty::Global(global) => {
             ctx.record_error(
                 "padding-block-end",
@@ -727,21 +724,21 @@ pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
         CSSProperty::Value(val) => match val {
             WritingMode::HorizontalTb => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.padding_bottom, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.padding_bottom, value)
                 {
                     ctx.record_error("padding-block-end", value, e);
                 }
             }
             WritingMode::VerticalRl => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.padding_left, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.padding_left, value)
                 {
                     ctx.record_error("padding-block-end", value, e);
                 }
             }
             WritingMode::VerticalLr => {
                 if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.computed_style.padding_right, value)
+                    CSSProperty::update_property(&mut ctx.specified_style.padding_right, value)
                 {
                     ctx.record_error("padding-block-end", value, e);
                 }
@@ -774,18 +771,22 @@ mod tests {
     #[test]
     fn test_handle_border_with_calc_and_function_color() {
         let absolute_ctx = AbsoluteContext::default();
-        let mut style = ComputedStyle::default();
-        let mut ctx = PropertyUpdateContext::new(&absolute_ctx, &mut style, None);
+        let relative_ctx = RelativeContext {
+            parent_font_size: 16.0,
+            ..Default::default()
+        };
+        let mut style = SpecifiedStyle::default();
+        let mut ctx = PropertyUpdateContext::new(&absolute_ctx, &mut style, &relative_ctx);
 
         handle_border(&mut ctx, "calc(100% - 2px) solid rgb(255 0 0 / 0.5)");
 
         assert!(ctx.errors.is_empty());
         assert_eq!(
-            CSSProperty::resolve(&ctx.computed_style.border_top_style),
+            CSSProperty::resolve(&ctx.specified_style.border_top_style),
             Ok(&BorderStyleValue::Solid)
         );
         assert!(matches!(
-            CSSProperty::resolve(&ctx.computed_style.border_top_width),
+            CSSProperty::resolve(&ctx.specified_style.border_top_width),
             Ok(BorderWidthValue::Calc(_))
         ));
     }

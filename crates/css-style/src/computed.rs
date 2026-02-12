@@ -1,85 +1,66 @@
-use css_cssom::{KnownProperty, Property};
+use css_cssom::Property;
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    BorderStyleValue, BorderWidthValue, OffsetValue,
-    cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
+    BorderStyleValue, CSSProperty, OffsetValue, RelativeContext, RelativeType,
+    cascade::GeneratedRule,
     color::named::NamedColor,
-    handler::{
-        PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
-        handle_border_bottom_style, handle_border_bottom_width, handle_border_left_color,
-        handle_border_left_style, handle_border_left_width, handle_border_right_color,
-        handle_border_right_style, handle_border_right_width, handle_border_top_color,
-        handle_border_top_style, handle_border_top_width, handle_color, handle_display,
-        handle_font_family, handle_font_size, handle_font_weight, handle_height,
-        handle_line_height, handle_margin, handle_margin_block, handle_margin_block_end,
-        handle_margin_block_start, handle_margin_bottom, handle_margin_left, handle_margin_right,
-        handle_margin_top, handle_max_height, handle_max_width, handle_padding,
-        handle_padding_block, handle_padding_block_end, handle_padding_block_start,
-        handle_padding_bottom, handle_padding_left, handle_padding_right, handle_padding_top,
-        handle_position, handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
-        resolve_css_variable,
-    },
-    length::Length,
+    computed::color::Color4f,
     primitives::{
         display::{InsideDisplay, OutsideDisplay},
-        font::{AbsoluteSize, GenericName},
+        font::GenericName,
     },
     properties::{
-        AbsoluteContext, BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty,
-        ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
-        HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty,
-        OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty,
-        WidthProperty, WritingModeProperty,
+        AbsoluteContext,
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
-        font::{FontFamily, FontFamilyName, FontSize, FontWeight},
+        font::{FontFamily, FontFamilyName},
         position::Position,
         text::{LineHeight, TextAlign, Whitespace, WritingMode},
     },
+    specified::SpecifiedStyle,
 };
 
-#[derive(Debug, Clone)]
-pub struct ComputedStyle {
-    pub background_color: ColorProperty,
-    pub border_top_color: ColorProperty,
-    pub border_right_color: ColorProperty,
-    pub border_bottom_color: ColorProperty,
-    pub border_left_color: ColorProperty,
-    pub border_top_style: BorderStyleValueProperty,
-    pub border_right_style: BorderStyleValueProperty,
-    pub border_bottom_style: BorderStyleValueProperty,
-    pub border_left_style: BorderStyleValueProperty,
-    pub border_top_width: BorderWidthValueProperty,
-    pub border_right_width: BorderWidthValueProperty,
-    pub border_bottom_width: BorderWidthValueProperty,
-    pub border_left_width: BorderWidthValueProperty,
-    pub color: ColorProperty,
-    pub display: DisplayProperty,
-    pub font_family: FontFamilyProperty,
-    pub font_size: FontSizeProperty,
-    pub font_weight: FontWeightProperty,
-    pub height: HeightProperty,
-    pub max_height: MaxHeightProperty,
-    pub line_height: LineHeightProperty,
-    pub margin_top: OffsetValueProperty,
-    pub margin_right: OffsetValueProperty,
-    pub margin_bottom: OffsetValueProperty,
-    pub margin_left: OffsetValueProperty,
-    pub padding_top: OffsetValueProperty,
-    pub padding_right: OffsetValueProperty,
-    pub padding_bottom: OffsetValueProperty,
-    pub padding_left: OffsetValueProperty,
-    pub position: PositionProperty,
-    pub text_align: TextAlignProperty,
-    pub whitespace: WhitespaceProperty,
-    pub width: WidthProperty,
-    pub max_width: MaxWidthProperty,
-    pub writing_mode: WritingModeProperty,
+pub mod color;
 
-    // === Non-CSS properties ===
-    pub computed_font_size_px: f32,
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComputedStyle {
+    pub background_color: Color4f,
+    pub border_top_color: Color4f,
+    pub border_right_color: Color4f,
+    pub border_bottom_color: Color4f,
+    pub border_left_color: Color4f,
+    pub border_top_style: BorderStyleValue,
+    pub border_right_style: BorderStyleValue,
+    pub border_bottom_style: BorderStyleValue,
+    pub border_left_style: BorderStyleValue,
+    pub border_top_width: f32,
+    pub border_right_width: f32,
+    pub border_bottom_width: f32,
+    pub border_left_width: f32,
+    pub color: Color4f,
+    pub display: Display,
+    pub font_family: FontFamily,
+    pub font_size: f32,
+    pub font_weight: u16,
+    pub height: Dimension,
+    pub max_height: MaxDimension,
+    pub line_height: LineHeight,
+    pub margin_top: OffsetValue,
+    pub margin_right: OffsetValue,
+    pub margin_bottom: OffsetValue,
+    pub margin_left: OffsetValue,
+    pub padding_top: OffsetValue,
+    pub padding_right: OffsetValue,
+    pub padding_bottom: OffsetValue,
+    pub padding_left: OffsetValue,
+    pub position: Position,
+    pub text_align: TextAlign,
+    pub whitespace: Whitespace,
+    pub width: Dimension,
+    pub max_width: MaxDimension,
+    pub writing_mode: WritingMode,
     pub variables: Vec<(Property, String)>,
 }
 
@@ -93,97 +74,195 @@ impl ComputedStyle {
     /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
     pub fn from_node(
         absolute_ctx: &AbsoluteContext,
+        relative_ctx: &mut RelativeContext,
         node_id: &NodeId,
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
-        let mut computed_style = match parent_style {
-            Some(style) => style.inherited_subset(),
-            None => ComputedStyle::default(),
-        };
+        let specified_style = SpecifiedStyle::from_node(
+            absolute_ctx,
+            relative_ctx,
+            node_id,
+            dom,
+            rules,
+            parent_style,
+        );
 
-        let node = match dom.get_node(node_id) {
-            Some(n) => n,
-            None => return computed_style,
-        };
+        Self::update_relative_context(absolute_ctx, relative_ctx, &specified_style);
 
-        let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
-
-        let properties = cascade(declarations);
-        let mut merged_variables = computed_style.variables.clone();
-        for (name, value) in cascade_variables(variables) {
-            if let Some(existing) = merged_variables.iter_mut().find(|(n, _)| n == &name) {
-                existing.1 = value;
-            } else {
-                merged_variables.push((name, value));
-            }
+        Self {
+            background_color: Color4f::from_css_color_property(
+                &specified_style.background_color,
+                &CSSProperty::Value(Color::Transparent),
+                &Color::Transparent,
+                parent_style.map(|s| Color::from(s.background_color)),
+            ),
+            border_top_color: Color4f::from_css_color_property(
+                &specified_style.border_top_color,
+                &specified_style.color,
+                &Color::Current,
+                parent_style.map(|s| Color::from(s.border_top_color)),
+            ),
+            border_right_color: Color4f::from_css_color_property(
+                &specified_style.border_right_color,
+                &specified_style.color,
+                &Color::Current,
+                parent_style.map(|s| Color::from(s.border_right_color)),
+            ),
+            border_bottom_color: Color4f::from_css_color_property(
+                &specified_style.border_bottom_color,
+                &specified_style.color,
+                &Color::Current,
+                parent_style.map(|s| Color::from(s.border_bottom_color)),
+            ),
+            border_left_color: Color4f::from_css_color_property(
+                &specified_style.border_left_color,
+                &specified_style.color,
+                &Color::Current,
+                parent_style.map(|s| Color::from(s.border_left_color)),
+            ),
+            border_top_style: specified_style
+                .border_top_style
+                .as_value_owned()
+                .unwrap_or_default(),
+            border_right_style: specified_style
+                .border_right_style
+                .as_value_owned()
+                .unwrap_or_default(),
+            border_bottom_style: specified_style
+                .border_bottom_style
+                .as_value_owned()
+                .unwrap_or_default(),
+            border_left_style: specified_style
+                .border_left_style
+                .as_value_owned()
+                .unwrap_or_default(),
+            border_top_width: specified_style
+                .border_top_width
+                .as_value_owned()
+                .unwrap_or_default()
+                .to_px(relative_ctx, absolute_ctx),
+            border_right_width: specified_style
+                .border_right_width
+                .as_value_owned()
+                .unwrap_or_default()
+                .to_px(relative_ctx, absolute_ctx),
+            border_bottom_width: specified_style
+                .border_bottom_width
+                .as_value_owned()
+                .unwrap_or_default()
+                .to_px(relative_ctx, absolute_ctx),
+            border_left_width: specified_style
+                .border_left_width
+                .as_value_owned()
+                .unwrap_or_default()
+                .to_px(relative_ctx, absolute_ctx),
+            color: Color4f::from_css_color_property(
+                &specified_style.color,
+                &CSSProperty::Value(Color::Named(NamedColor::Black)),
+                &Color::Named(NamedColor::Black),
+                parent_style.map(|s| Color::from(s.color)),
+            ),
+            display: specified_style.display.as_value_owned().unwrap_or_default(),
+            font_family: specified_style
+                .font_family
+                .as_value_owned()
+                .unwrap_or_else(|| FontFamily::new(&[FontFamilyName::Generic(GenericName::Serif)])),
+            font_size: specified_style
+                .font_size
+                .as_value_owned()
+                .unwrap_or_default()
+                .to_px(absolute_ctx, relative_ctx.parent_font_size),
+            font_weight: specified_style
+                .font_weight
+                .as_value_owned()
+                .unwrap_or_default() as u16,
+            height: specified_style.height.as_value_owned().unwrap_or_default(),
+            max_height: specified_style
+                .max_height
+                .as_value_owned()
+                .unwrap_or_default(),
+            line_height: specified_style
+                .line_height
+                .as_value_owned()
+                .unwrap_or_default(),
+            margin_top: specified_style
+                .margin_top
+                .as_value_owned()
+                .unwrap_or_default(),
+            margin_right: specified_style
+                .margin_right
+                .as_value_owned()
+                .unwrap_or_default(),
+            margin_bottom: specified_style
+                .margin_bottom
+                .as_value_owned()
+                .unwrap_or_default(),
+            margin_left: specified_style
+                .margin_left
+                .as_value_owned()
+                .unwrap_or_default(),
+            padding_top: specified_style
+                .padding_top
+                .as_value_owned()
+                .unwrap_or_default(),
+            padding_right: specified_style
+                .padding_right
+                .as_value_owned()
+                .unwrap_or_default(),
+            padding_bottom: specified_style
+                .padding_bottom
+                .as_value_owned()
+                .unwrap_or_default(),
+            padding_left: specified_style
+                .padding_left
+                .as_value_owned()
+                .unwrap_or_default(),
+            position: specified_style
+                .position
+                .as_value_owned()
+                .unwrap_or_default(),
+            text_align: specified_style
+                .text_align
+                .as_value_owned()
+                .unwrap_or_default(),
+            whitespace: specified_style
+                .whitespace
+                .as_value_owned()
+                .unwrap_or_default(),
+            width: specified_style.width.as_value_owned().unwrap_or_default(),
+            max_width: specified_style
+                .max_width
+                .as_value_owned()
+                .unwrap_or_default(),
+            writing_mode: specified_style
+                .writing_mode
+                .as_value_owned()
+                .unwrap_or_default(),
+            variables: specified_style.variables.clone(),
         }
-        computed_style.variables = merged_variables;
+    }
 
-        let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut computed_style, parent_style);
-
-        for (key, value) in properties {
-            let val = resolve_css_variable(&ctx.computed_style.variables, value.clone(), value);
-            let v = val.as_str();
-
-            match key {
-                Property::Known(prop) => match prop {
-                    KnownProperty::Background => handle_background_color(&mut ctx, v), // TODO: handle other background properties
-                    KnownProperty::BackgroundColor => handle_background_color(&mut ctx, v),
-                    KnownProperty::Border => handle_border(&mut ctx, v),
-                    KnownProperty::BorderBottomColor => handle_border_bottom_color(&mut ctx, v),
-                    KnownProperty::BorderBottomStyle => handle_border_bottom_style(&mut ctx, v),
-                    KnownProperty::BorderBottomWidth => handle_border_bottom_width(&mut ctx, v),
-                    KnownProperty::BorderLeftColor => handle_border_left_color(&mut ctx, v),
-                    KnownProperty::BorderLeftStyle => handle_border_left_style(&mut ctx, v),
-                    KnownProperty::BorderLeftWidth => handle_border_left_width(&mut ctx, v),
-                    KnownProperty::BorderRightColor => handle_border_right_color(&mut ctx, v),
-                    KnownProperty::BorderRightStyle => handle_border_right_style(&mut ctx, v),
-                    KnownProperty::BorderRightWidth => handle_border_right_width(&mut ctx, v),
-                    KnownProperty::BorderTopColor => handle_border_top_color(&mut ctx, v),
-                    KnownProperty::BorderTopStyle => handle_border_top_style(&mut ctx, v),
-                    KnownProperty::BorderTopWidth => handle_border_top_width(&mut ctx, v),
-                    KnownProperty::Color => handle_color(&mut ctx, v),
-                    KnownProperty::Display => handle_display(&mut ctx, v),
-                    KnownProperty::FontFamily => handle_font_family(&mut ctx, v),
-                    KnownProperty::FontSize => handle_font_size(&mut ctx, v),
-                    KnownProperty::FontWeight => handle_font_weight(&mut ctx, v),
-                    KnownProperty::Height => handle_height(&mut ctx, v),
-                    KnownProperty::LineHeight => handle_line_height(&mut ctx, v),
-                    KnownProperty::Margin => handle_margin(&mut ctx, v),
-                    KnownProperty::MarginBlock => handle_margin_block(&mut ctx, v),
-                    KnownProperty::MarginBlockEnd => handle_margin_block_end(&mut ctx, v),
-                    KnownProperty::MarginBlockStart => handle_margin_block_start(&mut ctx, v),
-                    KnownProperty::MarginBottom => handle_margin_bottom(&mut ctx, v),
-                    KnownProperty::MarginLeft => handle_margin_left(&mut ctx, v),
-                    KnownProperty::MarginRight => handle_margin_right(&mut ctx, v),
-                    KnownProperty::MarginTop => handle_margin_top(&mut ctx, v),
-                    KnownProperty::MaxHeight => handle_max_height(&mut ctx, v),
-                    KnownProperty::MaxWidth => handle_max_width(&mut ctx, v),
-                    KnownProperty::Padding => handle_padding(&mut ctx, v),
-                    KnownProperty::PaddingBlock => handle_padding_block(&mut ctx, v),
-                    KnownProperty::PaddingBlockEnd => handle_padding_block_end(&mut ctx, v),
-                    KnownProperty::PaddingBlockStart => handle_padding_block_start(&mut ctx, v),
-                    KnownProperty::PaddingBottom => handle_padding_bottom(&mut ctx, v),
-                    KnownProperty::PaddingLeft => handle_padding_left(&mut ctx, v),
-                    KnownProperty::PaddingRight => handle_padding_right(&mut ctx, v),
-                    KnownProperty::PaddingTop => handle_padding_top(&mut ctx, v),
-                    KnownProperty::Position => handle_position(&mut ctx, v),
-                    KnownProperty::TextAlign => handle_text_align(&mut ctx, v),
-                    KnownProperty::WhiteSpace => handle_whitespace(&mut ctx, v),
-                    KnownProperty::Width => handle_width(&mut ctx, v),
-                    KnownProperty::WritingMode => handle_writing_mode(&mut ctx, v),
-                    _ => {}
-                },
-                Property::Custom(_) => { /* Ignore custom properties here since they are already resolved */
-                }
-            }
+    fn update_relative_context(
+        absolute_ctx: &AbsoluteContext,
+        relative_ctx: &mut RelativeContext,
+        style: &SpecifiedStyle,
+    ) {
+        if let Some(font_size) = style.font_size.as_value_ref() {
+            relative_ctx.parent_font_size =
+                font_size.to_px(absolute_ctx, relative_ctx.parent_font_size);
         }
 
-        ctx.log_errors();
+        if let Some(height) = style.height.as_value_ref() {
+            relative_ctx.parent_height =
+                height.to_px(RelativeType::ParentHeight, relative_ctx, absolute_ctx);
+        }
 
-        computed_style
+        if let Some(width) = style.width.as_value_ref() {
+            relative_ctx.parent_width =
+                width.to_px(RelativeType::ParentWidth, relative_ctx, absolute_ctx);
+        }
     }
 
     /// Returns a subset of the ComputedStyle containing only inherited properties.
@@ -191,8 +270,7 @@ impl ComputedStyle {
         ComputedStyle {
             color: self.color,
             font_family: self.font_family.clone(),
-            font_size: self.font_size.clone(),
-            computed_font_size_px: self.computed_font_size_px,
+            font_size: self.font_size,
             line_height: self.line_height.clone(),
             text_align: self.text_align,
             font_weight: self.font_weight,
@@ -202,72 +280,53 @@ impl ComputedStyle {
             ..ComputedStyle::default()
         }
     }
-
-    pub fn set_margin_all(&mut self, value: OffsetValue) {
-        self.margin_top = value.clone().into();
-        self.margin_right = value.clone().into();
-        self.margin_bottom = value.clone().into();
-        self.margin_left = value.into();
-    }
-
-    pub fn set_padding_all(&mut self, value: OffsetValue) {
-        self.padding_top = value.clone().into();
-        self.padding_right = value.clone().into();
-        self.padding_bottom = value.clone().into();
-        self.padding_left = value.into();
-    }
 }
 
 impl Default for ComputedStyle {
     fn default() -> Self {
-        let black = Color::Named(NamedColor::Black);
-
-        ComputedStyle {
-            variables: Vec::with_capacity(32),
-            background_color: CSSProperty::from(Color::Transparent),
-            border_bottom_color: CSSProperty::from(black),
-            border_left_color: CSSProperty::from(black),
-            border_right_color: CSSProperty::from(black),
-            border_top_color: CSSProperty::from(black),
-            border_top_style: CSSProperty::from(BorderStyleValue::None),
-            border_right_style: CSSProperty::from(BorderStyleValue::None),
-            border_bottom_style: CSSProperty::from(BorderStyleValue::None),
-            border_left_style: CSSProperty::from(BorderStyleValue::None),
-            border_top_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
-            border_right_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
-            border_bottom_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
-            border_left_width: CSSProperty::from(BorderWidthValue::Length(Length::zero())),
-            color: CSSProperty::from(black),
-            display: CSSProperty::from(Display::new(
+        Self {
+            background_color: Color4f::new(0.0, 0.0, 0.0, 0.0),
+            border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            border_left_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            border_top_style: BorderStyleValue::None,
+            border_right_style: BorderStyleValue::None,
+            border_bottom_style: BorderStyleValue::None,
+            border_left_style: BorderStyleValue::None,
+            border_top_width: 0.0,
+            border_right_width: 0.0,
+            border_bottom_width: 0.0,
+            border_left_width: 0.0,
+            color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            display: Display::new(
                 Some(OutsideDisplay::Inline),
                 Some(InsideDisplay::Flow),
                 None,
                 None,
                 None,
-            )),
-            font_family: CSSProperty::from(FontFamily::new(&[FontFamilyName::Generic(
-                GenericName::Serif,
-            )])),
-            font_size: CSSProperty::from(FontSize::Absolute(AbsoluteSize::Medium)),
-            font_weight: CSSProperty::from(FontWeight::Normal),
-            computed_font_size_px: AbsoluteSize::Medium.to_px(),
-            height: CSSProperty::from(Dimension::Auto),
-            max_height: CSSProperty::from(MaxDimension::None),
-            line_height: CSSProperty::from(LineHeight::Normal),
-            margin_top: CSSProperty::from(OffsetValue::zero()),
-            margin_right: CSSProperty::from(OffsetValue::zero()),
-            margin_bottom: CSSProperty::from(OffsetValue::zero()),
-            margin_left: CSSProperty::from(OffsetValue::zero()),
-            padding_top: CSSProperty::from(OffsetValue::zero()),
-            padding_right: CSSProperty::from(OffsetValue::zero()),
-            padding_bottom: CSSProperty::from(OffsetValue::zero()),
-            padding_left: CSSProperty::from(OffsetValue::zero()),
-            position: CSSProperty::from(Position::Static),
-            text_align: CSSProperty::from(TextAlign::Left),
-            whitespace: CSSProperty::from(Whitespace::Normal),
-            width: CSSProperty::from(Dimension::Auto),
-            max_width: CSSProperty::from(MaxDimension::None),
-            writing_mode: CSSProperty::from(WritingMode::HorizontalTb),
+            ),
+            font_family: FontFamily::new(&[FontFamilyName::Generic(GenericName::Serif)]),
+            font_size: 16.0,
+            font_weight: 500,
+            height: Dimension::Auto,
+            max_height: MaxDimension::None,
+            line_height: LineHeight::Normal,
+            margin_top: OffsetValue::zero(),
+            margin_right: OffsetValue::zero(),
+            margin_bottom: OffsetValue::zero(),
+            margin_left: OffsetValue::zero(),
+            padding_top: OffsetValue::zero(),
+            padding_right: OffsetValue::zero(),
+            padding_bottom: OffsetValue::zero(),
+            padding_left: OffsetValue::zero(),
+            position: Position::Static,
+            text_align: TextAlign::Start,
+            whitespace: Whitespace::Normal,
+            width: Dimension::Auto,
+            max_width: MaxDimension::None,
+            writing_mode: WritingMode::HorizontalTb,
+            variables: Vec::new(),
         }
     }
 }

@@ -2,9 +2,12 @@ use std::str::FromStr;
 
 use crate::{
     color::{
+        Alpha, ColorValue,
         hex::HexColor,
         named::{NamedColor, SystemColor},
+        srgba::SRGBAColor,
     },
+    computed::color::Color4f,
     primitives::color::FunctionColor,
 };
 
@@ -21,6 +24,17 @@ pub enum Color {
 impl Default for Color {
     fn default() -> Self {
         Color::Named(NamedColor::Black)
+    }
+}
+
+impl From<Color4f> for Color {
+    fn from(color: Color4f) -> Self {
+        Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
+            ColorValue::Number(color.r * 255.0),
+            ColorValue::Number(color.g * 255.0),
+            ColorValue::Number(color.b * 255.0),
+            Alpha::new(color.a),
+        )))
     }
 }
 

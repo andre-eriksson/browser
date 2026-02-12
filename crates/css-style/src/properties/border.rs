@@ -5,7 +5,7 @@ use strum::EnumString;
 use crate::{
     calculate::CalcExpression,
     primitives::length::Length,
-    properties::{AbsoluteContext, RelativeContext, RelativeType, color::Color},
+    properties::{AbsoluteContext, RelativeContext, color::Color},
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,15 +50,14 @@ impl FromStr for BorderWidthValue {
 }
 
 impl BorderWidthValue {
-    pub fn to_px(
-        &self,
-        rel_type: RelativeType,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn px(value: f32) -> Self {
+        BorderWidthValue::Length(Length::px(value))
+    }
+
+    pub fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             BorderWidthValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
-            BorderWidthValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            BorderWidthValue::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
             BorderWidthValue::Thin => 1.0,
             BorderWidthValue::Medium => 3.0,
             BorderWidthValue::Thick => 5.0,
