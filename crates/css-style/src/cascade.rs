@@ -91,8 +91,7 @@ impl Ord for CascadeSpecificity {
 #[derive(Debug, Clone)]
 pub struct CascadedDeclaration {
     pub property: Property,
-    pub value: String,
-    pub original_values: Vec<ComponentValue>,
+    pub values: Vec<ComponentValue>,
     pub important: bool,
     pub specificity: CascadeSpecificity,
     pub source_order: usize,
@@ -103,8 +102,7 @@ impl CascadedDeclaration {
     pub fn from_inline(decl: &CSSDeclaration, order: usize) -> Self {
         CascadedDeclaration {
             property: decl.property.clone(),
-            value: decl.value.clone(),
-            original_values: decl.original_values.clone(),
+            values: decl.original_values.clone(),
             important: decl.important,
             specificity: CascadeSpecificity::inline(),
             source_order: order,
@@ -134,8 +132,7 @@ impl CascadedDeclaration {
                     if decl.property.is_custom() {
                         variables.push(CascadedDeclaration {
                             property: decl.property.clone(),
-                            value: String::new(),
-                            original_values: decl.original_values.clone(),
+                            values: decl.original_values.clone(),
                             important: decl.important,
                             specificity: CascadeSpecificity::from(rule.specificity),
                             source_order,
@@ -147,8 +144,7 @@ impl CascadedDeclaration {
 
                     declarations.push(CascadedDeclaration {
                         property: decl.property.clone(),
-                        value: decl.value.clone(),
-                        original_values: decl.original_values.clone(),
+                        values: decl.original_values.clone(),
                         important: decl.important,
                         specificity: CascadeSpecificity::from(rule.specificity),
                         source_order,
@@ -235,17 +231,17 @@ impl CascadedDeclaration {
     }
 }
 
-pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, String)> {
+pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, Vec<ComponentValue>)> {
     CascadedDeclaration::sort_declarations(declarations);
 
-    let mut cascaded_styles: Vec<(Property, String)> = Vec::with_capacity(32);
+    let mut cascaded_styles: Vec<(Property, Vec<ComponentValue>)> = Vec::with_capacity(32);
 
     for decl in declarations.iter() {
         if !cascaded_styles
             .iter()
             .any(|(prop, _)| prop == &decl.property)
         {
-            cascaded_styles.push((decl.property.clone(), decl.value.clone()));
+            cascaded_styles.push((decl.property.clone(), decl.values.clone()));
         }
     }
 
@@ -261,7 +257,7 @@ pub fn cascade_variables(
 
     for decl in declarations.iter() {
         if !cascaded_variables.contains_key(&decl.property) {
-            cascaded_variables.insert(decl.property.clone(), decl.original_values.clone());
+            cascaded_variables.insert(decl.property.clone(), decl.values.clone());
         }
     }
 

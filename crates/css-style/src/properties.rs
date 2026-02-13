@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use css_cssom::ComponentValue;
 
 use crate::{
     BorderStyle, BorderWidth, OffsetValue,
@@ -62,7 +62,7 @@ pub enum CSSProperty<T> {
     Global(Global),
 }
 
-impl<T: FromStr<Err = String>> CSSProperty<T> {
+impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
     pub fn as_value_owned(self) -> Option<T> {
         match self {
             CSSProperty::Value(val) => Some(val),
@@ -98,9 +98,11 @@ impl<T: FromStr<Err = String>> CSSProperty<T> {
         }
     }
 
-    pub fn update_property(property: &mut CSSProperty<T>, value: &str) -> Result<(), String> {
-        let new_value = value.parse::<CSSProperty<T>>()?;
-        *property = new_value;
+    pub fn update_property(
+        property: &mut CSSProperty<T>,
+        value: &[ComponentValue],
+    ) -> Result<(), String> {
+        *property = CSSProperty::from(T::try_from(value)?);
         Ok(())
     }
 
@@ -121,23 +123,6 @@ impl<T: FromStr<Err = String>> CSSProperty<T> {
 impl<T> From<T> for CSSProperty<T> {
     fn from(value: T) -> Self {
         CSSProperty::Value(value)
-    }
-}
-
-impl<T> FromStr for CSSProperty<T>
-where
-    T: FromStr<Err = String>,
-{
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(global) = s.parse::<Global>() {
-            Ok(CSSProperty::Global(global))
-        } else {
-            T::from_str(s)
-                .map(CSSProperty::Value)
-                .map_err(|e| format!("{:?}", e))
-        }
     }
 }
 
