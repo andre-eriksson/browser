@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
+
 use crate::{
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
@@ -50,6 +53,50 @@ impl Dimension {
     }
 }
 
+impl TryFrom<&[ComponentValue]> for Dimension {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("calc") {
+                        // return Ok(Dimension::Calc(CalcExpression::parse_function(func)?));
+                    }
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("auto") {
+                            return Ok(Dimension::Auto);
+                        } else if ident.eq_ignore_ascii_case("max-content") {
+                            return Ok(Dimension::MaxContent);
+                        } else if ident.eq_ignore_ascii_case("min-content") {
+                            return Ok(Dimension::MinContent);
+                        } else if ident.eq_ignore_ascii_case("fit-content") {
+                            return Ok(Dimension::FitContent(None)); // TODO: Fix?
+                        } else if ident.eq_ignore_ascii_case("stretch") {
+                            return Ok(Dimension::Stretch);
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(Dimension::Length(Length::new(value.value as f32, len_unit)));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        return Ok(Dimension::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err("No valid Dimension found in component values".to_string())
+    }
+}
+
 impl FromStr for Dimension {
     type Err = String;
 
@@ -95,6 +142,53 @@ pub enum MaxDimension {
     MinContent,
     FitContent(Option<Length>),
     Stretch,
+}
+
+impl TryFrom<&[ComponentValue]> for MaxDimension {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("calc") {
+                        // return Ok(MaxDimension::Calc(CalcExpression::parse_function(func)?));
+                    }
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("none") {
+                            return Ok(MaxDimension::None);
+                        } else if ident.eq_ignore_ascii_case("max-content") {
+                            return Ok(MaxDimension::MaxContent);
+                        } else if ident.eq_ignore_ascii_case("min-content") {
+                            return Ok(MaxDimension::MinContent);
+                        } else if ident.eq_ignore_ascii_case("fit-content") {
+                            return Ok(MaxDimension::FitContent(None)); // TODO: Fix?
+                        } else if ident.eq_ignore_ascii_case("stretch") {
+                            return Ok(MaxDimension::Stretch);
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(MaxDimension::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        return Ok(MaxDimension::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err("No valid MaxDimension found in component values".to_string())
+    }
 }
 
 impl FromStr for MaxDimension {
