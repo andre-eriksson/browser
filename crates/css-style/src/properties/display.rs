@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
+
 use crate::{
     display::ListItemDisplay,
     primitives::display::{BoxDisplay, InsideDisplay, InternalDisplay, OutsideDisplay},
@@ -108,6 +110,112 @@ impl From<BoxDisplay> for Display {
             list_item: None,
             internal: None,
             box_display: Some(box_display),
+        }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for Display {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        let parts: Vec<&str> = value
+            .iter()
+            .filter_map(|cv| match cv {
+                ComponentValue::Token(token) => Some(token),
+                _ => None,
+            })
+            .filter(|token| !matches!(token.kind, CssTokenKind::Whitespace))
+            .map(|token| match &token.kind {
+                CssTokenKind::Ident(ident) => Ok(ident.as_str()),
+                other => Err(format!("Unexpected token in display value: {:?}", other)),
+            })
+            .collect::<Result<_, _>>()?;
+
+        match parts.as_slice() {
+            ["inline"] => Ok(Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::Flow),
+                ..Default::default()
+            }),
+            ["inline-block"] => Ok(Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::FlowRoot),
+                ..Default::default()
+            }),
+            ["inline-table"] => Ok(Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::Table),
+                ..Default::default()
+            }),
+            ["inline-flex"] => Ok(Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::Flex),
+                ..Default::default()
+            }),
+            ["inline-grid"] => Ok(Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::Grid),
+                ..Default::default()
+            }),
+            ["block"] => Ok(Display {
+                outside: Some(OutsideDisplay::Block),
+                inside: Some(InsideDisplay::Flow),
+                ..Default::default()
+            }),
+            ["flow"] => Ok(Display::from(InsideDisplay::Flow)),
+            ["flow-root"] => Ok(Display::from(InsideDisplay::FlowRoot)),
+            ["table"] => Ok(Display::from(InsideDisplay::Table)),
+            ["flex"] => Ok(Display::from(InsideDisplay::Flex)),
+            ["grid"] => Ok(Display::from(InsideDisplay::Grid)),
+            ["ruby"] => Ok(Display::from(InsideDisplay::Ruby)),
+            ["list-item"] => Ok(Display::from(ListItemDisplay::ListItem)),
+            ["table-row-group"] => Ok(Display::from(InternalDisplay::TableRowGroup)),
+            ["table-header-group"] => Ok(Display::from(InternalDisplay::TableHeaderGroup)),
+            ["table-footer-group"] => Ok(Display::from(InternalDisplay::TableFooterGroup)),
+            ["table-row"] => Ok(Display::from(InternalDisplay::TableRow)),
+            ["table-cell"] => Ok(Display::from(InternalDisplay::TableCell)),
+            ["table-column-group"] => Ok(Display::from(InternalDisplay::TableColumnGroup)),
+            ["table-column"] => Ok(Display::from(InternalDisplay::TableColumn)),
+            ["table-caption"] => Ok(Display::from(InternalDisplay::TableCaption)),
+            ["ruby-base"] => Ok(Display::from(InternalDisplay::RubyBase)),
+            ["ruby-text"] => Ok(Display::from(InternalDisplay::RubyText)),
+            ["ruby-base-container"] => Ok(Display::from(InternalDisplay::RubyBaseContainer)),
+            ["ruby-text-container"] => Ok(Display::from(InternalDisplay::RubyTextContainer)),
+            ["contents"] => Ok(Display::from(BoxDisplay::Contents)),
+            ["none"] => Ok(Display::from(BoxDisplay::None)),
+            [outside, list_item_or_inside] => {
+                let outside = outside.parse()?;
+
+                if let Ok(list_item) = list_item_or_inside.parse::<ListItemDisplay>() {
+                    return Ok(Display {
+                        outside: Some(outside),
+                        inside: Some(InsideDisplay::Flow),
+                        list_item: Some(list_item),
+                        ..Default::default()
+                    });
+                }
+
+                let inside = list_item_or_inside.parse()?;
+
+                Ok(Display {
+                    outside: Some(outside),
+                    inside: Some(inside),
+                    ..Default::default()
+                })
+            }
+            [outside, inside, list_item] => {
+                let outside = outside.parse()?;
+                let inside = inside.parse()?;
+                let list_item = list_item.parse()?;
+
+                Ok(Display {
+                    outside: Some(outside),
+                    inside: Some(inside),
+                    list_item: Some(list_item),
+                    ..Default::default()
+                })
+            }
+            _ => Err(format!("Invalid display value: {:?}", parts)),
         }
     }
 }
