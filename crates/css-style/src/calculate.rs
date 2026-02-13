@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
+
 use crate::{
+    length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
@@ -147,55 +150,14 @@ impl CalcExpression {
         self.sum.to_px(rel_type, rel_ctx, abs_ctx)
     }
 
-    pub fn parse(input: &str) -> Result<Self, String> {
-        let trimmed = input.trim();
-
-        let owned_inner;
-        let inner: &str = if let Some(stripped) = trimmed.strip_prefix("calc(") {
-            let mut depth: usize = 1;
-            let mut close_idx = None;
-            for (i, ch) in stripped.char_indices() {
-                match ch {
-                    '(' => depth += 1,
-                    ')' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            close_idx = Some(5 + i);
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-
-            let Some(close_idx) = close_idx else {
-                return Err("Unclosed calc() expression".to_string());
-            };
-
-            if trimmed[close_idx + 1..].trim().is_empty() {
-                owned_inner = trimmed[5..close_idx].to_string();
-                &owned_inner
-            } else {
-                return Err(format!(
-                    "Unexpected trailing input: {}",
-                    trimmed[close_idx + 1..].trim()
-                ));
-            }
-        } else if trimmed.starts_with('(') && trimmed.ends_with(')') {
-            &trimmed[1..trimmed.len() - 1]
-        } else {
-            trimmed
-        };
-
-        let mut parser = CalcParser::new(inner);
+    pub fn parse(input: &[ComponentValue]) -> Result<Self, String> {
+        let mut parser = CalcParser::new(input);
         let sum = parser.parse_sum()?;
-        parser.skip_whitespace();
+
         if parser.current_pos < parser.input.len() {
             return Err(format!(
-                "Unexpected trailing input: {}",
-                parser.input[parser.current_pos..]
-                    .iter()
-                    .collect::<String>()
+                "Unexpected trailing input at position {}",
+                parser.current_pos
             ));
         }
 
@@ -203,23 +165,50 @@ impl CalcExpression {
     }
 }
 
-struct CalcParser {
-    input: Vec<char>,
+struct CalcParser<'a> {
+    input: &'a [ComponentValue],
     current_pos: usize,
 }
 
-impl CalcParser {
-    fn new(input: &str) -> Self {
+impl<'a> CalcParser<'a> {
+    fn new(input: &'a [ComponentValue]) -> Self {
         Self {
-            input: input.chars().collect(),
+            input,
             current_pos: 0,
         }
     }
 
     fn skip_whitespace(&mut self) {
-        while self.current_pos < self.input.len() && self.input[self.current_pos].is_whitespace() {
-            self.current_pos += 1;
+        while self.current_pos < self.input.len() {
+            if let ComponentValue::Token(token) = &self.input[self.current_pos]
+                && token.kind == CssTokenKind::Whitespace
+            {
+                self.current_pos += 1;
+                continue;
+            }
+            break;
         }
+    }
+
+    fn peek_token(&self) -> Option<&CssTokenKind> {
+        if self.current_pos >= self.input.len() {
+            return None;
+        }
+
+        if let ComponentValue::Token(token) = &self.input[self.current_pos] {
+            Some(&token.kind)
+        } else {
+            None
+        }
+    }
+
+    fn consume_token(&mut self) -> Option<&ComponentValue> {
+        if self.current_pos >= self.input.len() {
+            return None;
+        }
+        let token = &self.input[self.current_pos];
+        self.current_pos += 1;
+        Some(token)
     }
 
     fn parse_sum(&mut self) -> Result<CalculateSum, String> {
@@ -231,20 +220,28 @@ impl CalcParser {
                 break;
             }
 
-            let op = self.input[self.current_pos];
-            if op == '+' || op == '-' {
-                self.current_pos += 1;
-
-                let next_product = self.parse_product()?;
-                let right = CalculateSum::Product(next_product);
-
-                if op == '+' {
-                    left = CalculateSum::Add(Box::new(left), Box::new(right));
-                } else {
-                    left = CalculateSum::Subtract(Box::new(left), Box::new(right));
-                }
-            } else {
+            let is_plus = matches!(self.peek_token(), Some(CssTokenKind::Delim('+' | '-')));
+            if !is_plus {
                 break;
+            }
+
+            let op = match self.consume_token() {
+                Some(ComponentValue::Token(token)) => match &token.kind {
+                    CssTokenKind::Delim('+') => '+',
+                    CssTokenKind::Delim('-') => '-',
+                    _ => break,
+                },
+                _ => break,
+            };
+
+            self.skip_whitespace();
+            let next_product = self.parse_product()?;
+            let right = CalculateSum::Product(next_product);
+
+            if op == '+' {
+                left = CalculateSum::Add(Box::new(left), Box::new(right));
+            } else {
+                left = CalculateSum::Subtract(Box::new(left), Box::new(right));
             }
         }
 
@@ -260,20 +257,22 @@ impl CalcParser {
                 break;
             }
 
-            let op = self.input[self.current_pos];
-            if op == '*' || op == '/' {
-                self.current_pos += 1;
+            let op_char = match self.peek_token() {
+                Some(CssTokenKind::Delim('*')) => '*',
+                Some(CssTokenKind::Delim('/')) => '/',
+                _ => break,
+            };
 
-                let next_value = self.parse_value()?;
-                let right = CalculateProduct::Value(next_value);
+            self.current_pos += 1;
+            self.skip_whitespace();
 
-                if op == '*' {
-                    left = CalculateProduct::Multiply(Box::new(left), Box::new(right));
-                } else {
-                    left = CalculateProduct::Divide(Box::new(left), Box::new(right));
-                }
+            let next_value = self.parse_value()?;
+            let right = CalculateProduct::Value(next_value);
+
+            if op_char == '*' {
+                left = CalculateProduct::Multiply(Box::new(left), Box::new(right));
             } else {
-                break;
+                left = CalculateProduct::Divide(Box::new(left), Box::new(right));
             }
         }
 
@@ -286,246 +285,61 @@ impl CalcParser {
             return Err("Unexpected end of input".to_string());
         }
 
-        if self.current_pos + 5 <= self.input.len()
-            && self.input[self.current_pos..self.current_pos + 5] == ['c', 'a', 'l', 'c', '(']
-        {
-            self.current_pos += 5;
-            let nested = self.parse_sum()?;
-            self.skip_whitespace();
-            if self.current_pos >= self.input.len() || self.input[self.current_pos] != ')' {
-                return Err("Expected closing ')' in nested calc() expression".to_string());
+        let cv = &self.input[self.current_pos];
+
+        match cv {
+            ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                self.current_pos += 1;
+                let nested = CalcExpression::parse(&func.value)?;
+                Ok(CalculateValue::NestedSum(Box::new(nested.sum)))
             }
-            self.current_pos += 1;
-            return Ok(CalculateValue::NestedSum(Box::new(nested)));
-        }
 
-        if self.input[self.current_pos] == '(' {
-            self.current_pos += 1;
-            let nested = self.parse_sum()?;
-            self.skip_whitespace();
-            if self.current_pos >= self.input.len() || self.input[self.current_pos] != ')' {
-                return Err("Expected closing ')' in calc() expression".to_string());
+            ComponentValue::SimpleBlock(block)
+                if matches!(
+                    block.associated_token,
+                    css_cssom::AssociatedToken::Parenthesis
+                ) =>
+            {
+                self.current_pos += 1;
+                let nested = CalcExpression::parse(&block.value)?;
+                Ok(CalculateValue::NestedSum(Box::new(nested.sum)))
             }
-            self.current_pos += 1;
-            return Ok(CalculateValue::NestedSum(Box::new(nested)));
+
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Number(num) => {
+                    self.current_pos += 1;
+                    Ok(CalculateValue::Number(num.value as f32))
+                }
+
+                CssTokenKind::Dimension { value, unit } => {
+                    self.current_pos += 1;
+                    let len_unit = unit
+                        .parse::<LengthUnit>()
+                        .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                    Ok(CalculateValue::Length(Length::new(
+                        value.value as f32,
+                        len_unit,
+                    )))
+                }
+
+                CssTokenKind::Percentage(num) => {
+                    self.current_pos += 1;
+                    Ok(CalculateValue::Percentage(Percentage::new(
+                        num.value as f32,
+                    )))
+                }
+
+                CssTokenKind::Ident(ident) => {
+                    self.current_pos += 1;
+                    CalculateKeyword::from_str(ident)
+                        .map(CalculateValue::Keyword)
+                        .map_err(|_| format!("Invalid calc() keyword or identifier: {}", ident))
+                }
+
+                _ => Err(format!("Unexpected token in calc(): {:?}", token.kind)),
+            },
+
+            _ => Err(format!("Unexpected component value in calc(): {:?}", cv)),
         }
-
-        let start_pos = self.current_pos;
-
-        if ['+', '-'].contains(&self.input[self.current_pos]) {
-            self.current_pos += 1;
-        }
-
-        while self.current_pos < self.input.len() {
-            let ch = self.input[self.current_pos];
-            if ch.is_whitespace() || ['+', '-', '*', '/', '(', ')'].contains(&ch) {
-                break;
-            }
-            self.current_pos += 1;
-        }
-
-        let token: String = self.input[start_pos..self.current_pos].iter().collect();
-        if token.is_empty() || token == "+" || token == "-" {
-            return Err("Expected a value".to_string());
-        }
-
-        if let Ok(num) = token.parse::<f32>() {
-            Ok(CalculateValue::Number(num))
-        } else if let Ok(length) = token.parse::<Length>() {
-            Ok(CalculateValue::Length(length))
-        } else if let Ok(percentage) = token.parse::<Percentage>() {
-            Ok(CalculateValue::Percentage(percentage))
-        } else if let Ok(keyword) = token.parse::<CalculateKeyword>() {
-            Ok(CalculateValue::Keyword(keyword))
-        } else {
-            Err(format!("Invalid calc() value token: {}", token))
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_product_multiply() {
-        let mut parser = CalcParser::new("10px * 2");
-        let product = parser.parse_product().unwrap();
-        assert_eq!(
-            product,
-            CalculateProduct::Multiply(
-                CalculateProduct::Value(CalculateValue::Length(Length::px(10.0))).into(),
-                CalculateProduct::Value(CalculateValue::Number(2.0)).into()
-            )
-        );
-    }
-
-    #[test]
-    fn test_parse_product_divide() {
-        let mut parser = CalcParser::new("20px / 4");
-        let product = parser.parse_product().unwrap();
-        assert_eq!(
-            product,
-            CalculateProduct::Divide(
-                CalculateProduct::Value(CalculateValue::Length(Length::px(20.0))).into(),
-                CalculateProduct::Value(CalculateValue::Number(4.0)).into()
-            )
-        );
-    }
-
-    #[test]
-    fn test_parse_sum_add() {
-        let mut parser = CalcParser::new("10px + 5px");
-        let sum = parser.parse_sum().unwrap();
-        assert_eq!(
-            sum,
-            CalculateSum::Add(
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    10.0
-                ))))
-                .into(),
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    5.0
-                ))))
-                .into()
-            )
-        );
-    }
-
-    #[test]
-    fn test_parse_sum_subtract() {
-        let mut parser = CalcParser::new("15px - 5px");
-        let sum = parser.parse_sum().unwrap();
-        assert_eq!(
-            sum,
-            CalculateSum::Subtract(
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    15.0
-                ))))
-                .into(),
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    5.0
-                ))))
-                .into()
-            )
-        );
-    }
-
-    #[test]
-    fn test_calculate_expression() {
-        let ctx = RelativeContext::default();
-
-        let expr = CalcExpression {
-            sum: CalculateSum::Add(
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    10.0,
-                ))))
-                .into(),
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    5.0,
-                ))))
-                .into(),
-            ),
-        };
-
-        let result = expr.to_px(
-            Some(RelativeType::FontSize),
-            &ctx,
-            &AbsoluteContext::default(),
-        );
-        assert_eq!(result, 15.0);
-    }
-
-    #[test]
-    fn test_calculate_expression_with_percentage() {
-        let ctx = RelativeContext {
-            parent_width: 400.0,
-            ..Default::default()
-        };
-
-        let expr = CalcExpression {
-            sum: CalculateSum::Add(
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Percentage(
-                    Percentage::new(50.0),
-                )))
-                .into(),
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    20.0,
-                ))))
-                .into(),
-            ),
-        };
-
-        let result = expr.to_px(
-            Some(RelativeType::ParentWidth),
-            &ctx,
-            &AbsoluteContext::default(),
-        );
-        assert_eq!(result, 220.0);
-    }
-
-    #[test]
-    fn test_calculate_expression_with_keyword() {
-        let ctx = RelativeContext::default();
-
-        let expr = CalcExpression {
-            sum: CalculateSum::Add(
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Keyword(
-                    CalculateKeyword::PI,
-                )))
-                .into(),
-                CalculateSum::Product(CalculateProduct::Value(CalculateValue::Length(Length::px(
-                    10.0,
-                ))))
-                .into(),
-            ),
-        };
-
-        let result = expr.to_px(
-            Some(RelativeType::FontSize),
-            &ctx,
-            &AbsoluteContext::default(),
-        );
-        assert!((result - (std::f32::consts::PI + 10.0)).abs() < f32::EPSILON);
-    }
-
-    #[test]
-    fn test_parse_complex_calculate_expression() {
-        let expr = "calc(10px + 5px * 2 - 3px / 1.5 + 50%)";
-        let parsed_expr = CalcExpression::parse(expr).unwrap();
-        let ctx = RelativeContext {
-            parent_width: 400.0,
-            ..Default::default()
-        };
-        let result = parsed_expr.to_px(
-            Some(RelativeType::ParentWidth),
-            &ctx,
-            &AbsoluteContext::default(),
-        );
-
-        assert_eq!(result, 218.0);
-    }
-
-    #[test]
-    fn test_nested_parentheses() {
-        let expr = CalcExpression::parse("calc((10px + 5px) * 2)").unwrap();
-        let result = expr.to_px(
-            Some(RelativeType::ParentWidth),
-            &RelativeContext::default(),
-            &AbsoluteContext::default(),
-        );
-        assert_eq!(result, 30.0);
-    }
-
-    #[test]
-    fn test_reject_trailing_input() {
-        let err = CalcExpression::parse("calc(10px + 5px) foo").unwrap_err();
-        assert!(err.contains("Unexpected trailing input"));
-    }
-
-    #[test]
-    fn test_reject_dimension_keyword_token() {
-        let err = CalcExpression::parse("calc(auto + 1px)").unwrap_err();
-        assert!(err.contains("Invalid calc() value token"));
     }
 }

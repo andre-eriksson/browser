@@ -147,7 +147,9 @@ impl TryFrom<&[ComponentValue]> for LineHeight {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    // Handle calc() function
+                    return Ok(LineHeight::Calc(CalcExpression::parse(
+                        func.value.as_slice(),
+                    )?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => {

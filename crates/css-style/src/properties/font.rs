@@ -227,6 +227,13 @@ impl TryFrom<&[ComponentValue]> for FontSize {
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         for cv in value {
             match cv {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("calc") {
+                        return Ok(FontSize::Calc(CalcExpression::parse(
+                            func.value.as_slice(),
+                        )?));
+                    }
+                }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if let Ok(abs_size) = ident.parse() {
@@ -246,11 +253,6 @@ impl TryFrom<&[ComponentValue]> for FontSize {
                     }
                     _ => continue,
                 },
-                ComponentValue::Function(func) => {
-                    if func.name.eq_ignore_ascii_case("calc") {
-                        //return Ok(FontSize::Calc(CalcExpression::parse_function(func)?));
-                    }
-                }
                 _ => continue,
             }
         }

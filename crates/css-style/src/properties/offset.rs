@@ -66,8 +66,7 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
 
         match &value[0] {
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                //Ok(Self::Calc(CalcExpression::parse(func)?))
-                Err("Calc function parsing not implemented yet".to_string())
+                Ok(Self::Calc(CalcExpression::parse(func.value.as_slice())?))
             }
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Dimension { value, unit } => {
@@ -185,7 +184,9 @@ impl TryFrom<&[ComponentValue]> for Offset {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    //offset_values.push(OffsetValue::Calc(CalcExpression::parse(func)?));
+                    offset_values.push(OffsetValue::Calc(CalcExpression::parse(
+                        func.value.as_slice(),
+                    )?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {

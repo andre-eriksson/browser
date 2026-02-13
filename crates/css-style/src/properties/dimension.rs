@@ -59,7 +59,9 @@ impl TryFrom<&[ComponentValue]> for Dimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if func.name.eq_ignore_ascii_case("calc") {
-                        // return Ok(Dimension::Calc(CalcExpression::parse_function(func)?));
+                        return Ok(Dimension::Calc(CalcExpression::parse(
+                            func.value.as_slice(),
+                        )?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -116,7 +118,9 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if func.name.eq_ignore_ascii_case("calc") {
-                        // return Ok(MaxDimension::Calc(CalcExpression::parse_function(func)?));
+                        return Ok(MaxDimension::Calc(CalcExpression::parse(
+                            func.value.as_slice(),
+                        )?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
