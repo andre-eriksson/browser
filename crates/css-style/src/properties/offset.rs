@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
+
 use crate::{
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
@@ -48,6 +51,43 @@ impl OffsetValue {
             },
             OffsetValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             OffsetValue::Auto => 0.0,
+        }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for OffsetValue {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        if value.len() != 1 {
+            return Err(format!(
+                "Expected exactly one ComponentValue for OffsetValue, got {}",
+                value.len()
+            ));
+        }
+
+        match &value[0] {
+            ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                //Ok(Self::Calc(CalcExpression::parse(func)?))
+                Err("Calc function parsing not implemented yet".to_string())
+            }
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Dimension { value, unit } => {
+                    let len_unit = unit
+                        .parse::<LengthUnit>()
+                        .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                    Ok(Self::Length(Length::new(value.value as f32, len_unit)))
+                }
+                CssTokenKind::Percentage(pct) => {
+                    Ok(Self::Percentage(Percentage::new(pct.value as f32)))
+                }
+                CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
+                _ => Err(format!("Invalid token for OffsetValue: {:?}", token)),
+            },
+            _ => Err(format!(
+                "Invalid ComponentValue for OffsetValue: expected Function or Token, got {:?}",
+                value[0]
+            )),
         }
     }
 }
@@ -138,6 +178,70 @@ impl Offset {
     }
 }
 
+impl TryFrom<&[OffsetValue]> for Offset {
+    type Error = String;
+
+    fn try_from(values: &[OffsetValue]) -> Result<Self, Self::Error> {
+        match values.len() {
+            1 => Ok(Offset::all(values[0].clone())),
+            2 => Ok(Offset::two(values[0].clone(), values[1].clone())),
+            3 => Ok(Offset::three(
+                values[0].clone(),
+                values[1].clone(),
+                values[2].clone(),
+            )),
+            4 => Ok(Offset::new(
+                values[0].clone(),
+                values[1].clone(),
+                values[2].clone(),
+                values[3].clone(),
+            )),
+            _ => Err(format!(
+                "Invalid number of Offset values: expected 1-4, got {}",
+                values.len()
+            )),
+        }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for Offset {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        let mut offset_values = Vec::new();
+
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                    //offset_values.push(OffsetValue::Calc(CalcExpression::parse(func)?));
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        offset_values.push(OffsetValue::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        offset_values
+                            .push(OffsetValue::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
+                        offset_values.push(OffsetValue::Auto);
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Offset::try_from(offset_values.as_slice())
+    }
+}
+
 impl FromStr for Offset {
     type Err = String;
 
@@ -196,6 +300,8 @@ impl FromStr for Offset {
 
 #[cfg(test)]
 mod tests {
+    use css_cssom::CssParser;
+
     use super::*;
 
     #[test]
@@ -227,5 +333,13 @@ mod tests {
         );
 
         assert_eq!("auto".parse(), Ok(Offset::all(OffsetValue::Auto)))
+    }
+
+    #[test]
+    fn test_parse_cv() {
+        let mut parser = CssParser::new(None);
+        let stylesheet = parser.parse_css("* { border: 5% 2rem 20px; } ", false);
+        let border = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
+        dbg!(&stylesheet, border);
     }
 }
