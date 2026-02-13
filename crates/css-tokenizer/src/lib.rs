@@ -38,4 +38,4 @@ pub mod errors;
 // Re-exports
 pub use errors::SourcePosition;
 pub use tokenizer::CssTokenizer;
-pub use tokens::{CssToken, CssTokenKind, HashType, NumberType};
+pub use tokens::{CssToken, CssTokenKind, HashType, NumberType, NumericValue};

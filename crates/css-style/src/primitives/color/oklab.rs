@@ -2,6 +2,8 @@
 
 use std::str::FromStr;
 
+use css_cssom::ComponentValue;
+
 use crate::color::{Alpha, ColorValue, FunctionColor, Hue};
 
 /// Oklab and Oklch color representations as defined in CSS Color Module Level 4
@@ -22,6 +24,36 @@ pub enum Oklab {
     /// * H: Hue angle in degrees
     /// * alpha: Opacity (0.0 to 1.0)
     Oklch(ColorValue, ColorValue, Hue, Alpha),
+}
+
+impl TryFrom<&[ComponentValue]> for Oklab {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for val in value {
+            match val {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("oklab") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(l), Some(a), Some(b)] => Ok(Oklab::Oklab(l, a, b, raw.alpha)),
+                            _ => Err("Missing components in lab()".to_string()),
+                        };
+                    } else if func.name.eq_ignore_ascii_case("oklch") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(l), Some(c), Some(h)] => {
+                                Ok(Oklab::Oklch(l, c, Hue::from(h), raw.alpha))
+                            }
+                            _ => Err("Missing components in lch()".to_string()),
+                        };
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid oklab() or oklch() function found".to_string())
+    }
 }
 
 impl FromStr for Oklab {

@@ -1,6 +1,8 @@
 //! A module for handling percentage values in CSS styles.
 use std::str::FromStr;
 
+use crate::color::ColorValue;
+
 /// Percentage representation for CSS properties that accept percentage values, such as width, height, opacity, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Percentage {
@@ -31,6 +33,15 @@ impl Percentage {
     /// Get the percentage as a fraction (0.0 to 1.0)
     pub fn as_fraction(&self) -> f32 {
         self.value / 100.0
+    }
+}
+
+impl From<ColorValue> for Percentage {
+    fn from(value: ColorValue) -> Self {
+        match value {
+            ColorValue::Percentage(pct) => pct,
+            ColorValue::Number(num) => Self::from_fraction(num / 100.0),
+        }
     }
 }
 

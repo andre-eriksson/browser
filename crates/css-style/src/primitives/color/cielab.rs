@@ -2,6 +2,8 @@
 
 use std::str::FromStr;
 
+use css_cssom::ComponentValue;
+
 use crate::color::{Alpha, ColorValue, FunctionColor, Hue};
 
 /// CIELAB and CIELCH color representations as defined in CSS Color Module Level 4
@@ -22,6 +24,36 @@ pub enum Cielab {
     /// * H: Hue angle in degrees
     /// * alpha: Opacity (0.0 to 1.0)
     Lch(ColorValue, ColorValue, Hue, Alpha),
+}
+
+impl TryFrom<&[ComponentValue]> for Cielab {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for val in value {
+            match val {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("lab") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(l), Some(a), Some(b)] => Ok(Cielab::Lab(l, a, b, raw.alpha)),
+                            _ => Err("Missing components in lab()".to_string()),
+                        };
+                    } else if func.name.eq_ignore_ascii_case("lch") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(l), Some(c), Some(h)] => {
+                                Ok(Cielab::Lch(l, c, Hue::from(h), raw.alpha))
+                            }
+                            _ => Err("Missing components in lch()".to_string()),
+                        };
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid lab() or lch() function found".to_string())
+    }
 }
 
 impl FromStr for Cielab {
@@ -108,7 +140,10 @@ impl FromStr for Cielab {
 
 #[cfg(test)]
 mod tests {
+    use crate::percentage::Percentage;
+
     use super::*;
+    use css_cssom::CssParser;
 
     #[test]
     fn test_cielab_parsing() {
@@ -161,6 +196,38 @@ mod tests {
                 ColorValue::Number(40.0),
                 Hue(240.0),
                 Alpha(0.75)
+            )
+        );
+    }
+
+    #[test]
+    fn test_cielab_component_values() {
+        let mut parser = CssParser::new(None);
+        let stylesheet = parser.parse_css("* { color: lab(20.0, -30.0, 50.0); } ", false);
+        let color = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
+
+        let cielab = Cielab::try_from(&[color.clone()][..]).unwrap();
+        assert_eq!(
+            cielab,
+            Cielab::Lab(
+                ColorValue::Number(20.0),
+                ColorValue::Number(-30.0),
+                ColorValue::Number(50.0),
+                Alpha(1.0)
+            )
+        );
+
+        let stylesheet = parser.parse_css("* { color: lab(20.0% -30.0% 50.0% / 0.5); } ", false);
+        let color = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
+
+        let cielab = Cielab::try_from(&[color.clone()][..]).unwrap();
+        assert_eq!(
+            cielab,
+            Cielab::Lab(
+                ColorValue::Percentage(Percentage::new(20.0)),
+                ColorValue::Percentage(Percentage::new(-30.0)),
+                ColorValue::Percentage(Percentage::new(50.0)),
+                Alpha(0.5)
             )
         );
     }

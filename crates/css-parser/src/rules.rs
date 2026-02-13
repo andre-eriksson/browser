@@ -15,6 +15,16 @@ pub enum Rule {
     AtRule(AtRule),
 }
 
+impl Rule {
+    /// Get the qualified rule if this is a qualified rule, otherwise return None
+    pub fn as_qualified_rule(&self) -> Option<&QualifiedRule> {
+        match self {
+            Rule::QualifiedRule(qr) => Some(qr),
+            _ => None,
+        }
+    }
+}
+
 /// A qualified rule has a prelude and a block
 ///
 /// For style rules, the prelude is a selector and the block contains declarations.

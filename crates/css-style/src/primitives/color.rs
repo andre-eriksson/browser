@@ -7,6 +7,8 @@
 
 use std::{ops::RangeInclusive, str::FromStr};
 
+use css_cssom::{ComponentValue, CssTokenKind};
+
 use crate::{
     color::{cielab::Cielab, oklab::Oklab, srgba::SRGBAColor},
     primitives::{angle::Angle, percentage::Percentage},
@@ -28,6 +30,15 @@ impl Hue {
     /// Get the hue value as a floating-point number in degrees, normalized to the range [0, 360).
     pub fn value(&self) -> f32 {
         self.0.rem_euclid(360.0)
+    }
+}
+
+impl From<ColorValue> for Hue {
+    fn from(value: ColorValue) -> Self {
+        match value {
+            ColorValue::Number(n) => Hue(n),
+            ColorValue::Percentage(p) => Hue(p.as_fraction() * 360.0),
+        }
     }
 }
 
@@ -114,6 +125,39 @@ impl ColorValue {
     fn signed_lerp(fraction: f32, range: RangeInclusive<f32>) -> f32 {
         let t = (fraction.clamp(-1.0, 1.0) + 1.0) / 2.0;
         range.start() + t * (range.end() - range.start())
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for ColorValue {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Whitespace => continue,
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("none") {
+                            return Ok(ColorValue::Number(0.0));
+                        } else {
+                            return Err(format!("Invalid color value: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Percentage(percent) => {
+                        return Ok(ColorValue::Percentage(Percentage::new(
+                            percent.value as f32,
+                        )));
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(ColorValue::Number(num.value as f32));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err("No valid color value found".to_string())
     }
 }
 
@@ -209,7 +253,14 @@ pub enum FunctionColor {
     Oklab(Oklab),
 }
 
+struct RawColorComponents {
+    channels: [Option<ColorValue>; 3],
+    alpha: Alpha,
+}
+
 impl FunctionColor {
+    // TODO: Relative color syntax `color-function(from <origin> channel1 channel2 channel3)`
+
     fn tokenize_color(input: &str, prefix: &str) -> Option<Vec<String>> {
         let input = input.trim();
         if input.starts_with(prefix) && input.ends_with(')') {
@@ -224,6 +275,84 @@ impl FunctionColor {
         } else {
             None
         }
+    }
+
+    fn parse_color_components(values: &[ComponentValue]) -> Result<RawColorComponents, String> {
+        let mut channels = [None, None, None];
+        let mut channel_idx = 0;
+        let mut alpha = Alpha(1.0);
+        let mut parsing_alpha = false;
+
+        for arg in values {
+            match arg {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Whitespace => continue,
+                    CssTokenKind::Comma => continue,
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("none") {
+                            if parsing_alpha {
+                                alpha = Alpha(1.0);
+                            } else if channel_idx < 3 {
+                                channels[channel_idx] = Some(ColorValue::Number(0.0));
+                                channel_idx += 1;
+                            } else {
+                                return Err("Too many components in color function".to_string());
+                            }
+                        } else {
+                            return Err(format!("Invalid token in color function: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Delim('/') => {
+                        parsing_alpha = true;
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        if parsing_alpha {
+                            alpha = Alpha::from(Percentage::new(pct.value as f32));
+                        } else if channel_idx < 3 {
+                            channels[channel_idx] =
+                                Some(ColorValue::Percentage(Percentage::new(pct.value as f32)));
+                            channel_idx += 1;
+                        } else {
+                            return Err("Too many components in color function".to_string());
+                        }
+                    }
+                    CssTokenKind::Number(num) => {
+                        if parsing_alpha {
+                            alpha = Alpha::new(num.value as f32);
+                        } else if channel_idx < 3 {
+                            channels[channel_idx] = Some(ColorValue::Number(num.value as f32));
+                            channel_idx += 1;
+                        } else {
+                            return Err("Too many components in color function".to_string());
+                        }
+                    }
+                    _ => return Err(format!("Invalid token in color function: {:?}", token)),
+                },
+                _ => return Err("Unsupported component value in color function".to_string()),
+            }
+        }
+
+        Ok(RawColorComponents { channels, alpha })
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for FunctionColor {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        if let Ok(srgba) = value.try_into() {
+            return Ok(Self::Srgba(srgba));
+        }
+
+        if let Ok(cielab) = value.try_into() {
+            return Ok(Self::Cielab(cielab));
+        }
+
+        if let Ok(oklab) = value.try_into() {
+            return Ok(Self::Oklab(oklab));
+        }
+
+        Err("Invalid functional color format".to_string())
     }
 }
 

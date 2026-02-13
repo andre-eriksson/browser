@@ -1,5 +1,6 @@
 //! Named and system colors (e.g., "red", "blue", "LinkText", "CanvasText")
 
+use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 /// System colors defined in CSS specifications.
@@ -55,6 +56,26 @@ impl SystemColor {
             SystemColor::SelectedItem => Some("#3399FF"),
             SystemColor::SelectedItemText => Some("#FFFFFF"),
             SystemColor::VisitedText => Some("#800080"),
+        }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for SystemColor {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        if let Some(cv) = value.iter().next()
+            && let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+        {
+            ident
+                .parse()
+                .map_err(|_| format!("Invalid system color: '{}'", ident))
+        } else {
+            Err(format!(
+                "No valid system color token found in component values: {:?}",
+                value
+            ))
         }
     }
 }
@@ -652,6 +673,31 @@ impl NamedColor {
             NamedColor::Yellow => Some("#FFFF00"),
             NamedColor::YellowGreen => Some("#9ACD32"),
         }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for NamedColor {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        return ident
+                            .parse()
+                            .map_err(|_| format!("Invalid named color: '{}'", ident));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err(format!(
+            "No valid named color token found in component values: {:?}",
+            value
+        ))
     }
 }
 
