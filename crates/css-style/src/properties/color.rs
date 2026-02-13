@@ -42,8 +42,8 @@ impl TryFrom<&[ComponentValue]> for Color {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        match value.first() {
-            Some(ComponentValue::Token(token)) => match &token.kind {
+        if let Some(ComponentValue::Token(token)) = value.first() {
+            match &token.kind {
                 CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("currentColor") => {
                     return Ok(Self::Current);
                 }
@@ -51,8 +51,7 @@ impl TryFrom<&[ComponentValue]> for Color {
                     return Ok(Self::Transparent);
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
 
         if let Ok(hex_color) = value.try_into() {
