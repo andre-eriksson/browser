@@ -1,10 +1,12 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
     RelativeType,
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext},
 };
@@ -20,6 +22,26 @@ pub enum WritingMode {
     SidewaysLr,
 }
 
+impl TryFrom<&[ComponentValue]> for WritingMode {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(mode) = ident.parse()
+                    {
+                        return Ok(mode);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid writing-mode value found".to_string())
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum TextAlign {
@@ -31,6 +53,26 @@ pub enum TextAlign {
     Center,
     Justify,
     MatchParent,
+}
+
+impl TryFrom<&[ComponentValue]> for TextAlign {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(align) = ident.parse()
+                    {
+                        return Ok(align);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid text-align value found".to_string())
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -47,6 +89,26 @@ pub enum Whitespace {
     Wrap,
     BreakSpaces,
     Collapse,
+}
+
+impl TryFrom<&[ComponentValue]> for Whitespace {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(ws) = ident.parse()
+                    {
+                        return Ok(ws);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid whitespace value found".to_string())
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -77,6 +139,44 @@ impl LineHeight {
             LineHeight::Percentage(pct) => pct.as_fraction() * font_size_px,
             LineHeight::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for LineHeight {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                    // Handle calc() function
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => {
+                        return Ok(LineHeight::Normal);
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(LineHeight::Number(num.value as f32));
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(LineHeight::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        return Ok(LineHeight::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err("No valid line-height value found".to_string())
     }
 }
 
