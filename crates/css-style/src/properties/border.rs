@@ -1,15 +1,17 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::length::Length,
-    properties::{AbsoluteContext, RelativeContext, color::Color},
+    properties::{AbsoluteContext, RelativeContext},
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum BorderWidthValue {
+pub enum BorderWidth {
     Length(Length),
     Calc(CalcExpression),
     Thin,
@@ -17,109 +19,44 @@ pub enum BorderWidthValue {
     Thick,
 }
 
-impl Default for BorderWidthValue {
+impl Default for BorderWidth {
     fn default() -> Self {
-        BorderWidthValue::Length(Length::px(0.0))
+        BorderWidth::Length(Length::px(0.0))
     }
 }
 
-impl FromStr for BorderWidthValue {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for BorderWidth {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(BorderWidthValue::Calc(CalcExpression::parse(s)?))
-        } else if let Ok(num) = s.parse::<f32>()
-            && num == 0.0
-        {
-            Ok(BorderWidthValue::Length(Length::zero()))
-        } else if let Ok(length) = s.parse() {
-            Ok(BorderWidthValue::Length(length))
-        } else if s.eq_ignore_ascii_case("thin") {
-            Ok(BorderWidthValue::Thin)
-        } else if s.eq_ignore_ascii_case("medium") {
-            Ok(BorderWidthValue::Medium)
-        } else if s.eq_ignore_ascii_case("thick") {
-            Ok(BorderWidthValue::Thick)
-        } else {
-            Err(format!("Invalid border width value: {}", s))
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("thin") {
+                            return Ok(BorderWidth::Thin);
+                        } else if ident.eq_ignore_ascii_case("medium") {
+                            return Ok(BorderWidth::Medium);
+                        } else if ident.eq_ignore_ascii_case("thick") {
+                            return Ok(BorderWidth::Thick);
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(BorderWidth::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
         }
-    }
-}
 
-impl BorderWidthValue {
-    pub fn px(value: f32) -> Self {
-        BorderWidthValue::Length(Length::px(value))
-    }
-
-    pub fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
-        match self {
-            BorderWidthValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
-            BorderWidthValue::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
-            BorderWidthValue::Thin => 1.0,
-            BorderWidthValue::Medium => 3.0,
-            BorderWidthValue::Thick => 5.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct BorderWidth {
-    top: BorderWidthValue,
-    right: BorderWidthValue,
-    bottom: BorderWidthValue,
-    left: BorderWidthValue,
-}
-
-impl BorderWidth {
-    pub fn zero() -> Self {
-        Self {
-            top: BorderWidthValue::Length(Length::zero()),
-            right: BorderWidthValue::Length(Length::zero()),
-            bottom: BorderWidthValue::Length(Length::zero()),
-            left: BorderWidthValue::Length(Length::zero()),
-        }
-    }
-
-    pub fn new(
-        top: BorderWidthValue,
-        right: BorderWidthValue,
-        bottom: BorderWidthValue,
-        left: BorderWidthValue,
-    ) -> Self {
-        Self {
-            top,
-            right,
-            bottom,
-            left,
-        }
-    }
-
-    pub fn all(value: BorderWidthValue) -> Self {
-        Self {
-            top: value.clone(),
-            right: value.clone(),
-            bottom: value.clone(),
-            left: value,
-        }
-    }
-
-    pub fn top(&self) -> BorderWidthValue {
-        self.top.clone()
-    }
-
-    pub fn right(&self) -> BorderWidthValue {
-        self.right.clone()
-    }
-
-    pub fn bottom(&self) -> BorderWidthValue {
-        self.bottom.clone()
-    }
-
-    pub fn left(&self) -> BorderWidthValue {
-        self.left.clone()
+        Err("No valid BorderWidthValue found".to_string())
     }
 }
 
@@ -127,90 +64,47 @@ impl FromStr for BorderWidth {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = s.split_whitespace().collect::<Vec<&str>>();
+        let s = s.trim();
 
-        match parts.len() {
-            1 => {
-                let width = parts[0]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
+        if s.starts_with("calc(") {
+            Ok(BorderWidth::Calc(CalcExpression::parse(s)?))
+        } else if let Ok(num) = s.parse::<f32>()
+            && num == 0.0
+        {
+            Ok(BorderWidth::Length(Length::zero()))
+        } else if let Ok(length) = s.parse() {
+            Ok(BorderWidth::Length(length))
+        } else if s.eq_ignore_ascii_case("thin") {
+            Ok(BorderWidth::Thin)
+        } else if s.eq_ignore_ascii_case("medium") {
+            Ok(BorderWidth::Medium)
+        } else if s.eq_ignore_ascii_case("thick") {
+            Ok(BorderWidth::Thick)
+        } else {
+            Err(format!("Invalid border width value: {}", s))
+        }
+    }
+}
 
-                Ok(BorderWidth {
-                    top: width.clone(),
-                    right: width.clone(),
-                    bottom: width.clone(),
-                    left: width,
-                })
-            }
-            2 => {
-                let vertical = parts[0]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
-                let horizontal = parts[1]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
-                Ok(BorderWidth {
-                    top: vertical.clone(),
-                    right: horizontal.clone(),
-                    bottom: vertical,
-                    left: horizontal,
-                })
-            }
-            3 => {
-                let top = parts[0]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
-                let horizontal = parts[1]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
-                let bottom = parts[2]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[2]))?;
-                Ok(BorderWidth {
-                    top,
-                    right: horizontal.clone(),
-                    bottom,
-                    left: horizontal,
-                })
-            }
-            4 => {
-                let top = parts[0]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[0]))?;
-                let right = parts[1]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[1]))?;
-                let bottom = parts[2]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[2]))?;
-                let left = parts[3]
-                    .parse()
-                    .map(|v: BorderWidthValue| v)
-                    .map_err(|_| format!("Invalid border width: {}", parts[3]))?;
-                Ok(BorderWidth {
-                    top,
-                    right,
-                    bottom,
-                    left,
-                })
-            }
-            _ => Err("Invalid number of width values for BorderWidth".to_string()),
+impl BorderWidth {
+    pub fn px(value: f32) -> Self {
+        BorderWidth::Length(Length::px(value))
+    }
+
+    pub fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+        match self {
+            BorderWidth::Length(len) => len.to_px(rel_ctx, abs_ctx),
+            BorderWidth::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
+            BorderWidth::Thin => 1.0,
+            BorderWidth::Medium => 3.0,
+            BorderWidth::Thick => 5.0,
         }
     }
 }
 
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
-pub enum BorderStyleValue {
+pub enum BorderStyle {
     #[default]
     None,
     Hidden,
@@ -224,231 +118,22 @@ pub enum BorderStyleValue {
     Outset,
 }
 
-#[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
-pub struct BorderStyle {
-    top: BorderStyleValue,
-    right: BorderStyleValue,
-    bottom: BorderStyleValue,
-    left: BorderStyleValue,
-}
+impl TryFrom<&[ComponentValue]> for BorderStyle {
+    type Error = String;
 
-impl BorderStyle {
-    pub fn none() -> Self {
-        Self {
-            top: BorderStyleValue::None,
-            right: BorderStyleValue::None,
-            bottom: BorderStyleValue::None,
-            left: BorderStyleValue::None,
-        }
-    }
-
-    pub fn all(value: BorderStyleValue) -> Self {
-        Self {
-            top: value,
-            right: value,
-            bottom: value,
-            left: value,
-        }
-    }
-
-    pub fn top(&self) -> BorderStyleValue {
-        self.top
-    }
-
-    pub fn right(&self) -> BorderStyleValue {
-        self.right
-    }
-
-    pub fn bottom(&self) -> BorderStyleValue {
-        self.bottom
-    }
-
-    pub fn left(&self) -> BorderStyleValue {
-        self.left
-    }
-}
-
-impl FromStr for BorderStyle {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = s.split_whitespace().collect::<Vec<&str>>();
-
-        match parts.len() {
-            1 => {
-                let style = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
-
-                Ok(BorderStyle {
-                    top: style,
-                    right: style,
-                    bottom: style,
-                    left: style,
-                })
-            }
-            2 => {
-                let top_bottom = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
-                let left_right = parts[1]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[1]))?;
-                Ok(BorderStyle {
-                    top: top_bottom,
-                    right: left_right,
-                    bottom: top_bottom,
-                    left: left_right,
-                })
-            }
-            3 => {
-                let top = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
-                let left_right = parts[1]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[1]))?;
-                let bottom = parts[2]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[2]))?;
-                Ok(BorderStyle {
-                    top,
-                    right: left_right,
-                    bottom,
-                    left: left_right,
-                })
-            }
-            4 => {
-                let top = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[0]))?;
-                let right = parts[1]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[1]))?;
-                let bottom = parts[2]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[2]))?;
-                let left = parts[3]
-                    .parse()
-                    .map_err(|_| format!("Invalid border style: {}", parts[3]))?;
-                Ok(BorderStyle {
-                    top,
-                    right,
-                    bottom,
-                    left,
-                })
-            }
-            _ => Err("Invalid number of style values for BorderStyle".to_string()),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct BorderColor {
-    top: Color,
-    right: Color,
-    bottom: Color,
-    left: Color,
-}
-
-impl BorderColor {
-    pub fn all(value: Color) -> Self {
-        Self {
-            top: value,
-            right: value,
-            bottom: value,
-            left: value,
-        }
-    }
-
-    pub fn top(&self) -> &Color {
-        &self.top
-    }
-
-    pub fn right(&self) -> &Color {
-        &self.right
-    }
-
-    pub fn bottom(&self) -> &Color {
-        &self.bottom
-    }
-
-    pub fn left(&self) -> &Color {
-        &self.left
-    }
-}
-
-impl FromStr for BorderColor {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = s.split_whitespace().collect::<Vec<&str>>();
-
-        match parts.len() {
-            1 => {
-                let color = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[0]))?;
-
-                Ok(BorderColor {
-                    top: color,
-                    right: color,
-                    bottom: color,
-                    left: color,
-                })
-            }
-            2 => {
-                let top_bottom = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[0]))?;
-                let left_right = parts[1]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[1]))?;
-                Ok(BorderColor {
-                    top: top_bottom,
-                    right: left_right,
-                    bottom: top_bottom,
-                    left: left_right,
-                })
-            }
-            3 => {
-                let top = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[0]))?;
-                let left_right = parts[1]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[1]))?;
-                let bottom = parts[2]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[2]))?;
-                Ok(BorderColor {
-                    top,
-                    right: left_right,
-                    bottom,
-                    left: left_right,
-                })
-            }
-            4 => {
-                let top = parts[0]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[0]))?;
-                let right = parts[1]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[1]))?;
-                let bottom = parts[2]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[2]))?;
-                let left = parts[3]
-                    .parse()
-                    .map_err(|_| format!("Invalid color: {}", parts[3]))?;
-                Ok(BorderColor {
-                    top,
-                    right,
-                    bottom,
-                    left,
-                })
-            }
-            _ => Err("Invalid number of color values for BorderColor".to_string()),
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        if let Some(cv) = value.iter().next()
+            && let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+        {
+            ident
+                .parse()
+                .map_err(|_| format!("Invalid named color: '{}'", ident))
+        } else {
+            Err(format!(
+                "No valid named color token found in component values: {:?}",
+                value
+            ))
         }
     }
 }

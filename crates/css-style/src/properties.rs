@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{
-    BorderStyleValue, BorderWidthValue, OffsetValue,
+    BorderStyle, BorderWidth, OffsetValue,
     primitives::global::Global,
     properties::{
         color::Color,
@@ -142,8 +142,8 @@ where
 }
 
 // Border
-pub type BorderWidthValueProperty = CSSProperty<BorderWidthValue>;
-pub type BorderStyleValueProperty = CSSProperty<BorderStyleValue>;
+pub type BorderWidthValueProperty = CSSProperty<BorderWidth>;
+pub type BorderStyleValueProperty = CSSProperty<BorderStyle>;
 
 // Color
 pub type ColorProperty = CSSProperty<Color>;

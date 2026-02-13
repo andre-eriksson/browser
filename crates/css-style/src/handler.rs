@@ -4,7 +4,7 @@ use crate::calculate::CalcExpression;
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::specified::SpecifiedStyle;
-use crate::{BorderStyleValue, BorderWidthValue, Color, OffsetValue, RelativeContext};
+use crate::{BorderStyle, BorderWidth, Color, OffsetValue, RelativeContext};
 
 pub struct PropertyUpdateContext<'a> {
     pub absolute_ctx: &'a AbsoluteContext,
@@ -547,7 +547,7 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
                 &mut ctx.specified_style.border_bottom_style,
                 &mut ctx.specified_style.border_left_style,
             ],
-            BorderStyleValue::None.into(),
+            BorderStyle::None.into(),
         );
         return;
     }
@@ -555,7 +555,7 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
     let parts = split_top_level_whitespace(value);
 
     for part in parts {
-        if let Ok(width) = part.parse::<BorderWidthValue>() {
+        if let Ok(width) = part.parse::<BorderWidth>() {
             CSSProperty::update_multiple(
                 &mut [
                     &mut ctx.specified_style.border_top_width,
@@ -567,7 +567,7 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
             );
         }
 
-        if let Ok(style) = part.parse::<BorderStyleValue>() {
+        if let Ok(style) = part.parse::<BorderStyle>() {
             CSSProperty::update_multiple(
                 &mut [
                     &mut ctx.specified_style.border_top_style,
@@ -868,7 +868,7 @@ mod tests {
     use css_cssom::{CssToken, Function};
 
     use super::*;
-    use crate::{BorderStyleValue, BorderWidthValue};
+    use crate::{BorderStyle, BorderWidth};
 
     #[test]
     fn test_split_top_level_whitespace_preserves_functions() {
@@ -894,11 +894,11 @@ mod tests {
         assert!(ctx.errors.is_empty());
         assert_eq!(
             CSSProperty::resolve(&ctx.specified_style.border_top_style),
-            Ok(&BorderStyleValue::Solid)
+            Ok(&BorderStyle::Solid)
         );
         assert!(matches!(
             CSSProperty::resolve(&ctx.specified_style.border_top_width),
-            Ok(BorderWidthValue::Calc(_))
+            Ok(BorderWidth::Calc(_))
         ));
     }
 
