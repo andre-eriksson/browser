@@ -1,8 +1,11 @@
 use std::str::FromStr;
 
+use css_cssom::{ComponentValue, CssTokenKind};
+
 use crate::{
     RelativeType,
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::{
         font::{AbsoluteSize, GenericName, RelativeSize},
         length::Length,
@@ -41,6 +44,35 @@ impl TryFrom<u16> for FontWeight {
             900 => Ok(FontWeight::Black),
             _ => Err(format!("Invalid font weight numeric value: {}", value)),
         }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for FontWeight {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("normal") {
+                            return Ok(FontWeight::Normal);
+                        } else if ident.eq_ignore_ascii_case("bold") {
+                            return Ok(FontWeight::Bold);
+                        }
+                    }
+                    CssTokenKind::Number(num) => {
+                        if let Ok(weight) = FontWeight::try_from(num.value as u16) {
+                            return Ok(weight);
+                        }
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err(format!("Invalid font weight value: {:?}", value))
     }
 }
 
@@ -96,6 +128,39 @@ impl FontFamily {
 
     pub fn names(&self) -> &Vec<FontFamilyName> {
         &self.names
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for FontFamily {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        let mut names = Vec::with_capacity(4);
+
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if let Ok(generic) = ident.parse() {
+                            names.push(FontFamilyName::Generic(generic));
+                        } else {
+                            names.push(FontFamilyName::Specific(ident.to_string()));
+                        }
+                    }
+                    CssTokenKind::String(s) => {
+                        names.push(FontFamilyName::Specific(s.clone()));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        if names.is_empty() {
+            Err("No valid font family names found".to_string())
+        } else {
+            Ok(FontFamily { names })
+        }
     }
 }
 
@@ -156,6 +221,44 @@ impl FontSize {
     }
 }
 
+impl TryFrom<&[ComponentValue]> for FontSize {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if let Ok(abs_size) = ident.parse() {
+                            return Ok(FontSize::Absolute(abs_size));
+                        } else if let Ok(rel_size) = ident.parse() {
+                            return Ok(FontSize::Relative(rel_size));
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(FontSize::Length(Length::new(value.value as f32, len_unit)));
+                    }
+                    CssTokenKind::Percentage(num) => {
+                        return Ok(FontSize::Percentage(Percentage::new(num.value as f32)));
+                    }
+                    _ => continue,
+                },
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("calc") {
+                        //return Ok(FontSize::Calc(CalcExpression::parse_function(func)?));
+                    }
+                }
+                _ => continue,
+            }
+        }
+
+        Err(format!("Invalid font size value: {:?}", value))
+    }
+}
+
 impl FromStr for FontSize {
     type Err = String;
 
@@ -180,6 +283,8 @@ impl FromStr for FontSize {
 
 #[cfg(test)]
 mod tests {
+    use css_cssom::CssParser;
+
     use crate::primitives::font::GenericName;
 
     use super::*;
@@ -217,5 +322,13 @@ mod tests {
             "150%".parse(),
             Ok(FontSize::Percentage(Percentage::new(150.0)))
         );
+    }
+
+    #[test]
+    fn test_font_family_cv() {
+        let mut parser = CssParser::new(None);
+        let stylesheet = parser.parse_css("* { font-family: \"Georgia\", serif; } ", false);
+
+        dbg!(stylesheet);
     }
 }
