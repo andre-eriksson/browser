@@ -288,13 +288,13 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Ident(ident) => {
-                    if let Ok(w) = ident.parse::<BorderWidth>()
+                    if let Ok(w) = BorderWidth::try_from(value)
                         && width.is_none()
                     {
                         width = Some(w);
                     } else if let Ok(s) = ident.parse::<BorderStyle>() {
                         style = Some(s);
-                    } else if let Ok(c) = ident.parse::<Color>() {
+                    } else if let Ok(c) = Color::try_from(value) {
                         color = Some(c);
                     }
                 }

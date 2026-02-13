@@ -1,7 +1,5 @@
 //! Defines the `Length` struct and related types for representing CSS length values.
 
-use std::str::FromStr;
-
 use strum::EnumString;
 
 use crate::properties::{AbsoluteContext, RelativeContext};
@@ -259,38 +257,7 @@ impl Length {
     }
 }
 
-impl FromStr for Length {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-        let split_idx = s.find(|c: char| c.is_alphabetic()).unwrap_or(s.len());
-        let (value_str, unit_str) = s.split_at(split_idx);
-
-        let value = value_str.trim().parse::<f32>().map_err(|e| e.to_string())?;
-        let unit = unit_str
-            .parse::<LengthUnit>()
-            .map_err(|_| format!("Invalid length unit: {}", unit_str))?;
-
-        Ok(Self::new(value, unit))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_length_parse() {
-        let length = "12px".parse::<Length>().unwrap();
-        assert_eq!(length.value, 12.0);
-        assert_eq!(length.unit, LengthUnit::Px);
-
-        let length = "5.5em".parse::<Length>().unwrap();
-        assert_eq!(length.value, 5.5);
-        assert_eq!(length.unit, LengthUnit::Em);
-
-        let length = "100%".parse::<Length>();
-        assert!(length.is_err());
-    }
 }

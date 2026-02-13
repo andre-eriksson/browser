@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
@@ -180,28 +178,6 @@ impl TryFrom<&[ComponentValue]> for LineHeight {
     }
 }
 
-impl FromStr for LineHeight {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(Self::Calc(CalcExpression::parse(s)?))
-        } else if s.eq_ignore_ascii_case("normal") {
-            Ok(Self::Normal)
-        } else if let Ok(number) = s.parse::<f32>() {
-            Ok(Self::Number(number))
-        } else if let Ok(length) = s.parse() {
-            Ok(Self::Length(length))
-        } else if let Ok(percentage) = s.parse() {
-            Ok(Self::Percentage(percentage))
-        } else {
-            Err(format!("Invalid line-height value: {}", s))
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,17 +192,5 @@ mod tests {
         assert_eq!("justify".parse(), Ok(TextAlign::Justify));
         assert_eq!("match-parent".parse(), Ok(TextAlign::MatchParent));
         assert!("unknown".parse::<TextAlign>().is_err());
-    }
-
-    #[test]
-    fn test_parse_line_height() {
-        assert_eq!("normal".parse(), Ok(LineHeight::Normal));
-        assert_eq!("1.5".parse(), Ok(LineHeight::Number(1.5)));
-        assert_eq!("20px".parse(), Ok(LineHeight::px(20.0)));
-        assert_eq!(
-            "150%".parse(),
-            Ok(LineHeight::Percentage(Percentage::new(150.0)))
-        );
-        assert!("unknown".parse::<LineHeight>().is_err());
     }
 }

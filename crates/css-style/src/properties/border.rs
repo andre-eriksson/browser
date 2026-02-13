@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
@@ -57,32 +55,6 @@ impl TryFrom<&[ComponentValue]> for BorderWidth {
         }
 
         Err("No valid BorderWidthValue found".to_string())
-    }
-}
-
-impl FromStr for BorderWidth {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(BorderWidth::Calc(CalcExpression::parse(s)?))
-        } else if let Ok(num) = s.parse::<f32>()
-            && num == 0.0
-        {
-            Ok(BorderWidth::Length(Length::zero()))
-        } else if let Ok(length) = s.parse() {
-            Ok(BorderWidth::Length(length))
-        } else if s.eq_ignore_ascii_case("thin") {
-            Ok(BorderWidth::Thin)
-        } else if s.eq_ignore_ascii_case("medium") {
-            Ok(BorderWidth::Medium)
-        } else if s.eq_ignore_ascii_case("thick") {
-            Ok(BorderWidth::Thick)
-        } else {
-            Err(format!("Invalid border width value: {}", s))
-        }
     }
 }
 

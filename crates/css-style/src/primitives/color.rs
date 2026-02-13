@@ -5,7 +5,7 @@
 //!
 //! <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/color_value>
 
-use std::{ops::RangeInclusive, str::FromStr};
+use std::ops::RangeInclusive;
 
 use css_cssom::{ComponentValue, CssTokenKind};
 
@@ -45,20 +45,6 @@ impl From<ColorValue> for Hue {
 impl From<f32> for Hue {
     fn from(value: f32) -> Self {
         Hue(value)
-    }
-}
-
-impl FromStr for Hue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-        if let Ok(angle) = s.parse::<Angle>() {
-            Ok(Hue::from(angle))
-        } else {
-            let number = s.parse::<f32>().map_err(|e| e.to_string())?;
-            Ok(Hue(number))
-        }
     }
 }
 
@@ -167,24 +153,6 @@ impl From<f32> for ColorValue {
     }
 }
 
-impl FromStr for ColorValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("none") {
-            Ok(ColorValue::Number(0.0))
-        } else if s.ends_with('%') {
-            Ok(ColorValue::Percentage(s.parse::<Percentage>()?))
-        } else {
-            Ok(ColorValue::Number(
-                s.parse::<f32>().map_err(|e| e.to_string())?,
-            ))
-        }
-    }
-}
-
 /// Alpha can be specified as a number (e.g., "0.5"), a percentage (e.g., "50%"), or "none" (which is treated as 1.0).
 ///
 /// Always in the range [0.0, 1.0]
@@ -200,24 +168,6 @@ impl Alpha {
     /// Get the alpha value as a floating-point number in the range [0.0, 1.0].
     pub fn value(&self) -> f32 {
         self.0.clamp(0.0, 1.0)
-    }
-}
-
-impl FromStr for Alpha {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("none") {
-            Ok(Alpha(1.0))
-        } else if s.ends_with('%') {
-            let percentage = s.parse::<Percentage>()?;
-            Ok(Alpha::from(percentage))
-        } else {
-            let number = s.parse::<f32>().map_err(|e| e.to_string())?;
-            Ok(Alpha(number))
-        }
     }
 }
 
@@ -260,22 +210,6 @@ struct RawColorComponents {
 
 impl FunctionColor {
     // TODO: Relative color syntax `color-function(from <origin> channel1 channel2 channel3)`
-
-    fn tokenize_color(input: &str, prefix: &str) -> Option<Vec<String>> {
-        let input = input.trim();
-        if input.starts_with(prefix) && input.ends_with(')') {
-            let content = &input[prefix.len()..input.len() - 1];
-            Some(
-                content
-                    .replace([',', '/'], " ")
-                    .split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect(),
-            )
-        } else {
-            None
-        }
-    }
 
     fn parse_color_components(values: &[ComponentValue]) -> Result<RawColorComponents, String> {
         let mut channels = [None, None, None];
@@ -356,81 +290,7 @@ impl TryFrom<&[ComponentValue]> for FunctionColor {
     }
 }
 
-impl FromStr for FunctionColor {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(srgba) = s.parse::<SRGBAColor>() {
-            return Ok(Self::Srgba(srgba));
-        }
-
-        if let Ok(cielab) = s.parse::<Cielab>() {
-            return Ok(Self::Cielab(cielab));
-        }
-
-        if let Ok(oklab) = s.parse::<Oklab>() {
-            return Ok(Self::Oklab(oklab));
-        }
-
-        Err(format!("'{}', Invalid functional color format", s))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_tokenize_color() {
-        let input = "rgb(255, 0, 0)";
-        let tokens = FunctionColor::tokenize_color(input, "rgb(").unwrap();
-        assert_eq!(tokens, vec!["255", "0", "0"]);
-
-        let input = "rgba(255 0 0 / 0.5)";
-        let tokens = FunctionColor::tokenize_color(input, "rgba(").unwrap();
-        assert_eq!(tokens, vec!["255", "0", "0", "0.5"]);
-
-        let input = "hsl(120, 100%, 50%)";
-        let tokens = FunctionColor::tokenize_color(input, "hsl(").unwrap();
-        assert_eq!(tokens, vec!["120", "100%", "50%"]);
-    }
-
-    #[test]
-    fn test_function_color_parsing() {
-        let color = "rgb(255, 0, 0)".parse::<FunctionColor>().unwrap();
-        assert!(matches!(color, FunctionColor::Srgba(_)));
-
-        let color = "lab(50, 20, -30)".parse::<FunctionColor>().unwrap();
-        assert!(matches!(color, FunctionColor::Cielab(_)));
-
-        let color = "oklab(0.5, 0.1, -0.1)".parse::<FunctionColor>().unwrap();
-        assert!(matches!(color, FunctionColor::Oklab(_)));
-    }
-
-    #[test]
-    fn test_color_value_parsing() {
-        let value = "50".parse::<ColorValue>().unwrap();
-        assert_eq!(value, ColorValue::Number(50.0));
-
-        let value = "50%".parse::<ColorValue>().unwrap();
-        assert_eq!(value, ColorValue::Percentage(Percentage::new(50.0)));
-
-        let value = "none".parse::<ColorValue>().unwrap();
-        assert_eq!(value, ColorValue::Number(0.0));
-    }
-
-    #[test]
-    fn test_color_value_range() {
-        let value = ColorValue::Number(300.0);
-        assert_eq!(value.value(0.0..=255.0, Fraction::Unsigned), 255.0);
-
-        let value = ColorValue::Number(-10.0);
-        assert_eq!(value.value(0.0..=255.0, Fraction::Unsigned), 0.0);
-
-        let value = ColorValue::Percentage(Percentage::new(50.0));
-        assert_eq!(value.value(0.0..=255.0, Fraction::Unsigned), 127.5);
-
-        let value = ColorValue::Percentage(Percentage::new(-50.0));
-        assert_eq!(value.value(0.0..=255.0, Fraction::Signed), 63.75);
-    }
 }

@@ -259,28 +259,6 @@ impl TryFrom<&[ComponentValue]> for FontSize {
     }
 }
 
-impl FromStr for FontSize {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(FontSize::Calc(CalcExpression::parse(s)?))
-        } else if let Ok(abs_size) = s.parse() {
-            Ok(FontSize::Absolute(abs_size))
-        } else if let Ok(rel_size) = s.parse() {
-            Ok(FontSize::Relative(rel_size))
-        } else if s.ends_with('%') {
-            Ok(FontSize::Percentage(s.parse()?))
-        } else if let Ok(length) = s.parse() {
-            Ok(FontSize::Length(length))
-        } else {
-            Err(format!("Invalid font size value: {}", s))
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use css_cssom::CssParser;
@@ -304,24 +282,6 @@ mod tests {
             FontFamilyName::Specific("Times New Roman".to_string())
         );
         assert_eq!(family.names[2], FontFamilyName::Generic(GenericName::Serif));
-    }
-
-    #[test]
-    fn test_font_size_parse() {
-        assert_eq!(
-            "medium".parse(),
-            Ok(FontSize::Absolute(AbsoluteSize::Medium))
-        );
-
-        assert_eq!(
-            "larger".parse(),
-            Ok(FontSize::Relative(RelativeSize::Larger))
-        );
-        assert_eq!("16px".parse(), Ok(FontSize::px(16.0)));
-        assert_eq!(
-            "150%".parse(),
-            Ok(FontSize::Percentage(Percentage::new(150.0)))
-        );
     }
 
     #[test]

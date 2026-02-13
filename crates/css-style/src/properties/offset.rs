@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
@@ -88,32 +86,6 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
                 "Invalid ComponentValue for OffsetValue: expected Function or Token, got {:?}",
                 value[0]
             )),
-        }
-    }
-}
-
-impl FromStr for OffsetValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(Self::Calc(CalcExpression::parse(s)?))
-        } else if let Ok(num) = s.parse::<f32>()
-            && num == 0.0
-        {
-            Ok(Self::zero())
-        } else if s.contains('%')
-            && let Ok(percentage) = s.parse()
-        {
-            Ok(Self::Percentage(percentage))
-        } else if let Ok(length) = s.parse() {
-            Ok(Self::Length(length))
-        } else if s.eq_ignore_ascii_case("auto") {
-            Ok(Self::Auto)
-        } else {
-            Err(format!("Invalid OffsetValue: {}", s))
         }
     }
 }
@@ -242,98 +214,11 @@ impl TryFrom<&[ComponentValue]> for Offset {
     }
 }
 
-impl FromStr for Offset {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split_whitespace().collect();
-        match parts.len() {
-            1 => {
-                let value = parts[0].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top: value.clone(),
-                    right: value.clone(),
-                    bottom: value.clone(),
-                    left: value,
-                })
-            }
-            2 => {
-                let vertical = parts[0].parse::<OffsetValue>()?;
-                let horizontal = parts[1].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top: vertical.clone(),
-                    right: horizontal.clone(),
-                    bottom: vertical,
-                    left: horizontal,
-                })
-            }
-            3 => {
-                let top = parts[0].parse::<OffsetValue>()?;
-                let horizontal = parts[1].parse::<OffsetValue>()?;
-                let bottom = parts[2].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top,
-                    right: horizontal.clone(),
-                    bottom,
-                    left: horizontal,
-                })
-            }
-            4 => {
-                let top = parts[0].parse::<OffsetValue>()?;
-                let right = parts[1].parse::<OffsetValue>()?;
-                let bottom = parts[2].parse::<OffsetValue>()?;
-                let left = parts[3].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top,
-                    right,
-                    bottom,
-                    left,
-                })
-            }
-            _ => Err(format!(
-                "Invalid number of Offset values: expected 1-4, got {}",
-                parts.len()
-            )),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use css_cssom::CssParser;
 
     use super::*;
-
-    #[test]
-    fn test_parse_margin() {
-        assert_eq!("10px".parse(), Ok(Offset::all(OffsetValue::px(10.0))));
-
-        assert_eq!(
-            "10px 20px".parse(),
-            Ok(Offset::two(OffsetValue::px(10.0), OffsetValue::px(20.0),))
-        );
-
-        assert_eq!(
-            "10px 20px 30px".parse(),
-            Ok(Offset::three(
-                OffsetValue::px(10.0),
-                OffsetValue::px(20.0),
-                OffsetValue::px(30.0),
-            ))
-        );
-
-        assert_eq!(
-            "10px 20px 30px 40px".parse(),
-            Ok(Offset::new(
-                OffsetValue::px(10.0),
-                OffsetValue::px(20.0),
-                OffsetValue::px(30.0),
-                OffsetValue::px(40.0),
-            ))
-        );
-
-        assert_eq!("auto".parse(), Ok(Offset::all(OffsetValue::Auto)))
-    }
 
     #[test]
     fn test_parse_cv() {
