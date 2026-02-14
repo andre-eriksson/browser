@@ -45,7 +45,7 @@ pub struct ComputedStyle {
     pub font_size: f32,
     pub font_weight: u16,
     pub height: Dimension,
-    pub instrinsic_height: f32,
+    pub intrinsic_height: f32,
     pub max_height: MaxDimension,
     pub line_height: LineHeight,
     pub margin_top: OffsetValue,
@@ -60,7 +60,7 @@ pub struct ComputedStyle {
     pub text_align: TextAlign,
     pub whitespace: Whitespace,
     pub width: Dimension,
-    pub instrinsic_width: f32,
+    pub intrinsic_width: f32,
     pub max_width: MaxDimension,
     pub writing_mode: WritingMode,
     pub variables: Vec<(Property, Vec<ComponentValue>)>,
@@ -196,7 +196,7 @@ impl ComputedStyle {
                 FontWeight::try_from(relative_ctx.parent.font_weight).unwrap_or(FontWeight::Normal),
                 FontWeight::Normal,
             ) as u16,
-            instrinsic_height: match &CSSProperty::resolve(&specified_style.height) {
+            intrinsic_height: match &CSSProperty::resolve(&specified_style.height) {
                 Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
                 _ => 0.0,
             },
@@ -252,7 +252,7 @@ impl ComputedStyle {
             whitespace: specified_style
                 .whitespace
                 .resolve_with_context_owned(relative_ctx.parent.whitespace, Whitespace::Normal),
-            instrinsic_width: match &CSSProperty::resolve(&specified_style.width) {
+            intrinsic_width: match &CSSProperty::resolve(&specified_style.width) {
                 Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
                 _ => 0.0,
             },
@@ -316,7 +316,7 @@ impl Default for ComputedStyle {
             font_size: 16.0,
             font_weight: 500,
             height: Dimension::Auto,
-            instrinsic_height: 0.0,
+            intrinsic_height: 0.0,
             max_height: MaxDimension::None,
             line_height: LineHeight::Normal,
             margin_top: OffsetValue::zero(),
@@ -331,7 +331,7 @@ impl Default for ComputedStyle {
             text_align: TextAlign::Start,
             whitespace: Whitespace::Normal,
             width: Dimension::Auto,
-            instrinsic_width: 0.0,
+            intrinsic_width: 0.0,
             max_width: MaxDimension::None,
             writing_mode: WritingMode::HorizontalTb,
             variables: Vec::new(),

@@ -41,8 +41,8 @@ impl Dimension {
             Dimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
             Dimension::Percentage(p) => match rel_type {
                 RelativeType::FontSize => rel_ctx.parent.font_size * p.as_fraction(),
-                RelativeType::ParentHeight => rel_ctx.parent.instrinsic_height * p.as_fraction(),
-                RelativeType::ParentWidth => rel_ctx.parent.instrinsic_width * p.as_fraction(),
+                RelativeType::ParentHeight => rel_ctx.parent.intrinsic_height * p.as_fraction(),
+                RelativeType::ParentWidth => rel_ctx.parent.intrinsic_width * p.as_fraction(),
                 RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),
                 RelativeType::ViewportHeight => abs_ctx.viewport_height * p.as_fraction(),
                 RelativeType::ViewportWidth => abs_ctx.viewport_width * p.as_fraction(),

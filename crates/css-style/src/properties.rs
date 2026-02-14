@@ -75,25 +75,25 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
         }
     }
 
-    pub fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, inital: &'a T) -> &'a T {
+    pub fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, initial: &'a T) -> &'a T {
         match self {
             CSSProperty::Global(global) => match global {
-                Global::Initial => inital,
-                Global::Inherit => parent.unwrap_or(inital),
-                Global::Unset => parent.unwrap_or(inital),
-                Global::Revert | Global::RevertLayer => inital, // TODO: Implement user styles
+                Global::Initial => initial,
+                Global::Inherit => parent.unwrap_or(initial),
+                Global::Unset => parent.unwrap_or(initial),
+                Global::Revert | Global::RevertLayer => initial, // TODO: Implement user styles
             },
             CSSProperty::Value(val) => val,
         }
     }
 
-    pub fn resolve_with_context_owned(self, parent: T, inital: T) -> T {
+    pub fn resolve_with_context_owned(self, parent: T, initial: T) -> T {
         match self {
             CSSProperty::Global(global) => match global {
-                Global::Initial => inital,
+                Global::Initial => initial,
                 Global::Inherit => parent,
                 Global::Unset => parent,
-                Global::Revert | Global::RevertLayer => inital, // TODO: Implement user styles
+                Global::Revert | Global::RevertLayer => initial, // TODO: Implement user styles
             },
             CSSProperty::Value(val) => val,
         }
