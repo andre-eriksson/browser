@@ -1,3 +1,4 @@
+use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -9,6 +10,26 @@ pub enum Position {
     Absolute,
     Fixed,
     Sticky,
+}
+
+impl TryFrom<&[ComponentValue]> for Position {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(pos) = ident.parse()
+                    {
+                        return Ok(pos);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid position value found".to_string())
+    }
 }
 
 #[cfg(test)]

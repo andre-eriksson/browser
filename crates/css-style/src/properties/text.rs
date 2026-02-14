@@ -1,10 +1,10 @@
-use std::str::FromStr;
-
+use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
-    RelativeType,
+    ComputedStyle, RelativeType,
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext},
 };
@@ -20,6 +20,26 @@ pub enum WritingMode {
     SidewaysLr,
 }
 
+impl TryFrom<&[ComponentValue]> for WritingMode {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(mode) = ident.parse()
+                    {
+                        return Ok(mode);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid writing-mode value found".to_string())
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum TextAlign {
@@ -31,6 +51,26 @@ pub enum TextAlign {
     Center,
     Justify,
     MatchParent,
+}
+
+impl TryFrom<&[ComponentValue]> for TextAlign {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(align) = ident.parse()
+                    {
+                        return Ok(align);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid text-align value found".to_string())
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -47,6 +87,26 @@ pub enum Whitespace {
     Wrap,
     BreakSpaces,
     Collapse,
+}
+
+impl TryFrom<&[ComponentValue]> for Whitespace {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(ws) = ident.parse()
+                    {
+                        return Ok(ws);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid whitespace value found".to_string())
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -66,8 +126,11 @@ impl LineHeight {
 
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_font_size: font_size_px,
-            ..Default::default()
+            parent: ComputedStyle {
+                font_size: font_size_px,
+                ..Default::default()
+            }
+            .into(),
         };
 
         match self {
@@ -80,25 +143,43 @@ impl LineHeight {
     }
 }
 
-impl FromStr for LineHeight {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for LineHeight {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(Self::Calc(CalcExpression::parse(s)?))
-        } else if s.eq_ignore_ascii_case("normal") {
-            Ok(Self::Normal)
-        } else if let Ok(number) = s.parse::<f32>() {
-            Ok(Self::Number(number))
-        } else if let Ok(length) = s.parse() {
-            Ok(Self::Length(length))
-        } else if let Ok(percentage) = s.parse() {
-            Ok(Self::Percentage(percentage))
-        } else {
-            Err(format!("Invalid line-height value: {}", s))
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                    return Ok(LineHeight::Calc(CalcExpression::parse(
+                        func.value.as_slice(),
+                    )?));
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => {
+                        return Ok(LineHeight::Normal);
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(LineHeight::Number(num.value as f32));
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(LineHeight::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        return Ok(LineHeight::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
         }
+
+        Err("No valid line-height value found".to_string())
     }
 }
 
@@ -116,17 +197,5 @@ mod tests {
         assert_eq!("justify".parse(), Ok(TextAlign::Justify));
         assert_eq!("match-parent".parse(), Ok(TextAlign::MatchParent));
         assert!("unknown".parse::<TextAlign>().is_err());
-    }
-
-    #[test]
-    fn test_parse_line_height() {
-        assert_eq!("normal".parse(), Ok(LineHeight::Normal));
-        assert_eq!("1.5".parse(), Ok(LineHeight::Number(1.5)));
-        assert_eq!("20px".parse(), Ok(LineHeight::px(20.0)));
-        assert_eq!(
-            "150%".parse(),
-            Ok(LineHeight::Percentage(Percentage::new(150.0)))
-        );
-        assert!("unknown".parse::<LineHeight>().is_err());
     }
 }

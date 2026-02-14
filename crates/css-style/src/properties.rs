@@ -1,7 +1,7 @@
-use std::str::FromStr;
+use css_cssom::ComponentValue;
 
 use crate::{
-    BorderStyleValue, BorderWidthValue, OffsetValue,
+    BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
     primitives::global::Global,
     properties::{
         color::Color,
@@ -37,23 +37,12 @@ pub struct AbsoluteContext {
     pub root_font_size: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
+    pub root_color: Color,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
-    pub parent_width: f32,
-    pub parent_height: f32,
-    pub parent_font_size: f32,
-}
-
-impl Default for RelativeContext {
-    fn default() -> Self {
-        RelativeContext {
-            parent_width: 0.0,
-            parent_height: 0.0,
-            parent_font_size: 16.0,
-        }
-    }
+    pub parent: Box<ComputedStyle>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -62,7 +51,7 @@ pub enum CSSProperty<T> {
     Global(Global),
 }
 
-impl<T: FromStr<Err = String>> CSSProperty<T> {
+impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
     pub fn as_value_owned(self) -> Option<T> {
         match self {
             CSSProperty::Value(val) => Some(val),
@@ -86,21 +75,40 @@ impl<T: FromStr<Err = String>> CSSProperty<T> {
         }
     }
 
-    pub fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, inital: &'a T) -> &'a T {
+    pub fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, initial: &'a T) -> &'a T {
         match self {
             CSSProperty::Global(global) => match global {
-                Global::Initial => inital,
-                Global::Inherit => parent.unwrap_or(inital),
-                Global::Unset => parent.unwrap_or(inital),
-                Global::Revert | Global::RevertLayer => inital, // TODO: Implement user styles
+                Global::Initial => initial,
+                Global::Inherit => parent.unwrap_or(initial),
+                Global::Unset => parent.unwrap_or(initial),
+                Global::Revert | Global::RevertLayer => initial, // TODO: Implement user styles
             },
             CSSProperty::Value(val) => val,
         }
     }
 
-    pub fn update_property(property: &mut CSSProperty<T>, value: &str) -> Result<(), String> {
-        let new_value = value.parse::<CSSProperty<T>>()?;
-        *property = new_value;
+    pub fn resolve_with_context_owned(self, parent: T, initial: T) -> T {
+        match self {
+            CSSProperty::Global(global) => match global {
+                Global::Initial => initial,
+                Global::Inherit => parent,
+                Global::Unset => parent,
+                Global::Revert | Global::RevertLayer => initial, // TODO: Implement user styles
+            },
+            CSSProperty::Value(val) => val,
+        }
+    }
+
+    pub fn update_property(
+        property: &mut CSSProperty<T>,
+        value: &[ComponentValue],
+    ) -> Result<(), String> {
+        if let Ok(global) = Global::try_from(value) {
+            *property = CSSProperty::Global(global);
+            return Ok(());
+        }
+
+        *property = CSSProperty::from(T::try_from(value)?);
         Ok(())
     }
 
@@ -124,26 +132,9 @@ impl<T> From<T> for CSSProperty<T> {
     }
 }
 
-impl<T> FromStr for CSSProperty<T>
-where
-    T: FromStr<Err = String>,
-{
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(global) = s.parse::<Global>() {
-            Ok(CSSProperty::Global(global))
-        } else {
-            T::from_str(s)
-                .map(CSSProperty::Value)
-                .map_err(|e| format!("{:?}", e))
-        }
-    }
-}
-
 // Border
-pub type BorderWidthValueProperty = CSSProperty<BorderWidthValue>;
-pub type BorderStyleValueProperty = CSSProperty<BorderStyleValue>;
+pub type BorderWidthValueProperty = CSSProperty<BorderWidth>;
+pub type BorderStyleValueProperty = CSSProperty<BorderStyle>;
 
 // Color
 pub type ColorProperty = CSSProperty<Color>;

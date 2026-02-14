@@ -1,7 +1,8 @@
-use std::str::FromStr;
+use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
     calculate::CalcExpression,
+    length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
@@ -38,9 +39,21 @@ impl OffsetValue {
         match self {
             OffsetValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
             OffsetValue::Percentage(pct) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent_font_size * pct.as_fraction(),
-                Some(RelativeType::ParentHeight) => rel_ctx.parent_height * pct.as_fraction(),
-                Some(RelativeType::ParentWidth) => rel_ctx.parent_width * pct.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx.parent.font_size * pct.as_fraction(),
+                Some(RelativeType::ParentHeight) => {
+                    rel_ctx
+                        .parent
+                        .height
+                        .to_px(RelativeType::ParentHeight, rel_ctx, abs_ctx)
+                        * pct.as_fraction()
+                }
+                Some(RelativeType::ParentWidth) => {
+                    rel_ctx
+                        .parent
+                        .width
+                        .to_px(RelativeType::ParentWidth, rel_ctx, abs_ctx)
+                        * pct.as_fraction()
+                }
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
@@ -52,29 +65,38 @@ impl OffsetValue {
     }
 }
 
-impl FromStr for OffsetValue {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for OffsetValue {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.starts_with("calc(") {
-            Ok(Self::Calc(CalcExpression::parse(s)?))
-        } else if let Ok(num) = s.parse::<f32>()
-            && num == 0.0
-        {
-            Ok(Self::zero())
-        } else if s.contains('%')
-            && let Ok(percentage) = s.parse()
-        {
-            Ok(Self::Percentage(percentage))
-        } else if let Ok(length) = s.parse() {
-            Ok(Self::Length(length))
-        } else if s.eq_ignore_ascii_case("auto") {
-            Ok(Self::Auto)
-        } else {
-            Err(format!("Invalid OffsetValue: {}", s))
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                    return Ok(Self::Calc(CalcExpression::parse(func.value.as_slice())?));
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(Self::Length(Length::new(value.value as f32, len_unit)));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        return Ok(Self::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(Self::Length(Length::px(num.value as f32)));
+                    }
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
+                        return Ok(Self::Auto);
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
         }
+
+        Err("No valid OffsetValue found in ComponentValue list".into())
     }
 }
 
@@ -138,94 +160,110 @@ impl Offset {
     }
 }
 
-impl FromStr for Offset {
-    type Err = String;
+impl TryFrom<&[OffsetValue]> for Offset {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split_whitespace().collect();
-        match parts.len() {
-            1 => {
-                let value = parts[0].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top: value.clone(),
-                    right: value.clone(),
-                    bottom: value.clone(),
-                    left: value,
-                })
-            }
-            2 => {
-                let vertical = parts[0].parse::<OffsetValue>()?;
-                let horizontal = parts[1].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top: vertical.clone(),
-                    right: horizontal.clone(),
-                    bottom: vertical,
-                    left: horizontal,
-                })
-            }
-            3 => {
-                let top = parts[0].parse::<OffsetValue>()?;
-                let horizontal = parts[1].parse::<OffsetValue>()?;
-                let bottom = parts[2].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top,
-                    right: horizontal.clone(),
-                    bottom,
-                    left: horizontal,
-                })
-            }
-            4 => {
-                let top = parts[0].parse::<OffsetValue>()?;
-                let right = parts[1].parse::<OffsetValue>()?;
-                let bottom = parts[2].parse::<OffsetValue>()?;
-                let left = parts[3].parse::<OffsetValue>()?;
-                Ok(Offset {
-                    top,
-                    right,
-                    bottom,
-                    left,
-                })
-            }
+    fn try_from(values: &[OffsetValue]) -> Result<Self, Self::Error> {
+        match values.len() {
+            1 => Ok(Offset::all(values[0].clone())),
+            2 => Ok(Offset::two(values[0].clone(), values[1].clone())),
+            3 => Ok(Offset::three(
+                values[0].clone(),
+                values[1].clone(),
+                values[2].clone(),
+            )),
+            4 => Ok(Offset::new(
+                values[0].clone(),
+                values[1].clone(),
+                values[2].clone(),
+                values[3].clone(),
+            )),
             _ => Err(format!(
                 "Invalid number of Offset values: expected 1-4, got {}",
-                parts.len()
+                values.len()
             )),
         }
+    }
+}
+
+impl TryFrom<&[ComponentValue]> for Offset {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        let mut offset_values = Vec::new();
+
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                    offset_values.push(OffsetValue::Calc(CalcExpression::parse(
+                        func.value.as_slice(),
+                    )?));
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        offset_values.push(OffsetValue::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        offset_values
+                            .push(OffsetValue::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    CssTokenKind::Number(num) => {
+                        offset_values.push(OffsetValue::Length(Length::px(num.value as f32)));
+                    }
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
+                        offset_values.push(OffsetValue::Auto);
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Offset::try_from(offset_values.as_slice())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use css_cssom::{CssToken, NumberType, NumericValue};
 
     #[test]
-    fn test_parse_margin() {
-        assert_eq!("10px".parse(), Ok(Offset::all(OffsetValue::px(10.0))));
+    fn test_parse() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: NumericValue {
+                        value: 10.0,
+                        int_value: None,
+                        type_flag: NumberType::Number,
+                        repr: String::new(),
+                    },
+                    unit: "px".into(),
+                },
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Percentage(NumericValue {
+                    value: 50.0,
+                    int_value: None,
+                    type_flag: NumberType::Number,
+                    repr: String::new(),
+                }),
+                position: None,
+            }),
+        ];
 
-        assert_eq!(
-            "10px 20px".parse(),
-            Ok(Offset::two(OffsetValue::px(10.0), OffsetValue::px(20.0),))
-        );
-
-        assert_eq!(
-            "10px 20px 30px".parse(),
-            Ok(Offset::three(
-                OffsetValue::px(10.0),
-                OffsetValue::px(20.0),
-                OffsetValue::px(30.0),
-            ))
-        );
-
-        assert_eq!(
-            "10px 20px 30px 40px".parse(),
-            Ok(Offset::new(
-                OffsetValue::px(10.0),
-                OffsetValue::px(20.0),
-                OffsetValue::px(30.0),
-                OffsetValue::px(40.0),
-            ))
-        );
-
-        assert_eq!("auto".parse(), Ok(Offset::all(OffsetValue::Auto)))
+        let offset = Offset::try_from(input.as_slice()).unwrap();
+        assert_eq!(offset.top, OffsetValue::Length(Length::px(10.0)));
+        assert_eq!(offset.right, OffsetValue::Percentage(Percentage::new(50.0)));
+        assert_eq!(offset.bottom, OffsetValue::Length(Length::px(10.0)));
+        assert_eq!(offset.left, OffsetValue::Percentage(Percentage::new(50.0)));
     }
 }

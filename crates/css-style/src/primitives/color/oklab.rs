@@ -1,6 +1,6 @@
 //! Oklab color function with L, a, b components, e.g., oklab(0.5, 0.1, -0.1) or oklch(0.5, 0.1, 30)
 
-use std::str::FromStr;
+use css_cssom::ComponentValue;
 
 use crate::color::{Alpha, ColorValue, FunctionColor, Hue};
 
@@ -24,112 +24,91 @@ pub enum Oklab {
     Oklch(ColorValue, ColorValue, Hue, Alpha),
 }
 
-impl FromStr for Oklab {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for Oklab {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains("from") {
-            return Err("Relative color syntax not supported yet".to_string());
-        } else if s.contains("calc(") {
-            return Err("CSS functions in color values not supported yet".to_string());
-        }
-
-        let parts = FunctionColor::tokenize_color(s, "oklch(")
-            .or_else(|| FunctionColor::tokenize_color(s, "oklab("))
-            .ok_or_else(|| format!("Invalid SRGBA color: {}", s))?;
-
-        if s.starts_with("oklab") {
-            match parts.as_slice() {
-                [l, a, b] => {
-                    let l = l
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid L value: {}", l))?;
-                    let a = a
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid a value: {}", a))?;
-                    let b = b
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid b value: {}", b))?;
-                    Ok(Oklab::Oklab(l, a, b, Alpha(1.0)))
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for val in value {
+            match val {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("oklab") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(l), Some(a), Some(b)] => Ok(Oklab::Oklab(l, a, b, raw.alpha)),
+                            _ => Err("Missing components in lab()".to_string()),
+                        };
+                    } else if func.name.eq_ignore_ascii_case("oklch") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(l), Some(c), Some(h)] => {
+                                Ok(Oklab::Oklch(l, c, Hue::from(h), raw.alpha))
+                            }
+                            _ => Err("Missing components in lch()".to_string()),
+                        };
+                    }
                 }
-                [l, a, b, alpha] => {
-                    let l = l
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid L value: {}", l))?;
-                    let a = a
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid a value: {}", a))?;
-                    let b = b
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid b value: {}", b))?;
-                    let alpha = alpha
-                        .parse::<Alpha>()
-                        .map_err(|_| format!("Invalid alpha value: {}", alpha))?;
-                    Ok(Oklab::Oklab(l, a, b, alpha))
-                }
-                _ => Err(format!("Invalid number of components for oklab: {}", s)),
+                _ => continue,
             }
-        } else if s.starts_with("oklch") {
-            match parts.as_slice() {
-                [l, c, h] => {
-                    let l = l
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid L value: {}", l))?;
-                    let c = c
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid C value: {}", c))?;
-                    let h = h
-                        .parse::<Hue>()
-                        .map_err(|_| format!("Invalid H value: {}", h))?;
-                    Ok(Oklab::Oklch(l, c, h, Alpha(1.0)))
-                }
-                [l, c, h, alpha] => {
-                    let l = l
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid L value: {}", l))?;
-                    let c = c
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid C value: {}", c))?;
-                    let h = h
-                        .parse::<Hue>()
-                        .map_err(|_| format!("Invalid H value: {}", h))?;
-                    let alpha = alpha
-                        .parse::<Alpha>()
-                        .map_err(|_| format!("Invalid alpha value: {}", alpha))?;
-                    Ok(Oklab::Oklch(l, c, h, alpha))
-                }
-                _ => Err(format!("Invalid number of components for oklch: {}", s)),
-            }
-        } else {
-            Err(format!("Invalid Oklab color: {}", s))
         }
+        Err("No valid oklab() or oklch() function found".to_string())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{css_color_fn, percentage::Percentage};
 
     #[test]
     fn test_oklab_parsing() {
-        let color = "oklab(0.5, 0.1, -0.1)".parse::<Oklab>().unwrap();
+        let color = css_color_fn!("oklab", "0.3", "0.1", "-0.1", "0.5");
+        let oklab = Oklab::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            oklab,
             Oklab::Oklab(
-                ColorValue::Number(0.5),
+                ColorValue::Number(0.3),
                 ColorValue::Number(0.1),
                 ColorValue::Number(-0.1),
-                Alpha(1.0)
+                Alpha(0.5)
             )
         );
-        let color = "oklch(0.5, 0.2, 120)".parse::<Oklab>().unwrap();
+
+        let color = css_color_fn!("oklab", "50%", "0.2", "0.4", "0.8");
+        let oklch = Oklab::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            oklch,
+            Oklab::Oklab(
+                ColorValue::Percentage(Percentage::new(50.0)),
+                ColorValue::Number(0.2),
+                ColorValue::Number(0.4),
+                Alpha(0.8)
+            )
+        );
+    }
+
+    #[test]
+    fn test_oklch_parsing() {
+        let color = css_color_fn!("oklch", "0.5", "0.1", "30.0", "0.7");
+        let oklch = Oklab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            oklch,
             Oklab::Oklch(
                 ColorValue::Number(0.5),
+                ColorValue::Number(0.1),
+                Hue(30.0),
+                Alpha(0.7)
+            )
+        );
+
+        let color = css_color_fn!("oklch", "50%", "0.2", "120", "0.8");
+        let oklch = Oklab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            oklch,
+            Oklab::Oklch(
+                ColorValue::Percentage(Percentage::new(50.0)),
                 ColorValue::Number(0.2),
                 Hue(120.0),
-                Alpha(1.0)
+                Alpha(0.8)
             )
         );
     }

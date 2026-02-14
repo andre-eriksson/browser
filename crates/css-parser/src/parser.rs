@@ -32,7 +32,8 @@ pub struct CssParser {
 }
 
 impl CssParser {
-    pub(crate) fn new(tokens: Option<Vec<CssToken>>) -> Self {
+    /// Create a new CSS parser with an optional list of tokens
+    pub fn new(tokens: Option<Vec<CssToken>>) -> Self {
         CssParser {
             tokens: tokens.unwrap_or_default(),
             pos: 0,

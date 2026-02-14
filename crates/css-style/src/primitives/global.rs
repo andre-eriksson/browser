@@ -1,5 +1,6 @@
 //! Global CSS primitives, used by most properties.
 
+use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -22,6 +23,26 @@ pub enum Global {
     /// The property resets to its inherited value if it inherits from its parent, and to its initial value if not. It behaves as either inherit or initial depending on
     /// whether the property is inherited by default.
     Unset,
+}
+
+impl TryFrom<&[ComponentValue]> for Global {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => {
+                    if let CssTokenKind::Ident(ident) = &token.kind
+                        && let Ok(global) = ident.parse()
+                    {
+                        return Ok(global);
+                    }
+                }
+                _ => continue,
+            }
+        }
+        Err("No valid global value found".to_string())
+    }
 }
 
 #[cfg(test)]

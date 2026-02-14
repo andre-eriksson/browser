@@ -1,10 +1,11 @@
-use css_cssom::{ComponentValue, CssTokenKind, Property};
+use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, Property};
 
-use crate::calculate::CalcExpression;
+use crate::global::Global;
+use crate::length::{Length, LengthUnit};
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::specified::SpecifiedStyle;
-use crate::{BorderStyleValue, BorderWidthValue, Color, OffsetValue, RelativeContext};
+use crate::{BorderStyle, BorderWidth, Color, Offset, RelativeContext};
 
 pub struct PropertyUpdateContext<'a> {
     pub absolute_ctx: &'a AbsoluteContext,
@@ -16,7 +17,7 @@ pub struct PropertyUpdateContext<'a> {
 #[derive(Debug)]
 pub struct PropertyError {
     pub property: String,
-    pub value: String,
+    pub value: Vec<ComponentValue>,
     pub error: String,
 }
 
@@ -34,10 +35,10 @@ impl<'a> PropertyUpdateContext<'a> {
         }
     }
 
-    fn record_error(&mut self, property: &str, value: &str, error: String) {
+    fn record_error(&mut self, property: &str, value: Vec<ComponentValue>, error: String) {
         self.errors.push(PropertyError {
             property: property.to_string(),
-            value: value.to_string(),
+            value,
             error,
         });
     }
@@ -45,8 +46,14 @@ impl<'a> PropertyUpdateContext<'a> {
     pub fn log_errors(&self) {
         if !self.errors.is_empty() {
             eprintln!("Property update errors:");
+
             for err in &self.errors {
-                eprintln!("  {}: '{}' - {}", err.property, err.value, err.error);
+                let mut errors = String::with_capacity(32);
+                for cv in &err.value {
+                    errors.push_str(cv.to_css_string().as_str());
+                }
+
+                eprintln!("  {}: '{}' - {}", err.property, errors, err.error);
             }
         }
     }
@@ -54,179 +61,132 @@ impl<'a> PropertyUpdateContext<'a> {
 
 macro_rules! simple_property_handler {
     ($fn_name:ident, $field:ident, $prop_name:expr) => {
-        pub fn $fn_name(ctx: &mut PropertyUpdateContext, value: &str) {
+        pub fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
             if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.$field, value) {
-                ctx.record_error($prop_name, value, e);
+                ctx.record_error($prop_name, value.to_vec(), e);
             }
         }
     };
 }
 
-fn split_top_level_whitespace(input: &str) -> Vec<&str> {
-    let mut parts = Vec::new();
-    let mut depth = 0usize;
-    let mut token_start: Option<usize> = None;
-
-    for (idx, ch) in input.char_indices() {
-        if ch.is_whitespace() && depth == 0 {
-            if let Some(start) = token_start.take() {
-                parts.push(&input[start..idx]);
-            }
-            continue;
-        }
-
-        if token_start.is_none() {
-            token_start = Some(idx);
-        }
-
-        match ch {
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
-            _ => {}
-        }
-    }
-
-    if let Some(start) = token_start {
-        parts.push(&input[start..]);
-    }
-
-    parts
-}
-
-fn split_var_segments(value: &str) -> Vec<&str> {
-    let mut segments = Vec::new();
-    let mut start = 0;
-    let mut i = 0;
-    let bytes = value.as_bytes();
-
-    while i < bytes.len() {
-        if value[i..].starts_with("var(") {
-            if i > start {
-                segments.push(&value[start..i]);
-            }
-
-            let var_start = i;
-            let mut depth = 0;
-            while i < bytes.len() {
-                match bytes[i] {
-                    b'(' => depth += 1,
-                    b')' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            i += 1;
-                            break;
-                        }
-                    }
-                    _ => {}
-                }
-                i += 1;
-            }
-
-            segments.push(&value[var_start..i]);
-            start = i;
-        } else {
-            i += 1;
-        }
-    }
-
-    if start < value.len() {
-        segments.push(&value[start..]);
-    }
-
-    segments
-}
-
 pub fn resolve_css_variables(
     variables: &[(Property, Vec<ComponentValue>)],
-    value: String,
-) -> String {
-    let segments = split_var_segments(&value);
+    value: &[ComponentValue],
+) -> Vec<ComponentValue> {
+    let mut output: Vec<ComponentValue> = Vec::new();
 
-    if segments.len() == 1 && !segments[0].starts_with("var(") {
-        return value;
-    }
+    for (i, cv) in value.iter().enumerate() {
+        match cv {
+            ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("var") => {
+                let resolved = resolve_var_function(variables, func);
 
-    let mut output = String::new();
-    let mut prev_was_var = false;
+                if !resolved.is_empty() {
+                    let needs_leading_whitespace = !output.is_empty()
+                        && !output.last().unwrap().is_whitespace()
+                        && !resolved.first().unwrap().is_whitespace()
+                        && i > 0
+                        && value[i - 1].is_whitespace();
 
-    for segment in segments {
-        let is_var = segment.starts_with("var(");
-        let resolved = if is_var {
-            resolve_single_var(variables, segment)
-        } else {
-            segment.to_string()
-        };
+                    let needs_trailing_whitespace = !resolved.is_empty()
+                        && !resolved.last().unwrap().is_whitespace()
+                        && i + 1 < value.len()
+                        && !&value[i + 1].is_whitespace();
 
-        if prev_was_var && is_var {
-            output.push(' ');
+                    if needs_leading_whitespace {
+                        output.push(ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }));
+                    }
+
+                    output.extend(resolved);
+
+                    if needs_trailing_whitespace {
+                        output.push(ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }));
+                    }
+                }
+            }
+            ComponentValue::Function(func) => {
+                let resolved_inner = resolve_css_variables(variables, &func.value);
+                output.push(ComponentValue::Function(Function {
+                    name: func.name.clone(),
+                    value: resolved_inner,
+                }));
+            }
+            _ => {
+                output.push(cv.clone());
+            }
         }
-
-        output.push_str(&resolved);
-        prev_was_var = is_var;
     }
 
     output
 }
 
-fn resolve_single_var(variables: &[(Property, Vec<ComponentValue>)], value: &str) -> String {
-    let Some(inner) = value.strip_prefix("var(").and_then(|s| s.strip_suffix(')')) else {
-        return value.to_string();
-    };
+fn resolve_var_function(
+    variables: &[(Property, Vec<ComponentValue>)],
+    func: &Function,
+) -> Vec<ComponentValue> {
+    let mut var_name = String::new();
+    let mut fallback_values = Vec::new();
+    let mut found_comma = false;
 
-    let (var_name, fallback) = match inner.find(',') {
-        Some(pos) => (inner[..pos].trim(), Some(inner[pos + 1..].trim())),
-        None => (inner.trim(), None),
-    };
+    for cv in func.value.iter() {
+        match cv {
+            ComponentValue::Token(token) if matches!(token.kind, CssTokenKind::Comma) => {
+                found_comma = true;
+            }
+            ComponentValue::Token(token) if token.kind == CssTokenKind::Whitespace => {
+                if !found_comma {
+                    continue;
+                }
+                fallback_values.push(cv.clone());
+            }
+            _ => {
+                if !found_comma {
+                    var_name.push_str(&cv.to_css_string());
+                } else {
+                    fallback_values.push(cv.clone());
+                }
+            }
+        }
+    }
 
-    if let Some(resolved) = try_resolve(variables, var_name) {
+    let var_name = var_name.trim();
+
+    if let Some(resolved) = try_resolve_variable(variables, var_name) {
         return resolved;
     }
 
-    if let Some(fallback_value) = fallback {
-        if fallback_value.starts_with("var(") {
-            return resolve_single_var(variables, fallback_value);
-        }
-        return fallback_value.to_string();
+    if !fallback_values.is_empty() {
+        return resolve_css_variables(variables, &fallback_values);
     }
 
-    value.to_string()
+    vec![ComponentValue::Function(func.clone())]
 }
 
-fn try_resolve(variables: &[(Property, Vec<ComponentValue>)], var_name: &str) -> Option<String> {
+fn try_resolve_variable(
+    variables: &[(Property, Vec<ComponentValue>)],
+    var_name: &str,
+) -> Option<Vec<ComponentValue>> {
     for (name, vals) in variables {
         if name.to_string() != var_name {
             continue;
         }
 
-        let resolved = vals
-            .iter()
-            .filter_map(|cv| match cv {
-                ComponentValue::Token(token) => {
-                    if token.kind == CssTokenKind::Whitespace {
-                        Some(" ".to_string())
-                    } else {
-                        Some(cv.to_css_string())
-                    }
-                }
-                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("var") => {
-                    let inner = func
-                        .value
-                        .iter()
-                        .map(|cv| cv.to_css_string())
-                        .collect::<String>();
-                    let reconstructed = format!("var({})", inner);
-                    Some(resolve_single_var(variables, &reconstructed))
-                }
-                ComponentValue::Function(_) => Some(cv.to_css_string()),
-                _ => None,
-            })
-            .collect::<String>();
+        if vals.is_empty() {
+            return None;
+        }
+
+        let resolved = resolve_css_variables(variables, vals);
 
         if resolved.is_empty() {
             return None;
         }
 
-        return Some(resolved.trim().to_string());
+        return Some(resolved);
     }
 
     None
@@ -319,728 +279,429 @@ simple_property_handler!(handle_width, width, "width");
 simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
 
-pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &str) {
-    let parts: Vec<&str> = value.split_whitespace().collect();
-    match parts.len() {
-        1 => {
-            if let Ok(all) = parts[0].parse::<CSSProperty<OffsetValue>>() {
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.margin_top,
-                        &mut ctx.specified_style.margin_right,
-                        &mut ctx.specified_style.margin_bottom,
-                        &mut ctx.specified_style.margin_left,
-                    ],
-                    all,
-                );
-            } else {
-                ctx.record_error(
-                    "margin",
-                    value,
-                    format!("Invalid OffsetValue: {}", parts[0]),
-                );
-            }
-        }
-        2 => {
-            if let (Ok(vertical), Ok(horizontal)) = (
-                parts[0].parse::<OffsetValue>(),
-                parts[1].parse::<OffsetValue>(),
-            ) {
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.margin_top,
-                        &mut ctx.specified_style.margin_bottom,
-                    ],
-                    vertical.into(),
-                );
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.margin_right,
-                        &mut ctx.specified_style.margin_left,
-                    ],
-                    horizontal.into(),
-                );
-            } else {
-                ctx.record_error(
-                    "margin",
-                    value,
-                    format!("Invalid OffsetValues: {} {}", parts[0], parts[1]),
-                );
-            }
-        }
-        3 => {
-            if let (Ok(top), Ok(horizontal), Ok(bottom)) = (
-                parts[0].parse::<OffsetValue>(),
-                parts[1].parse::<OffsetValue>(),
-                parts[2].parse::<OffsetValue>(),
-            ) {
-                CSSProperty::update(&mut ctx.specified_style.margin_top, top.into());
-                CSSProperty::update(&mut ctx.specified_style.margin_bottom, bottom.into());
+pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
 
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.margin_right,
-                        &mut ctx.specified_style.margin_left,
-                    ],
-                    horizontal.into(),
-                );
-            } else {
-                ctx.record_error(
-                    "margin",
-                    value,
-                    format!(
-                        "Invalid OffsetValues: {} {} {}",
-                        parts[0], parts[1], parts[2]
-                    ),
-                );
-            }
-        }
-        4 => {
-            if let (Ok(top), Ok(right), Ok(bottom), Ok(left)) = (
-                parts[0].parse::<OffsetValue>(),
-                parts[1].parse::<OffsetValue>(),
-                parts[2].parse::<OffsetValue>(),
-                parts[3].parse::<OffsetValue>(),
-            ) {
-                {
-                    CSSProperty::update(&mut ctx.specified_style.margin_top, top.into());
-                    CSSProperty::update(&mut ctx.specified_style.margin_right, right.into());
-                    CSSProperty::update(&mut ctx.specified_style.margin_bottom, bottom.into());
-                    CSSProperty::update(&mut ctx.specified_style.margin_left, left.into());
-                }
-            } else {
-                ctx.record_error(
-                    "margin",
-                    value,
-                    format!(
-                        "Invalid OffsetValues: {} {} {} {}",
-                        parts[0], parts[1], parts[2], parts[3]
-                    ),
-                );
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "margin",
-                value,
-                format!("Invalid number of values: {}", parts.len()),
-            );
-        }
-    }
-}
-
-pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &str) {
-    let parts: Vec<&str> = value.split_whitespace().collect();
-    match parts.len() {
-        1 => {
-            if let Ok(all) = parts[0].parse::<OffsetValue>() {
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.padding_top,
-                        &mut ctx.specified_style.padding_right,
-                        &mut ctx.specified_style.padding_bottom,
-                        &mut ctx.specified_style.padding_left,
-                    ],
-                    all.into(),
-                );
-            } else {
-                ctx.record_error(
-                    "padding",
-                    value,
-                    format!("Invalid OffsetValue: {}", parts[0]),
-                );
-            }
-        }
-        2 => {
-            if let (Ok(vertical), Ok(horizontal)) = (
-                parts[0].parse::<OffsetValue>(),
-                parts[1].parse::<OffsetValue>(),
-            ) {
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.padding_top,
-                        &mut ctx.specified_style.padding_bottom,
-                    ],
-                    vertical.into(),
-                );
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.padding_right,
-                        &mut ctx.specified_style.padding_left,
-                    ],
-                    horizontal.into(),
-                );
-            } else {
-                ctx.record_error(
-                    "padding",
-                    value,
-                    format!("Invalid OffsetValues: {} {}", parts[0], parts[1]),
-                );
-            }
-        }
-        3 => {
-            if let (Ok(top), Ok(horizontal), Ok(bottom)) = (
-                parts[0].parse::<OffsetValue>(),
-                parts[1].parse::<OffsetValue>(),
-                parts[2].parse::<OffsetValue>(),
-            ) {
-                CSSProperty::update(&mut ctx.specified_style.padding_top, top.into());
-                CSSProperty::update(&mut ctx.specified_style.padding_bottom, bottom.into());
-                CSSProperty::update_multiple(
-                    &mut [
-                        &mut ctx.specified_style.padding_right,
-                        &mut ctx.specified_style.padding_left,
-                    ],
-                    horizontal.into(),
-                );
-            } else {
-                ctx.record_error(
-                    "padding",
-                    value,
-                    format!(
-                        "Invalid OffsetValues: {} {} {}",
-                        parts[0], parts[1], parts[2]
-                    ),
-                );
-            }
-        }
-        4 => {
-            if let (Ok(top), Ok(right), Ok(bottom), Ok(left)) = (
-                parts[0].parse::<OffsetValue>(),
-                parts[1].parse::<OffsetValue>(),
-                parts[2].parse::<OffsetValue>(),
-                parts[3].parse::<OffsetValue>(),
-            ) {
-                {
-                    CSSProperty::update(&mut ctx.specified_style.padding_top, top.into());
-                    CSSProperty::update(&mut ctx.specified_style.padding_right, right.into());
-                    CSSProperty::update(&mut ctx.specified_style.padding_bottom, bottom.into());
-                    CSSProperty::update(&mut ctx.specified_style.padding_left, left.into());
-                }
-            } else {
-                ctx.record_error(
-                    "padding",
-                    value,
-                    format!(
-                        "Invalid OffsetValues: {} {} {} {}",
-                        parts[0], parts[1], parts[2], parts[3]
-                    ),
-                );
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "padding",
-                value,
-                format!("Invalid number of values: {}", parts.len()),
-            );
-        }
-    }
-}
-
-pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &str) {
-    if value.eq_ignore_ascii_case("none") {
-        CSSProperty::update_multiple(
-            &mut [
-                &mut ctx.specified_style.border_top_style,
-                &mut ctx.specified_style.border_right_style,
-                &mut ctx.specified_style.border_bottom_style,
-                &mut ctx.specified_style.border_left_style,
-            ],
-            BorderStyleValue::None.into(),
+    if let Some(global) = global {
+        ctx.specified_style.margin_top = CSSProperty::Global(global);
+        ctx.specified_style.margin_right = CSSProperty::Global(global);
+        ctx.specified_style.margin_bottom = CSSProperty::Global(global);
+        ctx.specified_style.margin_left = CSSProperty::Global(global);
+    } else if let Some(offset) = offset {
+        ctx.specified_style.margin_top = offset.top.into();
+        ctx.specified_style.margin_right = offset.right.into();
+        ctx.specified_style.margin_bottom = offset.bottom.into();
+        ctx.specified_style.margin_left = offset.left.into();
+    } else {
+        ctx.record_error(
+            "margin",
+            value.to_vec(),
+            String::from("Invalid value for margin property"),
         );
-        return;
+    }
+}
+
+pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
+
+    if let Some(global) = global {
+        ctx.specified_style.padding_top = CSSProperty::Global(global);
+        ctx.specified_style.padding_right = CSSProperty::Global(global);
+        ctx.specified_style.padding_bottom = CSSProperty::Global(global);
+        ctx.specified_style.padding_left = CSSProperty::Global(global);
+    } else if let Some(offset) = offset {
+        ctx.specified_style.padding_top = offset.top.into();
+        ctx.specified_style.padding_right = offset.right.into();
+        ctx.specified_style.padding_bottom = offset.bottom.into();
+        ctx.specified_style.padding_left = offset.left.into();
+    } else {
+        ctx.record_error(
+            "padding",
+            value.to_vec(),
+            String::from("Invalid value for padding property"),
+        );
+    }
+}
+
+pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let mut style = None;
+    let mut width = None;
+    let mut color = None;
+
+    for (i, cv) in value.iter().enumerate() {
+        match cv {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(ident) => {
+                    if ident.eq_ignore_ascii_case("none") {
+                        break;
+                    } else if let Ok(w) = BorderWidth::try_from(&value[i..])
+                        && width.is_none()
+                    {
+                        width = Some(w);
+                    } else if let Ok(s) = ident.parse::<BorderStyle>() {
+                        style = Some(s);
+                    } else if let Ok(c) = Color::try_from(&value[i..]) {
+                        color = Some(c);
+                    }
+                }
+                CssTokenKind::Number(num) => {
+                    if width.is_some() || num.value != 0.0 {
+                        continue;
+                    }
+
+                    width = Some(BorderWidth::Length(Length::zero()));
+                }
+                CssTokenKind::Dimension { value, unit } => {
+                    if width.is_some() {
+                        continue;
+                    }
+
+                    if let Ok(len_unit) = unit.parse::<LengthUnit>() {
+                        width = Some(BorderWidth::Length(Length::new(
+                            value.value as f32,
+                            len_unit,
+                        )));
+                    }
+                }
+                _ => continue,
+            },
+            _ => continue,
+        }
     }
 
-    let parts = split_top_level_whitespace(value);
-
-    for part in parts {
-        if let Ok(width) = part.parse::<BorderWidthValue>() {
-            CSSProperty::update_multiple(
-                &mut [
-                    &mut ctx.specified_style.border_top_width,
-                    &mut ctx.specified_style.border_right_width,
-                    &mut ctx.specified_style.border_bottom_width,
-                    &mut ctx.specified_style.border_left_width,
-                ],
-                width.into(),
-            );
+    match style {
+        Some(s) => {
+            ctx.specified_style.border_top_style = CSSProperty::Value(s);
+            ctx.specified_style.border_right_style = CSSProperty::Value(s);
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+            ctx.specified_style.border_left_style = CSSProperty::Value(s);
         }
-
-        if let Ok(style) = part.parse::<BorderStyleValue>() {
-            CSSProperty::update_multiple(
-                &mut [
-                    &mut ctx.specified_style.border_top_style,
-                    &mut ctx.specified_style.border_right_style,
-                    &mut ctx.specified_style.border_bottom_style,
-                    &mut ctx.specified_style.border_left_style,
-                ],
-                style.into(),
-            );
+        None => {
+            ctx.specified_style.border_top_style = CSSProperty::Value(BorderStyle::default());
+            ctx.specified_style.border_right_style = CSSProperty::Value(BorderStyle::default());
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(BorderStyle::default());
+            ctx.specified_style.border_left_style = CSSProperty::Value(BorderStyle::default());
         }
+    }
 
-        if let Ok(color) = part.parse::<Color>() {
-            CSSProperty::update_multiple(
-                &mut [
-                    &mut ctx.specified_style.border_top_color,
-                    &mut ctx.specified_style.border_right_color,
-                    &mut ctx.specified_style.border_bottom_color,
-                    &mut ctx.specified_style.border_left_color,
-                ],
-                color.into(),
-            );
+    match width {
+        Some(w) => {
+            ctx.specified_style.border_top_width = CSSProperty::Value(w.clone());
+            ctx.specified_style.border_right_width = CSSProperty::Value(w.clone());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(w.clone());
+            ctx.specified_style.border_left_width = CSSProperty::Value(w);
+        }
+        None => {
+            ctx.specified_style.border_top_width = CSSProperty::Value(BorderWidth::default());
+            ctx.specified_style.border_right_width = CSSProperty::Value(BorderWidth::default());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(BorderWidth::default());
+            ctx.specified_style.border_left_width = CSSProperty::Value(BorderWidth::default());
+        }
+    }
+
+    match color {
+        Some(c) => {
+            ctx.specified_style.border_top_color = CSSProperty::Value(c);
+            ctx.specified_style.border_right_color = CSSProperty::Value(c);
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+            ctx.specified_style.border_left_color = CSSProperty::Value(c);
+        }
+        None => {
+            ctx.specified_style.border_top_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_right_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_bottom_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_left_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
         }
     }
 }
 
-pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &str) {
+pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
-        let parent_px = ctx.relative_ctx.parent_font_size;
-        ctx.specified_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, parent_px);
+        ctx.specified_style.computed_font_size_px =
+            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
     }
 }
 
-pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &str) {
-    if value.starts_with("calc") {
-        let calc = if let Ok(calc) = CalcExpression::parse(value) {
-            calc
-        } else {
-            ctx.record_error(
-                "margin-block",
-                value,
-                format!("Invalid calc expression: {}", value),
-            );
-            return;
-        };
+pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
 
-        let val = calc.to_px(None, ctx.relative_ctx, ctx.absolute_ctx);
-        CSSProperty::update_multiple(
-            &mut [
-                &mut ctx.specified_style.margin_top,
-                &mut ctx.specified_style.margin_right,
-                &mut ctx.specified_style.margin_bottom,
-                &mut ctx.specified_style.margin_left,
-            ],
-            OffsetValue::px(val).into(),
-        );
-        return;
-    }
+    let writing_mode = match ctx.specified_style.writing_mode {
+        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
+            ctx.relative_ctx.parent.writing_mode,
+            WritingMode::HorizontalTb,
+        ),
+        CSSProperty::Value(val) => val,
+    };
 
-    let parts: Vec<&str> = value.split_whitespace().collect();
-    match parts.len() {
-        1 => {
-            handle_margin_block_start(ctx, parts[0]);
-            handle_margin_block_end(ctx, parts[0]);
+    match writing_mode {
+        WritingMode::HorizontalTb => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_top = CSSProperty::Global(global);
+                ctx.specified_style.margin_bottom = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_top = offset.top.into();
+                ctx.specified_style.margin_bottom = offset.bottom.into();
+            }
         }
-        2 => {
-            handle_margin_block_start(ctx, parts[0]);
-            handle_margin_block_end(ctx, parts[1]);
+        WritingMode::VerticalRl => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_right = CSSProperty::Global(global);
+                ctx.specified_style.margin_left = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_right = offset.top.into();
+                ctx.specified_style.margin_left = offset.bottom.into();
+            }
+        }
+        WritingMode::VerticalLr => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_left = CSSProperty::Global(global);
+                ctx.specified_style.margin_right = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_left = offset.top.into();
+                ctx.specified_style.margin_right = offset.bottom.into();
+            }
         }
         _ => {
             ctx.record_error(
                 "margin-block",
-                value,
-                format!("Invalid number of values: {}", parts.len()),
+                value.to_vec(),
+                String::from("Unsupported writing mode"),
             );
         }
     }
 }
 
-pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.specified_style.writing_mode {
-        CSSProperty::Global(global) => {
+pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
+
+    let writing_mode = match ctx.specified_style.writing_mode {
+        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
+            ctx.relative_ctx.parent.writing_mode,
+            WritingMode::HorizontalTb,
+        ),
+        CSSProperty::Value(val) => val,
+    };
+
+    match writing_mode {
+        WritingMode::HorizontalTb => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_top = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_top = offset.top.into();
+            }
+        }
+        WritingMode::VerticalRl => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_right = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_right = offset.top.into();
+            }
+        }
+        WritingMode::VerticalLr => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_left = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_left = offset.top.into();
+            }
+        }
+        _ => {
             ctx.record_error(
                 "margin-block-start",
-                value,
-                format!("Unsupported global value: {:?}", global),
+                value.to_vec(),
+                String::from("Unsupported writing mode"),
             );
         }
-        CSSProperty::Value(val) => match val {
-            WritingMode::HorizontalTb => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.margin_top, value)
-                {
-                    ctx.record_error("margin-block-start", value, e);
-                }
-            }
-            WritingMode::VerticalRl => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.margin_right, value)
-                {
-                    ctx.record_error("margin-block-start", value, e);
-                }
-            }
-            WritingMode::VerticalLr => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.margin_left, value)
-                {
-                    ctx.record_error("margin-block-start", value, e);
-                }
-            }
-            _ => {
-                ctx.record_error(
-                    "margin-block-start",
-                    value,
-                    String::from("Unsupported writing mode"),
-                );
-            }
-        },
     }
 }
 
-pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.specified_style.writing_mode {
-        CSSProperty::Global(global) => {
+pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
+
+    let writing_mode = match ctx.specified_style.writing_mode {
+        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
+            ctx.relative_ctx.parent.writing_mode,
+            WritingMode::HorizontalTb,
+        ),
+        CSSProperty::Value(val) => val,
+    };
+
+    match writing_mode {
+        WritingMode::HorizontalTb => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_bottom = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_bottom = offset.top.into();
+            }
+        }
+        WritingMode::VerticalRl => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_left = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_left = offset.top.into();
+            }
+        }
+        WritingMode::VerticalLr => {
+            if let Some(global) = global {
+                ctx.specified_style.margin_right = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.margin_right = offset.top.into();
+            }
+        }
+        _ => {
             ctx.record_error(
                 "margin-block-end",
-                value,
-                format!("Unsupported global value: {:?}", global),
+                value.to_vec(),
+                String::from("Unsupported writing mode"),
             );
         }
-        CSSProperty::Value(val) => match val {
-            WritingMode::HorizontalTb => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.margin_bottom, value)
-                {
-                    ctx.record_error("margin-block-end", value, e);
-                }
-            }
-            WritingMode::VerticalRl => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.margin_left, value)
-                {
-                    ctx.record_error("margin-block-end", value, e);
-                }
-            }
-            WritingMode::VerticalLr => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.margin_right, value)
-                {
-                    ctx.record_error("margin-block-end", value, e);
-                }
-            }
-            _ => {
-                ctx.record_error(
-                    "margin-block-end",
-                    value,
-                    String::from("Unsupported writing mode"),
-                );
-            }
-        },
     }
 }
 
-pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &str) {
-    if value.starts_with("calc") {
-        let calc = if let Ok(calc) = CalcExpression::parse(value) {
-            calc
-        } else {
-            ctx.record_error(
-                "padding-block",
-                value,
-                format!("Invalid calc expression: {}", value),
-            );
-            return;
-        };
+pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
 
-        let val = calc.to_px(None, ctx.relative_ctx, ctx.absolute_ctx);
-        CSSProperty::update_multiple(
-            &mut [
-                &mut ctx.specified_style.padding_top,
-                &mut ctx.specified_style.padding_right,
-                &mut ctx.specified_style.padding_bottom,
-                &mut ctx.specified_style.padding_left,
-            ],
-            OffsetValue::px(val).into(),
-        );
-        return;
-    }
+    let writing_mode = match ctx.specified_style.writing_mode {
+        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
+            ctx.relative_ctx.parent.writing_mode,
+            WritingMode::HorizontalTb,
+        ),
+        CSSProperty::Value(val) => val,
+    };
 
-    let parts = value.split_whitespace().collect::<Vec<&str>>();
-
-    match parts.len() {
-        1 => {
-            handle_padding_block_start(ctx, parts[0]);
-            handle_padding_block_end(ctx, parts[0]);
+    match writing_mode {
+        WritingMode::HorizontalTb => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_top = CSSProperty::Global(global);
+                ctx.specified_style.padding_bottom = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_top = offset.top.into();
+                ctx.specified_style.padding_bottom = offset.bottom.into();
+            }
         }
-        2 => {
-            handle_padding_block_start(ctx, parts[0]);
-            handle_padding_block_end(ctx, parts[1]);
+        WritingMode::VerticalRl => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_right = CSSProperty::Global(global);
+                ctx.specified_style.padding_left = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_right = offset.top.into();
+                ctx.specified_style.padding_left = offset.bottom.into();
+            }
+        }
+        WritingMode::VerticalLr => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_left = CSSProperty::Global(global);
+                ctx.specified_style.padding_right = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_left = offset.top.into();
+                ctx.specified_style.padding_right = offset.bottom.into();
+            }
         }
         _ => {
             ctx.record_error(
                 "padding-block",
-                value,
-                format!("Invalid number of values: {}", parts.len()),
+                value.to_vec(),
+                String::from("Unsupported writing mode"),
             );
         }
     }
 }
 
-pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.specified_style.writing_mode {
-        CSSProperty::Global(global) => {
+pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
+
+    let writing_mode = match ctx.specified_style.writing_mode {
+        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
+            ctx.relative_ctx.parent.writing_mode,
+            WritingMode::HorizontalTb,
+        ),
+        CSSProperty::Value(val) => val,
+    };
+
+    match writing_mode {
+        WritingMode::HorizontalTb => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_top = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_top = offset.top.into();
+            }
+        }
+        WritingMode::VerticalRl => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_right = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_right = offset.top.into();
+            }
+        }
+        WritingMode::VerticalLr => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_left = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_left = offset.top.into();
+            }
+        }
+        _ => {
             ctx.record_error(
                 "padding-block-start",
-                value,
-                format!("Unsupported global value: {:?}", global),
+                value.to_vec(),
+                String::from("Unsupported writing mode"),
             );
         }
-        CSSProperty::Value(val) => match val {
-            WritingMode::HorizontalTb => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.padding_top, value)
-                {
-                    ctx.record_error("padding-block-start", value, e);
-                }
-            }
-            WritingMode::VerticalRl => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.padding_right, value)
-                {
-                    ctx.record_error("padding-block-start", value, e);
-                }
-            }
-            WritingMode::VerticalLr => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.padding_left, value)
-                {
-                    ctx.record_error("padding-block-start", value, e);
-                }
-            }
-            _ => {
-                ctx.record_error(
-                    "padding-block-start",
-                    value,
-                    String::from("Unsupported writing mode"),
-                );
-            }
-        },
     }
 }
 
-pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &str) {
-    match ctx.specified_style.writing_mode {
-        CSSProperty::Global(global) => {
+pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    let global = Global::try_from(value).ok();
+    let offset = Offset::try_from(value).ok();
+
+    let writing_mode = match ctx.specified_style.writing_mode {
+        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
+            ctx.relative_ctx.parent.writing_mode,
+            WritingMode::HorizontalTb,
+        ),
+        CSSProperty::Value(val) => val,
+    };
+
+    match writing_mode {
+        WritingMode::HorizontalTb => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_bottom = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_bottom = offset.top.into();
+            }
+        }
+        WritingMode::VerticalRl => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_left = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_left = offset.top.into();
+            }
+        }
+        WritingMode::VerticalLr => {
+            if let Some(global) = global {
+                ctx.specified_style.padding_right = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                ctx.specified_style.padding_right = offset.top.into();
+            }
+        }
+        _ => {
             ctx.record_error(
                 "padding-block-end",
-                value,
-                format!("Unsupported global value: {:?}", global),
+                value.to_vec(),
+                String::from("Unsupported writing mode"),
             );
         }
-        CSSProperty::Value(val) => match val {
-            WritingMode::HorizontalTb => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.padding_bottom, value)
-                {
-                    ctx.record_error("padding-block-end", value, e);
-                }
-            }
-            WritingMode::VerticalRl => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.padding_left, value)
-                {
-                    ctx.record_error("padding-block-end", value, e);
-                }
-            }
-            WritingMode::VerticalLr => {
-                if let Err(e) =
-                    CSSProperty::update_property(&mut ctx.specified_style.padding_right, value)
-                {
-                    ctx.record_error("padding-block-end", value, e);
-                }
-            }
-            _ => {
-                ctx.record_error(
-                    "padding-block-end",
-                    value,
-                    String::from("Unsupported writing mode"),
-                );
-            }
-        },
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use css_cssom::{CssToken, Function};
-
-    use super::*;
-    use crate::{BorderStyleValue, BorderWidthValue};
-
-    #[test]
-    fn test_split_top_level_whitespace_preserves_functions() {
-        let parts = split_top_level_whitespace("calc(100% - 2px) solid rgb(255 0 0 / 0.5)");
-        assert_eq!(
-            parts,
-            vec!["calc(100% - 2px)", "solid", "rgb(255 0 0 / 0.5)"]
-        );
-    }
-
-    #[test]
-    fn test_handle_border_with_calc_and_function_color() {
-        let absolute_ctx = AbsoluteContext::default();
-        let relative_ctx = RelativeContext {
-            parent_font_size: 16.0,
-            ..Default::default()
-        };
-        let mut style = SpecifiedStyle::default();
-        let mut ctx = PropertyUpdateContext::new(&absolute_ctx, &mut style, &relative_ctx);
-
-        handle_border(&mut ctx, "calc(100% - 2px) solid rgb(255 0 0 / 0.5)");
-
-        assert!(ctx.errors.is_empty());
-        assert_eq!(
-            CSSProperty::resolve(&ctx.specified_style.border_top_style),
-            Ok(&BorderStyleValue::Solid)
-        );
-        assert!(matches!(
-            CSSProperty::resolve(&ctx.specified_style.border_top_width),
-            Ok(BorderWidthValue::Calc(_))
-        ));
-    }
-
-    #[test]
-    fn test_simple_variable_parsing() {
-        let variables = vec![
-            (
-                Property::Custom("--main-color".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("blue".to_string()),
-                    position: None,
-                })],
-            ),
-            (
-                Property::Custom("--fallback-color".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("red".to_string()),
-                    position: None,
-                })],
-            ),
-        ];
-
-        let value = "var(--main-color, var(--fallback-color, green))".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "blue");
-    }
-
-    #[test]
-    fn test_variable_with_fallback() {
-        let variables = vec![(
-            Property::Custom("--bg-color".to_string()),
-            vec![ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("red".to_string()),
-                position: None,
-            })],
-        )];
-
-        let value = "var(--undefined-color, var(--bg-color, blue))".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "red");
-    }
-
-    #[test]
-    fn test_nested_variable_resolution() {
-        let variables = vec![
-            (
-                Property::Custom("--color-a".to_string()),
-                vec![ComponentValue::Function(Function {
-                    name: "var".to_string(),
-                    value: vec![ComponentValue::Token(CssToken {
-                        kind: CssTokenKind::Ident("--color-b".to_string()),
-                        position: None,
-                    })],
-                })],
-            ),
-            (
-                Property::Custom("--color-b".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("green".to_string()),
-                    position: None,
-                })],
-            ),
-        ];
-
-        let value = "var(--color-a, blue)".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "green");
-    }
-
-    #[test]
-    fn test_chained_variables() {
-        let variables = vec![
-            (
-                Property::Custom("--padding-vertical".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("20px".to_string()),
-                    position: None,
-                })],
-            ),
-            (
-                Property::Custom("--padding-horizontal".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("50px".to_string()),
-                    position: None,
-                })],
-            ),
-        ];
-
-        let value = "var(--padding-vertical) var(--padding-horizontal)".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "20px 50px");
-
-        let value = "var(--padding-vertical)var(--padding-horizontal)".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "20px 50px");
-    }
-
-    #[test]
-    fn test_variable_with_no_fallback() {
-        let variables = vec![];
-
-        let value = "var(--undefined-color)".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "var(--undefined-color)");
-    }
-
-    #[test]
-    fn test_mixed_variable_and_non_variable_segments() {
-        let variables = vec![(
-            Property::Custom("--main-color".to_string()),
-            vec![ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("blue".to_string()),
-                position: None,
-            })],
-        )];
-
-        let value = "1px solid var(--main-color)".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "1px solid blue");
-    }
-
-    #[test]
-    fn test_mixed_variable_suffix() {
-        let variables = vec![
-            (
-                Property::Custom("--padding-vertical".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("2".to_string()),
-                    position: None,
-                })],
-            ),
-            (
-                Property::Custom("--padding-horizontal".to_string()),
-                vec![ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Ident("5".to_string()),
-                    position: None,
-                })],
-            ),
-        ];
-
-        let value = "var(--padding-vertical)rem var(--padding-horizontal)vh".to_string();
-        let resolved = resolve_css_variables(&variables, value);
-        assert_eq!(resolved, "2rem 5vh");
     }
 }

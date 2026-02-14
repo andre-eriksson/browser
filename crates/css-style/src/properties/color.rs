@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
     color::{
@@ -38,28 +38,32 @@ impl From<Color4f> for Color {
     }
 }
 
-impl FromStr for Color {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for Color {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            if let ComponentValue::Token(token) = cv
+                && let CssTokenKind::Ident(ident) = &token.kind
+            {
+                if ident.eq_ignore_ascii_case("currentColor") {
+                    return Ok(Self::Current);
+                } else if ident.eq_ignore_ascii_case("transparent") {
+                    return Ok(Self::Transparent);
+                }
+            }
+        }
 
-        if s.eq_ignore_ascii_case("currentColor") {
-            Ok(Self::Current)
-        } else if s.eq_ignore_ascii_case("transparent") {
-            Ok(Self::Transparent)
-        } else if s.starts_with('#')
-            && let Ok(hex_color) = s.parse()
-        {
+        if let Ok(hex_color) = value.try_into() {
             Ok(Self::Hex(hex_color))
-        } else if let Ok(function_color) = s.parse() {
+        } else if let Ok(function_color) = value.try_into() {
             Ok(Self::Functional(function_color))
-        } else if let Ok(system_color) = s.parse() {
+        } else if let Ok(system_color) = value.try_into() {
             Ok(Self::System(system_color))
-        } else if let Ok(named_color) = s.parse() {
+        } else if let Ok(named_color) = value.try_into() {
             Ok(Self::Named(named_color))
         } else {
-            Err(format!("Invalid color value: {}", s))
+            Err("Invalid color value".to_string())
         }
     }
 }

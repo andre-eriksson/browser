@@ -1,6 +1,6 @@
 //! SRGBA color representations: rgb(), rgba(), hsl(), hsla(), and hwb() functions
 
-use std::str::FromStr;
+use css_cssom::ComponentValue;
 
 use crate::{
     color::{Alpha, ColorValue, FunctionColor, Hue},
@@ -33,192 +33,280 @@ pub enum SRGBAColor {
     Hwb(Hue, Percentage, Percentage, Alpha),
 }
 
-impl FromStr for SRGBAColor {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for SRGBAColor {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.contains("from") {
-            return Err("Relative color syntax not supported yet".to_string());
-        } else if s.contains("calc(") {
-            return Err("CSS functions in color values not supported yet".to_string());
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for val in value {
+            match val {
+                ComponentValue::Function(func) => {
+                    if func.name.eq_ignore_ascii_case("rgb")
+                        || func.name.eq_ignore_ascii_case("rgba")
+                    {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+                        return match raw.channels {
+                            [Some(r), Some(g), Some(b)] => Ok(SRGBAColor::Rgb(r, g, b, raw.alpha)),
+                            _ => Err("Missing components in rgb()".to_string()),
+                        };
+                    } else if func.name.eq_ignore_ascii_case("hsl")
+                        || func.name.eq_ignore_ascii_case("hsla")
+                    {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+
+                        return match raw.channels {
+                            [Some(h), Some(s), Some(l)] => Ok(SRGBAColor::Hsl(
+                                Hue::from(h),
+                                Percentage::from(s),
+                                Percentage::from(l),
+                                raw.alpha,
+                            )),
+                            _ => Err("Missing components in hsl()".to_string()),
+                        };
+                    } else if func.name.eq_ignore_ascii_case("hwb") {
+                        let raw = FunctionColor::parse_color_components(&func.value)?;
+
+                        return match raw.channels {
+                            [Some(h), Some(w), Some(b)] => Ok(SRGBAColor::Hwb(
+                                Hue::from(h),
+                                Percentage::from(w),
+                                Percentage::from(b),
+                                raw.alpha,
+                            )),
+                            _ => Err("Missing components in hwb()".to_string()),
+                        };
+                    } else {
+                        continue;
+                    }
+                }
+                _ => continue,
+            }
         }
-        let s = s.trim();
 
-        let parts = FunctionColor::tokenize_color(s, "rgb(")
-            .or_else(|| FunctionColor::tokenize_color(s, "rgba("))
-            .or_else(|| FunctionColor::tokenize_color(s, "hsl("))
-            .or_else(|| FunctionColor::tokenize_color(s, "hsla("))
-            .or_else(|| FunctionColor::tokenize_color(s, "hwb("))
-            .ok_or_else(|| format!("Invalid SRGBA color: {}", s))?;
-
-        if s.starts_with("rgb") {
-            match parts.as_slice() {
-                [r, g, b] => {
-                    let r = r
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid red value: {}", r))?;
-                    let g = g
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid green value: {}", g))?;
-                    let b = b
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid blue value: {}", b))?;
-                    Ok(SRGBAColor::Rgb(r, g, b, Alpha(1.0)))
-                }
-                [r, g, b, a] => {
-                    let r = r
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid red value: {}", r))?;
-                    let g = g
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid green value: {}", g))?;
-                    let b = b
-                        .parse::<ColorValue>()
-                        .map_err(|_| format!("Invalid blue value: {}", b))?;
-                    let a = a
-                        .parse::<Alpha>()
-                        .map_err(|_| format!("Invalid alpha value: {}", a))?;
-                    Ok(SRGBAColor::Rgb(r, g, b, a))
-                }
-                _ => Err(format!("Invalid RGB(A) color: {}", s)),
-            }
-        } else if s.starts_with("hsl") {
-            match parts.as_slice() {
-                [h, s, l] => {
-                    let h = h
-                        .parse::<Hue>()
-                        .map_err(|_| format!("Invalid hue value: {}", h))?;
-                    let s = s
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid saturation value: {}", s))?;
-                    let l = l
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid lightness value: {}", l))?;
-                    Ok(SRGBAColor::Hsl(h, s, l, Alpha(1.0)))
-                }
-                [h, s, l, a] => {
-                    let h = h
-                        .parse::<Hue>()
-                        .map_err(|_| format!("Invalid hue value: {}", h))?;
-                    let s = s
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid saturation value: {}", s))?;
-                    let l = l
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid lightness value: {}", l))?;
-                    let a = a
-                        .parse::<Alpha>()
-                        .map_err(|_| format!("Invalid alpha value: {}", a))?;
-                    Ok(SRGBAColor::Hsl(h, s, l, a))
-                }
-                _ => Err(format!("Invalid HSL(A) color: {}", s)),
-            }
-        } else if s.starts_with("hwb") {
-            match parts.as_slice() {
-                [h, w, b] => {
-                    let h = h
-                        .parse::<Hue>()
-                        .map_err(|_| format!("Invalid hue value: {}", h))?;
-                    let w = w
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid whiteness value: {}", w))?;
-                    let b = b
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid blackness value: {}", b))?;
-                    Ok(SRGBAColor::Hwb(h, w, b, Alpha(1.0)))
-                }
-                [h, w, b, a] => {
-                    let h = h
-                        .parse::<Hue>()
-                        .map_err(|_| format!("Invalid hue value: {}", h))?;
-                    let w = w
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid whiteness value: {}", w))?;
-                    let b = b
-                        .parse::<Percentage>()
-                        .map_err(|_| format!("Invalid blackness value: {}", b))?;
-                    let a = a
-                        .parse::<Alpha>()
-                        .map_err(|_| format!("Invalid alpha value: {}", a))?;
-                    Ok(SRGBAColor::Hwb(h, w, b, a))
-                }
-                _ => Err(format!("Invalid HWB(A) color: {}", s)),
-            }
-        } else {
-            Err(format!("Invalid SRGBA color: {}", s))
-        }
+        Err("No valid SRGBA color found in component values".to_string())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use css_cssom::{CssToken, CssTokenKind, Function, NumberType, NumericValue};
+
+    use crate::css_color_fn;
+
     use super::*;
 
     #[test]
-    fn test_srgba_color_parsing() {
-        let color = "rgb(255, 0, 0)".parse::<SRGBAColor>().unwrap();
+    fn test_rgb_parse() {
+        let color = css_color_fn!("rgb", "200", "150", "200", "none");
+        let rgb = SRGBAColor::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            rgb,
             SRGBAColor::Rgb(
-                ColorValue::Number(255.0),
-                ColorValue::Number(0.0),
-                ColorValue::Number(0.0),
+                ColorValue::Number(200.0),
+                ColorValue::Number(150.0),
+                ColorValue::Number(200.0),
                 Alpha(1.0)
             )
         );
 
-        let color = "rgba(255, 0, 0, 0.5)".parse::<SRGBAColor>().unwrap();
+        let color = css_color_fn!("rgb", "200", "100", "255", "50%");
+        let rgb = SRGBAColor::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            rgb,
             SRGBAColor::Rgb(
+                ColorValue::Number(200.0),
+                ColorValue::Number(100.0),
                 ColorValue::Number(255.0),
-                ColorValue::Number(0.0),
-                ColorValue::Number(0.0),
                 Alpha(0.5)
             )
         );
+    }
 
-        let color = "hsl(120, 100%, 50%)".parse::<SRGBAColor>().unwrap();
+    #[test]
+    fn test_rbga_parse() {
+        let color = vec![ComponentValue::Function(Function {
+            name: "rgba".to_string(),
+            value: vec![
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Number(NumericValue {
+                        value: 200.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Number(NumericValue {
+                        value: 100.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Number(NumericValue {
+                        value: 255.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Number(NumericValue {
+                        value: 0.7,
+                        int_value: None,
+                        type_flag: NumberType::Number,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+            ],
+        })];
+
+        let rgba = SRGBAColor::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            rgba,
+            SRGBAColor::Rgb(
+                ColorValue::Number(200.0),
+                ColorValue::Number(100.0),
+                ColorValue::Number(255.0),
+                Alpha(0.7)
+            )
+        );
+    }
+
+    #[test]
+    fn test_hsl_parse() {
+        let color = css_color_fn!("hsl", "120", "50%", "50%", "none");
+        let hsl = SRGBAColor::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            hsl,
             SRGBAColor::Hsl(
                 Hue::from(120.0),
-                Percentage::new(100.0),
+                Percentage::new(50.0),
                 Percentage::new(50.0),
                 Alpha(1.0)
             )
         );
 
-        let color = "hsla(120, 100%, 50%, 0.3)".parse::<SRGBAColor>().unwrap();
+        let color = css_color_fn!("hsl", "120", "50%", "50%", "0.3");
+        let hsl = SRGBAColor::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            hsl,
             SRGBAColor::Hsl(
                 Hue::from(120.0),
-                Percentage::new(100.0),
+                Percentage::new(50.0),
                 Percentage::new(50.0),
                 Alpha(0.3)
             )
         );
+    }
 
-        let color = "hwb(240, 50%, 25%)".parse::<SRGBAColor>().unwrap();
+    #[test]
+    fn test_hsla_parse() {
+        let color = vec![ComponentValue::Function(Function {
+            name: "hsla".to_string(),
+            value: vec![
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Number(NumericValue {
+                        value: 120.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Percentage(NumericValue {
+                        value: 50.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Percentage(NumericValue {
+                        value: 50.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Number(NumericValue {
+                        value: 0.3,
+                        int_value: None,
+                        type_flag: NumberType::Number,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+            ],
+        })];
+
+        let hsla = SRGBAColor::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            hsla,
+            SRGBAColor::Hsl(
+                Hue::from(120.0),
+                Percentage::new(50.0),
+                Percentage::new(50.0),
+                Alpha(0.3)
+            )
+        );
+    }
+
+    #[test]
+    fn test_hwb_parse() {
+        let color = css_color_fn!("hwb", "240", "0%", "0%", "none");
+        let hwb = SRGBAColor::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            hwb,
             SRGBAColor::Hwb(
                 Hue::from(240.0),
-                Percentage::new(50.0),
-                Percentage::new(25.0),
+                Percentage::new(0.0),
+                Percentage::new(0.0),
                 Alpha(1.0)
             )
         );
 
-        let color = "hwb(240, 50%, 25%, 0.7)".parse::<SRGBAColor>().unwrap();
+        let color = css_color_fn!("hwb", "240", "0%", "0%", "0.5");
+        let hwb = SRGBAColor::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            color,
+            hwb,
             SRGBAColor::Hwb(
                 Hue::from(240.0),
-                Percentage::new(50.0),
-                Percentage::new(25.0),
-                Alpha(0.7)
+                Percentage::new(0.0),
+                Percentage::new(0.0),
+                Alpha(0.5)
             )
         );
     }

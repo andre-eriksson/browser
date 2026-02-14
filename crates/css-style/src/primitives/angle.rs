@@ -13,8 +13,6 @@
 //! * Gradians: "450grad" would be treated as "50grad".
 //! * Turns: "1.5turn" would be treated as "0.5turn".
 
-use std::str::FromStr;
-
 /// Angle representation for CSS properties that accept angles, such as hue in HSL colors or rotation in transforms
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Angle {
@@ -40,14 +38,6 @@ pub enum Angle {
 }
 
 impl Angle {
-    fn strip_unit<'a>(s: &'a str, suffix: &str) -> Option<&'a str> {
-        if s.len() >= suffix.len() && s[s.len() - suffix.len()..].eq_ignore_ascii_case(suffix) {
-            Some(&s[..s.len() - suffix.len()])
-        } else {
-            None
-        }
-    }
-
     /// Convert the angle to degrees
     pub fn to_degrees(self) -> f32 {
         match self {
@@ -89,60 +79,9 @@ impl Angle {
     }
 }
 
-impl FromStr for Angle {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("none") {
-            Ok(Self::Deg(0.0))
-        } else if let Some(num_str) = Self::strip_unit(s, "grad")
-            && let Ok(num) = num_str.parse::<f32>()
-        {
-            Ok(Self::from_gradians(num))
-        } else if let Some(num_str) = Self::strip_unit(s, "rad")
-            && let Ok(num) = num_str.parse::<f32>()
-        {
-            Ok(Self::from_radians(num))
-        } else if let Some(num_str) = Self::strip_unit(s, "deg")
-            && let Ok(num) = num_str.parse::<f32>()
-        {
-            Ok(Self::from_degrees(num))
-        } else if let Some(num_str) = Self::strip_unit(s, "turn")
-            && let Ok(num) = num_str.parse::<f32>()
-        {
-            Ok(Self::from_turns(num))
-        } else if let Ok(num) = s.trim().parse::<f32>() {
-            Ok(Self::from_degrees(num))
-        } else {
-            Err(())
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_strip_unit() {
-        assert_eq!(Angle::strip_unit("45deg", "Deg"), Some("45"));
-        assert_eq!(Angle::strip_unit("3.14RAD", "raD"), Some("3.14"));
-        assert_eq!(Angle::strip_unit("100Grad", "gRAd"), Some("100"));
-        assert_eq!(Angle::strip_unit("0.5TURN", "turn"), Some("0.5"));
-        assert_eq!(Angle::strip_unit("invalid", "dEg"), None);
-    }
-
-    #[allow(clippy::approx_constant)]
-    #[test]
-    fn test_angle_parse() {
-        assert_eq!("45deg".parse(), Ok(Angle::Deg(45.0)));
-        assert_eq!("3.14rad".parse(), Ok(Angle::Rad(3.14)));
-        assert_eq!("100grad".parse(), Ok(Angle::Grad(100.0)));
-        assert_eq!("0.5turn".parse(), Ok(Angle::Turn(0.5)));
-        assert!("invalid".parse::<Angle>().is_err());
-    }
 
     #[test]
     fn test_to_degrees() {

@@ -1,7 +1,5 @@
 //! Defines the `Length` struct and related types for representing CSS length values.
 
-use std::str::FromStr;
-
 use strum::EnumString;
 
 use crate::properties::{AbsoluteContext, RelativeContext};
@@ -251,46 +249,39 @@ impl Length {
             LengthUnit::Vw => abs_ctx.viewport_width * self.value / 100.0,
             LengthUnit::Vh => abs_ctx.viewport_height * self.value / 100.0,
 
-            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.parent_font_size * 0.5 * self.value,
+            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.parent.font_size * 0.5 * self.value,
             LengthUnit::Rem => abs_ctx.root_font_size * self.value,
-            LengthUnit::Em => rel_ctx.parent_font_size * self.value,
+            LengthUnit::Em => rel_ctx.parent.font_size * self.value,
             _ => self.value, // TODO: Handle other units properly
         }
     }
 }
 
-impl FromStr for Length {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-        let split_idx = s.find(|c: char| c.is_alphabetic()).unwrap_or(s.len());
-        let (value_str, unit_str) = s.split_at(split_idx);
-
-        let value = value_str.trim().parse::<f32>().map_err(|e| e.to_string())?;
-        let unit = unit_str
-            .parse::<LengthUnit>()
-            .map_err(|_| format!("Invalid length unit: {}", unit_str))?;
-
-        Ok(Self::new(value, unit))
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::ComputedStyle;
+
     use super::*;
 
     #[test]
-    fn test_length_parse() {
-        let length = "12px".parse::<Length>().unwrap();
-        assert_eq!(length.value, 12.0);
-        assert_eq!(length.unit, LengthUnit::Px);
+    fn test_length_to_px() {
+        let abs_ctx = AbsoluteContext {
+            viewport_width: 800.0,
+            viewport_height: 600.0,
+            root_font_size: 16.0,
+            ..Default::default()
+        };
+        let rel_ctx = RelativeContext {
+            parent: Box::new(ComputedStyle {
+                font_size: 16.0,
+                ..Default::default()
+            }),
+        };
 
-        let length = "5.5em".parse::<Length>().unwrap();
-        assert_eq!(length.value, 5.5);
-        assert_eq!(length.unit, LengthUnit::Em);
+        let length = Length::new(2.0, LengthUnit::In);
+        assert_eq!(length.to_px(&rel_ctx, &abs_ctx), 192.0);
 
-        let length = "100%".parse::<Length>();
-        assert!(length.is_err());
+        let length = Length::new(50.0, LengthUnit::Vw);
+        assert_eq!(length.to_px(&rel_ctx, &abs_ctx), 400.0);
     }
 }

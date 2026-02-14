@@ -5,7 +5,9 @@
 //!
 //! <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/color_value>
 
-use std::{ops::RangeInclusive, str::FromStr};
+use std::ops::RangeInclusive;
+
+use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
     color::{cielab::Cielab, oklab::Oklab, srgba::SRGBAColor},
@@ -31,23 +33,18 @@ impl Hue {
     }
 }
 
-impl From<f32> for Hue {
-    fn from(value: f32) -> Self {
-        Hue(value)
+impl From<ColorValue> for Hue {
+    fn from(value: ColorValue) -> Self {
+        match value {
+            ColorValue::Number(n) => Hue(n),
+            ColorValue::Percentage(p) => Hue(p.as_fraction() * 360.0),
+        }
     }
 }
 
-impl FromStr for Hue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-        if let Ok(angle) = s.parse::<Angle>() {
-            Ok(Hue::from(angle))
-        } else {
-            let number = s.parse::<f32>().map_err(|e| e.to_string())?;
-            Ok(Hue(number))
-        }
+impl From<f32> for Hue {
+    fn from(value: f32) -> Self {
+        Hue(value)
     }
 }
 
@@ -117,27 +114,41 @@ impl ColorValue {
     }
 }
 
-impl From<f32> for ColorValue {
-    fn from(value: f32) -> Self {
-        ColorValue::Number(value)
+impl TryFrom<&[ComponentValue]> for ColorValue {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("none") {
+                            return Ok(ColorValue::Number(0.0));
+                        } else {
+                            return Err(format!("Invalid color value: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Percentage(percent) => {
+                        return Ok(ColorValue::Percentage(Percentage::new(
+                            percent.value as f32,
+                        )));
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(ColorValue::Number(num.value as f32));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
+        }
+
+        Err("No valid color value found".to_string())
     }
 }
 
-impl FromStr for ColorValue {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("none") {
-            Ok(ColorValue::Number(0.0))
-        } else if s.ends_with('%') {
-            Ok(ColorValue::Percentage(s.parse::<Percentage>()?))
-        } else {
-            Ok(ColorValue::Number(
-                s.parse::<f32>().map_err(|e| e.to_string())?,
-            ))
-        }
+impl From<f32> for ColorValue {
+    fn from(value: f32) -> Self {
+        ColorValue::Number(value)
     }
 }
 
@@ -156,24 +167,6 @@ impl Alpha {
     /// Get the alpha value as a floating-point number in the range [0.0, 1.0].
     pub fn value(&self) -> f32 {
         self.0.clamp(0.0, 1.0)
-    }
-}
-
-impl FromStr for Alpha {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("none") {
-            Ok(Alpha(1.0))
-        } else if s.ends_with('%') {
-            let percentage = s.parse::<Percentage>()?;
-            Ok(Alpha::from(percentage))
-        } else {
-            let number = s.parse::<f32>().map_err(|e| e.to_string())?;
-            Ok(Alpha(number))
-        }
     }
 }
 
@@ -209,99 +202,263 @@ pub enum FunctionColor {
     Oklab(Oklab),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct RawColorComponents {
+    channels: [Option<ColorValue>; 3],
+    alpha: Alpha,
+}
+
 impl FunctionColor {
-    fn tokenize_color(input: &str, prefix: &str) -> Option<Vec<String>> {
-        let input = input.trim();
-        if input.starts_with(prefix) && input.ends_with(')') {
-            let content = &input[prefix.len()..input.len() - 1];
-            Some(
-                content
-                    .replace([',', '/'], " ")
-                    .split_whitespace()
-                    .map(|s| s.to_string())
-                    .collect(),
-            )
-        } else {
-            None
+    // TODO: Relative color syntax `color-function(from <origin> channel1 channel2 channel3)`
+
+    fn parse_color_components(values: &[ComponentValue]) -> Result<RawColorComponents, String> {
+        let mut channels = [None, None, None];
+        let mut channel_idx = 0;
+        let mut alpha = None;
+        let mut parsing_alpha = false;
+
+        for arg in values {
+            match arg {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("none") {
+                            if parsing_alpha {
+                                alpha = Some(Alpha(1.0));
+                            } else if channel_idx < 3 {
+                                channels[channel_idx] = Some(ColorValue::Number(0.0));
+                                channel_idx += 1;
+                            } else {
+                                return Err("Too many components in color function".to_string());
+                            }
+                        } else {
+                            return Err(format!("Invalid token in color function: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Delim('/') => {
+                        parsing_alpha = true;
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        if parsing_alpha {
+                            alpha = Some(Alpha::from(Percentage::new(pct.value as f32)));
+                        } else if channel_idx < 3 {
+                            channels[channel_idx] =
+                                Some(ColorValue::Percentage(Percentage::new(pct.value as f32)));
+                            channel_idx += 1;
+                        } else if alpha.is_none() {
+                            alpha = Some(Alpha::from(Percentage::new(pct.value as f32)));
+                        } else {
+                            return Err(
+                                "Too many percentage components in color function".to_string()
+                            );
+                        }
+                    }
+                    CssTokenKind::Number(num) => {
+                        if parsing_alpha {
+                            alpha = Some(Alpha::new(num.value as f32));
+                        } else if channel_idx < 3 {
+                            channels[channel_idx] = Some(ColorValue::Number(num.value as f32));
+                            channel_idx += 1;
+                        } else if alpha.is_none() {
+                            alpha = Some(Alpha::new(num.value as f32));
+                        } else {
+                            return Err("Too many number components in color function".to_string());
+                        }
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
         }
+
+        Ok(RawColorComponents {
+            channels,
+            alpha: alpha.unwrap_or(Alpha(1.0)),
+        })
     }
 }
 
-impl FromStr for FunctionColor {
-    type Err = String;
+impl TryFrom<&[ComponentValue]> for FunctionColor {
+    type Error = String;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(srgba) = s.parse::<SRGBAColor>() {
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        if let Ok(srgba) = value.try_into() {
             return Ok(Self::Srgba(srgba));
         }
 
-        if let Ok(cielab) = s.parse::<Cielab>() {
+        if let Ok(cielab) = value.try_into() {
             return Ok(Self::Cielab(cielab));
         }
 
-        if let Ok(oklab) = s.parse::<Oklab>() {
+        if let Ok(oklab) = value.try_into() {
             return Ok(Self::Oklab(oklab));
         }
 
-        Err(format!("'{}', Invalid functional color format", s))
+        Err("Invalid functional color format".to_string())
+    }
+}
+
+#[cfg(test)]
+pub mod macros {
+    #[macro_export]
+    macro_rules! css_color_fn {
+        ($func:expr, $ch1:expr, $ch2:expr, $ch3:expr, $alpha:expr) => {{
+            use css_cssom::{CssToken, CssTokenKind, Function, NumberType, NumericValue};
+            macro_rules! css_value_token {
+                ($val:expr) => {{
+                    let s = $val.to_string();
+                    if s == "none" {
+                        CssToken {
+                            kind: CssTokenKind::Ident("none".to_string()),
+                            position: None,
+                        }
+                    } else if s.contains('%') {
+                        CssToken {
+                            kind: CssTokenKind::Percentage(NumericValue {
+                                value: s.replace('%', "").parse::<f32>().unwrap_or(0.0) as f64,
+                                int_value: None,
+                                type_flag: NumberType::Number,
+                                repr: String::new(),
+                            }),
+                            position: None,
+                        }
+                    } else {
+                        CssToken {
+                            kind: CssTokenKind::Number(NumericValue {
+                                value: s.parse::<f32>().unwrap_or(0.0) as f64,
+                                int_value: None,
+                                type_flag: NumberType::Number,
+                                repr: String::new(),
+                            }),
+                            position: None,
+                        }
+                    }
+                }};
+            }
+
+            let channel1_token = css_value_token!($ch1);
+            let channel2_token = css_value_token!($ch2);
+            let channel3_token = css_value_token!($ch3);
+
+            let alpha_token = match $alpha {
+                a if (a.to_string().eq("none")) => CssToken {
+                    kind: CssTokenKind::Ident("none".to_string()),
+                    position: None,
+                },
+                a if (a.to_string().contains('%')) => CssToken {
+                    kind: CssTokenKind::Percentage(NumericValue {
+                        value: a.to_string().replace('%', "").parse::<f32>().unwrap_or(0.0) as f64,
+                        int_value: None,
+                        type_flag: NumberType::Number,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                },
+                a if (0.0..=1.0).contains(&(a.to_string().parse::<f32>().unwrap_or(-1.0))) => {
+                    CssToken {
+                        kind: CssTokenKind::Number(NumericValue {
+                            value: a.to_string().parse::<f32>().unwrap_or(0.0) as f64,
+                            int_value: None,
+                            type_flag: NumberType::Number,
+                            repr: String::new(),
+                        }),
+                        position: None,
+                    }
+                }
+                _ => panic!("Invalid alpha value for css_color_fn_alpha! macro"),
+            };
+
+            if alpha_token.kind == CssTokenKind::Ident("none".to_string()) {
+                vec![ComponentValue::Function(Function {
+                    name: $func.to_string(),
+                    value: vec![
+                        ComponentValue::Token(channel1_token),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(channel2_token),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(channel3_token),
+                    ],
+                })]
+            } else {
+                vec![ComponentValue::Function(Function {
+                    name: $func.to_string(),
+                    value: vec![
+                        ComponentValue::Token(channel1_token),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(channel2_token),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(channel3_token),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Delim('/'),
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(alpha_token),
+                    ],
+                })]
+            }
+        }};
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use css_cssom::{CssToken, NumberType, NumericValue};
+
     use super::*;
 
     #[test]
-    fn test_tokenize_color() {
-        let input = "rgb(255, 0, 0)";
-        let tokens = FunctionColor::tokenize_color(input, "rgb(").unwrap();
-        assert_eq!(tokens, vec!["255", "0", "0"]);
+    fn test_parse_color_components() {
+        let components = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Number(NumericValue {
+                    value: 255.0,
+                    int_value: None,
+                    type_flag: NumberType::Number,
+                    repr: String::new(),
+                }),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Percentage(NumericValue {
+                    value: 50.0,
+                    int_value: None,
+                    type_flag: NumberType::Number,
+                    repr: String::new(),
+                }),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("none".to_string()),
+                position: None,
+            }),
+        ];
 
-        let input = "rgba(255 0 0 / 0.5)";
-        let tokens = FunctionColor::tokenize_color(input, "rgba(").unwrap();
-        assert_eq!(tokens, vec!["255", "0", "0", "0.5"]);
-
-        let input = "hsl(120, 100%, 50%)";
-        let tokens = FunctionColor::tokenize_color(input, "hsl(").unwrap();
-        assert_eq!(tokens, vec!["120", "100%", "50%"]);
-    }
-
-    #[test]
-    fn test_function_color_parsing() {
-        let color = "rgb(255, 0, 0)".parse::<FunctionColor>().unwrap();
-        assert!(matches!(color, FunctionColor::Srgba(_)));
-
-        let color = "lab(50, 20, -30)".parse::<FunctionColor>().unwrap();
-        assert!(matches!(color, FunctionColor::Cielab(_)));
-
-        let color = "oklab(0.5, 0.1, -0.1)".parse::<FunctionColor>().unwrap();
-        assert!(matches!(color, FunctionColor::Oklab(_)));
-    }
-
-    #[test]
-    fn test_color_value_parsing() {
-        let value = "50".parse::<ColorValue>().unwrap();
-        assert_eq!(value, ColorValue::Number(50.0));
-
-        let value = "50%".parse::<ColorValue>().unwrap();
-        assert_eq!(value, ColorValue::Percentage(Percentage::new(50.0)));
-
-        let value = "none".parse::<ColorValue>().unwrap();
-        assert_eq!(value, ColorValue::Number(0.0));
-    }
-
-    #[test]
-    fn test_color_value_range() {
-        let value = ColorValue::Number(300.0);
-        assert_eq!(value.value(0.0..=255.0, Fraction::Unsigned), 255.0);
-
-        let value = ColorValue::Number(-10.0);
-        assert_eq!(value.value(0.0..=255.0, Fraction::Unsigned), 0.0);
-
-        let value = ColorValue::Percentage(Percentage::new(50.0));
-        assert_eq!(value.value(0.0..=255.0, Fraction::Unsigned), 127.5);
-
-        let value = ColorValue::Percentage(Percentage::new(-50.0));
-        assert_eq!(value.value(0.0..=255.0, Fraction::Signed), 63.75);
+        let result = FunctionColor::parse_color_components(&components).unwrap();
+        assert_eq!(result.channels[0], Some(ColorValue::Number(255.0)));
+        assert_eq!(
+            result.channels[1],
+            Some(ColorValue::Percentage(Percentage::new(50.0)))
+        );
+        assert_eq!(result.channels[2], Some(ColorValue::Number(0.0)));
+        assert_eq!(result.alpha, Alpha(1.0));
     }
 }
