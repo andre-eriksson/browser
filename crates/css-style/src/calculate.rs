@@ -66,17 +66,17 @@ impl CalculateValue {
             CalculateValue::Keyword(k) => k.to_f32(),
             CalculateValue::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
             CalculateValue::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent_style.font_size * p.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx.parent.font_size * p.as_fraction(),
                 Some(RelativeType::ParentHeight) => {
                     rel_ctx
-                        .parent_style
+                        .parent
                         .height
                         .to_px(RelativeType::ParentHeight, rel_ctx, abs_ctx)
                         * p.as_fraction()
                 }
                 Some(RelativeType::ParentWidth) => {
                     rel_ctx
-                        .parent_style
+                        .parent
                         .width
                         .to_px(RelativeType::ParentWidth, rel_ctx, abs_ctx)
                         * p.as_fraction()
@@ -399,7 +399,7 @@ mod tests {
     /// Helper function to create test contexts
     fn create_test_contexts() -> (RelativeContext, AbsoluteContext) {
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size: 16.0,
                 width: Dimension::Length(Length::px(800.0)),
                 height: Dimension::Length(Length::px(600.0)),
@@ -992,7 +992,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::FontSize), &rel_ctx, &abs_ctx);
-        assert_eq!(result, 10.0 + (2.0 * rel_ctx.parent_style.font_size));
+        assert_eq!(result, 10.0 + (2.0 * rel_ctx.parent.font_size));
     }
 
     #[test]
@@ -1031,7 +1031,7 @@ mod tests {
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::ParentWidth), &rel_ctx, &abs_ctx);
         let width = rel_ctx
-            .parent_style
+            .parent
             .width
             .to_px(RelativeType::ParentWidth, &rel_ctx, &abs_ctx);
         assert_eq!(result, 10.0 + (0.5 * width));

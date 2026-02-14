@@ -249,9 +249,9 @@ impl Length {
             LengthUnit::Vw => abs_ctx.viewport_width * self.value / 100.0,
             LengthUnit::Vh => abs_ctx.viewport_height * self.value / 100.0,
 
-            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.parent_style.font_size * 0.5 * self.value,
+            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.parent.font_size * 0.5 * self.value,
             LengthUnit::Rem => abs_ctx.root_font_size * self.value,
-            LengthUnit::Em => rel_ctx.parent_style.font_size * self.value,
+            LengthUnit::Em => rel_ctx.parent.font_size * self.value,
             _ => self.value, // TODO: Handle other units properly
         }
     }
@@ -272,7 +272,7 @@ mod tests {
             ..Default::default()
         };
         let rel_ctx = RelativeContext {
-            parent_style: Box::new(ComputedStyle {
+            parent: Box::new(ComputedStyle {
                 font_size: 16.0,
                 ..Default::default()
             }),

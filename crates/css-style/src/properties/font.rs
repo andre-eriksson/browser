@@ -207,7 +207,7 @@ impl FontSize {
 
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size: font_size_px,
                 ..Default::default()
             }
@@ -217,8 +217,8 @@ impl FontSize {
         match self {
             FontSize::Absolute(abs) => abs.to_px(),
             FontSize::Length(len) => len.to_px(&rel_ctx, abs_ctx),
-            FontSize::Percentage(pct) => pct.as_fraction() * rel_ctx.parent_style.font_size,
-            FontSize::Relative(rel) => rel.to_px(rel_ctx.parent_style.font_size),
+            FontSize::Percentage(pct) => pct.as_fraction() * rel_ctx.parent.font_size,
+            FontSize::Relative(rel) => rel.to_px(rel_ctx.parent.font_size),
             FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
     }

@@ -39,17 +39,17 @@ impl OffsetValue {
         match self {
             OffsetValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
             OffsetValue::Percentage(pct) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent_style.font_size * pct.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx.parent.font_size * pct.as_fraction(),
                 Some(RelativeType::ParentHeight) => {
                     rel_ctx
-                        .parent_style
+                        .parent
                         .height
                         .to_px(RelativeType::ParentHeight, rel_ctx, abs_ctx)
                         * pct.as_fraction()
                 }
                 Some(RelativeType::ParentWidth) => {
                     rel_ctx
-                        .parent_style
+                        .parent
                         .width
                         .to_px(RelativeType::ParentWidth, rel_ctx, abs_ctx)
                         * pct.as_fraction()

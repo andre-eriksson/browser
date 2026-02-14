@@ -51,7 +51,7 @@ impl StyleTree {
             let computed_style =
                 ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, parent_style);
 
-            rel_ctx.parent_style = computed_style.clone().into();
+            rel_ctx.parent = computed_style.clone().into();
 
             let node = dom.get_node(&node_id).unwrap();
 

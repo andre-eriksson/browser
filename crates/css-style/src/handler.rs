@@ -392,13 +392,13 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
         }
         None => {
             ctx.specified_style.border_top_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
             ctx.specified_style.border_right_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
             ctx.specified_style.border_bottom_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
             ctx.specified_style.border_left_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
         }
     }
 }
@@ -408,7 +408,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
         ctx.specified_style.computed_font_size_px =
-            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent_style.font_size);
+            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
     }
 }
 

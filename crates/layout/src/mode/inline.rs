@@ -419,7 +419,7 @@ impl InlineLayout {
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
                     let rel_ctx = RelativeContext {
-                        parent_style: style.clone(),
+                        parent: style.clone(),
                     };
 
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(

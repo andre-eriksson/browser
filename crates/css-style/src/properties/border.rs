@@ -66,6 +66,10 @@ impl BorderWidth {
         BorderWidth::Length(Length::px(value))
     }
 
+    pub fn zero() -> Self {
+        BorderWidth::Length(Length::px(0.0))
+    }
+
     pub fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             BorderWidth::Length(len) => len.to_px(rel_ctx, abs_ctx),

@@ -44,7 +44,7 @@ impl PropertyResolver {
         font_size_px: f32,
     ) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size: font_size_px,
                 width: Dimension::px(containing_width),
                 ..Default::default()
@@ -139,7 +139,7 @@ impl PropertyResolver {
         font_size_px: f32,
     ) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size: font_size_px,
                 width: Dimension::px(containing_width),
                 ..Default::default()
@@ -158,7 +158,7 @@ impl PropertyResolver {
     ) -> f32 {
         let font_size = styled_node.style.font_size;
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size,
                 width: Dimension::px(width),
                 ..Default::default()
@@ -219,7 +219,7 @@ impl PropertyResolver {
         children_height: f32,
     ) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size: styled_node.style.font_size,
                 height: Dimension::px(height),
                 ..Default::default()

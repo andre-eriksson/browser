@@ -40,16 +40,12 @@ impl Dimension {
             Dimension::Auto => 0.0,
             Dimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
             Dimension::Percentage(p) => match rel_type {
-                RelativeType::FontSize => rel_ctx.parent_style.font_size * p.as_fraction(),
+                RelativeType::FontSize => rel_ctx.parent.font_size * p.as_fraction(),
                 RelativeType::ParentHeight => {
-                    rel_ctx
-                        .parent_style
-                        .height
-                        .to_px(rel_type, rel_ctx, abs_ctx)
-                        * p.as_fraction()
+                    rel_ctx.parent.height.to_px(rel_type, rel_ctx, abs_ctx) * p.as_fraction()
                 }
                 RelativeType::ParentWidth => {
-                    rel_ctx.parent_style.width.to_px(rel_type, rel_ctx, abs_ctx) * p.as_fraction()
+                    rel_ctx.parent.width.to_px(rel_type, rel_ctx, abs_ctx) * p.as_fraction()
                 }
                 RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),
                 RelativeType::ViewportHeight => abs_ctx.viewport_height * p.as_fraction(),
@@ -187,7 +183,7 @@ mod tests {
     #[test]
     fn test_dimension_to_px() {
         let rel_ctx = RelativeContext {
-            parent_style: Box::new(ComputedStyle {
+            parent: Box::new(ComputedStyle {
                 font_size: 16.0,
                 width: Dimension::Length(Length::px(200.0)),
                 height: Dimension::Length(Length::px(100.0)),

@@ -42,7 +42,7 @@ pub struct AbsoluteContext {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
-    pub parent_style: Box<ComputedStyle>,
+    pub parent: Box<ComputedStyle>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -87,10 +87,27 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
         }
     }
 
+    pub fn resolve_with_context_owned(self, parent: T, inital: T) -> T {
+        match self {
+            CSSProperty::Global(global) => match global {
+                Global::Initial => inital,
+                Global::Inherit => parent,
+                Global::Unset => parent,
+                Global::Revert | Global::RevertLayer => inital, // TODO: Implement user styles
+            },
+            CSSProperty::Value(val) => val,
+        }
+    }
+
     pub fn update_property(
         property: &mut CSSProperty<T>,
         value: &[ComponentValue],
     ) -> Result<(), String> {
+        if let Ok(global) = Global::try_from(value) {
+            *property = CSSProperty::Global(global);
+            return Ok(());
+        }
+
         *property = CSSProperty::from(T::try_from(value)?);
         Ok(())
     }

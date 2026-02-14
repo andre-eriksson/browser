@@ -126,7 +126,7 @@ impl LineHeight {
 
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_style: ComputedStyle {
+            parent: ComputedStyle {
                 font_size: font_size_px,
                 ..Default::default()
             }
