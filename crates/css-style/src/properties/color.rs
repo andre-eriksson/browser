@@ -42,15 +42,15 @@ impl TryFrom<&[ComponentValue]> for Color {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        if let Some(ComponentValue::Token(token)) = value.first() {
-            match &token.kind {
-                CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("currentColor") => {
+        for cv in value {
+            if let ComponentValue::Token(token) = cv
+                && let CssTokenKind::Ident(ident) = &token.kind
+            {
+                if ident.eq_ignore_ascii_case("currentColor") {
                     return Ok(Self::Current);
-                }
-                CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("transparent") => {
+                } else if ident.eq_ignore_ascii_case("transparent") {
                     return Ok(Self::Transparent);
                 }
-                _ => {}
             }
         }
 

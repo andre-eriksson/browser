@@ -101,18 +101,15 @@ impl TryFrom<&[ComponentValue]> for BorderStyle {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        if let Some(cv) = value.iter().next()
-            && let ComponentValue::Token(token) = cv
-            && let CssTokenKind::Ident(ident) = &token.kind
-        {
-            ident
-                .parse()
-                .map_err(|_| format!("Invalid named color: '{}'", ident))
-        } else {
-            Err(format!(
-                "No valid named color token found in component values: {:?}",
-                value
-            ))
+        for cv in value {
+            if let ComponentValue::Token(token) = cv
+                && let CssTokenKind::Ident(ident) = &token.kind
+                && let Ok(style) = ident.parse()
+            {
+                return Ok(style);
+            }
         }
+
+        Err("No valid BorderStyle found".to_string())
     }
 }

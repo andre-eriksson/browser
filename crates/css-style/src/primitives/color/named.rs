@@ -64,19 +64,24 @@ impl TryFrom<&[ComponentValue]> for SystemColor {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        if let Some(cv) = value.iter().next()
-            && let ComponentValue::Token(token) = cv
-            && let CssTokenKind::Ident(ident) = &token.kind
-        {
-            ident
-                .parse()
-                .map_err(|_| format!("Invalid system color: '{}'", ident))
-        } else {
-            Err(format!(
-                "No valid system color token found in component values: {:?}",
-                value
-            ))
+        for cv in value {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        return ident
+                            .parse()
+                            .map_err(|_| format!("Invalid system color: '{}'", ident));
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
         }
+
+        Err(format!(
+            "No valid system color token found in component values: {:?}",
+            value
+        ))
     }
 }
 

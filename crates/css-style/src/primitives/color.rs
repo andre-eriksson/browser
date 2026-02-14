@@ -121,7 +121,6 @@ impl TryFrom<&[ComponentValue]> for ColorValue {
         for cv in value {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Whitespace => continue,
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("none") {
                             return Ok(ColorValue::Number(0.0));

@@ -265,7 +265,15 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Whitespace,
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
                     kind: CssTokenKind::Delim('+'),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Whitespace,
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {

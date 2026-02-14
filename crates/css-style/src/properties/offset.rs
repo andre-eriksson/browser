@@ -69,36 +69,34 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        if value.len() != 1 {
-            return Err(format!(
-                "Expected exactly one ComponentValue for OffsetValue, got {}",
-                value.len()
-            ));
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
+                    return Ok(Self::Calc(CalcExpression::parse(func.value.as_slice())?));
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                        return Ok(Self::Length(Length::new(value.value as f32, len_unit)));
+                    }
+                    CssTokenKind::Percentage(pct) => {
+                        return Ok(Self::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(Self::Length(Length::px(num.value as f32)));
+                    }
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
+                        return Ok(Self::Auto);
+                    }
+                    _ => continue,
+                },
+                _ => continue,
+            }
         }
 
-        match &value[0] {
-            ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                Ok(Self::Calc(CalcExpression::parse(func.value.as_slice())?))
-            }
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Dimension { value, unit } => {
-                    let len_unit = unit
-                        .parse::<LengthUnit>()
-                        .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                    Ok(Self::Length(Length::new(value.value as f32, len_unit)))
-                }
-                CssTokenKind::Percentage(pct) => {
-                    Ok(Self::Percentage(Percentage::new(pct.value as f32)))
-                }
-                CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.value as f32))),
-                CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
-                _ => Err(format!("Invalid token for OffsetValue: {:?}", token)),
-            },
-            _ => Err(format!(
-                "Invalid ComponentValue for OffsetValue: expected Function or Token, got {:?}",
-                value[0]
-            )),
-        }
+        Err("No valid OffsetValue found in ComponentValue list".into())
     }
 }
 

@@ -178,6 +178,7 @@ impl CalcExpression {
         let mut parser = CalcParser::new(input);
         let sum = parser.parse_sum()?;
 
+        parser.skip_whitespace();
         if parser.current_pos < parser.input.len() {
             return Err(format!(
                 "Unexpected trailing input at position {}",
