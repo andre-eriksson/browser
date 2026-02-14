@@ -56,20 +56,15 @@ impl TryFrom<&[ComponentValue]> for Cielab {
 
 #[cfg(test)]
 mod tests {
-    use crate::percentage::Percentage;
-
     use super::*;
-    use css_cssom::CssParser;
+    use crate::{css_color_fn, percentage::Percentage};
 
     #[test]
-    fn test_cielab_component_values() {
-        let mut parser = CssParser::new(None);
-        let stylesheet = parser.parse_css("* { color: lab(20.0, -30.0, 50.0); } ", false);
-        let color = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
-
-        let cielab = Cielab::try_from(&[color.clone()][..]).unwrap();
+    fn test_lab_parse() {
+        let color = css_color_fn!("lab", "20.0", "-30.0", "50.0", "none");
+        let lab = Cielab::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            cielab,
+            lab,
             Cielab::Lab(
                 ColorValue::Number(20.0),
                 ColorValue::Number(-30.0),
@@ -78,16 +73,41 @@ mod tests {
             )
         );
 
-        let stylesheet = parser.parse_css("* { color: lab(20.0% -30.0% 50.0% / 0.5); } ", false);
-        let color = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
-
-        let cielab = Cielab::try_from(&[color.clone()][..]).unwrap();
+        let color = css_color_fn!("lab", "20.0%", "-30.0%", "50.0%", 0.5);
+        let lab = Cielab::try_from(color.as_slice()).unwrap();
         assert_eq!(
-            cielab,
+            lab,
             Cielab::Lab(
                 ColorValue::Percentage(Percentage::new(20.0)),
                 ColorValue::Percentage(Percentage::new(-30.0)),
                 ColorValue::Percentage(Percentage::new(50.0)),
+                Alpha(0.5)
+            )
+        );
+    }
+
+    #[test]
+    fn test_lch_parse() {
+        let color = css_color_fn!("lch", "20.0", "30.0", "60.0", "none");
+        let lch = Cielab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            lch,
+            Cielab::Lch(
+                ColorValue::Number(20.0),
+                ColorValue::Number(30.0),
+                Hue(60.0),
+                Alpha(1.0)
+            )
+        );
+
+        let color = css_color_fn!("lch", "20.0%", "30.0%", "60.0", "0.5");
+        let lch = Cielab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            lch,
+            Cielab::Lch(
+                ColorValue::Percentage(Percentage::new(20.0)),
+                ColorValue::Percentage(Percentage::new(30.0)),
+                Hue(60.0),
                 Alpha(0.5)
             )
         );

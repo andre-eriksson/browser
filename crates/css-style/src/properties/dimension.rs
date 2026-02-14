@@ -161,5 +161,132 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
 
 #[cfg(test)]
 mod tests {
+    use css_cssom::{CssToken, NumberType, NumericValue};
+
     use super::*;
+
+    #[test]
+    fn test_dimension_px() {
+        let dim = Dimension::px(16.0);
+        assert_eq!(dim, Dimension::Length(Length::new(16.0, LengthUnit::Px)));
+    }
+
+    #[test]
+    fn test_dimension_to_px() {
+        let rel_ctx = RelativeContext {
+            parent_font_size: 16.0,
+            parent_width: 200.0,
+            parent_height: 100.0,
+        };
+        let abs_ctx = AbsoluteContext {
+            root_font_size: 16.0,
+            viewport_width: 800.0,
+            viewport_height: 600.0,
+        };
+
+        let dim = Dimension::Percentage(Percentage::new(50.0));
+        assert_eq!(
+            dim.to_px(RelativeType::ParentWidth, &rel_ctx, &abs_ctx),
+            100.0
+        );
+    }
+
+    #[test]
+    fn test_parse_dimension() {
+        let tokens = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Dimension {
+                value: NumericValue {
+                    value: 16.0,
+                    int_value: None,
+                    type_flag: NumberType::Integer,
+                    repr: String::new(),
+                },
+                unit: "px".to_string(),
+            },
+            position: None,
+        })];
+        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        assert_eq!(dim, Dimension::Length(Length::new(16.0, LengthUnit::Px)));
+    }
+
+    #[test]
+    fn test_parse_percentage_dimension() {
+        let tokens = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Percentage(NumericValue {
+                value: 50.0,
+                int_value: None,
+                type_flag: NumberType::Integer,
+                repr: String::new(),
+            }),
+            position: None,
+        })];
+        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        assert_eq!(dim, Dimension::Percentage(Percentage::new(50.0)));
+    }
+
+    #[test]
+    fn test_parse_auto_dimension() {
+        let tokens = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("auto".to_string()),
+            position: None,
+        })];
+        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        assert_eq!(dim, Dimension::Auto);
+    }
+
+    #[test]
+    fn test_parse_calc_dimension() {
+        let tokens = vec![ComponentValue::Function(css_cssom::Function {
+            name: "calc".to_string(),
+            value: vec![
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Dimension {
+                        value: NumericValue {
+                            value: 100.0,
+                            int_value: None,
+                            type_flag: NumberType::Integer,
+                            repr: String::new(),
+                        },
+                        unit: "px".to_string(),
+                    },
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Delim('+'),
+                    position: None,
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Percentage(NumericValue {
+                        value: 50.0,
+                        int_value: None,
+                        type_flag: NumberType::Integer,
+                        repr: String::new(),
+                    }),
+                    position: None,
+                }),
+            ],
+        })];
+        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        assert!(matches!(dim, Dimension::Calc(_)));
+    }
+
+    #[test]
+    fn test_parse_ident_dimension() {
+        let tokens = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("max-content".to_string()),
+            position: None,
+        })];
+        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        assert_eq!(dim, Dimension::MaxContent);
+    }
+
+    #[test]
+    fn test_parse_invalid_dimension() {
+        let tokens = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+        let dim = Dimension::try_from(tokens.as_slice());
+        assert!(dim.is_err());
+    }
 }

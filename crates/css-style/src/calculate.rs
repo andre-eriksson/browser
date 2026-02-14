@@ -135,6 +135,18 @@ impl CalculateSum {
     }
 }
 
+/// Represents a CSS calc() expression.
+///
+/// ## Whitespace Requirements
+///
+/// According to the CSS specification, whitespace is **required** on both sides
+/// of the `+` and `-` operators. This is necessary to disambiguate expressions like:
+/// - `calc(50px - -20px)` (valid: 50px minus negative 20px = 70px)
+/// - `calc(50px--20px)` (invalid: missing whitespace)
+///
+/// Whitespace is **optional** around the `*` and `/` operators:
+/// - `calc(10*5)` (valid)
+/// - `calc(10 * 5)` (also valid)
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalcExpression {
     pub sum: CalculateSum,
@@ -178,7 +190,8 @@ impl<'a> CalcParser<'a> {
         }
     }
 
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> bool {
+        let start_pos = self.current_pos;
         while self.current_pos < self.input.len() {
             if let ComponentValue::Token(token) = &self.input[self.current_pos]
                 && token.kind == CssTokenKind::Whitespace
@@ -188,6 +201,7 @@ impl<'a> CalcParser<'a> {
             }
             break;
         }
+        self.current_pos > start_pos
     }
 
     fn peek_token(&self) -> Option<&CssTokenKind> {
@@ -215,14 +229,21 @@ impl<'a> CalcParser<'a> {
         let mut left = CalculateSum::Product(self.parse_product()?);
 
         loop {
-            self.skip_whitespace();
+            let had_whitespace_before = self.skip_whitespace();
             if self.current_pos >= self.input.len() {
                 break;
             }
 
-            let is_plus = matches!(self.peek_token(), Some(CssTokenKind::Delim('+' | '-')));
-            if !is_plus {
+            let is_plus_or_minus =
+                matches!(self.peek_token(), Some(CssTokenKind::Delim('+' | '-')));
+            if !is_plus_or_minus {
                 break;
+            }
+
+            if !had_whitespace_before {
+                return Err(
+                    "Whitespace is required before '+' or '-' operator in calc()".to_string(),
+                );
             }
 
             let op = match self.consume_token() {
@@ -234,7 +255,13 @@ impl<'a> CalcParser<'a> {
                 _ => break,
             };
 
-            self.skip_whitespace();
+            let had_whitespace_after = self.skip_whitespace();
+            if !had_whitespace_after {
+                return Err(
+                    "Whitespace is required after '+' or '-' operator in calc()".to_string()
+                );
+            }
+
             let next_product = self.parse_product()?;
             let right = CalculateSum::Product(next_product);
 
@@ -252,7 +279,9 @@ impl<'a> CalcParser<'a> {
         let mut left = CalculateProduct::Value(self.parse_value()?);
 
         loop {
+            let pos_before_ws = self.current_pos;
             self.skip_whitespace();
+
             if self.current_pos >= self.input.len() {
                 break;
             }
@@ -260,10 +289,14 @@ impl<'a> CalcParser<'a> {
             let op_char = match self.peek_token() {
                 Some(CssTokenKind::Delim('*')) => '*',
                 Some(CssTokenKind::Delim('/')) => '/',
-                _ => break,
+                _ => {
+                    self.current_pos = pos_before_ws;
+                    break;
+                }
             };
 
             self.current_pos += 1;
+
             self.skip_whitespace();
 
             let next_value = self.parse_value()?;
@@ -341,5 +374,673 @@ impl<'a> CalcParser<'a> {
 
             _ => Err(format!("Unexpected component value in calc(): {:?}", cv)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use css_cssom::{ComponentValue, CssToken, CssTokenKind, NumericValue};
+
+    /// Helper function to create test contexts
+    fn create_test_contexts() -> (RelativeContext, AbsoluteContext) {
+        let rel_ctx = RelativeContext {
+            parent_font_size: 16.0,
+            parent_width: 800.0,
+            parent_height: 600.0,
+        };
+        let abs_ctx = AbsoluteContext {
+            root_font_size: 16.0,
+            viewport_width: 1024.0,
+            viewport_height: 768.0,
+        };
+        (rel_ctx, abs_ctx)
+    }
+
+    /// Helper function to create a number token
+    fn number_token(value: f64) -> ComponentValue {
+        ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Number(NumericValue {
+                value,
+                int_value: None,
+                type_flag: css_cssom::NumberType::Number,
+                repr: value.to_string(),
+            }),
+            position: None,
+        })
+    }
+
+    /// Helper function to create a dimension token
+    fn dimension_token(value: f64, unit: &str) -> ComponentValue {
+        ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Dimension {
+                value: NumericValue {
+                    value,
+                    int_value: None,
+                    type_flag: css_cssom::NumberType::Number,
+                    repr: value.to_string(),
+                },
+                unit: unit.to_string(),
+            },
+            position: None,
+        })
+    }
+
+    /// Helper function to create a delim token
+    fn delim_token(ch: char) -> ComponentValue {
+        ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Delim(ch),
+            position: None,
+        })
+    }
+
+    /// Helper function to create a whitespace token
+    fn whitespace_token() -> ComponentValue {
+        ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Whitespace,
+            position: None,
+        })
+    }
+
+    #[test]
+    fn test_simple_number() {
+        let input = vec![number_token(42.0)];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 42.0);
+    }
+
+    #[test]
+    fn test_simple_negative_number() {
+        let input = vec![number_token(-42.0)];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, -42.0);
+    }
+
+    #[test]
+    fn test_simple_addition() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(5.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 15.0);
+    }
+
+    #[test]
+    fn test_simple_subtraction() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('-'),
+            whitespace_token(),
+            number_token(5.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 5.0);
+    }
+
+    #[test]
+    fn test_multiple_additions() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(5.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(3.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 18.0);
+    }
+
+    #[test]
+    fn test_addition_and_subtraction() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(5.0),
+            whitespace_token(),
+            delim_token('-'),
+            whitespace_token(),
+            number_token(3.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 12.0);
+    }
+
+    #[test]
+    fn test_simple_multiplication() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(5.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 50.0);
+    }
+
+    #[test]
+    fn test_simple_division() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('/'),
+            whitespace_token(),
+            number_token(5.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 2.0);
+    }
+
+    #[test]
+    fn test_division_by_zero() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('/'),
+            whitespace_token(),
+            number_token(0.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert!(result.is_nan());
+    }
+
+    #[test]
+    fn test_operator_precedence() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(5.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 20.0);
+    }
+
+    #[test]
+    fn test_associativity() {
+        let input = vec![
+            number_token(24.0),
+            whitespace_token(),
+            delim_token('/'),
+            whitespace_token(),
+            number_token(3.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 16.0);
+    }
+
+    #[test]
+    fn test_complex_expression() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(5.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+            whitespace_token(),
+            delim_token('-'),
+            whitespace_token(),
+            number_token(8.0),
+            whitespace_token(),
+            delim_token('/'),
+            whitespace_token(),
+            number_token(4.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 18.0);
+    }
+
+    #[test]
+    fn test_negative_numbers() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(-5.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 5.0);
+    }
+
+    #[test]
+    fn test_pi() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("pi".to_string()),
+                position: None,
+            }),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert!((result - (std::f32::consts::PI * 2.0)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_e() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("e".to_string()),
+                position: None,
+            }),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert!((result - (std::f32::consts::E * 2.0)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_infinity() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("infinity".to_string()),
+                position: None,
+            }),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert!(result.is_infinite() && result.is_sign_positive());
+    }
+
+    #[test]
+    fn test_negative_infinity() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("-infinity".to_string()),
+                position: None,
+            }),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert!(result.is_infinite() && result.is_sign_negative());
+    }
+
+    #[test]
+    fn test_nan() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("nan".to_string()),
+                position: None,
+            }),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert!(result.is_nan());
+    }
+
+    #[test]
+    fn test_chained_multiplication() {
+        let input = vec![
+            number_token(2.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(3.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(4.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 24.0);
+    }
+
+    #[test]
+    fn test_chained_division() {
+        let input = vec![
+            number_token(24.0),
+            whitespace_token(),
+            delim_token('/'),
+            whitespace_token(),
+            number_token(3.0),
+            whitespace_token(),
+            delim_token('/'),
+            whitespace_token(),
+            number_token(2.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 4.0);
+    }
+
+    #[test]
+    fn test_whitespace_required_around_plus() {
+        let input = vec![number_token(10.0), delim_token('+'), number_token(5.0)];
+        let result = CalcExpression::parse(&input);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Whitespace is required before")
+        );
+    }
+
+    #[test]
+    fn test_whitespace_required_around_minus() {
+        let input = vec![number_token(10.0), delim_token('-'), number_token(5.0)];
+        let result = CalcExpression::parse(&input);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Whitespace is required before")
+        );
+    }
+
+    #[test]
+    fn test_whitespace_required_after_plus() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('+'),
+            number_token(5.0),
+        ];
+        let result = CalcExpression::parse(&input);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Whitespace is required after"));
+    }
+
+    #[test]
+    fn test_whitespace_required_after_minus() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('-'),
+            number_token(5.0),
+        ];
+        let result = CalcExpression::parse(&input);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Whitespace is required after"));
+    }
+
+    #[test]
+    fn test_negative_number_subtraction() {
+        let input = vec![
+            number_token(50.0),
+            whitespace_token(),
+            delim_token('-'),
+            whitespace_token(),
+            number_token(-20.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 70.0);
+    }
+
+    #[test]
+    fn test_multiple_negative_operations() {
+        let input = vec![
+            number_token(100.0),
+            whitespace_token(),
+            delim_token('-'),
+            whitespace_token(),
+            number_token(-20.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(-10.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 110.0);
+    }
+
+    #[test]
+    fn test_negative_number_multiplication() {
+        let input = vec![
+            number_token(10.0),
+            whitespace_token(),
+            delim_token('*'),
+            whitespace_token(),
+            number_token(-5.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, -50.0);
+    }
+
+    #[test]
+    fn test_no_whitespace_required_for_multiply() {
+        let input = vec![number_token(10.0), delim_token('*'), number_token(5.0)];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 50.0);
+    }
+
+    #[test]
+    fn test_no_whitespace_required_for_divide() {
+        let input = vec![number_token(10.0), delim_token('/'), number_token(5.0)];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 2.0);
+    }
+
+    #[test]
+    fn test_mixed_whitespace_requirements() {
+        let input = vec![
+            number_token(10.0),
+            delim_token('*'),
+            number_token(5.0),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            number_token(20.0),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 70.0);
+    }
+
+    #[test]
+    fn test_mixed_whitespace_requirements_no_space_around_plus() {
+        let input = vec![
+            number_token(10.0),
+            delim_token('*'),
+            number_token(5.0),
+            delim_token('+'),
+            number_token(20.0),
+        ];
+        let result = CalcExpression::parse(&input);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Whitespace is required before")
+        );
+    }
+
+    #[test]
+    fn test_nested_calc() {
+        let input = vec![ComponentValue::Function(css_cssom::Function {
+            name: "calc".to_string(),
+            value: vec![
+                number_token(10.0),
+                whitespace_token(),
+                delim_token('+'),
+                whitespace_token(),
+                ComponentValue::Function(css_cssom::Function {
+                    name: "calc".to_string(),
+                    value: vec![
+                        number_token(5.0),
+                        whitespace_token(),
+                        delim_token('*'),
+                        whitespace_token(),
+                        number_token(2.0),
+                    ],
+                }),
+            ],
+        })];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(None, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 20.0);
+    }
+
+    #[test]
+    fn test_mixed_units_px_em() {
+        let input = vec![
+            dimension_token(10.0, "px"),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            dimension_token(2.0, "em"),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(Some(RelativeType::FontSize), &rel_ctx, &abs_ctx);
+        assert_eq!(result, 10.0 + (2.0 * rel_ctx.parent_font_size));
+    }
+
+    #[test]
+    fn test_mixed_units_px_rem() {
+        let input = vec![
+            dimension_token(10.0, "px"),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            dimension_token(2.0, "rem"),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(Some(RelativeType::RootFontSize), &rel_ctx, &abs_ctx);
+        assert_eq!(result, 10.0 + (2.0 * abs_ctx.root_font_size));
+    }
+
+    #[test]
+    fn test_mixed_units_px_percent() {
+        let input = vec![
+            dimension_token(10.0, "px"),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Percentage(NumericValue {
+                    value: 50.0,
+                    int_value: None,
+                    type_flag: css_cssom::NumberType::Number,
+                    repr: "50%".to_string(),
+                }),
+                position: None,
+            }),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(Some(RelativeType::ParentWidth), &rel_ctx, &abs_ctx);
+        assert_eq!(result, 10.0 + (0.5 * rel_ctx.parent_width));
+    }
+
+    #[test]
+    fn test_mixed_units_px_vw() {
+        let input = vec![
+            dimension_token(10.0, "px"),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            dimension_token(2.0, "vw"),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(Some(RelativeType::ViewportWidth), &rel_ctx, &abs_ctx);
+        assert_eq!(result, 10.0 + (0.02 * abs_ctx.viewport_width));
+    }
+
+    #[test]
+    fn test_mixed_units_px_vh() {
+        let input = vec![
+            dimension_token(10.0, "px"),
+            whitespace_token(),
+            delim_token('+'),
+            whitespace_token(),
+            dimension_token(2.0, "vh"),
+        ];
+        let expr = CalcExpression::parse(&input).unwrap();
+        let (rel_ctx, abs_ctx) = create_test_contexts();
+        let result = expr.to_px(Some(RelativeType::ViewportHeight), &rel_ctx, &abs_ctx);
+        assert_eq!(result, 10.0 + (0.02 * abs_ctx.viewport_height));
     }
 }

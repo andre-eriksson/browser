@@ -217,15 +217,39 @@ impl TryFrom<&[ComponentValue]> for Offset {
 
 #[cfg(test)]
 mod tests {
-    use css_cssom::CssParser;
-
     use super::*;
+    use css_cssom::{CssToken, NumberType, NumericValue};
 
     #[test]
-    fn test_parse_cv() {
-        let mut parser = CssParser::new(None);
-        let stylesheet = parser.parse_css("* { border: 5% 2rem 20px; } ", false);
-        let border = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
-        dbg!(&stylesheet, border);
+    fn test_parse() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: NumericValue {
+                        value: 10.0,
+                        int_value: None,
+                        type_flag: NumberType::Number,
+                        repr: String::new(),
+                    },
+                    unit: "px".into(),
+                },
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Percentage(NumericValue {
+                    value: 50.0,
+                    int_value: None,
+                    type_flag: NumberType::Number,
+                    repr: String::new(),
+                }),
+                position: None,
+            }),
+        ];
+
+        let offset = Offset::try_from(input.as_slice()).unwrap();
+        assert_eq!(offset.top, OffsetValue::Length(Length::px(10.0)));
+        assert_eq!(offset.right, OffsetValue::Percentage(Percentage::new(50.0)));
+        assert_eq!(offset.bottom, OffsetValue::Length(Length::px(10.0)));
+        assert_eq!(offset.left, OffsetValue::Percentage(Percentage::new(50.0)));
     }
 }

@@ -57,4 +57,59 @@ impl TryFrom<&[ComponentValue]> for Oklab {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{css_color_fn, percentage::Percentage};
+
+    #[test]
+    fn test_oklab_parsing() {
+        let color = css_color_fn!("oklab", "0.3", "0.1", "-0.1", "0.5");
+        let oklab = Oklab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            oklab,
+            Oklab::Oklab(
+                ColorValue::Number(0.3),
+                ColorValue::Number(0.1),
+                ColorValue::Number(-0.1),
+                Alpha(0.5)
+            )
+        );
+
+        let color = css_color_fn!("oklab", "50%", "0.2", "0.4", "0.8");
+        let oklch = Oklab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            oklch,
+            Oklab::Oklab(
+                ColorValue::Percentage(Percentage::new(50.0)),
+                ColorValue::Number(0.2),
+                ColorValue::Number(0.4),
+                Alpha(0.8)
+            )
+        );
+    }
+
+    #[test]
+    fn test_oklch_parsing() {
+        let color = css_color_fn!("oklch", "0.5", "0.1", "30.0", "0.7");
+        let oklch = Oklab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            oklch,
+            Oklab::Oklch(
+                ColorValue::Number(0.5),
+                ColorValue::Number(0.1),
+                Hue(30.0),
+                Alpha(0.7)
+            )
+        );
+
+        let color = css_color_fn!("oklch", "50%", "0.2", "120", "0.8");
+        let oklch = Oklab::try_from(color.as_slice()).unwrap();
+        assert_eq!(
+            oklch,
+            Oklab::Oklch(
+                ColorValue::Percentage(Percentage::new(50.0)),
+                ColorValue::Number(0.2),
+                Hue(120.0),
+                Alpha(0.8)
+            )
+        );
+    }
 }

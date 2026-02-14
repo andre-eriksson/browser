@@ -93,12 +93,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_hex_color_component_values() {
+    fn test_hex_parsing_three() {
         let mut parser = CssParser::new(None);
-        let stylesheet = parser.parse_css("* { color: #FF0000; } ", false);
-        let color = &stylesheet.rules[0].as_qualified_rule().unwrap().block.value[4];
-        dbg!(color);
+        let three = parser.parse_css("* { color: #0F3; } ", false);
+        let color = &three.rules[0].as_qualified_rule().unwrap().block.value[4];
+        let hex = HexColor::try_from(&[color.clone()][..]).unwrap();
+        assert_eq!(
+            hex,
+            HexColor {
+                r: 0,
+                g: 255,
+                b: 51,
+                a: 255
+            }
+        );
+    }
 
+    #[test]
+    fn test_hex_parsing_four() {
+        let mut parser = CssParser::new(None);
+        let four = parser.parse_css("* { color: #0F38; } ", false);
+        let color = &four.rules[0].as_qualified_rule().unwrap().block.value[4];
+        let hex = HexColor::try_from(&[color.clone()][..]).unwrap();
+        assert_eq!(
+            hex,
+            HexColor {
+                r: 0,
+                g: 255,
+                b: 51,
+                a: 136
+            }
+        );
+    }
+
+    #[test]
+    fn test_hex_parsing_six() {
+        let mut parser = CssParser::new(None);
+        let six = parser.parse_css("* { color: #FF0000; } ", false);
+        let color = &six.rules[0].as_qualified_rule().unwrap().block.value[4];
         let hex = HexColor::try_from(&[color.clone()][..]).unwrap();
         assert_eq!(
             hex,
@@ -107,6 +139,37 @@ mod tests {
                 g: 0,
                 b: 0,
                 a: 255
+            }
+        );
+
+        let mut parser = CssParser::new(None);
+        let eight = parser.parse_css("* { color: #FF000080; } ", false);
+        let color = &eight.rules[0].as_qualified_rule().unwrap().block.value[4];
+        let hex = HexColor::try_from(&[color.clone()][..]).unwrap();
+        assert_eq!(
+            hex,
+            HexColor {
+                r: 255,
+                g: 0,
+                b: 0,
+                a: 128
+            }
+        );
+    }
+
+    #[test]
+    fn test_hex_parsing_eight() {
+        let mut parser = CssParser::new(None);
+        let eight = parser.parse_css("* { color: #FF000080; } ", false);
+        let color = &eight.rules[0].as_qualified_rule().unwrap().block.value[4];
+        let hex = HexColor::try_from(&[color.clone()][..]).unwrap();
+        assert_eq!(
+            hex,
+            HexColor {
+                r: 255,
+                g: 0,
+                b: 0,
+                a: 128
             }
         );
     }

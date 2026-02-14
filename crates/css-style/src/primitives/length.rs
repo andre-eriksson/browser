@@ -260,4 +260,23 @@ impl Length {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_length_to_px() {
+        let abs_ctx = AbsoluteContext {
+            viewport_width: 800.0,
+            viewport_height: 600.0,
+            root_font_size: 16.0,
+        };
+        let rel_ctx = RelativeContext {
+            parent_font_size: 16.0,
+            ..Default::default()
+        };
+
+        let length = Length::new(2.0, LengthUnit::In);
+        assert_eq!(length.to_px(&rel_ctx, &abs_ctx), 192.0);
+
+        let length = Length::new(50.0, LengthUnit::Vw);
+        assert_eq!(length.to_px(&rel_ctx, &abs_ctx), 400.0);
+    }
 }
