@@ -193,8 +193,7 @@ mod tests {
         let rel_ctx = RelativeContext {
             parent: Box::new(ComputedStyle {
                 font_size: 16.0,
-                width: Dimension::Length(Length::px(200.0)),
-                height: Dimension::Length(Length::px(100.0)),
+                intrinsic_width: 200.0,
                 ..Default::default()
             }),
         };
