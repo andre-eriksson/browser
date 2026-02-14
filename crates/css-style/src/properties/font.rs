@@ -135,20 +135,26 @@ impl TryFrom<&[ComponentValue]> for FontFamily {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let mut names = Vec::with_capacity(4);
+        let mut full: Vec<FontFamilyName> = Vec::with_capacity(4);
+        let mut names: Vec<String> = Vec::with_capacity(4);
 
         for cv in value {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
-                        if let Ok(generic) = ident.parse() {
-                            names.push(FontFamilyName::Generic(generic));
-                        } else {
-                            names.push(FontFamilyName::Specific(ident.to_string()));
-                        }
+                        names.push(ident.clone());
                     }
                     CssTokenKind::String(s) => {
-                        names.push(FontFamilyName::Specific(s.clone()));
+                        names.push(s.clone());
+                    }
+                    CssTokenKind::Comma => {
+                        let full_name = names.join(" ");
+                        if let Ok(generic) = full_name.parse() {
+                            full.push(FontFamilyName::Generic(generic));
+                        } else {
+                            full.push(FontFamilyName::Specific(full_name));
+                        }
+                        names.clear();
                     }
                     _ => continue,
                 },
@@ -157,31 +163,19 @@ impl TryFrom<&[ComponentValue]> for FontFamily {
         }
 
         if names.is_empty() {
-            Err("No valid font family names found".to_string())
+            if full.is_empty() {
+                return Err("No valid font family names found".to_string());
+            }
         } else {
-            Ok(FontFamily { names })
+            let full_name = names.join(" ");
+            if let Ok(generic) = full_name.parse() {
+                full.push(FontFamilyName::Generic(generic));
+            } else {
+                full.push(FontFamilyName::Specific(full_name));
+            }
         }
-    }
-}
 
-impl FromStr for FontFamily {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let names = s
-            .split(',')
-            .map(|name| name.trim())
-            .map(|name| {
-                if let Ok(generic) = name.parse() {
-                    FontFamilyName::Generic(generic)
-                } else {
-                    let unquoted = name.trim_matches('\'').trim_matches('"').to_string();
-                    FontFamilyName::Specific(unquoted)
-                }
-            })
-            .collect();
-
-        Ok(FontFamily { names })
+        Ok(FontFamily { names: full })
     }
 }
 
@@ -266,34 +260,75 @@ impl TryFrom<&[ComponentValue]> for FontSize {
 
 #[cfg(test)]
 mod tests {
-    use css_cssom::CssParser;
+    use css_cssom::CssToken;
 
     use crate::primitives::font::GenericName;
 
     use super::*;
 
     #[test]
-    fn test_font_family_parse() {
-        let family = "Arial, 'Times New Roman', serif"
-            .parse::<FontFamily>()
-            .unwrap();
-        assert_eq!(family.names.len(), 3);
+    fn test_font_family_ident_parse() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("Times".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("New".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("Roman".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("serif".to_string()),
+                position: None,
+            }),
+        ];
+
+        let font_family = FontFamily::try_from(input.as_slice()).unwrap();
+        assert_eq!(font_family.names().len(), 2);
         assert_eq!(
-            family.names[0],
-            FontFamilyName::Specific("Arial".to_string())
-        );
-        assert_eq!(
-            family.names[1],
+            font_family.names()[0],
             FontFamilyName::Specific("Times New Roman".to_string())
         );
-        assert_eq!(family.names[2], FontFamilyName::Generic(GenericName::Serif));
+        assert_eq!(
+            font_family.names()[1],
+            FontFamilyName::Generic(GenericName::Serif)
+        );
     }
 
     #[test]
-    fn test_font_family_cv() {
-        let mut parser = CssParser::new(None);
-        let stylesheet = parser.parse_css("* { font-family: \"Georgia\", serif; } ", false);
+    fn test_font_family_string_parse() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::String("Open Sans".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("serif".to_string()),
+                position: None,
+            }),
+        ];
 
-        dbg!(stylesheet);
+        let font_family = FontFamily::try_from(input.as_slice()).unwrap();
+        assert_eq!(font_family.names().len(), 2);
+        assert_eq!(
+            font_family.names()[0],
+            FontFamilyName::Specific("Open Sans".to_string())
+        );
+        assert_eq!(
+            font_family.names()[1],
+            FontFamilyName::Generic(GenericName::Serif)
+        );
     }
 }
