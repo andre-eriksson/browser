@@ -330,19 +330,19 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
     let mut width = None;
     let mut color = None;
 
-    for cv in value {
+    for (i, cv) in value.iter().enumerate() {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Ident(ident) => {
                     if ident.eq_ignore_ascii_case("none") {
                         break;
-                    } else if let Ok(w) = BorderWidth::try_from(value)
+                    } else if let Ok(w) = BorderWidth::try_from(&value[i..])
                         && width.is_none()
                     {
                         width = Some(w);
                     } else if let Ok(s) = ident.parse::<BorderStyle>() {
                         style = Some(s);
-                    } else if let Ok(c) = Color::try_from(value) {
+                    } else if let Ok(c) = Color::try_from(&value[i..]) {
                         color = Some(c);
                     }
                 }
