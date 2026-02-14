@@ -48,6 +48,9 @@ impl TryFrom<&[ComponentValue]> for BorderWidth {
                             len_unit,
                         )));
                     }
+                    CssTokenKind::Number(num) => {
+                        return Ok(BorderWidth::Length(Length::px(num.value as f32)));
+                    }
                     _ => continue,
                 },
                 _ => continue,

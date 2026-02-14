@@ -39,9 +39,21 @@ impl OffsetValue {
         match self {
             OffsetValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
             OffsetValue::Percentage(pct) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent_font_size * pct.as_fraction(),
-                Some(RelativeType::ParentHeight) => rel_ctx.parent_height * pct.as_fraction(),
-                Some(RelativeType::ParentWidth) => rel_ctx.parent_width * pct.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx.parent_style.font_size * pct.as_fraction(),
+                Some(RelativeType::ParentHeight) => {
+                    rel_ctx
+                        .parent_style
+                        .height
+                        .to_px(RelativeType::ParentHeight, rel_ctx, abs_ctx)
+                        * pct.as_fraction()
+                }
+                Some(RelativeType::ParentWidth) => {
+                    rel_ctx
+                        .parent_style
+                        .width
+                        .to_px(RelativeType::ParentWidth, rel_ctx, abs_ctx)
+                        * pct.as_fraction()
+                }
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
@@ -78,6 +90,7 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
                 CssTokenKind::Percentage(pct) => {
                     Ok(Self::Percentage(Percentage::new(pct.value as f32)))
                 }
+                CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.value as f32))),
                 CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
                 _ => Err(format!("Invalid token for OffsetValue: {:?}", token)),
             },
@@ -201,6 +214,9 @@ impl TryFrom<&[ComponentValue]> for Offset {
                     CssTokenKind::Percentage(pct) => {
                         offset_values
                             .push(OffsetValue::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    CssTokenKind::Number(num) => {
+                        offset_values.push(OffsetValue::Length(Length::px(num.value as f32)));
                     }
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
                         offset_values.push(OffsetValue::Auto);

@@ -1,7 +1,7 @@
 use css_cssom::ComponentValue;
 
 use crate::{
-    BorderStyle, BorderWidth, OffsetValue,
+    BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
     primitives::global::Global,
     properties::{
         color::Color,
@@ -37,23 +37,12 @@ pub struct AbsoluteContext {
     pub root_font_size: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
+    pub root_color: Color,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
-    pub parent_width: f32,
-    pub parent_height: f32,
-    pub parent_font_size: f32,
-}
-
-impl Default for RelativeContext {
-    fn default() -> Self {
-        RelativeContext {
-            parent_width: 0.0,
-            parent_height: 0.0,
-            parent_font_size: 16.0,
-        }
-    }
+    pub parent_style: Box<ComputedStyle>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

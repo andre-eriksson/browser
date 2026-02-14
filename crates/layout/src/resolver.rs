@@ -44,9 +44,12 @@ impl PropertyResolver {
         font_size_px: f32,
     ) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_width: containing_width,
-            parent_font_size: font_size_px,
-            ..Default::default()
+            parent_style: ComputedStyle {
+                font_size: font_size_px,
+                width: Dimension::px(containing_width),
+                ..Default::default()
+            }
+            .into(),
         };
 
         value.to_px(Some(RelativeType::ParentWidth), &rel_ctx, absolute_ctx)
@@ -136,9 +139,12 @@ impl PropertyResolver {
         font_size_px: f32,
     ) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_width: containing_width,
-            parent_font_size: font_size_px,
-            ..Default::default()
+            parent_style: ComputedStyle {
+                font_size: font_size_px,
+                width: Dimension::px(containing_width),
+                ..Default::default()
+            }
+            .into(),
         };
 
         value.to_px(Some(RelativeType::ParentWidth), &rel_ctx, absolute_ctx)
@@ -151,25 +157,20 @@ impl PropertyResolver {
         width: f32,
     ) -> f32 {
         let font_size = styled_node.style.font_size;
+        let rel_ctx = RelativeContext {
+            parent_style: ComputedStyle {
+                font_size,
+                width: Dimension::px(width),
+                ..Default::default()
+            }
+            .into(),
+        };
 
         let max_width = match &styled_node.style.max_width {
             MaxDimension::None => f32::INFINITY,
-            MaxDimension::Length(len) => {
-                let rel_ctx = RelativeContext {
-                    parent_width: width,
-                    parent_font_size: font_size,
-                    ..Default::default()
-                };
-
-                len.to_px(&rel_ctx, absolute_ctx)
-            }
+            MaxDimension::Length(len) => len.to_px(&rel_ctx, absolute_ctx),
             MaxDimension::Percentage(pct) => pct.as_fraction() * width,
             MaxDimension::Calc(calc) => {
-                let rel_ctx = RelativeContext {
-                    parent_width: width,
-                    parent_font_size: font_size,
-                    ..Default::default()
-                };
                 calc.to_px(Some(RelativeType::ParentWidth), &rel_ctx, absolute_ctx)
             }
             MaxDimension::MaxContent
@@ -196,25 +197,11 @@ impl PropertyResolver {
 
         match &styled_node.style.width {
             Dimension::Auto => available_width.max(0.0),
-            Dimension::Length(len) => {
-                let rel_ctx = RelativeContext {
-                    parent_width: width,
-                    parent_font_size: font_size,
-                    ..Default::default()
-                };
-
-                len.to_px(&rel_ctx, absolute_ctx).max(0.0)
-            }
+            Dimension::Length(len) => len.to_px(&rel_ctx, absolute_ctx).max(0.0),
             Dimension::Percentage(pct) => pct.as_fraction() * width,
-            Dimension::Calc(calc) => {
-                let rel_ctx = RelativeContext {
-                    parent_width: width,
-                    parent_font_size: font_size,
-                    ..Default::default()
-                };
-                calc.to_px(Some(RelativeType::ParentWidth), &rel_ctx, absolute_ctx)
-                    .max(0.0)
-            }
+            Dimension::Calc(calc) => calc
+                .to_px(Some(RelativeType::ParentWidth), &rel_ctx, absolute_ctx)
+                .max(0.0),
             Dimension::MaxContent
             | Dimension::MinContent
             | Dimension::FitContent(_)
@@ -232,9 +219,12 @@ impl PropertyResolver {
         children_height: f32,
     ) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_height: height,
-            parent_font_size: styled_node.style.font_size,
-            ..Default::default()
+            parent_style: ComputedStyle {
+                font_size: styled_node.style.font_size,
+                height: Dimension::px(height),
+                ..Default::default()
+            }
+            .into(),
         };
 
         match &styled_node.style.height {

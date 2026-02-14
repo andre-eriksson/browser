@@ -2,7 +2,7 @@ use css_cssom::{ComponentValue, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    BorderStyle, CSSProperty, OffsetValue, RelativeContext, RelativeType,
+    BorderStyle, CSSProperty, OffsetValue, RelativeContext,
     cascade::GeneratedRule,
     color::named::NamedColor,
     computed::color::Color4f,
@@ -89,8 +89,6 @@ impl ComputedStyle {
             parent_style,
         );
 
-        Self::update_relative_context(absolute_ctx, relative_ctx, &specified_style);
-
         Self {
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
@@ -173,7 +171,7 @@ impl ComputedStyle {
                 .font_size
                 .as_value_owned()
                 .unwrap_or_default()
-                .to_px(absolute_ctx, relative_ctx.parent_font_size),
+                .to_px(absolute_ctx, relative_ctx.parent_style.font_size),
             font_weight: specified_style
                 .font_weight
                 .as_value_owned()
@@ -241,27 +239,6 @@ impl ComputedStyle {
                 .as_value_owned()
                 .unwrap_or_default(),
             variables: specified_style.variables.clone(),
-        }
-    }
-
-    fn update_relative_context(
-        absolute_ctx: &AbsoluteContext,
-        relative_ctx: &mut RelativeContext,
-        style: &SpecifiedStyle,
-    ) {
-        if let Some(font_size) = style.font_size.as_value_ref() {
-            relative_ctx.parent_font_size =
-                font_size.to_px(absolute_ctx, relative_ctx.parent_font_size);
-        }
-
-        if let Some(height) = style.height.as_value_ref() {
-            relative_ctx.parent_height =
-                height.to_px(RelativeType::ParentHeight, relative_ctx, absolute_ctx);
-        }
-
-        if let Some(width) = style.width.as_value_ref() {
-            relative_ctx.parent_width =
-                width.to_px(RelativeType::ParentWidth, relative_ctx, absolute_ctx);
         }
     }
 

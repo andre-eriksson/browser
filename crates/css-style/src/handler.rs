@@ -1,4 +1,4 @@
-use css_cssom::{ComponentValue, CssTokenKind, Property};
+use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, Property};
 
 use crate::length::{Length, LengthUnit};
 use crate::properties::text::WritingMode;
@@ -45,8 +45,14 @@ impl<'a> PropertyUpdateContext<'a> {
     pub fn log_errors(&self) {
         if !self.errors.is_empty() {
             eprintln!("Property update errors:");
+
             for err in &self.errors {
-                eprintln!("  {}: '{:?}' - {}", err.property, err.value, err.error);
+                let mut errors = String::with_capacity(32);
+                for cv in &err.value {
+                    errors.push_str(cv.to_css_string().as_str());
+                }
+
+                eprintln!("  {}: '{}' - {}", err.property, errors, err.error);
             }
         }
     }
@@ -66,13 +72,48 @@ pub fn resolve_css_variables(
     variables: &[(Property, Vec<ComponentValue>)],
     value: &[ComponentValue],
 ) -> Vec<ComponentValue> {
-    let mut output = Vec::new();
+    let mut output: Vec<ComponentValue> = Vec::new();
 
-    for cv in value {
+    for (i, cv) in value.iter().enumerate() {
         match cv {
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("var") => {
                 let resolved = resolve_var_function(variables, func);
-                output.extend(resolved);
+
+                if !resolved.is_empty() {
+                    let needs_leading_whitespace = !output.is_empty()
+                        && !output.last().unwrap().is_whitespace()
+                        && !resolved.first().unwrap().is_whitespace()
+                        && i > 0
+                        && value[i - 1].is_whitespace();
+
+                    let needs_trailing_whitespace = !resolved.is_empty()
+                        && !resolved.last().unwrap().is_whitespace()
+                        && i + 1 < value.len()
+                        && !&value[i + 1].is_whitespace();
+
+                    if needs_leading_whitespace {
+                        output.push(ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }));
+                    }
+
+                    output.extend(resolved);
+
+                    if needs_trailing_whitespace {
+                        output.push(ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }));
+                    }
+                }
+            }
+            ComponentValue::Function(func) => {
+                let resolved_inner = resolve_css_variables(variables, &func.value);
+                output.push(ComponentValue::Function(Function {
+                    name: func.name.clone(),
+                    value: resolved_inner,
+                }));
             }
             _ => {
                 output.push(cv.clone());
@@ -85,7 +126,7 @@ pub fn resolve_css_variables(
 
 fn resolve_var_function(
     variables: &[(Property, Vec<ComponentValue>)],
-    func: &css_cssom::Function,
+    func: &Function,
 ) -> Vec<ComponentValue> {
     let mut var_name = String::new();
     let mut fallback_values = Vec::new();
@@ -267,19 +308,6 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &[ComponentValue])
 }
 
 pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    if value.first().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Ident("none".to_string()))) {
-        ctx.specified_style.border_top_width = CSSProperty::Value(BorderWidth::Length(Length::zero()));
-        ctx.specified_style.border_right_width = CSSProperty::Value(BorderWidth::Length(Length::zero()));
-        ctx.specified_style.border_bottom_width = CSSProperty::Value(BorderWidth::Length(Length::zero()));
-        ctx.specified_style.border_left_width = CSSProperty::Value(BorderWidth::Length(Length::zero()));
-
-        ctx.specified_style.border_top_style = CSSProperty::Value(BorderStyle::None);
-        ctx.specified_style.border_right_style = CSSProperty::Value(BorderStyle::None);
-        ctx.specified_style.border_bottom_style = CSSProperty::Value(BorderStyle::None);
-        ctx.specified_style.border_left_style = CSSProperty::Value(BorderStyle::None);
-
-        return;
-    }
     let mut style = None;
     let mut width = None;
     let mut color = None;
@@ -288,7 +316,9 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Ident(ident) => {
-                    if let Ok(w) = BorderWidth::try_from(value)
+                    if ident.eq_ignore_ascii_case("none") {
+                        break;
+                    } else if let Ok(w) = BorderWidth::try_from(value)
                         && width.is_none()
                     {
                         width = Some(w);
@@ -297,6 +327,13 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
                     } else if let Ok(c) = Color::try_from(value) {
                         color = Some(c);
                     }
+                }
+                CssTokenKind::Number(num) => {
+                    if width.is_some() || num.value != 0.0 {
+                        continue;
+                    }
+
+                    width = Some(BorderWidth::Length(Length::zero()));
                 }
                 CssTokenKind::Dimension { value, unit } => {
                     if width.is_some() {
@@ -324,8 +361,10 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
             ctx.specified_style.border_left_style = CSSProperty::Value(s);
         }
         None => {
-            ctx.record_error("border", value.to_vec(), "Missing border style".to_string());
-            return;
+            ctx.specified_style.border_top_style = CSSProperty::Value(BorderStyle::default());
+            ctx.specified_style.border_right_style = CSSProperty::Value(BorderStyle::default());
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(BorderStyle::default());
+            ctx.specified_style.border_left_style = CSSProperty::Value(BorderStyle::default());
         }
     }
 
@@ -337,8 +376,10 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
             ctx.specified_style.border_left_width = CSSProperty::Value(w);
         }
         None => {
-            ctx.record_error("border", value.to_vec(), "Missing border width".to_string());
-            return;
+            ctx.specified_style.border_top_width = CSSProperty::Value(BorderWidth::default());
+            ctx.specified_style.border_right_width = CSSProperty::Value(BorderWidth::default());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(BorderWidth::default());
+            ctx.specified_style.border_left_width = CSSProperty::Value(BorderWidth::default());
         }
     }
 
@@ -350,7 +391,14 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
             ctx.specified_style.border_left_color = CSSProperty::Value(c);
         }
         None => {
-            ctx.record_error("border", value.to_vec(), "Missing border color".to_string());
+            ctx.specified_style.border_top_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+            ctx.specified_style.border_right_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+            ctx.specified_style.border_bottom_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
+            ctx.specified_style.border_left_color =
+                CSSProperty::Value(Color::from(ctx.relative_ctx.parent_style.color));
         }
     }
 }
@@ -359,8 +407,8 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue
     CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
-        let parent_px = ctx.relative_ctx.parent_font_size;
-        ctx.specified_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, parent_px);
+        ctx.specified_style.computed_font_size_px =
+            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent_style.font_size);
     }
 }
 

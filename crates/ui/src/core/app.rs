@@ -168,6 +168,7 @@ impl Application {
                                 .get(&self.id)
                                 .map(|(_, h)| *h)
                                 .unwrap_or(600.0),
+                            ..Default::default()
                         };
                         let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
 
@@ -321,6 +322,7 @@ impl Application {
                                 .get(&self.id)
                                 .map(|(_, h)| *h)
                                 .unwrap_or(600.0),
+                            ..Default::default()
                         };
                         let style_tree =
                             StyleTree::build(&ctx, page.document(), page.stylesheets());

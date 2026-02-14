@@ -419,9 +419,7 @@ impl InlineLayout {
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
                     let rel_ctx = RelativeContext {
-                        parent_font_size: style.font_size,
-                        parent_width: available_width,
-                        ..Default::default()
+                        parent_style: style.clone(),
                     };
 
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(

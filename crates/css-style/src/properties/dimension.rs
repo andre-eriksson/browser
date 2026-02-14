@@ -40,9 +40,17 @@ impl Dimension {
             Dimension::Auto => 0.0,
             Dimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
             Dimension::Percentage(p) => match rel_type {
-                RelativeType::FontSize => rel_ctx.parent_font_size * p.as_fraction(),
-                RelativeType::ParentHeight => rel_ctx.parent_height * p.as_fraction(),
-                RelativeType::ParentWidth => rel_ctx.parent_width * p.as_fraction(),
+                RelativeType::FontSize => rel_ctx.parent_style.font_size * p.as_fraction(),
+                RelativeType::ParentHeight => {
+                    rel_ctx
+                        .parent_style
+                        .height
+                        .to_px(rel_type, rel_ctx, abs_ctx)
+                        * p.as_fraction()
+                }
+                RelativeType::ParentWidth => {
+                    rel_ctx.parent_style.width.to_px(rel_type, rel_ctx, abs_ctx) * p.as_fraction()
+                }
                 RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),
                 RelativeType::ViewportHeight => abs_ctx.viewport_height * p.as_fraction(),
                 RelativeType::ViewportWidth => abs_ctx.viewport_width * p.as_fraction(),
@@ -86,6 +94,9 @@ impl TryFrom<&[ComponentValue]> for Dimension {
                     }
                     CssTokenKind::Percentage(pct) => {
                         return Ok(Dimension::Percentage(Percentage::new(pct.value as f32)));
+                    }
+                    CssTokenKind::Number(num) => {
+                        return Ok(Dimension::Length(Length::px(num.value as f32)));
                     }
                     _ => continue,
                 },
@@ -163,6 +174,8 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
 mod tests {
     use css_cssom::{CssToken, NumberType, NumericValue};
 
+    use crate::ComputedStyle;
+
     use super::*;
 
     #[test]
@@ -174,14 +187,18 @@ mod tests {
     #[test]
     fn test_dimension_to_px() {
         let rel_ctx = RelativeContext {
-            parent_font_size: 16.0,
-            parent_width: 200.0,
-            parent_height: 100.0,
+            parent_style: Box::new(ComputedStyle {
+                font_size: 16.0,
+                width: Dimension::Length(Length::px(200.0)),
+                height: Dimension::Length(Length::px(100.0)),
+                ..Default::default()
+            }),
         };
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: 800.0,
             viewport_height: 600.0,
+            ..Default::default()
         };
 
         let dim = Dimension::Percentage(Percentage::new(50.0));

@@ -66,9 +66,21 @@ impl CalculateValue {
             CalculateValue::Keyword(k) => k.to_f32(),
             CalculateValue::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
             CalculateValue::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent_font_size * p.as_fraction(),
-                Some(RelativeType::ParentHeight) => rel_ctx.parent_height * p.as_fraction(),
-                Some(RelativeType::ParentWidth) => rel_ctx.parent_width * p.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx.parent_style.font_size * p.as_fraction(),
+                Some(RelativeType::ParentHeight) => {
+                    rel_ctx
+                        .parent_style
+                        .height
+                        .to_px(RelativeType::ParentHeight, rel_ctx, abs_ctx)
+                        * p.as_fraction()
+                }
+                Some(RelativeType::ParentWidth) => {
+                    rel_ctx
+                        .parent_style
+                        .width
+                        .to_px(RelativeType::ParentWidth, rel_ctx, abs_ctx)
+                        * p.as_fraction()
+                }
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
@@ -379,20 +391,27 @@ impl<'a> CalcParser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{ComputedStyle, Dimension};
+
     use super::*;
     use css_cssom::{ComponentValue, CssToken, CssTokenKind, NumericValue};
 
     /// Helper function to create test contexts
     fn create_test_contexts() -> (RelativeContext, AbsoluteContext) {
         let rel_ctx = RelativeContext {
-            parent_font_size: 16.0,
-            parent_width: 800.0,
-            parent_height: 600.0,
+            parent_style: ComputedStyle {
+                font_size: 16.0,
+                width: Dimension::Length(Length::px(800.0)),
+                height: Dimension::Length(Length::px(600.0)),
+                ..Default::default()
+            }
+            .into(),
         };
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: 1024.0,
             viewport_height: 768.0,
+            ..Default::default()
         };
         (rel_ctx, abs_ctx)
     }
@@ -973,7 +992,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::FontSize), &rel_ctx, &abs_ctx);
-        assert_eq!(result, 10.0 + (2.0 * rel_ctx.parent_font_size));
+        assert_eq!(result, 10.0 + (2.0 * rel_ctx.parent_style.font_size));
     }
 
     #[test]
@@ -1011,7 +1030,11 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::ParentWidth), &rel_ctx, &abs_ctx);
-        assert_eq!(result, 10.0 + (0.5 * rel_ctx.parent_width));
+        let width = rel_ctx
+            .parent_style
+            .width
+            .to_px(RelativeType::ParentWidth, &rel_ctx, &abs_ctx);
+        assert_eq!(result, 10.0 + (0.5 * width));
     }
 
     #[test]

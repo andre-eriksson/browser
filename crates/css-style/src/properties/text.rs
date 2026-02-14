@@ -2,7 +2,7 @@ use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
-    RelativeType,
+    ComputedStyle, RelativeType,
     calculate::CalcExpression,
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
@@ -126,8 +126,11 @@ impl LineHeight {
 
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_font_size: font_size_px,
-            ..Default::default()
+            parent_style: ComputedStyle {
+                font_size: font_size_px,
+                ..Default::default()
+            }
+            .into(),
         };
 
         match self {

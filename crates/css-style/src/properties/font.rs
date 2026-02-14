@@ -3,7 +3,7 @@ use std::str::FromStr;
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
-    RelativeType,
+    ComputedStyle, RelativeType,
     calculate::CalcExpression,
     length::LengthUnit,
     primitives::{
@@ -205,17 +205,20 @@ impl FontSize {
         Self::Length(Length::px(value))
     }
 
-    pub fn to_px(&self, abs_ctx: &AbsoluteContext, parent_px: f32) -> f32 {
+    pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
-            parent_font_size: parent_px,
-            ..Default::default()
+            parent_style: ComputedStyle {
+                font_size: font_size_px,
+                ..Default::default()
+            }
+            .into(),
         };
 
         match self {
             FontSize::Absolute(abs) => abs.to_px(),
             FontSize::Length(len) => len.to_px(&rel_ctx, abs_ctx),
-            FontSize::Percentage(pct) => pct.as_fraction() * parent_px,
-            FontSize::Relative(rel) => rel.to_px(parent_px),
+            FontSize::Percentage(pct) => pct.as_fraction() * rel_ctx.parent_style.font_size,
+            FontSize::Relative(rel) => rel.to_px(rel_ctx.parent_style.font_size),
             FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
     }
