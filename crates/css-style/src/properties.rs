@@ -52,14 +52,7 @@ pub enum CSSProperty<T> {
 }
 
 impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
-    pub fn as_value_owned(self) -> Option<T> {
-        match self {
-            CSSProperty::Value(val) => Some(val),
-            CSSProperty::Global(_) => None,
-        }
-    }
-
-    pub fn as_value_ref(&self) -> Option<&T> {
+    pub fn as_value(&self) -> Option<&T> {
         match self {
             CSSProperty::Value(val) => Some(val),
             CSSProperty::Global(_) => None,
@@ -110,19 +103,6 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
 
         *property = CSSProperty::from(T::try_from(value)?);
         Ok(())
-    }
-
-    pub fn update(property: &mut T, value: T) {
-        *property = value;
-    }
-
-    pub fn update_multiple(properties: &mut [&mut T], value: T)
-    where
-        T: Clone,
-    {
-        for property in properties {
-            **property = value.clone();
-        }
     }
 }
 

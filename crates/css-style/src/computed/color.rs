@@ -59,7 +59,7 @@ impl Color4f {
         parent: Option<Color>,
     ) -> Self {
         let initial = match initial {
-            Color::Current => text_color.as_value_ref().unwrap_or(initial),
+            Color::Current => text_color.as_value().unwrap_or(initial),
             _ => initial,
         };
 
