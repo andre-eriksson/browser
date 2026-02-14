@@ -366,19 +366,21 @@ pub fn matches_compound(
             None => return false,
         };
 
+        let parent_class_set = ClassSet::new(parent_element.classes());
+
         match &sequence.combinator {
             Some(Combinator::Child) => {
                 return matches_compound_selectors(
                     &sequence.compound_selectors,
                     parent_element,
-                    class_set,
+                    &parent_class_set,
                 );
             }
             Some(Combinator::Descendant) => {
                 if matches_compound_selectors(
                     &sequence.compound_selectors,
                     parent_element,
-                    class_set,
+                    &parent_class_set,
                 ) {
                     return true;
                 }
@@ -394,10 +396,12 @@ pub fn matches_compound(
                         None => break,
                     };
 
+                    let grandparent_class_set = ClassSet::new(grandparent_element.classes());
+
                     if matches_compound_selectors(
                         &sequence.compound_selectors,
                         grandparent_element,
-                        class_set,
+                        &grandparent_class_set,
                     ) {
                         return true;
                     }
@@ -435,11 +439,12 @@ pub fn matches_compound(
                         Some(elem) => elem,
                         None => continue,
                     };
+                    let sibling_class_set = ClassSet::new(previous_sibling_element.classes());
 
                     return matches_compound_selectors(
                         &sequence.compound_selectors,
                         previous_sibling_element,
-                        class_set,
+                        &sibling_class_set,
                     );
                 }
             }
@@ -461,10 +466,12 @@ pub fn matches_compound(
                         None => continue,
                     };
 
+                    let sibling_class_set = ClassSet::new(sibling_element.classes());
+
                     if matches_compound_selectors(
                         &sequence.compound_selectors,
                         sibling_element,
-                        class_set,
+                        &sibling_class_set,
                     ) {
                         return true;
                     }
