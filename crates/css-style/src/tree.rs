@@ -1,3 +1,8 @@
+//! This module defines the `StyledNode` and `StyleTree` structures, which represent the styled representation of the DOM tree. The `StyledNode`
+//! structure contains the computed style for a single DOM node, while the `StyleTree` structure represents the entire styled tree corresponding to the DOM tree.
+//! The `build` method of `StyleTree` constructs the styled tree from the given absolute context, DOM tree, and stylesheets by computing the styles for each node
+//! based on the cascade rules and the provided stylesheets.
+
 use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
@@ -5,6 +10,7 @@ use crate::cascade::GeneratedRule;
 use crate::properties::AbsoluteContext;
 use crate::{ComputedStyle, RelativeContext};
 
+/// Represents a node in the style tree, which contains the computed style for a DOM node, its tag name (if it's an element), its children, and any text content (if it's a text node).
 #[derive(Debug, Clone)]
 pub struct StyledNode {
     pub node_id: NodeId,
@@ -15,6 +21,7 @@ pub struct StyledNode {
 }
 
 impl StyledNode {
+    /// Creates a new `StyledNode` with the given `node_id`. The `tag`, `style`, `children`, and `text_content` fields are initialized to their default values.
     pub fn new(node_id: NodeId) -> Self {
         Self {
             node_id,
@@ -26,12 +33,17 @@ impl StyledNode {
     }
 }
 
+/// Represents the style tree, which is a hierarchical structure of styled nodes corresponding to the DOM tree. Each node in the style tree
+/// contains the computed style for the corresponding DOM node, as well as its tag name (if it's an element), its children, and any text content (if it's a text node).
 #[derive(Debug, Clone)]
 pub struct StyleTree {
+    /// The root nodes of the style tree.
     pub root_nodes: Vec<StyledNode>,
 }
 
 impl StyleTree {
+    /// Builds the style tree from the given absolute context, DOM tree, and stylesheets. This function computes the styles for each node in the
+    /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
     pub fn build(
         absolute_ctx: &AbsoluteContext,
         dom: &DocumentRoot,

@@ -40,6 +40,7 @@ use crate::{
     },
 };
 
+/// Represents the specified style of an element after applying the cascade and resolving variables.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SpecifiedStyle {
     pub background_color: ColorProperty,
@@ -85,12 +86,6 @@ pub struct SpecifiedStyle {
 
 impl SpecifiedStyle {
     /// Computes the ComputedStyle for a given node in the DOM.
-    ///
-    /// # Arguments
-    /// * `node_id` - The NodeId of the DOM node to compute the style for.
-    /// * `dom` - The DocumentRoot representing the DOM tree.
-    /// * `rules` - A slice of GeneratedRule representing the CSS rules to apply.
-    /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
     pub fn from_node(
         absolute_ctx: &AbsoluteContext,
         relative_ctx: &RelativeContext,

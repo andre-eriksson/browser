@@ -1,3 +1,5 @@
+//! Primitives for CSS values.
+
 pub mod angle;
 pub mod color;
 pub mod display;

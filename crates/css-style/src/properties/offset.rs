@@ -1,3 +1,8 @@
+//! This module defines the `OffsetValue` and `Offset` types, which represent CSS offset values for properties like margin and padding.
+//! An `OffsetValue` can be a length, percentage, calc expression, or auto. An `Offset` represents the four sides (top, right, bottom, left)
+//! of a CSS property, each with its own `OffsetValue`. The module also includes methods to convert these values to pixels based on the
+//! relative and absolute contexts.
+
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
@@ -7,6 +12,9 @@ use crate::{
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
 
+/// Represents a CSS offset value, used for specific margin and padding values. It can be a length, percentage, calc expression, or auto.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/padding-top>
 #[derive(Debug, Clone, PartialEq)]
 pub enum OffsetValue {
     Percentage(Percentage),
@@ -22,14 +30,11 @@ impl Default for OffsetValue {
 }
 
 impl OffsetValue {
-    pub fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self::Length(Length::zero())
     }
 
-    pub fn px(value: f32) -> Self {
-        Self::Length(Length::px(value))
-    }
-
+    /// Convert the OffsetValue to pixels, given the relative and absolute contexts. The rel_type indicates what the percentage is relative to.
     pub fn to_px(
         &self,
         rel_type: Option<RelativeType>,
@@ -100,6 +105,9 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
     }
 }
 
+/// Represents the offset values for the four sides (top, right, bottom, left) of a CSS property like margin or padding. Each side can have its own OffsetValue.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/margin>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Offset {
     pub top: OffsetValue,
@@ -109,7 +117,8 @@ pub struct Offset {
 }
 
 impl Offset {
-    pub fn new(
+    /// Create an Offset with individual values for each side (top, right, bottom, left).
+    pub(crate) fn trbl(
         top: OffsetValue,
         right: OffsetValue,
         bottom: OffsetValue,
@@ -123,16 +132,8 @@ impl Offset {
         }
     }
 
-    pub fn zero() -> Self {
-        Self {
-            top: OffsetValue::zero(),
-            right: OffsetValue::zero(),
-            bottom: OffsetValue::zero(),
-            left: OffsetValue::zero(),
-        }
-    }
-
-    pub fn all(value: OffsetValue) -> Self {
+    /// Create an Offset with the same value for all sides.
+    pub(crate) fn all(value: OffsetValue) -> Self {
         Self {
             top: value.clone(),
             right: value.clone(),
@@ -141,7 +142,8 @@ impl Offset {
         }
     }
 
-    pub fn two(vertical: OffsetValue, horizontal: OffsetValue) -> Self {
+    /// Create an Offset with one value for vertical sides (top and bottom) and another for horizontal sides (right and left).
+    pub(crate) fn vh(vertical: OffsetValue, horizontal: OffsetValue) -> Self {
         Self {
             top: vertical.clone(),
             right: horizontal.clone(),
@@ -150,7 +152,8 @@ impl Offset {
         }
     }
 
-    pub fn three(top: OffsetValue, horizontal: OffsetValue, bottom: OffsetValue) -> Self {
+    /// Create an Offset with three values: one for the top, one for the horizontal sides (right and left), and one for the bottom.
+    pub(crate) fn thb(top: OffsetValue, horizontal: OffsetValue, bottom: OffsetValue) -> Self {
         Self {
             top,
             right: horizontal.clone(),
@@ -166,13 +169,13 @@ impl TryFrom<&[OffsetValue]> for Offset {
     fn try_from(values: &[OffsetValue]) -> Result<Self, Self::Error> {
         match values.len() {
             1 => Ok(Offset::all(values[0].clone())),
-            2 => Ok(Offset::two(values[0].clone(), values[1].clone())),
-            3 => Ok(Offset::three(
+            2 => Ok(Offset::vh(values[0].clone(), values[1].clone())),
+            3 => Ok(Offset::thb(
                 values[0].clone(),
                 values[1].clone(),
                 values[2].clone(),
             )),
-            4 => Ok(Offset::new(
+            4 => Ok(Offset::trbl(
                 values[0].clone(),
                 values[1].clone(),
                 values[2].clone(),

@@ -1,3 +1,6 @@
+//! Defines the `Color` enum, which represents a CSS color value. This includes system colors, named colors, hex colors, functional colors, and special values like `currentColor` and `transparent`.
+//! The `Color` enum can be constructed from CSS component values and can be converted to a `Color4f` for rendering purposes.
+
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
@@ -11,6 +14,9 @@ use crate::{
     primitives::color::FunctionColor,
 };
 
+/// Represents a CSS color value, which can be a system color, named color, hex color, functional color, currentColor, or transparent.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/color_value>
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
     System(SystemColor),

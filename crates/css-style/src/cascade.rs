@@ -7,6 +7,7 @@ use css_selectors::{
 };
 use html_dom::{DocumentRoot, DomNode};
 
+/// A rule that has been generated from the stylesheets, containing the selector sequences, declarations, origin, and specificity for cascade resolution.
 #[derive(Debug)]
 pub struct GeneratedRule<'a> {
     pub selector_sequences: Vec<CompoundSelectorSequence>,
@@ -88,6 +89,7 @@ impl Ord for CascadeSpecificity {
     }
 }
 
+/// A declaration that has been collected from the stylesheets and inline styles, along with its specificity and source order for cascade resolution.
 #[derive(Debug, Clone)]
 pub struct CascadedDeclaration {
     pub property: Property,
@@ -99,6 +101,7 @@ pub struct CascadedDeclaration {
 }
 
 impl CascadedDeclaration {
+    /// Create a CascadedDeclaration from an inline style declaration, with the appropriate specificity and source order.
     pub fn from_inline(decl: &CSSDeclaration, order: usize) -> Self {
         CascadedDeclaration {
             property: decl.property.clone(),
@@ -110,6 +113,8 @@ impl CascadedDeclaration {
         }
     }
 
+    /// Collect all declarations that apply to the given DOM node from the provided stylesheets, including inline styles.
+    /// Returns a tuple of (declarations, variables) where declarations are regular CSS properties and variables are custom properties (CSS variables).
     pub fn collect(
         node: &DomNode,
         dom: &DocumentRoot,
@@ -172,6 +177,8 @@ impl CascadedDeclaration {
         (declarations, variables)
     }
 
+    /// Sort the declarations according to the CSS cascade rules: !important declarations first, then by origin (user agent, user, author),
+    /// then by specificity, and finally by source order.
     fn sort_declarations(declarations: &mut [CascadedDeclaration]) {
         declarations.sort_by(|a, b| {
             b.important
@@ -231,6 +238,7 @@ impl CascadedDeclaration {
     }
 }
 
+/// Perform the cascade and return the final set of properties and their values after applying all cascading rules, including inline styles and !important declarations.
 pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, Vec<ComponentValue>)> {
     CascadedDeclaration::sort_declarations(declarations);
 
@@ -248,6 +256,7 @@ pub fn cascade(declarations: &mut [CascadedDeclaration]) -> Vec<(Property, Vec<C
     cascaded_styles
 }
 
+/// Perform the cascade for custom properties (CSS variables) and return the final set of variables and their values after applying all cascading rules, including inline styles and !important declarations.
 pub fn cascade_variables(
     declarations: &mut [CascadedDeclaration],
 ) -> Vec<(Property, Vec<ComponentValue>)> {

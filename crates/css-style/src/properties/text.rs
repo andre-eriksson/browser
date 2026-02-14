@@ -1,3 +1,5 @@
+//! Properties related to text layout and formatting, such as `writing-mode`, `text-align`, `white-space`, and `line-height`.
+
 use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
@@ -9,14 +11,32 @@ use crate::{
     properties::{AbsoluteContext, RelativeContext},
 };
 
+/// The `writing-mode` property defines whether lines of text are laid out horizontally or vertically, and the direction in which blocks progress.
+/// It also affects the orientation of certain characters and the behavior of text alignment and justification.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/writing-mode>
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum WritingMode {
+    /// For `ltr` scripts, content flows horizontally from left to right. For `rtl` scripts, content flows horizontally from right to left. The next horizontal
+    /// line is positioned below the previous line.
     #[default]
     HorizontalTb,
+
+    /// For `ltr` scripts, content flows vertically from top to bottom, and the next vertical line is positioned to the left of the previous line. For `rtl` scripts,
+    /// content flows vertically from bottom to top, and the next vertical line is positioned to the right of the previous line.
     VerticalRl,
+
+    /// For `ltr` scripts, content flows vertically from top to bottom, and the next vertical line is positioned to the right of the previous line. For `rtl` scripts,
+    /// content flows vertically from bottom to top, and the next vertical line is positioned to the left of the previous line.
     VerticalLr,
+
+    /// For `ltr` scripts, content flows vertically from top to bottom. For `rtl` scripts, content flows vertically from bottom to top. All the glyphs, even those in
+    /// vertical scripts, are set sideways toward the right.
     SidewaysRl,
+
+    /// For `ltr` scripts, content flows vertically from bottom to top. For `rtl` scripts, content flows vertically from top to bottom. All the glyphs, even those in
+    /// vertical scripts, are set sideways toward the left.
     SidewaysLr,
 }
 
@@ -40,16 +60,32 @@ impl TryFrom<&[ComponentValue]> for WritingMode {
     }
 }
 
+/// The `text-align` property describes how inline content of a block element is aligned. It has no effect on non-block elements or when `display: table-cell` is used.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/text-align>
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum TextAlign {
+    /// The same as `left` if direction is left-to-right and `right` if direction is right-to-left.
     Start,
+
+    /// The same as `right` if direction is left-to-right and `left` if direction is right-to-left.
     End,
+
+    /// The inline contents are aligned to the left edge of the line box.
     #[default]
     Left,
+
+    /// The inline contents are aligned to the right edge of the line box.
     Right,
+
+    /// The inline contents are centered within the line box.
     Center,
+
+    /// The inline contents are justified. Spaces out the content to line up its left and right edges to the left and right edges of the line box, except for the last line.
     Justify,
+
+    /// Similar to `inherit`, but the values `start` and `end` are calculated according to the parent's `direction` and are replaced by the appropriate `left` or `right` value.
     MatchParent,
 }
 
@@ -73,13 +109,28 @@ impl TryFrom<&[ComponentValue]> for TextAlign {
     }
 }
 
+/// The `white-space` property describes how whitespace inside an element is handled. It can be used to control whether and how whitespace is collapsed,
+/// and whether lines are broken at newline characters in the source code or at soft wrap opportunities.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/white-space>
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum Whitespace {
+    /// Sequences of white space are collapsed. Newline characters in the source are handled the same as other white spaces.
+    /// Lines are broken as necessary to fill line boxes. Equivalent to `collapse wrap`.
     #[default]
     Normal,
+
+    /// Sequences of white space are preserved. Lines are only broken at newline characters in the source and at `<br>` elements.
+    /// Equivalent to `preserve nowrap`.
     Pre,
+
+    /// Sequences of white space are preserved. Lines are broken at newline characters, at `<br>`, and as necessary to fill line boxes.
+    /// Equivalent to `preserve wrap`.
     PreWrap,
+
+    /// Sequences of white space are collapsed. Lines are broken at newline characters, at `<br>`, and as necessary to fill line boxes.
+    /// Equivalent to `preserve-breaks wrap`.
     PreLine,
 
     // Shorthands, TODO: expand these into their full equivalents when parsing
@@ -109,6 +160,9 @@ impl TryFrom<&[ComponentValue]> for Whitespace {
     }
 }
 
+/// The `line-height` property sets the height of a line box. It's commonly used to set the distance between lines of text.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/line-height>
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum LineHeight {
     #[default]
@@ -120,10 +174,7 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub fn px(value: f32) -> Self {
-        LineHeight::Length(Length::px(value))
-    }
-
+    /// Converts the `line-height` value to pixels based on the provided context and font size. This is used for layout calculations.
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
             parent: ComputedStyle {

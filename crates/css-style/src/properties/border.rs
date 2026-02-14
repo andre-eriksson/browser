@@ -1,3 +1,6 @@
+//! This module defines the `BorderWidth` and `BorderStyle` types, which represent the width and style of CSS borders, respectively.
+//! These types can be constructed from CSS component values and can be converted to pixel values for rendering.
+
 use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
@@ -8,6 +11,9 @@ use crate::{
     properties::{AbsoluteContext, RelativeContext},
 };
 
+/// Represents the width of a CSS border, which can be a length, a calc expression, or one of the keywords thin, medium, or thick.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/border-width>
 #[derive(Debug, Clone, PartialEq)]
 pub enum BorderWidth {
     Length(Length),
@@ -62,15 +68,18 @@ impl TryFrom<&[ComponentValue]> for BorderWidth {
 }
 
 impl BorderWidth {
-    pub fn px(value: f32) -> Self {
+    /// Create a BorderWidth from a pixel value.
+    pub(crate) fn px(value: f32) -> Self {
         BorderWidth::Length(Length::px(value))
     }
 
-    pub fn zero() -> Self {
+    /// Create a BorderWidth with a value of zero.
+    pub(crate) fn zero() -> Self {
         BorderWidth::Length(Length::px(0.0))
     }
 
-    pub fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+    /// Convert the BorderWidth to pixels, using the provided contexts for relative units and calc expressions.
+    pub(crate) fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             BorderWidth::Length(len) => len.to_px(rel_ctx, abs_ctx),
             BorderWidth::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
@@ -81,19 +90,49 @@ impl BorderWidth {
     }
 }
 
+/// Represents the style of a CSS border, which can be one of the keywords none, hidden, dotted, dashed, solid, double, groove, ridge, inset, or outset.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/border-style>
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum BorderStyle {
+    /// Like the `hidden` keyword, displays no border. Unless a `background-image` is set, the computed value of the same side's `border-width` will be `0`,
+    /// even if the specified value is something else. In the case of table cell and border collapsing, the `none` value has the lowest priority:
+    /// if any other conflicting border is set, it will be displayed.
     #[default]
     None,
+
+    /// Like the none keyword, displays no border. Unless a `background-image` is set, the computed value of the same side's `border-width` will be `0`,
+    /// even if the specified value is something else. In the case of table cell and border collapsing, the `hidden` value has the highest priority:
+    /// if any other conflicting border is set, it won't be displayed.
     Hidden,
+
+    /// Displays a series of rounded dots. The spacing of the dots is not defined by the specification and is implementation-specific.
+    /// The radius of the dots is half the computed value of the same side's `border-width`.
     Dotted,
+
+    /// Displays a series of short square-ended dashes or line segments. The exact size and length of the segments are not defined by the
+    /// specification and are implementation-specific.
     Dashed,
+
+    /// Displays a single, straight, solid line.
     Solid,
+
+    /// Displays two straight lines that add up to the pixel size defined by `border-width`.
     Double,
+
+    /// Displays a border with a carved appearance. It is the opposite of `ridge`.
     Groove,
+
+    /// Displays a border with an extruded appearance. It is the opposite of `groove`.
     Ridge,
+
+    /// Displays a border that makes the element appear embedded. It is the opposite of `outset`. When applied to a table cell with `border-collapse`
+    /// set to `collapsed`, this value behaves like `ridge`.
     Inset,
+
+    /// Displays a border that makes the element appear embossed. It is the opposite of `inset`. When applied to a table cell with `border-collapse`
+    /// set to `collapsed`, this value behaves like `groove`.
     Outset,
 }
 

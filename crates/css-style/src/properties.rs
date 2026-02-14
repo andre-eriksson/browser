@@ -22,6 +22,7 @@ pub mod offset;
 pub mod position;
 pub mod text;
 
+/// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RelativeType {
     FontSize,
@@ -32,6 +33,7 @@ pub enum RelativeType {
     ViewportHeight,
 }
 
+/// Context for resolving absolute CSS properties, such as 'px' units or named colors. It provides access to the root font size, viewport dimensions, and root color for calculations.
 #[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub struct AbsoluteContext {
     pub root_font_size: f32,
@@ -40,26 +42,30 @@ pub struct AbsoluteContext {
     pub root_color: Color,
 }
 
+/// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
     pub parent: Box<ComputedStyle>,
 }
 
+/// A CSS property that can either be a specific value or a global value (initial, inherit, unset, revert, revert-layer).
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CSSProperty<T> {
+pub(crate) enum CSSProperty<T> {
     Value(T),
     Global(Global),
 }
 
 impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
-    pub fn as_value(&self) -> Option<&T> {
+    /// Returns the specific value of the property if it is set, or None if it is a global value.
+    pub(crate) fn as_value(&self) -> Option<&T> {
         match self {
             CSSProperty::Value(val) => Some(val),
             CSSProperty::Global(_) => None,
         }
     }
 
-    pub fn resolve(property: &CSSProperty<T>) -> Result<&T, String> {
+    /// Resolves the property to its specific value if it is set, or returns an error if it is a global value.
+    pub(crate) fn resolve(property: &CSSProperty<T>) -> Result<&T, String> {
         match property {
             CSSProperty::Value(val) => Ok(val),
             CSSProperty::Global(global) => {
@@ -68,7 +74,12 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
         }
     }
 
-    pub fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, initial: &'a T) -> &'a T {
+    /// Resolves the property to its specific value if it is set, or computes the value based on the global value and the provided context (parent and initial values).
+    pub(crate) fn resolve_with_context<'a>(
+        &'a self,
+        parent: Option<&'a T>,
+        initial: &'a T,
+    ) -> &'a T {
         match self {
             CSSProperty::Global(global) => match global {
                 Global::Initial => initial,
@@ -80,7 +91,8 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
         }
     }
 
-    pub fn resolve_with_context_owned(self, parent: T, initial: T) -> T {
+    /// Similar to `resolve_with_context`, but takes ownership of the property and returns an owned value. This is useful when the property needs to be moved or when the context values are owned.
+    pub(crate) fn resolve_with_context_owned(self, parent: T, initial: T) -> T {
         match self {
             CSSProperty::Global(global) => match global {
                 Global::Initial => initial,
@@ -92,7 +104,9 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
         }
     }
 
-    pub fn update_property(
+    /// Updates the property based on the provided component values. It first checks if the value is a global value, and if so, updates the property accordingly.
+    /// If not, it tries to parse the component values into the specific type T and updates the property with the parsed value.
+    pub(crate) fn update_property(
         property: &mut CSSProperty<T>,
         value: &[ComponentValue],
     ) -> Result<(), String> {

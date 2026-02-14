@@ -7,15 +7,17 @@ use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::specified::SpecifiedStyle;
 use crate::{BorderStyle, BorderWidth, Color, FontWeight, Offset, RelativeContext};
 
-pub struct PropertyUpdateContext<'a> {
+/// Context for updating a CSS property, containing necessary information and utilities for the update process.
+pub(crate) struct PropertyUpdateContext<'a> {
     pub absolute_ctx: &'a AbsoluteContext,
     pub specified_style: &'a mut SpecifiedStyle,
     pub relative_ctx: &'a RelativeContext,
     pub errors: Vec<PropertyError>,
 }
 
+/// Represents an error that occurred during the property update process, including the property name, the value that caused the error, and a descriptive error message.
 #[derive(Debug)]
-pub struct PropertyError {
+pub(crate) struct PropertyError {
     pub property: String,
     pub value: Vec<ComponentValue>,
     pub error: String,
@@ -59,6 +61,8 @@ impl<'a> PropertyUpdateContext<'a> {
     }
 }
 
+/// A macro to generate simple property handler functions that update a specific field in the specified style based on the provided component values.
+/// The macro takes the function name, the field to update, and the property name for error reporting.
 macro_rules! simple_property_handler {
     ($fn_name:ident, $field:ident, $prop_name:expr) => {
         pub fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
@@ -69,7 +73,9 @@ macro_rules! simple_property_handler {
     };
 }
 
-pub fn resolve_css_variables(
+/// Resolves CSS variables in a given value by replacing any `var()` functions with their corresponding values from the provided variables list.
+/// This function recursively resolves nested `var()` functions and handles fallback values if a variable is not found.
+pub(crate) fn resolve_css_variables(
     variables: &[(Property, Vec<ComponentValue>)],
     value: &[ComponentValue],
 ) -> Vec<ComponentValue> {
@@ -125,6 +131,9 @@ pub fn resolve_css_variables(
     output
 }
 
+/// Resolves a `var()` function by extracting the variable name and fallback values, then attempting to find the variable in the provided list of variables.
+/// If the variable is found, its value is returned. If not, the fallback values are resolved and returned. If there are no fallback values,
+/// the original `var()` function is returned as a component value.
 fn resolve_var_function(
     variables: &[(Property, Vec<ComponentValue>)],
     func: &Function,
@@ -167,6 +176,8 @@ fn resolve_var_function(
     vec![ComponentValue::Function(func.clone())]
 }
 
+/// Attempts to resolve a CSS variable by searching for its name in the provided list of variables. If the variable is found, its value is resolved and returned.
+/// If the variable is not found or if its value is empty, `None` is returned.
 fn try_resolve_variable(
     variables: &[(Property, Vec<ComponentValue>)],
     var_name: &str,
@@ -278,7 +289,8 @@ simple_property_handler!(handle_width, width, "width");
 simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
 
-pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `margin` shorthand property by parsing the provided component values and updating the corresponding margin properties in the specified style.
+pub(crate) fn handle_margin(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -301,7 +313,8 @@ pub fn handle_margin(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
     }
 }
 
-pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `padding` shorthand property by parsing the provided component values and updating the corresponding padding properties in the specified style.
+pub(crate) fn handle_padding(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -324,7 +337,8 @@ pub fn handle_padding(ctx: &mut PropertyUpdateContext, value: &[ComponentValue])
     }
 }
 
-pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
+pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let mut style = None;
     let mut width = None;
     let mut color = None;
@@ -420,7 +434,9 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) 
     }
 }
 
-pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `font-size` property by updating the specified style's font size based on the provided component values. The function first attempts to update the font size
+/// using the `CSSProperty::update_property` method.
+pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
@@ -429,7 +445,9 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue
     }
 }
 
-pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `font-weight` property by parsing the provided component values and updating the specified style's font weight accordingly. The function checks for the presence
+/// of `lighter` and `bolder` keywords, which adjust the font weight relative to the parent's font weight.
+pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     for cv in value {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
@@ -459,7 +477,9 @@ pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[ComponentVal
     }
 }
 
-pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `margin-block`, `margin-block-start`, and `margin-block-end` properties by parsing the provided component values and updating the corresponding margin properties
+/// in the specified style based on the current writing mode.
+pub(crate) fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -509,7 +529,9 @@ pub fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &[ComponentVa
     }
 }
 
-pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `padding-block`, `padding-block-start`, and `padding-block-end` properties by parsing the provided component values and updating the corresponding padding properties
+/// in the specified style based on the current writing mode.
+pub(crate) fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -553,7 +575,9 @@ pub fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &[Compo
     }
 }
 
-pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `margin-block-end` property by parsing the provided component values and updating the corresponding margin properties in the specified style based on the current writing mode.
+/// an error is recorded in the context indicating that the writing mode is unsupported.
+pub(crate) fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -597,7 +621,9 @@ pub fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &[Compone
     }
 }
 
-pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `padding-block-start` property by parsing the provided component values and updating the corresponding padding properties in the specified style based on the current writing mode.
+/// recorded in the context indicating that the writing mode is unsupported.
+pub(crate) fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -647,7 +673,11 @@ pub fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &[ComponentV
     }
 }
 
-pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `padding-block-start` property by parsing the provided component values and updating the corresponding padding property in the specified style based on the current writing mode.
+pub(crate) fn handle_padding_block_start(
+    ctx: &mut PropertyUpdateContext,
+    value: &[ComponentValue],
+) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 
@@ -691,7 +721,8 @@ pub fn handle_padding_block_start(ctx: &mut PropertyUpdateContext, value: &[Comp
     }
 }
 
-pub fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+/// Handles the `margin-block-end` property by parsing the provided component values and updating the corresponding margin properties in the specified style based on the current writing mode.
+pub(crate) fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     let global = Global::try_from(value).ok();
     let offset = Offset::try_from(value).ok();
 

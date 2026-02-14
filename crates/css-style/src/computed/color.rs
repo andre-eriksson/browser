@@ -1,5 +1,5 @@
 use crate::{
-    CSSProperty, Color,
+    Color,
     color::{
         ColorValue, Fraction, FunctionColor, Hue,
         cielab::Cielab,
@@ -8,6 +8,7 @@ use crate::{
         oklab::Oklab,
         srgba::SRGBAColor,
     },
+    properties::CSSProperty,
 };
 
 /// RGBA color representation for rendering (values 0.0-1.0, sRGB gamma-encoded)
@@ -36,11 +37,13 @@ impl Default for Color4f {
 }
 
 impl Color4f {
-    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+    /// Creates a new Color4f with the specified RGBA values (0.0-1.0, sRGB gamma-encoded).
+    pub(crate) fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
 
-    pub fn from_css_color(color: &Color) -> Self {
+    /// Converts a CSS Color to Color4f
+    fn from_css_color(color: &Color) -> Self {
         match color {
             Color::Named(named) => Self::from(*named),
             Color::Hex(hex) => Self::from(*hex),
@@ -51,8 +54,8 @@ impl Color4f {
         }
     }
 
-    /// Converts a CSS color to Color4f
-    pub fn from_css_color_property(
+    /// Converts a CSS color property to Color4f, resolving 'currentColor' and inheriting from the parent if necessary.
+    pub(crate) fn from_css_color_property(
         color: &CSSProperty<Color>,
         text_color: &CSSProperty<Color>,
         initial: &Color,
@@ -66,32 +69,6 @@ impl Color4f {
         let resolved_color = color.resolve_with_context(parent.as_ref(), initial);
 
         Self::from_css_color(resolved_color)
-    }
-
-    /// Returns a copy with RGB channels converted from sRGB gamma to linear
-    /// light.  Use this when uploading colours to a **linear** surface format
-    /// such as `Rgb10a2Unorm` where the GPU will NOT apply an automatic sRGB
-    /// transfer function.
-    ///
-    /// Alpha is left untouched (it is always linear).
-    pub fn to_linear(self) -> Self {
-        Self {
-            r: Self::srgb_component_to_linear(self.r),
-            g: Self::srgb_component_to_linear(self.g),
-            b: Self::srgb_component_to_linear(self.b),
-            a: self.a,
-        }
-    }
-
-    /// Returns a copy with RGB channels converted from linear light to sRGB
-    /// gamma. This is the inverse of [`to_linear`](Self::to_linear).
-    pub fn to_srgb(self) -> Self {
-        Self {
-            r: Self::linear_component_to_srgb(self.r),
-            g: Self::linear_component_to_srgb(self.g),
-            b: Self::linear_component_to_srgb(self.b),
-            a: self.a,
-        }
     }
 
     /// Parses a hex color string (e.g. "#RRGGBB") into an (r, g, b) tuple.

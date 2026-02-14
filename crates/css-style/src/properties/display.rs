@@ -1,4 +1,7 @@
-use std::str::FromStr;
+//! This module defines the `Display` struct, which represents the computed value of the CSS `display` property.
+//! The `Display` struct is designed to capture the various components of the `display` property, including outside,
+//! inside, list-item, internal, and box display types. This structured representation allows for easier handling of
+//! the `display` property in the layout engine.
 
 use css_cssom::{ComponentValue, CssTokenKind};
 
@@ -7,6 +10,8 @@ use crate::{
     primitives::display::{BoxDisplay, InsideDisplay, InternalDisplay, OutsideDisplay},
 };
 
+/// Represents the computed value of the CSS `display` property, which can be a combination of outside, inside, list-item, internal, and box display types.
+/// This struct allows for a more structured representation of the `display` property, making it easier to work with in the layout engine.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Display {
     outside: Option<OutsideDisplay>,
@@ -17,7 +22,7 @@ pub struct Display {
 }
 
 impl Display {
-    pub fn new(
+    pub(crate) fn new(
         outside: Option<OutsideDisplay>,
         inside: Option<InsideDisplay>,
         list_item: Option<ListItemDisplay>,
@@ -33,22 +38,27 @@ impl Display {
         }
     }
 
+    /// Returns the outside display type, if set.
     pub fn outside(&self) -> Option<OutsideDisplay> {
         self.outside
     }
 
+    /// Returns the inside display type, if set.
     pub fn inside(&self) -> Option<InsideDisplay> {
         self.inside
     }
 
+    /// Returns the list-item display type, if set.
     pub fn list_item(&self) -> Option<ListItemDisplay> {
         self.list_item
     }
 
+    /// Returns the internal display type, if set.
     pub fn internal(&self) -> Option<InternalDisplay> {
         self.internal
     }
 
+    /// Returns the box display type, if set.
     pub fn box_display(&self) -> Option<BoxDisplay> {
         self.box_display
     }
@@ -220,123 +230,39 @@ impl TryFrom<&[ComponentValue]> for Display {
     }
 }
 
-impl FromStr for Display {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = s.split_whitespace().collect::<Vec<&str>>();
-
-        match parts.len() {
-            1 => match parts[0] {
-                "inline" => Ok(Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    inside: Some(InsideDisplay::Flow),
-                    ..Default::default()
-                }),
-                "inline-block" => Ok(Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    inside: Some(InsideDisplay::FlowRoot),
-                    ..Default::default()
-                }),
-                "inline-table" => Ok(Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    inside: Some(InsideDisplay::Table),
-                    ..Default::default()
-                }),
-                "inline-flex" => Ok(Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    inside: Some(InsideDisplay::Flex),
-                    ..Default::default()
-                }),
-                "inline-grid" => Ok(Display {
-                    outside: Some(OutsideDisplay::Inline),
-                    inside: Some(InsideDisplay::Grid),
-                    ..Default::default()
-                }),
-                "block" => Ok(Display {
-                    outside: Some(OutsideDisplay::Block),
-                    inside: Some(InsideDisplay::Flow),
-                    ..Default::default()
-                }),
-                "flow" => Ok(Display::from(InsideDisplay::Flow)),
-                "flow-root" => Ok(Display::from(InsideDisplay::FlowRoot)),
-                "table" => Ok(Display::from(InsideDisplay::Table)),
-                "flex" => Ok(Display::from(InsideDisplay::Flex)),
-                "grid" => Ok(Display::from(InsideDisplay::Grid)),
-                "ruby" => Ok(Display::from(InsideDisplay::Ruby)),
-                "list-item" => Ok(Display::from(ListItemDisplay::ListItem)),
-                "table-row-group" => Ok(Display::from(InternalDisplay::TableRowGroup)),
-                "table-header-group" => Ok(Display::from(InternalDisplay::TableHeaderGroup)),
-                "table-footer-group" => Ok(Display::from(InternalDisplay::TableFooterGroup)),
-                "table-row" => Ok(Display::from(InternalDisplay::TableRow)),
-                "table-cell" => Ok(Display::from(InternalDisplay::TableCell)),
-                "table-column-group" => Ok(Display::from(InternalDisplay::TableColumnGroup)),
-                "table-column" => Ok(Display::from(InternalDisplay::TableColumn)),
-                "table-caption" => Ok(Display::from(InternalDisplay::TableCaption)),
-                "ruby-base" => Ok(Display::from(InternalDisplay::RubyBase)),
-                "ruby-text" => Ok(Display::from(InternalDisplay::RubyText)),
-                "ruby-base-container" => Ok(Display::from(InternalDisplay::RubyBaseContainer)),
-                "ruby-text-container" => Ok(Display::from(InternalDisplay::RubyTextContainer)),
-                "contents" => Ok(Display::from(BoxDisplay::Contents)),
-                "none" => Ok(Display::from(BoxDisplay::None)),
-                _ => Err(format!("Invalid display value: {}", s)),
-            },
-            2 => {
-                let outside = parts[0].parse()?;
-
-                if let Ok(list_item) = parts[1].parse::<ListItemDisplay>() {
-                    return Ok(Display {
-                        outside: Some(outside),
-                        inside: Some(InsideDisplay::Flow),
-                        list_item: Some(list_item),
-                        ..Default::default()
-                    });
-                }
-
-                let inside = parts[1].parse()?;
-
-                Ok(Display {
-                    outside: Some(outside),
-                    inside: Some(inside),
-                    ..Default::default()
-                })
-            }
-            3 => {
-                let outside = parts[0].parse()?;
-                let inside = parts[1].parse()?;
-                let list_item = parts[2].parse()?;
-
-                Ok(Display {
-                    outside: Some(outside),
-                    inside: Some(inside),
-                    list_item: Some(list_item),
-                    ..Default::default()
-                })
-            }
-            _ => Err(format!("Invalid display value: {}", s)),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use css_cssom::CssToken;
+
     use super::*;
 
     #[test]
     fn test_display_parse() {
-        let display = "inline flex".parse::<Display>().unwrap();
-        assert_eq!(display.outside, Some(OutsideDisplay::Inline));
-        assert_eq!(display.inside, Some(InsideDisplay::Flex));
-        assert_eq!(display.box_display, None);
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("inline".into()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("flow-root".into()),
+                position: None,
+            }),
+        ];
 
-        let display = "block".parse::<Display>().unwrap();
-        assert_eq!(display.outside, Some(OutsideDisplay::Block));
-        assert_eq!(display.inside, Some(InsideDisplay::Flow));
-        assert_eq!(display.box_display, None);
-
-        let display = "none".parse::<Display>().unwrap();
-        assert_eq!(display.box_display, Some(BoxDisplay::None));
-        assert_eq!(display.outside, None);
-        assert_eq!(display.inside, None);
+        let display = Display::try_from(input.as_slice()).expect("Failed to parse display value");
+        assert_eq!(
+            display,
+            Display {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::FlowRoot),
+                list_item: None,
+                internal: None,
+                box_display: None,
+            }
+        );
     }
 }

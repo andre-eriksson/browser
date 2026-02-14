@@ -1,3 +1,5 @@
+//! Defines the Dimension and MaxDimension types, which represent CSS dimension values (width, height, max-width, max-height) and their parsing from CSS component values.
+
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
@@ -7,6 +9,10 @@ use crate::{
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
 
+/// Represents a CSS dimension value (width or height), which can be a
+/// length, percentage, calc expression, auto, max-content, min-content, fit-content, or stretch.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/width>
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum Dimension {
     Percentage(Percentage),
@@ -21,10 +27,12 @@ pub enum Dimension {
 }
 
 impl Dimension {
+    /// Create a Dimension from a pixel value.
     pub fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
 
+    /// Convert the Dimension to pixels, given the relative and absolute contexts. The rel_type indicates what the percentage is relative to.
     pub fn to_px(
         &self,
         rel_type: RelativeType,
@@ -100,6 +108,10 @@ impl TryFrom<&[ComponentValue]> for Dimension {
     }
 }
 
+/// Represents a CSS max-dimension value (max-width or max-height), which can be a
+/// length, percentage, calc expression, none, max-content, min-content, fit-content, or stretch.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/max-width>
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum MaxDimension {
     Length(Length),

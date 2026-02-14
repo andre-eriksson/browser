@@ -1,3 +1,7 @@
+//! This module defines the data structures and logic for handling CSS font properties, including font weight, font family, and font size.
+//! It provides functionality to parse these properties from CSS component values and to compute their effective values based on the context
+//! of the element and its parent.
+
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
@@ -12,6 +16,9 @@ use crate::{
     properties::{AbsoluteContext, RelativeContext},
 };
 
+/// Represents the font weight property, which can be a keyword (normal, bold) or a numeric value (100-900).
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FontWeight {
     Thin = 100,
@@ -74,6 +81,9 @@ impl TryFrom<&[ComponentValue]> for FontWeight {
     }
 }
 
+/// Represents a font family name, which can be either a generic family (serif, sans-serif, etc.) or a specific font name.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-family>
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum FontFamilyName {
     Generic(GenericName),
@@ -86,6 +96,9 @@ impl Default for FontFamilyName {
     }
 }
 
+/// Represents the font-family property, which is a prioritized list of font family names. The browser will use the first available font from the list.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-family>
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct FontFamily {
     names: Vec<FontFamilyName>,
@@ -100,12 +113,14 @@ impl Default for FontFamily {
 }
 
 impl FontFamily {
-    pub fn new(names: &[FontFamilyName]) -> Self {
+    /// Create a new FontFamily with a list of font family names. The list should be ordered by preference, with the most preferred font first.
+    pub(crate) fn new(names: &[FontFamilyName]) -> Self {
         Self {
             names: names.to_vec(),
         }
     }
 
+    /// Get the list of font family names in this FontFamily. The list is ordered by preference, with the most preferred font first.
     pub fn names(&self) -> &Vec<FontFamilyName> {
         &self.names
     }
@@ -159,6 +174,10 @@ impl TryFrom<&[ComponentValue]> for FontFamily {
     }
 }
 
+/// Represents the font-size property, which can be specified using absolute-size keywords (e.g., small, medium),
+/// relative-size keywords (e.g., larger, smaller), length units (e.g., 16px, 1.5em), percentage, or a calc() expression.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-size>
 #[derive(Debug, Clone, PartialEq)]
 pub enum FontSize {
     Absolute(AbsoluteSize),
@@ -175,10 +194,12 @@ impl Default for FontSize {
 }
 
 impl FontSize {
-    pub fn px(value: f32) -> Self {
+    /// Create a FontSize from a length value in pixels.
+    pub(crate) fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
 
+    /// Convert this FontSize to an absolute length in pixels, given the context of the parent element's font size and the absolute context for resolving relative units.
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {
             parent: ComputedStyle {

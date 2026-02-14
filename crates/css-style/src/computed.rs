@@ -2,7 +2,7 @@ use css_cssom::{ComponentValue, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    BorderStyle, BorderWidth, CSSProperty, FontSize, FontWeight, OffsetValue, RelativeContext,
+    BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext,
     cascade::GeneratedRule,
     color::named::NamedColor,
     computed::color::Color4f,
@@ -11,7 +11,7 @@ use crate::{
         font::GenericName,
     },
     properties::{
-        AbsoluteContext,
+        AbsoluteContext, CSSProperty,
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -24,6 +24,9 @@ use crate::{
 
 pub mod color;
 
+/// The ComputedStyle struct represents the computed style for a DOM node after applying all CSS rules, resolving inheritance,
+/// and applying the cascade. It contains all the properties that affect the layout and rendering of the node,
+/// with all values resolved to their final forms (e.g., colors as RGBA, lengths in pixels, etc.).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
     pub background_color: Color4f,
@@ -68,12 +71,6 @@ pub struct ComputedStyle {
 
 impl ComputedStyle {
     /// Computes the ComputedStyle for a given node in the DOM.
-    ///
-    /// # Arguments
-    /// * `node_id` - The NodeId of the DOM node to compute the style for.
-    /// * `dom` - The DocumentRoot representing the DOM tree.
-    /// * `rules` - A slice of GeneratedRule representing the CSS rules to apply.
-    /// * `parent_style` - An optional reference to the ComputedStyle of the parent node for inheritance.
     pub fn from_node(
         absolute_ctx: &AbsoluteContext,
         relative_ctx: &mut RelativeContext,

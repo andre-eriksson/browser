@@ -8,6 +8,7 @@ use crate::{
     properties::{AbsoluteContext, RelativeContext, RelativeType},
 };
 
+/// Represents the special keywords that can be used in calc() expressions.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CalculateKeyword {
     E,
@@ -44,6 +45,7 @@ impl FromStr for CalculateKeyword {
     }
 }
 
+/// Represents a single value in a calc() expression, which can be a number, length, percentage, keyword, or a nested calc() expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalculateValue {
     Number(f32),
@@ -90,6 +92,7 @@ impl CalculateValue {
     }
 }
 
+/// Represents a product of values in a calc() expression, which can be a single value, a multiplication, or a division.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalculateProduct {
     Value(CalculateValue),
@@ -121,6 +124,7 @@ impl CalculateProduct {
     }
 }
 
+/// Represents a sum of products in a calc() expression, which can be a single product, an addition, or a subtraction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalculateSum {
     Product(CalculateProduct),
@@ -148,17 +152,7 @@ impl CalculateSum {
 }
 
 /// Represents a CSS calc() expression.
-///
-/// ## Whitespace Requirements
-///
-/// According to the CSS specification, whitespace is **required** on both sides
-/// of the `+` and `-` operators. This is necessary to disambiguate expressions like:
-/// - `calc(50px - -20px)` (valid: 50px minus negative 20px = 70px)
-/// - `calc(50px--20px)` (invalid: missing whitespace)
-///
-/// Whitespace is **optional** around the `*` and `/` operators:
-/// - `calc(10*5)` (valid)
-/// - `calc(10 * 5)` (also valid)
+/// The top-level structure is a sum of products, which allows for proper operator precedence and associativity when evaluating the expression.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalcExpression {
     pub sum: CalculateSum,
@@ -190,6 +184,7 @@ impl CalcExpression {
     }
 }
 
+/// A simple recursive descent parser for calc() expressions that respects operator precedence and associativity.
 struct CalcParser<'a> {
     input: &'a [ComponentValue],
     current_pos: usize,

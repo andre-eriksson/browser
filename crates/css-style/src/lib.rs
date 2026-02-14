@@ -1,7 +1,8 @@
 //! CSS Style Module
 //!
-//! This crate implements the functionality to turn CSS stylesheets into
-//! computed styles for HTML elements, following the CSS specifications.
+//! This crate implements the functionality to turn CSS stylesheets into specified stylesheets and then into computed stylesheets.
+//! It includes the logic for calculating the final computed values of CSS properties based on the specified values, the cascade,
+//! and inheritance rules. The crate also defines the data structures for representing CSS properties, values, and the style tree.
 
 mod calculate;
 mod cascade;
@@ -22,5 +23,5 @@ pub use properties::font::*;
 pub use properties::offset::*;
 pub use properties::position::*;
 pub use properties::text::*;
-pub use properties::{AbsoluteContext, CSSProperty, RelativeContext, RelativeType};
+pub use properties::{AbsoluteContext, RelativeContext, RelativeType};
 pub use tree::{StyleTree, StyledNode};
