@@ -5,7 +5,7 @@ use crate::length::{Length, LengthUnit};
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::specified::SpecifiedStyle;
-use crate::{BorderStyle, BorderWidth, Color, Offset, RelativeContext};
+use crate::{BorderStyle, BorderWidth, Color, FontWeight, Offset, RelativeContext};
 
 pub struct PropertyUpdateContext<'a> {
     pub absolute_ctx: &'a AbsoluteContext,
@@ -260,7 +260,6 @@ simple_property_handler!(
 simple_property_handler!(handle_color, color, "color");
 simple_property_handler!(handle_display, display, "display");
 simple_property_handler!(handle_font_family, font_family, "font-family");
-simple_property_handler!(handle_font_weight, font_weight, "font-weight");
 simple_property_handler!(handle_height, height, "height");
 simple_property_handler!(handle_max_height, max_height, "max-height");
 simple_property_handler!(handle_line_height, line_height, "line-height");
@@ -427,6 +426,36 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
         ctx.specified_style.computed_font_size_px =
             font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
+    }
+}
+
+pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    for cv in value {
+        match cv {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(ident) => {
+                    if ident.eq_ignore_ascii_case("lighter") {
+                        let lighter = ctx.relative_ctx.parent.font_weight - 100;
+                        ctx.specified_style.font_weight = CSSProperty::Value(
+                            FontWeight::try_from(lighter).unwrap_or(FontWeight::Thin),
+                        );
+                        return;
+                    } else if ident.eq_ignore_ascii_case("bolder") {
+                        let bolder = ctx.relative_ctx.parent.font_weight + 100;
+                        ctx.specified_style.font_weight = CSSProperty::Value(
+                            FontWeight::try_from(bolder).unwrap_or(FontWeight::Black),
+                        );
+                        return;
+                    }
+                }
+                _ => continue,
+            },
+            _ => continue,
+        }
+    }
+
+    if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, value) {
+        ctx.record_error("font-weight", value.to_vec(), e);
     }
 }
 

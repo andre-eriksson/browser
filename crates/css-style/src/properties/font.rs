@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
@@ -73,24 +71,6 @@ impl TryFrom<&[ComponentValue]> for FontWeight {
         }
 
         Err(format!("Invalid font weight value: {:?}", value))
-    }
-}
-
-impl FromStr for FontWeight {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(num) = s.parse::<u16>()
-            && let Ok(font) = FontWeight::try_from(num)
-        {
-            Ok(font)
-        } else if s.eq_ignore_ascii_case("normal") {
-            Ok(FontWeight::Normal)
-        } else if s.eq_ignore_ascii_case("bold") {
-            Ok(FontWeight::Bold)
-        } else {
-            Err(format!("Invalid font weight value: {}", s))
-        }
     }
 }
 
