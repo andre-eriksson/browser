@@ -5,6 +5,7 @@ pub enum ComputedDimension {
     #[default]
     Auto,
     Fixed,
+    Percentage(f32),
     MaxContent,
     MinContent,
     FitContent(Option<Length>),
@@ -15,7 +16,8 @@ impl From<Dimension> for ComputedDimension {
     fn from(value: Dimension) -> Self {
         match value {
             Dimension::Auto => Self::Auto,
-            Dimension::Length(_) | Dimension::Percentage(_) | Dimension::Calc(_) => Self::Fixed,
+            Dimension::Length(_) | Dimension::Calc(_) => Self::Fixed,
+            Dimension::Percentage(p) => Self::Percentage(p.as_fraction()),
             Dimension::MaxContent => Self::MaxContent,
             Dimension::MinContent => Self::MinContent,
             Dimension::FitContent(len) => Self::FitContent(len),
@@ -29,6 +31,7 @@ impl From<ComputedDimension> for Dimension {
         match value {
             ComputedDimension::Auto => Self::Auto,
             ComputedDimension::Fixed => Self::Auto,
+            ComputedDimension::Percentage(_) => Self::Auto,
             ComputedDimension::MaxContent => Self::MaxContent,
             ComputedDimension::MinContent => Self::MinContent,
             ComputedDimension::FitContent(len) => Self::FitContent(len),

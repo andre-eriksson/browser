@@ -60,6 +60,7 @@ impl PropertyResolver {
         match &styled_node.style.width {
             ComputedDimension::Auto => available_width.max(0.0),
             ComputedDimension::Fixed => styled_node.style.intrinsic_width,
+            ComputedDimension::Percentage(f) => (width * f).max(0.0),
             ComputedDimension::MaxContent
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)
@@ -71,6 +72,7 @@ impl PropertyResolver {
         match &styled_node.style.height {
             ComputedDimension::Auto => children_height.max(styled_node.style.intrinsic_height),
             ComputedDimension::Fixed => styled_node.style.intrinsic_height,
+            ComputedDimension::Percentage(f) => (children_height * f).max(0.0),
             ComputedDimension::MaxContent
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)

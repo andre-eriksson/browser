@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use css_style::{
-    ComputedStyle, StyledNode, TextAlign, Whitespace, WritingMode,
+    ComputedDimension, ComputedStyle, StyledNode, TextAlign, Whitespace, WritingMode,
     display::{InsideDisplay, OutsideDisplay},
 };
 use html_dom::{HtmlTag, NodeId, Tag};
@@ -404,7 +404,10 @@ impl InlineLayout {
                 InlineItem::InlineFlowRoot { node, style } => {
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
 
-                    let desired_width = style.intrinsic_width;
+                    let desired_width = match style.width {
+                        ComputedDimension::Percentage(f) => available_width * f,
+                        _ => style.intrinsic_width,
+                    };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
                     let child_node = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx);
