@@ -7,28 +7,29 @@ A web browser built in Rust! It currently supports a subset of HTML and CSS when
 
 ## Features
 
-- HTML & CSS parsing
-- Layout Engine, CSS properties supported can be found: [./docs/CSS.md](./docs/CSS.md).
-- Rendering Engine using `wgpu` and `iced` for UI elements.
 - Headless mode
 - Navigating to URLs
 - Cookies
 - UI theming with user configurable TOML file
 - Tabbed browsing
 
+### Extra
+
+Supported CSS properties can be found: [./docs/CSS.md](./docs/CSS.md).
+
 ## Screenshots
 
-https://www.rfc-editor.org/rfc/rfc6265.html
+https://github.com/andre-eriksson
 
-<img src="./docs/rfc6265.png" alt="A screenshot of the app rendering the RFC 6265 page" width="800"/>
+<img src="./docs/github.png" alt="A screenshot of the app rendering my own GitHub page" width="800"/>
 
-https://flask.palletsprojects.com/en/stable/quickstart/#routing
+https://flask.palletsprojects.com/en/stable/quickstart
 
 <img src="./docs/flask.png" alt="A screenshot of the app rendering the Flask quickstart page" width="800"/>
 
-https://tailwindcss.com/docs/colors
+https://en.wikipedia.org/wiki/Web_browser
 
-<img src="./docs/tailwind.png" alt="A screenshot of the app rendering a tailwindcss page" width="800"/>
+<img src="./docs/wikipedia.png" alt="A screenshot of the app rendering the Wikipedia page for web browsers" width="800"/>
 
 ## Architecture
 
@@ -48,8 +49,15 @@ The browser is composed of 7 subsystems, each responsible for a specific aspect 
   - [**Selector Generation**](./crates/css-selectors): Converts CSSOM to selectors that can be applied to the DOM.
   - [**Styletree Builder**](./crates/css-style): Combines CSS selectors, and DOM to create the style tree.
 - [**Rendering Engine**](./crates/renderer): Renders the layout tree to the screen using GPU acceleration.
-- [**Kernel (Browser Core)**](./crates/kernel): Manages the overall browser state, including tabs, and cookies.
+- [**Kernel (Browser Core)**](./crates/kernel): Manages the overall browser state, including tabs, navigation, and communication between subsystems.
 - [**UI Layer**](./crates/ui): Manages the user interface elements like tabs, address bar, etc.
+
+## Planned Features
+
+- History management
+- Bookmarks
+- Download manager
+- Form handling
 
 ## Non-Goals (for now)
 
