@@ -44,8 +44,24 @@ impl CSSRule {
         matches!(self, CSSRule::Style(_))
     }
 
+    /// Get this rule as a style rule, if it is one
+    pub fn as_style_rule(&self) -> Option<&CSSStyleRule> {
+        match self {
+            CSSRule::Style(style) => Some(style),
+            _ => None,
+        }
+    }
+
     /// Check if this is an at-rule
     pub fn is_at_rule(&self) -> bool {
         matches!(self, CSSRule::AtRule(_))
+    }
+
+    /// Get this rule as an at-rule, if it is one
+    pub fn as_at_rule(&self) -> Option<&CSSAtRule> {
+        match self {
+            CSSRule::AtRule(at_rule) => Some(at_rule),
+            _ => None,
+        }
     }
 }

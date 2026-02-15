@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use css_cssom::{CSSDeclaration, CSSStyleSheet, ComponentValue, Property, StylesheetOrigin};
+use css_cssom::{
+    CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, Property,
+    StylesheetOrigin,
+};
 use css_selectors::{
     ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable,
     generate_selector_list, matches_compound,
@@ -21,27 +24,58 @@ impl<'a> GeneratedRule<'a> {
         let mut generated_rules = Vec::new();
 
         for stylesheet in stylesheets {
-            let style_rules = stylesheet.get_style_rules();
-            for rule in style_rules {
-                let selector_list = generate_selector_list(&rule.prelude);
-                for selector_sequence in selector_list {
-                    let specificity = selector_sequence
-                        .iter()
-                        .map(|seq| seq.specificity())
-                        .max()
-                        .unwrap_or_default();
+            for rule in stylesheet.css_rules() {
+                match rule {
+                    CSSRule::Style(style) => {
+                        Self::push_rule(&mut generated_rules, stylesheet, style);
+                    }
+                    CSSRule::AtRule(at_rule) => {
+                        if at_rule.name() == "import"
+                            || at_rule.name() == "supports"
+                            || at_rule.name() == "scope"
+                            || at_rule.name() == "font-face"
+                            || at_rule.name() == "keyframes"
+                        {
+                            continue;
+                        }
 
-                    generated_rules.push(GeneratedRule {
-                        selector_sequences: selector_sequence,
-                        declarations: rule.declarations(),
-                        origin: stylesheet.origin(),
-                        specificity,
-                    });
+                        if at_rule.prelude() == "print" {
+                            continue;
+                        }
+
+                        for rule in &at_rule.rules {
+                            if let Some(style_rule) = rule.as_style_rule() {
+                                Self::push_rule(&mut generated_rules, stylesheet, style_rule);
+                            }
+                        }
+                    }
                 }
             }
         }
 
         generated_rules
+    }
+
+    fn push_rule(
+        generated_rules: &mut Vec<GeneratedRule<'a>>,
+        stylesheet: &CSSStyleSheet,
+        style_rule: &'a CSSStyleRule,
+    ) {
+        let selector_list = generate_selector_list(&style_rule.prelude);
+        for selector_sequence in selector_list {
+            let specificity = selector_sequence
+                .iter()
+                .map(|seq| seq.specificity())
+                .max()
+                .unwrap_or_default();
+
+            generated_rules.push(GeneratedRule {
+                selector_sequences: selector_sequence,
+                declarations: style_rule.declarations(),
+                origin: stylesheet.origin(),
+                specificity,
+            });
+        }
     }
 }
 
