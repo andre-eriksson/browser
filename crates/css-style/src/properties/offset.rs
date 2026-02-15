@@ -34,6 +34,14 @@ impl OffsetValue {
         Self::Length(Length::zero())
     }
 
+    pub fn px(value: f32) -> Self {
+        Self::Length(Length::px(value))
+    }
+
+    pub fn is_auto(&self) -> bool {
+        matches!(self, OffsetValue::Auto)
+    }
+
     /// Convert the OffsetValue to pixels, given the relative and absolute contexts. The rel_type indicates what the percentage is relative to.
     pub fn to_px(
         &self,
@@ -46,18 +54,10 @@ impl OffsetValue {
             OffsetValue::Percentage(pct) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx.parent.font_size * pct.as_fraction(),
                 Some(RelativeType::ParentHeight) => {
-                    rel_ctx
-                        .parent
-                        .height
-                        .to_px(RelativeType::ParentHeight, rel_ctx, abs_ctx)
-                        * pct.as_fraction()
+                    rel_ctx.parent.intrinsic_height * pct.as_fraction()
                 }
                 Some(RelativeType::ParentWidth) => {
-                    rel_ctx
-                        .parent
-                        .width
-                        .to_px(RelativeType::ParentWidth, rel_ctx, abs_ctx)
-                        * pct.as_fraction()
+                    rel_ctx.parent.intrinsic_width * pct.as_fraction()
                 }
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),

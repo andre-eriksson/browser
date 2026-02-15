@@ -13,7 +13,11 @@ mod properties;
 mod specified;
 mod tree;
 
-pub use computed::{ComputedStyle, color::Color4f};
+pub use computed::{
+    ComputedStyle,
+    color::Color4f,
+    dimension::{ComputedDimension, ComputedMaxDimension},
+};
 pub use primitives::*;
 pub use properties::border::*;
 pub use properties::color::*;

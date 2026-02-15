@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use css_cssom::{ComponentValue, KnownProperty, Property};
 use html_dom::{DocumentRoot, NodeId};
 
@@ -81,7 +83,7 @@ pub struct SpecifiedStyle {
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f32,
-    pub variables: Vec<(Property, Vec<ComponentValue>)>,
+    pub variables: Arc<Vec<(Property, Vec<ComponentValue>)>>,
 }
 
 impl SpecifiedStyle {
@@ -99,6 +101,11 @@ impl SpecifiedStyle {
             None => SpecifiedStyle::default(),
         };
 
+        let parent_variables = parent_style
+            .as_ref()
+            .map(|p| Arc::clone(&p.variables))
+            .unwrap_or_default();
+
         let node = match dom.get_node(node_id) {
             Some(n) => n,
             None => return specified_style,
@@ -107,15 +114,21 @@ impl SpecifiedStyle {
         let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
 
         let properties = cascade(declarations);
-        let mut merged_variables = specified_style.variables.clone();
-        for (name, value) in cascade_variables(variables) {
-            if let Some(existing) = merged_variables.iter_mut().find(|(n, _)| n == &name) {
-                existing.1 = value;
-            } else {
-                merged_variables.push((name, value));
+        let new_vars = cascade_variables(variables);
+
+        if new_vars.is_empty() && !parent_variables.is_empty() {
+            specified_style.variables = parent_variables;
+        } else {
+            let mut merged = (*parent_variables).clone();
+            for (name, value) in new_vars {
+                if let Some(existing) = merged.iter_mut().find(|(n, _)| n == &name) {
+                    existing.1 = value;
+                } else {
+                    merged.push((name, value));
+                }
             }
+            specified_style.variables = Arc::new(merged);
         }
-        specified_style.variables = merged_variables;
 
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
 
@@ -188,7 +201,7 @@ impl Default for SpecifiedStyle {
         let black = Color::Named(NamedColor::Black);
 
         SpecifiedStyle {
-            variables: Vec::with_capacity(32),
+            variables: Arc::new(vec![]),
             background_color: CSSProperty::from(Color::Transparent),
             border_bottom_color: CSSProperty::from(black),
             border_left_color: CSSProperty::from(black),
@@ -255,27 +268,27 @@ impl From<ComputedStyle> for SpecifiedStyle {
             border_left_width: CSSProperty::from(BorderWidth::px(value.border_left_width)),
             color: CSSProperty::from(Color::from(value.color)),
             display: CSSProperty::from(value.display),
-            font_family: CSSProperty::from(value.font_family),
+            font_family: CSSProperty::from((*value.font_family).clone()),
             font_size: CSSProperty::from(FontSize::px(value.font_size)),
             font_weight: CSSProperty::from(
                 FontWeight::try_from(value.font_weight).unwrap_or(FontWeight::Normal),
             ),
-            height: CSSProperty::from(value.height),
-            max_height: CSSProperty::from(value.max_height),
-            line_height: CSSProperty::from(value.line_height),
-            margin_top: CSSProperty::from(value.margin_top),
-            margin_right: CSSProperty::from(value.margin_right),
-            margin_bottom: CSSProperty::from(value.margin_bottom),
-            margin_left: CSSProperty::from(value.margin_left),
-            padding_top: CSSProperty::from(value.padding_top),
-            padding_right: CSSProperty::from(value.padding_right),
-            padding_bottom: CSSProperty::from(value.padding_bottom),
-            padding_left: CSSProperty::from(value.padding_left),
+            height: CSSProperty::from(Dimension::from(value.height)),
+            max_height: CSSProperty::from(MaxDimension::from(value.max_height)),
+            line_height: CSSProperty::from(LineHeight::px(value.line_height)),
+            margin_top: CSSProperty::from(OffsetValue::px(value.margin_top)),
+            margin_right: CSSProperty::from(OffsetValue::px(value.margin_right)),
+            margin_bottom: CSSProperty::from(OffsetValue::px(value.margin_bottom)),
+            margin_left: CSSProperty::from(OffsetValue::px(value.margin_left)),
+            padding_top: CSSProperty::from(OffsetValue::px(value.padding_top)),
+            padding_right: CSSProperty::from(OffsetValue::px(value.padding_right)),
+            padding_bottom: CSSProperty::from(OffsetValue::px(value.padding_bottom)),
+            padding_left: CSSProperty::from(OffsetValue::px(value.padding_left)),
             position: CSSProperty::from(value.position),
             text_align: CSSProperty::from(value.text_align),
             whitespace: CSSProperty::from(value.whitespace),
-            width: CSSProperty::from(value.width),
-            max_width: CSSProperty::from(value.max_width),
+            width: CSSProperty::from(Dimension::from(value.width)),
+            max_width: CSSProperty::from(MaxDimension::from(value.max_width)),
             writing_mode: CSSProperty::from(value.writing_mode),
             computed_font_size_px: 16.0, // TODO: Solve
             variables: value.variables.clone(),

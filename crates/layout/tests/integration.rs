@@ -71,7 +71,7 @@ mod tests {
             let style_tree = StyleTree::build(&absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
             let mut text_context = TextContext::new(font_system);
-            LayoutEngine::compute_layout(&absolute_ctx, &style_tree, viewport(), &mut text_context)
+            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context)
         }};
     }
 

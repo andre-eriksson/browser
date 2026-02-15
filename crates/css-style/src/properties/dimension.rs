@@ -125,6 +125,33 @@ pub enum MaxDimension {
     Stretch,
 }
 
+impl MaxDimension {
+    pub fn to_px(
+        &self,
+        rel_type: RelativeType,
+        rel_ctx: &RelativeContext,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
+        match self {
+            MaxDimension::Length(l) => l.to_px(rel_ctx, abs_ctx),
+            MaxDimension::MaxContent => 0.0,
+            MaxDimension::MinContent => 0.0,
+            MaxDimension::FitContent(_) => 0.0,
+            MaxDimension::Stretch => 0.0,
+            MaxDimension::None => f32::INFINITY,
+            MaxDimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
+            MaxDimension::Percentage(p) => match rel_type {
+                RelativeType::FontSize => rel_ctx.parent.font_size * p.as_fraction(),
+                RelativeType::ParentHeight => rel_ctx.parent.intrinsic_height * p.as_fraction(),
+                RelativeType::ParentWidth => rel_ctx.parent.intrinsic_width * p.as_fraction(),
+                RelativeType::RootFontSize => abs_ctx.root_font_size * p.as_fraction(),
+                RelativeType::ViewportHeight => abs_ctx.viewport_height * p.as_fraction(),
+                RelativeType::ViewportWidth => abs_ctx.viewport_width * p.as_fraction(),
+            },
+        }
+    }
+}
+
 impl TryFrom<&[ComponentValue]> for MaxDimension {
     type Error = String;
 

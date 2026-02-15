@@ -174,6 +174,10 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
+    pub fn px(value: f32) -> Self {
+        LineHeight::Length(Length::px(value))
+    }
+
     /// Converts the `line-height` value to pixels based on the provided context and font size. This is used for layout calculations.
     pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
         let rel_ctx = RelativeContext {

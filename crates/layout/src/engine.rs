@@ -1,5 +1,5 @@
 use css_style::{
-    AbsoluteContext, StyleTree, StyledNode,
+    StyleTree, StyledNode,
     display::{BoxDisplay, InsideDisplay},
 };
 
@@ -37,7 +37,6 @@ pub struct LayoutEngine;
 impl LayoutEngine {
     /// Main entry point: compute layout for an entire style tree
     pub fn compute_layout(
-        absolute_ctx: &AbsoluteContext,
         style_tree: &StyleTree,
         viewport: Rect,
         text_ctx: &mut TextContext,
@@ -50,7 +49,7 @@ impl LayoutEngine {
         for styled_node in &style_tree.root_nodes {
             ctx.block_cursor.y = total_height;
 
-            let node = Self::layout_node(absolute_ctx, styled_node, &mut ctx, text_ctx);
+            let node = Self::layout_node(styled_node, &mut ctx, text_ctx);
 
             if node.is_none() {
                 // For `display: none`
@@ -86,7 +85,6 @@ impl LayoutEngine {
 
     /// Compute layout for a single node and its descendants
     pub(crate) fn layout_node(
-        absolute_ctx: &AbsoluteContext,
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
@@ -94,24 +92,9 @@ impl LayoutEngine {
         let layout_mode = LayoutMode::new(styled_node)?;
 
         match layout_mode {
-            LayoutMode::Block => Some(BlockLayout::layout(
-                absolute_ctx,
-                styled_node,
-                ctx,
-                text_ctx,
-            )),
-            LayoutMode::Flex => Some(BlockLayout::layout(
-                absolute_ctx,
-                styled_node,
-                ctx,
-                text_ctx,
-            )), // TODO: implement flex layout
-            LayoutMode::Grid => Some(BlockLayout::layout(
-                absolute_ctx,
-                styled_node,
-                ctx,
-                text_ctx,
-            )), // TODO: implement grid layout
+            LayoutMode::Block => Some(BlockLayout::layout(styled_node, ctx, text_ctx)),
+            LayoutMode::Flex => Some(BlockLayout::layout(styled_node, ctx, text_ctx)), // TODO: implement flex layout
+            LayoutMode::Grid => Some(BlockLayout::layout(styled_node, ctx, text_ctx)), // TODO: implement grid layout
         }
     }
 }
@@ -195,12 +178,7 @@ mod tests {
         ctx.block_cursor = cursor;
         let mut text_ctx = TextContext::default();
 
-        let layout_node = BlockLayout::layout(
-            &AbsoluteContext::default(),
-            &styled_node,
-            &mut ctx,
-            &mut text_ctx,
-        );
+        let layout_node = BlockLayout::layout(&styled_node, &mut ctx, &mut text_ctx);
 
         assert_eq!(layout_node.node_id, styled_node.node_id);
         assert_eq!(layout_node.dimensions.x, 0.0);

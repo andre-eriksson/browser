@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use css_style::{
-    AbsoluteContext, ComputedStyle, RelativeContext, RelativeType, StyledNode, TextAlign,
-    Whitespace, WritingMode,
+    ComputedStyle, StyledNode, TextAlign, Whitespace, WritingMode,
     display::{InsideDisplay, OutsideDisplay},
 };
 use html_dom::{HtmlTag, NodeId, Tag};
@@ -191,14 +190,13 @@ impl InlineLayout {
     /// The resulting flat list of inline items is then canonicalised by collapsing whitespace
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
     pub fn collect_inline_items_from_nodes(
-        absolute_ctx: &AbsoluteContext,
         parent_style: &ComputedStyle,
         nodes: &[StyledNode],
     ) -> Vec<InlineItem> {
         let mut raw_items = Vec::new();
 
         for node in nodes {
-            let result = Self::collect(absolute_ctx, parent_style, node, &mut raw_items);
+            let result = Self::collect(parent_style, node, &mut raw_items);
 
             if result.is_err() {
                 break;
@@ -211,7 +209,6 @@ impl InlineLayout {
     /// Recursively collects inline items from the given styled node and its children,
     /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
     fn collect(
-        absolute_ctx: &AbsoluteContext,
         style: &ComputedStyle,
         inline_node: &StyledNode,
         items: &mut Vec<InlineItem>,
@@ -228,10 +225,7 @@ impl InlineLayout {
             match tag {
                 Tag::Html(HtmlTag::Br) => {
                     items.push(InlineItem::Break {
-                        line_height_px: inline_node
-                            .style
-                            .line_height
-                            .to_px(absolute_ctx, inline_node.style.font_size),
+                        line_height_px: inline_node.style.line_height,
                     });
                 }
                 _ => {
@@ -256,7 +250,7 @@ impl InlineLayout {
                     });
 
                     for child in &inline_node.children {
-                        Self::collect(absolute_ctx, &inline_node.style, child, items)?;
+                        Self::collect(&inline_node.style, child, items)?;
                     }
 
                     items.push(InlineItem::InlineBoxEnd {
@@ -275,7 +269,6 @@ impl InlineLayout {
     /// one or more `LineBox`es according to the available width and text alignment,
     /// finally returning the positioned `LayoutNode`s and total height of the laid-out lines.
     pub fn layout(
-        absolute_ctx: &AbsoluteContext,
         items: &[InlineItem],
         text_ctx: &mut TextContext,
         available_width: f32,
@@ -314,11 +307,9 @@ impl InlineLayout {
                         Whitespace::Pre | Whitespace::PreWrap | Whitespace::PreLine
                     );
 
-                    let line_height_px = line_height.to_px(absolute_ctx, font_size);
-
                     let text_desc = TextDescription {
                         whitespace: &whitespace,
-                        line_height,
+                        line_height: *line_height,
                         font_family,
                         font_weight,
                         font_size_px: font_size,
@@ -330,7 +321,6 @@ impl InlineLayout {
                         for (seg_idx, segment) in segments.iter().enumerate() {
                             if !segment.is_empty() {
                                 Self::layout_text_segment(
-                                    absolute_ctx,
                                     text_ctx,
                                     *id,
                                     segment,
@@ -354,14 +344,13 @@ impl InlineLayout {
                                     writing_mode,
                                     &mut nodes,
                                     &mut current_y,
-                                    Some(line_height_px),
+                                    Some(*line_height),
                                     start_x,
                                 );
                             }
                         }
                     } else {
                         Self::layout_text_segment(
-                            absolute_ctx,
                             text_ctx,
                             *id,
                             text.as_str(),
@@ -377,12 +366,7 @@ impl InlineLayout {
                     }
                 }
                 InlineItem::InlineBoxStart { id, style } => {
-                    let (margin, padding, border) = PropertyResolver::resolve_box_model(
-                        absolute_ctx,
-                        style,
-                        available_width,
-                        style.font_size,
-                    );
+                    let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
 
                     let left_edge = margin.left + border.left + padding.left;
                     line.advance(left_edge);
@@ -418,25 +402,12 @@ impl InlineLayout {
                     }
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
-                    let rel_ctx = RelativeContext {
-                        parent: style.clone(),
-                    };
+                    let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
 
-                    let (margin, padding, border) = PropertyResolver::resolve_box_model(
-                        absolute_ctx,
-                        style,
-                        available_width,
-                        style.font_size,
-                    );
-
-                    let desired_width =
-                        style
-                            .width
-                            .to_px(RelativeType::ParentWidth, &rel_ctx, absolute_ctx);
+                    let desired_width = style.intrinsic_width;
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
-                    let child_node =
-                        LayoutEngine::layout_node(absolute_ctx, node, &mut block_ctx, text_ctx);
+                    let child_node = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx);
 
                     if let Some(mut layout_node) = child_node {
                         let total_width = layout_node.dimensions.width
@@ -566,7 +537,6 @@ impl InlineLayout {
     /// text exceeds `available_width`.
     #[allow(clippy::too_many_arguments)]
     fn layout_text_segment(
-        absolute_ctx: &AbsoluteContext,
         text_ctx: &mut TextContext,
         id: NodeId,
         text: &str,
@@ -584,12 +554,8 @@ impl InlineLayout {
         while !remaining_text.is_empty() {
             let remaining_line_space = (available_width - line.width).max(0.0);
 
-            let (measured, rest) = text_ctx.measure_text_that_fits(
-                absolute_ctx,
-                remaining_text,
-                text_desc,
-                remaining_line_space,
-            );
+            let (measured, rest) =
+                text_ctx.measure_text_that_fits(remaining_text, text_desc, remaining_line_space);
 
             if measured.width == 0.0 && measured.height == 0.0 {
                 if let Some(r) = rest {

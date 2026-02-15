@@ -173,7 +173,6 @@ impl Application {
                         let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
 
                         let layout_tree = LayoutEngine::compute_layout(
-                            &ctx,
                             &style_tree,
                             Rect::new(0.0, 0.0, width, height),
                             &mut self.text_context,
@@ -328,7 +327,6 @@ impl Application {
                             StyleTree::build(&ctx, page.document(), page.stylesheets());
 
                         let layout_tree = LayoutEngine::compute_layout(
-                            &ctx,
                             &style_tree,
                             self.viewports
                                 .get(&self.id)

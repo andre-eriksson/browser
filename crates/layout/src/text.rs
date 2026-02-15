@@ -1,9 +1,7 @@
 use cosmic_text::{
     Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap,
 };
-use css_style::{
-    AbsoluteContext, FontFamily, FontFamilyName, LineHeight, Whitespace, font::GenericName,
-};
+use css_style::{FontFamily, FontFamilyName, Whitespace, font::GenericName};
 
 #[derive(Debug)]
 pub struct Text {
@@ -16,7 +14,7 @@ pub struct Text {
 
 pub struct TextDescription<'a> {
     pub whitespace: &'a Whitespace,
-    pub line_height: &'a LineHeight,
+    pub line_height: f32,
     pub font_family: &'a FontFamily,
     pub font_weight: u16,
     pub font_size_px: f32,
@@ -49,14 +47,11 @@ impl TextContext {
 
     pub fn measure_text_that_fits<'a>(
         &mut self,
-        absolute_ctx: &AbsoluteContext,
         text: &'a str,
         text_description: &TextDescription,
         max_width: f32,
     ) -> (Text, Option<&'a str>) {
-        let line_height_px = text_description
-            .line_height
-            .to_px(absolute_ctx, text_description.font_size_px);
+        let line_height_px = text_description.line_height;
 
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let family = Self::resolve_font_family(text_description.font_family);
@@ -91,7 +86,7 @@ impl TextContext {
 
         if runs.is_empty() {
             return (
-                self.measure_text(absolute_ctx, text, text_description, max_width, wrap_mode),
+                self.measure_text(text, text_description, max_width, wrap_mode),
                 None,
             );
         }
@@ -107,19 +102,13 @@ impl TextContext {
             let remaining_text = &text[split_index..];
 
             return (
-                self.measure_text(
-                    absolute_ctx,
-                    fitted_text,
-                    text_description,
-                    max_width,
-                    wrap_mode,
-                ),
+                self.measure_text(fitted_text, text_description, max_width, wrap_mode),
                 Some(remaining_text),
             );
         }
 
         (
-            self.measure_text(absolute_ctx, text, text_description, max_width, wrap_mode),
+            self.measure_text(text, text_description, max_width, wrap_mode),
             None,
         )
     }
@@ -127,15 +116,12 @@ impl TextContext {
     /// Measures the rendered size of the given text with specified styles and constraints.
     fn measure_text(
         &mut self,
-        absolute_ctx: &AbsoluteContext,
         text: &str,
         text_description: &TextDescription,
         available_width: f32,
         wrap_mode: Wrap,
     ) -> Text {
-        let line_height_px = text_description
-            .line_height
-            .to_px(absolute_ctx, text_description.font_size_px);
+        let line_height_px = text_description.line_height;
 
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
