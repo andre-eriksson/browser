@@ -104,6 +104,7 @@ impl ComputedStyle {
             rules,
             parent_style,
         );
+
         let margin_top = specified_style.margin_top.resolve_with_context_owned(
             OffsetValue::Length(Length::px(relative_ctx.parent.margin_top)),
             OffsetValue::zero(),
@@ -252,21 +253,25 @@ impl ComputedStyle {
             ) as u16,
             intrinsic_height: match &CSSProperty::resolve(&specified_style.height) {
                 Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
+                Ok(Dimension::Percentage(p)) => {
+                    relative_ctx.parent.intrinsic_height * p.as_fraction()
+                }
+                Ok(Dimension::Calc(calc)) => {
+                    calc.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
+                }
                 _ => 0.0,
             },
-            height: ComputedDimension::try_from(
+            height: ComputedDimension::from(
                 specified_style
                     .height
                     .resolve_with_context_owned(relative_ctx.parent.height.into(), Dimension::Auto),
-            )
-            .unwrap_or(ComputedDimension::Auto),
+            ),
             max_intrinsic_height: max_height.to_px(
                 RelativeType::ParentHeight,
                 relative_ctx,
                 absolute_ctx,
             ),
-            max_height: ComputedMaxDimension::try_from(max_height)
-                .unwrap_or(ComputedMaxDimension::None),
+            max_height: ComputedMaxDimension::from(max_height),
             line_height: specified_style
                 .line_height
                 .resolve_with_context_owned(
@@ -333,21 +338,25 @@ impl ComputedStyle {
                 .resolve_with_context_owned(relative_ctx.parent.whitespace, Whitespace::Normal),
             intrinsic_width: match &CSSProperty::resolve(&specified_style.width) {
                 Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
+                Ok(Dimension::Percentage(p)) => {
+                    relative_ctx.parent.intrinsic_width * p.as_fraction()
+                }
+                Ok(Dimension::Calc(calc)) => {
+                    calc.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
+                }
                 _ => 0.0,
             },
-            width: ComputedDimension::try_from(
+            width: ComputedDimension::from(
                 specified_style
                     .width
                     .resolve_with_context_owned(relative_ctx.parent.width.into(), Dimension::Auto),
-            )
-            .unwrap_or(ComputedDimension::Auto),
+            ),
             max_intrinsic_width: max_width.to_px(
                 RelativeType::ParentWidth,
                 relative_ctx,
                 absolute_ctx,
             ),
-            max_width: ComputedMaxDimension::try_from(max_width)
-                .unwrap_or(ComputedMaxDimension::None),
+            max_width: ComputedMaxDimension::from(max_width),
             writing_mode: specified_style.writing_mode.resolve_with_context_owned(
                 relative_ctx.parent.writing_mode,
                 WritingMode::HorizontalTb,

@@ -72,10 +72,13 @@ impl StyleTree {
                 _ => None,
             };
 
+            let saved_parent = rel_ctx.parent.clone();
+
             let children = node
                 .children
                 .iter()
                 .map(|&child_id| {
+                    rel_ctx.parent = saved_parent.clone();
                     build_styled_node(
                         absolute_ctx,
                         rel_ctx,
@@ -86,6 +89,8 @@ impl StyleTree {
                     )
                 })
                 .collect();
+
+            rel_ctx.parent = saved_parent;
 
             StyledNode {
                 node_id,

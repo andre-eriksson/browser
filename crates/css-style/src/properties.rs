@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use css_cssom::ComponentValue;
 
 use crate::{
@@ -85,7 +87,7 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
                 Global::Initial => initial,
                 Global::Inherit => parent.unwrap_or(initial),
                 Global::Unset => parent.unwrap_or(initial),
-                Global::Revert | Global::RevertLayer => initial, // TODO: Implement user styles
+                Global::Revert | Global::RevertLayer => initial,
             },
             CSSProperty::Value(val) => val,
         }
@@ -98,7 +100,7 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
                 Global::Initial => initial,
                 Global::Inherit => parent,
                 Global::Unset => parent,
-                Global::Revert | Global::RevertLayer => initial, // TODO: Implement user styles
+                Global::Revert | Global::RevertLayer => initial,
             },
             CSSProperty::Value(val) => val,
         }

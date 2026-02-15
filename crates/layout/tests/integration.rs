@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_collapsing() {
-        let layout = process_html!("fixtures/collapsing.html", false);
+        let layout = process_html!("fixtures/collapsing.html", true);
 
         let root = &layout.root_nodes[0];
         assert_eq!(root.dimensions.x, 0.0);
@@ -141,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_collapsing_padding() {
-        let layout = process_html!("fixtures/collapsing_padding.html", false);
+        let layout = process_html!("fixtures/collapsing_padding.html", true);
 
         let root = &layout.root_nodes[0];
         assert_eq!(root.dimensions.x, 0.0);
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_mixed_content() {
-        let layout = process_html!("fixtures/mixed.html", false);
+        let layout = process_html!("fixtures/mixed.html", true);
 
         let root = &layout.root_nodes[0];
         assert_eq!(root.dimensions.x, 0.0);
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_child_calc_percentage_resolves_against_parent_size() {
-        let layout = process_html!("fixtures/calc_percent_child.html", false);
+        let layout = process_html!("fixtures/calc_percent_child.html", true);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];

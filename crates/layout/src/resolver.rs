@@ -45,6 +45,7 @@ impl PropertyResolver {
     pub(crate) fn calculate_width(styled_node: &StyledNode, width: f32) -> f32 {
         let max_width = match &styled_node.style.max_width {
             ComputedMaxDimension::None => f32::INFINITY,
+            ComputedMaxDimension::Fixed => styled_node.style.max_intrinsic_width,
             ComputedMaxDimension::MaxContent
             | ComputedMaxDimension::MinContent
             | ComputedMaxDimension::FitContent(_)
@@ -58,6 +59,7 @@ impl PropertyResolver {
 
         match &styled_node.style.width {
             ComputedDimension::Auto => available_width.max(0.0),
+            ComputedDimension::Fixed => styled_node.style.intrinsic_width,
             ComputedDimension::MaxContent
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)
@@ -68,6 +70,7 @@ impl PropertyResolver {
     pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f32) -> f32 {
         match &styled_node.style.height {
             ComputedDimension::Auto => children_height.max(styled_node.style.intrinsic_height),
+            ComputedDimension::Fixed => styled_node.style.intrinsic_height,
             ComputedDimension::MaxContent
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)

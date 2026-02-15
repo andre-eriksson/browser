@@ -12,7 +12,7 @@ use crate::{
 
 /// Represents the computed value of the CSS `display` property, which can be a combination of outside, inside, list-item, internal, and box display types.
 /// This struct allows for a more structured representation of the `display` property, making it easier to work with in the layout engine.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Display {
     outside: Option<OutsideDisplay>,
     inside: Option<InsideDisplay>,
@@ -61,6 +61,19 @@ impl Display {
     /// Returns the box display type, if set.
     pub fn box_display(&self) -> Option<BoxDisplay> {
         self.box_display
+    }
+}
+
+impl Default for Display {
+    /// The CSS initial value of `display` is `inline` (i.e., `outside: Inline, inside: Flow`).
+    fn default() -> Self {
+        Display {
+            outside: Some(OutsideDisplay::Inline),
+            inside: Some(InsideDisplay::Flow),
+            list_item: None,
+            internal: None,
+            box_display: None,
+        }
     }
 }
 

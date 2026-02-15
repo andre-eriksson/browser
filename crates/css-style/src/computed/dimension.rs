@@ -4,23 +4,22 @@ use crate::{Dimension, MaxDimension, length::Length};
 pub enum ComputedDimension {
     #[default]
     Auto,
+    Fixed,
     MaxContent,
     MinContent,
     FitContent(Option<Length>),
     Stretch,
 }
 
-impl TryFrom<Dimension> for ComputedDimension {
-    type Error = String;
-
-    fn try_from(value: Dimension) -> Result<Self, Self::Error> {
+impl From<Dimension> for ComputedDimension {
+    fn from(value: Dimension) -> Self {
         match value {
-            Dimension::Auto => Ok(Self::Auto),
-            Dimension::MaxContent => Ok(Self::MaxContent),
-            Dimension::MinContent => Ok(Self::MinContent),
-            Dimension::FitContent(len) => Ok(Self::FitContent(len)),
-            Dimension::Stretch => Ok(Self::Stretch),
-            _ => Err(format!("Unsupported Dimension value: {:?}", value)),
+            Dimension::Auto => Self::Auto,
+            Dimension::Length(_) | Dimension::Percentage(_) | Dimension::Calc(_) => Self::Fixed,
+            Dimension::MaxContent => Self::MaxContent,
+            Dimension::MinContent => Self::MinContent,
+            Dimension::FitContent(len) => Self::FitContent(len),
+            Dimension::Stretch => Self::Stretch,
         }
     }
 }
@@ -29,6 +28,7 @@ impl From<ComputedDimension> for Dimension {
     fn from(value: ComputedDimension) -> Self {
         match value {
             ComputedDimension::Auto => Self::Auto,
+            ComputedDimension::Fixed => Self::Auto,
             ComputedDimension::MaxContent => Self::MaxContent,
             ComputedDimension::MinContent => Self::MinContent,
             ComputedDimension::FitContent(len) => Self::FitContent(len),
@@ -41,23 +41,24 @@ impl From<ComputedDimension> for Dimension {
 pub enum ComputedMaxDimension {
     #[default]
     None,
+    Fixed,
     MaxContent,
     MinContent,
     FitContent(Option<Length>),
     Stretch,
 }
 
-impl TryFrom<MaxDimension> for ComputedMaxDimension {
-    type Error = String;
-
-    fn try_from(value: MaxDimension) -> Result<Self, Self::Error> {
+impl From<MaxDimension> for ComputedMaxDimension {
+    fn from(value: MaxDimension) -> Self {
         match value {
-            MaxDimension::None => Ok(Self::None),
-            MaxDimension::MaxContent => Ok(Self::MaxContent),
-            MaxDimension::MinContent => Ok(Self::MinContent),
-            MaxDimension::FitContent(len) => Ok(Self::FitContent(len)),
-            MaxDimension::Stretch => Ok(Self::Stretch),
-            _ => Err(format!("Unsupported MaxDimension value: {:?}", value)),
+            MaxDimension::None => Self::None,
+            MaxDimension::Length(_) | MaxDimension::Percentage(_) | MaxDimension::Calc(_) => {
+                Self::Fixed
+            }
+            MaxDimension::MaxContent => Self::MaxContent,
+            MaxDimension::MinContent => Self::MinContent,
+            MaxDimension::FitContent(len) => Self::FitContent(len),
+            MaxDimension::Stretch => Self::Stretch,
         }
     }
 }
@@ -66,6 +67,7 @@ impl From<ComputedMaxDimension> for MaxDimension {
     fn from(value: ComputedMaxDimension) -> Self {
         match value {
             ComputedMaxDimension::None => Self::None,
+            ComputedMaxDimension::Fixed => Self::None,
             ComputedMaxDimension::MaxContent => Self::MaxContent,
             ComputedMaxDimension::MinContent => Self::MinContent,
             ComputedMaxDimension::FitContent(len) => Self::FitContent(len),

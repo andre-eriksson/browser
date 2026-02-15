@@ -4,9 +4,9 @@ use css_cssom::{ComponentValue, KnownProperty, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    BorderStyle, BorderWidth, ComputedStyle, OffsetValue, RelativeContext,
+    ComputedStyle, RelativeContext,
     cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
-    color::named::NamedColor,
+    global::Global,
     handler::{
         PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
         handle_border_bottom_style, handle_border_bottom_width, handle_border_left_color,
@@ -22,23 +22,12 @@ use crate::{
         handle_position, handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
         resolve_css_variables,
     },
-    length::Length,
-    primitives::{
-        display::{InsideDisplay, OutsideDisplay},
-        font::{AbsoluteSize, GenericName},
-    },
     properties::{
         AbsoluteContext, BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty,
         ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
         HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty,
         OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty,
         WidthProperty, WritingModeProperty,
-        color::Color,
-        dimension::{Dimension, MaxDimension},
-        display::Display,
-        font::{FontFamily, FontFamilyName, FontSize, FontWeight},
-        position::Position,
-        text::{LineHeight, TextAlign, Whitespace, WritingMode},
     },
 };
 
@@ -96,10 +85,7 @@ impl SpecifiedStyle {
         rules: &[GeneratedRule],
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
-        let mut specified_style = match parent_style {
-            Some(style) => SpecifiedStyle::from(style.inherited_subset()),
-            None => SpecifiedStyle::default(),
-        };
+        let mut specified_style = SpecifiedStyle::default();
 
         let parent_variables = parent_style
             .as_ref()
@@ -198,100 +184,48 @@ impl SpecifiedStyle {
 
 impl Default for SpecifiedStyle {
     fn default() -> Self {
-        let black = Color::Named(NamedColor::Black);
-
         SpecifiedStyle {
             variables: Arc::new(vec![]),
-            background_color: CSSProperty::from(Color::Transparent),
-            border_bottom_color: CSSProperty::from(black),
-            border_left_color: CSSProperty::from(black),
-            border_right_color: CSSProperty::from(black),
-            border_top_color: CSSProperty::from(black),
-            border_top_style: CSSProperty::from(BorderStyle::None),
-            border_right_style: CSSProperty::from(BorderStyle::None),
-            border_bottom_style: CSSProperty::from(BorderStyle::None),
-            border_left_style: CSSProperty::from(BorderStyle::None),
-            border_top_width: CSSProperty::from(BorderWidth::Length(Length::zero())),
-            border_right_width: CSSProperty::from(BorderWidth::Length(Length::zero())),
-            border_bottom_width: CSSProperty::from(BorderWidth::Length(Length::zero())),
-            border_left_width: CSSProperty::from(BorderWidth::Length(Length::zero())),
-            color: CSSProperty::from(black),
-            display: CSSProperty::from(Display::new(
-                Some(OutsideDisplay::Inline),
-                Some(InsideDisplay::Flow),
-                None,
-                None,
-                None,
-            )),
-            font_family: CSSProperty::from(FontFamily::new(&[FontFamilyName::Generic(
-                GenericName::Serif,
-            )])),
-            font_size: CSSProperty::from(FontSize::Absolute(AbsoluteSize::Medium)),
-            font_weight: CSSProperty::from(FontWeight::Normal),
-            computed_font_size_px: AbsoluteSize::Medium.to_px(),
-            height: CSSProperty::from(Dimension::Auto),
-            max_height: CSSProperty::from(MaxDimension::None),
-            line_height: CSSProperty::from(LineHeight::Normal),
-            margin_top: CSSProperty::from(OffsetValue::zero()),
-            margin_right: CSSProperty::from(OffsetValue::zero()),
-            margin_bottom: CSSProperty::from(OffsetValue::zero()),
-            margin_left: CSSProperty::from(OffsetValue::zero()),
-            padding_top: CSSProperty::from(OffsetValue::zero()),
-            padding_right: CSSProperty::from(OffsetValue::zero()),
-            padding_bottom: CSSProperty::from(OffsetValue::zero()),
-            padding_left: CSSProperty::from(OffsetValue::zero()),
-            position: CSSProperty::from(Position::Static),
-            text_align: CSSProperty::from(TextAlign::Left),
-            whitespace: CSSProperty::from(Whitespace::Normal),
-            width: CSSProperty::from(Dimension::Auto),
-            max_width: CSSProperty::from(MaxDimension::None),
-            writing_mode: CSSProperty::from(WritingMode::HorizontalTb),
-        }
-    }
-}
+            computed_font_size_px: 16.0,
 
-impl From<ComputedStyle> for SpecifiedStyle {
-    fn from(value: ComputedStyle) -> Self {
-        Self {
-            background_color: CSSProperty::from(Color::from(value.background_color)),
-            border_top_color: CSSProperty::from(Color::from(value.border_top_color)),
-            border_right_color: CSSProperty::from(Color::from(value.border_right_color)),
-            border_bottom_color: CSSProperty::from(Color::from(value.border_bottom_color)),
-            border_left_color: CSSProperty::from(Color::from(value.border_left_color)),
-            border_top_style: CSSProperty::from(value.border_top_style),
-            border_right_style: CSSProperty::from(value.border_right_style),
-            border_bottom_style: CSSProperty::from(value.border_bottom_style),
-            border_left_style: CSSProperty::from(value.border_left_style),
-            border_top_width: CSSProperty::from(BorderWidth::px(value.border_top_width)),
-            border_right_width: CSSProperty::from(BorderWidth::px(value.border_right_width)),
-            border_bottom_width: CSSProperty::from(BorderWidth::px(value.border_bottom_width)),
-            border_left_width: CSSProperty::from(BorderWidth::px(value.border_left_width)),
-            color: CSSProperty::from(Color::from(value.color)),
-            display: CSSProperty::from(value.display),
-            font_family: CSSProperty::from((*value.font_family).clone()),
-            font_size: CSSProperty::from(FontSize::px(value.font_size)),
-            font_weight: CSSProperty::from(
-                FontWeight::try_from(value.font_weight).unwrap_or(FontWeight::Normal),
-            ),
-            height: CSSProperty::from(Dimension::from(value.height)),
-            max_height: CSSProperty::from(MaxDimension::from(value.max_height)),
-            line_height: CSSProperty::from(LineHeight::px(value.line_height)),
-            margin_top: CSSProperty::from(OffsetValue::px(value.margin_top)),
-            margin_right: CSSProperty::from(OffsetValue::px(value.margin_right)),
-            margin_bottom: CSSProperty::from(OffsetValue::px(value.margin_bottom)),
-            margin_left: CSSProperty::from(OffsetValue::px(value.margin_left)),
-            padding_top: CSSProperty::from(OffsetValue::px(value.padding_top)),
-            padding_right: CSSProperty::from(OffsetValue::px(value.padding_right)),
-            padding_bottom: CSSProperty::from(OffsetValue::px(value.padding_bottom)),
-            padding_left: CSSProperty::from(OffsetValue::px(value.padding_left)),
-            position: CSSProperty::from(value.position),
-            text_align: CSSProperty::from(value.text_align),
-            whitespace: CSSProperty::from(value.whitespace),
-            width: CSSProperty::from(Dimension::from(value.width)),
-            max_width: CSSProperty::from(MaxDimension::from(value.max_width)),
-            writing_mode: CSSProperty::from(value.writing_mode),
-            computed_font_size_px: 16.0, // TODO: Solve
-            variables: value.variables.clone(),
+            // Non-inherited properties
+            background_color: CSSProperty::Global(Global::Initial),
+            border_top_color: CSSProperty::Global(Global::Initial),
+            border_right_color: CSSProperty::Global(Global::Initial),
+            border_bottom_color: CSSProperty::Global(Global::Initial),
+            border_left_color: CSSProperty::Global(Global::Initial),
+            border_top_style: CSSProperty::Global(Global::Initial),
+            border_right_style: CSSProperty::Global(Global::Initial),
+            border_bottom_style: CSSProperty::Global(Global::Initial),
+            border_left_style: CSSProperty::Global(Global::Initial),
+            border_top_width: CSSProperty::Global(Global::Initial),
+            border_right_width: CSSProperty::Global(Global::Initial),
+            border_bottom_width: CSSProperty::Global(Global::Initial),
+            border_left_width: CSSProperty::Global(Global::Initial),
+            display: CSSProperty::Global(Global::Initial),
+            height: CSSProperty::Global(Global::Initial),
+            max_height: CSSProperty::Global(Global::Initial),
+            margin_top: CSSProperty::Global(Global::Initial),
+            margin_right: CSSProperty::Global(Global::Initial),
+            margin_bottom: CSSProperty::Global(Global::Initial),
+            margin_left: CSSProperty::Global(Global::Initial),
+            padding_top: CSSProperty::Global(Global::Initial),
+            padding_right: CSSProperty::Global(Global::Initial),
+            padding_bottom: CSSProperty::Global(Global::Initial),
+            padding_left: CSSProperty::Global(Global::Initial),
+            position: CSSProperty::Global(Global::Initial),
+            width: CSSProperty::Global(Global::Initial),
+            max_width: CSSProperty::Global(Global::Initial),
+
+            // Inherited properties
+            color: CSSProperty::Global(Global::Inherit),
+            font_family: CSSProperty::Global(Global::Inherit),
+            font_size: CSSProperty::Global(Global::Inherit),
+            font_weight: CSSProperty::Global(Global::Inherit),
+            line_height: CSSProperty::Global(Global::Inherit),
+            text_align: CSSProperty::Global(Global::Inherit),
+            whitespace: CSSProperty::Global(Global::Inherit),
+            writing_mode: CSSProperty::Global(Global::Inherit),
         }
     }
 }
