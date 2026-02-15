@@ -176,7 +176,7 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
 
 #[cfg(test)]
 mod tests {
-    use css_cssom::{CssToken, NumberType, NumericValue};
+    use css_cssom::{CssToken, Function, NumberType, NumericValue};
 
     use crate::ComputedStyle;
 
@@ -219,7 +219,6 @@ mod tests {
                     value: 16.0,
                     int_value: None,
                     type_flag: NumberType::Integer,
-                    repr: String::new(),
                 },
                 unit: "px".to_string(),
             },
@@ -236,7 +235,6 @@ mod tests {
                 value: 50.0,
                 int_value: None,
                 type_flag: NumberType::Integer,
-                repr: String::new(),
             }),
             position: None,
         })];
@@ -256,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_parse_calc_dimension() {
-        let tokens = vec![ComponentValue::Function(css_cssom::Function {
+        let tokens = vec![ComponentValue::Function(Function {
             name: "calc".to_string(),
             value: vec![
                 ComponentValue::Token(CssToken {
@@ -265,7 +263,6 @@ mod tests {
                             value: 100.0,
                             int_value: None,
                             type_flag: NumberType::Integer,
-                            repr: String::new(),
                         },
                         unit: "px".to_string(),
                     },
@@ -288,7 +285,6 @@ mod tests {
                         value: 50.0,
                         int_value: None,
                         type_flag: NumberType::Integer,
-                        repr: String::new(),
                     }),
                     position: None,
                 }),

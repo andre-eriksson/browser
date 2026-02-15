@@ -30,8 +30,6 @@ pub struct NumericValue {
     pub int_value: Option<i64>,
     /// Whether this is an integer or number
     pub type_flag: NumberType,
-    /// The original representation in the source
-    pub repr: String,
 }
 
 impl NumericValue {
@@ -39,9 +37,8 @@ impl NumericValue {
     ///
     /// # Arguments
     /// * `value` - The numeric value as f64
-    /// * `repr` - The original string representation
     /// * `type_flag` - The type flag indicating if it's an integer or number
-    pub fn new(value: f64, repr: String, type_flag: NumberType) -> Self {
+    pub fn new(value: f64, type_flag: NumberType) -> Self {
         let int_value = if type_flag == NumberType::Integer {
             Some(value as i64)
         } else {
@@ -51,7 +48,6 @@ impl NumericValue {
             value,
             int_value,
             type_flag,
-            repr,
         }
     }
 }
@@ -152,9 +148,9 @@ impl Display for CssTokenKind {
             CssTokenKind::Url(value) => write!(f, "url({})", value),
             CssTokenKind::BadUrl => write!(f, "url("),
             CssTokenKind::Delim(c) => write!(f, "{}", c),
-            CssTokenKind::Number(num) => write!(f, "{}", num.repr),
-            CssTokenKind::Percentage(num) => write!(f, "{}%", num.repr),
-            CssTokenKind::Dimension { value, unit } => write!(f, "{}{}", value.repr, unit),
+            CssTokenKind::Number(num) => write!(f, "{}", num.value),
+            CssTokenKind::Percentage(num) => write!(f, "{}%", num.value),
+            CssTokenKind::Dimension { value, unit } => write!(f, "{}{}", value.value, unit),
             CssTokenKind::Whitespace => write!(f, " "),
             CssTokenKind::Cdo => write!(f, "<!--"),
             CssTokenKind::Cdc => write!(f, "-->"),

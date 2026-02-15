@@ -84,5 +84,5 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
     }
 
     let value = repr.parse::<f64>().unwrap_or(0.0);
-    NumericValue::new(value, repr, type_flag)
+    NumericValue::new(value, type_flag)
 }

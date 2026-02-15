@@ -317,7 +317,6 @@ pub mod macros {
                                 value: s.replace('%', "").parse::<f32>().unwrap_or(0.0) as f64,
                                 int_value: None,
                                 type_flag: NumberType::Number,
-                                repr: String::new(),
                             }),
                             position: None,
                         }
@@ -327,7 +326,6 @@ pub mod macros {
                                 value: s.parse::<f32>().unwrap_or(0.0) as f64,
                                 int_value: None,
                                 type_flag: NumberType::Number,
-                                repr: String::new(),
                             }),
                             position: None,
                         }
@@ -349,7 +347,6 @@ pub mod macros {
                         value: a.to_string().replace('%', "").parse::<f32>().unwrap_or(0.0) as f64,
                         int_value: None,
                         type_flag: NumberType::Number,
-                        repr: String::new(),
                     }),
                     position: None,
                 },
@@ -359,7 +356,6 @@ pub mod macros {
                             value: a.to_string().parse::<f32>().unwrap_or(0.0) as f64,
                             int_value: None,
                             type_flag: NumberType::Number,
-                            repr: String::new(),
                         }),
                         position: None,
                     }
@@ -433,7 +429,6 @@ mod tests {
                     value: 255.0,
                     int_value: None,
                     type_flag: NumberType::Number,
-                    repr: String::new(),
                 }),
                 position: None,
             }),
@@ -442,7 +437,6 @@ mod tests {
                     value: 50.0,
                     int_value: None,
                     type_flag: NumberType::Number,
-                    repr: String::new(),
                 }),
                 position: None,
             }),

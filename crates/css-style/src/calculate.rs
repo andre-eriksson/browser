@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{AssociatedToken, ComponentValue, CssTokenKind};
 
 use crate::{
     length::LengthUnit,
@@ -336,10 +336,7 @@ impl<'a> CalcParser<'a> {
             }
 
             ComponentValue::SimpleBlock(block)
-                if matches!(
-                    block.associated_token,
-                    css_cssom::AssociatedToken::Parenthesis
-                ) =>
+                if matches!(block.associated_token, AssociatedToken::Parenthesis) =>
             {
                 self.current_pos += 1;
                 let nested = CalcExpression::parse(&block.value)?;
@@ -390,7 +387,7 @@ mod tests {
     use crate::{ComputedStyle, Dimension};
 
     use super::*;
-    use css_cssom::{ComponentValue, CssToken, CssTokenKind, NumericValue};
+    use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, NumberType, NumericValue};
 
     /// Helper function to create test contexts
     fn create_test_contexts() -> (RelativeContext, AbsoluteContext) {
@@ -418,8 +415,7 @@ mod tests {
             kind: CssTokenKind::Number(NumericValue {
                 value,
                 int_value: None,
-                type_flag: css_cssom::NumberType::Number,
-                repr: value.to_string(),
+                type_flag: NumberType::Number,
             }),
             position: None,
         })
@@ -432,8 +428,7 @@ mod tests {
                 value: NumericValue {
                     value,
                     int_value: None,
-                    type_flag: css_cssom::NumberType::Number,
-                    repr: value.to_string(),
+                    type_flag: NumberType::Number,
                 },
                 unit: unit.to_string(),
             },
@@ -951,14 +946,14 @@ mod tests {
 
     #[test]
     fn test_nested_calc() {
-        let input = vec![ComponentValue::Function(css_cssom::Function {
+        let input = vec![ComponentValue::Function(Function {
             name: "calc".to_string(),
             value: vec![
                 number_token(10.0),
                 whitespace_token(),
                 delim_token('+'),
                 whitespace_token(),
-                ComponentValue::Function(css_cssom::Function {
+                ComponentValue::Function(Function {
                     name: "calc".to_string(),
                     value: vec![
                         number_token(5.0),
@@ -1017,8 +1012,7 @@ mod tests {
                 kind: CssTokenKind::Percentage(NumericValue {
                     value: 50.0,
                     int_value: None,
-                    type_flag: css_cssom::NumberType::Number,
-                    repr: "50%".to_string(),
+                    type_flag: NumberType::Number,
                 }),
                 position: None,
             }),

@@ -1285,28 +1285,20 @@ mod tests {
 
     #[test]
     fn test_token_display_number() {
-        let token = CssTokenKind::Number(NumericValue::new(
-            42.0,
-            "42".to_string(),
-            NumberType::Integer,
-        ));
+        let token = CssTokenKind::Number(NumericValue::new(42.0, NumberType::Integer));
         assert_eq!(format!("{}", token), "42");
     }
 
     #[test]
     fn test_token_display_percentage() {
-        let token = CssTokenKind::Percentage(NumericValue::new(
-            50.0,
-            "50".to_string(),
-            NumberType::Integer,
-        ));
+        let token = CssTokenKind::Percentage(NumericValue::new(50.0, NumberType::Integer));
         assert_eq!(format!("{}", token), "50%");
     }
 
     #[test]
     fn test_token_display_dimension() {
         let token = CssTokenKind::Dimension {
-            value: NumericValue::new(100.0, "100".to_string(), NumberType::Integer),
+            value: NumericValue::new(100.0, NumberType::Integer),
             unit: "px".to_string(),
         };
         assert_eq!(format!("{}", token), "100px");
