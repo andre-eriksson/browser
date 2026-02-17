@@ -19,7 +19,7 @@ struct InlineDecoration {
     id: NodeId,
     start_x: f32,
     end_x: f32,
-    style: Box<ComputedStyle>,
+    style: Arc<ComputedStyle>,
     padding: SideOffset,
     border: SideOffset,
 }
@@ -28,7 +28,7 @@ struct InlineDecoration {
 #[derive(Debug, Clone)]
 struct ActiveInlineBox {
     id: NodeId,
-    style: Box<ComputedStyle>,
+    style: Arc<ComputedStyle>,
     start_x: f32,
     margin: SideOffset,
     padding: SideOffset,
@@ -130,7 +130,7 @@ impl LineBox {
             node.dimensions = Rect::new(dec_x, dec_y, dec_width, dec_height);
             node.resolved_padding = dec.padding;
             node.resolved_border = dec.border;
-            node.colors = LayoutColors::from(&dec.style);
+            node.colors = LayoutColors::from(&*dec.style);
             final_nodes.push(node);
         }
 
@@ -157,7 +157,7 @@ pub enum InlineItem {
     TextRun {
         id: NodeId,
         text: String,
-        style: Box<ComputedStyle>,
+        style: Arc<ComputedStyle>,
     },
 
     /// Marks the opening edge of an inline element (e.g. `<span>`).
@@ -165,7 +165,7 @@ pub enum InlineItem {
     /// a decoration region.
     InlineBoxStart {
         id: NodeId,
-        style: Box<ComputedStyle>,
+        style: Arc<ComputedStyle>,
     },
 
     /// Marks the closing edge of an inline element.
@@ -175,7 +175,7 @@ pub enum InlineItem {
     /// inline-block or inline flow-root
     InlineFlowRoot {
         node: Box<StyledNode>,
-        style: Box<ComputedStyle>,
+        style: Arc<ComputedStyle>,
     },
 
     /// A line break, <br>
@@ -217,7 +217,7 @@ impl InlineLayout {
             items.push(InlineItem::TextRun {
                 id: inline_node.node_id,
                 text: text.clone(),
-                style: Box::new(style.inherited_subset()),
+                style: Arc::new(style.inherited_subset()),
             });
         }
 
@@ -236,7 +236,7 @@ impl InlineLayout {
                     {
                         items.push(InlineItem::InlineFlowRoot {
                             node: inline_node.clone().into(),
-                            style: Box::new(inline_node.style.clone()),
+                            style: Arc::new(inline_node.style.clone()),
                         });
 
                         return Ok(());
@@ -246,7 +246,7 @@ impl InlineLayout {
 
                     items.push(InlineItem::InlineBoxStart {
                         id: inline_node.node_id,
-                        style: Box::new(inline_node.style.clone()),
+                        style: Arc::new(inline_node.style.clone()),
                     });
 
                     for child in &inline_node.children {
@@ -373,7 +373,7 @@ impl InlineLayout {
 
                     inline_box_stack.push(ActiveInlineBox {
                         id: *id,
-                        style: style.clone(),
+                        style: Arc::clone(style),
                         start_x: line.width - left_edge + margin.left,
                         margin,
                         padding,
@@ -482,18 +482,9 @@ impl InlineLayout {
         min_line_height: Option<f32>,
         start_x: f32,
     ) {
-        let continuing_boxes: Vec<(
-            NodeId,
-            Box<ComputedStyle>,
-            SideOffset,
-            SideOffset,
-            SideOffset,
-        )> = inline_box_stack
-            .iter()
-            .map(|b| (b.id, b.style.clone(), b.margin, b.padding, b.border))
-            .collect();
+        let mut continuing_boxes = std::mem::take(inline_box_stack);
 
-        Self::close_active_decorations(line, inline_box_stack);
+        Self::close_active_decorations(line, &mut continuing_boxes);
 
         let old_line = std::mem::replace(line, LineBox::new(start_x, *current_y));
         let (line_nodes, h) = old_line.finish(available_width, text_align, writing_mode);
@@ -505,15 +496,8 @@ impl InlineLayout {
         };
         *line = LineBox::new(start_x, *current_y);
 
-        for (id, style, margin, padding, border) in continuing_boxes {
-            inline_box_stack.push(ActiveInlineBox {
-                id,
-                style,
-                start_x: line.width,
-                margin,
-                padding,
-                border,
-            });
+        for con_box in continuing_boxes {
+            inline_box_stack.push(con_box);
         }
     }
 
@@ -619,7 +603,7 @@ impl InlineLayout {
                         result.push(InlineItem::TextRun { id, text, style });
                         last_was_space = false;
                     } else {
-                        let mut new_text = String::new();
+                        let mut new_text = String::with_capacity(text.len());
 
                         for c in text.chars() {
                             if c.is_whitespace() {
@@ -667,37 +651,62 @@ impl InlineLayout {
     /// whitespace and trimming text runs at the edges. Stops stripping once it encounters a
     /// text run with a style that preserves spaces.
     fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
-        while let Some(InlineItem::TextRun { text, style, .. }) = items.first() {
-            if Self::preserves_spaces(style) {
-                break;
-            }
-            let trimmed = text.trim_start();
-            if trimmed.is_empty() {
-                items.remove(0);
-            } else {
-                let t = trimmed.to_string();
-                if let InlineItem::TextRun { text, .. } = &mut items[0] {
-                    *text = t;
+        let mut start_idx = 0;
+        let mut end_idx = items.len();
+
+        while start_idx < end_idx {
+            match &items[start_idx] {
+                InlineItem::TextRun { text, style, .. } => {
+                    if Self::preserves_spaces(style) {
+                        break;
+                    }
+                    let trimmed = text.trim_start();
+                    if trimmed.is_empty() {
+                        start_idx += 1;
+                    } else {
+                        let t = trimmed.to_string();
+                        if let InlineItem::TextRun { text, .. } = &mut items[start_idx] {
+                            *text = t;
+                        }
+                        break;
+                    }
                 }
-                break;
+                _ => {
+                    break;
+                }
             }
         }
 
-        while let Some(InlineItem::TextRun { text, style, .. }) = items.last() {
-            if Self::preserves_spaces(style) {
-                break;
-            }
-            let trimmed = text.trim_end();
-            if trimmed.is_empty() {
-                items.pop();
-            } else {
-                let t = trimmed.to_string();
-                let len = items.len();
-                if let InlineItem::TextRun { text, .. } = &mut items[len - 1] {
-                    *text = t;
+        while end_idx > start_idx {
+            match &items[end_idx - 1] {
+                InlineItem::TextRun { text, style, .. } => {
+                    if Self::preserves_spaces(style) {
+                        break;
+                    }
+                    let trimmed = text.trim_end();
+                    if trimmed.is_empty() {
+                        end_idx -= 1;
+                    } else {
+                        let t = trimmed.to_string();
+                        if let InlineItem::TextRun { text, .. } = &mut items[end_idx - 1] {
+                            *text = t;
+                        }
+                        break;
+                    }
                 }
-                break;
+                _ => {
+                    break;
+                }
             }
+        }
+
+        if start_idx > 0 {
+            items.drain(0..start_idx);
+            end_idx -= start_idx;
+        }
+
+        if end_idx < items.len() {
+            items.drain(end_idx..);
         }
     }
 }
