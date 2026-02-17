@@ -29,7 +29,7 @@ impl BrowserHeader {
                 let active_tab_id = app.active_tab;
 
                 mouse_area(
-                    button(text(tab.title.as_deref().unwrap_or("New Tab")))
+                    button(text(tab.title.as_deref().unwrap_or("New Tab").trim()))
                         .on_press(Event::Ui(UiEvent::ChangeActiveTab(tab.id)))
                         .style(move |t: &Theme, _| {
                             if tab.id == active_tab_id {
