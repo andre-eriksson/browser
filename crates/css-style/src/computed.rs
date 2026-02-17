@@ -5,7 +5,7 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext, RelativeType,
-    cascade::GeneratedRule,
+    cascade::{GeneratedRule, RuleIndex},
     color::named::NamedColor,
     computed::{
         color::Color4f,
@@ -94,6 +94,7 @@ impl ComputedStyle {
         node_id: &NodeId,
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
+        rule_index: &RuleIndex,
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
         let specified_style = SpecifiedStyle::from_node(
@@ -102,6 +103,7 @@ impl ComputedStyle {
             node_id,
             dom,
             rules,
+            rule_index,
             parent_style,
         );
 

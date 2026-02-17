@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use css_cssom::ComponentValue;
 
@@ -47,7 +47,7 @@ pub struct AbsoluteContext {
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
-    pub parent: Box<ComputedStyle>,
+    pub parent: Arc<ComputedStyle>,
 }
 
 /// A CSS property that can either be a specific value or a global value (initial, inherit, unset, revert, revert-layer).

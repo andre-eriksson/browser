@@ -2,9 +2,10 @@
 //!
 //! <https://www.w3.org/TR/css-syntax-3/#css-stylesheets>
 
-use css_parser::{CssParser, Stylesheet};
+use css_parser::{CssParser, DeclarationOrAtRule, Stylesheet};
 use serde::{Deserialize, Serialize};
 
+use crate::declaration::CSSDeclaration;
 use crate::rules::{css::CSSRule, style::CSSStyleRule};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +44,30 @@ impl CSSStyleSheet {
         let mut stylesheet = Self::from(parsed);
         stylesheet.origin = origin;
         stylesheet
+    }
+
+    /// Parse raw inline CSS declarations (e.g. from a `style` attribute) into
+    /// a list of `CSSDeclaration`s.
+    ///
+    /// Unlike `from_css`, this does **not** expect selectors or curly braces —
+    /// only a semicolon-separated list of `property: value` pairs:
+    ///
+    /// ```ignore
+    /// let decls = CSSStyleSheet::from_inline("color: red; font-size: 16px");
+    /// ```
+    pub fn from_inline(css: &str) -> Vec<CSSDeclaration> {
+        let mut parser = CssParser::default();
+        let parsed = parser.parse_list_of_declarations(css, false);
+
+        parsed
+            .into_iter()
+            .filter_map(|item| match item {
+                DeclarationOrAtRule::Declaration(decl) => {
+                    Some(CSSDeclaration::from_parser_declaration(decl))
+                }
+                DeclarationOrAtRule::AtRule(_) => None,
+            })
+            .collect()
     }
 
     pub fn origin(&self) -> StylesheetOrigin {
@@ -314,5 +339,49 @@ mod tests {
         let style_rules = stylesheet.get_style_rules();
         // Should find div, p (inside @media), and span
         assert!(style_rules.len() >= 2);
+    }
+
+    #[test]
+    fn test_from_inline_basic() {
+        let decls = CSSStyleSheet::from_inline("color: red; font-size: 16px");
+
+        assert_eq!(decls.len(), 2);
+        assert_eq!(*decls[0].property(), Property::Known(KnownProperty::Color));
+        assert_eq!(decls[0].value(), "red");
+        assert!(!decls[0].is_important());
+        assert_eq!(
+            *decls[1].property(),
+            Property::Known(KnownProperty::FontSize)
+        );
+        assert_eq!(decls[1].value(), "16px");
+    }
+
+    #[test]
+    fn test_from_inline_important() {
+        let decls = CSSStyleSheet::from_inline("color: red !important; margin: 10px");
+
+        assert_eq!(decls.len(), 2);
+        assert_eq!(*decls[0].property(), Property::Known(KnownProperty::Color));
+        assert!(decls[0].is_important());
+        assert_eq!(*decls[1].property(), Property::Known(KnownProperty::Margin));
+        assert!(!decls[1].is_important());
+    }
+
+    #[test]
+    fn test_from_inline_custom_property() {
+        let decls = CSSStyleSheet::from_inline("--my-color: blue; color: var(--my-color)");
+
+        assert_eq!(decls.len(), 2);
+        assert!(decls[0].property().is_custom());
+        assert_eq!(*decls[1].property(), Property::Known(KnownProperty::Color));
+    }
+
+    #[test]
+    fn test_from_inline_empty() {
+        let decls = CSSStyleSheet::from_inline("");
+        assert!(decls.is_empty());
+
+        let decls = CSSStyleSheet::from_inline("   ");
+        assert!(decls.is_empty());
     }
 }

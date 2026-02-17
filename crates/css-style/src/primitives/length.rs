@@ -259,6 +259,8 @@ impl Length {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use crate::ComputedStyle;
 
     use super::*;
@@ -272,7 +274,7 @@ mod tests {
             ..Default::default()
         };
         let rel_ctx = RelativeContext {
-            parent: Box::new(ComputedStyle {
+            parent: Arc::new(ComputedStyle {
                 font_size: 16.0,
                 ..Default::default()
             }),

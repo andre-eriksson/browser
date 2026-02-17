@@ -92,7 +92,7 @@ impl CssParser {
     /// Parse a list of declarations
     ///
     /// <https://www.w3.org/TR/css-syntax-3/#parse-a-list-of-declarations>
-    pub(crate) fn parse_list_of_declarations(
+    pub fn parse_list_of_declarations(
         &mut self,
         input: &str,
         collect_positions: bool,

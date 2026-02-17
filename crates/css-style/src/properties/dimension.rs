@@ -203,6 +203,8 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use css_cssom::{CssToken, Function, NumberType, NumericValue};
 
     use crate::ComputedStyle;
@@ -218,7 +220,7 @@ mod tests {
     #[test]
     fn test_dimension_to_px() {
         let rel_ctx = RelativeContext {
-            parent: Box::new(ComputedStyle {
+            parent: Arc::new(ComputedStyle {
                 font_size: 16.0,
                 intrinsic_width: 200.0,
                 ..Default::default()

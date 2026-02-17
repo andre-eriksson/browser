@@ -3,10 +3,12 @@
 //! The `build` method of `StyleTree` constructs the styled tree from the given absolute context, DOM tree, and stylesheets by computing the styles for each node
 //! based on the cascade rules and the provided stylesheets.
 
+use std::sync::Arc;
+
 use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
-use crate::cascade::GeneratedRule;
+use crate::cascade::{GeneratedRule, RuleIndex};
 use crate::properties::AbsoluteContext;
 use crate::{ComputedStyle, RelativeContext};
 
@@ -50,6 +52,7 @@ impl StyleTree {
         stylesheets: &[CSSStyleSheet],
     ) -> Self {
         let rules = GeneratedRule::build(stylesheets);
+        let rule_index = RuleIndex::build(&rules);
         let mut relative_ctx = RelativeContext::default();
 
         fn build_styled_node(
@@ -58,12 +61,20 @@ impl StyleTree {
             node_id: NodeId,
             dom: &DocumentRoot,
             rules: &[GeneratedRule],
+            rule_index: &RuleIndex,
             parent_style: Option<&ComputedStyle>,
         ) -> StyledNode {
-            let computed_style =
-                ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, parent_style);
+            let computed_style = ComputedStyle::from_node(
+                absolute_ctx,
+                rel_ctx,
+                &node_id,
+                dom,
+                rules,
+                rule_index,
+                parent_style,
+            );
 
-            rel_ctx.parent = computed_style.clone().into();
+            rel_ctx.parent = Arc::new(computed_style.clone());
 
             let node = dom.get_node(&node_id).unwrap();
 
@@ -72,19 +83,20 @@ impl StyleTree {
                 _ => None,
             };
 
-            let saved_parent = rel_ctx.parent.clone();
+            let saved_parent = Arc::clone(&rel_ctx.parent);
 
             let children = node
                 .children
                 .iter()
                 .map(|&child_id| {
-                    rel_ctx.parent = saved_parent.clone();
+                    rel_ctx.parent = Arc::clone(&saved_parent);
                     build_styled_node(
                         absolute_ctx,
                         rel_ctx,
                         child_id,
                         dom,
                         rules,
+                        rule_index,
                         Some(&computed_style),
                     )
                 })
@@ -105,7 +117,15 @@ impl StyleTree {
             .root_nodes
             .iter()
             .map(|&root_id| {
-                build_styled_node(absolute_ctx, &mut relative_ctx, root_id, dom, &rules, None)
+                build_styled_node(
+                    absolute_ctx,
+                    &mut relative_ctx,
+                    root_id,
+                    dom,
+                    &rules,
+                    &rule_index,
+                    None,
+                )
             })
             .collect();
 

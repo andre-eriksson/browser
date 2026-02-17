@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use css_cssom::{ComponentValue, KnownProperty, Property};
+use css_cssom::{CSSStyleSheet, ComponentValue, KnownProperty, Property};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     ComputedStyle, RelativeContext,
-    cascade::{CascadedDeclaration, GeneratedRule, cascade, cascade_variables},
+    cascade::{CascadedDeclaration, GeneratedRule, RuleIndex, cascade, cascade_variables},
     global::Global,
     handler::{
         PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
@@ -83,6 +83,7 @@ impl SpecifiedStyle {
         node_id: &NodeId,
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
+        rule_index: &RuleIndex,
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
         let mut specified_style = SpecifiedStyle::default();
@@ -97,23 +98,38 @@ impl SpecifiedStyle {
             None => return specified_style,
         };
 
-        let (declarations, variables) = &mut CascadedDeclaration::collect(node, dom, rules);
+        let inline_declarations = node
+            .data
+            .as_element()
+            .and_then(|e| e.get_attribute("style"))
+            .map(CSSStyleSheet::from_inline)
+            .unwrap_or_default();
+
+        let (declarations, variables) =
+            &mut CascadedDeclaration::collect(node, dom, rules, rule_index, &inline_declarations);
 
         let properties = cascade(declarations);
+
         let new_vars = cascade_variables(variables);
 
-        if new_vars.is_empty() && !parent_variables.is_empty() {
-            specified_style.variables = parent_variables;
-        } else {
-            let mut merged = (*parent_variables).clone();
+        if !new_vars.is_empty() {
+            let mut merged: HashMap<Property, Vec<ComponentValue>> = if parent_variables.is_empty()
+            {
+                HashMap::with_capacity(new_vars.len())
+            } else {
+                (*parent_variables)
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect()
+            };
+
             for (name, value) in new_vars {
-                if let Some(existing) = merged.iter_mut().find(|(n, _)| n == &name) {
-                    existing.1 = value;
-                } else {
-                    merged.push((name, value));
-                }
+                merged.insert(name.clone(), value.to_vec());
             }
-            specified_style.variables = Arc::new(merged);
+
+            specified_style.variables = Arc::new(merged.into_iter().collect());
+        } else if !parent_variables.is_empty() {
+            specified_style.variables = parent_variables;
         }
 
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
