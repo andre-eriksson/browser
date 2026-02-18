@@ -1,16 +1,9 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 
 use cookies::CookieJar;
-use css_cssom::CSSStyleSheet;
 use network::{HeaderMap, client::HttpClient};
 
 use crate::tab::manager::TabManager;
-
-/// A trait representing the ability to process CSS styles within the browser context.
-pub trait StyleProcessor {
-    /// Processes the given CSS and adds any stylesheets to the provided vector.
-    fn process_css(&self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>);
-}
 
 /// A trait representing the ability to execute scripts within the browser context.
 pub trait ScriptExecutor {
@@ -20,9 +13,8 @@ pub trait ScriptExecutor {
 
 pub trait NavigationContext: Send {
     fn script_executor(&self) -> &dyn ScriptExecutor;
-    fn style_processor(&self) -> &dyn StyleProcessor;
     fn http_client(&self) -> &dyn HttpClient;
-    fn cookie_jar(&mut self) -> &mut RwLock<CookieJar>;
+    fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>>;
     fn headers(&self) -> &Arc<HeaderMap>;
     fn tab_manager(&mut self) -> &mut TabManager;
 }

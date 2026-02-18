@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 
 use crate::{
     errors::{BrowserError, TabError},
@@ -17,7 +17,7 @@ use crate::{
         navigate::navigate,
         tab::{add_tab, change_active_tab, close_tab},
     },
-    navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
+    navigation::{NavigationContext, ScriptExecutor},
     tab::{
         manager::TabManager,
         tabs::{Tab, TabId},
@@ -27,7 +27,7 @@ use crate::{
 pub struct HeadlessBrowser {
     tab_manager: TabManager,
     _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
-    cookie_jar: RwLock<CookieJar>,
+    cookie_jar: Arc<Mutex<CookieJar>>,
     http_client: Box<dyn HttpClient>,
     headers: Arc<HeaderMap>,
 }
@@ -35,7 +35,7 @@ pub struct HeadlessBrowser {
 impl HeadlessBrowser {
     pub fn new(args: &BrowserArgs, emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
-        let cookie_jar = RwLock::new(CookieJar::load());
+        let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
 
         let mut headers = DefaultHeaders::create_browser_headers(HeaderType::HeadlessBrowser);
         for header in args.headers.iter() {
@@ -73,10 +73,7 @@ impl HeadlessBrowser {
     }
 
     pub fn print_cookies(&mut self, domain: Option<&str>) {
-        let jar = match self.cookie_jar.read() {
-            Ok(jar) => jar,
-            Err(_) => return,
-        };
+        let jar = self.cookie_jar.lock().unwrap();
 
         if domain.is_none() {
             for cookie in jar.cookies() {
@@ -93,12 +90,6 @@ impl HeadlessBrowser {
     }
 }
 
-impl StyleProcessor for HeadlessBrowser {
-    fn process_css(&self, _css: &str, _stylesheets: &mut Vec<css_cssom::CSSStyleSheet>) {
-        // Nothing
-    }
-}
-
 impl ScriptExecutor for HeadlessBrowser {
     fn execute_script(&self, _script: &str) {
         // TODO: Implement script execution in headless browser since it can modify the DOM.
@@ -110,11 +101,7 @@ impl NavigationContext for HeadlessBrowser {
         self
     }
 
-    fn style_processor(&self) -> &dyn StyleProcessor {
-        self
-    }
-
-    fn cookie_jar(&mut self) -> &mut RwLock<CookieJar> {
+    fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
         &mut self.cookie_jar
     }
 

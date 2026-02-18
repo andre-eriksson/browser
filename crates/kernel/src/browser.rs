@@ -1,5 +1,5 @@
 use std::{
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex},
     vec,
 };
 
@@ -9,15 +9,13 @@ use crate::{
 };
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
-use constants::files::CACHE_USER_AGENT;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use io::{embeded::DEFAULT_CSS, manager::Resource};
+use io::{Resource, embeded::DEFAULT_CSS, files::CACHE_USER_AGENT};
 use network::{
     HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient,
 };
 use postcard::{from_bytes, to_stdvec};
-use storage::files::{read_file_from_cache, write_file_to_cache};
 use tracing::instrument;
 
 use crate::{
@@ -26,7 +24,7 @@ use crate::{
         tab::{add_tab, change_active_tab, close_tab},
     },
     events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
-    navigation::{NavigationContext, ScriptExecutor, StyleProcessor},
+    navigation::{NavigationContext, ScriptExecutor},
     tab::{
         manager::TabManager,
         tabs::{Tab, TabId},
@@ -36,7 +34,7 @@ use crate::{
 pub struct Browser {
     tab_manager: TabManager,
     default_stylesheet: Option<CSSStyleSheet>,
-    cookie_jar: RwLock<CookieJar>,
+    cookie_jar: Arc<Mutex<CookieJar>>,
     http_client: Box<dyn HttpClient>,
     headers: Arc<HeaderMap>,
     _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
@@ -45,7 +43,7 @@ pub struct Browser {
 impl Browser {
     pub fn new(args: &BrowserArgs, emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
         let http_client = Box::new(ReqwestClient::new());
-        let cookie_jar = RwLock::new(CookieJar::load());
+        let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
 
         let mut headers = DefaultHeaders::create_browser_headers(HeaderType::Browser);
         for header in args.headers.iter() {
@@ -60,7 +58,7 @@ impl Browser {
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
         let stylesheet = if args.enable_ua_css {
-            match read_file_from_cache(CACHE_USER_AGENT) {
+            match Resource::load(CACHE_USER_AGENT) {
                 Ok(data) => {
                     let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
                         CSSStyleSheet::from_css(
@@ -81,7 +79,7 @@ impl Browser {
 
                     let serialized = to_stdvec(&parsed).unwrap();
 
-                    write_file_to_cache(CACHE_USER_AGENT, serialized.as_slice()).ok();
+                    Resource::write(CACHE_USER_AGENT, serialized.as_slice()).ok();
 
                     Some(parsed)
                 }
@@ -109,19 +107,12 @@ impl ScriptExecutor for Browser {
     }
 }
 
-impl StyleProcessor for Browser {
-    fn process_css(&self, css: &str, stylesheets: &mut Vec<CSSStyleSheet>) {
-        let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author, true);
-        stylesheets.push(stylesheet);
-    }
-}
-
 impl NavigationContext for Browser {
     fn script_executor(&self) -> &dyn ScriptExecutor {
         self
     }
 
-    fn cookie_jar(&mut self) -> &mut RwLock<CookieJar> {
+    fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
         &mut self.cookie_jar
     }
 
@@ -131,10 +122,6 @@ impl NavigationContext for Browser {
 
     fn http_client(&self) -> &dyn HttpClient {
         self.http_client.as_ref()
-    }
-
-    fn style_processor(&self) -> &dyn StyleProcessor {
-        self
     }
 
     fn tab_manager(&mut self) -> &mut TabManager {
