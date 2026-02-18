@@ -1,8 +1,15 @@
 pub mod embeded;
 pub mod errors;
-pub mod loader;
-pub mod manager;
+pub mod files;
+mod loader;
+mod manager;
+
+#[cfg(feature = "network")]
 mod network;
 
-pub use network::policy::DocumentPolicy;
-pub use network::request::RequestResult;
+#[cfg(feature = "network")]
+pub use network::{
+    middleware::cookies::CookieMiddleware, policy::DocumentPolicy, request::RequestResult,
+};
+
+pub use manager::{Resource, ResourceType};

@@ -3,8 +3,8 @@ use std::{borrow::Cow, sync::Arc};
 use cli::args::BrowserArgs;
 use iced::{Font, Settings};
 use io::{
+    Resource,
     embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
-    manager::Resource,
 };
 use kernel::{Browser, BrowserEvent};
 use preferences::BrowserConfig;

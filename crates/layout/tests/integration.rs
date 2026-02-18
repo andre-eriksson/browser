@@ -4,8 +4,7 @@ mod tests {
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
     use css_style::{AbsoluteContext, StyleTree};
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
-    use io::embeded::DEFAULT_CSS;
-    use io::manager::Resource;
+    use io::{Resource, embeded::DEFAULT_CSS};
     use kernel::TabCollector;
     use layout::{LayoutEngine, Rect, TextContext};
     use ui::load_fallback_fonts;

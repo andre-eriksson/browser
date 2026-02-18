@@ -4,7 +4,7 @@ use iced::{
     widget::{column, container},
     window::{Position, Settings},
 };
-use io::{embeded::DEVTOOLS_ICON, manager::Resource};
+use io::{Resource, embeded::DEVTOOLS_ICON};
 
 use crate::{
     core::{Application, ApplicationWindow, Event},

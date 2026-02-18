@@ -1,5 +1,4 @@
 pub mod events;
-pub mod files;
 pub mod keys;
 
 pub const APP_NAME: &str = "MyBrowser";

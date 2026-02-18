@@ -1,191 +1,92 @@
-use async_trait::async_trait;
-use network::{
-    errors::{NetworkError, RequestError},
-    request::RequestBuilder,
-};
-use tokio::runtime::Runtime;
-use url::Url;
+use storage::paths::{create_paths, get_cache_path, get_config_path, get_data_path};
 
 use crate::{
-    RequestResult,
     embeded::{EmbededResource, EmbededType},
     errors::AssetError,
     manager::ResourceType,
-    network::request::NetworkService,
 };
 
-#[async_trait]
-pub trait AsyncLoader {
-    async fn await_asset(self) -> Result<Vec<u8>, AssetError>;
-}
-
-pub trait SyncLoader {
+pub trait Loader {
     fn load_asset(self) -> Result<Vec<u8>, AssetError>;
 }
 
-#[async_trait]
-impl<'a> AsyncLoader for ResourceType<'a> {
-    async fn await_asset(self) -> Result<Vec<u8>, AssetError> {
-        match self {
-            ResourceType::FileSystem(path) => {
-                std::fs::read(path).map_err(|_| AssetError::LoadFailed(path.to_string()))
-            }
-            ResourceType::Embeded(asset) => {
-                let path = asset.path();
-
-                if !path.contains('.') {
-                    let html_path = format!("{}.html", path);
-                    EmbededResource::get(&html_path)
-                        .map(|file| file.data.into_owned())
-                        .ok_or(AssetError::NotFound(html_path))
-                } else {
-                    EmbededResource::get(&asset.path())
-                        .map(|file| file.data.into_owned())
-                        .ok_or(AssetError::NotFound(asset.path()))
-                }
-            }
-            ResourceType::Remote { url, ctx } => {
-                let url = ctx.page_url.as_ref().map_or(
-                    Url::parse(url).map_err(|e| {
-                        RequestError::Network(NetworkError::InvalidUrl(e.to_string()))
-                    }),
-                    |u| {
-                        u.join(url).map_err(|e| {
-                            RequestError::Network(NetworkError::InvalidUrl(e.to_string()))
-                        })
-                    },
-                )?;
-
-                let request = RequestBuilder::from(url).build();
-                let mut service =
-                    NetworkService::new(ctx.client, ctx.cookie_jar, ctx.browser_headers);
-                let header_response = match service
-                    .fetch(ctx.page_url.clone(), ctx.policies, request)
-                    .await
-                {
-                    RequestResult::Failed(err) => return Err(AssetError::RemoteFailed(err)),
-                    RequestResult::ClientError(resp)
-                    | RequestResult::ServerError(resp)
-                    | RequestResult::Success(resp) => resp,
-                };
-
-                let body = match header_response.body().await {
-                    Ok(resp) => match resp.body {
-                        Some(b) => b,
-                        None => {
-                            return Err(AssetError::RemoteFailed(RequestError::EmptyBody));
-                        }
-                    },
-                    Err(e) => {
-                        return Err(AssetError::RemoteFailed(RequestError::Network(e)));
-                    }
-                };
-
-                Ok(body)
-            }
-            ResourceType::Absolute {
-                protocol,
-                location,
-                ctx,
-            } => match protocol {
-                "file" => {
-                    let adjusted_location = if location.starts_with("file://") {
-                        location.trim_start_matches("file://")
-                    } else {
-                        location
-                    };
-
-                    Self::await_asset(ResourceType::FileSystem(adjusted_location)).await
-                }
-                "embed" => {
-                    let adjusted_location = if location.starts_with("embed://") {
-                        location.trim_start_matches("embed://")
-                    } else {
-                        location
-                    };
-
-                    Self::await_asset(ResourceType::Embeded(EmbededType::Root(adjusted_location)))
-                        .await
-                }
-                "about" => {
-                    let adjusted_location = if location.starts_with("about:") {
-                        location.trim_start_matches("about:")
-                    } else {
-                        location
-                    };
-
-                    Self::await_asset(ResourceType::Embeded(EmbededType::Browser(
-                        adjusted_location,
-                    )))
-                    .await
-                }
-                _ => Self::await_asset(ResourceType::Remote { url: location, ctx }).await,
-            },
-        }
-    }
+pub trait Writer {
+    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError>;
 }
 
-impl<'a> SyncLoader for ResourceType<'a> {
+impl<'a> Loader for ResourceType<'a> {
     fn load_asset(self) -> Result<Vec<u8>, AssetError> {
         match self {
+            ResourceType::Cache(file_path) => {
+                let cache_path = get_cache_path();
+
+                match cache_path {
+                    Some(path) => {
+                        create_paths(&path)
+                            .map_err(|_| AssetError::Unavailable("app cache".to_string()))?;
+
+                        let full_path = path.join(file_path);
+                        if !full_path.exists() {
+                            return Err(AssetError::NotFound(
+                                full_path.to_string_lossy().to_string(),
+                            ));
+                        }
+
+                        std::fs::read(full_path)
+                            .map_err(|_| AssetError::LoadFailed(file_path.to_string()))
+                    }
+                    None => Err(AssetError::Unavailable("cache".to_string())),
+                }
+            }
+            ResourceType::Config(file_path) => {
+                let config_path = get_config_path();
+
+                match config_path {
+                    Some(path) => {
+                        create_paths(&path)
+                            .map_err(|_| AssetError::Unavailable("app config".to_string()))?;
+
+                        let full_path = path.join(file_path);
+                        if !full_path.exists() {
+                            return Err(AssetError::NotFound(
+                                full_path.to_string_lossy().to_string(),
+                            ));
+                        }
+
+                        std::fs::read(full_path)
+                            .map_err(|_| AssetError::LoadFailed(file_path.to_string()))
+                    }
+                    None => Err(AssetError::Unavailable("config".to_string())),
+                }
+            }
+            ResourceType::UserData(file_path) => {
+                let user_data_path = get_data_path();
+
+                match user_data_path {
+                    Some(path) => {
+                        create_paths(&path)
+                            .map_err(|_| AssetError::Unavailable("user data".to_string()))?;
+
+                        let full_path = path.join(file_path);
+                        if !full_path.exists() {
+                            return Err(AssetError::NotFound(
+                                full_path.to_string_lossy().to_string(),
+                            ));
+                        }
+
+                        std::fs::read(full_path)
+                            .map_err(|_| AssetError::LoadFailed(file_path.to_string()))
+                    }
+                    None => Err(AssetError::Unavailable("user data".to_string())),
+                }
+            }
             ResourceType::FileSystem(path) => {
                 std::fs::read(path).map_err(|_| AssetError::LoadFailed(path.to_string()))
             }
             ResourceType::Embeded(asset) => EmbededResource::get(&asset.path())
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| AssetError::NotFound(asset.path())),
-            ResourceType::Remote { url, ctx } => {
-                let runtime = Runtime::new().map_err(|e| {
-                    AssetError::RemoteFailed(RequestError::Network(NetworkError::RuntimeError(
-                        e.to_string(),
-                    )))
-                })?;
-
-                runtime.block_on(async {
-                    let url = ctx.page_url.as_ref().map_or(
-                        Url::parse(url).map_err(|e| {
-                            RequestError::Network(NetworkError::InvalidUrl(e.to_string()))
-                        }),
-                        |u| {
-                            u.join(url).map_err(|e| {
-                                RequestError::Network(NetworkError::InvalidUrl(e.to_string()))
-                            })
-                        },
-                    )?;
-
-                    let request = RequestBuilder::from(url).build();
-                    let mut service =
-                        NetworkService::new(ctx.client, ctx.cookie_jar, ctx.browser_headers);
-                    let header_response = match service
-                        .fetch(ctx.page_url.clone(), ctx.policies, request)
-                        .await
-                    {
-                        RequestResult::Failed(err) => return Err(AssetError::RemoteFailed(err)),
-                        RequestResult::ClientError(resp)
-                        | RequestResult::ServerError(resp)
-                        | RequestResult::Success(resp) => resp,
-                    };
-
-                    let body = match header_response.body().await {
-                        Ok(resp) => match resp.body {
-                            Some(b) => b,
-                            None => {
-                                return Err(AssetError::RemoteFailed(RequestError::EmptyBody));
-                            }
-                        },
-                        Err(e) => {
-                            return Err(AssetError::RemoteFailed(RequestError::Network(e)));
-                        }
-                    };
-
-                    Ok(body)
-                })
-            }
-            ResourceType::Absolute {
-                protocol,
-                location,
-                ctx,
-            } => match protocol {
+            ResourceType::Absolute { protocol, location } => match protocol {
                 "file://" => {
                     let adjusted_location = location.trim_start_matches("file://");
                     Self::load_asset(ResourceType::FileSystem(adjusted_location))
@@ -200,8 +101,67 @@ impl<'a> SyncLoader for ResourceType<'a> {
                         adjusted_location,
                     )))
                 }
-                _ => Self::load_asset(ResourceType::Remote { url: location, ctx }),
+                _ => Err(AssetError::UnsupportedProtocol(protocol.to_string())),
             },
+        }
+    }
+}
+
+impl<'a> Writer for ResourceType<'a> {
+    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError> {
+        match self {
+            ResourceType::Absolute { .. } | ResourceType::Embeded(_) => {
+                Err(AssetError::UnsupportedOperation(
+                    "Cannot create or modify embedded or absolute resources".to_string(),
+                ))
+            }
+            ResourceType::Cache(file_path) => {
+                let cache_path = get_cache_path();
+
+                match cache_path {
+                    Some(path) => {
+                        create_paths(&path)
+                            .map_err(|_| AssetError::Unavailable("app cache".to_string()))?;
+
+                        let full_path = path.join(file_path);
+                        std::fs::write(full_path, data.as_ref())
+                            .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
+                    }
+                    None => Err(AssetError::Unavailable("cache".to_string())),
+                }
+            }
+            ResourceType::Config(file_path) => {
+                let config_path = get_config_path();
+
+                match config_path {
+                    Some(path) => {
+                        create_paths(&path)
+                            .map_err(|_| AssetError::Unavailable("app config".to_string()))?;
+
+                        let full_path = path.join(file_path);
+                        std::fs::write(full_path, data.as_ref())
+                            .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
+                    }
+                    None => Err(AssetError::Unavailable("config".to_string())),
+                }
+            }
+            ResourceType::UserData(file_path) => {
+                let user_data_path = get_data_path();
+
+                match user_data_path {
+                    Some(path) => {
+                        create_paths(&path)
+                            .map_err(|_| AssetError::Unavailable("user data".to_string()))?;
+
+                        let full_path = path.join(file_path);
+                        std::fs::write(full_path, data.as_ref())
+                            .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
+                    }
+                    None => Err(AssetError::Unavailable("user data".to_string())),
+                }
+            }
+            ResourceType::FileSystem(path) => std::fs::write(path, data.as_ref())
+                .map_err(|_| AssetError::WriteFailed(path.to_string())),
         }
     }
 }

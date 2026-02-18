@@ -1,10 +1,18 @@
+//! This module defines the `EmbededResource` struct and the `EmbededType` enum,
+//! which represent embedded resources in the application. The `rust_embed` crate
+//! is used to include files from the specified folder, allowing for easy access
+//! to assets such as icons, fonts, shaders, and browser-related files.
+
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "../../assets/"]
 #[include = "**/*"]
+/// A struct representing embedded resources in the application,
+/// using the `rust_embed` crate to include files from the specified folder.
 pub(crate) struct EmbededResource;
 
+/// Represents different types of embedded resources in the application.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EmbededType<'a> {
     Icon(&'a str),
@@ -16,6 +24,7 @@ pub enum EmbededType<'a> {
 }
 
 impl EmbededType<'_> {
+    /// Returns the path of the embedded resource based on its type and name.
     pub fn path(&self) -> String {
         match self {
             EmbededType::Icon(name) => format!("icon/{}", name),

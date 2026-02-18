@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use io::{embeded::TEXTURE_SHADER, manager::Resource};
+use io::{Resource, embeded::TEXTURE_SHADER};
 use layout::{Color4f, Rect};
 use wgpu::RenderPipeline;
 

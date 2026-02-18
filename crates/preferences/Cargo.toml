@@ -5,8 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-constants.workspace = true
-storage.workspace = true
+io.workspace = true
 
 # External dependencies
 clap.workspace = true

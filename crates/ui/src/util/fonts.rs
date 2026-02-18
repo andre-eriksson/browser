@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use iced::advanced::graphics::text::cosmic_text::fontdb::Source;
 use io::{
+    Resource,
     embeded::{
         OPEN_SANS_BOLD, OPEN_SANS_EXTRA_BOLD, OPEN_SANS_LIGHT, OPEN_SANS_MEDIUM, OPEN_SANS_REGULAR,
         OPEN_SANS_SEMI_BOLD, ROBOTO_MONO_BOLD, ROBOTO_MONO_EXTRA_LIGHT, ROBOTO_MONO_LIGHT,
         ROBOTO_MONO_MEDIUM, ROBOTO_MONO_REGULAR, ROBOTO_MONO_SEMI_BOLD, ROBOTO_MONO_THIN,
     },
-    manager::Resource,
 };
 
 /// Load the default fonts used by the UI

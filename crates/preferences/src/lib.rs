@@ -1,10 +1,6 @@
 use clap::ValueEnum;
-use constants::files::SETTINGS;
+use io::{Resource, files::PREFERENCES};
 use serde::{Deserialize, Serialize};
-use storage::{
-    files::read_file_from_config,
-    paths::{create_paths, get_config_path},
-};
 
 /// Hex color representation as a string.
 #[derive(Debug, Clone, Default, Copy, Serialize, Deserialize, ValueEnum)]
@@ -75,13 +71,8 @@ impl BrowserConfig {
     }
 
     pub fn load() -> Self {
-        match read_file_from_config(SETTINGS) {
+        match Resource::load(PREFERENCES) {
             Err(_) => {
-                let base_path = get_config_path().expect("Failed to get config path");
-                let _ = create_paths(&base_path);
-
-                let path = base_path.join(SETTINGS);
-
                 let serialized = toml::to_string(&Self::default());
 
                 if serialized.is_err() {
@@ -89,7 +80,7 @@ impl BrowserConfig {
                     return Self::default();
                 }
 
-                let res = std::fs::write(path, serialized.unwrap());
+                let res = Resource::write(PREFERENCES, serialized.unwrap());
 
                 if res.is_err() {
                     eprintln!("Unable to create settings file")
@@ -119,12 +110,17 @@ impl BrowserConfig {
 
     pub fn set_theme(&mut self, theme: Theme) {
         *self.theme = theme;
-        if let Some(base_path) = get_config_path() {
-            let path = base_path.join(SETTINGS);
-            let serialized = toml::to_string(self);
-            if let Ok(serialized) = serialized {
-                let _ = std::fs::write(path, serialized);
-            }
+        let serialized = toml::to_string(self);
+
+        if serialized.is_err() {
+            eprintln!("Unable to serialize config file");
+            return;
+        }
+
+        let res = Resource::write(PREFERENCES, serialized.unwrap());
+
+        if res.is_err() {
+            eprintln!("Unable to write settings file")
         }
     }
 

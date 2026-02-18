@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
 use constants::keys::STATUS_CODE;
-use cookies::CookieJar;
+use cookies::Cookie;
 use network::{
     ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, HeaderMap, Method, ORIGIN,
-    SET_COOKIE,
     client::{HttpClient, ResponseHandle},
     errors::{NetworkError, RequestError},
     request::{Request, RequestBuilder},
@@ -30,19 +29,19 @@ pub enum RequestResult<T> {
 
 pub struct NetworkService<'a> {
     client: &'a dyn HttpClient,
-    cookie_jar: &'a mut CookieJar,
+    cookies: &'a Vec<Cookie>,
     browser_headers: &'a Arc<HeaderMap>,
 }
 
 impl<'a> NetworkService<'a> {
     pub fn new(
         client: &'a dyn HttpClient,
-        cookie_jar: &'a mut CookieJar,
+        cookies: &'a Vec<Cookie>,
         browser_headers: &'a Arc<HeaderMap>,
     ) -> Self {
         NetworkService {
             client,
-            cookie_jar,
+            cookies,
             browser_headers,
         }
     }
@@ -91,9 +90,8 @@ impl<'a> NetworkService<'a> {
                 ));
             }
 
-            CookieMiddleware::apply_cookies(&mut request, self.cookie_jar);
+            CookieMiddleware::apply_cookies(&mut request, self.cookies);
 
-            let url = request.url.clone();
             let resp = self.raw_fetch(request).await;
 
             return match resp {
@@ -103,13 +101,6 @@ impl<'a> NetworkService<'a> {
                     RequestResult::Failed(e)
                 }
                 RequestResult::Success(resp) => {
-                    self.handle_response_headers(
-                        &HeaderResponse {
-                            status_code: resp.metadata().status_code,
-                            headers: resp.metadata().headers.clone(),
-                        },
-                        &url,
-                    );
                     // TODO: page.document_url = Some(url);
 
                     debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
@@ -135,24 +126,9 @@ impl<'a> NetworkService<'a> {
 
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
             trace!("Simple request detected, skipping CORS preflight");
-            CookieMiddleware::apply_cookies(&mut request, self.cookie_jar);
+            CookieMiddleware::apply_cookies(&mut request, self.cookies);
 
-            let url = &request.url.clone();
-            let resp = self.client.send(request).await;
-
-            if let Ok(response) = &resp {
-                debug!({ STATUS_CODE } = response.metadata().status_code.to_string());
-
-                self.handle_response_headers(
-                    &HeaderResponse {
-                        status_code: response.metadata().status_code,
-                        headers: response.metadata().headers.clone(),
-                    },
-                    url,
-                );
-            }
-
-            return Self::convert_response(resp);
+            return Self::convert_response(self.client.send(request).await);
         }
 
         let preflight_response = match self
@@ -176,34 +152,9 @@ impl<'a> NetworkService<'a> {
             return RequestResult::Failed(e);
         }
 
-        CookieMiddleware::apply_cookies(&mut request, self.cookie_jar);
+        CookieMiddleware::apply_cookies(&mut request, self.cookies);
 
-        let url = &request.url.clone();
-        let resp = self.client.send(request).await;
-
-        if let Ok(response) = &resp {
-            debug!({ STATUS_CODE } = response.metadata().status_code.to_string());
-
-            self.handle_response_headers(
-                &HeaderResponse {
-                    status_code: response.metadata().status_code,
-                    headers: response.metadata().headers.clone(),
-                },
-                url,
-            );
-        }
-
-        Self::convert_response(resp)
-    }
-
-    fn handle_response_headers(&mut self, response: &HeaderResponse, url: &Url) {
-        for (name, value) in response.headers.iter() {
-            if name == SET_COOKIE {
-                CookieMiddleware::handle_response_cookie(self.cookie_jar, url, value);
-            }
-
-            // TODO: Handle other response headers as needed
-        }
+        Self::convert_response(self.client.send(request).await)
     }
 
     async fn preflight_request(

@@ -15,13 +15,7 @@ impl CookieMiddleware {
     ///
     /// # Notes
     /// This function modifies the `request` in place by adding the appropriate Cookie headers.
-    pub fn apply_cookies(request: &mut Request, cookie_jar: &mut CookieJar) {
-        let cookies = cookie_jar.get_cookies(
-            request.url.host().unwrap(),
-            request.url.path(),
-            request.url.scheme() == "https",
-        );
-
+    pub fn apply_cookies(request: &mut Request, cookies: &Vec<Cookie>) {
         trace!("Applying {} cookies to request", cookies.len());
 
         for cookie in cookies {
