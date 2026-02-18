@@ -188,6 +188,9 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
                             len_unit,
                         )));
                     }
+                    CssTokenKind::Number(num) => {
+                        return Ok(MaxDimension::Length(Length::px(num.value as f32)));
+                    }
                     CssTokenKind::Percentage(pct) => {
                         return Ok(MaxDimension::Percentage(Percentage::new(pct.value as f32)));
                     }
