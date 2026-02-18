@@ -263,10 +263,10 @@ impl Application {
                         .map(|url| url.to_string());
 
                     let url = if let Some(rel_url) = relative {
-                        if !rel_url.contains("://") {
-                            format!("http://{}", rel_url)
-                        } else {
+                        if rel_url.contains("://") || rel_url.starts_with("about:") {
                             rel_url
+                        } else {
+                            format!("http://{}", rel_url)
                         }
                     } else {
                         let local_regex = Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();

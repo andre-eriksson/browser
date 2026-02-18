@@ -1,11 +1,13 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::errors::NavigationError;
+use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
 use io::{CookieMiddleware, DocumentPolicy, Resource};
 use network::{
-    SET_COOKIE,
+    HeaderMap, SET_COOKIE,
+    client::HttpClient,
     errors::{NetworkError, RequestError},
 };
 use tokio::task::JoinHandle;
@@ -28,12 +30,6 @@ pub async fn navigate(
 ) -> Result<Page, NavigationError> {
     let mut page = Page::blank();
 
-    let url = Url::parse(url).map_err(|e| {
-        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-            e.to_string(),
-        )))
-    })?;
-
     let client = ctx.http_client().box_clone();
     let headers = Arc::clone(ctx.headers());
     let cookies = ctx
@@ -44,53 +40,17 @@ pub async fn navigate(
         .clone();
     let cookie_jar = Arc::clone(ctx.cookie_jar());
 
-    let body = {
-        let resp = Resource::from_remote(
-            url.as_str(),
-            client.as_ref(),
-            &cookies,
-            &headers,
-            &page.document_url,
-            page.policies(),
-        )
-        .await?;
-
-        for header in resp.metadata().headers.iter() {
-            if header.0 == SET_COOKIE
-                && let Ok(mut cookie_jar) = ctx.cookie_jar().lock()
-            {
-                CookieMiddleware::handle_response_cookie(&mut cookie_jar, &url, header.1);
-            }
-        }
-
-        resp.body()
-            .await
-            .map_err(RequestError::Network)
-            .and_then(|b| {
-                b.body
-                    .ok_or(RequestError::EmptyBody)
-                    .map_err(|e| RequestError::Network(NetworkError::RuntimeError(e.to_string())))
-            })
-    };
-
-    let body = match body {
-        Ok(b) => b,
-        Err(e) => {
-            return Err(NavigationError::RequestError(RequestError::Network(
-                NetworkError::RuntimeError(e.to_string()),
-            )));
-        }
-    };
+    let (url, body) =
+        resolve_body(url, ctx, &mut page, &cookies, &headers, client.as_ref()).await?;
 
     page.document_url = Some(url.clone());
 
+    let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
     let mut parser = HtmlStreamParser::<_, TabCollector>::new(
         body.as_slice(),
         None,
         Some(TabCollector::default()),
     );
-
-    let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
 
     loop {
         parser.step()?;
@@ -201,6 +161,8 @@ pub async fn navigate(
         }
     }
 
+    let result = parser.finalize();
+
     for handle in style_handles {
         match handle.await {
             Ok(Some(stylesheet)) => {
@@ -213,7 +175,6 @@ pub async fn navigate(
         }
     }
 
-    let result = parser.finalize();
     let policies = match ctx.tab_manager().get_tab_mut(tab_id) {
         Some(tab) => *tab.policies(),
         None => DocumentPolicy::default(),
@@ -228,70 +189,178 @@ pub async fn navigate(
     ))
 }
 
-/// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
-/// The task will handle cookies and headers appropriately, and will return `None` if fetching or parsing fails.
-fn spawn_style_fetch_and_parse(
-    url: Url,
-    page: &Page,
-    client: Box<dyn network::client::HttpClient>,
-    headers: Arc<network::HeaderMap>,
-    cookies: Vec<cookies::Cookie>,
-    cookie_jar: Arc<std::sync::Mutex<cookies::CookieJar>>,
-) -> JoinHandle<Option<CSSStyleSheet>> {
-    let page_url = page.document_url.clone();
-    let policies = page.policies().clone();
+/// Resolves the body of the document to be navigated to, handling both "about:" URLs and regular HTTP/HTTPS URLs.
+/// For "about:" URLs, it loads the corresponding embedded resource. For HTTP/HTTPS URLs, it performs a network
+/// request to fetch the content, applying cookies and headers as needed.
+///
+/// Returns the resolved URL and the body content as a byte vector, or an error if the URL is invalid or the content
+/// cannot be fetched.
+async fn resolve_body(
+    raw_url: &str,
+    ctx: &mut dyn NavigationContext,
+    page: &mut Page,
+    cookies: &[Cookie],
+    headers: &Arc<HeaderMap>,
+    client: &dyn HttpClient,
+) -> Result<(Url, Vec<u8>), NavigationError> {
+    if let Some(location) = raw_url.strip_prefix("about:") {
+        let body = Resource::load(io::ResourceType::Absolute {
+            protocol: "about",
+            location: format!("{}.html", location).as_str(),
+        })
+        .map_err(|e| {
+            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                e.to_string(),
+            )))
+        })?;
 
-    tokio::spawn(async move {
-        let resp = match Resource::from_remote(
+        let url = Url::parse(&format!("about:{}", location))
+            .unwrap_or_else(|_| Url::parse("about:blank").unwrap());
+
+        return Ok((url, body));
+    }
+
+    let url = Url::parse(raw_url).map_err(|e| {
+        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+            e.to_string(),
+        )))
+    })?;
+
+    let body = if url.scheme() != "http" && url.scheme() != "https" {
+        Resource::load(io::ResourceType::Absolute {
+            protocol: url.scheme(),
+            location: url.path(),
+        })
+        .map_err(|e| {
+            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                e.to_string(),
+            )))
+        })?
+    } else {
+        let resp = Resource::from_remote(
             url.as_str(),
-            client.as_ref(),
-            &cookies,
-            &headers,
-            &page_url,
-            &policies,
+            client,
+            cookies,
+            headers,
+            &page.document_url,
+            page.policies(),
         )
-        .await
-        {
-            Ok(r) => r,
-            Err(e) => {
-                debug!("Failed to fetch stylesheet {}: {}", url, e);
-                return None;
-            }
-        };
+        .await?;
 
         for header in resp.metadata().headers.iter() {
             if header.0 == SET_COOKIE
-                && let Ok(mut cookie_jar) = cookie_jar.lock()
+                && let Ok(mut cookie_jar) = ctx.cookie_jar().lock()
             {
                 CookieMiddleware::handle_response_cookie(&mut cookie_jar, &url, header.1);
             }
         }
 
-        let body_bytes = match resp.body().await {
-            Ok(body_resp) => match body_resp.body {
-                Some(b) => b,
-                None => {
-                    debug!("Empty body for stylesheet {}", url);
+        resp.body()
+            .await
+            .map_err(RequestError::Network)
+            .and_then(|b| {
+                b.body
+                    .ok_or(RequestError::EmptyBody)
+                    .map_err(|e| RequestError::Network(NetworkError::RuntimeError(e.to_string())))
+            })?
+    };
+
+    Ok((url, body))
+}
+
+/// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
+/// The task will handle cookies and headers appropriately, and will return `None` if fetching or parsing fails.
+fn spawn_style_fetch_and_parse(
+    url: Url,
+    page: &Page,
+    client: Box<dyn HttpClient>,
+    headers: Arc<HeaderMap>,
+    cookies: Vec<Cookie>,
+    cookie_jar: Arc<Mutex<CookieJar>>,
+) -> JoinHandle<Option<CSSStyleSheet>> {
+    let page_url = page.document_url.clone();
+    let policies = page.policies().clone();
+
+    tokio::spawn(async move {
+        if url.scheme() != "http" && url.scheme() != "https" {
+            let res = Resource::load(io::ResourceType::Absolute {
+                protocol: url.scheme(),
+                location: url.path(),
+            });
+
+            let body = match res {
+                Ok(b) => b,
+                Err(e) => {
+                    debug!("Failed to load stylesheet {}: {}", url, e);
                     return None;
                 }
-            },
-            Err(e) => {
-                debug!("Failed to read body for stylesheet {}: {}", url, e);
-                return None;
-            }
-        };
+            };
 
-        let stylesheet_url = url.clone();
-        match tokio::task::spawn_blocking(move || {
-            let css_str = String::from_utf8_lossy(&body_bytes);
-            CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
-        })
-        .await
-        {
-            Ok(stylesheet) => Some(stylesheet),
-            Err(e) => {
-                warn!("CSS parse task panicked for {}: {}", stylesheet_url, e);
-                None
+            let stylesheet_url = url.clone();
+            match tokio::task::spawn_blocking(move || {
+                let css_str = String::from_utf8_lossy(&body);
+                CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
+            })
+            .await
+            {
+                Ok(stylesheet) => Some(stylesheet),
+                Err(e) => {
+                    warn!("CSS parse task panicked for {}: {}", stylesheet_url, e);
+                    None
+                }
+            }
+        } else {
+            let resp = match Resource::from_remote(
+                url.as_str(),
+                client.as_ref(),
+                &cookies,
+                &headers,
+                &page_url,
+                &policies,
+            )
+            .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    debug!("Failed to fetch stylesheet {}: {}", url, e);
+                    return None;
+                }
+            };
+
+            for header in resp.metadata().headers.iter() {
+                if header.0 == SET_COOKIE
+                    && let Ok(mut cookie_jar) = cookie_jar.lock()
+                {
+                    CookieMiddleware::handle_response_cookie(&mut cookie_jar, &url, header.1);
+                }
+            }
+
+            let body_bytes = match resp.body().await {
+                Ok(body_resp) => match body_resp.body {
+                    Some(b) => b,
+                    None => {
+                        debug!("Empty body for stylesheet {}", url);
+                        return None;
+                    }
+                },
+                Err(e) => {
+                    debug!("Failed to read body for stylesheet {}: {}", url, e);
+                    return None;
+                }
+            };
+
+            let stylesheet_url = url.clone();
+            match tokio::task::spawn_blocking(move || {
+                let css_str = String::from_utf8_lossy(&body_bytes);
+                CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
+            })
+            .await
+            {
+                Ok(stylesheet) => Some(stylesheet),
+                Err(e) => {
+                    warn!("CSS parse task panicked for {}: {}", stylesheet_url, e);
+                    None
+                }
             }
         }
     })

@@ -74,7 +74,7 @@ impl Resource {
     pub async fn from_remote<'a>(
         url: &'a str,
         client: &'a dyn HttpClient,
-        cookies: &'a Vec<Cookie>,
+        cookies: &'a [Cookie],
         browser_headers: &'a Arc<HeaderMap>,
         page_url: &'a Option<Url>,
         policies: &'a DocumentPolicy,

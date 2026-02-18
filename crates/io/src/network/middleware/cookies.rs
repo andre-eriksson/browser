@@ -15,7 +15,7 @@ impl CookieMiddleware {
     ///
     /// # Notes
     /// This function modifies the `request` in place by adding the appropriate Cookie headers.
-    pub fn apply_cookies(request: &mut Request, cookies: &Vec<Cookie>) {
+    pub fn apply_cookies(request: &mut Request, cookies: &[Cookie]) {
         trace!("Applying {} cookies to request", cookies.len());
 
         for cookie in cookies {

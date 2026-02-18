@@ -29,14 +29,14 @@ pub enum RequestResult<T> {
 
 pub struct NetworkService<'a> {
     client: &'a dyn HttpClient,
-    cookies: &'a Vec<Cookie>,
+    cookies: &'a [Cookie],
     browser_headers: &'a Arc<HeaderMap>,
 }
 
 impl<'a> NetworkService<'a> {
     pub fn new(
         client: &'a dyn HttpClient,
-        cookies: &'a Vec<Cookie>,
+        cookies: &'a [Cookie],
         browser_headers: &'a Arc<HeaderMap>,
     ) -> Self {
         NetworkService {

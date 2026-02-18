@@ -87,15 +87,9 @@ impl<'a> Loader for ResourceType<'a> {
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| AssetError::NotFound(asset.path())),
             ResourceType::Absolute { protocol, location } => match protocol {
-                "file://" => {
-                    let adjusted_location = location.trim_start_matches("file://");
-                    Self::load_asset(ResourceType::FileSystem(adjusted_location))
-                }
-                "embed://" => {
-                    let adjusted_location = location.trim_start_matches("embed://");
-                    Self::load_asset(ResourceType::Embeded(EmbededType::Root(adjusted_location)))
-                }
-                "about:" => {
+                "file" => Self::load_asset(ResourceType::FileSystem(location)),
+                "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location))),
+                "about" => {
                     let adjusted_location = location.trim_start_matches("about:");
                     Self::load_asset(ResourceType::Embeded(EmbededType::Browser(
                         adjusted_location,
