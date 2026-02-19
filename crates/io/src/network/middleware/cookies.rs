@@ -74,10 +74,7 @@ impl CookieMiddleware {
 
         let cookie = match Cookie::parse(cookie_str, request_url) {
             Ok(c) => c,
-            Err(e) => {
-                debug!("Error parsing the cookie: {e}");
-                return;
-            }
+            Err(_) => return,
         };
 
         let span = trace_span!(

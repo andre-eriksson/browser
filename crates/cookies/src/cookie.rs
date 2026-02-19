@@ -4,6 +4,7 @@ use crate::errors::CookieParsingError;
 use time::{
     Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description,
 };
+use tracing::{debug, instrument};
 use url::{Host, Url};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -82,6 +83,7 @@ impl Cookie {
         CookieBuilder::default()
     }
 
+    #[instrument(skip(request_url), level = "trace", fields(cookie_str = %cookie_str))]
     pub fn parse(cookie_str: &str, request_url: &Url) -> Result<Self, CookieParsingError> {
         let parts = cookie_str.split(';');
         let mut cookie = Cookie::default();
@@ -129,7 +131,14 @@ impl Cookie {
             }
         }
 
-        Self::validate_cookie_prefix(&cookie)?;
+        let validation = Self::validate_cookie_prefix(&cookie);
+
+        if validation.is_err() {
+            let error = validation.err().unwrap();
+            debug!("Cookie failed prefix validation: {}", error);
+
+            return Err(error);
+        }
 
         Ok(cookie)
     }
