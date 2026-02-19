@@ -17,7 +17,10 @@ pub struct ReqwestClient {
 impl ReqwestClient {
     pub fn new() -> Self {
         ReqwestClient {
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .http2_max_header_list_size(65536)
+                .build()
+                .unwrap(),
         }
     }
 }
