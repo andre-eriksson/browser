@@ -160,9 +160,6 @@ impl TextContext {
 
         for run in buffer.layout_runs() {
             let w = if is_whitespace_only {
-                // For whitespace-only text, `line_w` excludes trailing
-                // whitespace so it reports 0.  Use glyph advances instead
-                // to obtain the real space width.
                 run.glyphs.last().map(|g| g.x + g.w).unwrap_or(0.0)
             } else {
                 run.line_w
@@ -172,10 +169,6 @@ impl TextContext {
             line_count += 1;
         }
 
-        // Fallback: if cosmic-text produced no layout runs for the
-        // whitespace (or all glyph advances were zero), approximate the
-        // space width from the font size (~0.25 em is a reasonable default
-        // for most fonts) so that inter-element spacing is preserved.
         if is_whitespace_only && max_width == 0.0 {
             let space_count = text.chars().filter(|c| *c == ' ').count().max(1);
             max_width = space_count as f32 * text_description.font_size_px * 0.25;
@@ -202,6 +195,10 @@ impl TextContext {
     }
 
     fn resolve_font_family(font_family: &FontFamily) -> Family<'_> {
+        if font_family.is_monospace() {
+            return Family::Monospace;
+        }
+
         match &font_family.names()[0] {
             FontFamilyName::Generic(generic) => match generic {
                 GenericName::Serif => Family::Serif,
@@ -211,7 +208,8 @@ impl TextContext {
                 GenericName::Fantasy => Family::Fantasy,
                 _ => Family::SansSerif,
             },
-            FontFamilyName::Specific(name) => Family::Name(name.as_str()),
+            // TODO: Once the browser can load fonts from the internet, we can use the actual name here instead of defaulting to SansSerif.
+            FontFamilyName::Specific(_) => Family::SansSerif,
         }
     }
 

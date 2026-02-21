@@ -47,7 +47,8 @@ impl TryFrom<u16> for FontWeight {
             700 => Ok(FontWeight::Bold),
             800 => Ok(FontWeight::ExtraBold),
             900 => Ok(FontWeight::Black),
-            _ => Err(format!("Invalid font weight numeric value: {}", value)),
+            // TODO: Once we support variable font weights, we need to clamp between 1 and 1000 and drop the rounding logic.
+            _ => Self::try_from(((value.saturating_add(50)) / 100 * 100).clamp(100, 900)),
         }
     }
 }
@@ -123,6 +124,14 @@ impl FontFamily {
     /// Get the list of font family names in this FontFamily. The list is ordered by preference, with the most preferred font first.
     pub fn names(&self) -> &Vec<FontFamilyName> {
         &self.names
+    }
+
+    /// Check if this FontFamily includes a monospace font, either as a generic family or as a specific font name.
+    pub fn is_monospace(&self) -> bool {
+        self.names.iter().any(|name| match name {
+            FontFamilyName::Generic(generic) => generic == &GenericName::Monospace,
+            FontFamilyName::Specific(specific) => specific.eq_ignore_ascii_case("monospace"),
+        })
     }
 }
 
