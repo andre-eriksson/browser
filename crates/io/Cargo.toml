@@ -12,11 +12,15 @@ cookies  = { workspace = true, optional = true }
 
 # External dependencies
 dirs = "6.0.0"
-tracing.workspace = true
-thiserror.workspace = true
-url = { workspace = true, optional = true}
-tokio = { workspace = true, optional = true }
+httpdate.workspace = true
+postcard.workspace = true
 rust-embed = { version = "8.9.0", features = ["include-exclude"] }
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, optional = true }
+tracing.workspace = true
+url = { workspace = true, optional = true}
 
 [features]
 default = []

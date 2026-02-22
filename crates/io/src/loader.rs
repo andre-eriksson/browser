@@ -114,10 +114,10 @@ impl<'a> Writer for ResourceType<'a> {
 
                 match cache_path {
                     Some(path) => {
-                        create_paths(&path)
+                        let full_path = path.join(file_path);
+                        create_paths(&full_path.parent().unwrap_or(&path).to_path_buf())
                             .map_err(|_| AssetError::Unavailable("app cache".to_string()))?;
 
-                        let full_path = path.join(file_path);
                         std::fs::write(full_path, data.as_ref())
                             .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
                     }
@@ -129,10 +129,11 @@ impl<'a> Writer for ResourceType<'a> {
 
                 match config_path {
                     Some(path) => {
-                        create_paths(&path)
+                        let full_path = path.join(file_path);
+
+                        create_paths(&full_path.parent().unwrap_or(&path).to_path_buf())
                             .map_err(|_| AssetError::Unavailable("app config".to_string()))?;
 
-                        let full_path = path.join(file_path);
                         std::fs::write(full_path, data.as_ref())
                             .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
                     }
@@ -144,10 +145,11 @@ impl<'a> Writer for ResourceType<'a> {
 
                 match user_data_path {
                     Some(path) => {
-                        create_paths(&path)
-                            .map_err(|_| AssetError::Unavailable("user data".to_string()))?;
-
                         let full_path = path.join(file_path);
+
+                        create_paths(&full_path.parent().unwrap_or(&path).to_path_buf())
+                            .map_err(|_| AssetError::Unavailable("app user data".to_string()))?;
+
                         std::fs::write(full_path, data.as_ref())
                             .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
                     }
