@@ -11,8 +11,8 @@ use std::{
 use crate::cache::{
     block::BlockFile,
     errors::CacheError,
-    header::{CacheControlResponse, CacheHeader},
-    index::{IndexFile, Pointer},
+    header::{CacheControlResponse, CacheHeader, HEADER_VERSION},
+    index::{IndexFile, PointerType},
     large::LargeFile,
 };
 
@@ -22,7 +22,7 @@ pub mod header;
 pub mod index;
 pub mod large;
 
-const MAX_BLOCK_SIZE: u64 = 10; // 20 MB
+const MAX_BLOCK_SIZE: u64 = 20_000_000; // 20 MB
 
 /// The current state of a cached resource in memory.
 #[derive(Debug, Clone)]
@@ -76,12 +76,18 @@ where
 
         let pointer = idx_file.entries.get(&sha)?;
 
-        let (header, value) = match pointer {
-            Pointer::Large => LargeFile::read::<V>(sha),
-            Pointer::Block(ptr) => BlockFile::read(ptr),
+        let (header, value, content_size) = match pointer {
+            PointerType::Large => LargeFile::read::<V>(sha),
+            PointerType::Block(ptr) => BlockFile::read(ptr),
         }?;
 
-        // Verify the header and content integrity
+        if header.url_hash != sha
+            || header.content_size != content_size as u32
+            || header.header_version != HEADER_VERSION
+            || !header.is_fresh()
+        {
+            return None;
+        }
 
         Some(value)
     }

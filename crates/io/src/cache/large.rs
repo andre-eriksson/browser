@@ -9,10 +9,10 @@ use storage::paths::get_cache_path;
 use crate::cache::{
     errors::CacheError,
     header::CacheHeader,
-    index::{IndexFile, Pointer},
+    index::{IndexFile, PointerType},
 };
 
-const LARGE_DIR: &str = "large";
+const LARGE_DIR: &str = "resources/large";
 const METADATA_FILE: &str = "metadata";
 const CONTENT_FILE: &str = "content";
 
@@ -43,8 +43,9 @@ impl LargeFile {
         };
 
         let content_file = match OpenOptions::new()
-            .append(true)
+            .write(true)
             .create(true)
+            .truncate(true)
             .open(path.join(CONTENT_FILE))
         {
             Ok(file) => file,
@@ -52,7 +53,7 @@ impl LargeFile {
         };
 
         let mut idx_file = IndexFile::load().unwrap_or_default();
-        idx_file.entries.insert(sha, Pointer::Large);
+        idx_file.entries.insert(sha, PointerType::Large);
         idx_file.write()?;
 
         let mut meta_writer = BufWriter::new(metadata_file);
@@ -73,7 +74,7 @@ impl LargeFile {
         Ok(())
     }
 
-    pub fn read<V>(sha: [u8; 32]) -> Option<(CacheHeader, V)>
+    pub fn read<V>(sha: [u8; 32]) -> Option<(CacheHeader, V, usize)>
     where
         V: Clone + Serialize + DeserializeOwned,
     {
@@ -102,7 +103,7 @@ impl LargeFile {
         let header: CacheHeader = postcard::from_bytes(&meta_data).ok()?;
         let content: V = postcard::from_bytes(&content_data).ok()?;
 
-        Some((header, content))
+        Some((header, content, content_data.len()))
     }
 
     fn hash_to_hex(hash: &[u8; 32]) -> String {

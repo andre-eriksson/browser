@@ -11,7 +11,7 @@ use network::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const HEADER_VERSION: u16 = 1;
+pub const HEADER_VERSION: u16 = 1;
 
 #[derive(Debug, Default)]
 pub struct CacheControlResponse {
@@ -165,11 +165,11 @@ impl CacheHeader {
         }
     }
 
-    #[allow(dead_code)]
     pub fn is_fresh(&self) -> bool {
         if self.no_cache {
             return false;
         }
+
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -188,7 +188,7 @@ impl CacheHeader {
             return now < self.fetched_at + heuristic_ttl;
         }
 
-        false
+        true
     }
 
     #[allow(dead_code)]

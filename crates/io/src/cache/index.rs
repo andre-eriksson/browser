@@ -10,7 +10,7 @@ use crate::{Resource, ResourceType, cache::errors::CacheError};
 
 const IDX_MAGIC: [u8; 4] = *b"CIDX";
 const IDX_VERSION: u16 = 1;
-const IDX_FILE_PATH: &str = "cache/index.idx";
+const IDX_FILE_PATH: &str = "resources/index.idx";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IndexFile {
@@ -18,7 +18,7 @@ pub struct IndexFile {
     pub version: u16,
     pub created_at: u64,
     pub last_compacted_at: u64,
-    pub entries: HashMap<[u8; 32], Pointer>,
+    pub entries: HashMap<[u8; 32], PointerType>,
 }
 
 impl Default for IndexFile {
@@ -52,7 +52,7 @@ impl IndexFile {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum Pointer {
+pub enum PointerType {
     Block(BlockPointer),
     Large,
 }

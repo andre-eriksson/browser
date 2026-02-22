@@ -11,10 +11,10 @@ use storage::paths::get_cache_path;
 use crate::cache::{
     errors::CacheError,
     header::CacheHeader,
-    index::{BlockPointer, IndexFile, Pointer},
+    index::{BlockPointer, IndexFile, PointerType},
 };
 
-const BLOCK_DIR: &str = "blocks";
+const BLOCK_DIR: &str = "resources/blocks";
 const MAX_BLOCK_SIZE: u64 = 20_000_000; // 20 MB
 
 pub struct BlockFile;
@@ -31,12 +31,12 @@ impl BlockFile {
 
         let count = Self::count_bin_files(cache_path.join(BLOCK_DIR)).unwrap_or(0);
 
-        let path = cache_path
-            .join(BLOCK_DIR)
-            .join(count.saturating_sub(1).to_string())
-            .join(".bin");
+        let path =
+            cache_path
+                .join(BLOCK_DIR)
+                .join(format!("{}{}", count.saturating_sub(1), ".bin"));
 
-        let _ = fs::create_dir_all(cache_path.join(BLOCK_DIR));
+        fs::create_dir_all(cache_path.join(BLOCK_DIR)).map_err(CacheError::IoError)?;
 
         let mut file = match OpenOptions::new().append(true).create(true).open(&path) {
             Ok(file) => file,
@@ -93,13 +93,13 @@ impl BlockFile {
             dead: false,
         };
 
-        idx_file.entries.insert(sha, Pointer::Block(pointer));
+        idx_file.entries.insert(sha, PointerType::Block(pointer));
         idx_file.write()?;
 
         Ok(())
     }
 
-    pub fn read<V>(pointer: &BlockPointer) -> Option<(CacheHeader, V)>
+    pub fn read<V>(pointer: &BlockPointer) -> Option<(CacheHeader, V, usize)>
     where
         V: Clone + Serialize + DeserializeOwned,
     {
@@ -121,7 +121,7 @@ impl BlockFile {
         file.read_exact(&mut data_buf).ok()?;
         let data: V = postcard::from_bytes(&data_buf).ok()?;
 
-        Some((header, data))
+        Some((header, data, pointer.content_size as usize))
     }
 
     fn count_bin_files<P: AsRef<Path>>(dir: P) -> std::io::Result<usize> {
