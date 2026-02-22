@@ -1,4 +1,4 @@
-use network::{HeaderMap, VARY};
+use network::{CACHE_CONTROL, HeaderMap, VARY};
 use postcard::to_stdvec;
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
@@ -10,12 +10,14 @@ use std::{
 
 use crate::cache::{
     block::BlockFile,
-    header::CacheHeader,
+    errors::CacheError,
+    header::{CacheControlResponse, CacheHeader},
     index::{IndexFile, Pointer},
     large::LargeFile,
 };
 
 pub mod block;
+pub mod errors;
 pub mod header;
 pub mod index;
 pub mod large;
@@ -97,30 +99,46 @@ where
     }
 
     /// Stores a successfully loaded value in the cache for a given key.
-    pub fn store_idx(&self, key: K, headers: HeaderMap, value: V) {
+    pub fn store_idx(&self, key: K, headers: HeaderMap, value: V) -> Result<(), CacheError> {
         let vary = headers
             .get(VARY)
             .map(|v| v.to_str().unwrap_or_default())
             .unwrap_or_default();
 
         if vary.eq_ignore_ascii_case("*") {
-            return;
+            return Err(CacheError::WriteError(String::from("")));
+        }
+
+        let cache_control = headers
+            .get(CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .parse::<CacheControlResponse>()
+            .unwrap_or_default();
+
+        if cache_control.no_store {
+            return Err(CacheError::WriteError(String::from(
+                "Cache-Control: no-store prevents caching",
+            )));
         }
 
         let sha = Self::hash_url(key.as_ref(), vary);
 
         let data = match to_stdvec(&value) {
             Ok(d) => d,
-            Err(_) => return,
+            Err(_) => {
+                return Err(CacheError::WriteError(String::from(
+                    "Failed to serialize value",
+                )));
+            }
         };
 
-        // TODO: Handle Cache-Control for validation
-        let header = CacheHeader::new(data.as_slice(), sha, vary, &headers);
+        let header = CacheHeader::new(data.as_slice(), sha, vary, &headers, &cache_control);
 
         if data.len() >= MAX_BLOCK_SIZE as usize {
-            LargeFile::write(data.as_slice(), sha, header);
+            LargeFile::write(data.as_slice(), sha, header)
         } else {
-            BlockFile::write(value, sha, header);
+            BlockFile::write(value, sha, header)
         }
     }
 
@@ -160,7 +178,8 @@ mod tests {
         let key = "https://example.com/resource".to_string();
         let value = "cached data".to_string();
 
-        cache.store_idx(key.clone(), headers.clone(), value.clone());
+        let result = cache.store_idx(key.clone(), headers.clone(), value.clone());
+        assert!(result.is_ok());
 
         let retrieved = cache.get_idx(&key, "Accept-Encoding").unwrap();
         assert_eq!(retrieved, value);

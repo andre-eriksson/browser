@@ -9,6 +9,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use storage::paths::get_cache_path;
 
 use crate::cache::{
+    errors::CacheError,
     header::CacheHeader,
     index::{BlockPointer, IndexFile, Pointer},
 };
@@ -19,60 +20,60 @@ const MAX_BLOCK_SIZE: u64 = 20_000_000; // 20 MB
 pub struct BlockFile;
 
 impl BlockFile {
-    pub fn write<V>(value: V, sha: [u8; 32], header: CacheHeader)
+    pub fn write<V>(value: V, sha: [u8; 32], header: CacheHeader) -> Result<(), CacheError>
     where
         V: Clone + Serialize + DeserializeOwned,
     {
-        let count = Self::count_bin_files(format!(
-            "{}/{}",
-            get_cache_path().unwrap().to_str().unwrap(),
-            BLOCK_DIR,
-        ))
-        .unwrap_or(0);
+        let cache_path = match get_cache_path() {
+            Some(path) => path,
+            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+        };
 
-        let data_path = format!(
-            "{}/{}/{}.bin",
-            get_cache_path().unwrap().to_str().unwrap(),
-            BLOCK_DIR,
-            count.saturating_sub(1)
-        );
+        let count = Self::count_bin_files(cache_path.join(BLOCK_DIR)).unwrap_or(0);
 
-        let _ = fs::create_dir_all(format!(
-            "{}/{}",
-            get_cache_path().unwrap().to_str().unwrap(),
-            BLOCK_DIR,
-        ));
+        let path = cache_path
+            .join(BLOCK_DIR)
+            .join(count.saturating_sub(1).to_string())
+            .join(".bin");
 
-        let file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&data_path);
+        let _ = fs::create_dir_all(cache_path.join(BLOCK_DIR));
 
-        // TODO: Better error handling and cleanup on failure
-        if file.is_err() {
-            return;
-        }
+        let mut file = match OpenOptions::new().append(true).create(true).open(&path) {
+            Ok(file) => file,
+            Err(e) => return Err(CacheError::IoError(e)),
+        };
 
-        let header_bytes = postcard::to_stdvec(&header).ok();
-        let data_bytes = postcard::to_stdvec(&value).ok();
+        let header_bytes = match postcard::to_stdvec(&header) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return Err(CacheError::WriteError(format!(
+                    "Failed to serialize header: {}",
+                    e
+                )));
+            }
+        };
 
-        if header_bytes.is_none() || data_bytes.is_none() {
-            return;
-        }
-        let header_bytes = header_bytes.unwrap();
-        let data_bytes = data_bytes.unwrap();
+        let data_bytes = match postcard::to_stdvec(&value) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return Err(CacheError::WriteError(format!(
+                    "Failed to serialize data: {}",
+                    e
+                )));
+            }
+        };
 
         let total_length = (header_bytes.len() + data_bytes.len()) as u32;
 
         let mut header = header;
         header.content_size = total_length;
 
-        let mut file = file.unwrap();
-
         if file.metadata().map(|m| m.len()).unwrap_or(0) + header.content_size as u64
             > MAX_BLOCK_SIZE
         {
-            return;
+            return Err(CacheError::WriteError(String::from(
+                "Block file size limit exceeded",
+            )));
         }
 
         let offset = file.stream_position().unwrap_or(0) as u32;
@@ -93,7 +94,9 @@ impl BlockFile {
         };
 
         idx_file.entries.insert(sha, Pointer::Block(pointer));
-        let _ = idx_file.write();
+        idx_file.write()?;
+
+        Ok(())
     }
 
     pub fn read<V>(pointer: &BlockPointer) -> Option<(CacheHeader, V)>

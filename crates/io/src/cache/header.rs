@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    str::FromStr,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use httpdate::fmt_http_date;
 use network::{
@@ -9,6 +12,73 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 const HEADER_VERSION: u16 = 1;
+
+#[derive(Debug, Default)]
+pub struct CacheControlResponse {
+    pub max_age_seconds: Option<u32>,
+    pub s_max_age_seconds: Option<u32>,
+    pub no_cache: bool,
+    pub must_revalidate: bool,
+    pub proxy_revalidate: bool,
+    pub no_store: bool,
+    pub private: bool,
+    pub public: bool,
+    pub must_understand: bool,
+    pub no_transform: bool,
+    pub immutable: bool,
+}
+
+impl FromStr for CacheControlResponse {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut response = CacheControlResponse {
+            max_age_seconds: None,
+            s_max_age_seconds: None,
+            no_cache: false,
+            must_revalidate: false,
+            proxy_revalidate: false,
+            no_store: false,
+            private: false,
+            public: false,
+            must_understand: false,
+            no_transform: false,
+            immutable: false,
+        };
+
+        for directive in s.split(',').map(|s| s.trim()) {
+            if directive.eq_ignore_ascii_case("no-cache") {
+                response.no_cache = true;
+            } else if directive.eq_ignore_ascii_case("must-revalidate") {
+                response.must_revalidate = true;
+            } else if directive.eq_ignore_ascii_case("proxy-revalidate") {
+                response.proxy_revalidate = true;
+            } else if directive.eq_ignore_ascii_case("no-store") {
+                response.no_store = true;
+            } else if directive.eq_ignore_ascii_case("private") {
+                response.private = true;
+            } else if directive.eq_ignore_ascii_case("public") {
+                response.public = true;
+            } else if directive.eq_ignore_ascii_case("must-understand") {
+                response.must_understand = true;
+            } else if directive.eq_ignore_ascii_case("no-transform") {
+                response.no_transform = true;
+            } else if directive.eq_ignore_ascii_case("immutable") {
+                response.immutable = true;
+            } else if let Some(age_str) = directive.strip_prefix("max-age=")
+                && let Ok(age) = age_str.parse::<u32>()
+            {
+                response.max_age_seconds = Some(age);
+            } else if let Some(age_str) = directive.strip_prefix("s-max-age=")
+                && let Ok(age) = age_str.parse::<u32>()
+            {
+                response.s_max_age_seconds = Some(age);
+            }
+        }
+
+        Ok(response)
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheHeader {
@@ -35,7 +105,13 @@ pub struct CacheHeader {
 }
 
 impl CacheHeader {
-    pub fn new(data: &[u8], url_hash: [u8; 32], vary: &str, headers: &HeaderMap) -> Self {
+    pub fn new(
+        data: &[u8],
+        url_hash: [u8; 32],
+        vary: &str,
+        headers: &HeaderMap,
+        cache_control: &CacheControlResponse,
+    ) -> Self {
         let content_type = headers
             .get(CONTENT_TYPE)
             .and_then(|v| v.to_str().ok())
@@ -59,8 +135,6 @@ impl CacheHeader {
             .and_then(|s| httpdate::parse_http_date(s).ok())
             .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
 
-        let (max_age_seconds, no_cache, must_revalidate) = Self::parse_cache_control(headers);
-
         let mut hasher = Sha256::new();
         hasher.update(data);
         let content_hash = hasher.finalize().into();
@@ -73,7 +147,7 @@ impl CacheHeader {
             etag,
             last_modified,
             expires_at,
-            max_age_seconds,
+            max_age_seconds: cache_control.max_age_seconds,
             fetched_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -83,8 +157,8 @@ impl CacheHeader {
             } else {
                 Some(vary.to_string())
             },
-            must_revalidate,
-            no_cache,
+            must_revalidate: cache_control.must_revalidate,
+            no_cache: cache_control.no_cache,
             content_size,
             content_hash,
             header_version: HEADER_VERSION,
@@ -132,27 +206,5 @@ impl CacheHeader {
         }
 
         headers
-    }
-
-    fn parse_cache_control(headers: &HeaderMap) -> (Option<u32>, bool, bool) {
-        let mut max_age = None;
-        let mut no_cache = false;
-        let mut must_revalidate = false;
-
-        if let Some(cache_control) = headers.get("Cache-Control").and_then(|v| v.to_str().ok()) {
-            for directive in cache_control.split(',').map(|s| s.trim()) {
-                if directive.eq_ignore_ascii_case("no-cache") {
-                    no_cache = true;
-                } else if directive.eq_ignore_ascii_case("must-revalidate") {
-                    must_revalidate = true;
-                } else if let Some(age_str) = directive.strip_prefix("max-age=")
-                    && let Ok(age) = age_str.parse::<u32>()
-                {
-                    max_age = Some(age);
-                }
-            }
-        }
-
-        (max_age, no_cache, must_revalidate)
     }
 }

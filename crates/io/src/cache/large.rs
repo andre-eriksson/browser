@@ -7,6 +7,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use storage::paths::get_cache_path;
 
 use crate::cache::{
+    errors::CacheError,
     header::CacheHeader,
     index::{IndexFile, Pointer},
 };
@@ -18,47 +19,58 @@ const CONTENT_FILE: &str = "content";
 pub struct LargeFile;
 
 impl LargeFile {
-    pub fn write(data: &[u8], sha: [u8; 32], header: CacheHeader) {
+    pub fn write(data: &[u8], sha: [u8; 32], header: CacheHeader) -> Result<(), CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
+        let cache_path = match get_cache_path() {
+            Some(path) => path,
+            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+        };
 
-        let path = format!(
-            "{}/{}/{}/{}",
-            get_cache_path().unwrap().to_str().unwrap(),
-            LARGE_DIR,
-            &str_sha[..2],
-            &str_sha[2..],
-        );
+        let path = cache_path
+            .join(LARGE_DIR)
+            .join(&str_sha[..2])
+            .join(&str_sha[2..]);
 
         let _ = fs::create_dir_all(&path);
 
-        let metadata_file = OpenOptions::new()
+        let metadata_file = match OpenOptions::new()
             .append(true)
             .create(true)
-            .open(format!("{}/{}", path, METADATA_FILE));
+            .open(path.join(METADATA_FILE))
+        {
+            Ok(file) => file,
+            Err(e) => return Err(CacheError::IoError(e)),
+        };
 
-        let content_file = OpenOptions::new()
+        let content_file = match OpenOptions::new()
             .append(true)
             .create(true)
-            .open(format!("{}/{}", path, CONTENT_FILE));
-
-        if content_file.is_err() {
-            return;
-        }
+            .open(path.join(CONTENT_FILE))
+        {
+            Ok(file) => file,
+            Err(e) => return Err(CacheError::IoError(e)),
+        };
 
         let mut idx_file = IndexFile::load().unwrap_or_default();
         idx_file.entries.insert(sha, Pointer::Large);
-        let idx_res = idx_file.write();
-        if idx_res.is_none() {
-            return;
-        }
+        idx_file.write()?;
 
-        let mut meta_writer = BufWriter::new(metadata_file.unwrap());
-        let _meta_res = postcard::to_io(&header, &mut meta_writer);
-        let _meta_flush = meta_writer.flush();
+        let mut meta_writer = BufWriter::new(metadata_file);
+        postcard::to_io(&header, &mut meta_writer)
+            .map_err(|_| CacheError::WriteError(String::from("Failed to serialize header")))?;
+        meta_writer
+            .flush()
+            .map_err(|_| CacheError::WriteError(String::from("Failed to flush header")))?;
 
-        let mut content_writer = BufWriter::new(content_file.unwrap());
-        let _content_res = content_writer.write_all(data);
-        let _content_flush = content_writer.flush();
+        let mut content_writer = BufWriter::new(content_file);
+        content_writer
+            .write_all(data)
+            .map_err(|_| CacheError::WriteError(String::from("Failed to write content data")))?;
+        content_writer
+            .flush()
+            .map_err(|_| CacheError::WriteError(String::from("Failed to flush content data")))?;
+
+        Ok(())
     }
 
     pub fn read<V>(sha: [u8; 32]) -> Option<(CacheHeader, V)>

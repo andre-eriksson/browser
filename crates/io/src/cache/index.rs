@@ -6,7 +6,7 @@ use std::{
 use postcard::{from_bytes, to_stdvec};
 use serde::{Deserialize, Serialize};
 
-use crate::{Resource, ResourceType};
+use crate::{Resource, ResourceType, cache::errors::CacheError};
 
 const IDX_MAGIC: [u8; 4] = *b"CIDX";
 const IDX_VERSION: u16 = 1;
@@ -43,10 +43,11 @@ impl IndexFile {
         from_bytes(&idx_file).ok()
     }
 
-    pub fn write(&self) -> Option<()> {
-        let idx_data = to_stdvec(self).ok()?;
+    pub fn write(&self) -> Result<(), CacheError> {
+        let idx_data = to_stdvec(self).map_err(CacheError::SerializationError)?;
 
-        Resource::write(ResourceType::Cache(IDX_FILE_PATH), idx_data).ok()
+        Resource::write(ResourceType::Cache(IDX_FILE_PATH), idx_data)
+            .map_err(CacheError::AssetError)
     }
 }
 
