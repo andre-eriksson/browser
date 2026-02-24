@@ -1,4 +1,4 @@
-use network::{CACHE_CONTROL, HeaderMap, VARY};
+use network::{CACHE_CONTROL, HeaderMap, HeaderName, VARY};
 use postcard::to_stdvec;
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
@@ -69,8 +69,9 @@ where
             .and_then(|entries| entries.get(key).cloned())
     }
 
-    pub fn get_idx(&self, key: &K, vary: &str) -> Option<V> {
-        let sha = Self::hash_url(key.as_ref(), vary);
+    pub fn get_idx(&self, key: &K, headers: &HeaderMap) -> Option<V> {
+        let vary = Self::resolve_vary(headers).ok()?;
+        let sha = Self::hash_url(key.as_ref(), &vary);
 
         let idx_file = IndexFile::load()?;
 
@@ -106,14 +107,7 @@ where
 
     /// Stores a successfully loaded value in the cache for a given key.
     pub fn store_idx(&self, key: K, headers: HeaderMap, value: V) -> Result<(), CacheError> {
-        let vary = headers
-            .get(VARY)
-            .map(|v| v.to_str().unwrap_or_default())
-            .unwrap_or_default();
-
-        if vary.eq_ignore_ascii_case("*") {
-            return Err(CacheError::WriteError(String::from("")));
-        }
+        let vary = Self::resolve_vary(&headers)?;
 
         let cache_control = headers
             .get(CACHE_CONTROL)
@@ -128,7 +122,7 @@ where
             )));
         }
 
-        let sha = Self::hash_url(key.as_ref(), vary);
+        let sha = Self::hash_url(key.as_ref(), &vary);
 
         let data = match to_stdvec(&value) {
             Ok(d) => d,
@@ -139,7 +133,7 @@ where
             }
         };
 
-        let header = CacheHeader::new(data.as_slice(), sha, vary, &headers, &cache_control);
+        let header = CacheHeader::new(data.as_slice(), sha, &vary, &headers, &cache_control);
 
         if data.len() >= MAX_BLOCK_SIZE as usize {
             LargeFile::write(data.as_slice(), sha, header)
@@ -170,6 +164,41 @@ where
         hasher.update(vary.as_bytes());
         hasher.finalize().into()
     }
+
+    fn resolve_vary(headers: &HeaderMap) -> Result<String, CacheError> {
+        let vary = headers
+            .get(VARY)
+            .map(|v| v.to_str().unwrap_or_default())
+            .unwrap_or_default();
+
+        if vary.eq_ignore_ascii_case("*") {
+            return Err(CacheError::WriteError(String::from("")));
+        }
+
+        let mut parts = Vec::new();
+
+        for header in vary.split(',').map(|s| s.trim()) {
+            let name = header.parse::<HeaderName>().map_err(|_| {
+                CacheError::WriteError(format!("Invalid header name in Vary: '{}'", header))
+            })?;
+
+            let value = headers
+                .get(&name)
+                .ok_or_else(|| {
+                    CacheError::WriteError(format!("Missing header '{}' specified in Vary", name))
+                })?
+                .to_str()
+                .map_err(|_| {
+                    CacheError::WriteError(format!("Invalid header value for '{}'", name))
+                })?;
+
+            parts.push(format!("{}:{}", name, value));
+        }
+
+        parts.sort();
+
+        Ok(parts.join(","))
+    }
 }
 
 #[cfg(test)]
@@ -187,7 +216,11 @@ mod tests {
         let result = cache.store_idx(key.clone(), headers.clone(), value.clone());
         assert!(result.is_ok());
 
-        let retrieved = cache.get_idx(&key, "Accept-Encoding").unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(VARY, "Accept-Encoding".parse().unwrap());
+        headers.insert("Accept-Encoding", "gzip".parse().unwrap());
+
+        let retrieved = cache.get_idx(&key, &headers).unwrap();
         assert_eq!(retrieved, value);
     }
 }
