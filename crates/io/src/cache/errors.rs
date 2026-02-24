@@ -9,16 +9,6 @@ pub enum CacheRead<T: Clone> {
     Miss,
 }
 
-impl<T: Clone> CacheRead<T> {
-    pub fn is_hit(&self) -> bool {
-        matches!(self, CacheRead::Hit(_))
-    }
-
-    pub fn is_miss(&self) -> bool {
-        matches!(self, CacheRead::Miss)
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum CacheError {
     #[error("Failed to serialize/deserialize cache data: {0}")]
