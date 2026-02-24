@@ -5,7 +5,7 @@ use postcard::to_stdvec;
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     hash::Hash,
     sync::{Arc, RwLock},
 };
@@ -91,20 +91,29 @@ where
 
     /// Stores a successfully loaded value in the cache for a given key.
     pub fn store(&self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
-        if let Ok(entries) = self.entries.write()
-            && let Some(existing) = entries.get(&key)
-        {
-            match existing {
-                CacheEntry::Loaded(_) => {
-                    return Err(CacheError::WriteError(String::from(
-                        "Cache entry already exists for this key",
-                    )));
+        if let Ok(mut entries) = self.entries.write() {
+            match entries.entry(key.clone()) {
+                Entry::Occupied(mut occ) => match occ.get() {
+                    CacheEntry::Loaded(_) => {
+                        return Err(CacheError::WriteError(String::from(
+                            "Cache entry already exists for this key",
+                        )));
+                    }
+                    _ => {
+                        occ.insert(CacheEntry::Pending);
+                    }
+                },
+                Entry::Vacant(vac) => {
+                    vac.insert(CacheEntry::Pending);
                 }
-                _ => { /* Allow overwriting Pending or Failed entries */ }
             }
         }
 
-        self.store_on_disk(&key, &value, headers)?;
+        if let Err(e) = self.store_on_disk(&key, &value, headers) {
+            self.mark_failed(key.clone());
+            return Err(e);
+        }
+
         self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
 
         Ok(())
@@ -153,18 +162,20 @@ where
 
     /// Marks a key as pending if it is not already in the cache.
     pub fn mark_pending(&self, key: K) -> bool {
-        let mut entries = self.entries.write().expect("Cache lock poisoned");
-        if entries.contains_key(&key) {
-            return false;
+        if let Ok(mut entries) = self.entries.write() {
+            if entries.contains_key(&key) {
+                return false;
+            }
+            entries.insert(key, CacheEntry::Pending);
+            true
+        } else {
+            false
         }
-        entries.insert(key, CacheEntry::Pending);
-        true
     }
 
     /// Marks a key as failed.
     pub fn mark_failed(&self, key: K) {
-        let mut entries = self.entries.write().expect("Cache lock poisoned");
-        entries.insert(key, CacheEntry::Failed);
+        self.insert(key, CacheEntry::Failed);
     }
 
     /// Inserts or updates a cache entry for a given key.
