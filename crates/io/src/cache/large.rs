@@ -54,7 +54,7 @@ impl LargeFile {
 
         let mut idx_file = IndexFile::load().unwrap_or_default();
         idx_file.entries.insert(sha, PointerType::Large);
-        idx_file.write()?;
+        idx_file.save()?;
 
         let mut meta_writer = BufWriter::new(metadata_file);
         postcard::to_io(&header, &mut meta_writer)
@@ -107,6 +107,23 @@ impl LargeFile {
         })?;
 
         Ok((header, content, content_data.len()))
+    }
+
+    pub fn delete(sha: [u8; 32]) -> Result<(), CacheError> {
+        let cache_path = get_cache_path()
+            .ok_or_else(|| CacheError::WriteError(String::from("Cache path not found")))?;
+        let str_sha = Self::hash_to_hex(&sha);
+
+        let path = cache_path
+            .join(LARGE_DIR)
+            .join(&str_sha[..2])
+            .join(&str_sha[2..]);
+
+        if path.exists() {
+            fs::remove_dir_all(&path)?;
+        }
+
+        Ok(())
     }
 
     fn hash_to_hex(hash: &[u8; 32]) -> String {

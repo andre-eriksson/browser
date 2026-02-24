@@ -88,6 +88,18 @@ where
         self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
     }
 
+    /// Evicts a cache entry for a given key, removing it from both memory and disk.
+    pub fn evict(&self, key: &K, headers: &HeaderMap) -> Result<bool, CacheError> {
+        let mut removed_mem = false;
+
+        if let Ok(mut entries) = self.entries.write() {
+            removed_mem = entries.remove(key).is_some();
+        }
+
+        let removed_disk = self.remove_idx(key, headers)?;
+        Ok(removed_mem || removed_disk)
+    }
+
     /// Marks a key as pending if it is not already in the cache.
     pub fn mark_pending(&self, key: K) -> bool {
         let mut entries = self.entries.write().expect("Cache lock poisoned");
@@ -159,14 +171,7 @@ where
 
         let sha = Self::hash_url(key.as_ref(), &vary);
 
-        let data = match to_stdvec(&value) {
-            Ok(d) => d,
-            Err(_) => {
-                return Err(CacheError::WriteError(String::from(
-                    "Failed to serialize value",
-                )));
-            }
-        };
+        let data = to_stdvec(&value).map_err(CacheError::SerializationError)?;
 
         let header = CacheHeader::new(data.as_slice(), sha, &vary, headers, &cache_control);
 
@@ -175,6 +180,32 @@ where
         } else {
             BlockFile::write(value, sha, header)
         }
+    }
+
+    fn remove_idx(&self, key: &K, headers: &HeaderMap) -> Result<bool, CacheError> {
+        let vary = Self::resolve_vary(headers)?;
+        let sha = Self::hash_url(key.as_ref(), &vary);
+
+        let mut idx_file = IndexFile::load()?;
+
+        let pointer = idx_file.entries.get_mut(&sha);
+
+        if let Some(ptr) = pointer {
+            match ptr {
+                PointerType::Large => {
+                    idx_file.entries.remove(&sha);
+                    LargeFile::delete(sha)?;
+                }
+                PointerType::Block(block_ptr) => {
+                    block_ptr.dead = true;
+                }
+            }
+
+            idx_file.save()?;
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     /// Hashes a URL and its Vary string to produce a unique key for caching.

@@ -94,7 +94,7 @@ impl BlockFile {
         };
 
         idx_file.entries.insert(sha, PointerType::Block(pointer));
-        idx_file.write()?;
+        idx_file.save()?;
 
         Ok(())
     }

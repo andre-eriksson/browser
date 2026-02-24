@@ -43,7 +43,7 @@ impl IndexFile {
         from_bytes(&idx_file).map_err(|_| CacheError::CorruptedIndex)
     }
 
-    pub fn write(&self) -> Result<(), CacheError> {
+    pub fn save(&self) -> Result<(), CacheError> {
         let idx_data = to_stdvec(self).map_err(CacheError::SerializationError)?;
 
         Resource::write(ResourceType::Cache(IDX_FILE_PATH), idx_data)
@@ -58,7 +58,7 @@ pub enum PointerType {
 }
 
 /// A pointer to a block of data in the cache file, including its location and status.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct BlockPointer {
     pub block_id: u32,
     pub offset: u32,
