@@ -99,6 +99,7 @@ pub struct CacheHeader {
     pub no_cache: bool,
 
     // Data integrity
+    pub dead: bool,
     pub content_size: u32,
     pub content_hash: [u8; 32],
     pub header_version: u16,
@@ -159,6 +160,7 @@ impl CacheHeader {
             },
             must_revalidate: cache_control.must_revalidate,
             no_cache: cache_control.no_cache,
+            dead: false,
             content_size,
             content_hash,
             header_version: HEADER_VERSION,

@@ -1,15 +1,17 @@
 use std::{
     fs::{self, OpenOptions},
     io::{BufWriter, Write},
+    time::SystemTime,
 };
 
+use database::{Database, Table};
 use serde::{Serialize, de::DeserializeOwned};
 use storage::paths::get_cache_path;
 
 use crate::cache::{
     errors::CacheError,
     header::CacheHeader,
-    index::{IndexFile, PointerType},
+    index::{Index, IndexDatabase, IndexEntry, IndexTable},
 };
 
 const LARGE_DIR: &str = "resources/large";
@@ -52,9 +54,24 @@ impl LargeFile {
             Err(e) => return Err(CacheError::IoError(e)),
         };
 
-        let mut idx_file = IndexFile::load().unwrap_or_default();
-        idx_file.entries.insert(sha, PointerType::Large);
-        idx_file.save()?;
+        if let Ok(connection) = IndexDatabase::open() {
+            let index = Index {
+                key: sha,
+                entry: IndexEntry::Large,
+                file_id: 0,
+                offset: None,
+                header_size: None,
+                content_size: data.len() as u32,
+                expires_at: None,
+                created_at: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs(),
+                vary: header.vary.clone(),
+            };
+
+            let _ = IndexTable::insert(&connection, &index);
+        }
 
         let mut meta_writer = BufWriter::new(metadata_file);
         postcard::to_io(&header, &mut meta_writer)

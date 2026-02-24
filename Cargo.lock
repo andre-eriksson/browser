@@ -1007,6 +1007,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "rusqlite",
+ "storage",
  "thiserror 2.0.17",
  "time",
  "tracing",
@@ -2630,10 +2631,12 @@ version = "0.1.0"
 dependencies = [
  "constants",
  "cookies",
+ "database",
  "dirs",
  "httpdate",
  "network",
  "postcard",
+ "rusqlite",
  "rust-embed",
  "serde",
  "sha2",

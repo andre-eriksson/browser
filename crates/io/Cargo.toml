@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 constants.workspace = true
+database.workspace = true
 storage.workspace = true
 network = { workspace = true, optional = true }
 cookies  = { workspace = true, optional = true }
@@ -15,6 +16,7 @@ dirs = "6.0.0"
 httpdate.workspace = true
 postcard.workspace = true
 rust-embed = { version = "8.9.0", features = ["include-exclude"] }
+rusqlite.workspace = true
 serde.workspace = true
 sha2.workspace = true
 thiserror.workspace = true

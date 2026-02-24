@@ -1,3 +1,4 @@
+use database::Database;
 use network::{CACHE_CONTROL, HeaderMap, HeaderName, VARY};
 use postcard::to_stdvec;
 use serde::{Serialize, de::DeserializeOwned};
@@ -12,7 +13,7 @@ use crate::cache::{
     block::BlockFile,
     errors::{CacheError, CacheRead},
     header::{CacheControlResponse, CacheHeader, HEADER_VERSION},
-    index::{IndexFile, PointerType},
+    index::{IndexDatabase, IndexEntry, IndexTable},
     large::LargeFile,
 };
 
@@ -36,9 +37,15 @@ pub enum CacheEntry<T: Clone> {
 }
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Cache<K, V: Clone> {
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
+}
+
+impl Default for Cache<String, Vec<u8>> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<K, V> Cache<K, V>
@@ -121,28 +128,40 @@ where
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
-        let idx_file = IndexFile::load()?;
+        if let Ok(connection) = IndexDatabase::open() {
+            let index = IndexTable::get_by_key(&connection, &sha).map_err(|_| {
+                CacheError::ReadError(String::from("Failed to read index entry from database"))
+            })?;
 
-        let pointer = idx_file.entries.get(&sha);
+            match index {
+                Some(idx) => {
+                    let (header, value, content_size) = match idx.entry {
+                        IndexEntry::Large => LargeFile::read::<V>(sha),
+                        IndexEntry::Block => BlockFile::read(
+                            idx.file_id,
+                            idx.offset.unwrap_or(0),
+                            idx.header_size.unwrap_or(0),
+                            idx.content_size,
+                        ),
+                    }?;
 
-        if pointer.is_none() {
-            return Ok(CacheRead::Miss);
+                    if header.url_hash != sha
+                        || header.content_size != content_size as u32
+                        || header.header_version != HEADER_VERSION
+                        || !header.is_fresh()
+                    {
+                        return Ok(CacheRead::Miss);
+                    }
+
+                    Ok(CacheRead::Hit(value))
+                }
+                None => Ok(CacheRead::Miss),
+            }
+        } else {
+            Err(CacheError::ReadError(String::from(
+                "Failed to open index database",
+            )))
         }
-
-        let (header, value, content_size) = match pointer.unwrap() {
-            PointerType::Large => LargeFile::read::<V>(sha),
-            PointerType::Block(ptr) => BlockFile::read(ptr),
-        }?;
-
-        if header.url_hash != sha
-            || header.content_size != content_size as u32
-            || header.header_version != HEADER_VERSION
-            || !header.is_fresh()
-        {
-            return Ok(CacheRead::Miss);
-        }
-
-        Ok(CacheRead::Hit(value))
     }
 
     /// Inserts or updates a cache entry for a given key.
@@ -186,23 +205,28 @@ where
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
-        let mut idx_file = IndexFile::load()?;
+        if let Ok(connection) = IndexDatabase::open() {
+            let index = IndexTable::get_by_key(&connection, &sha).map_err(|_| {
+                CacheError::ReadError(String::from("Failed to read index entry from database"))
+            })?;
 
-        let pointer = idx_file.entries.get_mut(&sha);
+            if let Some(idx) = index {
+                match idx.entry {
+                    IndexEntry::Large => LargeFile::delete(sha)?,
+                    IndexEntry::Block => BlockFile::delete(
+                        idx.file_id,
+                        idx.offset.unwrap_or(0),
+                        idx.header_size.unwrap_or(0),
+                    )?,
+                }
 
-        if let Some(ptr) = pointer {
-            match ptr {
-                PointerType::Large => {
-                    idx_file.entries.remove(&sha);
-                    LargeFile::delete(sha)?;
-                }
-                PointerType::Block(block_ptr) => {
-                    block_ptr.dead = true;
-                }
+                IndexTable::delete_by_key(&connection, &sha).map_err(|_| {
+                    CacheError::WriteError(String::from(
+                        "Failed to delete index entry from database",
+                    ))
+                })?;
+                return Ok(true);
             }
-
-            idx_file.save()?;
-            return Ok(true);
         }
 
         Ok(false)
