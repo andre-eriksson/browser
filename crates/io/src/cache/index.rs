@@ -1,22 +1,61 @@
+//! This module defines the `Index` struct and related database operations for managing cache entries in
+//! the browser's caching system. It provides functionality to store metadata about cached resources,
+//! including their location in block files or large files, expiration times, and other relevant information.
+//! The `IndexDatabase` struct implements the `Database` trait to handle database connections and schema
+//! management, while the `IndexTable` struct implements the `Table` trait to manage CRUD operations on
+//! the index entries.
+
 use database::{Database, Table};
 use rusqlite::{Connection, Result, params};
 use storage::paths::get_cache_path;
 
+/// Path to the SQLite database file that stores the cache index entries.
 const IDX_DATABASE: &str = "resources/index.db";
 
+/// Enum representing the type of cache entry, indicating whether the cached resource is stored in a block file or as a large file.
+#[derive(Debug, Clone, Copy)]
+pub enum IndexEntry {
+    /// The cached resource is stored in a block file, which may contain multiple entries and requires offset and header size for access.
+    Block,
+
+    /// The cached resource is stored as a large file, which is accessed directly without the need for offsets or header sizes.
+    Large,
+}
+
+/// Represents a cache index entry, containing metadata about a cached resource and its location in the cache storage.
 pub struct Index {
+    /// The SHA-256 hash of the cached resource's URL, used as the key for lookup in the index.
     pub key: [u8; 32],
+
+    /// Indicates whether the entry is stored in a block file or as a large file, which determines how the content is accessed.
     pub entry: IndexEntry,
+
+    /// The ID of the block file where the content is stored (for block entries) or a reference for large files.
     pub file_id: u32,
+
+    /// The byte offset within the block file where the content starts (only applicable for block entries).
     pub offset: Option<u32>,
+
+    /// The size of the header metadata for the cached entry, used to correctly read the content from block files.
     pub header_size: Option<u32>,
+
+    /// The size of the cached content in bytes, used for validation and to determine how much data to read.
     pub content_size: u32,
+
+    /// The UNIX timestamp (in seconds) when the cached entry expires, used to determine if the entry is still valid.
     pub expires_at: Option<u64>,
+
+    /// The UNIX timestamp (in seconds) when the cached entry was created, used for cache management and eviction policies.
     pub created_at: u64,
+
+    /// The headers associated with the cached entry that affect its cache key, derived from the Vary header, used for cache validation.
     pub vary: Option<String>,
 }
 
+/// Database interface for managing cache index entries, providing methods to open the database connection and ensure the schema is set up correctly.
 pub struct IndexDatabase;
+
+/// Table interface for managing cache index entries, providing methods to create the index table and perform CRUD operations on the entries.
 pub struct IndexTable;
 
 impl IndexTable {
@@ -52,6 +91,7 @@ impl IndexTable {
         }
     }
 
+    /// Deletes an index entry by its key, used when an entry is found to be expired or corrupted.
     pub fn delete_by_key(conn: &Connection, key: &[u8; 32]) -> Result<()> {
         conn.execute("DELETE FROM cache_index WHERE key = ?1", params![key])?;
         Ok(())
@@ -93,11 +133,6 @@ impl Database for IndexDatabase {
 
         Ok(conn)
     }
-}
-
-pub enum IndexEntry {
-    Block,
-    Large,
 }
 
 impl Table for IndexTable {

@@ -1,3 +1,5 @@
+//! Errors related to cache operations.
+
 use thiserror::Error;
 
 /// Represents the result of a cache read operation, indicating whether it was a hit or a miss.

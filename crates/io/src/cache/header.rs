@@ -1,3 +1,8 @@
+//! Defines the `CacheHeader` struct which encapsulates metadata for cached HTTP responses,
+//! including content type, ETag, last modified time, expiration time, and cache control
+//! directives. It also provides methods to determine if a cached entry is still fresh and
+//! to generate revalidation headers for conditional requests.
+
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use httpdate::fmt_http_date;
@@ -10,6 +15,8 @@ use sha2::{Digest, Sha256};
 
 pub const HEADER_VERSION: u16 = 1;
 
+/// Represents the parsed response version of the `Cache-Control` header, containing all relevant
+/// directives and their values.
 #[derive(Debug, Default)]
 pub struct CacheControlResponse {
     pub max_age_seconds: Option<u32>,
@@ -75,28 +82,61 @@ impl From<&str> for CacheControlResponse {
     }
 }
 
+/// Represents the metadata header for a cached HTTP response, containing all necessary information to
+/// manage cache freshness, revalidation, and data integrity.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheHeader {
     // Identity
+    /// SHA-256 hash of the URL, used as the key for cache lookup and to ensure data integrity.
     pub url_hash: [u8; 32],
+
+    /// The MIME type of the cached content, extracted from the `Content-Type` header of the HTTP response.
     pub content_type: String,
 
     // HTTP cache metadata
+    /// Optional ETag value from the HTTP response, used for conditional requests during revalidation.
     pub etag: Option<String>,
+
+    /// Optional last modified time of the cached content, represented as a UNIX timestamp in seconds.
     pub last_modified: Option<u64>,
+
+    /// Optional expiration time of the cached content, represented as a UNIX timestamp in seconds.
+    /// If `None`, expiration is determined by other cache control directives or heuristics.
     pub expires_at: Option<u64>,
+
+    /// Optional max-age directive from the `Cache-Control` header, representing the maximum age of the cached content in seconds.
     pub max_age_seconds: Option<u32>,
+
+    /// The timestamp when the content was fetched and stored in the cache, represented as a UNIX timestamp in seconds.
+    /// This is used to determine freshness and expiration based on max-age and other directives.
     pub fetched_at: u64,
+
+    /// Optional joined headers that are from the Vary header, used to determine which request headers affect the cache key and
+    /// to ensure correct cache hits.
     pub vary: Option<String>,
 
     // Revalidation state
+    /// Indicates whether the cached entry must be revalidated with the origin server before being served,
+    /// based on the `must-revalidate` directive in the `Cache-Control` header.
     pub must_revalidate: bool,
+
+    /// Indicates whether the cached entry should not be served without revalidation, based on the `no-cache`
+    /// directive in the `Cache-Control` header.
     pub no_cache: bool,
 
     // Data integrity
+    /// Indicates whether the cached entry is considered "dead" or invalid, which can occur if the
+    /// content has been modified on the origin server or if the cache entry has been corrupted.
+    /// Dead entries should not be served and should be removed from the cache during cleanup.
     pub dead: bool,
+
+    /// The size of the cached content in bytes, used for managing cache storage and ensuring data integrity during retrieval.
     pub content_size: u32,
+
+    /// SHA-256 hash of the cached content, used to verify data integrity when retrieving from the cache and to detect corruption.
     pub content_hash: [u8; 32],
+
+    /// The version of the cache header format, used to ensure compatibility when reading and writing cache entries.
     pub header_version: u16,
 }
 
@@ -162,6 +202,17 @@ impl CacheHeader {
         }
     }
 
+    /// Determines if the cached entry is still fresh based on its metadata and the current time.
+    /// This method checks the following conditions in order:
+    /// 1. If the `no-cache` directive is present, the entry is not fresh and must be revalidated.
+    /// 2. If the `expires_at` timestamp is set, the entry is fresh if the current time is before
+    ///    the expiration time.
+    /// 3. If the `max_age_seconds` directive is set, the entry is fresh if the current time is within
+    ///    the max-age window from the `fetched_at` time.
+    /// 4. If the `last_modified` timestamp is set, a heuristic freshness lifetime is calculated as
+    ///    one-tenth of the time since the last modification, and the entry is fresh if the current
+    ///    time is within this heuristic window from the `fetched_at` time.
+    /// 5. If none of the above conditions apply, the entry is considered fresh by default.
     pub fn is_fresh(&self) -> bool {
         if self.no_cache {
             return false;
@@ -188,6 +239,11 @@ impl CacheHeader {
         true
     }
 
+    /// Generates the necessary headers for revalidating the cached entry with the origin server. This includes:
+    /// - `If-None-Match` header with the ETag value if it is present, allowing the server to respond with a
+    ///   304 Not Modified if the content has not changed.
+    /// - `If-Modified-Since` header with the last modified time if it is present, allowing the server to
+    ///   respond with a 304 Not Modified if the content has not changed since that time.
     #[allow(dead_code)]
     pub fn revalidation_headers(&self) -> Vec<(HeaderName, String)> {
         let mut headers = Vec::new();

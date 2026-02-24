@@ -1,3 +1,5 @@
+//! In-memory cache implementation for resources, with support for disk persistence and Vary header handling.
+
 use network::{CACHE_CONTROL, HeaderMap, HeaderName, VARY};
 use postcard::to_stdvec;
 use serde::{Serialize, de::DeserializeOwned};
@@ -28,6 +30,7 @@ pub enum CacheEntry<T: Clone> {
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
 #[derive(Debug, Clone)]
 pub struct MemoryCache<K, V: Clone> {
+    /// The in-memory cache entries, protected by a read-write lock for concurrent access.
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
 }
 
@@ -71,6 +74,7 @@ where
             })
     }
 
+    /// Retrieves a cached value from disk for a given key and headers, returning `None` if not found or expired.
     fn get_from_disk(&self, key: &K, headers: &HeaderMap) -> Result<Option<V>, CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
@@ -106,6 +110,7 @@ where
         Ok(())
     }
 
+    /// Stores a value on disk for a given key and headers, handling Vary header resolution and cache control directives.
     fn store_in_disk(&self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);

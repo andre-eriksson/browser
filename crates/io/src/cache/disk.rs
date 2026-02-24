@@ -1,3 +1,5 @@
+//! Disk-based cache implementation for storing and retrieving cached data on the filesystem, with support for both block-based and large file storage.
+
 use std::time::SystemTime;
 
 use database::{Database, Table};
@@ -12,6 +14,9 @@ use crate::cache::{
     large::LargeFile,
 };
 
+/// Main interface for the disk cache, providing methods to get, put, and remove cached entries.
+/// It handles both block-based and large file storage, ensuring data integrity and proper cleanup
+/// of expired or corrupted entries.
 pub struct DiskCache;
 
 impl DiskCache {

@@ -1,3 +1,12 @@
+//! This module implements the block file storage mechanism for the cache system. Block files are designed to store
+//! multiple small cache entries together, improving space efficiency and reducing overhead compared to storing each
+//! entry as a separate file. Each block file starts with a fixed header containing magic bytes and a version number,
+//! followed by a sequence of cache entries. Each entry consists of a serialized `CacheHeader` followed by the raw
+//! content bytes. The `BlockFile` struct provides methods for writing new entries, reading existing entries, deleting
+//! entries by marking them as dead, and compacting block files to reclaim space from deleted entries. The compaction
+//! process identifies block files that are nearly full and have a high proportion of dead entries, and rewrites them
+//! with only the live entries while updating the index database accordingly.
+
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
@@ -45,6 +54,13 @@ pub struct BlockHeader {
 pub struct BlockFile;
 
 impl BlockFile {
+    /// Writes a new cache entry to the specified block file, appending it to the end of the file.
+    /// If the file does not exist, it is created and initialized with the block header.
+    /// The method returns the file ID, the byte offset where the entry was written,
+    /// the size of the header, and the size of the content, which are used to create an index
+    /// entry for later retrieval. The caller is responsible for ensuring that the block file does
+    /// not exceed the maximum block size after writing, and should call `prepare_write()` to
+    /// determine the appropriate file before writing.
     pub fn write(
         value: &[u8],
         file_number: u32,
@@ -115,6 +131,12 @@ impl BlockFile {
         ))
     }
 
+    /// Prepares to write a new cache entry by determining the appropriate block file and offset for the entry.
+    /// This method checks existing block files for available space and returns the file ID, offset, header size,
+    /// content size, and file path where the entry can be written. If all existing block files are full, it
+    /// determines the path for a new block file. The caller should then call `write()` with the returned file
+    /// ID and path to actually write the entry. This separation allows the caller to perform necessary checks
+    /// and updates (e.g. updating the index) before committing to writing the entry to disk.
     pub fn prepare_write(
         value: &[u8],
         header: &mut CacheHeader,
@@ -182,6 +204,12 @@ impl BlockFile {
         ))
     }
 
+    /// Reads a cache entry from a block file based on the provided block ID, offset, header size, and content size.
+    /// The block ID corresponds to the file number (with an offset of +1 to allow for a zero-based file naming scheme),
+    /// and the method constructs the file path accordingly. It validates the block file header to ensure it matches
+    /// the expected magic bytes and version, then reads the specified header and content bytes from the file. The
+    /// method returns the deserialized `CacheHeader`, the content bytes as a vector, and the size of the content.
+    /// If any step fails (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
     pub fn read(
         block_id: u32,
         offset: u32,
@@ -217,6 +245,12 @@ impl BlockFile {
         Ok((header, data_buf, content_size as usize))
     }
 
+    /// Marks a cache entry as deleted by setting the `dead` flag in its header. This method does not physically remove
+    /// the entry from the block file, but instead updates the header to indicate that the entry is no longer valid.
+    /// The compaction process will later reclaim space from dead entries. The method takes the block ID, offset, and
+    /// header size to locate the entry within the block file, reads and deserializes the header, sets the `dead` flag
+    /// to `true`, and then writes the updated header back to the same location in the file. If any step fails
+    /// (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
     pub fn delete(block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
@@ -260,6 +294,9 @@ impl BlockFile {
     ///
     /// After compaction the index database is updated with the new offsets so that
     /// subsequent reads resolve correctly. Dead entries are also pruned from the index.
+    #[allow(dead_code)]
+    // NOTE: Will be used when a scheduler is implemented to run compaction in
+    //       the background every N hours or when certain thresholds are met.
     pub fn compact() -> Result<(), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
