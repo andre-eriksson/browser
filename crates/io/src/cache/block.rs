@@ -136,19 +136,42 @@ impl BlockFile {
         let data = fs::read(&data_path)?;
 
         let (block_header, _): (BlockHeader, &[u8]) =
-            postcard::take_from_bytes(&data).map_err(|_| CacheError::CorruptedBlock)?;
+            postcard::take_from_bytes(&data).map_err(|_| CacheError::CorruptedHeader)?;
 
         if block_header.magic != MAGIC || block_header.version != VERSION {
             return Err(CacheError::CorruptedBlock);
         }
 
+        let data_len = data.len();
         let start = offset as usize;
-        let header_buf = &data[start..start + header_size as usize];
+        let header_size_usize = header_size as usize;
+        let content_size_usize = content_size as usize;
+
+        if start > data_len {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        let header_end = start
+            .checked_add(header_size_usize)
+            .ok_or(CacheError::CorruptedHeader)?;
+
+        if header_end > data_len {
+            return Err(CacheError::CorruptedHeader);
+        }
+
+        let data_end = header_end
+            .checked_add(content_size_usize)
+            .ok_or(CacheError::CorruptedBlock)?;
+
+        if data_end > data_len {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        let header_buf = &data[start..header_end];
         let header: CacheHeader =
             postcard::from_bytes(header_buf).map_err(|_| CacheError::CorruptedHeader)?;
 
-        let data_start = start + header_size as usize;
-        let data_buf = data[data_start..data_start + content_size as usize].to_vec();
+        let data_buf = data[header_end..data_end].to_vec();
 
         Ok((header, data_buf, content_size as usize))
     }
