@@ -4,17 +4,12 @@ use database::{Database, Table};
 use rusqlite::Connection;
 
 use crate::cache::{
-    block::BlockFile,
+    block::{BlockFile, MAX_BLOCK_SIZE},
     errors::CacheError,
     header::{CacheHeader, HEADER_VERSION},
     index::{Index, IndexDatabase, IndexEntry, IndexTable},
     large::LargeFile,
 };
-
-/// 20 MB - This threshold determines whether a cache entry is stored as a block or as a large file.
-/// Entries larger than this size will be stored as large files, while smaller entries will be
-/// stored in block files.
-const MAX_BLOCK_SIZE: u32 = 20_000_000;
 
 pub struct DiskCache;
 
@@ -138,6 +133,7 @@ impl DiskCache {
         }
     }
 
+    /// Internal function to handle the deletion of cache entries, ensuring that both the index and the associated data files are removed.
     fn delete(
         key: [u8; 32],
         offset: Option<u32>,

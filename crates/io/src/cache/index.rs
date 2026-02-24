@@ -56,6 +56,21 @@ impl IndexTable {
         conn.execute("DELETE FROM cache_index WHERE key = ?1", params![key])?;
         Ok(())
     }
+
+    /// Updates the offset of a block entry in the index, used during compaction
+    /// when live entries are relocated within a block file.
+    pub fn update_block_offset(
+        conn: &Connection,
+        key: &[u8; 32],
+        new_offset: u32,
+        new_header_size: u32,
+    ) -> Result<()> {
+        conn.execute(
+            "UPDATE cache_index SET offset = ?1, header_size = ?2 WHERE key = ?3 AND entry_type = 'block'",
+            params![new_offset, new_header_size, key],
+        )?;
+        Ok(())
+    }
 }
 
 impl Database for IndexDatabase {
