@@ -169,11 +169,19 @@ impl DiskCache {
 
                 let result = Self::delete(key, &conn);
 
-                conn.execute("COMMIT", []).map_err(|e| {
-                    CacheError::WriteError(format!("Failed to commit transaction: {}", e))
-                })?;
+                match result {
+                    Ok(value) => {
+                        conn.execute("COMMIT", []).map_err(|e| {
+                            CacheError::WriteError(format!("Failed to commit transaction: {}", e))
+                        })?;
 
-                result
+                        Ok(value)
+                    }
+                    Err(e) => {
+                        let _ = conn.execute("ROLLBACK", []);
+                        Err(e)
+                    }
+                }
             }
         }
     }
