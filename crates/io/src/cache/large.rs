@@ -1,18 +1,11 @@
 use std::{
     fs::{self, OpenOptions},
     io::{BufWriter, Write},
-    time::SystemTime,
 };
 
-use database::{Database, Table};
-use serde::{Serialize, de::DeserializeOwned};
 use storage::paths::get_cache_path;
 
-use crate::cache::{
-    errors::CacheError,
-    header::CacheHeader,
-    index::{Index, IndexDatabase, IndexEntry, IndexTable},
-};
+use crate::cache::{errors::CacheError, header::CacheHeader};
 
 const LARGE_DIR: &str = "resources/large";
 const METADATA_FILE: &str = "metadata";
@@ -21,7 +14,7 @@ const CONTENT_FILE: &str = "content";
 pub struct LargeFile;
 
 impl LargeFile {
-    pub fn write(data: &[u8], sha: [u8; 32], header: CacheHeader) -> Result<(), CacheError> {
+    pub fn write(data: &[u8], sha: [u8; 32], header: &CacheHeader) -> Result<u32, CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
         let cache_path = match get_cache_path() {
             Some(path) => path,
@@ -33,7 +26,7 @@ impl LargeFile {
             .join(&str_sha[..2])
             .join(&str_sha[2..]);
 
-        let _ = fs::create_dir_all(&path);
+        fs::create_dir_all(&path)?;
 
         let metadata_file = match OpenOptions::new()
             .append(true)
@@ -54,25 +47,6 @@ impl LargeFile {
             Err(e) => return Err(CacheError::IoError(e)),
         };
 
-        if let Ok(connection) = IndexDatabase::open() {
-            let index = Index {
-                key: sha,
-                entry: IndexEntry::Large,
-                file_id: 0,
-                offset: None,
-                header_size: None,
-                content_size: data.len() as u32,
-                expires_at: None,
-                created_at: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
-                vary: header.vary.clone(),
-            };
-
-            let _ = IndexTable::insert(&connection, &index);
-        }
-
         let mut meta_writer = BufWriter::new(metadata_file);
         postcard::to_io(&header, &mut meta_writer)
             .map_err(|_| CacheError::WriteError(String::from("Failed to serialize header")))?;
@@ -88,13 +62,10 @@ impl LargeFile {
             .flush()
             .map_err(|_| CacheError::WriteError(String::from("Failed to flush content data")))?;
 
-        Ok(())
+        Ok(data.len() as u32)
     }
 
-    pub fn read<V>(sha: [u8; 32]) -> Result<(CacheHeader, V, usize), CacheError>
-    where
-        V: Clone + Serialize + DeserializeOwned,
-    {
+    pub fn read(sha: [u8; 32]) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
 
         let path = format!(
@@ -116,14 +87,12 @@ impl LargeFile {
 
         let meta_data = std::fs::read(&metadata_path)?;
         let content_data = std::fs::read(&content_path)?;
+        let content_size = content_data.len();
 
         let header: CacheHeader =
             postcard::from_bytes(&meta_data).map_err(|_| CacheError::CorruptedHeader)?;
-        let content: V = postcard::from_bytes(&content_data).map_err(|_| {
-            CacheError::ReadError(String::from("Failed to deserialize content data"))
-        })?;
 
-        Ok((header, content, content_data.len()))
+        Ok((header, content_data, content_size))
     }
 
     pub fn delete(sha: [u8; 32]) -> Result<(), CacheError> {

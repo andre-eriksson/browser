@@ -13,5 +13,5 @@ pub use network::{
     middleware::cookies::CookieMiddleware, policy::DocumentPolicy, request::RequestResult,
 };
 
-pub use cache::{Cache, CacheEntry};
+pub use cache::{CacheEntry, LruCache};
 pub use manager::{Resource, ResourceType};

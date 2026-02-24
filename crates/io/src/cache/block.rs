@@ -1,19 +1,14 @@
 use std::{
     fs::{self, File, OpenOptions},
-    io::{BufWriter, Read, Seek, SeekFrom, Write},
+    io::{Read, Seek, SeekFrom, Write},
     path::Path,
 };
 
-use database::{Database, Table};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 use storage::paths::get_cache_path;
 
-use crate::cache::{
-    errors::CacheError,
-    header::CacheHeader,
-    index::{Index, IndexDatabase, IndexEntry, IndexTable},
-};
+use crate::cache::{errors::CacheError, header::CacheHeader};
 
 const MAGIC: [u8; 4] = *b"BLKC";
 const VERSION: u16 = 1;
@@ -29,10 +24,10 @@ pub struct BlockHeader {
 pub struct BlockFile;
 
 impl BlockFile {
-    pub fn write<V>(value: V, sha: [u8; 32], header: CacheHeader) -> Result<(), CacheError>
-    where
-        V: Clone + Serialize + DeserializeOwned,
-    {
+    pub fn write(
+        value: &[u8],
+        header: &mut CacheHeader,
+    ) -> Result<(u32, u32, u32, u32), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
             None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
@@ -45,7 +40,7 @@ impl BlockFile {
                 .join(BLOCK_DIR)
                 .join(format!("{}{}", count.saturating_sub(1), ".bin"));
 
-        fs::create_dir_all(cache_path.join(BLOCK_DIR)).map_err(CacheError::IoError)?;
+        fs::create_dir_all(cache_path.join(BLOCK_DIR))?;
 
         let mut file = match OpenOptions::new().append(true).create(true).open(&path) {
             Ok(file) => file,
@@ -99,6 +94,10 @@ impl BlockFile {
             Err(e) => return Err(CacheError::IoError(e)),
         };
 
+        let data_bytes = value.to_vec();
+
+        header.content_size = data_bytes.len() as u32;
+
         let header_bytes = match postcard::to_stdvec(&header) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -108,19 +107,6 @@ impl BlockFile {
                 )));
             }
         };
-
-        let data_bytes = match postcard::to_stdvec(&value) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(CacheError::WriteError(format!(
-                    "Failed to serialize data: {}",
-                    e
-                )));
-            }
-        };
-
-        let mut header = header;
-        header.content_size = data_bytes.len() as u32;
 
         let offset = match file.stream_position() {
             Ok(pos) => {
@@ -133,39 +119,24 @@ impl BlockFile {
             Err(_) => block_header_bytes.len() as u64,
         } as u32;
 
-        let mut writer = BufWriter::new(file);
-        writer.write_all(&header_bytes).ok();
-        writer.write_all(&data_bytes).ok();
-        writer.flush().ok();
+        file.write_all(&header_bytes)?;
+        file.write_all(&data_bytes)?;
+        file.flush()?;
 
-        if let Ok(connection) = IndexDatabase::open() {
-            let index = Index {
-                key: sha,
-                entry: IndexEntry::Block,
-                file_id: count as u32,
-                offset: Some(offset),
-                header_size: Some(header_bytes.len() as u32),
-                content_size: data_bytes.len() as u32,
-                expires_at: header.expires_at,
-                created_at: header.fetched_at,
-                vary: header.vary.clone(),
-            };
-
-            let _ = IndexTable::insert(&connection, &index);
-        }
-
-        Ok(())
+        Ok((
+            count as u32,
+            offset,
+            header_bytes.len() as u32,
+            data_bytes.len() as u32,
+        ))
     }
 
-    pub fn read<V>(
+    pub fn read(
         block_id: u32,
         offset: u32,
         header_size: u32,
         content_size: u32,
-    ) -> Result<(CacheHeader, V, usize), CacheError>
-    where
-        V: Clone + Serialize + DeserializeOwned,
-    {
+    ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let data_path = format!(
             "{}/{}/{}.bin",
             get_cache_path().unwrap().to_str().unwrap(),
@@ -208,9 +179,8 @@ impl BlockFile {
 
         let mut data_buf = vec![0u8; content_size as usize];
         file.read_exact(&mut data_buf)?;
-        let data: V = postcard::from_bytes(&data_buf).map_err(|_| CacheError::CorruptedBlock)?;
 
-        Ok((header, data, content_size as usize))
+        Ok((header, data_buf, content_size as usize))
     }
 
     pub fn delete(block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {

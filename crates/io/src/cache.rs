@@ -1,4 +1,3 @@
-use database::Database;
 use network::{CACHE_CONTROL, HeaderMap, HeaderName, VARY};
 use postcard::to_stdvec;
 use serde::{Serialize, de::DeserializeOwned};
@@ -10,20 +9,17 @@ use std::{
 };
 
 use crate::cache::{
-    block::BlockFile,
+    disk::DiskCache,
     errors::{CacheError, CacheRead},
-    header::{CacheControlResponse, CacheHeader, HEADER_VERSION},
-    index::{IndexDatabase, IndexEntry, IndexTable},
-    large::LargeFile,
+    header::{CacheControlResponse, CacheHeader},
 };
 
 pub mod block;
+pub mod disk;
 pub mod errors;
 pub mod header;
 pub mod index;
 pub mod large;
-
-const MAX_BLOCK_SIZE: u64 = 20_000_000; // 20 MB
 
 /// The current state of a cached resource in memory.
 #[derive(Debug, Clone)]
@@ -38,17 +34,17 @@ pub enum CacheEntry<T: Clone> {
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
 #[derive(Debug, Clone)]
-pub struct Cache<K, V: Clone> {
+pub struct LruCache<K, V: Clone> {
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
 }
 
-impl Default for Cache<String, Vec<u8>> {
+impl Default for LruCache<String, Vec<u8>> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K, V> Cache<K, V>
+impl<K, V> LruCache<K, V>
 where
     K: AsRef<str> + Eq + Hash + Clone + Serialize + DeserializeOwned,
     V: Clone + Serialize + DeserializeOwned,
@@ -76,23 +72,61 @@ where
         }
         drop(entries);
 
-        self.get_idx(key, headers)
-            .map(|v| CacheEntry::Loaded(Arc::new(v)))
+        self.get_from_disk(key, headers)?
+            .map_or(Ok(CacheEntry::Pending), |value| {
+                Ok(CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))))
+            })
+    }
+
+    fn get_from_disk(&self, key: &K, headers: &HeaderMap) -> Result<Option<V>, CacheError> {
+        let vary = Self::resolve_vary(headers)?;
+        let sha = Self::hash_url(key.as_ref(), &vary);
+
+        if let Some(data) = DiskCache::get(sha)? {
+            let deserialized: V = postcard::from_bytes(&data).map_err(|_| {
+                CacheError::ReadError(String::from("Failed to deserialize cache data"))
+            })?;
+            Ok(Some(deserialized))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Stores a successfully loaded value in the cache for a given key.
-    pub fn store(&self, key: K, value: V, headers: &HeaderMap) {
-        if let Err(e) = self.store_idx(&key, value.clone(), headers) {
-            eprintln!(
-                "Failed to store cache entry for key '{}': {}",
-                key.as_ref(),
-                e
-            );
-            self.mark_failed(key);
-            return;
+    pub fn store(&self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
+        if self.contains(&key) {
+            return Ok(());
         }
 
+        self.store_in_disk(&key, &value, headers)?;
         self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
+
+        Ok(())
+    }
+
+    fn store_in_disk(&self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
+        let vary = Self::resolve_vary(headers)?;
+        let sha = Self::hash_url(key.as_ref(), &vary);
+
+        let serialized = to_stdvec(value)
+            .map_err(|_| CacheError::WriteError(String::from("Failed to serialize cache data")))?;
+
+        let cache_control = headers
+            .get(CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .parse::<CacheControlResponse>()
+            .unwrap_or_default();
+
+        if cache_control.no_store {
+            return Err(CacheError::WriteError(String::from(
+                "Cache-Control: no-store prevents caching",
+            )));
+        }
+
+        let header = CacheHeader::new(serialized.as_slice(), sha, &vary, headers, &cache_control);
+
+        DiskCache::put(sha, serialized.as_slice(), header)
     }
 
     /// Evicts a cache entry for a given key, removing it from both memory and disk.
@@ -103,7 +137,10 @@ where
             removed_mem = entries.remove(key).is_some();
         }
 
-        let removed_disk = self.remove_idx(key, headers)?;
+        let vary = Self::resolve_vary(headers)?;
+        let sha = Self::hash_url(key.as_ref(), &vary);
+
+        let removed_disk = DiskCache::remove(sha, None, None, None)?;
         Ok(removed_mem || removed_disk)
     }
 
@@ -123,113 +160,11 @@ where
         entries.insert(key, CacheEntry::Failed);
     }
 
-    /// Retrieves a cached value for a given key by looking it up in the index and validating it against the headers.
-    fn get_idx(&self, key: &K, headers: &HeaderMap) -> Result<CacheRead<V>, CacheError> {
-        let vary = Self::resolve_vary(headers)?;
-        let sha = Self::hash_url(key.as_ref(), &vary);
-
-        if let Ok(connection) = IndexDatabase::open() {
-            let index = IndexTable::get_by_key(&connection, &sha).map_err(|_| {
-                CacheError::ReadError(String::from("Failed to read index entry from database"))
-            })?;
-
-            match index {
-                Some(idx) => {
-                    let (header, value, content_size) = match idx.entry {
-                        IndexEntry::Large => LargeFile::read::<V>(sha),
-                        IndexEntry::Block => BlockFile::read(
-                            idx.file_id,
-                            idx.offset.unwrap_or(0),
-                            idx.header_size.unwrap_or(0),
-                            idx.content_size,
-                        ),
-                    }?;
-
-                    if header.url_hash != sha
-                        || header.content_size != content_size as u32
-                        || header.header_version != HEADER_VERSION
-                        || !header.is_fresh()
-                    {
-                        return Ok(CacheRead::Miss);
-                    }
-
-                    Ok(CacheRead::Hit(value))
-                }
-                None => Ok(CacheRead::Miss),
-            }
-        } else {
-            Err(CacheError::ReadError(String::from(
-                "Failed to open index database",
-            )))
-        }
-    }
-
     /// Inserts or updates a cache entry for a given key.
     fn insert(&self, key: K, entry: CacheEntry<V>) {
         if let Ok(mut entries) = self.entries.write() {
             entries.insert(key, entry);
         }
-    }
-
-    /// Stores a successfully loaded value in the cache for a given key.
-    fn store_idx(&self, key: &K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
-        let vary = Self::resolve_vary(headers)?;
-
-        let cache_control = headers
-            .get(CACHE_CONTROL)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .parse::<CacheControlResponse>()
-            .unwrap_or_default();
-
-        if cache_control.no_store {
-            return Err(CacheError::WriteError(String::from(
-                "Cache-Control: no-store prevents caching",
-            )));
-        }
-
-        let sha = Self::hash_url(key.as_ref(), &vary);
-
-        let data = to_stdvec(&value).map_err(CacheError::SerializationError)?;
-
-        let header = CacheHeader::new(data.as_slice(), sha, &vary, headers, &cache_control);
-
-        if data.len() >= MAX_BLOCK_SIZE as usize {
-            LargeFile::write(data.as_slice(), sha, header)
-        } else {
-            BlockFile::write(value, sha, header)
-        }
-    }
-
-    fn remove_idx(&self, key: &K, headers: &HeaderMap) -> Result<bool, CacheError> {
-        let vary = Self::resolve_vary(headers)?;
-        let sha = Self::hash_url(key.as_ref(), &vary);
-
-        if let Ok(connection) = IndexDatabase::open() {
-            let index = IndexTable::get_by_key(&connection, &sha).map_err(|_| {
-                CacheError::ReadError(String::from("Failed to read index entry from database"))
-            })?;
-
-            if let Some(idx) = index {
-                match idx.entry {
-                    IndexEntry::Large => LargeFile::delete(sha)?,
-                    IndexEntry::Block => BlockFile::delete(
-                        idx.file_id,
-                        idx.offset.unwrap_or(0),
-                        idx.header_size.unwrap_or(0),
-                    )?,
-                }
-
-                IndexTable::delete_by_key(&connection, &sha).map_err(|_| {
-                    CacheError::WriteError(String::from(
-                        "Failed to delete index entry from database",
-                    ))
-                })?;
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
     }
 
     /// Hashes a URL and its Vary string to produce a unique key for caching.
@@ -286,25 +221,20 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
-        let cache = Cache::<String, String>::new();
+        let cache = LruCache::<String, String>::new();
         let key = "https://example.com/resource".to_string();
         let value = "cached data".to_string();
 
-        let result = cache.store_idx(&key, value.clone(), &headers);
+        let result = cache.store_in_disk(&key, &value, &headers);
         assert!(result.is_ok());
 
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
 
-        let retrieved = cache.get_idx(&key, &headers).unwrap();
-        assert!(retrieved.is_hit());
+        let retrieved = cache.get_from_disk(&key, &headers).unwrap();
+        assert!(retrieved.is_some());
 
-        let retrieved_value = match retrieved {
-            CacheRead::Hit(v) => v,
-            CacheRead::Miss => panic!("Expected a cache hit"),
-        };
-
-        assert_eq!(value, retrieved_value);
+        assert_eq!(value, retrieved.unwrap());
     }
 }

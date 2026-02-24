@@ -1,5 +1,3 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use database::{Database, Table};
 use rusqlite::{Connection, Result, params};
 use storage::paths::get_cache_path;
@@ -24,12 +22,8 @@ pub struct IndexTable;
 impl IndexTable {
     /// Retrieves an index entry by its key, ensuring it is not expired.
     pub fn get_by_key(conn: &Connection, key: &[u8; 32]) -> Result<Option<Index>> {
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        let mut stmt = conn.prepare("SELECT key, entry_type, file_id, offset, header_size, content_size, expires_at, created_at, vary FROM cache_index WHERE key = ?1 AND (expires_at IS NULL OR expires_at > ?2)")?;
-        let mut rows = stmt.query(params![key, current_time as i64])?;
+        let mut stmt = conn.prepare("SELECT key, entry_type, file_id, offset, header_size, content_size, expires_at, created_at, vary FROM cache_index WHERE key = ?1")?;
+        let mut rows = stmt.query(params![key])?;
 
         if let Some(row) = rows.next()? {
             let entry_type: String = row.get(1)?;
@@ -69,6 +63,12 @@ impl Database for IndexDatabase {
         let path = get_cache_path()
             .ok_or_else(|| rusqlite::Error::InvalidPath("Cache path not found".into()))?
             .join(IDX_DATABASE);
+
+        std::fs::create_dir_all(path.parent().unwrap())
+            .ok()
+            .ok_or_else(|| {
+                rusqlite::Error::InvalidPath("Failed to create cache directory".into())
+            })?;
 
         let conn = Connection::open(path)?;
 
