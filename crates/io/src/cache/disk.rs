@@ -60,6 +60,7 @@ impl DiskCache {
             || header.header_version != HEADER_VERSION
             || !header.is_fresh()
             || header.content_hash != content_hash
+            || header.dead
         {
             Self::remove(key, Some(&connection))?;
             return Ok(None);
