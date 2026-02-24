@@ -34,15 +34,22 @@ impl DiskCache {
             None => return Ok(None),
         };
 
-        let (header, value, content_size) = match idx.entry {
+        let (header, value, content_size) = (match idx.entry {
             IndexEntry::Large => LargeFile::read(key),
-            IndexEntry::Block => BlockFile::read(
-                idx.file_id,
-                idx.offset.unwrap_or(0),
-                idx.header_size.unwrap_or(0),
-                idx.content_size,
-            ),
-        }?;
+            IndexEntry::Block => {
+                let offset = idx.offset.ok_or(CacheError::CorruptedIndex)?;
+                let header_size = idx.header_size.ok_or(CacheError::CorruptedIndex)?;
+
+                BlockFile::read(idx.file_id, offset, header_size, idx.content_size)
+            }
+        })
+        .map_err(|err| {
+            if let CacheError::CorruptedIndex = err {
+                let _ = Self::remove(key, Some(&connection));
+            }
+
+            err
+        })?;
 
         let mut hasher = Sha256::new();
         hasher.update(&value);
