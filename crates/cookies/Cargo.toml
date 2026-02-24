@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 database.workspace = true
 time = { version = "0.3.45", features = ["parsing", "macros"]}
+storage.workspace = true
 
 # External dependencies
 rusqlite.workspace = true

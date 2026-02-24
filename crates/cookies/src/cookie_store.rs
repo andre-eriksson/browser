@@ -1,46 +1,53 @@
 use std::fmt::{Display, Formatter};
 
-use database::{Database, Domain, Table};
+use database::{Database, Table};
+use rusqlite::{Connection, Result};
+use storage::paths::get_data_path;
 use time::UtcDateTime;
 use tracing::debug;
 use url::Host;
 
 use crate::{Expiration, cookie::Cookie, table::CookieTable};
 
+#[derive(Debug, Clone)]
+pub struct CookieDatabase;
+
+impl Database for CookieDatabase {
+    fn open() -> Result<Connection> {
+        let path = get_data_path()
+            .ok_or_else(|| rusqlite::Error::InvalidPath("Data path not found".into()))?
+            .join("cookies.db");
+
+        std::fs::create_dir_all(path.parent().unwrap())
+            .map_err(|_| rusqlite::Error::InvalidPath("Failed to create data directory".into()))?;
+
+        let conn = Connection::open(path)?;
+
+        CookieTable::create_table(&conn)?;
+
+        Ok(conn)
+    }
+}
+
 /// A simple in-memory cookie jar (for now).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct CookieJar {
     /// The list of stored cookies.
     cookies: Vec<Cookie>,
-
-    /// The database instance for cookies
-    database: Database,
-}
-
-impl Default for CookieJar {
-    fn default() -> Self {
-        Self {
-            cookies: Vec::new(),
-            database: Database::new(Domain::Cookies),
-        }
-    }
 }
 
 impl CookieJar {
     /// Loads existing cookies and returns the cookie jar
     pub fn load() -> Self {
-        let database = Database::new(Domain::Cookies);
-
-        let conn = database.open();
+        let conn = CookieDatabase::open();
         if let Ok(connection) = conn {
             let cookies = CookieTable::get_all(&connection);
 
-            return Self { database, cookies };
+            return Self { cookies };
         }
 
         CookieJar {
             cookies: Vec::with_capacity(32),
-            database: Database::new(Domain::Cookies),
         }
     }
 
@@ -79,7 +86,7 @@ impl CookieJar {
     pub fn get_cookies(&self, domain: Host<&str>, path: &str, secure: bool) -> Vec<Cookie> {
         let mut cookies = self.cookies.clone();
 
-        let conn = self.database.open();
+        let conn = CookieDatabase::open();
         if let Ok(connection) = conn {
             let persisted_cookies =
                 CookieTable::get_cookies_by_domain(&connection, domain.to_string());
@@ -123,7 +130,7 @@ impl CookieJar {
         // TODO: Mark updated cookies as dirty then |
         //                                          v
         // TODO: Scheduler should periodically save cookies
-        if let Ok(connection) = self.database.open() {
+        if let Ok(connection) = CookieDatabase::open() {
             let creation = CookieTable::create_table(&connection);
 
             if creation.is_err() {

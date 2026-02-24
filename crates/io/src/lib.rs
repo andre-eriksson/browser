@@ -1,3 +1,4 @@
+mod cache;
 pub mod embeded;
 pub mod errors;
 pub mod files;
@@ -12,4 +13,5 @@ pub use network::{
     middleware::cookies::CookieMiddleware, policy::DocumentPolicy, request::RequestResult,
 };
 
+pub use cache::memory::{CacheEntry, MemoryCache};
 pub use manager::{Resource, ResourceType};

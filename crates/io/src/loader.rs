@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use storage::paths::{create_paths, get_cache_path, get_config_path, get_data_path};
 
 use crate::{
@@ -112,12 +114,17 @@ impl<'a> Writer for ResourceType<'a> {
             ResourceType::Cache(file_path) => {
                 let cache_path = get_cache_path();
 
+                if !is_relative_path(file_path) {
+                    return Err(AssetError::InvalidPath(file_path.to_string()));
+                }
+
                 match cache_path {
                     Some(path) => {
-                        create_paths(&path)
+                        let full_path = path.join(file_path);
+
+                        create_paths(&full_path.parent().unwrap_or(&path).to_path_buf())
                             .map_err(|_| AssetError::Unavailable("app cache".to_string()))?;
 
-                        let full_path = path.join(file_path);
                         std::fs::write(full_path, data.as_ref())
                             .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
                     }
@@ -127,12 +134,17 @@ impl<'a> Writer for ResourceType<'a> {
             ResourceType::Config(file_path) => {
                 let config_path = get_config_path();
 
+                if !is_relative_path(file_path) {
+                    return Err(AssetError::InvalidPath(file_path.to_string()));
+                }
+
                 match config_path {
                     Some(path) => {
-                        create_paths(&path)
+                        let full_path = path.join(file_path);
+
+                        create_paths(&full_path.parent().unwrap_or(&path).to_path_buf())
                             .map_err(|_| AssetError::Unavailable("app config".to_string()))?;
 
-                        let full_path = path.join(file_path);
                         std::fs::write(full_path, data.as_ref())
                             .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
                     }
@@ -142,12 +154,17 @@ impl<'a> Writer for ResourceType<'a> {
             ResourceType::UserData(file_path) => {
                 let user_data_path = get_data_path();
 
+                if !is_relative_path(file_path) {
+                    return Err(AssetError::InvalidPath(file_path.to_string()));
+                }
+
                 match user_data_path {
                     Some(path) => {
-                        create_paths(&path)
-                            .map_err(|_| AssetError::Unavailable("user data".to_string()))?;
-
                         let full_path = path.join(file_path);
+
+                        create_paths(&full_path.parent().unwrap_or(&path).to_path_buf())
+                            .map_err(|_| AssetError::Unavailable("app user data".to_string()))?;
+
                         std::fs::write(full_path, data.as_ref())
                             .map_err(|_| AssetError::WriteFailed(file_path.to_string()))
                     }
@@ -157,5 +174,44 @@ impl<'a> Writer for ResourceType<'a> {
             ResourceType::FileSystem(path) => std::fs::write(path, data.as_ref())
                 .map_err(|_| AssetError::WriteFailed(path.to_string())),
         }
+    }
+}
+
+/// Validates that a given path is a relative path that does not contain any components that
+/// could lead to directory traversal (like `..`) or absolute paths.
+/// Returns `true` if the path is a valid relative path, and `false` otherwise.
+fn is_relative_path(path: &str) -> bool {
+    let path = Path::new(path);
+
+    if path.is_absolute() {
+        return false;
+    }
+
+    let mut component_count = 0;
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(_) | std::path::Component::CurDir => {
+                component_count += 1;
+            }
+            _ => return false,
+        }
+    }
+
+    component_count > 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_relative_path() {
+        assert!(is_relative_path("valid/path"));
+        assert!(is_relative_path("another/valid/path"));
+        assert!(!is_relative_path("../invalid/path"));
+        assert!(!is_relative_path("/absolute/path"));
+        assert!(!is_relative_path("invalid/../path"));
+        assert!(!is_relative_path(""));
+        assert!(is_relative_path("."));
     }
 }
