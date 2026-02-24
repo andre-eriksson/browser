@@ -73,6 +73,38 @@ where
             .map(|v| CacheEntry::Loaded(Arc::new(v)))
     }
 
+    /// Stores a successfully loaded value in the cache for a given key.
+    pub fn store(&self, key: K, value: V, headers: &HeaderMap) {
+        if let Err(e) = self.store_idx(&key, value.clone(), headers) {
+            eprintln!(
+                "Failed to store cache entry for key '{}': {}",
+                key.as_ref(),
+                e
+            );
+            self.mark_failed(key);
+            return;
+        }
+
+        self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
+    }
+
+    /// Marks a key as pending if it is not already in the cache.
+    pub fn mark_pending(&self, key: K) -> bool {
+        let mut entries = self.entries.write().expect("Cache lock poisoned");
+        if entries.contains_key(&key) {
+            return false;
+        }
+        entries.insert(key, CacheEntry::Pending);
+        true
+    }
+
+    /// Marks a key as failed.
+    pub fn mark_failed(&self, key: K) {
+        let mut entries = self.entries.write().expect("Cache lock poisoned");
+        entries.insert(key, CacheEntry::Failed);
+    }
+
+    /// Retrieves a cached value for a given key by looking it up in the index and validating it against the headers.
     fn get_idx(&self, key: &K, headers: &HeaderMap) -> Result<CacheRead<V>, CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
@@ -106,21 +138,6 @@ where
         if let Ok(mut entries) = self.entries.write() {
             entries.insert(key, entry);
         }
-    }
-
-    /// Stores a successfully loaded value in the cache for a given key.
-    pub fn store(&self, key: K, value: V, headers: &HeaderMap) {
-        if let Err(e) = self.store_idx(&key, value.clone(), headers) {
-            eprintln!(
-                "Failed to store cache entry for key '{}': {}",
-                key.as_ref(),
-                e
-            );
-            self.mark_failed(key);
-            return;
-        }
-
-        self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
     }
 
     /// Stores a successfully loaded value in the cache for a given key.
@@ -160,29 +177,15 @@ where
         }
     }
 
-    /// Marks a key as pending if it is not already in the cache.
-    pub fn mark_pending(&self, key: K) -> bool {
-        let mut entries = self.entries.write().expect("Cache lock poisoned");
-        if entries.contains_key(&key) {
-            return false;
-        }
-        entries.insert(key, CacheEntry::Pending);
-        true
-    }
-
-    /// Marks a key as failed.
-    pub fn mark_failed(&self, key: K) {
-        let mut entries = self.entries.write().expect("Cache lock poisoned");
-        entries.insert(key, CacheEntry::Failed);
-    }
-
-    pub fn hash_url(url: &str, vary: &str) -> [u8; 32] {
+    /// Hashes a URL and its Vary string to produce a unique key for caching.
+    fn hash_url(url: &str, vary: &str) -> [u8; 32] {
         let mut hasher = Sha256::new();
         hasher.update(url.as_bytes());
         hasher.update(vary.as_bytes());
         hasher.finalize().into()
     }
 
+    /// Resolves the Vary header to determine which request headers affect the cache key.
     fn resolve_vary(headers: &HeaderMap) -> Result<String, CacheError> {
         let vary = headers
             .get(VARY)
