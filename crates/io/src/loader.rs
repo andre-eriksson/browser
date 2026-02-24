@@ -179,7 +179,7 @@ impl<'a> Writer for ResourceType<'a> {
 
 /// Validates that a given path is a relative path that does not contain any components that
 /// could lead to directory traversal (like `..`) or absolute paths.
-/// It returns a `PathBuf` if the path is valid, or `None` if the path is invalid.
+/// Returns `true` if the path is a valid relative path, and `false` otherwise.
 fn is_relative_path(path: &str) -> bool {
     let path = Path::new(path);
 
