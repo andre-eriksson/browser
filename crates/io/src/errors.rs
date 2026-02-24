@@ -29,4 +29,7 @@ pub enum AssetError {
 
     #[error("Resource is unavailable, check if the {0} directory exists and is writable.")]
     Unavailable(String),
+
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
 }
