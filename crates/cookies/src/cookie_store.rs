@@ -15,14 +15,11 @@ pub struct CookieDatabase;
 impl Database for CookieDatabase {
     fn open() -> Result<Connection> {
         let path = get_data_path()
-            .ok_or_else(|| rusqlite::Error::InvalidPath("Cache path not found".into()))?
+            .ok_or_else(|| rusqlite::Error::InvalidPath("Data path not found".into()))?
             .join("cookies.db");
 
         std::fs::create_dir_all(path.parent().unwrap())
-            .ok()
-            .ok_or_else(|| {
-                rusqlite::Error::InvalidPath("Failed to create cache directory".into())
-            })?;
+            .map_err(|_| rusqlite::Error::InvalidPath("Failed to create data directory".into()))?;
 
         let conn = Connection::open(path)?;
 

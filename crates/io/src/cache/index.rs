@@ -123,10 +123,7 @@ impl Database for IndexDatabase {
             .join(IDX_DATABASE);
 
         std::fs::create_dir_all(path.parent().unwrap())
-            .ok()
-            .ok_or_else(|| {
-                rusqlite::Error::InvalidPath("Failed to create cache directory".into())
-            })?;
+            .map_err(|_| rusqlite::Error::InvalidPath("Failed to create cache directory".into()))?;
 
         let conn = Connection::open(path)?;
 
