@@ -132,20 +132,20 @@ impl DiskCache {
 
                 match insert_result {
                     Ok(_) => {
-                        connection.execute("COMMIT", []).map_err(|e| {
-                            CacheError::WriteError(format!("Failed to commit transaction: {}", e))
-                        })?;
-
                         match index.entry {
                             IndexEntry::Large => {
                                 LargeFile::write(key, value, &header)?;
                             }
                             IndexEntry::Block => {
-                                if let (Some(fid), Some(path)) = (id, path) {
-                                    BlockFile::write(value, fid, &path, &header)?;
+                                let mut actual_offset = 0;
+
+                                if let Some(path) = path {
+                                    actual_offset = BlockFile::write(value, &path, &header)?;
                                 }
 
-                                if let Some(off) = offset {
+                                if let Some(off) = offset
+                                    && actual_offset != off
+                                {
                                     connection
                                         .execute(
                                             "UPDATE cache_index SET offset = ?1 WHERE key = ?2",
@@ -155,6 +155,10 @@ impl DiskCache {
                                 }
                             }
                         }
+
+                        connection.execute("COMMIT", []).map_err(|e| {
+                            CacheError::WriteError(format!("Failed to commit transaction: {}", e))
+                        })?;
 
                         Ok(())
                     }

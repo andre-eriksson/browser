@@ -61,12 +61,7 @@ impl BlockFile {
     /// entry for later retrieval. The caller is responsible for ensuring that the block file does
     /// not exceed the maximum block size after writing, and should call `prepare_write()` to
     /// determine the appropriate file before writing.
-    pub fn write(
-        value: &[u8],
-        file_number: u32,
-        path: &Path,
-        header: &CacheHeader,
-    ) -> Result<(u32, u32, u32, u32), CacheError> {
+    pub fn write(value: &[u8], path: &Path, header: &CacheHeader) -> Result<u32, CacheError> {
         let block_header = BlockHeader {
             magic: MAGIC,
             version: VERSION,
@@ -121,14 +116,7 @@ impl BlockFile {
         file.write_all(value)?;
         file.flush()?;
 
-        let file_id = file_number + 1;
-
-        Ok((
-            file_id,
-            actual_offset,
-            header_bytes.len() as u32,
-            value.len() as u32,
-        ))
+        Ok(actual_offset)
     }
 
     /// Prepares to write a new cache entry by determining the appropriate block file and offset for the entry.
