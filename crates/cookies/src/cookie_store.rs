@@ -18,6 +18,12 @@ impl Database for CookieDatabase {
             .ok_or_else(|| rusqlite::Error::InvalidPath("Cache path not found".into()))?
             .join("cookies.db");
 
+        std::fs::create_dir_all(path.parent().unwrap())
+            .ok()
+            .ok_or_else(|| {
+                rusqlite::Error::InvalidPath("Failed to create cache directory".into())
+            })?;
+
         let conn = Connection::open(path)?;
 
         CookieTable::create_table(&conn)?;
