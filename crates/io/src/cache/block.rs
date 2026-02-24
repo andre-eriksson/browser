@@ -13,7 +13,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use postcard::ser_flavors::Size;
 use serde::{Deserialize, Serialize};
 
 use database::Database;
@@ -54,72 +53,17 @@ pub struct BlockHeader {
 pub struct BlockFile;
 
 impl BlockFile {
-    /// Writes a new cache entry to the specified block file, appending it to the end of the file.
-    /// If the file does not exist, it is created and initialized with the block header.
-    /// The method returns the file ID, the byte offset where the entry was written,
-    /// the size of the header, and the size of the content, which are used to create an index
-    /// entry for later retrieval. The caller is responsible for ensuring that the block file does
-    /// not exceed the maximum block size after writing, and should call `prepare_write()` to
-    /// determine the appropriate file before writing.
-    pub fn write(value: &[u8], path: &Path, header: &CacheHeader) -> Result<u32, CacheError> {
-        let block_header = BlockHeader {
-            magic: MAGIC,
-            version: VERSION,
-        };
-
-        let block_header_bytes = match postcard::to_stdvec(&block_header) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(CacheError::WriteError(format!(
-                    "Failed to serialize block header: {}",
-                    e
-                )));
-            }
-        };
-
-        let mut file = match OpenOptions::new().append(true).create(true).open(path) {
-            Ok(file) => file,
-            Err(e) => return Err(CacheError::IoError(e)),
-        };
-
-        let metadata = file.metadata().map_err(CacheError::IoError)?;
-        let file_len = metadata.len();
-
-        if file_len == 0 {
-            file.write_all(&block_header_bytes)?;
-        } else if file_len < block_header_bytes.len() as u64 {
-            return Err(CacheError::CorruptedBlock);
-        }
-
-        let header_bytes = match postcard::to_stdvec(&header) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(CacheError::WriteError(format!(
-                    "Failed to serialize header: {}",
-                    e
-                )));
-            }
-        };
-
-        let actual_offset = file_len as u32;
-
-        file.write_all(&header_bytes)?;
-        file.write_all(value)?;
-        file.flush()?;
-
-        Ok(actual_offset)
-    }
-
-    /// Prepares to write a new cache entry by determining the appropriate block file and offset for the entry.
-    /// This method checks existing block files for available space and returns the file ID, offset, header size,
-    /// content size, and file path where the entry can be written. If all existing block files are full, it
-    /// determines the path for a new block file. The caller should then call `write()` with the returned file
-    /// ID and path to actually write the entry. This separation allows the caller to perform necessary checks
-    /// and updates (e.g. updating the index) before committing to writing the entry to disk.
-    pub fn prepare_write(
+    /// Writes a new cache entry to a block file, selecting an appropriate file with
+    /// available space (or creating a new one), then appending the serialized header
+    /// and raw content bytes.
+    ///
+    /// Returns `(file_id, actual_offset, header_size, content_size)` — all values
+    /// are derived from the write itself, so the caller can record them in the index
+    /// without any speculative prediction.
+    pub fn write(
         value: &[u8],
         header: &mut CacheHeader,
-    ) -> Result<(u32, u32, u32, u32, PathBuf), CacheError> {
+    ) -> Result<(u32, u32, u32, u32), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
             None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
@@ -129,58 +73,43 @@ impl BlockFile {
         fs::create_dir_all(&block_dir)?;
 
         let (path, file_number) = Self::find_writable_file(&block_dir)?;
+        let file_id = file_number + 1;
 
-        let block_header = BlockHeader {
+        let block_header_bytes = postcard::to_stdvec(&BlockHeader {
             magic: MAGIC,
             version: VERSION,
-        };
+        })
+        .map_err(|e| CacheError::WriteError(format!("Failed to serialize block header: {}", e)))?;
 
-        let block_header_size =
-            match postcard::serialize_with_flavor(&block_header, Size::default()) {
-                Ok(size) => size,
-                Err(e) => {
-                    return Err(CacheError::WriteError(format!(
-                        "Failed to grab block header size: {}",
-                        e
-                    )));
-                }
-            };
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .map_err(CacheError::IoError)?;
 
-        let file_len = match fs::metadata(&path) {
-            Ok(m) => m.len(),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
-            Err(e) => return Err(CacheError::IoError(e)),
-        };
+        let file_len = file.metadata().map_err(CacheError::IoError)?.len();
+
+        if file_len == 0 {
+            file.write_all(&block_header_bytes)?;
+        } else if file_len < block_header_bytes.len() as u64 {
+            return Err(CacheError::CorruptedBlock);
+        }
 
         header.content_size = value.len() as u32;
 
-        let header_size = match postcard::serialize_with_flavor(&header, Size::default()) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(CacheError::WriteError(format!(
-                    "Failed to serialize header: {}",
-                    e
-                )));
-            }
-        };
+        let header_bytes = postcard::to_stdvec(&header)
+            .map_err(|e| CacheError::WriteError(format!("Failed to serialize header: {}", e)))?;
 
-        let offset = if file_len == 0 {
-            block_header_size as u32
-        } else if file_len < block_header_size as u64 {
-            return Err(CacheError::CorruptedBlock);
-        } else {
-            file_len as u32
-        };
+        let header_size = header_bytes.len() as u32;
+        let content_size = value.len() as u32;
 
-        let file_id = file_number + 1;
+        let actual_offset = file.metadata().map_err(CacheError::IoError)?.len() as u32;
 
-        Ok((
-            file_id,
-            offset,
-            header_size as u32,
-            value.len() as u32,
-            path,
-        ))
+        file.write_all(&header_bytes)?;
+        file.write_all(value)?;
+        file.flush()?;
+
+        Ok((file_id, actual_offset, header_size, content_size))
     }
 
     /// Reads a cache entry from a block file based on the provided block ID, offset, header size, and content size.
