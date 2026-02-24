@@ -34,17 +34,17 @@ pub enum CacheEntry<T: Clone> {
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
 #[derive(Debug, Clone)]
-pub struct LruCache<K, V: Clone> {
+pub struct MemoryCache<K, V: Clone> {
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
 }
 
-impl Default for LruCache<String, Vec<u8>> {
+impl Default for MemoryCache<String, Vec<u8>> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K, V> LruCache<K, V>
+impl<K, V> MemoryCache<K, V>
 where
     K: AsRef<str> + Eq + Hash + Clone + Serialize + DeserializeOwned,
     V: Clone + Serialize + DeserializeOwned,
@@ -94,8 +94,17 @@ where
 
     /// Stores a successfully loaded value in the cache for a given key.
     pub fn store(&self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
-        if self.contains(&key) {
-            return Ok(());
+        if let Ok(entries) = self.entries.write()
+            && let Some(existing) = entries.get(&key)
+        {
+            match existing {
+                CacheEntry::Loaded(_) => {
+                    return Err(CacheError::WriteError(String::from(
+                        "Cache entry already exists for this key",
+                    )));
+                }
+                _ => { /* Allow overwriting Pending or Failed entries */ }
+            }
         }
 
         self.store_in_disk(&key, &value, headers)?;
@@ -111,12 +120,12 @@ where
         let serialized = to_stdvec(value)
             .map_err(|_| CacheError::WriteError(String::from("Failed to serialize cache data")))?;
 
-        let cache_control = headers
-            .get(CACHE_CONTROL)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .parse::<CacheControlResponse>()
-            .unwrap_or_default();
+        let cache_control = CacheControlResponse::from(
+            headers
+                .get(CACHE_CONTROL)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or_default(),
+        );
 
         if cache_control.no_store {
             return Err(CacheError::WriteError(String::from(
@@ -140,7 +149,7 @@ where
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
-        let removed_disk = DiskCache::remove(sha, None, None, None)?;
+        let removed_disk = DiskCache::remove(sha, None)?;
         Ok(removed_mem || removed_disk)
     }
 
@@ -183,7 +192,11 @@ where
             .unwrap_or_default();
 
         if vary.eq_ignore_ascii_case("*") {
-            return Err(CacheError::WriteError(String::from("")));
+            return Err(CacheError::WriteError(String::from(
+                "Vary: * prevents caching",
+            )));
+        } else if vary.is_empty() {
+            return Ok(String::new());
         }
 
         let mut parts = Vec::new();
@@ -221,7 +234,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
-        let cache = LruCache::<String, String>::new();
+        let cache = MemoryCache::<String, String>::new();
         let key = "https://example.com/resource".to_string();
         let value = "cached data".to_string();
 

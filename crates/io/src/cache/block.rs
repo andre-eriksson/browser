@@ -4,6 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use postcard::ser_flavors::Size;
 use serde::{Deserialize, Serialize};
 
 use database::Database;
@@ -29,7 +30,7 @@ const BLOCK_DIR: &str = "resources/blocks";
 /// 20 MB - This threshold determines whether a cache entry is stored as a block or as a large file.
 /// Entries larger than this size will be stored as large files, while smaller entries will be
 /// stored in block files.
-pub const MAX_BLOCK_SIZE: u64 = 1000;
+pub const MAX_BLOCK_SIZE: u64 = 20 * 1024 * 1024;
 /// Minimum file fullness ratio before compaction is considered (80%).
 const COMPACTION_FULLNESS_THRESHOLD: f64 = 0.80;
 /// Minimum dead-byte ratio within entries to trigger compaction (50%).
@@ -46,8 +47,78 @@ pub struct BlockFile;
 impl BlockFile {
     pub fn write(
         value: &[u8],
-        header: &mut CacheHeader,
+        file_number: u32,
+        path: &Path,
+        header: &CacheHeader,
     ) -> Result<(u32, u32, u32, u32), CacheError> {
+        let block_header = BlockHeader {
+            magic: MAGIC,
+            version: VERSION,
+        };
+
+        let block_header_bytes = match postcard::to_stdvec(&block_header) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return Err(CacheError::WriteError(format!(
+                    "Failed to serialize block header: {}",
+                    e
+                )));
+            }
+        };
+
+        let mut file = match OpenOptions::new().append(true).create(true).open(path) {
+            Ok(file) => file,
+            Err(e) => return Err(CacheError::IoError(e)),
+        };
+
+        let metadata = file.metadata().map_err(CacheError::IoError)?;
+        let file_len = metadata.len();
+
+        if file_len == 0 {
+            file.write_all(&block_header_bytes)?;
+        } else if file_len < block_header_bytes.len() as u64 {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        let header_bytes = match postcard::to_stdvec(&header) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return Err(CacheError::WriteError(format!(
+                    "Failed to serialize header: {}",
+                    e
+                )));
+            }
+        };
+
+        let actual_offset = match file.stream_position() {
+            Ok(pos) => {
+                if pos == 0 {
+                    block_header_bytes.len() as u64
+                } else {
+                    pos
+                }
+            }
+            Err(_) => block_header_bytes.len() as u64,
+        } as u32;
+
+        file.write_all(&header_bytes)?;
+        file.write_all(value)?;
+        file.flush()?;
+
+        let file_id = file_number + 1;
+
+        Ok((
+            file_id,
+            actual_offset,
+            header_bytes.len() as u32,
+            value.len() as u32,
+        ))
+    }
+
+    pub fn prepare_write(
+        value: &[u8],
+        header: &mut CacheHeader,
+    ) -> Result<(u32, u32, u32, u32, PathBuf), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
             None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
@@ -63,34 +134,26 @@ impl BlockFile {
             version: VERSION,
         };
 
-        let block_header_bytes = match postcard::to_stdvec(&block_header) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(CacheError::WriteError(format!(
-                    "Failed to serialize block header: {}",
-                    e
-                )));
-            }
-        };
+        let block_header_size =
+            match postcard::serialize_with_flavor(&block_header, Size::default()) {
+                Ok(size) => size,
+                Err(e) => {
+                    return Err(CacheError::WriteError(format!(
+                        "Failed to grab block header size: {}",
+                        e
+                    )));
+                }
+            };
 
-        let mut file = match OpenOptions::new().append(true).create(true).open(&path) {
-            Ok(file) => file,
+        let file_len = match fs::metadata(&path) {
+            Ok(m) => m.len(),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => 0,
             Err(e) => return Err(CacheError::IoError(e)),
         };
 
-        let metadata = file.metadata().map_err(CacheError::IoError)?;
-        let file_len = metadata.len();
+        header.content_size = value.len() as u32;
 
-        if file_len == 0 {
-            file.write_all(&block_header_bytes)?;
-        } else if file_len < block_header_bytes.len() as u64 {
-            return Err(CacheError::CorruptedBlock);
-        }
-
-        let data_bytes = value.to_vec();
-        header.content_size = data_bytes.len() as u32;
-
-        let header_bytes = match postcard::to_stdvec(&header) {
+        let header_size = match postcard::serialize_with_flavor(&header, Size::default()) {
             Ok(bytes) => bytes,
             Err(e) => {
                 return Err(CacheError::WriteError(format!(
@@ -100,28 +163,22 @@ impl BlockFile {
             }
         };
 
-        let offset = match file.stream_position() {
-            Ok(pos) => {
-                if pos == 0 {
-                    block_header_bytes.len() as u64
-                } else {
-                    pos
-                }
-            }
-            Err(_) => block_header_bytes.len() as u64,
-        } as u32;
-
-        file.write_all(&header_bytes)?;
-        file.write_all(&data_bytes)?;
-        file.flush()?;
+        let offset = if file_len == 0 {
+            block_header_size as u32
+        } else if file_len < block_header_size as u64 {
+            return Err(CacheError::CorruptedBlock);
+        } else {
+            file_len as u32
+        };
 
         let file_id = file_number + 1;
 
         Ok((
             file_id,
             offset,
-            header_bytes.len() as u32,
-            data_bytes.len() as u32,
+            header_size as u32,
+            value.len() as u32,
+            path,
         ))
     }
 
@@ -131,59 +188,44 @@ impl BlockFile {
         header_size: u32,
         content_size: u32,
     ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
-        let data_path = format!(
-            "{}/{}/{}.bin",
-            get_cache_path().unwrap().to_str().unwrap(),
-            BLOCK_DIR,
-            block_id.saturating_sub(1)
-        );
-
-        let mut file = File::open(&data_path)?;
-
-        let block_header = BlockHeader {
-            magic: MAGIC,
-            version: VERSION,
+        let cache_path = match get_cache_path() {
+            Some(path) => path,
+            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
         };
 
-        let block_header_bytes = match postcard::to_stdvec(&block_header) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(CacheError::WriteError(format!(
-                    "Failed to serialize block header: {}",
-                    e
-                )));
-            }
-        };
+        let data_path = cache_path
+            .join(BLOCK_DIR)
+            .join(format!("{}.bin", block_id.saturating_sub(1)));
 
-        let mut block_header_buf = vec![0u8; block_header_bytes.len()];
-        file.read_exact(&mut block_header_buf)?;
-        let read_block_header: BlockHeader =
-            postcard::from_bytes(&block_header_buf).map_err(|_| CacheError::CorruptedBlock)?;
+        let data = fs::read(&data_path)?;
 
-        if read_block_header.magic != MAGIC || read_block_header.version != VERSION {
+        let (block_header, _): (BlockHeader, &[u8]) =
+            postcard::take_from_bytes(&data).map_err(|_| CacheError::CorruptedBlock)?;
+
+        if block_header.magic != MAGIC || block_header.version != VERSION {
             return Err(CacheError::CorruptedBlock);
         }
 
-        file.seek(SeekFrom::Start(offset as u64))?;
-
-        let mut header_buf = vec![0u8; header_size as usize];
-        file.read_exact(&mut header_buf)?;
+        let start = offset as usize;
+        let header_buf = &data[start..start + header_size as usize];
         let header: CacheHeader =
-            postcard::from_bytes(&header_buf).map_err(|_| CacheError::CorruptedHeader)?;
+            postcard::from_bytes(header_buf).map_err(|_| CacheError::CorruptedHeader)?;
 
-        let mut data_buf = vec![0u8; content_size as usize];
-        file.read_exact(&mut data_buf)?;
+        let data_start = start + header_size as usize;
+        let data_buf = data[data_start..data_start + content_size as usize].to_vec();
 
         Ok((header, data_buf, content_size as usize))
     }
 
     pub fn delete(block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
-        let data_path = format!(
-            "{}/{}/{}.bin",
-            get_cache_path().unwrap().to_str().unwrap(),
-            BLOCK_DIR,
-            block_id.saturating_sub(1)
-        );
+        let cache_path = match get_cache_path() {
+            Some(path) => path,
+            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+        };
+
+        let data_path = cache_path
+            .join(BLOCK_DIR)
+            .join(format!("{}.bin", block_id.saturating_sub(1)));
 
         let mut file = OpenOptions::new().read(true).write(true).open(&data_path)?;
         file.seek(SeekFrom::Start(offset as u64))?;

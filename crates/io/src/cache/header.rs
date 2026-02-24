@@ -1,7 +1,4 @@
-use std::{
-    str::FromStr,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use httpdate::fmt_http_date;
 use network::{
@@ -28,10 +25,8 @@ pub struct CacheControlResponse {
     pub immutable: bool,
 }
 
-impl FromStr for CacheControlResponse {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl From<&str> for CacheControlResponse {
+    fn from(value: &str) -> Self {
         let mut response = CacheControlResponse {
             max_age_seconds: None,
             s_max_age_seconds: None,
@@ -46,7 +41,7 @@ impl FromStr for CacheControlResponse {
             immutable: false,
         };
 
-        for directive in s.split(',').map(|s| s.trim()) {
+        for directive in value.split(',').map(|s| s.trim()) {
             if directive.eq_ignore_ascii_case("no-cache") {
                 response.no_cache = true;
             } else if directive.eq_ignore_ascii_case("must-revalidate") {
@@ -76,7 +71,7 @@ impl FromStr for CacheControlResponse {
             }
         }
 
-        Ok(response)
+        response
     }
 }
 
@@ -186,7 +181,7 @@ impl CacheHeader {
         }
 
         if let Some(last_modified) = self.last_modified {
-            let heuristic_ttl = (self.fetched_at - last_modified) / 10;
+            let heuristic_ttl = (self.fetched_at.saturating_sub(last_modified)) / 10;
             return now < self.fetched_at + heuristic_ttl;
         }
 

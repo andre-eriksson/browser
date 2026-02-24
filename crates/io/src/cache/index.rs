@@ -105,7 +105,7 @@ impl Table for IndexTable {
 
     fn create_table(conn: &Connection) -> Result<()> {
         conn.execute_batch(
-            "BEGIN;
+            "BEGIN TRANSACTION;
             CREATE TABLE IF NOT EXISTS cache_index (
                 key BLOB PRIMARY KEY,
                 entry_type TEXT NOT NULL,
@@ -119,6 +119,7 @@ impl Table for IndexTable {
             );
             CREATE INDEX IF NOT EXISTS entry_type_idx ON cache_index (entry_type);
             CREATE INDEX IF NOT EXISTS expires_at_idx ON cache_index (expires_at);
+            CREATE INDEX IF NOT EXISTS file_id_idx ON cache_index (file_id);
             COMMIT;",
         )
     }

@@ -14,7 +14,7 @@ const CONTENT_FILE: &str = "content";
 pub struct LargeFile;
 
 impl LargeFile {
-    pub fn write(data: &[u8], sha: [u8; 32], header: &CacheHeader) -> Result<u32, CacheError> {
+    pub fn write(sha: [u8; 32], data: &[u8], header: &CacheHeader) -> Result<u32, CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
         let cache_path = match get_cache_path() {
             Some(path) => path,
@@ -29,8 +29,9 @@ impl LargeFile {
         fs::create_dir_all(&path)?;
 
         let metadata_file = match OpenOptions::new()
-            .append(true)
             .create(true)
+            .write(true)
+            .truncate(true)
             .open(path.join(METADATA_FILE))
         {
             Ok(file) => file,
@@ -38,8 +39,8 @@ impl LargeFile {
         };
 
         let content_file = match OpenOptions::new()
-            .write(true)
             .create(true)
+            .write(true)
             .truncate(true)
             .open(path.join(CONTENT_FILE))
         {
@@ -68,16 +69,18 @@ impl LargeFile {
     pub fn read(sha: [u8; 32]) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
 
-        let path = format!(
-            "{}/{}/{}/{}",
-            get_cache_path().unwrap().to_str().unwrap(),
-            LARGE_DIR,
-            &str_sha[..2],
-            &str_sha[2..],
-        );
+        let cache_path = match get_cache_path() {
+            Some(path) => path,
+            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+        };
 
-        let metadata_path = format!("{}/{}", path, METADATA_FILE);
-        let content_path = format!("{}/{}", path, CONTENT_FILE);
+        let path = cache_path
+            .join(LARGE_DIR)
+            .join(&str_sha[..2])
+            .join(&str_sha[2..]);
+
+        let metadata_path = path.join(METADATA_FILE);
+        let content_path = path.join(CONTENT_FILE);
 
         if !std::path::Path::new(&metadata_path).exists()
             || !std::path::Path::new(&content_path).exists()
