@@ -75,8 +75,9 @@ impl DiskCache {
     /// anything is recorded in the index.  The database therefore always contains
     /// the true offset — no speculative value that might need patching later.
     ///
-    /// If an entry with the same key already exists it is removed before the new
-    /// one is written.
+    /// If an entry with the same key already exists and has identical content (same content hash),
+    /// the write is skipped to avoid duplicate storage. Otherwise, the existing entry is removed
+    /// before the new one is written.
     pub fn put(key: [u8; 32], value: &[u8], mut header: CacheHeader) -> Result<(), CacheError> {
         let connection = IndexDatabase::open()
             .map_err(|e| CacheError::WriteError(format!("Failed to open index database: {}", e)))?;
@@ -89,14 +90,29 @@ impl DiskCache {
             CacheError::ReadError(String::from("Failed to read index entry from database"))
         })?;
 
-        if existing.is_some()
-            && let Err(e) = Self::remove(key, Some(&connection))
-        {
-            connection.execute("ROLLBACK", []).ok();
-            return Err(CacheError::WriteError(format!(
-                "Failed to remove existing cache entry: {}",
-                e
-            )));
+        if existing.is_some() {
+            if let Ok(Some(existing_value)) = Self::get(key) {
+                let mut hasher = Sha256::new();
+                hasher.update(&existing_value);
+                let existing_content_hash: [u8; 32] = hasher.finalize().into();
+
+                let mut new_hasher = Sha256::new();
+                new_hasher.update(value);
+                let new_content_hash: [u8; 32] = new_hasher.finalize().into();
+
+                if existing_content_hash == new_content_hash {
+                    connection.execute("COMMIT", []).ok();
+                    return Ok(());
+                }
+            }
+
+            if let Err(e) = Self::remove(key, Some(&connection)) {
+                connection.execute("ROLLBACK", []).ok();
+                return Err(CacheError::WriteError(format!(
+                    "Failed to remove existing cache entry: {}",
+                    e
+                )));
+            }
         }
 
         let now = SystemTime::now()
@@ -195,11 +211,12 @@ impl DiskCache {
         if let Some(idx) = index {
             match idx.entry {
                 IndexEntry::Large => LargeFile::delete(key)?,
-                IndexEntry::Block => BlockFile::delete(
-                    idx.file_id,
-                    idx.offset.unwrap_or(0),
-                    idx.header_size.unwrap_or(0),
-                )?,
+                IndexEntry::Block => {
+                    let offset = idx.offset.ok_or(CacheError::CorruptedIndex)?;
+                    let header_size = idx.header_size.ok_or(CacheError::CorruptedIndex)?;
+
+                    BlockFile::delete(idx.file_id, offset, header_size)?
+                }
             }
 
             IndexTable::delete_by_key(connection, &key).map_err(|_| {
