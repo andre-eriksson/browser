@@ -126,7 +126,7 @@ impl BlockFile {
     ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+            None => return Err(CacheError::ReadError(String::from("Cache path not found"))),
         };
 
         let data_path = cache_path

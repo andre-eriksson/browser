@@ -87,7 +87,7 @@ impl LargeFile {
 
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+            None => return Err(CacheError::ReadError(String::from("Cache path not found"))),
         };
 
         let path = cache_path
