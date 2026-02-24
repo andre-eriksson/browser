@@ -101,16 +101,7 @@ impl BlockFile {
             }
         };
 
-        let actual_offset = match file.stream_position() {
-            Ok(pos) => {
-                if pos == 0 {
-                    block_header_bytes.len() as u64
-                } else {
-                    pos
-                }
-            }
-            Err(_) => block_header_bytes.len() as u64,
-        } as u32;
+        let actual_offset = file_len as u32;
 
         file.write_all(&header_bytes)?;
         file.write_all(value)?;
