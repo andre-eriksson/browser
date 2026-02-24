@@ -217,13 +217,8 @@ where
 
             let value = headers
                 .get(&name)
-                .ok_or_else(|| {
-                    CacheError::WriteError(format!("Missing header '{}' specified in Vary", name))
-                })?
-                .to_str()
-                .map_err(|_| {
-                    CacheError::WriteError(format!("Invalid header value for '{}'", name))
-                })?;
+                .map(|v| v.to_str().unwrap_or_default())
+                .unwrap_or_default();
 
             parts.push(format!("{}:{}", name, value));
         }
