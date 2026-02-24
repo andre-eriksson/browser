@@ -10,7 +10,10 @@ use storage::paths::get_cache_path;
 use crate::cache::{errors::CacheError, header::CacheHeader};
 
 /// The main directory for storing large cache entries.
+#[cfg(not(test))]
 const LARGE_DIR: &str = "resources/large";
+#[cfg(test)]
+const LARGE_DIR: &str = "tests/resources/large";
 
 /// Metadata file name for storing the cache header information of a large entry.
 const METADATA_FILE: &str = "metadata";

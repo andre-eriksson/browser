@@ -10,7 +10,10 @@ use rusqlite::{Connection, Result, params};
 use storage::paths::get_cache_path;
 
 /// Path to the SQLite database file that stores the cache index entries.
+#[cfg(not(test))]
 const IDX_DATABASE: &str = "resources/index.db";
+#[cfg(test)]
+const IDX_DATABASE: &str = "tests/resources/index.db";
 
 /// Enum representing the type of cache entry, indicating whether the cached resource is stored in a block file or as a large file.
 #[derive(Debug, Clone, Copy)]

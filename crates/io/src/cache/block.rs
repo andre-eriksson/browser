@@ -34,7 +34,10 @@ const VERSION: u16 = 1;
 /// Directory within the cache path where block files are stored. Each block file contains multiple cache
 /// entries, allowing for more efficient storage of small resources and better space utilization compared
 /// to storing each entry
+#[cfg(not(test))]
 const BLOCK_DIR: &str = "resources/blocks";
+#[cfg(test)]
+const BLOCK_DIR: &str = "tests/resources/blocks";
 /// 20 MB - This threshold determines whether a cache entry is stored as a block or as a large file.
 /// Entries larger than this size will be stored as large files, while smaller entries will be
 /// stored in block files.
