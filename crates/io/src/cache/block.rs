@@ -99,7 +99,7 @@ impl BlockFile {
         Ok(())
     }
 
-    pub fn read<V>(pointer: &BlockPointer) -> Option<(CacheHeader, V, usize)>
+    pub fn read<V>(pointer: &BlockPointer) -> Result<(CacheHeader, V, usize), CacheError>
     where
         V: Clone + Serialize + DeserializeOwned,
     {
@@ -110,18 +110,19 @@ impl BlockFile {
             pointer.block_id.saturating_sub(1)
         );
 
-        let mut file = File::open(&data_path).ok()?;
-        file.seek(SeekFrom::Start(pointer.offset as u64)).ok()?;
+        let mut file = File::open(&data_path)?;
+        file.seek(SeekFrom::Start(pointer.offset as u64))?;
 
         let mut header_buf = vec![0u8; pointer.header_size as usize];
-        file.read_exact(&mut header_buf).ok()?;
-        let header: CacheHeader = postcard::from_bytes(&header_buf).ok()?;
+        file.read_exact(&mut header_buf)?;
+        let header: CacheHeader =
+            postcard::from_bytes(&header_buf).map_err(|_| CacheError::CorruptedHeader)?;
 
         let mut data_buf = vec![0u8; pointer.content_size as usize];
-        file.read_exact(&mut data_buf).ok()?;
-        let data: V = postcard::from_bytes(&data_buf).ok()?;
+        file.read_exact(&mut data_buf)?;
+        let data: V = postcard::from_bytes(&data_buf).map_err(|_| CacheError::CorruptedBlock)?;
 
-        Some((header, data, pointer.content_size as usize))
+        Ok((header, data, pointer.content_size as usize))
     }
 
     fn count_bin_files<P: AsRef<Path>>(dir: P) -> std::io::Result<usize> {

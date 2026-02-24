@@ -37,10 +37,10 @@ impl Default for IndexFile {
 }
 
 impl IndexFile {
-    pub fn load() -> Option<Self> {
-        let idx_file = Resource::load(ResourceType::Cache(IDX_FILE_PATH)).ok()?;
+    pub fn load() -> Result<Self, CacheError> {
+        let idx_file = Resource::load(ResourceType::Cache(IDX_FILE_PATH))?;
 
-        from_bytes(&idx_file).ok()
+        from_bytes(&idx_file).map_err(|_| CacheError::CorruptedIndex)
     }
 
     pub fn write(&self) -> Result<(), CacheError> {

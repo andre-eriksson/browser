@@ -1,13 +1,24 @@
 use thiserror::Error;
 
+/// Represents the result of a cache read operation, indicating whether it was a hit or a miss.
+#[derive(Debug, Clone)]
+pub enum CacheRead<T: Clone> {
+    Hit(T),
+    Miss,
+}
+
+impl<T: Clone> CacheRead<T> {
+    pub fn is_hit(&self) -> bool {
+        matches!(self, CacheRead::Hit(_))
+    }
+
+    pub fn is_miss(&self) -> bool {
+        matches!(self, CacheRead::Miss)
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum CacheError {
-    #[error("Cache error: {0}")]
-    RuntimeError(String),
-
-    #[error("Cache entry not found for key: {0}")]
-    NotFound(String),
-
     #[error("Failed to serialize/deserialize cache data: {0}")]
     SerializationError(#[from] postcard::Error),
 
@@ -22,9 +33,6 @@ pub enum CacheError {
 
     #[error("Cache header is corrupted")]
     CorruptedHeader,
-
-    #[error("Cache header is invalid")]
-    InvalidHeader,
 
     #[error("Cache block is corrupted")]
     CorruptedBlock,

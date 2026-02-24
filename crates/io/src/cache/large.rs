@@ -74,7 +74,7 @@ impl LargeFile {
         Ok(())
     }
 
-    pub fn read<V>(sha: [u8; 32]) -> Option<(CacheHeader, V, usize)>
+    pub fn read<V>(sha: [u8; 32]) -> Result<(CacheHeader, V, usize), CacheError>
     where
         V: Clone + Serialize + DeserializeOwned,
     {
@@ -94,16 +94,19 @@ impl LargeFile {
         if !std::path::Path::new(&metadata_path).exists()
             || !std::path::Path::new(&content_path).exists()
         {
-            return None;
+            return Err(CacheError::ReadError(String::from("Large file not found")));
         }
 
-        let meta_data = std::fs::read(&metadata_path).ok()?;
-        let content_data = std::fs::read(&content_path).ok()?;
+        let meta_data = std::fs::read(&metadata_path)?;
+        let content_data = std::fs::read(&content_path)?;
 
-        let header: CacheHeader = postcard::from_bytes(&meta_data).ok()?;
-        let content: V = postcard::from_bytes(&content_data).ok()?;
+        let header: CacheHeader =
+            postcard::from_bytes(&meta_data).map_err(|_| CacheError::CorruptedHeader)?;
+        let content: V = postcard::from_bytes(&content_data).map_err(|_| {
+            CacheError::ReadError(String::from("Failed to deserialize content data"))
+        })?;
 
-        Some((header, content, content_data.len()))
+        Ok((header, content, content_data.len()))
     }
 
     fn hash_to_hex(hash: &[u8; 32]) -> String {

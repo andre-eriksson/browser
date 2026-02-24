@@ -10,7 +10,7 @@ use std::{
 
 use crate::cache::{
     block::BlockFile,
-    errors::CacheError,
+    errors::{CacheError, CacheRead},
     header::{CacheControlResponse, CacheHeader, HEADER_VERSION},
     index::{IndexFile, PointerType},
     large::LargeFile,
@@ -26,18 +26,18 @@ const MAX_BLOCK_SIZE: u64 = 20_000_000; // 20 MB
 
 /// The current state of a cached resource in memory.
 #[derive(Debug, Clone)]
-pub enum CacheEntry<T> {
+pub enum CacheEntry<T: Clone> {
     /// The resource has been requested but not yet loaded.
     Pending,
     /// The resource has been successfully loaded.
-    Loaded(Arc<T>),
+    Loaded(Arc<CacheRead<T>>),
     /// The resource failed to load.
     Failed,
 }
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
 #[derive(Debug, Clone, Default)]
-pub struct Cache<K, V> {
+pub struct Cache<K, V: Clone> {
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
 }
 
@@ -62,22 +62,30 @@ where
     }
 
     /// Gets the cache entry for a given key, if it exists.
-    pub fn get(&self, key: &K) -> Option<CacheEntry<V>> {
-        self.entries
-            .read()
-            .ok()
-            .and_then(|entries| entries.get(key).cloned())
+    pub fn get(&self, key: &K, headers: &HeaderMap) -> Result<CacheEntry<V>, CacheError> {
+        let entries = self.entries.read().expect("Cache lock poisoned");
+        if let Some(entry) = entries.get(key) {
+            return Ok(entry.clone());
+        }
+        drop(entries);
+
+        self.get_idx(key, headers)
+            .map(|v| CacheEntry::Loaded(Arc::new(v)))
     }
 
-    pub fn get_idx(&self, key: &K, headers: &HeaderMap) -> Option<V> {
-        let vary = Self::resolve_vary(headers).ok()?;
+    fn get_idx(&self, key: &K, headers: &HeaderMap) -> Result<CacheRead<V>, CacheError> {
+        let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
         let idx_file = IndexFile::load()?;
 
-        let pointer = idx_file.entries.get(&sha)?;
+        let pointer = idx_file.entries.get(&sha);
 
-        let (header, value, content_size) = match pointer {
+        if pointer.is_none() {
+            return Ok(CacheRead::Miss);
+        }
+
+        let (header, value, content_size) = match pointer.unwrap() {
             PointerType::Large => LargeFile::read::<V>(sha),
             PointerType::Block(ptr) => BlockFile::read(ptr),
         }?;
@@ -87,27 +95,37 @@ where
             || header.header_version != HEADER_VERSION
             || !header.is_fresh()
         {
-            return None;
+            return Ok(CacheRead::Miss);
         }
 
-        Some(value)
+        Ok(CacheRead::Hit(value))
     }
 
     /// Inserts or updates a cache entry for a given key.
-    pub fn insert(&self, key: K, entry: CacheEntry<V>) {
+    fn insert(&self, key: K, entry: CacheEntry<V>) {
         if let Ok(mut entries) = self.entries.write() {
             entries.insert(key, entry);
         }
     }
 
     /// Stores a successfully loaded value in the cache for a given key.
-    pub fn store(&self, key: K, value: V) {
-        self.insert(key, CacheEntry::Loaded(Arc::new(value)));
+    pub fn store(&self, key: K, value: V, headers: &HeaderMap) {
+        if let Err(e) = self.store_idx(&key, value.clone(), headers) {
+            eprintln!(
+                "Failed to store cache entry for key '{}': {}",
+                key.as_ref(),
+                e
+            );
+            self.mark_failed(key);
+            return;
+        }
+
+        self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
     }
 
     /// Stores a successfully loaded value in the cache for a given key.
-    pub fn store_idx(&self, key: K, headers: HeaderMap, value: V) -> Result<(), CacheError> {
-        let vary = Self::resolve_vary(&headers)?;
+    fn store_idx(&self, key: &K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
+        let vary = Self::resolve_vary(headers)?;
 
         let cache_control = headers
             .get(CACHE_CONTROL)
@@ -133,7 +151,7 @@ where
             }
         };
 
-        let header = CacheHeader::new(data.as_slice(), sha, &vary, &headers, &cache_control);
+        let header = CacheHeader::new(data.as_slice(), sha, &vary, headers, &cache_control);
 
         if data.len() >= MAX_BLOCK_SIZE as usize {
             LargeFile::write(data.as_slice(), sha, header)
@@ -209,11 +227,12 @@ mod tests {
     fn test_store_and_get() {
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
+        headers.insert("Accept-Encoding", "gzip".parse().unwrap());
         let cache = Cache::<String, String>::new();
         let key = "https://example.com/resource".to_string();
         let value = "cached data".to_string();
 
-        let result = cache.store_idx(key.clone(), headers.clone(), value.clone());
+        let result = cache.store_idx(&key, value.clone(), &headers);
         assert!(result.is_ok());
 
         let mut headers = HeaderMap::new();
@@ -221,6 +240,13 @@ mod tests {
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
 
         let retrieved = cache.get_idx(&key, &headers).unwrap();
-        assert_eq!(retrieved, value);
+        assert!(retrieved.is_hit());
+
+        let retrieved_value = match retrieved {
+            CacheRead::Hit(v) => v,
+            CacheRead::Miss => panic!("Expected a cache hit"),
+        };
+
+        assert_eq!(value, retrieved_value);
     }
 }
