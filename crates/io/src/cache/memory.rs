@@ -104,14 +104,14 @@ where
             }
         }
 
-        self.store_in_disk(&key, &value, headers)?;
+        self.store_on_disk(&key, &value, headers)?;
         self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
 
         Ok(())
     }
 
     /// Stores a value on disk for a given key and headers, handling Vary header resolution and cache control directives.
-    fn store_in_disk(&self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
+    fn store_on_disk(&self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
@@ -236,7 +236,7 @@ mod tests {
         let key = "https://example.com/resource".to_string();
         let value = "cached data".to_string();
 
-        let result = cache.store_in_disk(&key, &value, &headers);
+        let result = cache.store_on_disk(&key, &value, &headers);
         assert!(result.is_ok());
 
         let mut headers = HeaderMap::new();
