@@ -6,15 +6,17 @@ mod tests {
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::{Resource, embeded::DEFAULT_CSS};
     use kernel::TabCollector;
-    use layout::{LayoutEngine, Rect, TextContext};
+    use layout::{ImageContext, LayoutEngine, Rect, TextContext};
     use ui::load_fallback_fonts;
 
     fn viewport() -> Rect {
         Rect::new(0.0, 0.0, 800.0, 600.0)
     }
 
-    macro_rules! process_html {
-        ($path:literal, $user_agent_css:expr ) => {{
+    /// Parses an HTML fixture and builds a `StyleTree` + `TextContext` without
+    /// running layout.  This is the building block for the other macros.
+    macro_rules! process_html_raw {
+        ($path:literal, $user_agent_css:expr) => {{
             let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
             let html = include_bytes!($path);
 
@@ -69,7 +71,30 @@ mod tests {
             let document = result.dom_tree;
             let style_tree = StyleTree::build(&absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
-            let mut text_context = TextContext::new(font_system);
+            let text_context = TextContext::new(font_system);
+            (style_tree, text_context)
+        }};
+    }
+
+    /// Runs layout from a pre-built `StyleTree`, optionally with an
+    /// `ImageContext` for known image dimensions.
+    macro_rules! layout_from {
+        ($style_tree:expr, $text_context:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context) }};
+        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{
+            LayoutEngine::compute_layout_with_images(
+                &$style_tree,
+                viewport(),
+                $text_context,
+                &$image_ctx,
+            )
+        }};
+    }
+
+    /// Convenience: parse HTML and immediately compute layout (no image
+    /// context).
+    macro_rules! process_html {
+        ($path:literal, $user_agent_css:expr) => {{
+            let (style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
             LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context)
         }};
     }
@@ -250,5 +275,129 @@ mod tests {
 
         assert_eq!(child.dimensions.width, 260.0);
         assert_eq!(child.dimensions.height, 260.0);
+    }
+
+    /// Verifies that the relayout system correctly repositions siblings and
+    /// updates parent heights when an image's intrinsic dimensions become
+    /// known after the initial layout.
+    ///
+    /// Flow:
+    ///   1. Initial layout with placeholder image dimensions (300×150).
+    ///   2. Relayout with known intrinsic dimensions (640×480) via
+    ///      `ImageContext`.
+    ///   3. Assert that the "After image" paragraph moved down and the
+    ///      container grew taller.
+    #[test]
+    fn test_image_relayout_repositions_siblings() {
+        let (style_tree, mut text_context) =
+            process_html_raw!("fixtures/image_relayout.html", true);
+
+        let layout_before = layout_from!(style_tree, &mut text_context);
+
+        let root = &layout_before.root_nodes[0];
+        let body = &root.children[0];
+
+        let container = &body.children[0];
+        let img_node = container
+            .children
+            .iter()
+            .find(|n| n.image_data.is_some())
+            .expect("should have an image node");
+
+        assert_eq!(img_node.dimensions.width, 300.0);
+        assert_eq!(img_node.dimensions.height, 150.0);
+        assert!(
+            img_node
+                .image_data
+                .as_ref()
+                .unwrap()
+                .image_needs_intrinsic_size
+        );
+
+        let after_p_y_before = container
+            .children
+            .last()
+            .expect("container should have children")
+            .dimensions
+            .y;
+        let content_height_before = layout_before.content_height;
+
+        let mut image_ctx = ImageContext::new();
+        image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
+
+        let layout_after = layout_from!(style_tree, &mut text_context, image_ctx);
+
+        let root2 = &layout_after.root_nodes[0];
+        let body2 = &root2.children[0];
+        let container2 = &body2.children[0];
+
+        let img_node2 = container2
+            .children
+            .iter()
+            .find(|n| n.image_data.is_some())
+            .expect("should still have an image node");
+
+        assert_eq!(img_node2.dimensions.width, 640.0);
+        assert_eq!(img_node2.dimensions.height, 480.0);
+        assert!(
+            !img_node2
+                .image_data
+                .as_ref()
+                .unwrap()
+                .image_needs_intrinsic_size
+        );
+
+        let after_p_y_after = container2
+            .children
+            .last()
+            .expect("container should have children")
+            .dimensions
+            .y;
+
+        assert!(
+            after_p_y_after > after_p_y_before,
+            "After-image paragraph should move down after relayout (before: {}, after: {})",
+            after_p_y_before,
+            after_p_y_after,
+        );
+
+        assert!(
+            layout_after.content_height > content_height_before,
+            "Total content height should increase after relayout (before: {}, after: {})",
+            content_height_before,
+            layout_after.content_height,
+        );
+    }
+
+    /// Verifies that relayout with the same `ImageContext` is idempotent –
+    /// running it twice produces identical results.
+    #[test]
+    fn test_image_relayout_is_idempotent() {
+        let (style_tree, mut text_context) =
+            process_html_raw!("fixtures/image_relayout.html", true);
+
+        let mut image_ctx = ImageContext::new();
+        image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
+
+        let layout_a = layout_from!(style_tree, &mut text_context, image_ctx.clone());
+        let layout_b = layout_from!(style_tree, &mut text_context, image_ctx);
+
+        assert_eq!(layout_a.content_height, layout_b.content_height);
+
+        let img_a = layout_a.root_nodes[0].children[0].children[0]
+            .children
+            .iter()
+            .find(|n| n.image_data.is_some())
+            .unwrap();
+        let img_b = layout_b.root_nodes[0].children[0].children[0]
+            .children
+            .iter()
+            .find(|n| n.image_data.is_some())
+            .unwrap();
+
+        assert_eq!(img_a.dimensions.width, img_b.dimensions.width);
+        assert_eq!(img_a.dimensions.height, img_b.dimensions.height);
+        assert_eq!(img_a.dimensions.x, img_b.dimensions.x);
+        assert_eq!(img_a.dimensions.y, img_b.dimensions.y);
     }
 }

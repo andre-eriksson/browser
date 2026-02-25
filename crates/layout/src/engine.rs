@@ -4,6 +4,7 @@ use css_style::{
 };
 
 use crate::{
+    context::ImageContext,
     layout::{LayoutContext, LayoutNode, LayoutTree},
     mode::block::BlockLayout,
     primitives::Rect,
@@ -35,11 +36,34 @@ impl LayoutMode {
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    /// Main entry point: compute layout for an entire style tree
+    /// Main entry point: compute layout for an entire style tree.
+    ///
+    /// This is a convenience wrapper that creates an empty [`ImageContext`]
+    /// (no known image dimensions) and delegates to
+    /// [`compute_layout_with_images`](Self::compute_layout_with_images).
     pub fn compute_layout(
         style_tree: &StyleTree,
         viewport: Rect,
         text_ctx: &mut TextContext,
+    ) -> LayoutTree {
+        let image_ctx = ImageContext::new();
+        Self::compute_layout_with_images(style_tree, viewport, text_ctx, &image_ctx)
+    }
+
+    /// Compute layout for an entire style tree, using known image dimensions
+    /// from `image_ctx` so that previously-decoded images are laid out at their
+    /// intrinsic size rather than a placeholder.
+    ///
+    /// This is the core of the **relayout** system: after an image is fetched
+    /// and decoded the caller stores its `(width, height)` in an
+    /// [`ImageContext`], then calls this method to produce a fresh
+    /// [`LayoutTree`] where the image and all of its siblings / ancestors have
+    /// been repositioned correctly.
+    pub fn compute_layout_with_images(
+        style_tree: &StyleTree,
+        viewport: Rect,
+        text_ctx: &mut TextContext,
+        image_ctx: &ImageContext,
     ) -> LayoutTree {
         let mut ctx = LayoutContext::new(viewport);
 
@@ -49,7 +73,7 @@ impl LayoutEngine {
         for styled_node in &style_tree.root_nodes {
             ctx.block_cursor.y = total_height;
 
-            let node = Self::layout_node(styled_node, &mut ctx, text_ctx);
+            let node = Self::layout_node(styled_node, &mut ctx, text_ctx, image_ctx);
 
             if node.is_none() {
                 // For `display: none`
@@ -88,13 +112,14 @@ impl LayoutEngine {
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
+        image_ctx: &ImageContext,
     ) -> Option<LayoutNode> {
         let layout_mode = LayoutMode::new(styled_node)?;
 
         match layout_mode {
-            LayoutMode::Block => Some(BlockLayout::layout(styled_node, ctx, text_ctx)),
-            LayoutMode::Flex => Some(BlockLayout::layout(styled_node, ctx, text_ctx)), // TODO: implement flex layout
-            LayoutMode::Grid => Some(BlockLayout::layout(styled_node, ctx, text_ctx)), // TODO: implement grid layout
+            LayoutMode::Block => Some(BlockLayout::layout(styled_node, ctx, text_ctx, image_ctx)),
+            LayoutMode::Flex => Some(BlockLayout::layout(styled_node, ctx, text_ctx, image_ctx)), // TODO: implement flex layout
+            LayoutMode::Grid => Some(BlockLayout::layout(styled_node, ctx, text_ctx, image_ctx)), // TODO: implement grid layout
         }
     }
 }
@@ -177,8 +202,9 @@ mod tests {
 
         ctx.block_cursor = cursor;
         let mut text_ctx = TextContext::default();
+        let image_ctx = ImageContext::new();
 
-        let layout_node = BlockLayout::layout(&styled_node, &mut ctx, &mut text_ctx);
+        let layout_node = BlockLayout::layout(&styled_node, &mut ctx, &mut text_ctx, &image_ctx);
 
         assert_eq!(layout_node.node_id, styled_node.node_id);
         assert_eq!(layout_node.dimensions.x, 0.0);

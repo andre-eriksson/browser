@@ -4,6 +4,9 @@
 //! the layout tree, which represents the visual structure of a web page based
 //! on the DOM and CSS styles.
 
+/// Image dimension context for relayout
+mod context;
+
 /// Layout engine module
 pub mod engine;
 
@@ -19,6 +22,7 @@ mod text;
 mod mode;
 mod resolver;
 
+pub use context::ImageContext;
 pub use css_style::Color4f;
 pub use engine::LayoutEngine;
 pub use layout::{LayoutColors, LayoutNode, LayoutTree};

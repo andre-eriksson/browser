@@ -8,6 +8,7 @@ use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
+    context::ImageContext,
     layout::{ImageData, LayoutContext},
     resolver::PropertyResolver,
     text::TextDescription,
@@ -204,11 +205,12 @@ impl InlineLayout {
     pub fn collect_inline_items_from_nodes(
         parent_style: &ComputedStyle,
         nodes: &[StyledNode],
+        image_ctx: &ImageContext,
     ) -> Vec<InlineItem> {
         let mut raw_items = Vec::new();
 
         for node in nodes {
-            let result = Self::collect(parent_style, node, &mut raw_items);
+            let result = Self::collect(parent_style, node, &mut raw_items, image_ctx);
 
             if result.is_err() {
                 break;
@@ -224,6 +226,7 @@ impl InlineLayout {
         style: &ComputedStyle,
         inline_node: &StyledNode,
         items: &mut Vec<InlineItem>,
+        image_ctx: &ImageContext,
     ) -> Result<(), ()> {
         if let Some(text) = inline_node.text_content.as_ref() {
             items.push(InlineItem::TextRun {
@@ -250,6 +253,8 @@ impl InlineLayout {
                     let default_width = 300.0;
                     let default_height = 150.0;
 
+                    let known = image_ctx.get(&src);
+
                     let explicit_attr_width = inline_node
                         .attributes
                         .get("width")
@@ -265,22 +270,35 @@ impl InlineLayout {
                     let css_height_explicit =
                         matches!(inline_node.style.height, ComputedDimension::Fixed);
 
-                    let width = explicit_attr_width.unwrap_or(if css_width_explicit {
-                        inline_node.style.intrinsic_width
+                    let (width, height, needs_intrinsic_size) = if let Some((kw, kh)) = known {
+                        let w = explicit_attr_width.unwrap_or(if css_width_explicit {
+                            inline_node.style.intrinsic_width
+                        } else {
+                            kw
+                        });
+                        let h = explicit_attr_height.unwrap_or(if css_height_explicit {
+                            inline_node.style.intrinsic_height
+                        } else {
+                            kh
+                        });
+                        (w, h, false)
                     } else {
-                        default_width
-                    });
-
-                    let height = explicit_attr_height.unwrap_or(if css_height_explicit {
-                        inline_node.style.intrinsic_height
-                    } else {
-                        default_height
-                    });
-
-                    let needs_intrinsic_size = explicit_attr_width.is_none()
-                        && explicit_attr_height.is_none()
-                        && !css_width_explicit
-                        && !css_height_explicit;
+                        let w = explicit_attr_width.unwrap_or(if css_width_explicit {
+                            inline_node.style.intrinsic_width
+                        } else {
+                            default_width
+                        });
+                        let h = explicit_attr_height.unwrap_or(if css_height_explicit {
+                            inline_node.style.intrinsic_height
+                        } else {
+                            default_height
+                        });
+                        let needs = explicit_attr_width.is_none()
+                            && explicit_attr_height.is_none()
+                            && !css_width_explicit
+                            && !css_height_explicit;
+                        (w, h, needs)
+                    };
 
                     items.push(InlineItem::Image {
                         id: inline_node.node_id,
@@ -313,7 +331,7 @@ impl InlineLayout {
                     });
 
                     for child in &inline_node.children {
-                        Self::collect(&inline_node.style, child, items)?;
+                        Self::collect(&inline_node.style, child, items, image_ctx)?;
                     }
 
                     items.push(InlineItem::InlineBoxEnd {
@@ -337,6 +355,7 @@ impl InlineLayout {
         available_width: f32,
         start_x: f32,
         start_y: f32,
+        image_ctx: &ImageContext,
     ) -> (Vec<LayoutNode>, f32) {
         let mut nodes = Vec::new();
         let mut current_y = start_y;
@@ -473,7 +492,8 @@ impl InlineLayout {
                     };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
-                    let child_node = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx);
+                    let child_node =
+                        LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx);
 
                     if let Some(mut layout_node) = child_node {
                         let total_width = layout_node.dimensions.width
@@ -539,9 +559,13 @@ impl InlineLayout {
                     let mut node = LayoutNode::new(*id);
                     node.dimensions = Rect::new(0.0, 0.0, img_width, img_height);
                     node.colors = LayoutColors::from(&**style);
+                    let vary_key = image_ctx
+                        .get_meta(src)
+                        .map(|m| m.vary_key.clone())
+                        .unwrap_or_default();
                     node.image_data = Some(ImageData {
                         image_src: src.clone(),
-                        vary_key: String::new(),
+                        vary_key,
                         image_needs_intrinsic_size: *needs_intrinsic_size,
                     });
 

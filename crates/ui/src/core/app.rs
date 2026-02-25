@@ -179,11 +179,13 @@ impl Application {
                             ..Default::default()
                         };
                         let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
+                        let image_ctx = tab.image_context();
 
-                        let layout_tree = LayoutEngine::compute_layout(
+                        let layout_tree = LayoutEngine::compute_layout_with_images(
                             &style_tree,
                             Rect::new(0.0, 0.0, width, height),
                             &mut self.text_context,
+                            &image_ctx,
                         );
 
                         tab.layout_tree = layout_tree;
@@ -251,17 +253,34 @@ impl Application {
                         let intrinsic_w = decoded.width as f32;
                         let intrinsic_h = decoded.height as f32;
                         if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == self.active_tab) {
-                            Self::patch_image_vary_key(
-                                &mut tab.layout_tree.root_nodes,
-                                url,
-                                vary_key,
+                            tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
+                            tab.set_image_vary_key(url, vary_key.clone());
+
+                            let (vw, vh) = self
+                                .viewports
+                                .get(&self.id)
+                                .copied()
+                                .unwrap_or((800.0, 600.0));
+
+                            let ctx = AbsoluteContext {
+                                root_font_size: 16.0,
+                                viewport_width: vw,
+                                viewport_height: vh,
+                                ..Default::default()
+                            };
+
+                            let style_tree =
+                                StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
+                            let image_ctx = tab.image_context();
+
+                            let layout_tree = LayoutEngine::compute_layout_with_images(
+                                &style_tree,
+                                Rect::new(0.0, 0.0, vw, vh),
+                                &mut self.text_context,
+                                &image_ctx,
                             );
-                            Self::patch_image_dimensions(
-                                &mut tab.layout_tree.root_nodes,
-                                url,
-                                intrinsic_w,
-                                intrinsic_h,
-                            );
+
+                            tab.layout_tree = layout_tree;
                         }
                     }
                 }
@@ -356,13 +375,16 @@ impl Application {
                         let style_tree =
                             StyleTree::build(&ctx, page.document(), page.stylesheets());
 
-                        let layout_tree = LayoutEngine::compute_layout(
+                        let image_ctx = tab.image_context();
+
+                        let layout_tree = LayoutEngine::compute_layout_with_images(
                             &style_tree,
                             self.viewports
                                 .get(&self.id)
                                 .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
                                 .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
                             &mut self.text_context,
+                            &image_ctx,
                         );
 
                         tab.document = page.document().clone();
@@ -377,12 +399,55 @@ impl Application {
                         let mut image_srcs = Vec::new();
                         Self::collect_image_srcs(&tab.layout_tree.root_nodes, &mut image_srcs);
 
+                        let mut cache_hit = false;
+                        let mut fetch_srcs: Vec<String> = Vec::new();
+
+                        for src in image_srcs {
+                            if src.is_empty() {
+                                continue;
+                            }
+
+                            if let Ok(CacheEntry::Loaded(decoded)) =
+                                image_cache.get_with_vary(&src, "")
+                                && let CacheRead::Hit(ref data) = *decoded
+                            {
+                                debug!(
+                                    "Image cache hit (disk): {} ({}×{})",
+                                    src, data.width, data.height
+                                );
+                                tab.set_image_dimensions(
+                                    src.clone(),
+                                    data.width as f32,
+                                    data.height as f32,
+                                );
+
+                                tab.set_image_vary_key(&src, String::new());
+                                cache_hit = true;
+                                continue;
+                            }
+
+                            if image_cache.mark_pending(src.to_string()) {
+                                fetch_srcs.push(src);
+                            }
+                        }
+
+                        if cache_hit {
+                            let image_ctx = tab.image_context();
+                            let layout_tree = LayoutEngine::compute_layout_with_images(
+                                &style_tree,
+                                self.viewports
+                                    .get(&self.id)
+                                    .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
+                                    .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
+                                &mut self.text_context,
+                                &image_ctx,
+                            );
+                            tab.layout_tree = layout_tree;
+                        }
+
                         let active_tab = self.active_tab;
-                        let tasks: Vec<Task<Event>> = image_srcs
+                        let tasks: Vec<Task<Event>> = fetch_srcs
                             .into_iter()
-                            .filter(|src| {
-                                !src.is_empty() && image_cache.mark_pending(src.to_string())
-                            })
                             .map(|src| {
                                 let browser = self.browser.clone();
                                 let cache = image_cache.clone();
@@ -447,45 +512,6 @@ impl Application {
             },
         }
         Task::none()
-    }
-
-    /// Recursively patches layout nodes that match the given image `src` and
-    /// still need their intrinsic size, updating their dimensions to the
-    /// decoded image width/height.
-    fn patch_image_dimensions(
-        nodes: &mut [layout::LayoutNode],
-        src: &str,
-        intrinsic_w: f32,
-        intrinsic_h: f32,
-    ) {
-        for node in nodes.iter_mut() {
-            if let Some(image_data) = &mut node.image_data
-                && image_data.image_needs_intrinsic_size
-                && image_data.image_src == src
-            {
-                node.dimensions.width = intrinsic_w;
-                node.dimensions.height = intrinsic_h;
-                image_data.image_needs_intrinsic_size = false;
-            }
-
-            Self::patch_image_dimensions(&mut node.children, src, intrinsic_w, intrinsic_h);
-        }
-    }
-
-    /// Recursively patches layout nodes to store the pre-resolved Vary string
-    /// for the given image `src`, so the rendering path can do exact disk cache
-    /// lookups without needing the full `HeaderMap`.
-    fn patch_image_vary_key(nodes: &mut [layout::LayoutNode], src: &str, vary_key: &str) {
-        for node in nodes.iter_mut() {
-            if let Some(image_data) = &mut node.image_data
-                && image_data.image_src == src
-                && image_data.vary_key.is_empty()
-            {
-                image_data.vary_key = vary_key.to_string();
-            }
-
-            Self::patch_image_vary_key(&mut node.children, src, vary_key);
-        }
     }
 
     /// Recursively collect all image source URLs from the layout tree.
