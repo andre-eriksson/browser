@@ -1,4 +1,4 @@
-use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, Property};
+use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, Property, SimpleBlock};
 
 use crate::global::Global;
 use crate::length::{Length, LengthUnit};
@@ -119,6 +119,13 @@ pub(crate) fn resolve_css_variables(
                 let resolved_inner = resolve_css_variables(variables, &func.value);
                 output.push(ComponentValue::Function(Function {
                     name: func.name.clone(),
+                    value: resolved_inner,
+                }));
+            }
+            ComponentValue::SimpleBlock(block) => {
+                let resolved_inner = resolve_css_variables(variables, &block.value);
+                output.push(ComponentValue::SimpleBlock(SimpleBlock {
+                    associated_token: block.associated_token,
                     value: resolved_inner,
                 }));
             }
