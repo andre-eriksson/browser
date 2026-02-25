@@ -32,5 +32,5 @@ pub enum UiEvent {
 
     /// An image has finished loading (or failed). The first String is the source URL,
     /// the second is the pre-resolved Vary string for exact disk cache lookups.
-    ImageLoaded(String, String),
+    ImageLoaded(TabId, String, String),
 }

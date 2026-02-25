@@ -244,14 +244,14 @@ impl Application {
                         tab.scroll_offset.y = y;
                     }
                 }
-                UiEvent::ImageLoaded(ref url, ref vary_key) => {
+                UiEvent::ImageLoaded(tab_id, ref url, ref vary_key) => {
                     if let Some(ref cache) = self.image_cache
                         && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(url, vary_key)
                         && let CacheRead::Hit(decoded) = (*decoded).clone()
                     {
                         let intrinsic_w = decoded.width as f32;
                         let intrinsic_h = decoded.height as f32;
-                        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == self.active_tab) {
+                        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
                             tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
                             tab.set_image_vary_key(url, vary_key.clone());
 
@@ -465,6 +465,7 @@ impl Application {
                                             error!("Image fetch error: {}", err);
                                             cache.mark_failed(src_for_err.clone());
                                             Event::Ui(UiEvent::ImageLoaded(
+                                                active_tab,
                                                 src_for_err,
                                                 String::new(),
                                             ))
@@ -479,7 +480,7 @@ impl Application {
                         }
                     }
                 }
-                BrowserEvent::ImageFetched(url, bytes, headers) => {
+                BrowserEvent::ImageFetched(tab_id, url, bytes, headers) => {
                     if let Some(ref cache) = self.image_cache {
                         let cache = cache.clone();
                         let vary_key = ImageCache::resolve_vary(&headers).unwrap_or_default();
@@ -493,12 +494,12 @@ impl Application {
                             move |result| match result {
                                 Ok((url, decoded)) => {
                                     let _ = cache.store(url.clone(), decoded, &headers);
-                                    Event::Ui(UiEvent::ImageLoaded(url, vary_key))
+                                    Event::Ui(UiEvent::ImageLoaded(tab_id, url, vary_key))
                                 }
                                 Err((url, err)) => {
                                     debug!("Image decode error: {}", err);
                                     cache.mark_failed(url.clone());
-                                    Event::Ui(UiEvent::ImageLoaded(url, vary_key))
+                                    Event::Ui(UiEvent::ImageLoaded(tab_id, url, vary_key))
                                 }
                             },
                         );

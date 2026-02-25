@@ -37,7 +37,7 @@ pub enum BrowserEvent {
     NavigateError(NavigationError),
 
     /// An image was successfully fetched from the network.
-    ImageFetched(String, Vec<u8>, HeaderMap),
+    ImageFetched(TabId, String, Vec<u8>, HeaderMap),
 }
 
 /// Represents commands that can be issued to the browser.

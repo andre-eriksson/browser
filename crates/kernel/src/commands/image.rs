@@ -53,6 +53,7 @@ pub(crate) async fn load_image(
     };
 
     Ok(BrowserEvent::ImageFetched(
+        tab_id,
         resolved_url.to_string(),
         body,
         response.headers,

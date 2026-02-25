@@ -70,6 +70,7 @@ where
     pub fn get_with_vary(&self, key: &K, vary: &str) -> Result<CacheEntry<V>, CacheError> {
         let entries = self.entries.read().expect("Cache lock poisoned");
         if let Some(entry) = entries.get(key) {
+            // TODO: Vary?
             return Ok(entry.clone());
         }
         drop(entries);
@@ -92,6 +93,7 @@ where
     pub fn get(&self, key: &K, headers: &HeaderMap) -> Result<CacheEntry<V>, CacheError> {
         let entries = self.entries.read().expect("Cache lock poisoned");
         if let Some(entry) = entries.get(key) {
+            // TODO: Vary?
             return Ok(entry.clone());
         }
         drop(entries);

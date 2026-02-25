@@ -58,10 +58,6 @@ impl<'renderer> BrowserHtml<'renderer> {
         self.renderer.set_images(render_data.images);
         self.renderer.set_scroll_offset(active_tab.scroll_offset);
 
-        if let Some(cache) = &app.image_cache {
-            self.renderer.set_image_cache(cache.clone());
-        }
-
         let shader: Shader<Event, HtmlRenderer> = shader(self.renderer)
             .width(Length::Fill)
             .height(Length::Fill);

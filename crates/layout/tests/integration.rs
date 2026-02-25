@@ -80,7 +80,7 @@ mod tests {
     /// `ImageContext` for known image dimensions.
     macro_rules! layout_from {
         ($style_tree:expr, $text_context:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, None) }};
-        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, Some(&$image_ctx)) }};
+        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, Some($image_ctx)) }};
     }
 
     /// Convenience: parse HTML and immediately compute layout (no image
@@ -372,8 +372,8 @@ mod tests {
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
 
-        let layout_a = layout_from!(style_tree, &mut text_context, image_ctx.clone());
-        let layout_b = layout_from!(style_tree, &mut text_context, image_ctx);
+        let layout_a = layout_from!(style_tree, &mut text_context, &image_ctx);
+        let layout_b = layout_from!(style_tree, &mut text_context, &image_ctx);
 
         assert_eq!(layout_a.content_height, layout_b.content_height);
 

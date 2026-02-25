@@ -317,10 +317,7 @@ async fn resolve_request_inner(
         }
     }
 
-    let response = resp
-        .body()
-        .await
-        .map_err(|e| RequestError::Network(NetworkError::RuntimeError(e.to_string())))?;
+    let response = resp.body().await.map_err(RequestError::Network)?;
 
     Ok((url, response))
 }

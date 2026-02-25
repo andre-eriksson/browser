@@ -297,9 +297,6 @@ pub struct HtmlRenderer<'a> {
 
     /// The layout tree being rendered
     pub layout_tree: &'a LayoutTree,
-
-    /// Shared image cache for checking loaded images
-    pub image_cache: Option<ImageCache>,
 }
 
 impl<'html> HtmlRenderer<'html> {
@@ -312,7 +309,6 @@ impl<'html> HtmlRenderer<'html> {
             scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
             dom_tree,
             layout_tree,
-            image_cache: None,
         }
     }
 
@@ -341,10 +337,6 @@ impl<'html> HtmlRenderer<'html> {
 
     pub fn set_scroll_offset(&mut self, scroll_offset: ScrollOffset) {
         self.scroll_offset = scroll_offset;
-    }
-
-    pub fn set_image_cache(&mut self, cache: ImageCache) {
-        self.image_cache = Some(cache);
     }
 }
 
@@ -514,9 +506,6 @@ pub fn collect_render_data_from_layout<'html>(
     image_cache: Option<&ImageCache>,
 ) -> HtmlRenderer<'html> {
     let mut data = HtmlRenderer::new(dom_tree, layout_tree);
-    if let Some(cache) = image_cache {
-        data.set_image_cache(cache.clone());
-    }
 
     fn collect_node(
         node: &LayoutNode,
