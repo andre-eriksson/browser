@@ -66,6 +66,21 @@ impl From<&StyledNode> for LayoutColors {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ImageData {
+    /// Image source URL for `<img>` elements
+    pub image_src: String,
+
+    /// The pre-resolved Vary string for this image's cache entry, computed from
+    /// the response headers at fetch time. This allows exact disk cache lookups
+    /// without needing the full `HeaderMap`.
+    pub vary_key: String,
+
+    /// Whether this image node is using placeholder dimensions and should be
+    /// updated to the intrinsic image size once the image has been decoded.
+    pub image_needs_intrinsic_size: bool,
+}
+
 /// A node in the layout tree representing a rendered element
 #[derive(Debug, Clone)]
 pub struct LayoutNode {
@@ -90,6 +105,8 @@ pub struct LayoutNode {
     /// Optional text buffer for rendered text
     pub text_buffer: Option<Arc<Buffer>>,
 
+    pub image_data: Option<ImageData>,
+
     /// Child layout nodes
     pub children: Vec<LayoutNode>,
 }
@@ -105,6 +122,7 @@ impl LayoutNode {
             resolved_padding: SideOffset::default(),
             resolved_border: SideOffset::default(),
             text_buffer: None,
+            image_data: None,
             children: Vec::new(),
         }
     }

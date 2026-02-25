@@ -27,3 +27,7 @@ url = { workspace = true, optional = true}
 [features]
 default = []
 network = ["dep:url", "dep:tokio", "dep:network", "dep:cookies"]
+
+
+[dev-dependencies]
+serial_test.workspace = true

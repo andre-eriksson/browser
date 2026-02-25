@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use html_dom::{DocumentRoot, HtmlTag, Tag};
 use iced::{
     Rectangle,
@@ -9,9 +11,13 @@ use iced::{
         shader::{Pipeline, Primitive, Program, Viewport},
     },
 };
+use io::{CacheEntry, CacheRead};
 use kernel::BrowserEvent;
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
-use renderer::{GlyphAtlas, RectPipeline, RenderRect, RenderTri, TextBlockInfo, TexturePipeline};
+use renderer::{
+    DecodedImageData, GlyphAtlas, GpuImageCache, ImageRenderInfo, RectPipeline, RenderRect,
+    RenderTri, TextBlockInfo, TexturePipeline, image::ImageCache,
+};
 
 use crate::{
     core::{Event, ScrollOffset},
@@ -26,6 +32,7 @@ pub struct HtmlPrimitive {
     pub rects: Vec<RenderRect>,
     pub tris: Vec<RenderTri>,
     pub text_blocks: Vec<TextBlockInfo>,
+    pub images: Vec<ImageRenderInfo>,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub scroll_offset: ScrollOffset,
@@ -37,6 +44,7 @@ impl HtmlPrimitive {
             rects: Vec::new(),
             tris: Vec::new(),
             text_blocks: Vec::new(),
+            images: Vec::new(),
             viewport_width,
             viewport_height,
             scroll_offset,
@@ -57,14 +65,21 @@ impl HtmlPrimitive {
     pub fn push_text_block(&mut self, text_block: TextBlockInfo) {
         self.text_blocks.push(text_block);
     }
+
+    /// Add an image to be rendered
+    pub fn push_image(&mut self, image: ImageRenderInfo) {
+        self.images.push(image);
+    }
 }
 
 /// Pipeline wrapper that implements iced's Pipeline trait
 pub struct HtmlPipeline {
     rect_pipeline: RectPipeline,
     text_pipeline: TexturePipeline,
+    image_pipeline: TexturePipeline,
     glyph_atlas: GlyphAtlas,
     font_system: FontSystem,
+    gpu_image_cache: GpuImageCache,
 }
 
 impl Pipeline for HtmlPipeline {
@@ -77,13 +92,20 @@ impl Pipeline for HtmlPipeline {
         let text_pipeline =
             TexturePipeline::new_text(device, format, glyph_atlas.bind_group_layout());
 
+        let gpu_image_cache = GpuImageCache::new(device);
+
+        let image_pipeline =
+            TexturePipeline::new_image(device, format, gpu_image_cache.bind_group_layout());
+
         let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
 
         Self {
             rect_pipeline: RectPipeline::new(device, format),
             text_pipeline,
+            image_pipeline,
             glyph_atlas,
             font_system,
+            gpu_image_cache,
         }
     }
 }
@@ -94,7 +116,7 @@ impl Primitive for HtmlPrimitive {
     fn prepare(
         &self,
         pipeline: &mut Self::Pipeline,
-        _device: &wgpu::Device,
+        device: &wgpu::Device,
         queue: &wgpu::Queue,
         _bounds: &Rectangle,
         _viewport: &Viewport,
@@ -105,9 +127,13 @@ impl Primitive for HtmlPrimitive {
         pipeline
             .text_pipeline
             .update_globals(queue, self.viewport_width, self.viewport_height);
+        pipeline
+            .image_pipeline
+            .update_globals(queue, self.viewport_width, self.viewport_height);
 
         pipeline.rect_pipeline.clear();
         pipeline.text_pipeline.clear();
+        pipeline.image_pipeline.clear();
 
         for render_rect in &self.rects {
             let offset_rect = Rect::new(
@@ -174,15 +200,43 @@ impl Primitive for HtmlPrimitive {
             }
         }
 
+        for image_info in &self.images {
+            pipeline.gpu_image_cache.ensure_uploaded(
+                device,
+                queue,
+                &image_info.src,
+                &image_info.data,
+            );
+
+            let screen_rect = Rect::new(
+                image_info.screen_rect.x - self.scroll_offset.x,
+                image_info.screen_rect.y - self.scroll_offset.y,
+                image_info.screen_rect.width,
+                image_info.screen_rect.height,
+            );
+            let full_uv = Rect::new(0.0, 0.0, 1.0, 1.0);
+            let white = Color4f {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
+            };
+            pipeline
+                .image_pipeline
+                .push_quad(screen_rect, full_uv, white);
+        }
+
         pipeline.rect_pipeline.flush(queue);
         pipeline.text_pipeline.flush(queue);
+        pipeline.image_pipeline.flush(queue);
     }
 
     fn draw(&self, pipeline: &Self::Pipeline, render_pass: &mut RenderPass<'_>) -> bool {
         let has_rects = pipeline.rect_pipeline.has_content();
         let has_text = pipeline.text_pipeline.has_content();
+        let has_images = pipeline.image_pipeline.has_content();
 
-        if !has_rects && !has_text {
+        if !has_rects && !has_text && !has_images {
             return false;
         }
 
@@ -201,6 +255,21 @@ impl Primitive for HtmlPrimitive {
             render_pass.draw(0..pipeline.text_pipeline.vertex_count(), 0..1);
         }
 
+        if has_images {
+            render_pass.set_pipeline(pipeline.image_pipeline.pipeline());
+            render_pass.set_bind_group(0, pipeline.image_pipeline.bind_group(), &[]);
+            render_pass.set_vertex_buffer(0, pipeline.image_pipeline.vertex_buffer().slice(..));
+
+            let mut vertex_offset: u32 = 0;
+            for image_info in &self.images {
+                if let Some(bind_group) = pipeline.gpu_image_cache.get_bind_group(&image_info.src) {
+                    render_pass.set_bind_group(1, bind_group, &[]);
+                    render_pass.draw(vertex_offset..vertex_offset + 6, 0..1);
+                }
+                vertex_offset += 6;
+            }
+        }
+
         true
     }
 }
@@ -210,10 +279,16 @@ impl Primitive for HtmlPrimitive {
 pub struct HtmlRenderer<'a> {
     /// Rectangles to render (populated by layout engine)
     pub rects: Vec<RenderRect>,
+
     /// Triangles to render (populated by layout engine)
     pub tris: Vec<RenderTri>,
+
     /// Text blocks to render (populated by layout engine)
     pub text_blocks: Vec<TextBlockInfo>,
+
+    /// Images to render (populated by layout engine + image cache)
+    pub images: Vec<ImageRenderInfo>,
+
     /// The scroll offset for viewport-based rendering
     pub scroll_offset: ScrollOffset,
 
@@ -222,17 +297,22 @@ pub struct HtmlRenderer<'a> {
 
     /// The layout tree being rendered
     pub layout_tree: &'a LayoutTree,
+
+    /// Shared image cache for checking loaded images
+    pub image_cache: Option<ImageCache>,
 }
 
-impl<'a> HtmlRenderer<'a> {
-    pub fn new(dom_tree: &'a DocumentRoot, layout_tree: &'a LayoutTree) -> Self {
+impl<'html> HtmlRenderer<'html> {
+    pub fn new(dom_tree: &'html DocumentRoot, layout_tree: &'html LayoutTree) -> Self {
         Self {
             rects: Vec::new(),
             tris: Vec::new(),
             text_blocks: Vec::new(),
+            images: Vec::new(),
             scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
             dom_tree,
             layout_tree,
+            image_cache: None,
         }
     }
 
@@ -240,6 +320,7 @@ impl<'a> HtmlRenderer<'a> {
         self.rects.clear();
         self.tris.clear();
         self.text_blocks.clear();
+        self.images.clear();
     }
 
     pub fn set_rects(&mut self, rects: Vec<RenderRect>) {
@@ -254,8 +335,16 @@ impl<'a> HtmlRenderer<'a> {
         self.text_blocks = text_blocks;
     }
 
+    pub fn set_images(&mut self, images: Vec<ImageRenderInfo>) {
+        self.images = images;
+    }
+
     pub fn set_scroll_offset(&mut self, scroll_offset: ScrollOffset) {
         self.scroll_offset = scroll_offset;
+    }
+
+    pub fn set_image_cache(&mut self, cache: ImageCache) {
+        self.image_cache = Some(cache);
     }
 }
 
@@ -280,6 +369,10 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
 
         for text_block in &self.text_blocks {
             primitive.push_text_block(text_block.clone());
+        }
+
+        for image in &self.images {
+            primitive.push_image(image.clone());
         }
 
         primitive
@@ -414,14 +507,23 @@ impl ViewportBounds {
 }
 
 /// Helper function to collect all render data from a layout tree with viewport culling
-pub fn collect_render_data_from_layout<'a>(
-    dom_tree: &'a DocumentRoot,
-    layout_tree: &'a LayoutTree,
+pub fn collect_render_data_from_layout<'html>(
+    dom_tree: &'html DocumentRoot,
+    layout_tree: &'html LayoutTree,
     viewport: Option<ViewportBounds>,
-) -> HtmlRenderer<'a> {
+    image_cache: Option<&ImageCache>,
+) -> HtmlRenderer<'html> {
     let mut data = HtmlRenderer::new(dom_tree, layout_tree);
+    if let Some(cache) = image_cache {
+        data.set_image_cache(cache.clone());
+    }
 
-    fn collect_node(node: &LayoutNode, data: &mut HtmlRenderer, viewport: Option<&ViewportBounds>) {
+    fn collect_node(
+        node: &LayoutNode,
+        data: &mut HtmlRenderer,
+        viewport: Option<&ViewportBounds>,
+        image_cache: Option<&ImageCache>,
+    ) {
         if let Some(vp) = viewport
             && !vp.is_visible(node.dimensions.y, node.dimensions.height)
         {
@@ -536,13 +638,44 @@ pub fn collect_render_data_from_layout<'a>(
             }
         }
 
+        if let Some(image_data) = &node.image_data
+            && let Some(cache) = image_cache
+        {
+            let src = &image_data.image_src;
+            let vary_key = &image_data.vary_key;
+            if let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(src, vary_key)
+                && let CacheRead::Hit(decoded) = (*decoded).clone()
+            {
+                data.images.push(ImageRenderInfo {
+                    src: src.clone(),
+                    screen_rect: node.dimensions,
+                    data: Arc::new(DecodedImageData {
+                        rgba: decoded.rgba.clone(),
+                        width: decoded.width,
+                        height: decoded.height,
+                    }),
+                });
+            } else {
+                let placeholder_color = Color4f {
+                    r: 0.9,
+                    g: 0.9,
+                    b: 0.9,
+                    a: 1.0,
+                };
+                data.rects.push(RenderRect {
+                    rect: node.dimensions,
+                    background: placeholder_color,
+                });
+            }
+        }
+
         for child in &node.children {
-            collect_node(child, data, viewport);
+            collect_node(child, data, viewport, image_cache);
         }
     }
 
     for root in &layout_tree.root_nodes {
-        collect_node(root, &mut data, viewport.as_ref());
+        collect_node(root, &mut data, viewport.as_ref(), image_cache);
     }
 
     data

@@ -20,6 +20,7 @@ preferences.workspace = true
 constants.workspace = true
 
 # External dependencies
+http.workspace = true
 iced = { version = "0.14.0", features = [
     "advanced",
     "tokio",
@@ -29,8 +30,8 @@ iced = { version = "0.14.0", features = [
 ] }
 image = "0.25"
 regex.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-http.workspace = true
 url.workspace = true

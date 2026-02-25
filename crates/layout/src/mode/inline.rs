@@ -7,8 +7,10 @@ use css_style::{
 use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, layout::LayoutContext,
-    resolver::PropertyResolver, text::TextDescription,
+    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
+    layout::{ImageData, LayoutContext},
+    resolver::PropertyResolver,
+    text::TextDescription,
 };
 
 /// Tracks an inline box decoration (background, border, padding) that needs to
@@ -178,6 +180,16 @@ pub enum InlineItem {
         style: Arc<ComputedStyle>,
     },
 
+    /// An `<img>` element with an optional source URL and explicit dimensions.
+    Image {
+        id: NodeId,
+        src: String,
+        width: f32,
+        height: f32,
+        needs_intrinsic_size: bool,
+        style: Arc<ComputedStyle>,
+    },
+
     /// A line break, <br>
     Break { line_height_px: f32 },
 }
@@ -226,6 +238,57 @@ impl InlineLayout {
                 Tag::Html(HtmlTag::Br) => {
                     items.push(InlineItem::Break {
                         line_height_px: inline_node.style.line_height,
+                    });
+                }
+                Tag::Html(HtmlTag::Img) => {
+                    let src = inline_node
+                        .attributes
+                        .get("src")
+                        .cloned()
+                        .unwrap_or_default();
+
+                    let default_width = 300.0;
+                    let default_height = 150.0;
+
+                    let explicit_attr_width = inline_node
+                        .attributes
+                        .get("width")
+                        .and_then(|v| v.parse::<f32>().ok());
+
+                    let explicit_attr_height = inline_node
+                        .attributes
+                        .get("height")
+                        .and_then(|v| v.parse::<f32>().ok());
+
+                    let css_width_explicit =
+                        matches!(inline_node.style.width, ComputedDimension::Fixed);
+                    let css_height_explicit =
+                        matches!(inline_node.style.height, ComputedDimension::Fixed);
+
+                    let width = explicit_attr_width.unwrap_or(if css_width_explicit {
+                        inline_node.style.intrinsic_width
+                    } else {
+                        default_width
+                    });
+
+                    let height = explicit_attr_height.unwrap_or(if css_height_explicit {
+                        inline_node.style.intrinsic_height
+                    } else {
+                        default_height
+                    });
+
+                    let needs_intrinsic_size = explicit_attr_width.is_none()
+                        && explicit_attr_height.is_none()
+                        && !css_width_explicit
+                        && !css_height_explicit;
+
+                    items.push(InlineItem::Image {
+                        id: inline_node.node_id,
+                        src,
+                        width,
+                        height,
+                        needs_intrinsic_size,
+                        style: Arc::new(inline_node.style.clone()),
                     });
                 }
                 _ => {
@@ -443,6 +506,48 @@ impl InlineLayout {
                         line.add(layout_node, ascent, 0.0);
                     }
                 }
+                InlineItem::Image {
+                    id,
+                    src,
+                    width,
+                    height,
+                    needs_intrinsic_size,
+                    style,
+                } => {
+                    let alignment = &style.text_align;
+                    let writing_mode = &style.writing_mode;
+                    last_text_align = *alignment;
+                    last_writing_mode = *writing_mode;
+
+                    let img_width = *width;
+                    let img_height = *height;
+
+                    if line.width + img_width > available_width && line.width > 0.0 {
+                        Self::finish_line_with_decorations(
+                            &mut line,
+                            &mut inline_box_stack,
+                            available_width,
+                            alignment,
+                            writing_mode,
+                            &mut nodes,
+                            &mut current_y,
+                            None,
+                            start_x,
+                        );
+                    }
+
+                    let mut node = LayoutNode::new(*id);
+                    node.dimensions = Rect::new(0.0, 0.0, img_width, img_height);
+                    node.colors = LayoutColors::from(&**style);
+                    node.image_data = Some(ImageData {
+                        image_src: src.clone(),
+                        vary_key: String::new(),
+                        image_needs_intrinsic_size: *needs_intrinsic_size,
+                    });
+
+                    let ascent = img_height;
+                    line.add(node, ascent, 0.0);
+                }
                 InlineItem::Break { line_height_px } => {
                     Self::finish_line_with_decorations(
                         &mut line,
@@ -560,6 +665,7 @@ impl InlineLayout {
                 resolved_padding: SideOffset::zero(),
                 resolved_border: SideOffset::zero(),
                 text_buffer: Some(Arc::new(measured.buffer)),
+                image_data: None,
                 children: vec![],
             };
 

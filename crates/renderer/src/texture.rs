@@ -45,13 +45,18 @@ impl TexturePipeline {
         (globals, shader_module)
     }
 
-    /// Create a new TexturePipeline for rendering images
-    pub fn new_image(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    /// Create a new TexturePipeline for rendering images.
+    /// The `texture_bind_group_layout` is used for per-image texture bind groups (group 1).
+    pub fn new_image(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
         let (globals, shader_module) = Self::start_pipeline(device, "Texture");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Texture Pipeline Layout"),
-            bind_group_layouts: &[&globals.layout],
+            bind_group_layouts: &[&globals.layout, texture_bind_group_layout],
             push_constant_ranges: &[],
         });
 

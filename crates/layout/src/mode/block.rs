@@ -228,6 +228,7 @@ impl BlockLayout {
             colors,
             children,
             text_buffer: None,
+            image_data: None,
         }
     }
 

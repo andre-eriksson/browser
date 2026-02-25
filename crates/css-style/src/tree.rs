@@ -3,6 +3,7 @@
 //! The `build` method of `StyleTree` constructs the styled tree from the given absolute context, DOM tree, and stylesheets by computing the styles for each node
 //! based on the cascade rules and the provided stylesheets.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use css_cssom::CSSStyleSheet;
@@ -12,7 +13,8 @@ use crate::cascade::{GeneratedRule, RuleIndex};
 use crate::properties::AbsoluteContext;
 use crate::{ComputedStyle, RelativeContext};
 
-/// Represents a node in the style tree, which contains the computed style for a DOM node, its tag name (if it's an element), its children, and any text content (if it's a text node).
+/// Represents a node in the style tree, which contains the computed style for a DOM node, its tag name (if it's an element),
+/// its children, any text content (if it's a text node), and its attributes (if it's an element).
 #[derive(Debug, Clone)]
 pub struct StyledNode {
     pub node_id: NodeId,
@@ -20,6 +22,7 @@ pub struct StyledNode {
     pub style: ComputedStyle,
     pub children: Vec<StyledNode>,
     pub text_content: Option<String>,
+    pub attributes: HashMap<String, String>,
 }
 
 impl StyledNode {
@@ -31,6 +34,7 @@ impl StyledNode {
             style: ComputedStyle::default(),
             children: Vec::new(),
             text_content: None,
+            attributes: HashMap::new(),
         }
     }
 }
@@ -104,12 +108,18 @@ impl StyleTree {
 
             rel_ctx.parent = saved_parent;
 
+            let attributes = match &node.data {
+                NodeData::Element(el) => el.attributes.clone(),
+                _ => HashMap::new(),
+            };
+
             StyledNode {
                 node_id,
                 tag: node.data.as_element().map(|e| e.tag.clone()),
                 style: computed_style,
                 children,
                 text_content,
+                attributes,
             }
         }
 

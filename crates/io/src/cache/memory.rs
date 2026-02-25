@@ -60,6 +60,34 @@ where
             .unwrap_or(false)
     }
 
+    /// Gets the cache entry for a given key, checking memory first and falling back
+    /// to disk using a pre-resolved vary string. This avoids needing the full
+    /// `HeaderMap` — callers can resolve the vary string once at fetch time and
+    /// carry it as a lightweight `String` through events and layout data.
+    ///
+    /// If the entry is found on disk it is promoted into the in-memory cache
+    /// so that subsequent lookups are fast.
+    pub fn get_with_vary(&self, key: &K, vary: &str) -> Result<CacheEntry<V>, CacheError> {
+        let entries = self.entries.read().expect("Cache lock poisoned");
+        if let Some(entry) = entries.get(key) {
+            return Ok(entry.clone());
+        }
+        drop(entries);
+
+        let sha = Self::hash_url(key.as_ref(), vary);
+
+        if let Some(data) = DiskCache::get(sha)? {
+            let deserialized: V = postcard::from_bytes(&data).map_err(|_| {
+                CacheError::ReadError(String::from("Failed to deserialize cache data"))
+            })?;
+            let entry = CacheEntry::Loaded(Arc::new(CacheRead::Hit(deserialized)));
+            self.insert(key.clone(), entry.clone());
+            Ok(entry)
+        } else {
+            Ok(CacheEntry::Pending)
+        }
+    }
+
     /// Gets the cache entry for a given key, if it exists.
     pub fn get(&self, key: &K, headers: &HeaderMap) -> Result<CacheEntry<V>, CacheError> {
         let entries = self.entries.read().expect("Cache lock poisoned");
@@ -193,8 +221,20 @@ where
         hasher.finalize().into()
     }
 
-    /// Resolves the Vary header to determine which request headers affect the cache key.
-    fn resolve_vary(headers: &HeaderMap) -> Result<String, CacheError> {
+    /// Resolves the Vary header from a `HeaderMap` to produce a deterministic string
+    /// that captures which request headers affect the cache key and their values.
+    ///
+    /// The resulting string can be stored alongside cached resources and later passed
+    /// to [`get_with_vary`](Self::get_with_vary) for exact cache lookups without
+    /// needing the full `HeaderMap`.
+    ///
+    /// # Format
+    ///
+    /// The returned string is a comma-separated list of `header-name:header-value`
+    /// pairs, sorted alphabetically. If there is no `Vary` header or it is empty,
+    /// an empty string is returned. `Vary: *` is treated as an error because it
+    /// prevents caching entirely.
+    pub fn resolve_vary(headers: &HeaderMap) -> Result<String, CacheError> {
         let vary = headers
             .get(VARY)
             .map(|v| v.to_str().unwrap_or_default())
@@ -231,9 +271,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
 
     #[test]
+    #[serial]
     fn test_store_and_get() {
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
@@ -253,5 +296,56 @@ mod tests {
         assert!(retrieved.is_some());
 
         assert_eq!(value, retrieved.unwrap());
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_with_vary_from_disk() {
+        let mut headers = HeaderMap::new();
+        headers.insert(VARY, "Accept-Encoding".parse().unwrap());
+        headers.insert("Accept-Encoding", "br".parse().unwrap());
+
+        let cache = MemoryCache::<String, String>::new();
+        let key = "https://example.com/vary-test".to_string();
+        let value = "vary cached data".to_string();
+
+        let vary = MemoryCache::<String, String>::resolve_vary(&headers).unwrap();
+        assert!(!vary.is_empty());
+
+        cache.store_on_disk(&key, &value, &headers).unwrap();
+
+        cache.entries.write().unwrap().clear();
+
+        let result = cache.get_with_vary(&key, &vary).unwrap();
+        match result {
+            CacheEntry::Loaded(read) => match (*read).clone() {
+                CacheRead::Hit(v) => assert_eq!(v, value),
+                CacheRead::Miss => panic!("Expected Hit, got Miss"),
+            },
+            other => panic!("Expected Loaded, got {:?}", other),
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_with_vary_wrong_vary_misses() {
+        let mut headers = HeaderMap::new();
+        headers.insert(VARY, "Accept-Encoding".parse().unwrap());
+        headers.insert("Accept-Encoding", "gzip".parse().unwrap());
+
+        let cache = MemoryCache::<String, String>::new();
+        let key = "https://example.com/vary-miss-test".to_string();
+        let value = "gzip data".to_string();
+
+        cache.store_on_disk(&key, &value, &headers).unwrap();
+
+        cache.entries.write().unwrap().clear();
+
+        let wrong_vary = "accept-encoding:br".to_string();
+        let result = cache.get_with_vary(&key, &wrong_vary).unwrap();
+        match result {
+            CacheEntry::Pending => {}
+            other => panic!("Expected Pending (miss), got {:?}", other),
+        }
     }
 }

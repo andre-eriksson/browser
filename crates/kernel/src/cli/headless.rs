@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
+    commands::load_image,
     errors::{BrowserError, TabError},
     header::{DefaultHeaders, HeaderType},
 };
@@ -13,10 +14,7 @@ use network::{
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter,
-    commands::{
-        navigate::navigate,
-        tab::{add_tab, change_active_tab, close_tab},
-    },
+    commands::{add_tab, change_active_tab, close_tab, navigate},
     navigation::{NavigationContext, ScriptExecutor},
     tab::{
         manager::TabManager,
@@ -142,6 +140,7 @@ impl Commandable for HeadlessBrowser {
             BrowserCommand::ChangeActiveTab { tab_id } => {
                 change_active_tab(&mut self.tab_manager, tab_id)
             }
+            BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, url).await,
         }
     }
 }

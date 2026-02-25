@@ -7,11 +7,15 @@ use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
+use image::GenericImageView;
+use io::{CacheEntry, CacheRead};
 use kernel::errors::BrowserError;
 use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use layout::{LayoutEngine, Rect, TextContext};
 use preferences::BrowserConfig;
 use regex::Regex;
+use renderer::DecodedImageData;
+use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{error, warn};
@@ -62,6 +66,9 @@ pub struct Application {
 
     /// The shared text context for text rendering.
     text_context: TextContext,
+
+    /// Shared image cache for loaded images.
+    pub image_cache: Option<ImageCache>,
 }
 
 impl Application {
@@ -109,6 +116,7 @@ impl Application {
             viewports,
             text_context,
             config,
+            image_cache: None,
         };
 
         (app, Task::batch(tasks))
@@ -235,6 +243,28 @@ impl Application {
                         tab.scroll_offset.y = y;
                     }
                 }
+                UiEvent::ImageLoaded(ref url, ref vary_key) => {
+                    if let Some(ref cache) = self.image_cache
+                        && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(url, vary_key)
+                        && let CacheRead::Hit(decoded) = (*decoded).clone()
+                    {
+                        let intrinsic_w = decoded.width as f32;
+                        let intrinsic_h = decoded.height as f32;
+                        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == self.active_tab) {
+                            Self::patch_image_vary_key(
+                                &mut tab.layout_tree.root_nodes,
+                                url,
+                                vary_key,
+                            );
+                            Self::patch_image_dimensions(
+                                &mut tab.layout_tree.root_nodes,
+                                url,
+                                intrinsic_w,
+                                intrinsic_h,
+                            );
+                        }
+                    }
+                }
             },
 
             Event::Browser(browser_event) => match browser_event {
@@ -340,6 +370,75 @@ impl Application {
                         tab.current_url = Some(self.current_url.parse().unwrap());
                         tab.layout_tree = layout_tree;
                         tab.title = Some(page.title().to_string());
+
+                        let image_cache = ImageCache::new();
+                        self.image_cache = Some(image_cache.clone());
+
+                        let mut image_srcs = Vec::new();
+                        Self::collect_image_srcs(&tab.layout_tree.root_nodes, &mut image_srcs);
+
+                        let active_tab = self.active_tab;
+                        let tasks: Vec<Task<Event>> = image_srcs
+                            .into_iter()
+                            .filter(|src| {
+                                !src.is_empty() && image_cache.mark_pending(src.to_string())
+                            })
+                            .map(|src| {
+                                let browser = self.browser.clone();
+                                let cache = image_cache.clone();
+                                let src_for_err = src.clone();
+                                Task::perform(
+                                    async move {
+                                        let mut lock = browser.lock().await;
+                                        lock.execute(BrowserCommand::FetchImage {
+                                            tab_id: active_tab,
+                                            url: src,
+                                        })
+                                        .await
+                                    },
+                                    move |result| match result {
+                                        Ok(event) => Event::Browser(event),
+                                        Err(err) => {
+                                            error!("Image fetch error: {}", err);
+                                            cache.mark_failed(src_for_err.clone());
+                                            Event::Ui(UiEvent::ImageLoaded(
+                                                src_for_err,
+                                                String::new(),
+                                            ))
+                                        }
+                                    },
+                                )
+                            })
+                            .collect();
+
+                        if !tasks.is_empty() {
+                            return Task::batch(tasks);
+                        }
+                    }
+                }
+                BrowserEvent::ImageFetched(url, bytes, headers) => {
+                    if let Some(ref cache) = self.image_cache {
+                        let cache = cache.clone();
+                        let vary_key = ImageCache::resolve_vary(&headers).unwrap_or_default();
+                        return Task::perform(
+                            async move {
+                                match Self::decode_image_bytes(url.clone(), bytes) {
+                                    Ok(decoded) => Ok((url, decoded)),
+                                    Err(err) => Err((url, err)),
+                                }
+                            },
+                            move |result| match result {
+                                Ok((url, decoded)) => {
+                                    let _ = cache.store(url.clone(), decoded, &headers);
+                                    Event::Ui(UiEvent::ImageLoaded(url, vary_key))
+                                }
+                                Err((url, err)) => {
+                                    error!("Image decode error: {}", err);
+                                    cache.mark_failed(url.clone());
+                                    Event::Ui(UiEvent::ImageLoaded(url, vary_key))
+                                }
+                            },
+                        );
                     }
                 }
                 BrowserEvent::NavigateError(err) => {
@@ -348,6 +447,72 @@ impl Application {
             },
         }
         Task::none()
+    }
+
+    /// Recursively patches layout nodes that match the given image `src` and
+    /// still need their intrinsic size, updating their dimensions to the
+    /// decoded image width/height.
+    fn patch_image_dimensions(
+        nodes: &mut [layout::LayoutNode],
+        src: &str,
+        intrinsic_w: f32,
+        intrinsic_h: f32,
+    ) {
+        for node in nodes.iter_mut() {
+            if let Some(image_data) = &mut node.image_data
+                && image_data.image_needs_intrinsic_size
+                && image_data.image_src == src
+            {
+                node.dimensions.width = intrinsic_w;
+                node.dimensions.height = intrinsic_h;
+                image_data.image_needs_intrinsic_size = false;
+            }
+
+            Self::patch_image_dimensions(&mut node.children, src, intrinsic_w, intrinsic_h);
+        }
+    }
+
+    /// Recursively patches layout nodes to store the pre-resolved Vary string
+    /// for the given image `src`, so the rendering path can do exact disk cache
+    /// lookups without needing the full `HeaderMap`.
+    fn patch_image_vary_key(nodes: &mut [layout::LayoutNode], src: &str, vary_key: &str) {
+        for node in nodes.iter_mut() {
+            if let Some(image_data) = &mut node.image_data
+                && image_data.image_src == src
+                && image_data.vary_key.is_empty()
+            {
+                image_data.vary_key = vary_key.to_string();
+            }
+
+            Self::patch_image_vary_key(&mut node.children, src, vary_key);
+        }
+    }
+
+    /// Recursively collect all image source URLs from the layout tree.
+    fn collect_image_srcs(nodes: &[layout::LayoutNode], srcs: &mut Vec<String>) {
+        for node in nodes {
+            if let Some(image_data) = &node.image_data
+                && !image_data.image_src.is_empty()
+            {
+                srcs.push(image_data.image_src.clone());
+            }
+            Self::collect_image_srcs(&node.children, srcs);
+        }
+    }
+
+    /// Decode raw image bytes into RGBA pixel data.
+    fn decode_image_bytes(url: String, bytes: Vec<u8>) -> Result<DecodedImageData, String> {
+        let img = image::load_from_memory(&bytes)
+            .map_err(|e| format!("Failed to decode image {}: {}", url, e))?;
+
+        let (width, height) = img.dimensions();
+        let rgba = img.to_rgba8().into_raw();
+
+        Ok(DecodedImageData {
+            rgba,
+            width,
+            height,
+        })
     }
 
     /// Returns the current subscriptions for the application.

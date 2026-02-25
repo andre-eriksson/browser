@@ -30,6 +30,16 @@ pub struct Response {
     pub body: Option<Vec<u8>>,
 }
 
+impl From<Vec<u8>> for Response {
+    fn from(body: Vec<u8>) -> Self {
+        Response {
+            status_code: StatusCode::OK,
+            headers: HeaderMap::new(),
+            body: Some(body),
+        }
+    }
+}
+
 impl HeaderResponse {
     /// Creates a new HTTP response.
     ///

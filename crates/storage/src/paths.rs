@@ -34,6 +34,7 @@ pub fn get_data_path() -> Option<PathBuf> {
     }
 }
 
+#[inline(always)]
 pub fn create_paths(path: &PathBuf) -> std::io::Result<()> {
     std::fs::create_dir_all(path)
 }

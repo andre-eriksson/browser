@@ -21,6 +21,9 @@ pub enum BrowserError {
 
     #[error("Navigation error: {0}")]
     NavigationError(#[from] NavigationError),
+
+    #[error("Failed to fetch image: {0}")]
+    ImageFetchError(String),
 }
 
 #[derive(Error, Debug, Clone)]

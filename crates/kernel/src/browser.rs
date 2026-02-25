@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    commands::load_image,
     errors::{BrowserError, TabError},
     header::{DefaultHeaders, HeaderType},
 };
@@ -19,10 +20,7 @@ use postcard::{from_bytes, to_stdvec};
 use tracing::instrument;
 
 use crate::{
-    commands::{
-        navigate::navigate,
-        tab::{add_tab, change_active_tab, close_tab},
-    },
+    commands::{add_tab, change_active_tab, close_tab, navigate},
     events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
     navigation::{NavigationContext, ScriptExecutor},
     tab::{
@@ -158,6 +156,7 @@ impl Commandable for Browser {
             BrowserCommand::ChangeActiveTab { tab_id } => {
                 change_active_tab(&mut self.tab_manager, tab_id)
             }
+            BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, url).await,
         }
     }
 }
