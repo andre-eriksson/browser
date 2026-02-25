@@ -7,14 +7,12 @@ use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
-use image::GenericImageView;
 use io::{CacheEntry, CacheRead};
 use kernel::errors::BrowserError;
 use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use layout::{LayoutEngine, Rect, TextContext};
 use preferences::BrowserConfig;
 use regex::Regex;
-use renderer::DecodedImageData;
 use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -24,6 +22,7 @@ use url::Url;
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::UiEvent;
 use crate::util::fonts::load_fallback_fonts;
+use crate::util::image::decode_image_bytes;
 use crate::views::browser::window::BrowserWindow;
 use crate::{manager::WindowController, views::devtools};
 
@@ -181,11 +180,11 @@ impl Application {
                         let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
                         let image_ctx = tab.image_context();
 
-                        let layout_tree = LayoutEngine::compute_layout_with_images(
+                        let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
                             Rect::new(0.0, 0.0, width, height),
                             &mut self.text_context,
-                            &image_ctx,
+                            Some(&image_ctx),
                         );
 
                         tab.layout_tree = layout_tree;
@@ -273,11 +272,11 @@ impl Application {
                                 StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
                             let image_ctx = tab.image_context();
 
-                            let layout_tree = LayoutEngine::compute_layout_with_images(
+                            let layout_tree = LayoutEngine::compute_layout(
                                 &style_tree,
                                 Rect::new(0.0, 0.0, vw, vh),
                                 &mut self.text_context,
-                                &image_ctx,
+                                Some(&image_ctx),
                             );
 
                             tab.layout_tree = layout_tree;
@@ -377,14 +376,14 @@ impl Application {
 
                         let image_ctx = tab.image_context();
 
-                        let layout_tree = LayoutEngine::compute_layout_with_images(
+                        let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
                             self.viewports
                                 .get(&self.id)
                                 .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
                                 .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
                             &mut self.text_context,
-                            &image_ctx,
+                            Some(&image_ctx),
                         );
 
                         tab.document = page.document().clone();
@@ -396,8 +395,7 @@ impl Application {
                         let image_cache = ImageCache::new();
                         self.image_cache = Some(image_cache.clone());
 
-                        let mut image_srcs = Vec::new();
-                        Self::collect_image_srcs(&tab.layout_tree.root_nodes, &mut image_srcs);
+                        let image_srcs = page.images().clone();
 
                         let mut cache_hit = false;
                         let mut fetch_srcs: Vec<String> = Vec::new();
@@ -433,14 +431,14 @@ impl Application {
 
                         if cache_hit {
                             let image_ctx = tab.image_context();
-                            let layout_tree = LayoutEngine::compute_layout_with_images(
+                            let layout_tree = LayoutEngine::compute_layout(
                                 &style_tree,
                                 self.viewports
                                     .get(&self.id)
                                     .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
                                     .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
                                 &mut self.text_context,
-                                &image_ctx,
+                                Some(&image_ctx),
                             );
                             tab.layout_tree = layout_tree;
                         }
@@ -487,7 +485,7 @@ impl Application {
                         let vary_key = ImageCache::resolve_vary(&headers).unwrap_or_default();
                         return Task::perform(
                             async move {
-                                match Self::decode_image_bytes(url.clone(), bytes) {
+                                match decode_image_bytes(url.clone(), bytes) {
                                     Ok(decoded) => Ok((url, decoded)),
                                     Err(err) => Err((url, err)),
                                 }
@@ -512,33 +510,6 @@ impl Application {
             },
         }
         Task::none()
-    }
-
-    /// Recursively collect all image source URLs from the layout tree.
-    fn collect_image_srcs(nodes: &[layout::LayoutNode], srcs: &mut Vec<String>) {
-        for node in nodes {
-            if let Some(image_data) = &node.image_data
-                && !image_data.image_src.is_empty()
-            {
-                srcs.push(image_data.image_src.clone());
-            }
-            Self::collect_image_srcs(&node.children, srcs);
-        }
-    }
-
-    /// Decode raw image bytes into RGBA pixel data.
-    fn decode_image_bytes(url: String, bytes: Vec<u8>) -> Result<DecodedImageData, String> {
-        let img = image::load_from_memory(&bytes)
-            .map_err(|e| format!("Failed to decode image {}: {}", url, e))?;
-
-        let (width, height) = img.dimensions();
-        let rgba = img.to_rgba8().into_raw();
-
-        Ok(DecodedImageData {
-            rgba,
-            width,
-            height,
-        })
     }
 
     /// Returns the current subscriptions for the application.

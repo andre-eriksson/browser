@@ -36,20 +36,6 @@ impl LayoutMode {
 pub struct LayoutEngine;
 
 impl LayoutEngine {
-    /// Main entry point: compute layout for an entire style tree.
-    ///
-    /// This is a convenience wrapper that creates an empty [`ImageContext`]
-    /// (no known image dimensions) and delegates to
-    /// [`compute_layout_with_images`](Self::compute_layout_with_images).
-    pub fn compute_layout(
-        style_tree: &StyleTree,
-        viewport: Rect,
-        text_ctx: &mut TextContext,
-    ) -> LayoutTree {
-        let image_ctx = ImageContext::new();
-        Self::compute_layout_with_images(style_tree, viewport, text_ctx, &image_ctx)
-    }
-
     /// Compute layout for an entire style tree, using known image dimensions
     /// from `image_ctx` so that previously-decoded images are laid out at their
     /// intrinsic size rather than a placeholder.
@@ -59,13 +45,14 @@ impl LayoutEngine {
     /// [`ImageContext`], then calls this method to produce a fresh
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
-    pub fn compute_layout_with_images(
+    pub fn compute_layout(
         style_tree: &StyleTree,
         viewport: Rect,
         text_ctx: &mut TextContext,
-        image_ctx: &ImageContext,
+        image_ctx: Option<&ImageContext>,
     ) -> LayoutTree {
         let mut ctx = LayoutContext::new(viewport);
+        let img_ctx = image_ctx.cloned().unwrap_or_default();
 
         let mut total_height = 0.0;
         let mut root_nodes = Vec::new();
@@ -73,7 +60,7 @@ impl LayoutEngine {
         for styled_node in &style_tree.root_nodes {
             ctx.block_cursor.y = total_height;
 
-            let node = Self::layout_node(styled_node, &mut ctx, text_ctx, image_ctx);
+            let node = Self::layout_node(styled_node, &mut ctx, text_ctx, &img_ctx);
 
             if node.is_none() {
                 // For `display: none`

@@ -13,6 +13,7 @@ pub struct Page {
     document: DocumentRoot,
     stylesheets: Vec<CSSStyleSheet>,
     policies: Arc<DocumentPolicy>,
+    images: Vec<String>,
 }
 
 impl Page {
@@ -24,6 +25,7 @@ impl Page {
             stylesheets: Vec::new(),
             document_url: None,
             policies: Arc::new(DocumentPolicy::default()),
+            images: Vec::new(),
         }
     }
 
@@ -35,12 +37,14 @@ impl Page {
         document: DocumentRoot,
         stylesheets: Vec<CSSStyleSheet>,
         policies: Arc<DocumentPolicy>,
+        images: Vec<String>,
     ) -> Self {
         self.title = title;
         self.document_url = document_url;
         self.document = document;
         self.stylesheets = stylesheets;
         self.policies = policies;
+        self.images = images;
         self
     }
 
@@ -58,5 +62,9 @@ impl Page {
 
     pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
         &self.stylesheets
+    }
+
+    pub fn images(&self) -> &Vec<String> {
+        &self.images
     }
 }

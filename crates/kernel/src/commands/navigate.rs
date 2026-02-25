@@ -202,6 +202,7 @@ pub(crate) async fn navigate(
         result.dom_tree,
         stylesheets,
         Arc::new(policies),
+        result.metadata.images,
     ))
 }
 

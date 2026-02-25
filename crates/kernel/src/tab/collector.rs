@@ -10,6 +10,9 @@ pub struct TabCollector {
 
     /// The title of the tab, if available.
     pub title: Option<String>,
+
+    /// The URLs of images found in the document.
+    pub images: Vec<String>,
 }
 
 impl Collector for TabCollector {
@@ -22,6 +25,12 @@ impl Collector for TabCollector {
         if *tag.tag == Tag::Html(HtmlTag::Body) {
             self.in_head = false;
             return;
+        }
+
+        if *tag.tag == Tag::Html(HtmlTag::Img)
+            && let Some(src) = tag.attributes.get("src")
+        {
+            self.images.push(src.to_string());
         }
 
         if !self.in_head {
@@ -45,6 +54,7 @@ impl Collector for TabCollector {
             in_head: self.in_head,
             in_title: self.in_title,
             title: self.title,
+            images: self.images,
         }
     }
 }

@@ -79,15 +79,8 @@ mod tests {
     /// Runs layout from a pre-built `StyleTree`, optionally with an
     /// `ImageContext` for known image dimensions.
     macro_rules! layout_from {
-        ($style_tree:expr, $text_context:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context) }};
-        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{
-            LayoutEngine::compute_layout_with_images(
-                &$style_tree,
-                viewport(),
-                $text_context,
-                &$image_ctx,
-            )
-        }};
+        ($style_tree:expr, $text_context:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, None) }};
+        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, Some(&$image_ctx)) }};
     }
 
     /// Convenience: parse HTML and immediately compute layout (no image
@@ -95,7 +88,7 @@ mod tests {
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr) => {{
             let (style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context)
+            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, None)
         }};
     }
 
@@ -325,7 +318,7 @@ mod tests {
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
 
-        let layout_after = layout_from!(style_tree, &mut text_context, image_ctx);
+        let layout_after = layout_from!(style_tree, &mut text_context, &image_ctx);
 
         let root2 = &layout_after.root_nodes[0];
         let body2 = &root2.children[0];
