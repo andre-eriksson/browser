@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// Adds a new tab to the browser and returns a `BrowserEvent` indicating the addition.
-pub fn add_tab(tab_manager: &mut TabManager) -> BrowserEvent {
+pub(crate) fn add_tab(tab_manager: &mut TabManager) -> BrowserEvent {
     let new_tab_id = TabId(tab_manager.next_tab_id());
     let new_tab = Tab::new(new_tab_id);
     tab_manager.add_tab(new_tab);
@@ -18,7 +18,7 @@ pub fn add_tab(tab_manager: &mut TabManager) -> BrowserEvent {
 }
 
 /// Closes the tab with the specified `tab_id`. If the closed tab is the active tab,
-pub fn close_tab(
+pub(crate) fn close_tab(
     tab_manager: &mut TabManager,
     tab_id: TabId,
 ) -> Result<BrowserEvent, BrowserError> {
@@ -34,7 +34,7 @@ pub fn close_tab(
 }
 
 /// Changes the active tab to the tab with the specified `tab_id`.
-pub fn change_active_tab(
+pub(crate) fn change_active_tab(
     tab_manager: &mut TabManager,
     tab_id: TabId,
 ) -> Result<BrowserEvent, BrowserError> {

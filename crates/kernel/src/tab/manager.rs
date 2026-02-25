@@ -26,6 +26,10 @@ impl TabManager {
         self.tabs.iter().find(|t| t.id == self.active_tab)
     }
 
+    pub(crate) fn get_tab(&self, tab_id: TabId) -> Option<&Tab> {
+        self.tabs.iter().find(|t| t.id == tab_id)
+    }
+
     pub(crate) fn get_tab_mut(&mut self, tab_id: TabId) -> Option<&mut Tab> {
         self.tabs.iter_mut().find(|t| t.id == tab_id)
     }

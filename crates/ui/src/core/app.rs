@@ -7,19 +7,22 @@ use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
+use io::{CacheEntry, CacheRead};
 use kernel::errors::BrowserError;
 use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
 use layout::{LayoutEngine, Rect, TextContext};
 use preferences::BrowserConfig;
 use regex::Regex;
+use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 use url::Url;
 
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::UiEvent;
 use crate::util::fonts::load_fallback_fonts;
+use crate::util::image::decode_image_bytes;
 use crate::views::browser::window::BrowserWindow;
 use crate::{manager::WindowController, views::devtools};
 
@@ -62,6 +65,9 @@ pub struct Application {
 
     /// The shared text context for text rendering.
     text_context: TextContext,
+
+    /// Shared image cache for loaded images.
+    pub image_cache: Option<ImageCache>,
 }
 
 impl Application {
@@ -109,6 +115,7 @@ impl Application {
             viewports,
             text_context,
             config,
+            image_cache: None,
         };
 
         (app, Task::batch(tasks))
@@ -171,11 +178,13 @@ impl Application {
                             ..Default::default()
                         };
                         let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
+                        let image_ctx = tab.image_context();
 
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
                             Rect::new(0.0, 0.0, width, height),
                             &mut self.text_context,
+                            Some(&image_ctx),
                         );
 
                         tab.layout_tree = layout_tree;
@@ -233,6 +242,45 @@ impl Application {
                     if let Some(tab) = self.tabs.iter_mut().find(|tab| tab.id == self.active_tab) {
                         tab.scroll_offset.x = x;
                         tab.scroll_offset.y = y;
+                    }
+                }
+                UiEvent::ImageLoaded(tab_id, ref url, ref vary_key) => {
+                    if let Some(ref cache) = self.image_cache
+                        && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(url, vary_key)
+                        && let CacheRead::Hit(decoded) = (*decoded).clone()
+                    {
+                        let intrinsic_w = decoded.width as f32;
+                        let intrinsic_h = decoded.height as f32;
+                        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
+                            tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
+                            tab.set_image_vary_key(url, vary_key.clone());
+
+                            let (vw, vh) = self
+                                .viewports
+                                .get(&self.id)
+                                .copied()
+                                .unwrap_or((800.0, 600.0));
+
+                            let ctx = AbsoluteContext {
+                                root_font_size: 16.0,
+                                viewport_width: vw,
+                                viewport_height: vh,
+                                ..Default::default()
+                            };
+
+                            let style_tree =
+                                StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
+                            let image_ctx = tab.image_context();
+
+                            let layout_tree = LayoutEngine::compute_layout(
+                                &style_tree,
+                                Rect::new(0.0, 0.0, vw, vh),
+                                &mut self.text_context,
+                                Some(&image_ctx),
+                            );
+
+                            tab.layout_tree = layout_tree;
+                        }
                     }
                 }
             },
@@ -326,6 +374,8 @@ impl Application {
                         let style_tree =
                             StyleTree::build(&ctx, page.document(), page.stylesheets());
 
+                        let image_ctx = tab.image_context();
+
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
                             self.viewports
@@ -333,6 +383,7 @@ impl Application {
                                 .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
                                 .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
                             &mut self.text_context,
+                            Some(&image_ctx),
                         );
 
                         tab.document = page.document().clone();
@@ -340,6 +391,118 @@ impl Application {
                         tab.current_url = Some(self.current_url.parse().unwrap());
                         tab.layout_tree = layout_tree;
                         tab.title = Some(page.title().to_string());
+
+                        let image_cache = ImageCache::new();
+                        self.image_cache = Some(image_cache.clone());
+
+                        let image_srcs = page.images().clone();
+
+                        let mut cache_hit = false;
+                        let mut fetch_srcs: Vec<String> = Vec::new();
+
+                        for src in image_srcs {
+                            if src.is_empty() {
+                                continue;
+                            }
+
+                            if let Ok(CacheEntry::Loaded(decoded)) =
+                                image_cache.get_with_vary(&src, "")
+                                && let CacheRead::Hit(ref data) = *decoded
+                            {
+                                debug!(
+                                    "Image cache hit (disk): {} ({}×{})",
+                                    src, data.width, data.height
+                                );
+                                tab.set_image_dimensions(
+                                    src.clone(),
+                                    data.width as f32,
+                                    data.height as f32,
+                                );
+
+                                tab.set_image_vary_key(&src, String::new());
+                                cache_hit = true;
+                                continue;
+                            }
+
+                            if image_cache.mark_pending(src.to_string()) {
+                                fetch_srcs.push(src);
+                            }
+                        }
+
+                        if cache_hit {
+                            let image_ctx = tab.image_context();
+                            let layout_tree = LayoutEngine::compute_layout(
+                                &style_tree,
+                                self.viewports
+                                    .get(&self.id)
+                                    .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
+                                    .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
+                                &mut self.text_context,
+                                Some(&image_ctx),
+                            );
+                            tab.layout_tree = layout_tree;
+                        }
+
+                        let active_tab = self.active_tab;
+                        let tasks: Vec<Task<Event>> = fetch_srcs
+                            .into_iter()
+                            .map(|src| {
+                                let browser = self.browser.clone();
+                                let cache = image_cache.clone();
+                                let src_for_err = src.clone();
+                                Task::perform(
+                                    async move {
+                                        let mut lock = browser.lock().await;
+                                        lock.execute(BrowserCommand::FetchImage {
+                                            tab_id: active_tab,
+                                            url: src,
+                                        })
+                                        .await
+                                    },
+                                    move |result| match result {
+                                        Ok(event) => Event::Browser(event),
+                                        Err(err) => {
+                                            error!("Image fetch error: {}", err);
+                                            cache.mark_failed(src_for_err.clone());
+                                            Event::Ui(UiEvent::ImageLoaded(
+                                                active_tab,
+                                                src_for_err,
+                                                String::new(),
+                                            ))
+                                        }
+                                    },
+                                )
+                            })
+                            .collect();
+
+                        if !tasks.is_empty() {
+                            return Task::batch(tasks);
+                        }
+                    }
+                }
+                BrowserEvent::ImageFetched(tab_id, url, bytes, headers) => {
+                    if let Some(ref cache) = self.image_cache {
+                        let cache = cache.clone();
+                        let vary_key = ImageCache::resolve_vary(&headers).unwrap_or_default();
+                        return Task::perform(
+                            async move {
+                                match decode_image_bytes(url.clone(), bytes) {
+                                    Ok(decoded) => Ok((url, decoded)),
+                                    Err(err) => Err((url, err)),
+                                }
+                            },
+                            move |result| match result {
+                                Ok((url, decoded)) => {
+                                    let _ = cache.store(url.clone(), decoded, &headers);
+                                    Event::Ui(UiEvent::ImageLoaded(tab_id, url, vary_key))
+                                }
+                                Err((url, err)) => {
+                                    debug!("Image decode error: {}", err);
+                                    cache.mark_failed(url.clone());
+                                    Event::Ui(UiEvent::ImageLoaded(tab_id, url, vary_key))
+                                }
+                            },
+                        );
                     }
                 }
                 BrowserEvent::NavigateError(err) => {

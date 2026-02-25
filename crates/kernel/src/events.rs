@@ -1,5 +1,6 @@
 use crate::errors::{BrowserError, NavigationError};
 use async_trait::async_trait;
+use network::HeaderMap;
 
 use crate::tab::{page::Page, tabs::TabId};
 
@@ -34,6 +35,9 @@ pub enum BrowserEvent {
 
     /// Navigation failed with a network error.
     NavigateError(NavigationError),
+
+    /// An image was successfully fetched from the network.
+    ImageFetched(TabId, String, Vec<u8>, HeaderMap),
 }
 
 /// Represents commands that can be issued to the browser.
@@ -50,6 +54,9 @@ pub enum BrowserCommand {
 
     /// Command to change the active tab.
     ChangeActiveTab { tab_id: TabId },
+
+    /// Command to fetch an image resource using the browser's HTTP client, headers, and cookies.
+    FetchImage { tab_id: TabId, url: String },
 }
 
 impl BrowserCommand {

@@ -1,8 +1,8 @@
 use css_style::{ComputedDimension, StyledNode, display::OutsideDisplay};
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, layout::LayoutContext,
-    mode::inline::InlineLayout, resolver::PropertyResolver,
+    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, context::ImageContext,
+    layout::LayoutContext, mode::inline::InlineLayout, resolver::PropertyResolver,
 };
 
 #[derive(Debug, Clone, Default, Copy)]
@@ -80,6 +80,7 @@ impl BlockLayout {
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
+        image_ctx: &ImageContext,
     ) -> LayoutNode {
         let container_width = ctx.containing_block().width;
 
@@ -118,6 +119,7 @@ impl BlockLayout {
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
                     &styled_node.style,
                     &styled_node.children[inline_start..inline_end],
+                    image_ctx,
                 );
 
                 if !inline_items.is_empty() {
@@ -131,6 +133,7 @@ impl BlockLayout {
                         inline_width,
                         inline_x,
                         inline_y,
+                        image_ctx,
                     );
 
                     if !inline_layout_nodes.is_empty() || inline_height > 0.0 {
@@ -170,7 +173,8 @@ impl BlockLayout {
 
             child_ctx.block_cursor.y = child_y_offset;
 
-            let child_node = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx);
+            let child_node =
+                LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx);
 
             if let Some(child_node) = child_node {
                 flow.advance(
@@ -228,6 +232,7 @@ impl BlockLayout {
             colors,
             children,
             text_buffer: None,
+            image_data: None,
         }
     }
 

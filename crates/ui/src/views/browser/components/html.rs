@@ -17,22 +17,22 @@ use crate::{
     },
 };
 
-pub struct BrowserHtml<'h> {
-    renderer: HtmlRenderer<'h>,
+pub struct BrowserHtml<'renderer> {
+    renderer: HtmlRenderer<'renderer>,
 }
 
-impl<'h> BrowserHtml<'h> {
-    pub fn new(renderer: HtmlRenderer<'h>) -> Self {
+impl<'renderer> BrowserHtml<'renderer> {
+    pub fn new(renderer: HtmlRenderer<'renderer>) -> Self {
         Self { renderer }
     }
 
-    pub fn render<'a>(
+    pub fn render<'application>(
         mut self,
-        app: &'a Application,
-        active_tab: &'a UiTab,
-    ) -> container::Container<'a, Event>
+        app: &'application Application,
+        active_tab: &'application UiTab,
+    ) -> container::Container<'application, Event>
     where
-        'h: 'a,
+        'renderer: 'application,
     {
         let (_, viewport_height) = app
             .viewports
@@ -49,10 +49,13 @@ impl<'h> BrowserHtml<'h> {
             &active_tab.document,
             &active_tab.layout_tree,
             Some(viewport_bounds),
+            app.image_cache.as_ref(),
         );
+
         self.renderer.set_rects(render_data.rects);
         self.renderer.set_tris(render_data.tris);
         self.renderer.set_text_blocks(render_data.text_blocks);
+        self.renderer.set_images(render_data.images);
         self.renderer.set_scroll_offset(active_tab.scroll_offset);
 
         let shader: Shader<Event, HtmlRenderer> = shader(self.renderer)

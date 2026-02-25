@@ -7,8 +7,11 @@ use css_style::{
 use html_dom::{HtmlTag, NodeId, Tag};
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, layout::LayoutContext,
-    resolver::PropertyResolver, text::TextDescription,
+    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
+    context::ImageContext,
+    layout::{ImageData, LayoutContext},
+    resolver::PropertyResolver,
+    text::TextDescription,
 };
 
 /// Tracks an inline box decoration (background, border, padding) that needs to
@@ -178,6 +181,16 @@ pub enum InlineItem {
         style: Arc<ComputedStyle>,
     },
 
+    /// An `<img>` element with an optional source URL and explicit dimensions.
+    Image {
+        id: NodeId,
+        src: String,
+        width: f32,
+        height: f32,
+        needs_intrinsic_size: bool,
+        style: Arc<ComputedStyle>,
+    },
+
     /// A line break, <br>
     Break { line_height_px: f32 },
 }
@@ -192,11 +205,12 @@ impl InlineLayout {
     pub fn collect_inline_items_from_nodes(
         parent_style: &ComputedStyle,
         nodes: &[StyledNode],
+        image_ctx: &ImageContext,
     ) -> Vec<InlineItem> {
         let mut raw_items = Vec::new();
 
         for node in nodes {
-            let result = Self::collect(parent_style, node, &mut raw_items);
+            let result = Self::collect(parent_style, node, &mut raw_items, image_ctx);
 
             if result.is_err() {
                 break;
@@ -212,6 +226,7 @@ impl InlineLayout {
         style: &ComputedStyle,
         inline_node: &StyledNode,
         items: &mut Vec<InlineItem>,
+        image_ctx: &ImageContext,
     ) -> Result<(), ()> {
         if let Some(text) = inline_node.text_content.as_ref() {
             items.push(InlineItem::TextRun {
@@ -226,6 +241,72 @@ impl InlineLayout {
                 Tag::Html(HtmlTag::Br) => {
                     items.push(InlineItem::Break {
                         line_height_px: inline_node.style.line_height,
+                    });
+                }
+                Tag::Html(HtmlTag::Img) => {
+                    let src = inline_node
+                        .attributes
+                        .get("src")
+                        .cloned()
+                        .unwrap_or_default();
+
+                    const DEFAULT_IMAGE_WIDTH: f32 = 300.0;
+                    const DEFAULT_IMAGE_HEIGHT: f32 = 150.0;
+
+                    let known = image_ctx.get(&src);
+
+                    let explicit_attr_width = inline_node
+                        .attributes
+                        .get("width")
+                        .and_then(|v| v.parse::<f32>().ok());
+
+                    let explicit_attr_height = inline_node
+                        .attributes
+                        .get("height")
+                        .and_then(|v| v.parse::<f32>().ok());
+
+                    let css_width_explicit =
+                        matches!(inline_node.style.width, ComputedDimension::Fixed);
+                    let css_height_explicit =
+                        matches!(inline_node.style.height, ComputedDimension::Fixed);
+
+                    let (width, height, needs_intrinsic_size) = if let Some((kw, kh)) = known {
+                        let w = explicit_attr_width.unwrap_or(if css_width_explicit {
+                            inline_node.style.intrinsic_width
+                        } else {
+                            kw
+                        });
+                        let h = explicit_attr_height.unwrap_or(if css_height_explicit {
+                            inline_node.style.intrinsic_height
+                        } else {
+                            kh
+                        });
+                        (w, h, false)
+                    } else {
+                        let w = explicit_attr_width.unwrap_or(if css_width_explicit {
+                            inline_node.style.intrinsic_width
+                        } else {
+                            DEFAULT_IMAGE_WIDTH
+                        });
+                        let h = explicit_attr_height.unwrap_or(if css_height_explicit {
+                            inline_node.style.intrinsic_height
+                        } else {
+                            DEFAULT_IMAGE_HEIGHT
+                        });
+                        let needs = explicit_attr_width.is_none()
+                            && explicit_attr_height.is_none()
+                            && !css_width_explicit
+                            && !css_height_explicit;
+                        (w, h, needs)
+                    };
+
+                    items.push(InlineItem::Image {
+                        id: inline_node.node_id,
+                        src,
+                        width,
+                        height,
+                        needs_intrinsic_size,
+                        style: Arc::new(inline_node.style.clone()),
                     });
                 }
                 _ => {
@@ -250,7 +331,7 @@ impl InlineLayout {
                     });
 
                     for child in &inline_node.children {
-                        Self::collect(&inline_node.style, child, items)?;
+                        Self::collect(&inline_node.style, child, items, image_ctx)?;
                     }
 
                     items.push(InlineItem::InlineBoxEnd {
@@ -274,6 +355,7 @@ impl InlineLayout {
         available_width: f32,
         start_x: f32,
         start_y: f32,
+        image_ctx: &ImageContext,
     ) -> (Vec<LayoutNode>, f32) {
         let mut nodes = Vec::new();
         let mut current_y = start_y;
@@ -410,7 +492,8 @@ impl InlineLayout {
                     };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
-                    let child_node = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx);
+                    let child_node =
+                        LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx);
 
                     if let Some(mut layout_node) = child_node {
                         let total_width = layout_node.dimensions.width
@@ -442,6 +525,52 @@ impl InlineLayout {
 
                         line.add(layout_node, ascent, 0.0);
                     }
+                }
+                InlineItem::Image {
+                    id,
+                    src,
+                    width,
+                    height,
+                    needs_intrinsic_size,
+                    style,
+                } => {
+                    let alignment = &style.text_align;
+                    let writing_mode = &style.writing_mode;
+                    last_text_align = *alignment;
+                    last_writing_mode = *writing_mode;
+
+                    let img_width = *width;
+                    let img_height = *height;
+
+                    if line.width + img_width > available_width && line.width > 0.0 {
+                        Self::finish_line_with_decorations(
+                            &mut line,
+                            &mut inline_box_stack,
+                            available_width,
+                            alignment,
+                            writing_mode,
+                            &mut nodes,
+                            &mut current_y,
+                            None,
+                            start_x,
+                        );
+                    }
+
+                    let mut node = LayoutNode::new(*id);
+                    node.dimensions = Rect::new(0.0, 0.0, img_width, img_height);
+                    node.colors = LayoutColors::from(&**style);
+                    let vary_key = image_ctx
+                        .get_meta(src)
+                        .map(|m| m.vary_key.clone())
+                        .unwrap_or_default();
+                    node.image_data = Some(ImageData {
+                        image_src: src.clone(),
+                        vary_key,
+                        image_needs_intrinsic_size: *needs_intrinsic_size,
+                    });
+
+                    let ascent = img_height;
+                    line.add(node, ascent, 0.0);
                 }
                 InlineItem::Break { line_height_px } => {
                     Self::finish_line_with_decorations(
@@ -560,6 +689,7 @@ impl InlineLayout {
                 resolved_padding: SideOffset::zero(),
                 resolved_border: SideOffset::zero(),
                 text_buffer: Some(Arc::new(measured.buffer)),
+                image_data: None,
                 children: vec![],
             };
 

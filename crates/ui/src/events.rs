@@ -29,4 +29,8 @@ pub enum UiEvent {
 
     /// Handle content scroll event with new scroll offset.
     ContentScrolled(f32, f32),
+
+    /// An image has finished loading (or failed). The first String is the source URL,
+    /// the second is the pre-resolved Vary string for exact disk cache lookups.
+    ImageLoaded(TabId, String, String),
 }
