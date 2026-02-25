@@ -18,7 +18,7 @@ use renderer::DecodedImageData;
 use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 use url::Url;
 
 use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
@@ -433,7 +433,7 @@ impl Application {
                                     Event::Ui(UiEvent::ImageLoaded(url, vary_key))
                                 }
                                 Err((url, err)) => {
-                                    error!("Image decode error: {}", err);
+                                    debug!("Image decode error: {}", err);
                                     cache.mark_failed(url.clone());
                                     Event::Ui(UiEvent::ImageLoaded(url, vary_key))
                                 }

@@ -32,7 +32,7 @@ pub(crate) async fn load_image(
 
     let policies = page.policies().clone();
 
-    let (_resolved_url, response) = resolve_request(
+    let (resolved_url, response) = resolve_request(
         &url,
         ctx,
         &document_url,
@@ -52,5 +52,9 @@ pub(crate) async fn load_image(
         }
     };
 
-    Ok(BrowserEvent::ImageFetched(url, body, response.headers))
+    Ok(BrowserEvent::ImageFetched(
+        resolved_url.to_string(),
+        body,
+        response.headers,
+    ))
 }
