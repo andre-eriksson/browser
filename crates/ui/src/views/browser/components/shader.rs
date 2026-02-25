@@ -656,7 +656,7 @@ pub fn collect_render_data_from_layout<'html>(
                     }),
                 });
             } else {
-                let placeholder_color = Color4f {
+                const IMAGE_PLACEHOLDER_COLOR: Color4f = Color4f {
                     r: 0.9,
                     g: 0.9,
                     b: 0.9,
@@ -664,7 +664,7 @@ pub fn collect_render_data_from_layout<'html>(
                 };
                 data.rects.push(RenderRect {
                     rect: node.dimensions,
-                    background: placeholder_color,
+                    background: IMAGE_PLACEHOLDER_COLOR,
                 });
             }
         }

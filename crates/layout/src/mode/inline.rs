@@ -250,8 +250,8 @@ impl InlineLayout {
                         .cloned()
                         .unwrap_or_default();
 
-                    let default_width = 300.0;
-                    let default_height = 150.0;
+                    const DEFAULT_IMAGE_WIDTH: f32 = 300.0;
+                    const DEFAULT_IMAGE_HEIGHT: f32 = 150.0;
 
                     let known = image_ctx.get(&src);
 
@@ -286,12 +286,12 @@ impl InlineLayout {
                         let w = explicit_attr_width.unwrap_or(if css_width_explicit {
                             inline_node.style.intrinsic_width
                         } else {
-                            default_width
+                            DEFAULT_IMAGE_WIDTH
                         });
                         let h = explicit_attr_height.unwrap_or(if css_height_explicit {
                             inline_node.style.intrinsic_height
                         } else {
-                            default_height
+                            DEFAULT_IMAGE_HEIGHT
                         });
                         let needs = explicit_attr_width.is_none()
                             && explicit_attr_height.is_none()

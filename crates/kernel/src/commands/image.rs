@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     BrowserEvent, TabId,
-    commands::resolve_request,
+    commands::navigate::resolve_request,
     errors::{BrowserError, TabError},
     navigation::NavigationContext,
 };

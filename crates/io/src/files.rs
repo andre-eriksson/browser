@@ -5,6 +5,12 @@
 
 use crate::ResourceType;
 
+/// A list of allowed "about:" URLs that the browser can load.
+/// This is a security measure to prevent loading potentially harmful or
+/// unintended content through "about:" URLs. Only the URLs specified in
+/// this list will be allowed to be loaded by the browser.
+pub const ALLOWED_ABOUT_URLS: &[&str] = &["about:blank"];
+
 /// The cache file name for user agent stylesheets.
 /// This file is stored in the cache directory and contains precompiled stylesheets for user agent (browser default) styles.
 pub const CACHE_USER_AGENT: ResourceType = ResourceType::Cache("stylesheets/useragent.bin");

@@ -4,7 +4,7 @@ use crate::errors::NavigationError;
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
-use io::{CookieMiddleware, DocumentPolicy, Resource};
+use io::{CookieMiddleware, DocumentPolicy, Resource, files::ALLOWED_ABOUT_URLS};
 use network::{
     HeaderMap, SET_COOKIE,
     client::HttpClient,
@@ -41,7 +41,7 @@ pub(crate) async fn navigate(
         .clone();
     let cookie_jar = Arc::clone(ctx.cookie_jar());
 
-    let (url, response) = resolve_request(
+    let (url, response) = resolve_navigation_request(
         url,
         ctx,
         &page.document_url,
@@ -212,7 +212,7 @@ pub(crate) async fn navigate(
 ///
 /// Returns the resolved URL and the body content as a byte vector, or an error if the URL is invalid or the content
 /// cannot be fetched.
-pub(crate) async fn resolve_request(
+async fn resolve_navigation_request(
     raw_url: &str,
     ctx: &mut dyn NavigationContext,
     page_url: &Option<Url>,
@@ -222,6 +222,15 @@ pub(crate) async fn resolve_request(
     client: &dyn HttpClient,
 ) -> Result<(Url, Response), NavigationError> {
     if let Some(location) = raw_url.strip_prefix("about:") {
+        if ALLOWED_ABOUT_URLS
+            .iter()
+            .all(|&allowed| allowed != location)
+        {
+            return Err(NavigationError::RequestError(RequestError::Network(
+                NetworkError::InvalidUrl(format!("Disallowed about URL: {}", location)),
+            )));
+        }
+
         let resp = Response::from(
             Resource::load(io::ResourceType::Absolute {
                 protocol: "about",
@@ -259,24 +268,61 @@ pub(crate) async fn resolve_request(
             })?,
         )
     } else {
-        let resp =
-            Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies)
-                .await?;
-
-        for header in resp.metadata().headers.iter() {
-            if header.0 == SET_COOKIE
-                && let Ok(mut cookie_jar) = ctx.cookie_jar().lock()
-            {
-                CookieMiddleware::handle_response_cookie(&mut cookie_jar, &url, header.1);
-            }
-        }
-
-        resp.body()
-            .await
-            .map_err(|e| RequestError::Network(NetworkError::RuntimeError(e.to_string())))?
+        return resolve_request_inner(url, ctx, page_url, policies, cookies, headers, client).await;
     };
 
     Ok((url, resp))
+}
+
+/// The safer version of `resolve_navigation_request` that can be used by other commands
+/// like image loading, which also need to resolve URLs and fetch content while respecting
+/// cookies and headers. This function performs the same URL resolution and fetching logic,
+/// but returns the resolved URL along with the response body, allowing callers to handle
+/// the content as needed.
+pub(crate) async fn resolve_request(
+    raw_url: &str,
+    ctx: &mut dyn NavigationContext,
+    page_url: &Option<Url>,
+    policies: &Arc<DocumentPolicy>,
+    cookies: &[Cookie],
+    headers: &Arc<HeaderMap>,
+    client: &dyn HttpClient,
+) -> Result<(Url, Response), NavigationError> {
+    let url = match page_url.as_ref() {
+        Some(u) => u.join(raw_url),
+        None => Url::parse(raw_url),
+    }
+    .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
+
+    resolve_request_inner(url, ctx, page_url, policies, cookies, headers, client).await
+}
+
+async fn resolve_request_inner(
+    url: Url,
+    ctx: &mut dyn NavigationContext,
+    page_url: &Option<Url>,
+    policies: &Arc<DocumentPolicy>,
+    cookies: &[Cookie],
+    headers: &Arc<HeaderMap>,
+    client: &dyn HttpClient,
+) -> Result<(Url, Response), NavigationError> {
+    let resp =
+        Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies).await?;
+
+    for header in resp.metadata().headers.iter() {
+        if header.0 == SET_COOKIE
+            && let Ok(mut cookie_jar) = ctx.cookie_jar().lock()
+        {
+            CookieMiddleware::handle_response_cookie(&mut cookie_jar, &url, header.1);
+        }
+    }
+
+    let response = resp
+        .body()
+        .await
+        .map_err(|e| RequestError::Network(NetworkError::RuntimeError(e.to_string())))?;
+
+    Ok((url, response))
 }
 
 /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
