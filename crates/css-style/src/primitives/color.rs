@@ -264,6 +264,19 @@ impl FunctionColor {
                             return Err("Too many number components in color function".to_string());
                         }
                     }
+                    CssTokenKind::Dimension { .. } => {
+                        if parsing_alpha {
+                            return Err(
+                                "Dimension tokens are not allowed in alpha component".to_string()
+                            );
+                        } else if channel_idx < 3 {
+                            let angle = Angle::from(token);
+                            channels[channel_idx] = Some(ColorValue::Number(angle.to_degrees()));
+                            channel_idx += 1;
+                        } else {
+                            return Err("Too many components in color function".to_string());
+                        }
+                    }
                     _ => continue,
                 },
                 _ => continue,

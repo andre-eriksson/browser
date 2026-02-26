@@ -13,6 +13,8 @@
 //! * Gradians: "450grad" would be treated as "50grad".
 //! * Turns: "1.5turn" would be treated as "0.5turn".
 
+use css_cssom::{CssToken, CssTokenKind};
+
 /// Angle representation for CSS properties that accept angles, such as hue in HSL colors or rotation in transforms
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Angle {
@@ -76,6 +78,25 @@ impl Angle {
     /// Convert f32 turns to an Angle, normalizing it to the [0, 1) range
     pub fn from_turns(turn: f32) -> Self {
         Angle::Turn((turn).fract())
+    }
+}
+
+impl From<&CssToken> for Angle {
+    fn from(token: &CssToken) -> Self {
+        match &token.kind {
+            CssTokenKind::Dimension { value, unit } => {
+                let unit_str = unit.to_ascii_lowercase();
+                match unit_str.as_str() {
+                    "deg" => Angle::from_degrees(value.to_f64() as f32),
+                    "rad" => Angle::from_radians(value.to_f64() as f32),
+                    "grad" => Angle::from_gradians(value.to_f64() as f32),
+                    "turn" => Angle::from_turns(value.to_f64() as f32),
+                    _ => Angle::from_degrees(value.to_f64() as f32),
+                }
+            }
+            CssTokenKind::Number(value) => Angle::from_degrees(value.to_f64() as f32),
+            _ => Angle::Deg(0.0),
+        }
     }
 }
 
