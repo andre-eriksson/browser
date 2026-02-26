@@ -54,7 +54,11 @@ impl PropertyResolver {
 
         let available_width = f32::min(
             width - (styled_node.style.margin_left + styled_node.style.margin_right),
-            max_width,
+            if max_width == 0.0 && styled_node.style.width == ComputedDimension::Auto {
+                f32::INFINITY
+            } else {
+                max_width
+            },
         );
 
         match &styled_node.style.width {
