@@ -19,7 +19,7 @@ mod property;
 mod rules;
 mod stylesheet;
 
-pub use css_tokenizer::{CssToken, CssTokenKind, HashType, NumberType, NumericValue};
+pub use css_tokenizer::{CssToken, CssTokenKind, HashType, NumericValue};
 pub use parser::CssParser;
 pub use property::{KnownProperty, Property};
 pub use rules::{AtRule, QualifiedRule, Rule};

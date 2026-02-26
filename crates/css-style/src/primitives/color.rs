@@ -130,11 +130,11 @@ impl TryFrom<&[ComponentValue]> for ColorValue {
                     }
                     CssTokenKind::Percentage(percent) => {
                         return Ok(ColorValue::Percentage(Percentage::new(
-                            percent.value as f32,
+                            percent.to_f64() as f32
                         )));
                     }
                     CssTokenKind::Number(num) => {
-                        return Ok(ColorValue::Number(num.value as f32));
+                        return Ok(ColorValue::Number(num.to_f64() as f32));
                     }
                     _ => continue,
                 },
@@ -239,13 +239,13 @@ impl FunctionColor {
                     }
                     CssTokenKind::Percentage(pct) => {
                         if parsing_alpha {
-                            alpha = Some(Alpha::from(Percentage::new(pct.value as f32)));
+                            alpha = Some(Alpha::from(Percentage::new(pct.to_f64() as f32)));
                         } else if channel_idx < 3 {
                             channels[channel_idx] =
-                                Some(ColorValue::Percentage(Percentage::new(pct.value as f32)));
+                                Some(ColorValue::Percentage(Percentage::new(pct.to_f64() as f32)));
                             channel_idx += 1;
                         } else if alpha.is_none() {
-                            alpha = Some(Alpha::from(Percentage::new(pct.value as f32)));
+                            alpha = Some(Alpha::from(Percentage::new(pct.to_f64() as f32)));
                         } else {
                             return Err(
                                 "Too many percentage components in color function".to_string()
@@ -254,12 +254,12 @@ impl FunctionColor {
                     }
                     CssTokenKind::Number(num) => {
                         if parsing_alpha {
-                            alpha = Some(Alpha::new(num.value as f32));
+                            alpha = Some(Alpha::new(num.to_f64() as f32));
                         } else if channel_idx < 3 {
-                            channels[channel_idx] = Some(ColorValue::Number(num.value as f32));
+                            channels[channel_idx] = Some(ColorValue::Number(num.to_f64() as f32));
                             channel_idx += 1;
                         } else if alpha.is_none() {
-                            alpha = Some(Alpha::new(num.value as f32));
+                            alpha = Some(Alpha::new(num.to_f64() as f32));
                         } else {
                             return Err("Too many number components in color function".to_string());
                         }
@@ -302,7 +302,7 @@ pub mod macros {
     #[macro_export]
     macro_rules! css_color_fn {
         ($func:expr, $ch1:expr, $ch2:expr, $ch3:expr, $alpha:expr) => {{
-            use css_cssom::{CssToken, CssTokenKind, Function, NumberType, NumericValue};
+            use css_cssom::{CssToken, CssTokenKind, Function, NumericValue};
             macro_rules! css_value_token {
                 ($val:expr) => {{
                     let s = $val.to_string();
@@ -313,20 +313,16 @@ pub mod macros {
                         }
                     } else if s.contains('%') {
                         CssToken {
-                            kind: CssTokenKind::Percentage(NumericValue {
-                                value: s.replace('%', "").parse::<f32>().unwrap_or(0.0) as f64,
-                                int_value: None,
-                                type_flag: NumberType::Number,
-                            }),
+                            kind: CssTokenKind::Percentage(NumericValue::from(
+                                s.replace('%', "").parse::<f64>().unwrap_or(0.0),
+                            )),
                             position: None,
                         }
                     } else {
                         CssToken {
-                            kind: CssTokenKind::Number(NumericValue {
-                                value: s.parse::<f32>().unwrap_or(0.0) as f64,
-                                int_value: None,
-                                type_flag: NumberType::Number,
-                            }),
+                            kind: CssTokenKind::Number(NumericValue::from(
+                                s.parse::<f64>().unwrap_or(0.0),
+                            )),
                             position: None,
                         }
                     }
@@ -343,20 +339,16 @@ pub mod macros {
                     position: None,
                 },
                 a if (a.to_string().contains('%')) => CssToken {
-                    kind: CssTokenKind::Percentage(NumericValue {
-                        value: a.to_string().replace('%', "").parse::<f32>().unwrap_or(0.0) as f64,
-                        int_value: None,
-                        type_flag: NumberType::Number,
-                    }),
+                    kind: CssTokenKind::Percentage(NumericValue::from(
+                        a.to_string().replace('%', "").parse::<f64>().unwrap_or(0.0),
+                    )),
                     position: None,
                 },
                 a if (0.0..=1.0).contains(&(a.to_string().parse::<f32>().unwrap_or(-1.0))) => {
                     CssToken {
-                        kind: CssTokenKind::Number(NumericValue {
-                            value: a.to_string().parse::<f32>().unwrap_or(0.0) as f64,
-                            int_value: None,
-                            type_flag: NumberType::Number,
-                        }),
+                        kind: CssTokenKind::Number(NumericValue::from(
+                            a.to_string().parse::<f64>().unwrap_or(0.0),
+                        )),
                         position: None,
                     }
                 }
@@ -417,7 +409,7 @@ pub mod macros {
 
 #[cfg(test)]
 mod tests {
-    use css_cssom::{CssToken, NumberType, NumericValue};
+    use css_cssom::{CssToken, NumericValue};
 
     use super::*;
 
@@ -425,19 +417,11 @@ mod tests {
     fn test_parse_color_components() {
         let components = vec![
             ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Number(NumericValue {
-                    value: 255.0,
-                    int_value: None,
-                    type_flag: NumberType::Number,
-                }),
+                kind: CssTokenKind::Number(NumericValue::from(255.0)),
                 position: None,
             }),
             ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Percentage(NumericValue {
-                    value: 50.0,
-                    int_value: None,
-                    type_flag: NumberType::Number,
-                }),
+                kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
                 position: None,
             }),
             ComponentValue::Token(CssToken {

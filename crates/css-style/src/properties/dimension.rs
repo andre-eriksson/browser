@@ -90,13 +90,16 @@ impl TryFrom<&[ComponentValue]> for Dimension {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(Dimension::Length(Length::new(value.value as f32, len_unit)));
+                        return Ok(Dimension::Length(Length::new(
+                            value.to_f64() as f32,
+                            len_unit,
+                        )));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        return Ok(Dimension::Percentage(Percentage::new(pct.value as f32)));
+                        return Ok(Dimension::Percentage(Percentage::new(pct.to_f64() as f32)));
                     }
                     CssTokenKind::Number(num) => {
-                        return Ok(Dimension::Length(Length::px(num.value as f32)));
+                        return Ok(Dimension::Length(Length::px(num.to_f64() as f32)));
                     }
                     _ => continue,
                 },
@@ -184,15 +187,17 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
                         return Ok(MaxDimension::Length(Length::new(
-                            value.value as f32,
+                            value.to_f64() as f32,
                             len_unit,
                         )));
                     }
                     CssTokenKind::Number(num) => {
-                        return Ok(MaxDimension::Length(Length::px(num.value as f32)));
+                        return Ok(MaxDimension::Length(Length::px(num.to_f64() as f32)));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        return Ok(MaxDimension::Percentage(Percentage::new(pct.value as f32)));
+                        return Ok(MaxDimension::Percentage(Percentage::new(
+                            pct.to_f64() as f32
+                        )));
                     }
                     _ => continue,
                 },
@@ -208,7 +213,7 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
 mod tests {
     use std::sync::Arc;
 
-    use css_cssom::{CssToken, Function, NumberType, NumericValue};
+    use css_cssom::{CssToken, Function, NumericValue};
 
     use crate::ComputedStyle;
 
@@ -247,11 +252,7 @@ mod tests {
     fn test_parse_dimension() {
         let tokens = vec![ComponentValue::Token(CssToken {
             kind: CssTokenKind::Dimension {
-                value: NumericValue {
-                    value: 16.0,
-                    int_value: None,
-                    type_flag: NumberType::Integer,
-                },
+                value: NumericValue::from(16.0),
                 unit: "px".to_string(),
             },
             position: None,
@@ -263,11 +264,7 @@ mod tests {
     #[test]
     fn test_parse_percentage_dimension() {
         let tokens = vec![ComponentValue::Token(CssToken {
-            kind: CssTokenKind::Percentage(NumericValue {
-                value: 50.0,
-                int_value: None,
-                type_flag: NumberType::Integer,
-            }),
+            kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
             position: None,
         })];
         let dim = Dimension::try_from(tokens.as_slice()).unwrap();
@@ -291,11 +288,7 @@ mod tests {
             value: vec![
                 ComponentValue::Token(CssToken {
                     kind: CssTokenKind::Dimension {
-                        value: NumericValue {
-                            value: 100.0,
-                            int_value: None,
-                            type_flag: NumberType::Integer,
-                        },
+                        value: NumericValue::from(100.0),
                         unit: "px".to_string(),
                     },
                     position: None,
@@ -313,11 +306,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Percentage(NumericValue {
-                        value: 50.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
                     position: None,
                 }),
             ],

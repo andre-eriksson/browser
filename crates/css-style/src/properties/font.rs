@@ -68,7 +68,7 @@ impl TryFrom<&[ComponentValue]> for FontWeight {
                         }
                     }
                     CssTokenKind::Number(num) => {
-                        if let Ok(weight) = FontWeight::try_from(num.value as u16) {
+                        if let Ok(weight) = FontWeight::try_from(num.to_f64() as u16) {
                             return Ok(weight);
                         }
                     }
@@ -253,10 +253,13 @@ impl TryFrom<&[ComponentValue]> for FontSize {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(FontSize::Length(Length::new(value.value as f32, len_unit)));
+                        return Ok(FontSize::Length(Length::new(
+                            value.to_f64() as f32,
+                            len_unit,
+                        )));
                     }
                     CssTokenKind::Percentage(num) => {
-                        return Ok(FontSize::Percentage(Percentage::new(num.value as f32)));
+                        return Ok(FontSize::Percentage(Percentage::new(num.to_f64() as f32)));
                     }
                     _ => continue,
                 },

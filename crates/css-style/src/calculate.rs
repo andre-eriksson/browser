@@ -336,7 +336,7 @@ impl<'a> CalcParser<'a> {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Number(num) => {
                     self.current_pos += 1;
-                    Ok(CalculateValue::Number(num.value as f32))
+                    Ok(CalculateValue::Number(num.to_f64() as f32))
                 }
 
                 CssTokenKind::Dimension { value, unit } => {
@@ -345,7 +345,7 @@ impl<'a> CalcParser<'a> {
                         .parse::<LengthUnit>()
                         .map_err(|_| format!("Invalid length unit: {}", unit))?;
                     Ok(CalculateValue::Length(Length::new(
-                        value.value as f32,
+                        value.to_f64() as f32,
                         len_unit,
                     )))
                 }
@@ -353,7 +353,7 @@ impl<'a> CalcParser<'a> {
                 CssTokenKind::Percentage(num) => {
                     self.current_pos += 1;
                     Ok(CalculateValue::Percentage(Percentage::new(
-                        num.value as f32,
+                        num.to_f64() as f32
                     )))
                 }
 
@@ -377,7 +377,7 @@ mod tests {
     use crate::ComputedStyle;
 
     use super::*;
-    use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, NumberType, NumericValue};
+    use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, NumericValue};
 
     /// Helper function to create test contexts
     fn create_test_contexts() -> (RelativeContext, AbsoluteContext) {
@@ -402,11 +402,7 @@ mod tests {
     /// Helper function to create a number token
     fn number_token(value: f64) -> ComponentValue {
         ComponentValue::Token(CssToken {
-            kind: CssTokenKind::Number(NumericValue {
-                value,
-                int_value: None,
-                type_flag: NumberType::Number,
-            }),
+            kind: CssTokenKind::Number(NumericValue::from(value)),
             position: None,
         })
     }
@@ -415,11 +411,7 @@ mod tests {
     fn dimension_token(value: f64, unit: &str) -> ComponentValue {
         ComponentValue::Token(CssToken {
             kind: CssTokenKind::Dimension {
-                value: NumericValue {
-                    value,
-                    int_value: None,
-                    type_flag: NumberType::Number,
-                },
+                value: NumericValue::from(value),
                 unit: unit.to_string(),
             },
             position: None,
@@ -999,11 +991,7 @@ mod tests {
             delim_token('+'),
             whitespace_token(),
             ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Percentage(NumericValue {
-                    value: 50.0,
-                    int_value: None,
-                    type_flag: NumberType::Number,
-                }),
+                kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
                 position: None,
             }),
         ];

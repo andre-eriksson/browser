@@ -12,43 +12,58 @@ pub enum HashType {
     Unrestricted,
 }
 
-/// Number type flag as per CSS Syntax Module Level 3
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NumberType {
-    /// The number is an integer (no decimal point or exponent)
+pub(crate) enum NumberType {
     Integer,
-    /// The number has a decimal point and/or exponent
     Number,
 }
 
 /// A numeric value with its type flag
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NumericValue {
-    /// The numeric value
-    pub value: f64,
-    /// The integer value (if type is Integer)
-    pub int_value: Option<i64>,
-    /// Whether this is an integer or number
-    pub type_flag: NumberType,
+pub enum NumericValue {
+    /// The number is an integer (no decimal point or exponent)
+    Integer(i64),
+    /// The number has a decimal point and/or exponent
+    Number(f64),
 }
 
 impl NumericValue {
-    /// Create a new NumericValue
-    ///
-    /// # Arguments
-    /// * `value` - The numeric value as f64
-    /// * `type_flag` - The type flag indicating if it's an integer or number
-    pub fn new(value: f64, type_flag: NumberType) -> Self {
-        let int_value = if type_flag == NumberType::Integer {
-            Some(value as i64)
-        } else {
-            None
-        };
-        Self {
-            value,
-            int_value,
-            type_flag,
+    /// Get the numeric value as a f64, regardless of its original type
+    pub fn to_f64(&self) -> f64 {
+        match self {
+            NumericValue::Integer(i) => *i as f64,
+            NumericValue::Number(n) => *n,
         }
+    }
+
+    /// Attempt to convert the numeric value to an i64 if it is an integer
+    pub fn to_i64(&self) -> Option<i64> {
+        match self {
+            NumericValue::Integer(i) => Some(*i),
+            NumericValue::Number(n) => {
+                if !n.is_finite() {
+                    return None;
+                }
+
+                if n.fract() == 0.0 && *n >= i64::MIN as f64 && *n <= i64::MAX as f64 {
+                    Some(*n as i64)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+}
+
+impl From<f64> for NumericValue {
+    fn from(value: f64) -> Self {
+        NumericValue::Number(value)
+    }
+}
+
+impl From<i64> for NumericValue {
+    fn from(value: i64) -> Self {
+        NumericValue::Integer(value)
     }
 }
 
@@ -148,9 +163,9 @@ impl Display for CssTokenKind {
             CssTokenKind::Url(value) => write!(f, "url({})", value),
             CssTokenKind::BadUrl => write!(f, "url("),
             CssTokenKind::Delim(c) => write!(f, "{}", c),
-            CssTokenKind::Number(num) => write!(f, "{}", num.value),
-            CssTokenKind::Percentage(num) => write!(f, "{}%", num.value),
-            CssTokenKind::Dimension { value, unit } => write!(f, "{}{}", value.value, unit),
+            CssTokenKind::Number(num) => write!(f, "{}", num.to_f64()),
+            CssTokenKind::Percentage(num) => write!(f, "{}%", num.to_f64()),
+            CssTokenKind::Dimension { value, unit } => write!(f, "{}{}", value.to_f64(), unit),
             CssTokenKind::Whitespace => write!(f, " "),
             CssTokenKind::Cdo => write!(f, "<!--"),
             CssTokenKind::Cdc => write!(f, "-->"),

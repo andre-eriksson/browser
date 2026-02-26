@@ -84,5 +84,9 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
     }
 
     let value = repr.parse::<f64>().unwrap_or(0.0);
-    NumericValue::new(value, type_flag)
+
+    match type_flag {
+        NumberType::Integer => NumericValue::from(value as i64),
+        NumberType::Number => NumericValue::from(value),
+    }
 }

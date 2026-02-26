@@ -88,7 +88,7 @@ impl TryFrom<&[ComponentValue]> for SRGBAColor {
 
 #[cfg(test)]
 mod tests {
-    use css_cssom::{CssToken, CssTokenKind, Function, NumberType, NumericValue};
+    use css_cssom::{CssToken, CssTokenKind, Function, NumericValue};
 
     use crate::css_color_fn;
 
@@ -127,11 +127,7 @@ mod tests {
             name: "rgba".to_string(),
             value: vec![
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Number(NumericValue {
-                        value: 200.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Number(NumericValue::from(200.0)),
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
@@ -139,11 +135,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Number(NumericValue {
-                        value: 100.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Number(NumericValue::from(100.0)),
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
@@ -151,11 +143,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Number(NumericValue {
-                        value: 255.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Number(NumericValue::from(255.0)),
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
@@ -163,11 +151,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Number(NumericValue {
-                        value: 0.7,
-                        int_value: None,
-                        type_flag: NumberType::Number,
-                    }),
+                    kind: CssTokenKind::Number(NumericValue::from(0.7)),
                     position: None,
                 }),
             ],
@@ -218,11 +202,7 @@ mod tests {
             name: "hsla".to_string(),
             value: vec![
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Number(NumericValue {
-                        value: 120.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Number(NumericValue::from(120.0)),
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
@@ -230,11 +210,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Percentage(NumericValue {
-                        value: 50.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
@@ -242,11 +218,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Percentage(NumericValue {
-                        value: 50.0,
-                        int_value: None,
-                        type_flag: NumberType::Integer,
-                    }),
+                    kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
@@ -254,11 +226,7 @@ mod tests {
                     position: None,
                 }),
                 ComponentValue::Token(CssToken {
-                    kind: CssTokenKind::Number(NumericValue {
-                        value: 0.3,
-                        int_value: None,
-                        type_flag: NumberType::Number,
-                    }),
+                    kind: CssTokenKind::Number(NumericValue::from(0.3)),
                     position: None,
                 }),
             ],

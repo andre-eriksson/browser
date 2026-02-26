@@ -236,7 +236,7 @@ impl Iterator for CssTokenizer {
 mod tests {
     use super::*;
     use crate::errors::CssTokenizationError;
-    use crate::tokens::{HashType, NumberType, NumericValue};
+    use crate::tokens::{HashType, NumericValue};
 
     fn has_errors(tokenizer: &CssTokenizer) -> bool {
         !tokenizer.errors.is_empty()
@@ -506,9 +506,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("123", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert_eq!(num.value, 123.0);
-            assert_eq!(num.type_flag, NumberType::Integer);
-            assert_eq!(num.int_value, Some(123));
+            assert_eq!(num.to_i64().unwrap(), 123);
         } else {
             panic!("Expected Number token");
         }
@@ -519,9 +517,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("-42", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert_eq!(num.value, -42.0);
-            assert_eq!(num.type_flag, NumberType::Integer);
-            assert_eq!(num.int_value, Some(-42));
+            assert_eq!(num.to_i64().unwrap(), -42);
         } else {
             panic!("Expected Number token");
         }
@@ -532,8 +528,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("+100", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert_eq!(num.value, 100.0);
-            assert_eq!(num.type_flag, NumberType::Integer);
+            assert_eq!(num.to_i64().unwrap(), 100);
         } else {
             panic!("Expected Number token");
         }
@@ -545,9 +540,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("3.14", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert!((num.value - 3.14).abs() < 0.0001);
-            assert_eq!(num.type_flag, NumberType::Number);
-            assert_eq!(num.int_value, None);
+            assert!((num.to_f64() - 3.14).abs() < 0.0001);
         } else {
             panic!("Expected Number token");
         }
@@ -558,8 +551,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize(".5", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert!((num.value - 0.5).abs() < 0.0001);
-            assert_eq!(num.type_flag, NumberType::Number);
+            assert!((num.to_f64() - 0.5).abs() < 0.0001);
         } else {
             panic!("Expected Number token");
         }
@@ -570,8 +562,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("1e10", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert!((num.value - 1e10).abs() < 1e5);
-            assert_eq!(num.type_flag, NumberType::Number);
+            assert!((num.to_f64() - 1e10).abs() < 1e5);
         } else {
             panic!("Expected Number token");
         }
@@ -582,7 +573,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("1e-5", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert!((num.value - 1e-5).abs() < 1e-10);
+            assert!((num.to_f64() - 1e-5).abs() < 1e-10);
         } else {
             panic!("Expected Number token");
         }
@@ -593,7 +584,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("2E+3", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert!((num.value - 2000.0).abs() < 0.0001);
+            assert!((num.to_f64() - 2000.0).abs() < 0.0001);
         } else {
             panic!("Expected Number token");
         }
@@ -604,8 +595,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("0", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Number(num) = &tokens[0].kind {
-            assert_eq!(num.value, 0.0);
-            assert_eq!(num.type_flag, NumberType::Integer);
+            assert_eq!(num.to_i64().unwrap(), 0);
         } else {
             panic!("Expected Number token");
         }
@@ -616,7 +606,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("100px", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, 100.0);
+            assert_eq!(value.to_f64(), 100.0);
             assert_eq!(unit, "px");
         } else {
             panic!("Expected Dimension token");
@@ -628,7 +618,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("1.5em", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert!((value.value - 1.5).abs() < 0.0001);
+            assert!((value.to_f64() - 1.5).abs() < 0.0001);
             assert_eq!(unit, "em");
         } else {
             panic!("Expected Dimension token");
@@ -640,7 +630,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("2rem", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, 2.0);
+            assert_eq!(value.to_f64(), 2.0);
             assert_eq!(unit, "rem");
         } else {
             panic!("Expected Dimension token");
@@ -652,7 +642,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("45deg", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, 45.0);
+            assert_eq!(value.to_f64(), 45.0);
             assert_eq!(unit, "deg");
         } else {
             panic!("Expected Dimension token");
@@ -664,7 +654,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("300ms", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, 300.0);
+            assert_eq!(value.to_f64(), 300.0);
             assert_eq!(unit, "ms");
         } else {
             panic!("Expected Dimension token");
@@ -676,7 +666,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("0.5s", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert!((value.value - 0.5).abs() < 0.0001);
+            assert!((value.to_f64() - 0.5).abs() < 0.0001);
             assert_eq!(unit, "s");
         } else {
             panic!("Expected Dimension token");
@@ -688,7 +678,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("100vw", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, 100.0);
+            assert_eq!(value.to_f64(), 100.0);
             assert_eq!(unit, "vw");
         } else {
             panic!("Expected Dimension token");
@@ -700,7 +690,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("-10px", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, -10.0);
+            assert_eq!(value.to_f64(), -10.0);
             assert_eq!(unit, "px");
         } else {
             panic!("Expected Dimension token");
@@ -712,7 +702,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("50%", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Percentage(num) = &tokens[0].kind {
-            assert_eq!(num.value, 50.0);
+            assert_eq!(num.to_f64(), 50.0);
         } else {
             panic!("Expected Percentage token");
         }
@@ -723,7 +713,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("33.33%", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Percentage(num) = &tokens[0].kind {
-            assert!((num.value - 33.33).abs() < 0.0001);
+            assert!((num.to_f64() - 33.33).abs() < 0.0001);
         } else {
             panic!("Expected Percentage token");
         }
@@ -734,7 +724,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("-25%", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Percentage(num) = &tokens[0].kind {
-            assert_eq!(num.value, -25.0);
+            assert_eq!(num.to_f64(), -25.0);
         } else {
             panic!("Expected Percentage token");
         }
@@ -1285,20 +1275,20 @@ mod tests {
 
     #[test]
     fn test_token_display_number() {
-        let token = CssTokenKind::Number(NumericValue::new(42.0, NumberType::Integer));
+        let token = CssTokenKind::Number(NumericValue::from(42));
         assert_eq!(format!("{}", token), "42");
     }
 
     #[test]
     fn test_token_display_percentage() {
-        let token = CssTokenKind::Percentage(NumericValue::new(50.0, NumberType::Integer));
+        let token = CssTokenKind::Percentage(NumericValue::from(50));
         assert_eq!(format!("{}", token), "50%");
     }
 
     #[test]
     fn test_token_display_dimension() {
         let token = CssTokenKind::Dimension {
-            value: NumericValue::new(100.0, NumberType::Integer),
+            value: NumericValue::from(100),
             unit: "px".to_string(),
         };
         assert_eq!(format!("{}", token), "100px");
@@ -1371,9 +1361,9 @@ mod tests {
     fn test_multiple_consecutive_numbers() {
         let tokens = CssTokenizer::tokenize("1 2 3", true);
         assert_eq!(tokens.len(), 5);
-        assert!(matches!(&tokens[0].kind, CssTokenKind::Number(n) if n.value == 1.0));
-        assert!(matches!(&tokens[2].kind, CssTokenKind::Number(n) if n.value == 2.0));
-        assert!(matches!(&tokens[4].kind, CssTokenKind::Number(n) if n.value == 3.0));
+        assert!(matches!(&tokens[0].kind, CssTokenKind::Number(n) if n.to_f64() == 1.0));
+        assert!(matches!(&tokens[2].kind, CssTokenKind::Number(n) if n.to_f64() == 2.0));
+        assert!(matches!(&tokens[4].kind, CssTokenKind::Number(n) if n.to_f64() == 3.0));
     }
 
     #[test]
@@ -1388,7 +1378,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("-5em", true);
         assert_eq!(tokens.len(), 1);
         if let CssTokenKind::Dimension { value, unit } = &tokens[0].kind {
-            assert_eq!(value.value, -5.0);
+            assert_eq!(value.to_f64(), -5.0);
             assert_eq!(unit, "em");
         } else {
             panic!("Expected Dimension token");

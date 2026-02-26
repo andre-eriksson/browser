@@ -34,7 +34,7 @@ mod string;
 
 pub use css_parser::{
     AssociatedToken, ComponentValue, CssParser, CssToken, CssTokenKind, Function, HashType,
-    KnownProperty, NumberType, NumericValue, Property, SimpleBlock,
+    KnownProperty, NumericValue, Property, SimpleBlock,
 };
 pub use cssom::{CSSStyleSheet, StylesheetOrigin};
 pub use declaration::CSSDeclaration;

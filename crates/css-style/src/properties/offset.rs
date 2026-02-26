@@ -84,13 +84,13 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(Self::Length(Length::new(value.value as f32, len_unit)));
+                        return Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        return Ok(Self::Percentage(Percentage::new(pct.value as f32)));
+                        return Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32)));
                     }
                     CssTokenKind::Number(num) => {
-                        return Ok(Self::Length(Length::px(num.value as f32)));
+                        return Ok(Self::Length(Length::px(num.to_f64() as f32)));
                     }
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
                         return Ok(Self::Auto);
@@ -208,16 +208,17 @@ impl TryFrom<&[ComponentValue]> for Offset {
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
                         offset_values.push(OffsetValue::Length(Length::new(
-                            value.value as f32,
+                            value.to_f64() as f32,
                             len_unit,
                         )));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        offset_values
-                            .push(OffsetValue::Percentage(Percentage::new(pct.value as f32)));
+                        offset_values.push(OffsetValue::Percentage(Percentage::new(
+                            pct.to_f64() as f32
+                        )));
                     }
                     CssTokenKind::Number(num) => {
-                        offset_values.push(OffsetValue::Length(Length::px(num.value as f32)));
+                        offset_values.push(OffsetValue::Length(Length::px(num.to_f64() as f32)));
                     }
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
                         offset_values.push(OffsetValue::Auto);
@@ -235,28 +236,20 @@ impl TryFrom<&[ComponentValue]> for Offset {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use css_cssom::{CssToken, NumberType, NumericValue};
+    use css_cssom::{CssToken, NumericValue};
 
     #[test]
     fn test_parse() {
         let input = vec![
             ComponentValue::Token(CssToken {
                 kind: CssTokenKind::Dimension {
-                    value: NumericValue {
-                        value: 10.0,
-                        int_value: None,
-                        type_flag: NumberType::Number,
-                    },
+                    value: NumericValue::from(10.0),
                     unit: "px".into(),
                 },
                 position: None,
             }),
             ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Percentage(NumericValue {
-                    value: 50.0,
-                    int_value: None,
-                    type_flag: NumberType::Number,
-                }),
+                kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
                 position: None,
             }),
         ];

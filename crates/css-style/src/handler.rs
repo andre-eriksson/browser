@@ -367,7 +367,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
                     }
                 }
                 CssTokenKind::Number(num) => {
-                    if width.is_some() || num.value != 0.0 {
+                    if width.is_some() || num.to_f64() != 0.0 {
                         continue;
                     }
 
@@ -380,7 +380,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
 
                     if let Ok(len_unit) = unit.parse::<LengthUnit>() {
                         width = Some(BorderWidth::Length(Length::new(
-                            value.value as f32,
+                            value.to_f64() as f32,
                             len_unit,
                         )));
                     }
