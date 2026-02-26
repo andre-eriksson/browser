@@ -1,5 +1,6 @@
 use iced::window;
 use kernel::TabId;
+use layout::LayoutTree;
 
 use crate::core::WindowType;
 
@@ -33,4 +34,10 @@ pub enum UiEvent {
     /// An image has finished loading (or failed). The first String is the source URL,
     /// the second is the pre-resolved Vary string for exact disk cache lookups.
     ImageLoaded(TabId, String, String),
+
+    /// A background relayout has completed.  Carries the tab id, the layout
+    /// generation the work was started with, and the resulting layout tree.
+    /// If the generation no longer matches the tab's current generation the
+    /// result is stale (e.g. the user navigated away) and should be discarded.
+    RelayoutComplete(TabId, u64, LayoutTree),
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
@@ -50,6 +50,18 @@ pub struct UiTab {
     /// images that have already been fetched keep their real dimensions and
     /// vary keys.
     pub known_images: HashMap<String, KnownImageMeta>,
+
+    /// Set of image source URLs that are still being fetched / decoded.
+    /// A relayout is only triggered once this set becomes empty, so that all
+    /// pending images are batched into a single layout pass instead of
+    /// relaying out after every individual image.
+    pub pending_image_urls: HashSet<String>,
+
+    /// Monotonically increasing generation counter, incremented on every
+    /// navigation.  Background relayout results carry the generation they were
+    /// started with; if it no longer matches the tab's current generation the
+    /// result is stale and gets discarded.
+    pub layout_generation: u64,
 }
 
 impl UiTab {
@@ -63,7 +75,19 @@ impl UiTab {
             document: DocumentRoot::new(),
             stylesheets: Vec::new(),
             known_images: HashMap::new(),
+            pending_image_urls: HashSet::new(),
+            layout_generation: 0,
         }
+    }
+
+    /// Prepare the tab for a brand-new navigation.  Clears stale image
+    /// metadata and pending state, and increments the layout generation so
+    /// that any in-flight background relayout from the previous page is
+    /// automatically discarded.
+    pub fn prepare_for_navigation(&mut self) {
+        self.known_images.clear();
+        self.pending_image_urls.clear();
+        self.layout_generation += 1;
     }
 
     /// Record (or update) the intrinsic dimensions for an image source URL,
@@ -90,9 +114,18 @@ impl UiTab {
         }
     }
 
+    /// Mark an image URL as no longer pending (because it finished loading or
+    /// failed).  Returns `true` when the pending set has become empty, meaning
+    /// all images have been resolved and a batched relayout should be
+    /// triggered.
+    pub fn resolve_pending_image(&mut self, url: &str) -> bool {
+        self.pending_image_urls.remove(url);
+        self.pending_image_urls.is_empty()
+    }
+
     /// Build an [`ImageContext`] from the tab's currently known image
     /// metadata.  This is passed into
-    /// [`LayoutEngine::compute_layout_with_images`] so that decoded images are
+    /// [`LayoutEngine::compute_layout`] so that decoded images are
     /// laid out at their real intrinsic size (with the correct vary key for
     /// disk-cache lookups) instead of a placeholder.
     pub fn image_context(&self) -> ImageContext {

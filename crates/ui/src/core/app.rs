@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex};
 
 use css_style::{AbsoluteContext, StyleTree};
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
@@ -64,7 +64,7 @@ pub struct Application {
     browser: Arc<Mutex<Browser>>,
 
     /// The shared text context for text rendering.
-    text_context: TextContext,
+    text_context: Arc<StdMutex<TextContext>>,
 
     /// Shared image cache for loaded images.
     pub image_cache: Option<ImageCache>,
@@ -102,7 +102,7 @@ impl Application {
 
         let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
 
-        let text_context = TextContext::new(font_system);
+        let text_context = Arc::new(StdMutex::new(TextContext::new(font_system)));
 
         let app = Application {
             id: main_window_id,
@@ -180,12 +180,14 @@ impl Application {
                         let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
                         let image_ctx = tab.image_context();
 
+                        let mut tc = self.text_context.lock().unwrap();
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
                             Rect::new(0.0, 0.0, width, height),
-                            &mut self.text_context,
+                            &mut tc,
                             Some(&image_ctx),
                         );
+                        drop(tc);
 
                         tab.layout_tree = layout_tree;
                     }
@@ -254,32 +256,68 @@ impl Application {
                         if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
                             tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
                             tab.set_image_vary_key(url, vary_key.clone());
+                        }
+                    }
 
+                    if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
+                        let all_done = tab.resolve_pending_image(url);
+
+                        if all_done {
                             let (vw, vh) = self
                                 .viewports
                                 .get(&self.id)
                                 .copied()
                                 .unwrap_or((800.0, 600.0));
 
-                            let ctx = AbsoluteContext {
-                                root_font_size: 16.0,
-                                viewport_width: vw,
-                                viewport_height: vh,
-                                ..Default::default()
-                            };
-
-                            let style_tree =
-                                StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
+                            let text_ctx = self.text_context.clone();
+                            let document = tab.document.clone();
+                            let stylesheets = tab.stylesheets.clone();
                             let image_ctx = tab.image_context();
+                            let generation = tab.layout_generation;
 
-                            let layout_tree = LayoutEngine::compute_layout(
-                                &style_tree,
-                                Rect::new(0.0, 0.0, vw, vh),
-                                &mut self.text_context,
-                                Some(&image_ctx),
+                            return Task::perform(
+                                async move {
+                                    tokio::task::spawn_blocking(move || {
+                                        let ctx = AbsoluteContext {
+                                            root_font_size: 16.0,
+                                            viewport_width: vw,
+                                            viewport_height: vh,
+                                            ..Default::default()
+                                        };
+                                        let style_tree =
+                                            StyleTree::build(&ctx, &document, &stylesheets);
+                                        let mut tc = text_ctx.lock().unwrap();
+                                        LayoutEngine::compute_layout(
+                                            &style_tree,
+                                            Rect::new(0.0, 0.0, vw, vh),
+                                            &mut tc,
+                                            Some(&image_ctx),
+                                        )
+                                    })
+                                    .await
+                                    .unwrap()
+                                },
+                                move |layout_tree| {
+                                    Event::Ui(UiEvent::RelayoutComplete(
+                                        tab_id,
+                                        generation,
+                                        layout_tree,
+                                    ))
+                                },
                             );
+                        }
+                    }
+                }
 
+                UiEvent::RelayoutComplete(tab_id, generation, layout_tree) => {
+                    if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
+                        if tab.layout_generation == generation {
                             tab.layout_tree = layout_tree;
+                        } else {
+                            debug!(
+                                "Discarding stale relayout for tab {} (gen {} vs {})",
+                                tab_id, generation, tab.layout_generation
+                            );
                         }
                     }
                 }
@@ -357,6 +395,8 @@ impl Application {
                     let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
                     if let Some(tab) = current_tab {
+                        tab.prepare_for_navigation();
+
                         let ctx = AbsoluteContext {
                             root_font_size: 16.0,
                             viewport_width: self
@@ -376,15 +416,17 @@ impl Application {
 
                         let image_ctx = tab.image_context();
 
+                        let mut tc = self.text_context.lock().unwrap();
                         let layout_tree = LayoutEngine::compute_layout(
                             &style_tree,
                             self.viewports
                                 .get(&self.id)
                                 .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
                                 .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
-                            &mut self.text_context,
+                            &mut tc,
                             Some(&image_ctx),
                         );
+                        drop(tc);
 
                         tab.document = page.document().clone();
                         tab.stylesheets = page.stylesheets().clone();
@@ -431,17 +473,21 @@ impl Application {
 
                         if cache_hit {
                             let image_ctx = tab.image_context();
+                            let mut tc = self.text_context.lock().unwrap();
                             let layout_tree = LayoutEngine::compute_layout(
                                 &style_tree,
                                 self.viewports
                                     .get(&self.id)
                                     .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
                                     .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
-                                &mut self.text_context,
+                                &mut tc,
                                 Some(&image_ctx),
                             );
+                            drop(tc);
                             tab.layout_tree = layout_tree;
                         }
+
+                        tab.pending_image_urls = fetch_srcs.iter().cloned().collect();
 
                         let active_tab = self.active_tab;
                         let tasks: Vec<Task<Event>> = fetch_srcs
