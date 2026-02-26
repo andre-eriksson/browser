@@ -255,48 +255,57 @@ impl InlineLayout {
 
                     let known = image_ctx.get(&src);
 
-                    let explicit_attr_width = inline_node
+                    let attr_width = inline_node
                         .attributes
                         .get("width")
                         .and_then(|v| v.parse::<f32>().ok());
 
-                    let explicit_attr_height = inline_node
+                    let attr_height = inline_node
                         .attributes
                         .get("height")
                         .and_then(|v| v.parse::<f32>().ok());
 
-                    let css_width_explicit =
-                        matches!(inline_node.style.width, ComputedDimension::Fixed);
-                    let css_height_explicit =
-                        matches!(inline_node.style.height, ComputedDimension::Fixed);
+                    let css_width = matches!(inline_node.style.width, ComputedDimension::Fixed);
+                    let css_height = matches!(inline_node.style.height, ComputedDimension::Fixed);
 
                     let (width, height, needs_intrinsic_size) = if let Some((kw, kh)) = known {
-                        let w = explicit_attr_width.unwrap_or(if css_width_explicit {
+                        let w = if css_width {
                             inline_node.style.intrinsic_width
+                        } else if let Some(attr_w) = attr_width {
+                            attr_w
                         } else {
                             kw
-                        });
-                        let h = explicit_attr_height.unwrap_or(if css_height_explicit {
+                        };
+
+                        let h = if css_height {
                             inline_node.style.intrinsic_height
+                        } else if let Some(attr_h) = attr_height {
+                            attr_h
                         } else {
                             kh
-                        });
+                        };
                         (w, h, false)
                     } else {
-                        let w = explicit_attr_width.unwrap_or(if css_width_explicit {
+                        let w = if css_width {
                             inline_node.style.intrinsic_width
+                        } else if let Some(attr_w) = attr_width {
+                            attr_w
                         } else {
                             DEFAULT_IMAGE_WIDTH
-                        });
-                        let h = explicit_attr_height.unwrap_or(if css_height_explicit {
+                        };
+
+                        let h = if css_height {
                             inline_node.style.intrinsic_height
+                        } else if let Some(attr_h) = attr_height {
+                            attr_h
                         } else {
                             DEFAULT_IMAGE_HEIGHT
-                        });
-                        let needs = explicit_attr_width.is_none()
-                            && explicit_attr_height.is_none()
-                            && !css_width_explicit
-                            && !css_height_explicit;
+                        };
+
+                        let needs = attr_width.is_none()
+                            && attr_height.is_none()
+                            && !css_width
+                            && !css_height;
                         (w, h, needs)
                     };
 
