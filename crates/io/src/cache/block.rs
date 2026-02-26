@@ -75,7 +75,7 @@ impl BlockFile {
         let block_dir = cache_path.join(BLOCK_DIR);
         fs::create_dir_all(&block_dir)?;
 
-        let (path, file_number) = Self::find_writable_file(&block_dir)?;
+        let (path, file_number) = Self::find_writable_file(&block_dir, value.len())?;
         let file_id = file_number + 1;
 
         let block_header_bytes = postcard::to_stdvec(&BlockHeader {
@@ -373,7 +373,10 @@ impl BlockFile {
     /// `.bin` file (e.g. `3` for `3.bin`).  The caller derives the persisted
     /// `file_id` as `file_number + 1` so that `read()` can recover the filename via
     /// `file_id.saturating_sub(1)`.
-    fn find_writable_file(block_dir: &Path) -> Result<(PathBuf, u32), CacheError> {
+    fn find_writable_file(
+        block_dir: &Path,
+        item_size: usize,
+    ) -> Result<(PathBuf, u32), CacheError> {
         if !block_dir.exists() {
             return Ok((block_dir.join("0.bin"), 0));
         }
@@ -396,7 +399,7 @@ impl BlockFile {
 
         for (path, num) in &files {
             let meta = fs::metadata(path).map_err(CacheError::IoError)?;
-            if meta.len() < MAX_BLOCK_SIZE {
+            if meta.len() + item_size as u64 <= MAX_BLOCK_SIZE {
                 return Ok((path.clone(), *num));
             }
         }
