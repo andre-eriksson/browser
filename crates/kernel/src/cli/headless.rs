@@ -140,7 +140,7 @@ impl Commandable for HeadlessBrowser {
             BrowserCommand::ChangeActiveTab { tab_id } => {
                 change_active_tab(&mut self.tab_manager, tab_id)
             }
-            BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, url).await,
+            BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
         }
     }
 }

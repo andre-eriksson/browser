@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::errors::NavigationError;
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use html_dom::Decoder;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
 use io::{CookieMiddleware, DocumentPolicy, Resource, files::ALLOWED_ABOUT_URLS};
 use network::{
@@ -249,9 +250,16 @@ async fn resolve_navigation_request(
         return Ok((url, resp));
     }
 
+    let decoder = Decoder::new(raw_url);
+    let decoded_url = decoder.decode().map_err(|e| {
+        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+            e.to_string(),
+        )))
+    })?;
+
     let url = match page_url.as_ref() {
-        Some(u) => u.join(raw_url),
-        None => Url::parse(raw_url),
+        Some(u) => u.join(&decoded_url),
+        None => Url::parse(&decoded_url),
     }
     .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
 
@@ -288,9 +296,16 @@ pub(crate) async fn resolve_request(
     headers: &Arc<HeaderMap>,
     client: &dyn HttpClient,
 ) -> Result<(Url, Response), NavigationError> {
+    let decoder = Decoder::new(raw_url);
+    let decoded_url = decoder.decode().map_err(|e| {
+        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+            e.to_string(),
+        )))
+    })?;
+
     let url = match page_url.as_ref() {
-        Some(u) => u.join(raw_url),
-        None => Url::parse(raw_url),
+        Some(u) => u.join(&decoded_url),
+        None => Url::parse(&decoded_url),
     }
     .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
 

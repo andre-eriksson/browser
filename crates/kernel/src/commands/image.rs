@@ -11,7 +11,7 @@ use crate::{
 pub(crate) async fn load_image(
     ctx: &mut dyn NavigationContext,
     tab_id: TabId,
-    url: String,
+    url: &str,
 ) -> Result<BrowserEvent, BrowserError> {
     let client = ctx.http_client().box_clone();
     let headers = Arc::clone(ctx.headers());
@@ -33,7 +33,7 @@ pub(crate) async fn load_image(
     let policies = page.policies().clone();
 
     let (resolved_url, response) = resolve_request(
-        &url,
+        url,
         ctx,
         &document_url,
         &policies,
