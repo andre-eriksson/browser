@@ -17,7 +17,7 @@ use crate::{
 /// Represents a CSS color value, which can be a system color, named color, hex color, functional color, currentColor, or transparent.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/color_value>
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Color {
     System(SystemColor),
     Named(NamedColor),

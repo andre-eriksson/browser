@@ -1,5 +1,7 @@
+use preferences::ThemeCategory;
+
 use crate::{
-    Color,
+    AbsoluteContext, Color,
     color::{
         ColorValue, Fraction, FunctionColor, Hue,
         cielab::Cielab,
@@ -43,11 +45,17 @@ impl Color4f {
     }
 
     /// Converts a CSS Color to Color4f
-    fn from_css_color(color: &Color) -> Self {
+    fn from_css_color(color: &Color, absolute_ctx: &AbsoluteContext) -> Self {
         match color {
             Color::Named(named) => Self::from(*named),
             Color::Hex(hex) => Self::from(*hex),
-            Color::Functional(func) => Self::from(*func),
+            Color::Functional(func) => match func {
+                FunctionColor::LightDark(light, dark) => match absolute_ctx.theme_category {
+                    ThemeCategory::Light => Self::from_css_color(light, absolute_ctx),
+                    ThemeCategory::Dark => Self::from_css_color(dark, absolute_ctx),
+                },
+                _ => Self::from(func.clone()),
+            },
             Color::Current => Self::default(), // TODO: Handle currentColor properly
             Color::System(system) => Self::from(*system),
             Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
@@ -60,6 +68,7 @@ impl Color4f {
         text_color: &CSSProperty<Color>,
         initial: &Color,
         parent: Option<Color>,
+        absolute_ctx: &AbsoluteContext,
     ) -> Self {
         let initial = match initial {
             Color::Current => text_color.as_value().unwrap_or(initial),
@@ -68,7 +77,7 @@ impl Color4f {
 
         let resolved_color = color.resolve_with_context(parent.as_ref(), initial);
 
-        Self::from_css_color(resolved_color)
+        Self::from_css_color(resolved_color, absolute_ctx)
     }
 
     /// Parses a hex color string (e.g. "#RRGGBB") into an (r, g, b) tuple.
@@ -353,6 +362,10 @@ impl From<FunctionColor> for Color4f {
             },
             FunctionColor::Oklab(oklab) => Self::from(oklab),
             FunctionColor::Cielab(cielab) => Self::from(cielab),
+            _ => {
+                // For unsupported function colors, return transparent black as a fallback.
+                Self::new(0.0, 0.0, 0.0, 0.0)
+            }
         }
     }
 }

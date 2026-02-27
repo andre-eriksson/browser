@@ -309,10 +309,10 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
 
     match color {
         Some(c) => {
-            ctx.specified_style.border_top_color = CSSProperty::Value(c);
-            ctx.specified_style.border_right_color = CSSProperty::Value(c);
-            ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
-            ctx.specified_style.border_left_color = CSSProperty::Value(c);
+            ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
+            ctx.specified_style.border_right_color = CSSProperty::Value(c.clone());
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(c.clone());
+            ctx.specified_style.border_left_color = CSSProperty::Value(c.clone());
         }
         None => {
             ctx.specified_style.border_top_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));

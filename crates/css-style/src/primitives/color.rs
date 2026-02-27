@@ -10,6 +10,7 @@ use std::ops::RangeInclusive;
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
+    Color,
     color::{cielab::Cielab, oklab::Oklab, srgba::SRGBAColor},
     primitives::{angle::Angle, percentage::Percentage},
 };
@@ -175,7 +176,7 @@ impl From<Percentage> for Alpha {
 }
 
 /// Represents a color specified using functional notation, which can be in the form of srgba() functions (e.g., rgb(), rgba(), hsl(), hsla(), hwb()) or color() functions (e.g., lab(), oklab()).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FunctionColor {
     /// SRGBA functions with R, G, B components and optional alpha, or HSL/HWB functions with H, S, L/W/B components and optional alpha.
     ///
@@ -198,6 +199,10 @@ pub enum FunctionColor {
     /// * oklab()
     /// * oklch()
     Oklab(Oklab),
+
+    /// light-dark() function that takes two color arguments and produces a color
+    /// that is a mix of the two based on the current user-prefered color scheme (light or dark).
+    LightDark(Box<Color>, Box<Color>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -215,8 +220,8 @@ impl FunctionColor {
         let mut alpha = None;
         let mut parsing_alpha = false;
 
-        for arg in values {
-            match arg {
+        for cv in values {
+            match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("none") {
@@ -297,6 +302,31 @@ impl TryFrom<&[ComponentValue]> for FunctionColor {
 
         if let Ok(oklab) = value.try_into() {
             return Ok(Self::Oklab(oklab));
+        }
+
+        for cv in value {
+            match cv {
+                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("light-dark") => {
+                    if let Some(pos) = func
+                        .value
+                        .iter()
+                        .position(|c| matches!(c, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma))
+                    {
+                        let (light_values, dark_values) = func.value.split_at(pos);
+                        let dark_values = &dark_values[1..]; // Skip the comma
+
+                        let light_color = Color::try_from(light_values)?;
+                        let dark_color = Color::try_from(dark_values)?;
+
+                        return Ok(Self::LightDark(Box::new(light_color), Box::new(dark_color)));
+                    } else {
+                        return Err(
+                            "light-dark() function requires two color arguments separated by a comma".to_string()
+                        );
+                    }
+                }
+                _ => continue,
+            }
         }
 
         Err("Invalid functional color format".to_string())

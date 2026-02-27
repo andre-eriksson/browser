@@ -147,30 +147,35 @@ impl ComputedStyle {
                 &CSSProperty::Value(Color::Transparent),
                 &Color::Transparent,
                 parent_style.map(|s| Color::from(s.background_color)),
+                absolute_ctx,
             ),
             border_top_color: Color4f::from_css_color_property(
                 &specified_style.border_top_color,
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_top_color)),
+                absolute_ctx,
             ),
             border_right_color: Color4f::from_css_color_property(
                 &specified_style.border_right_color,
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_right_color)),
+                absolute_ctx,
             ),
             border_bottom_color: Color4f::from_css_color_property(
                 &specified_style.border_bottom_color,
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_bottom_color)),
+                absolute_ctx,
             ),
             border_left_color: Color4f::from_css_color_property(
                 &specified_style.border_left_color,
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_left_color)),
+                absolute_ctx,
             ),
             border_top_style: specified_style
                 .border_top_style
@@ -211,6 +216,7 @@ impl ComputedStyle {
                 &CSSProperty::Value(Color::Named(NamedColor::Black)),
                 &Color::Named(NamedColor::Black),
                 parent_style.map(|s| Color::from(s.color)),
+                absolute_ctx,
             ),
             display: specified_style
                 .display
