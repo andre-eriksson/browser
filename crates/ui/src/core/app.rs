@@ -2,29 +2,24 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
-use css_style::{AbsoluteContext, StyleTree};
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription};
 use iced::{Renderer, Task, Theme, window};
-use io::{CacheEntry, CacheRead};
-use kernel::errors::BrowserError;
-use kernel::{Browser, BrowserCommand, BrowserEvent, Commandable, TabId};
-use layout::{LayoutEngine, Rect, TextContext};
+use kernel::{Browser, BrowserEvent, TabId};
+use layout::TextContext;
 use preferences::BrowserConfig;
-use regex::Regex;
 use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tracing::{debug, error, warn};
-use url::Url;
 
-use crate::core::{ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
+use crate::core::{ReceiverHandle, UiTab, create_browser_event_stream};
 use crate::events::UiEvent;
+use crate::events::browser::BrowserEventHandler;
+use crate::events::ui::UiEventHandler;
+use crate::manager::WindowController;
 use crate::util::fonts::load_fallback_fonts;
-use crate::util::image::decode_image_bytes;
 use crate::views::browser::window::BrowserWindow;
-use crate::{manager::WindowController, views::devtools};
 
 /// Represents the different types of events that can occur in the application.
 #[derive(Debug, Clone)]
@@ -55,16 +50,16 @@ pub struct Application {
     pub viewports: HashMap<window::Id, (f32, f32)>,
 
     /// The window controller managing multiple windows.
-    window_controller: WindowController<Event, Theme, iced::Renderer>,
+    pub window_controller: WindowController<Event, Theme, iced::Renderer>,
 
     /// The receiver for browser events.
-    event_receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
+    pub event_receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
 
     /// The shared browser instance.
-    browser: Arc<Mutex<Browser>>,
+    pub browser: Arc<Mutex<Browser>>,
 
     /// The shared text context for text rendering.
-    text_context: Arc<StdMutex<TextContext>>,
+    pub text_context: Arc<StdMutex<TextContext>>,
 
     /// Shared image cache for loaded images.
     pub image_cache: Option<ImageCache>,
@@ -127,436 +122,10 @@ impl Application {
     /// * `message` - The message containing the action to perform.
     pub fn update(&mut self, event: Event) -> Task<Event> {
         match event {
-            Event::None => {}
-
-            Event::Ui(ui_event) => match ui_event {
-                UiEvent::NewWindow(window_type) => match window_type {
-                    WindowType::Devtools => {
-                        let (_, window_task) = self
-                            .window_controller
-                            .new_window(Box::new(devtools::window::DevtoolsWindow));
-                        return window_task.map(|_| Event::None);
-                    }
-                },
-                UiEvent::CloseWindow(window_id) => {
-                    self.window_controller.close(window_id);
-
-                    if window_id == self.id {
-                        if self.window_controller.open_windows.is_empty() {
-                            return iced::exit();
-                        } else {
-                            return self
-                                .window_controller
-                                .close_all_windows()
-                                .map(|_| Event::None);
-                        }
-                    }
-
-                    if self.window_controller.open_windows.is_empty() {
-                        return iced::exit();
-                    }
-                }
-                UiEvent::WindowResized(window_id, width, height) => {
-                    self.viewports.insert(window_id, (width, height));
-
-                    if window_id == self.id
-                        && let Some(tab) =
-                            self.tabs.iter_mut().find(|tab| tab.id == self.active_tab)
-                    {
-                        let ctx = AbsoluteContext {
-                            root_font_size: 16.0,
-                            viewport_width: self
-                                .viewports
-                                .get(&self.id)
-                                .map(|(w, _)| *w)
-                                .unwrap_or(800.0),
-                            viewport_height: self
-                                .viewports
-                                .get(&self.id)
-                                .map(|(_, h)| *h)
-                                .unwrap_or(600.0),
-                            ..Default::default()
-                        };
-                        let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
-                        let image_ctx = tab.image_context();
-
-                        let mut tc = self.text_context.lock().unwrap();
-                        let layout_tree = LayoutEngine::compute_layout(
-                            &style_tree,
-                            Rect::new(0.0, 0.0, width, height),
-                            &mut tc,
-                            Some(&image_ctx),
-                        );
-                        drop(tc);
-
-                        tab.layout_tree = layout_tree;
-                    }
-                }
-
-                UiEvent::NewTab => {
-                    let browser = self.browser.clone();
-
-                    return Task::perform(
-                        async move {
-                            let mut lock = browser.lock().await;
-                            lock.execute(BrowserCommand::AddTab).await
-                        },
-                        |result| match result {
-                            Ok(task) => Event::Browser(task),
-                            Err(_) => Event::None,
-                        },
-                    );
-                }
-                UiEvent::CloseTab(tab_id) => {
-                    let browser = self.browser.clone();
-
-                    return Task::perform(
-                        async move {
-                            let mut lock = browser.lock().await;
-                            lock.execute(BrowserCommand::CloseTab { tab_id }).await
-                        },
-                        |result| match result {
-                            Ok(task) => Event::Browser(task),
-                            Err(_) => Event::None,
-                        },
-                    );
-                }
-                UiEvent::ChangeActiveTab(tab_id) => {
-                    let browser = self.browser.clone();
-
-                    return Task::perform(
-                        async move {
-                            let mut lock = browser.lock().await;
-                            lock.execute(BrowserCommand::ChangeActiveTab { tab_id })
-                                .await
-                        },
-                        |result| match result {
-                            Ok(task) => Event::Browser(task),
-                            Err(_) => Event::None,
-                        },
-                    );
-                }
-
-                UiEvent::ChangeURL(url) => {
-                    self.current_url = url;
-                }
-                UiEvent::ContentScrolled(x, y) => {
-                    if let Some(tab) = self.tabs.iter_mut().find(|tab| tab.id == self.active_tab) {
-                        tab.scroll_offset.x = x;
-                        tab.scroll_offset.y = y;
-                    }
-                }
-                UiEvent::ImageLoaded(tab_id, ref url, ref vary_key) => {
-                    if let Some(ref cache) = self.image_cache
-                        && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(url, vary_key)
-                        && let CacheRead::Hit(decoded) = (*decoded).clone()
-                    {
-                        let intrinsic_w = decoded.width as f32;
-                        let intrinsic_h = decoded.height as f32;
-                        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
-                            tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
-                            tab.set_image_vary_key(url, vary_key.clone());
-                        }
-                    }
-
-                    if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
-                        let all_done = tab.resolve_pending_image(url);
-
-                        if all_done {
-                            let (vw, vh) = self
-                                .viewports
-                                .get(&self.id)
-                                .copied()
-                                .unwrap_or((800.0, 600.0));
-
-                            let text_ctx = self.text_context.clone();
-                            let document = tab.document.clone();
-                            let stylesheets = tab.stylesheets.clone();
-                            let image_ctx = tab.image_context();
-                            let generation = tab.layout_generation;
-
-                            return Task::perform(
-                                async move {
-                                    tokio::task::spawn_blocking(move || {
-                                        let ctx = AbsoluteContext {
-                                            root_font_size: 16.0,
-                                            viewport_width: vw,
-                                            viewport_height: vh,
-                                            ..Default::default()
-                                        };
-                                        let style_tree =
-                                            StyleTree::build(&ctx, &document, &stylesheets);
-                                        let mut tc = text_ctx.lock().unwrap();
-                                        LayoutEngine::compute_layout(
-                                            &style_tree,
-                                            Rect::new(0.0, 0.0, vw, vh),
-                                            &mut tc,
-                                            Some(&image_ctx),
-                                        )
-                                    })
-                                    .await
-                                    .unwrap()
-                                },
-                                move |layout_tree| {
-                                    Event::Ui(UiEvent::RelayoutComplete(
-                                        tab_id,
-                                        generation,
-                                        layout_tree,
-                                    ))
-                                },
-                            );
-                        }
-                    }
-                }
-
-                UiEvent::RelayoutComplete(tab_id, generation, layout_tree) => {
-                    if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
-                        if tab.layout_generation == generation {
-                            tab.layout_tree = layout_tree;
-                        } else {
-                            debug!(
-                                "Discarding stale relayout for tab {} (gen {} vs {})",
-                                tab_id, generation, tab.layout_generation
-                            );
-                        }
-                    }
-                }
-            },
-
-            Event::Browser(browser_event) => match browser_event {
-                BrowserEvent::TabAdded(new_tab_id) => {
-                    let new_tab = UiTab::new(new_tab_id);
-                    self.tabs.push(new_tab);
-                }
-                BrowserEvent::TabClosed(tab_id, next_tab_id) => {
-                    self.tabs.retain(|tab| tab.id != tab_id);
-
-                    if let Some(next_id) = next_tab_id {
-                        self.active_tab = next_id;
-                    }
-                }
-                BrowserEvent::ActiveTabChanged(tab_id) => {
-                    self.active_tab = tab_id;
-                }
-
-                BrowserEvent::NavigateTo(new_url) => {
-                    let browser = self.browser.clone();
-                    let active_tab = self.active_tab;
-                    let current_url = self.current_url.clone();
-                    let relative = Url::parse(&current_url)
-                        .ok()
-                        .and_then(|base| base.join(&new_url).ok())
-                        .map(|url| url.to_string());
-
-                    let url = if let Some(rel_url) = relative {
-                        if rel_url.contains("://") || rel_url.starts_with("about:") {
-                            rel_url
-                        } else {
-                            format!("http://{}", rel_url)
-                        }
-                    } else {
-                        let local_regex = Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
-
-                        if new_url.starts_with("http://") || new_url.starts_with("https://") {
-                            new_url
-                        } else if local_regex.is_match(new_url.as_str()) {
-                            format!("http://{}", new_url)
-                        } else {
-                            format!("https://{}", new_url)
-                        }
-                    };
-
-                    self.current_url = url.clone();
-
-                    return Task::perform(
-                        async move {
-                            let mut lock = browser.lock().await;
-                            lock.execute(BrowserCommand::Navigate {
-                                tab_id: active_tab,
-                                url,
-                            })
-                            .await
-                        },
-                        |result| match result {
-                            Ok(task) => Event::Browser(task),
-                            Err(err) => match err {
-                                BrowserError::NavigationError(err) => {
-                                    Event::Browser(BrowserEvent::NavigateError(err))
-                                }
-                                err => {
-                                    error!("Browser error: {}", err);
-                                    Event::None
-                                }
-                            },
-                        },
-                    );
-                }
-                BrowserEvent::NavigateSuccess(tab_id, page) => {
-                    let current_tab = self.tabs.iter_mut().find(|tab| tab.id == tab_id);
-
-                    if let Some(tab) = current_tab {
-                        tab.prepare_for_navigation();
-
-                        let ctx = AbsoluteContext {
-                            root_font_size: 16.0,
-                            viewport_width: self
-                                .viewports
-                                .get(&self.id)
-                                .map(|(w, _)| *w)
-                                .unwrap_or(800.0),
-                            viewport_height: self
-                                .viewports
-                                .get(&self.id)
-                                .map(|(_, h)| *h)
-                                .unwrap_or(600.0),
-                            ..Default::default()
-                        };
-                        let style_tree =
-                            StyleTree::build(&ctx, page.document(), page.stylesheets());
-
-                        let image_ctx = tab.image_context();
-
-                        let mut tc = self.text_context.lock().unwrap();
-                        let layout_tree = LayoutEngine::compute_layout(
-                            &style_tree,
-                            self.viewports
-                                .get(&self.id)
-                                .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
-                                .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
-                            &mut tc,
-                            Some(&image_ctx),
-                        );
-                        drop(tc);
-
-                        tab.document = page.document().clone();
-                        tab.stylesheets = page.stylesheets().clone();
-                        tab.current_url = Some(self.current_url.parse().unwrap());
-                        tab.layout_tree = layout_tree;
-                        tab.title = Some(page.title().to_string());
-
-                        let image_cache = ImageCache::new();
-                        self.image_cache = Some(image_cache.clone());
-
-                        let image_srcs = page.images().clone();
-
-                        let mut cache_hit = false;
-                        let mut fetch_srcs: Vec<String> = Vec::new();
-
-                        for src in image_srcs {
-                            if src.is_empty() {
-                                continue;
-                            }
-
-                            if let Ok(CacheEntry::Loaded(decoded)) =
-                                image_cache.get_with_vary(&src, "")
-                                && let CacheRead::Hit(ref data) = *decoded
-                            {
-                                debug!(
-                                    "Image cache hit (disk): {} ({}×{})",
-                                    src, data.width, data.height
-                                );
-                                tab.set_image_dimensions(
-                                    src.clone(),
-                                    data.width as f32,
-                                    data.height as f32,
-                                );
-
-                                tab.set_image_vary_key(&src, String::new());
-                                cache_hit = true;
-                                continue;
-                            }
-
-                            if image_cache.mark_pending(src.to_string()) {
-                                fetch_srcs.push(src);
-                            }
-                        }
-
-                        if cache_hit {
-                            let image_ctx = tab.image_context();
-                            let mut tc = self.text_context.lock().unwrap();
-                            let layout_tree = LayoutEngine::compute_layout(
-                                &style_tree,
-                                self.viewports
-                                    .get(&self.id)
-                                    .map(|(w, h)| Rect::new(0.0, 0.0, *w, *h))
-                                    .unwrap_or(Rect::new(0.0, 0.0, 800.0, 600.0)),
-                                &mut tc,
-                                Some(&image_ctx),
-                            );
-                            drop(tc);
-                            tab.layout_tree = layout_tree;
-                        }
-
-                        tab.pending_image_urls = fetch_srcs.iter().cloned().collect();
-
-                        let active_tab = self.active_tab;
-                        let tasks: Vec<Task<Event>> = fetch_srcs
-                            .into_iter()
-                            .map(|src| {
-                                let browser = self.browser.clone();
-                                let cache = image_cache.clone();
-                                let src_for_err = src.clone();
-                                Task::perform(
-                                    async move {
-                                        let mut lock = browser.lock().await;
-                                        lock.execute(BrowserCommand::FetchImage {
-                                            tab_id: active_tab,
-                                            url: src,
-                                        })
-                                        .await
-                                    },
-                                    move |result| match result {
-                                        Ok(event) => Event::Browser(event),
-                                        Err(err) => {
-                                            error!("Image fetch error: {}", err);
-                                            cache.mark_failed(src_for_err.clone());
-                                            Event::Ui(UiEvent::ImageLoaded(
-                                                active_tab,
-                                                src_for_err,
-                                                String::new(),
-                                            ))
-                                        }
-                                    },
-                                )
-                            })
-                            .collect();
-
-                        if !tasks.is_empty() {
-                            return Task::batch(tasks);
-                        }
-                    }
-                }
-                BrowserEvent::ImageFetched(tab_id, url, bytes, headers) => {
-                    if let Some(ref cache) = self.image_cache {
-                        let cache = cache.clone();
-                        let vary_key = ImageCache::resolve_vary(&headers).unwrap_or_default();
-                        return Task::perform(
-                            async move {
-                                match decode_image_bytes(url.clone(), bytes) {
-                                    Ok(decoded) => Ok((url, decoded)),
-                                    Err(err) => Err((url, err)),
-                                }
-                            },
-                            move |result| match result {
-                                Ok((url, decoded)) => {
-                                    let _ = cache.store(url.clone(), decoded, &headers);
-                                    Event::Ui(UiEvent::ImageLoaded(tab_id, url, vary_key))
-                                }
-                                Err((url, err)) => {
-                                    debug!("Image decode error: {}", err);
-                                    cache.mark_failed(url.clone());
-                                    Event::Ui(UiEvent::ImageLoaded(tab_id, url, vary_key))
-                                }
-                            },
-                        );
-                    }
-                }
-                BrowserEvent::NavigateError(err) => {
-                    warn!("{}", err);
-                }
-            },
+            Event::None => Task::none(),
+            Event::Ui(ui_event) => UiEventHandler::handle_event(self, ui_event),
+            Event::Browser(browser_event) => BrowserEventHandler::handle_event(self, browser_event),
         }
-        Task::none()
     }
 
     /// Returns the current subscriptions for the application.

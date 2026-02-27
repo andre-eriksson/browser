@@ -4,6 +4,9 @@ use layout::LayoutTree;
 
 use crate::core::WindowType;
 
+pub mod browser;
+pub mod ui;
+
 /// Represents the different types of UI events that can occur in the application.
 #[derive(Debug, Clone)]
 pub enum UiEvent {

@@ -24,8 +24,8 @@ pub fn load_icon(data: Vec<u8>) -> Icon {
 }
 
 /// Decode raw image bytes into RGBA pixel data.
-pub fn decode_image_bytes(url: String, bytes: Vec<u8>) -> Result<DecodedImageData, String> {
-    let img = image::load_from_memory(&bytes)
+pub fn decode_image_bytes(url: String, bytes: &[u8]) -> Result<DecodedImageData, String> {
+    let img = image::load_from_memory(bytes)
         .map_err(|e| format!("Failed to decode image {}: {}", url, e))?;
 
     let (width, height) = img.dimensions();
