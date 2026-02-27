@@ -24,11 +24,7 @@ pub(crate) struct PropertyError {
 }
 
 impl<'a> PropertyUpdateContext<'a> {
-    pub fn new(
-        absolute_ctx: &'a AbsoluteContext,
-        specified_style: &'a mut SpecifiedStyle,
-        relative_ctx: &'a RelativeContext,
-    ) -> Self {
+    pub fn new(absolute_ctx: &'a AbsoluteContext, specified_style: &'a mut SpecifiedStyle, relative_ctx: &'a RelativeContext) -> Self {
         Self {
             absolute_ctx,
             specified_style,
@@ -43,6 +39,18 @@ impl<'a> PropertyUpdateContext<'a> {
             value,
             error,
         });
+    }
+
+    /// Resolves the current writing mode from the specified style, falling back to the parent's
+    /// writing mode or the initial value (`HorizontalTb`) if the property is set to a global value.
+    fn resolve_writing_mode(&self) -> WritingMode {
+        match self.specified_style.writing_mode {
+            CSSProperty::Value(val) => val,
+            CSSProperty::Global(_) => self
+                .specified_style
+                .writing_mode
+                .resolve_with_context_owned(self.relative_ctx.parent.writing_mode, WritingMode::HorizontalTb),
+        }
     }
 
     pub fn log_errors(&self) {
@@ -73,71 +81,107 @@ macro_rules! simple_property_handler {
     };
 }
 
-simple_property_handler!(
-    handle_background_color,
-    background_color,
-    "background-color"
-);
-simple_property_handler!(
-    handle_border_top_color,
-    border_top_color,
-    "border-top-color"
-);
-simple_property_handler!(
-    handle_border_right_color,
-    border_right_color,
-    "border-right-color"
-);
-simple_property_handler!(
-    handle_border_bottom_color,
-    border_bottom_color,
-    "border-bottom-color"
-);
-simple_property_handler!(
-    handle_border_left_color,
-    border_left_color,
-    "border-left-color"
-);
-simple_property_handler!(
-    handle_border_top_style,
-    border_top_style,
-    "border-top-style"
-);
-simple_property_handler!(
-    handle_border_right_style,
-    border_right_style,
-    "border-right-style"
-);
-simple_property_handler!(
-    handle_border_bottom_style,
-    border_bottom_style,
-    "border-bottom-style"
-);
-simple_property_handler!(
-    handle_border_left_style,
-    border_left_style,
-    "border-left-style"
-);
-simple_property_handler!(
-    handle_border_top_width,
-    border_top_width,
-    "border-top-width"
-);
-simple_property_handler!(
-    handle_border_right_width,
-    border_right_width,
-    "border-right-width"
-);
-simple_property_handler!(
-    handle_border_bottom_width,
-    border_bottom_width,
-    "border-bottom-width"
-);
-simple_property_handler!(
-    handle_border_left_width,
-    border_left_width,
-    "border-left-width"
-);
+/// A macro to generate shorthand property handlers for 4-side offset properties (e.g. `margin`, `padding`).
+/// Parses the value once as either a `Global` or an `Offset`, then assigns to all four physical side fields.
+macro_rules! offset_shorthand_handler {
+    ($fn_name:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
+        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+            if let Ok(global) = Global::try_from(value) {
+                ctx.specified_style.$top = CSSProperty::Global(global);
+                ctx.specified_style.$right = CSSProperty::Global(global);
+                ctx.specified_style.$bottom = CSSProperty::Global(global);
+                ctx.specified_style.$left = CSSProperty::Global(global);
+            } else if let Ok(offset) = Offset::try_from(value) {
+                ctx.specified_style.$top = offset.top.into();
+                ctx.specified_style.$right = offset.right.into();
+                ctx.specified_style.$bottom = offset.bottom.into();
+                ctx.specified_style.$left = offset.left.into();
+            } else {
+                ctx.record_error($prop_name, value.to_vec(), format!("Invalid value for {} property", $prop_name));
+            }
+        }
+    };
+}
+
+/// A macro to generate writing-mode-aware logical block pair handlers (e.g. `margin-block`, `padding-block`).
+/// Parses the value once as either a `Global` or an `Offset`, then assigns to the two physical fields
+/// that correspond to the block axis based on the resolved writing mode.
+///
+/// Arguments: `(fn_name, prop_name, htb_start, htb_end, vrl_start, vrl_end, vlr_start, vlr_end)`
+/// where each `*_start`/`*_end` is a field on `SpecifiedStyle`.
+macro_rules! logical_block_handler {
+    ($fn_name:ident, $prop_name:expr,
+     $htb_start:ident, $htb_end:ident,
+     $vrl_start:ident, $vrl_end:ident,
+     $vlr_start:ident, $vlr_end:ident) => {
+        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+            let global = Global::try_from(value).ok();
+            let offset = if global.is_none() {
+                Offset::try_from(value).ok()
+            } else {
+                None
+            };
+
+            let (start, end) = match ctx.resolve_writing_mode() {
+                WritingMode::HorizontalTb => (&mut ctx.specified_style.$htb_start, &mut ctx.specified_style.$htb_end),
+                WritingMode::VerticalRl => (&mut ctx.specified_style.$vrl_start, &mut ctx.specified_style.$vrl_end),
+                WritingMode::VerticalLr => (&mut ctx.specified_style.$vlr_start, &mut ctx.specified_style.$vlr_end),
+                _ => {
+                    ctx.record_error($prop_name, value.to_vec(), String::from("Unsupported writing mode"));
+                    return;
+                }
+            };
+
+            if let Some(global) = global {
+                *start = CSSProperty::Global(global);
+                *end = CSSProperty::Global(global);
+            } else if let Some(offset) = offset {
+                *start = offset.top.into();
+                *end = offset.bottom.into();
+            }
+        }
+    };
+}
+
+/// A macro to generate writing-mode-aware logical edge handlers (e.g. `margin-block-start`, `padding-block-end`).
+/// Parses the value once, then assigns to the single physical field that corresponds to the given
+/// logical edge based on the resolved writing mode.
+///
+/// Arguments: `(fn_name, prop_name, htb_field, vrl_field, vlr_field)`
+/// where each `*_field` is a field on `SpecifiedStyle`.
+macro_rules! logical_edge_handler {
+    ($fn_name:ident, $prop_name:expr, $htb:ident, $vrl:ident, $vlr:ident) => {
+        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+            let field = match ctx.resolve_writing_mode() {
+                WritingMode::HorizontalTb => &mut ctx.specified_style.$htb,
+                WritingMode::VerticalRl => &mut ctx.specified_style.$vrl,
+                WritingMode::VerticalLr => &mut ctx.specified_style.$vlr,
+                _ => {
+                    ctx.record_error($prop_name, value.to_vec(), String::from("Unsupported writing mode"));
+                    return;
+                }
+            };
+
+            if let Err(e) = CSSProperty::update_property(field, value) {
+                ctx.record_error($prop_name, value.to_vec(), e);
+            }
+        }
+    };
+}
+
+simple_property_handler!(handle_background_color, background_color, "background-color");
+simple_property_handler!(handle_border_top_color, border_top_color, "border-top-color");
+simple_property_handler!(handle_border_right_color, border_right_color, "border-right-color");
+simple_property_handler!(handle_border_bottom_color, border_bottom_color, "border-bottom-color");
+simple_property_handler!(handle_border_left_color, border_left_color, "border-left-color");
+simple_property_handler!(handle_border_top_style, border_top_style, "border-top-style");
+simple_property_handler!(handle_border_right_style, border_right_style, "border-right-style");
+simple_property_handler!(handle_border_bottom_style, border_bottom_style, "border-bottom-style");
+simple_property_handler!(handle_border_left_style, border_left_style, "border-left-style");
+simple_property_handler!(handle_border_top_width, border_top_width, "border-top-width");
+simple_property_handler!(handle_border_right_width, border_right_width, "border-right-width");
+simple_property_handler!(handle_border_bottom_width, border_bottom_width, "border-bottom-width");
+simple_property_handler!(handle_border_left_width, border_left_width, "border-left-width");
 simple_property_handler!(handle_color, color, "color");
 simple_property_handler!(handle_display, display, "display");
 simple_property_handler!(handle_font_family, font_family, "font-family");
@@ -158,54 +202,14 @@ simple_property_handler!(handle_whitespace, whitespace, "white-space");
 simple_property_handler!(handle_width, width, "width");
 simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
-
-/// Handles the `margin` shorthand property by parsing the provided component values and updating the corresponding margin properties in the specified style.
-pub(crate) fn handle_margin(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    if let Some(global) = global {
-        ctx.specified_style.margin_top = CSSProperty::Global(global);
-        ctx.specified_style.margin_right = CSSProperty::Global(global);
-        ctx.specified_style.margin_bottom = CSSProperty::Global(global);
-        ctx.specified_style.margin_left = CSSProperty::Global(global);
-    } else if let Some(offset) = offset {
-        ctx.specified_style.margin_top = offset.top.into();
-        ctx.specified_style.margin_right = offset.right.into();
-        ctx.specified_style.margin_bottom = offset.bottom.into();
-        ctx.specified_style.margin_left = offset.left.into();
-    } else {
-        ctx.record_error(
-            "margin",
-            value.to_vec(),
-            String::from("Invalid value for margin property"),
-        );
-    }
-}
-
-/// Handles the `padding` shorthand property by parsing the provided component values and updating the corresponding padding properties in the specified style.
-pub(crate) fn handle_padding(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    if let Some(global) = global {
-        ctx.specified_style.padding_top = CSSProperty::Global(global);
-        ctx.specified_style.padding_right = CSSProperty::Global(global);
-        ctx.specified_style.padding_bottom = CSSProperty::Global(global);
-        ctx.specified_style.padding_left = CSSProperty::Global(global);
-    } else if let Some(offset) = offset {
-        ctx.specified_style.padding_top = offset.top.into();
-        ctx.specified_style.padding_right = offset.right.into();
-        ctx.specified_style.padding_bottom = offset.bottom.into();
-        ctx.specified_style.padding_left = offset.left.into();
-    } else {
-        ctx.record_error(
-            "padding",
-            value.to_vec(),
-            String::from("Invalid value for padding property"),
-        );
-    }
-}
+offset_shorthand_handler!(handle_margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
+offset_shorthand_handler!(handle_padding, "padding", padding_top, padding_right, padding_bottom, padding_left);
+logical_block_handler!(handle_margin_block, "margin-block", margin_top, margin_bottom, margin_right, margin_left, margin_left, margin_right);
+logical_block_handler!(handle_padding_block, "padding-block", padding_top, padding_bottom, padding_right, padding_left, padding_left, padding_right);
+logical_edge_handler!(handle_margin_block_start, "margin-block-start", margin_top, margin_right, margin_left);
+logical_edge_handler!(handle_margin_block_end, "margin-block-end", margin_bottom, margin_left, margin_right);
+logical_edge_handler!(handle_padding_block_start, "padding-block-start", padding_top, padding_right, padding_left);
+logical_edge_handler!(handle_padding_block_end, "padding-block-end", padding_bottom, padding_left, padding_right);
 
 /// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
 pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
@@ -242,10 +246,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
                     }
 
                     if let Ok(len_unit) = unit.parse::<LengthUnit>() {
-                        width = Some(BorderWidth::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        width = Some(BorderWidth::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                 }
                 _ => continue,
@@ -292,14 +293,10 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
             ctx.specified_style.border_left_color = CSSProperty::Value(c);
         }
         None => {
-            ctx.specified_style.border_top_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-            ctx.specified_style.border_right_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-            ctx.specified_style.border_bottom_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-            ctx.specified_style.border_left_color =
-                CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_top_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_right_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
+            ctx.specified_style.border_left_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
         }
     }
 }
@@ -310,8 +307,7 @@ pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[Compone
     CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
-        ctx.specified_style.computed_font_size_px =
-            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
+        ctx.specified_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
     }
 }
 
@@ -324,15 +320,11 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[Compo
                 CssTokenKind::Ident(ident) => {
                     if ident.eq_ignore_ascii_case("lighter") {
                         let lighter = ctx.relative_ctx.parent.font_weight - 100;
-                        ctx.specified_style.font_weight = CSSProperty::Value(
-                            FontWeight::try_from(lighter).unwrap_or(FontWeight::Thin),
-                        );
+                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::try_from(lighter).unwrap_or(FontWeight::Thin));
                         return;
                     } else if ident.eq_ignore_ascii_case("bolder") {
                         let bolder = ctx.relative_ctx.parent.font_weight + 100;
-                        ctx.specified_style.font_weight = CSSProperty::Value(
-                            FontWeight::try_from(bolder).unwrap_or(FontWeight::Black),
-                        );
+                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::try_from(bolder).unwrap_or(FontWeight::Black));
                         return;
                     }
                 }
@@ -344,294 +336,5 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[Compo
 
     if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, value) {
         ctx.record_error("font-weight", value.to_vec(), e);
-    }
-}
-
-/// Handles the `margin-block`, `margin-block-start`, and `margin-block-end` properties by parsing the provided component values and updating the corresponding margin properties
-/// in the specified style based on the current writing mode.
-pub(crate) fn handle_margin_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    let writing_mode = match ctx.specified_style.writing_mode {
-        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
-            ctx.relative_ctx.parent.writing_mode,
-            WritingMode::HorizontalTb,
-        ),
-        CSSProperty::Value(val) => val,
-    };
-
-    match writing_mode {
-        WritingMode::HorizontalTb => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_top = CSSProperty::Global(global);
-                ctx.specified_style.margin_bottom = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_top = offset.top.into();
-                ctx.specified_style.margin_bottom = offset.bottom.into();
-            }
-        }
-        WritingMode::VerticalRl => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_right = CSSProperty::Global(global);
-                ctx.specified_style.margin_left = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_right = offset.top.into();
-                ctx.specified_style.margin_left = offset.bottom.into();
-            }
-        }
-        WritingMode::VerticalLr => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_left = CSSProperty::Global(global);
-                ctx.specified_style.margin_right = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_left = offset.top.into();
-                ctx.specified_style.margin_right = offset.bottom.into();
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "margin-block",
-                value.to_vec(),
-                String::from("Unsupported writing mode"),
-            );
-        }
-    }
-}
-
-/// Handles the `padding-block`, `padding-block-start`, and `padding-block-end` properties by parsing the provided component values and updating the corresponding padding properties
-/// in the specified style based on the current writing mode.
-pub(crate) fn handle_margin_block_start(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    let writing_mode = match ctx.specified_style.writing_mode {
-        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
-            ctx.relative_ctx.parent.writing_mode,
-            WritingMode::HorizontalTb,
-        ),
-        CSSProperty::Value(val) => val,
-    };
-
-    match writing_mode {
-        WritingMode::HorizontalTb => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_top = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_top = offset.top.into();
-            }
-        }
-        WritingMode::VerticalRl => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_right = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_right = offset.top.into();
-            }
-        }
-        WritingMode::VerticalLr => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_left = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_left = offset.top.into();
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "margin-block-start",
-                value.to_vec(),
-                String::from("Unsupported writing mode"),
-            );
-        }
-    }
-}
-
-/// Handles the `margin-block-end` property by parsing the provided component values and updating the corresponding margin properties in the specified style based on the current writing mode.
-/// an error is recorded in the context indicating that the writing mode is unsupported.
-pub(crate) fn handle_margin_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    let writing_mode = match ctx.specified_style.writing_mode {
-        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
-            ctx.relative_ctx.parent.writing_mode,
-            WritingMode::HorizontalTb,
-        ),
-        CSSProperty::Value(val) => val,
-    };
-
-    match writing_mode {
-        WritingMode::HorizontalTb => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_bottom = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_bottom = offset.top.into();
-            }
-        }
-        WritingMode::VerticalRl => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_left = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_left = offset.top.into();
-            }
-        }
-        WritingMode::VerticalLr => {
-            if let Some(global) = global {
-                ctx.specified_style.margin_right = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.margin_right = offset.top.into();
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "margin-block-end",
-                value.to_vec(),
-                String::from("Unsupported writing mode"),
-            );
-        }
-    }
-}
-
-/// Handles the `padding-block-start` property by parsing the provided component values and updating the corresponding padding properties in the specified style based on the current writing mode.
-/// recorded in the context indicating that the writing mode is unsupported.
-pub(crate) fn handle_padding_block(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    let writing_mode = match ctx.specified_style.writing_mode {
-        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
-            ctx.relative_ctx.parent.writing_mode,
-            WritingMode::HorizontalTb,
-        ),
-        CSSProperty::Value(val) => val,
-    };
-
-    match writing_mode {
-        WritingMode::HorizontalTb => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_top = CSSProperty::Global(global);
-                ctx.specified_style.padding_bottom = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_top = offset.top.into();
-                ctx.specified_style.padding_bottom = offset.bottom.into();
-            }
-        }
-        WritingMode::VerticalRl => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_right = CSSProperty::Global(global);
-                ctx.specified_style.padding_left = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_right = offset.top.into();
-                ctx.specified_style.padding_left = offset.bottom.into();
-            }
-        }
-        WritingMode::VerticalLr => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_left = CSSProperty::Global(global);
-                ctx.specified_style.padding_right = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_left = offset.top.into();
-                ctx.specified_style.padding_right = offset.bottom.into();
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "padding-block",
-                value.to_vec(),
-                String::from("Unsupported writing mode"),
-            );
-        }
-    }
-}
-
-/// Handles the `padding-block-start` property by parsing the provided component values and updating the corresponding padding property in the specified style based on the current writing mode.
-pub(crate) fn handle_padding_block_start(
-    ctx: &mut PropertyUpdateContext,
-    value: &[ComponentValue],
-) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    let writing_mode = match ctx.specified_style.writing_mode {
-        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
-            ctx.relative_ctx.parent.writing_mode,
-            WritingMode::HorizontalTb,
-        ),
-        CSSProperty::Value(val) => val,
-    };
-
-    match writing_mode {
-        WritingMode::HorizontalTb => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_top = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_top = offset.top.into();
-            }
-        }
-        WritingMode::VerticalRl => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_right = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_right = offset.top.into();
-            }
-        }
-        WritingMode::VerticalLr => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_left = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_left = offset.top.into();
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "padding-block-start",
-                value.to_vec(),
-                String::from("Unsupported writing mode"),
-            );
-        }
-    }
-}
-
-/// Handles the `margin-block-end` property by parsing the provided component values and updating the corresponding margin properties in the specified style based on the current writing mode.
-pub(crate) fn handle_padding_block_end(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    let global = Global::try_from(value).ok();
-    let offset = Offset::try_from(value).ok();
-
-    let writing_mode = match ctx.specified_style.writing_mode {
-        CSSProperty::Global(_) => ctx.specified_style.writing_mode.resolve_with_context_owned(
-            ctx.relative_ctx.parent.writing_mode,
-            WritingMode::HorizontalTb,
-        ),
-        CSSProperty::Value(val) => val,
-    };
-
-    match writing_mode {
-        WritingMode::HorizontalTb => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_bottom = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_bottom = offset.top.into();
-            }
-        }
-        WritingMode::VerticalRl => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_left = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_left = offset.top.into();
-            }
-        }
-        WritingMode::VerticalLr => {
-            if let Some(global) = global {
-                ctx.specified_style.padding_right = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
-                ctx.specified_style.padding_right = offset.top.into();
-            }
-        }
-        _ => {
-            ctx.record_error(
-                "padding-block-end",
-                value.to_vec(),
-                String::from("Unsupported writing mode"),
-            );
-        }
     }
 }
