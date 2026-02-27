@@ -4,7 +4,7 @@ use std::{str::FromStr, sync::Arc};
 
 use cli::{Parser, args::BrowserArgs};
 use kernel::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
-use preferences::{BrowserConfig, Theme};
+use preferences::BrowserConfig;
 use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
@@ -36,8 +36,8 @@ fn main() {
         .init();
 
     let args = BrowserArgs::parse();
-    let config = if let Some(theme) = args.theme {
-        BrowserConfig::new(Theme::from(theme))
+    let config = if let Some(theme) = args.theme.clone() {
+        BrowserConfig::new(theme)
     } else {
         BrowserConfig::load()
     };

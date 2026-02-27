@@ -25,3 +25,8 @@ THIRD_PARTY.md
 
 # Tools
 __pycache__
+
+# Shortcuts
+.config
+.cache
+.data

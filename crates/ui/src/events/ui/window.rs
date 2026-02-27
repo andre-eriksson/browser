@@ -61,6 +61,7 @@ pub(crate) fn on_window_resized(application: &mut Application, window_id: Id, wi
                 .get(&application.id)
                 .map(|(_, h)| *h)
                 .unwrap_or(600.0),
+            theme_category: application.config.active_theme().category,
             ..Default::default()
         };
         let style_tree = StyleTree::build(&ctx, tab.page.document(), tab.page.stylesheets());

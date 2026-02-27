@@ -1266,6 +1266,7 @@ dependencies = [
  "css-cssom",
  "css-selectors",
  "html-dom",
+ "preferences",
  "strum",
 ]
 
@@ -3976,6 +3977,7 @@ dependencies = [
  "io",
  "serde",
  "toml",
+ "tracing",
 ]
 
 [[package]]

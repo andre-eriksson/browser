@@ -42,6 +42,7 @@ pub(crate) fn on_image_loaded(
                 .unwrap_or((800.0, 600.0));
 
             let text_ctx = application.text_context.clone();
+            let theme_category = application.config.active_theme().category;
             let page = Arc::clone(&tab.page);
             let image_ctx = tab.image_context();
             let generation = tab.layout_generation;
@@ -53,6 +54,7 @@ pub(crate) fn on_image_loaded(
                             root_font_size: 16.0,
                             viewport_width: vw,
                             viewport_height: vh,
+                            theme_category,
                             ..Default::default()
                         };
                         let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());

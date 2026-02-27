@@ -1,6 +1,5 @@
 use clap::{ArgAction, Parser};
 use constants::APP_NAME;
-use preferences::PresetTheme;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -19,7 +18,7 @@ pub struct BrowserArgs {
         help = "Override the theme for the session.",
         conflicts_with = "headless"
     )]
-    pub theme: Option<PresetTheme>,
+    pub theme: Option<String>,
 
     #[arg(long = "disable-ua-css", action = ArgAction::SetFalse, help = "Disable user agent stylesheets.")]
     pub enable_ua_css: bool,

@@ -20,7 +20,7 @@ pub struct BrowserHeader;
 impl BrowserHeader {
     /// Renders the header for the browser window, including tabs and a search bar.
     pub fn render(app: &Application) -> container::Container<'_, Event> {
-        let theme = app.config.theme();
+        let theme = app.config.active_theme();
 
         let all_tabs = row(app
             .tabs

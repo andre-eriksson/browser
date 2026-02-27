@@ -80,7 +80,7 @@ impl<'renderer> BrowserHtml<'renderer> {
             .height(Length::Fill)
             .style(move |_| container::Style {
                 background: Some(Background::Color(
-                    Color::from_str(app.config.theme().background.as_str())
+                    Color::from_str(app.config.active_theme().background.as_str())
                         .unwrap_or(Color::from_str(&preferences::Theme::default().background).unwrap()),
                 )),
                 ..Default::default()

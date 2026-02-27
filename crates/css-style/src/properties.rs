@@ -1,6 +1,7 @@
 use std::{fmt::Debug, sync::Arc};
 
 use css_cssom::ComponentValue;
+use preferences::ThemeCategory;
 
 use crate::{
     BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
@@ -36,12 +37,13 @@ pub enum RelativeType {
 }
 
 /// Context for resolving absolute CSS properties, such as 'px' units or named colors. It provides access to the root font size, viewport dimensions, and root color for calculations.
-#[derive(Debug, Clone, Default, Copy, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct AbsoluteContext {
     pub root_font_size: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub root_color: Color,
+    pub theme_category: ThemeCategory,
 }
 
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.

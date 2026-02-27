@@ -8,5 +8,5 @@ license.workspace = true
 html-dom.workspace = true
 css-cssom.workspace = true
 css-selectors.workspace = true
-
+preferences.workspace = true
 strum.workspace = true

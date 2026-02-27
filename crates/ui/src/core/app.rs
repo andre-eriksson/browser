@@ -141,7 +141,7 @@ impl Application {
 
     /// Returns the theme for the application window.
     pub fn theme(&self, _window_id: window::Id) -> Theme {
-        let app_theme = self.config.theme();
+        let app_theme = self.config.active_theme();
 
         let palette = Palette {
             background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),

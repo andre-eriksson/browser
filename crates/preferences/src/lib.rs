@@ -1,10 +1,12 @@
-use clap::ValueEnum;
+use std::collections::HashMap;
+
 use io::{Resource, files::PREFERENCES};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
-/// Hex color representation as a string.
-#[derive(Debug, Clone, Default, Copy, Serialize, Deserialize, ValueEnum)]
-pub enum PresetTheme {
+#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeCategory {
     #[default]
     Light,
     Dark,
@@ -12,6 +14,7 @@ pub enum PresetTheme {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
+    pub category: ThemeCategory,
     pub background: String,
     pub foreground: String,
     pub text: String,
@@ -26,6 +29,7 @@ pub struct Theme {
 impl Default for Theme {
     fn default() -> Self {
         Self {
+            category: ThemeCategory::Light,
             background: "#FFFFFF".to_string(),
             foreground: "#F6F8FB".to_string(),
             text: "#1A1A1A".to_string(),
@@ -39,34 +43,34 @@ impl Default for Theme {
     }
 }
 
-impl From<PresetTheme> for Theme {
-    fn from(preset: PresetTheme) -> Self {
-        match preset {
-            PresetTheme::Light => Theme::default(),
-            PresetTheme::Dark => Self {
-                background: "#121212".to_string(),
-                foreground: "#1E1E1E".to_string(),
-                text: "#E0E0E0".to_string(),
-                primary: "#BB86FC".to_string(),
-                secondary: "#3700B3".to_string(),
-                tertiary: "#03DAC6".to_string(),
-                success: "#03DAC6".to_string(),
-                warning: "#CF6679".to_string(),
-                danger: "#CF6679".to_string(),
-            },
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ThemeCollection {
+    #[serde(default)]
+    light: Theme,
+    #[serde(flatten)]
+    extras: HashMap<String, Theme>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserConfig {
+    theme: ThemeCollection,
+    active_theme: String,
+}
+
+impl Default for BrowserConfig {
+    fn default() -> Self {
+        Self {
+            theme: ThemeCollection::default(),
+            active_theme: "light".to_string(),
         }
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct BrowserConfig {
-    theme: Box<Theme>,
-}
-
 impl BrowserConfig {
-    pub fn new(theme: Theme) -> Self {
+    pub fn new(active_theme: String) -> Self {
         Self {
-            theme: Box::new(theme),
+            theme: ThemeCollection::default(),
+            active_theme,
         }
     }
 
@@ -76,14 +80,14 @@ impl BrowserConfig {
                 let serialized = toml::to_string(&Self::default());
 
                 if serialized.is_err() {
-                    eprintln!("Unable to serialize config file");
+                    warn!("Unable to serialize config file");
                     return Self::default();
                 }
 
                 let res = Resource::write(PREFERENCES, serialized.unwrap());
 
                 if res.is_err() {
-                    eprintln!("Unable to create settings file")
+                    warn!("Unable to create settings file")
                 }
 
                 Self::default()
@@ -103,28 +107,24 @@ impl BrowserConfig {
 
                 let config: BrowserConfig = out.unwrap();
 
+                if config.active_theme.is_empty() {
+                    warn!("Active theme is empty, defaulting to 'light'");
+                    return Self::default();
+                }
+
                 config
             }
         }
     }
 
-    pub fn set_theme(&mut self, theme: Theme) {
-        *self.theme = theme;
-        let serialized = toml::to_string(self);
-
-        if serialized.is_err() {
-            eprintln!("Unable to serialize config file");
-            return;
-        }
-
-        let res = Resource::write(PREFERENCES, serialized.unwrap());
-
-        if res.is_err() {
-            eprintln!("Unable to write settings file")
-        }
+    pub fn set_active_theme(&mut self, theme: String) {
+        self.active_theme = theme;
     }
 
-    pub fn theme(&self) -> &Theme {
-        &self.theme
+    pub fn active_theme(&self) -> &Theme {
+        self.theme
+            .extras
+            .get(&self.active_theme)
+            .unwrap_or(&self.theme.light)
     }
 }
