@@ -19,10 +19,7 @@ use renderer::{
     RenderTri, TextBlockInfo, TexturePipeline, image::ImageCache,
 };
 
-use crate::{
-    core::{Event, ScrollOffset},
-    util::fonts::load_fallback_fonts,
-};
+use crate::{core::ScrollOffset, events::Event, util::fonts::load_fallback_fonts};
 
 pub const UI_VERTICAL_OFFSET: f32 = 88.0;
 

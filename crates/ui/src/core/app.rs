@@ -14,20 +14,10 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::core::{ReceiverHandle, UiTab, create_browser_event_stream};
-use crate::events::UiEvent;
-use crate::events::browser::BrowserEventHandler;
-use crate::events::ui::UiEventHandler;
+use crate::events::{Event, EventHandler, UiEvent};
 use crate::manager::WindowController;
 use crate::util::fonts::load_fallback_fonts;
 use crate::views::browser::window::BrowserWindow;
-
-/// Represents the different types of events that can occur in the application.
-#[derive(Debug, Clone)]
-pub enum Event {
-    None,
-    Browser(BrowserEvent),
-    Ui(UiEvent),
-}
 
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {
@@ -78,7 +68,7 @@ impl Application {
         let mut window_controller = WindowController::new();
         let (main_window_id, browser_task) = window_controller.new_window(Box::new(BrowserWindow));
 
-        let tasks = vec![browser_task.map(|_| Event::None)];
+        let tasks = vec![browser_task.discard()];
 
         let mut viewports = HashMap::new();
 
@@ -122,9 +112,8 @@ impl Application {
     /// * `message` - The message containing the action to perform.
     pub fn update(&mut self, event: Event) -> Task<Event> {
         match event {
-            Event::None => Task::none(),
-            Event::Ui(ui_event) => UiEventHandler::handle_event(self, ui_event),
-            Event::Browser(browser_event) => BrowserEventHandler::handle_event(self, browser_event),
+            Event::Ui(ui_event) => self.handle(ui_event),
+            Event::Browser(browser_event) => self.handle(browser_event),
         }
     }
 

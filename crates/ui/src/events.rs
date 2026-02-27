@@ -1,11 +1,25 @@
-use iced::window;
-use kernel::TabId;
+use iced::{Task, window};
+use kernel::{BrowserEvent, TabId};
 use layout::LayoutTree;
 
 use crate::core::WindowType;
 
 pub mod browser;
 pub mod ui;
+
+/// Represents the different types of events that can occur in the application.
+#[derive(Debug, Clone)]
+pub enum Event {
+    Browser(BrowserEvent),
+    Ui(UiEvent),
+}
+
+/// A trait for handling events of a specific type. Implementors of this trait can define how to
+/// handle events and return a Task that may produce new events as a result.
+pub trait EventHandler<E> {
+    /// Handle an event of type E and return a Task that may produce new events as a result.
+    fn handle(&mut self, event: E) -> Task<Event>;
+}
 
 /// Represents the different types of UI events that can occur in the application.
 #[derive(Debug, Clone)]

@@ -38,6 +38,9 @@ pub enum BrowserEvent {
 
     /// An image was successfully fetched from the network.
     ImageFetched(TabId, String, Vec<u8>, HeaderMap),
+
+    /// A general browser error occurred (for errors that don't fit other categories).
+    Error(BrowserError),
 }
 
 /// Represents commands that can be issued to the browser.

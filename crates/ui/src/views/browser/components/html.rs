@@ -10,8 +10,8 @@ use iced::{
 };
 
 use crate::{
-    core::{Application, Event, UiTab},
-    events::UiEvent,
+    core::{Application, UiTab},
+    events::{Event, UiEvent},
     views::browser::components::shader::{
         HtmlRenderer, ViewportBounds, collect_render_data_from_layout,
     },

@@ -7,7 +7,8 @@ use iced::{
 use io::{Resource, embeded::WINDOW_ICON};
 
 use crate::{
-    core::{Application, ApplicationWindow, Event},
+    core::{Application, ApplicationWindow},
+    events::Event,
     util::image::load_icon,
     views::browser::components::{
         footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml, shader::HtmlRenderer,

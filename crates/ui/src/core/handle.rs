@@ -8,7 +8,7 @@ use iced::futures::{Stream, stream::unfold};
 use kernel::BrowserEvent;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-use crate::core::app::Event;
+use crate::events::Event;
 
 /// A hashable wrapper around the browser event receiver.
 ///

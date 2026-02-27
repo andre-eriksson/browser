@@ -13,11 +13,12 @@ use tracing::{debug, error};
 use url::Url;
 
 use crate::{
-    core::{Application, Event},
-    events::UiEvent,
+    core::Application,
+    events::{Event, UiEvent},
     util::image::decode_image_bytes,
 };
 
+/// Handles navigation to a new URL, including resolving relative URLs and applying heuristics for missing schemes.
 pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) -> Task<Event> {
     let browser = application.browser.clone();
     let active_tab = application.active_tab;
@@ -59,20 +60,19 @@ pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) ->
             .await
         },
         |result| match result {
-            Ok(task) => Event::Browser(task),
+            Ok(event) => Event::Browser(event),
             Err(err) => match err {
-                BrowserError::NavigationError(err) => {
-                    Event::Browser(BrowserEvent::NavigateError(err))
+                BrowserError::NavigationError(nav_err) => {
+                    Event::Browser(BrowserEvent::NavigateError(nav_err))
                 }
-                err => {
-                    error!("Browser error: {}", err);
-                    Event::None
-                }
+                _ => Event::Browser(BrowserEvent::Error(err)),
             },
         },
     )
 }
 
+/// Handles successful navigation by updating the tab's document, stylesheets, layout tree, and initiating image
+/// fetches for any images found on the page.
 pub(crate) fn on_navigation_success(
     application: &mut Application,
     tab_id: TabId,
@@ -207,6 +207,7 @@ pub(crate) fn on_navigation_success(
     Task::none()
 }
 
+/// Handles navigation errors by logging the error and optionally displaying an error page or message to the user.
 pub(crate) fn on_navigation_error(
     _application: &mut Application,
     error: NavigationError,
@@ -215,6 +216,10 @@ pub(crate) fn on_navigation_error(
     Task::none()
 }
 
+/// Handles successful image loads by decoding the image bytes, storing it in the cache, and updating the
+/// corresponding image elements in the tab's layout tree. If the image fails to decode, it marks the cache
+/// entry as failed and triggers a UI update to reflect the failed image load
+/// (e.g., showing a broken image icon).
 pub(crate) fn on_image_loaded(
     application: &mut Application,
     tab_id: TabId,

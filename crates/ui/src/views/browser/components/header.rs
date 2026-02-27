@@ -11,8 +11,8 @@ use iced::{
 use kernel::BrowserEvent;
 
 use crate::{
-    core::{Application, Event},
-    events::UiEvent,
+    core::Application,
+    events::{Event, UiEvent},
 };
 
 pub struct BrowserHeader;

@@ -6,10 +6,11 @@ use layout::{LayoutEngine, Rect};
 use tracing::debug;
 
 use crate::{
-    core::{Application, Event},
-    events::UiEvent,
+    core::Application,
+    events::{Event, UiEvent},
 };
 
+/// Handles the completion of image loading, updating the tab's state and triggering a relayout if necessary.
 pub(crate) fn on_image_loaded(
     application: &mut Application,
     tab_id: TabId,
@@ -75,6 +76,7 @@ pub(crate) fn on_image_loaded(
     Task::none()
 }
 
+/// Handles the completion of a relayout operation, updating the tab's layout tree if the generation matches.
 pub(crate) fn on_relayout_complete(
     application: &mut Application,
     tab_id: TabId,

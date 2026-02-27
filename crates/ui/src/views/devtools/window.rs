@@ -7,7 +7,8 @@ use iced::{
 use io::{Resource, embeded::DEVTOOLS_ICON};
 
 use crate::{
-    core::{Application, ApplicationWindow, Event},
+    core::{Application, ApplicationWindow},
+    events::Event,
     util::image::load_icon,
 };
 

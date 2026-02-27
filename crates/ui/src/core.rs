@@ -12,7 +12,7 @@ mod tabs;
 /// Application window representation and types.
 mod window;
 
-pub use app::{Application, Event};
+pub use app::Application;
 pub use handle::{ReceiverHandle, create_browser_event_stream};
 pub use tabs::{ScrollOffset, UiTab};
 pub use window::{ApplicationWindow, WindowType};

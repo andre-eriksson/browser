@@ -3,24 +3,24 @@ use iced::{Task, window::Id};
 use layout::{LayoutEngine, Rect};
 
 use crate::{
-    core::{Application, Event, WindowType},
+    core::{Application, WindowType},
+    events::Event,
     views::devtools::window::DevtoolsWindow,
 };
 
-pub(crate) fn create_new_window(
-    application: &mut Application,
-    window_type: WindowType,
-) -> Task<Event> {
+/// Handles the creation of a new window when a `NewWindow` event is received from the UI.
+pub(crate) fn create_window(application: &mut Application, window_type: WindowType) -> Task<Event> {
     match window_type {
         WindowType::Devtools => {
             let (_, window_task) = application
                 .window_controller
                 .new_window(Box::new(DevtoolsWindow));
-            window_task.map(|_| Event::None)
+            window_task.discard()
         }
     }
 }
 
+/// Handles the closure of a window when a `CloseWindow` event is received from the UI.
 pub(crate) fn close_window(application: &mut Application, window_id: Id) -> Task<Event> {
     application.window_controller.close(window_id);
 
@@ -28,10 +28,7 @@ pub(crate) fn close_window(application: &mut Application, window_id: Id) -> Task
         if application.window_controller.open_windows.is_empty() {
             return iced::exit();
         } else {
-            return application
-                .window_controller
-                .close_all_windows()
-                .map(|_| Event::None);
+            return application.window_controller.close_all_windows().discard();
         }
     }
 
@@ -42,6 +39,7 @@ pub(crate) fn close_window(application: &mut Application, window_id: Id) -> Task
     Task::none()
 }
 
+/// Handles the resizing of a window when a `WindowResized` event is received from the UI.
 pub(crate) fn on_window_resized(
     application: &mut Application,
     window_id: Id,
@@ -88,11 +86,14 @@ pub(crate) fn on_window_resized(
     Task::none()
 }
 
+/// Handles the change of the current URL when a `UrlChanged` event is received from the UI.
 pub(crate) fn on_url_change(application: &mut Application, url: String) -> Task<Event> {
     application.current_url = url;
     Task::none()
 }
 
+/// Handles the scrolling of content when a `ContentScrolled` event is received from the UI,
+/// updating the scroll offset of the active tab.
 pub(crate) fn on_content_scrolled(application: &mut Application, x: f32, y: f32) -> Task<Event> {
     if let Some(tab) = application
         .tabs
