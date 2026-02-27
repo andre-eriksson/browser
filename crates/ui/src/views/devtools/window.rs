@@ -17,10 +17,7 @@ use crate::{
 pub struct DevtoolsWindow;
 
 impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
-    fn render<'window>(
-        &'window self,
-        _app: &'window Application,
-    ) -> iced::Element<'window, Event, Theme, Renderer> {
+    fn render<'window>(&'window self, _app: &'window Application) -> iced::Element<'window, Event, Theme, Renderer> {
         //let dom_tree = match render_dom_tree(app) {
         //    Ok(content) => content,
         //    Err(e) => container(text(format!("Error rendering content: {}", e)))

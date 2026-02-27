@@ -129,9 +129,7 @@ impl TryFrom<&[ComponentValue]> for ColorValue {
                         }
                     }
                     CssTokenKind::Percentage(percent) => {
-                        return Ok(ColorValue::Percentage(Percentage::new(
-                            percent.to_f64() as f32
-                        )));
+                        return Ok(ColorValue::Percentage(Percentage::new(percent.to_f64() as f32)));
                     }
                     CssTokenKind::Number(num) => {
                         return Ok(ColorValue::Number(num.to_f64() as f32));
@@ -241,15 +239,12 @@ impl FunctionColor {
                         if parsing_alpha {
                             alpha = Some(Alpha::from(Percentage::new(pct.to_f64() as f32)));
                         } else if channel_idx < 3 {
-                            channels[channel_idx] =
-                                Some(ColorValue::Percentage(Percentage::new(pct.to_f64() as f32)));
+                            channels[channel_idx] = Some(ColorValue::Percentage(Percentage::new(pct.to_f64() as f32)));
                             channel_idx += 1;
                         } else if alpha.is_none() {
                             alpha = Some(Alpha::from(Percentage::new(pct.to_f64() as f32)));
                         } else {
-                            return Err(
-                                "Too many percentage components in color function".to_string()
-                            );
+                            return Err("Too many percentage components in color function".to_string());
                         }
                     }
                     CssTokenKind::Number(num) => {
@@ -266,9 +261,7 @@ impl FunctionColor {
                     }
                     CssTokenKind::Dimension { .. } => {
                         if parsing_alpha {
-                            return Err(
-                                "Dimension tokens are not allowed in alpha component".to_string()
-                            );
+                            return Err("Dimension tokens are not allowed in alpha component".to_string());
                         } else if channel_idx < 3 {
                             let angle = Angle::from(token);
                             channels[channel_idx] = Some(ColorValue::Number(angle.to_degrees()));
@@ -333,9 +326,7 @@ pub mod macros {
                         }
                     } else {
                         CssToken {
-                            kind: CssTokenKind::Number(NumericValue::from(
-                                s.parse::<f64>().unwrap_or(0.0),
-                            )),
+                            kind: CssTokenKind::Number(NumericValue::from(s.parse::<f64>().unwrap_or(0.0))),
                             position: None,
                         }
                     }
@@ -357,14 +348,10 @@ pub mod macros {
                     )),
                     position: None,
                 },
-                a if (0.0..=1.0).contains(&(a.to_string().parse::<f32>().unwrap_or(-1.0))) => {
-                    CssToken {
-                        kind: CssTokenKind::Number(NumericValue::from(
-                            a.to_string().parse::<f64>().unwrap_or(0.0),
-                        )),
-                        position: None,
-                    }
-                }
+                a if (0.0..=1.0).contains(&(a.to_string().parse::<f32>().unwrap_or(-1.0))) => CssToken {
+                    kind: CssTokenKind::Number(NumericValue::from(a.to_string().parse::<f64>().unwrap_or(0.0))),
+                    position: None,
+                },
                 _ => panic!("Invalid alpha value for css_color_fn_alpha! macro"),
             };
 
@@ -445,10 +432,7 @@ mod tests {
 
         let result = FunctionColor::parse_color_components(&components).unwrap();
         assert_eq!(result.channels[0], Some(ColorValue::Number(255.0)));
-        assert_eq!(
-            result.channels[1],
-            Some(ColorValue::Percentage(Percentage::new(50.0)))
-        );
+        assert_eq!(result.channels[1], Some(ColorValue::Percentage(Percentage::new(50.0))));
         assert_eq!(result.channels[2], Some(ColorValue::Number(0.0)));
         assert_eq!(result.alpha, Alpha(1.0));
     }

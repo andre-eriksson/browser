@@ -44,9 +44,7 @@ impl CorsMiddleware {
             && request_credentials == &Credentials::Include
             && cred.to_str().unwrap_or("") != "true"
         {
-            return Err(RequestError::CorsViolation(
-                "Request with credentials not allowed by server".to_string(),
-            ));
+            return Err(RequestError::CorsViolation("Request with credentials not allowed by server".to_string()));
         }
 
         let allowed_origin = preflight_response.headers.get(ACCESS_CONTROL_ALLOW_ORIGIN);
@@ -75,8 +73,7 @@ impl CorsMiddleware {
                         // Same-origin requests are already allowed
                         // So here we are in a cross-origin request => reject
                         return Err(RequestError::CorsViolation(
-                            "Request with same-origin credentials not allowed for cross-origin request"
-                                .to_string(),
+                            "Request with same-origin credentials not allowed for cross-origin request".to_string(),
                         ));
                     }
                     Credentials::Omit => {

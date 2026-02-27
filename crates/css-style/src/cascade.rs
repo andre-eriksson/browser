@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use css_cssom::{
-    CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, CssTokenKind, HashType,
-    Property, StylesheetOrigin,
+    CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, CssTokenKind, HashType, Property,
+    StylesheetOrigin,
 };
 use css_selectors::{
-    ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable,
-    generate_selector_list, matches_compound,
+    ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list,
+    matches_compound,
 };
 use html_dom::{DocumentRoot, DomNode, Element};
 
@@ -54,9 +54,7 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
                     } else if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                         let next = tokens.get(i + 1).map(|t| &t.kind);
                         match next {
-                            None
-                            | Some(CssTokenKind::Delim(_))
-                            | Some(CssTokenKind::Whitespace) => {
+                            None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
                                 if name != "*" && tag.is_none() {
                                     tag = Some(name.to_ascii_lowercase());
                                 }
@@ -438,8 +436,7 @@ pub fn cascade_variables<'decl>(
 ) -> HashMap<&'decl Property, &'decl Vec<ComponentValue>> {
     CascadedDeclaration::sort_declarations(declarations);
 
-    let mut cascaded_variables: HashMap<&Property, &Vec<ComponentValue>> =
-        HashMap::with_capacity(32);
+    let mut cascaded_variables: HashMap<&Property, &Vec<ComponentValue>> = HashMap::with_capacity(32);
 
     for decl in declarations.iter() {
         cascaded_variables

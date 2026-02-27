@@ -13,9 +13,7 @@ use cli::args::BrowserArgs;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use io::{Resource, embeded::DEFAULT_CSS, files::CACHE_USER_AGENT};
-use network::{
-    HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient,
-};
+use network::{HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use tracing::instrument;
 
@@ -152,9 +150,7 @@ impl Commandable for Browser {
             }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::ChangeActiveTab { tab_id } => {
-                change_active_tab(&mut self.tab_manager, tab_id)
-            }
+            BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
             BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
         }
     }

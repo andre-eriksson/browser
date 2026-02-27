@@ -80,13 +80,7 @@ impl ImageContext {
     }
 
     /// Records intrinsic dimensions **and** a vary key for an image source URL.
-    pub fn insert_with_vary(
-        &mut self,
-        src: impl Into<String>,
-        width: f32,
-        height: f32,
-        vary_key: impl Into<String>,
-    ) {
+    pub fn insert_with_vary(&mut self, src: impl Into<String>, width: f32, height: f32, vary_key: impl Into<String>) {
         self.known.insert(
             src.into(),
             ImageMeta {

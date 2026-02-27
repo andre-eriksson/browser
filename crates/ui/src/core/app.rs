@@ -123,9 +123,8 @@ impl Application {
 
         Subscription::batch([
             window::close_events().map(|window_id| Event::Ui(UiEvent::CloseWindow(window_id))),
-            window::resize_events().map(|(window_id, size)| {
-                Event::Ui(UiEvent::WindowResized(window_id, size.width, size.height))
-            }),
+            window::resize_events()
+                .map(|(window_id, size)| Event::Ui(UiEvent::WindowResized(window_id, size.width, size.height))),
             Subscription::run_with(ReceiverHandle::new(receiver), create_browser_event_stream),
         ])
     }

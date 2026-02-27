@@ -15,8 +15,8 @@ use io::{CacheEntry, CacheRead};
 use kernel::BrowserEvent;
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{
-    DecodedImageData, GlyphAtlas, GpuImageCache, ImageRenderInfo, RectPipeline, RenderRect,
-    RenderTri, TextBlockInfo, TexturePipeline, image::ImageCache,
+    DecodedImageData, GlyphAtlas, GpuImageCache, ImageRenderInfo, RectPipeline, RenderRect, RenderTri, TextBlockInfo,
+    TexturePipeline, image::ImageCache,
 };
 
 use crate::{core::ScrollOffset, events::Event, util::fonts::load_fallback_fonts};
@@ -86,13 +86,11 @@ impl Pipeline for HtmlPipeline {
     {
         let glyph_atlas = GlyphAtlas::new(device);
 
-        let text_pipeline =
-            TexturePipeline::new_text(device, format, glyph_atlas.bind_group_layout());
+        let text_pipeline = TexturePipeline::new_text(device, format, glyph_atlas.bind_group_layout());
 
         let gpu_image_cache = GpuImageCache::new(device);
 
-        let image_pipeline =
-            TexturePipeline::new_image(device, format, gpu_image_cache.bind_group_layout());
+        let image_pipeline = TexturePipeline::new_image(device, format, gpu_image_cache.bind_group_layout());
 
         let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
 
@@ -164,32 +162,25 @@ impl Primitive for HtmlPrimitive {
 
         for text_block in &self.text_blocks {
             for glyph_info in &text_block.glyphs {
-                let region = match pipeline.glyph_atlas.cache_glyph(
-                    &mut pipeline.font_system,
-                    queue,
-                    glyph_info.cache_key,
-                ) {
-                    Some(region) => region,
-                    None => continue,
-                };
+                let region =
+                    match pipeline
+                        .glyph_atlas
+                        .cache_glyph(&mut pipeline.font_system, queue, glyph_info.cache_key)
+                    {
+                        Some(region) => region,
+                        None => continue,
+                    };
 
                 if region.width == 0 || region.height == 0 {
                     continue;
                 }
 
-                let screen_x =
-                    glyph_info.x as f32 + region.placement_left as f32 - self.scroll_offset.x;
-                let screen_y =
-                    glyph_info.y as f32 - region.placement_top as f32 - self.scroll_offset.y;
+                let screen_x = glyph_info.x as f32 + region.placement_left as f32 - self.scroll_offset.x;
+                let screen_y = glyph_info.y as f32 - region.placement_top as f32 - self.scroll_offset.y;
 
                 let uv_rect = region.uv_rect(atlas_width, atlas_height);
 
-                let screen_rect = Rect::new(
-                    screen_x,
-                    screen_y,
-                    region.width as f32,
-                    region.height as f32,
-                );
+                let screen_rect = Rect::new(screen_x, screen_y, region.width as f32, region.height as f32);
 
                 pipeline
                     .text_pipeline
@@ -198,12 +189,9 @@ impl Primitive for HtmlPrimitive {
         }
 
         for image_info in &self.images {
-            pipeline.gpu_image_cache.ensure_uploaded(
-                device,
-                queue,
-                &image_info.src,
-                &image_info.data,
-            );
+            pipeline
+                .gpu_image_cache
+                .ensure_uploaded(device, queue, &image_info.src, &image_info.data);
 
             let screen_rect = Rect::new(
                 image_info.screen_rect.x - self.scroll_offset.x,
@@ -613,12 +601,8 @@ pub fn collect_render_data_from_layout<'html>(
         }
 
         if let Some(buffer) = &node.text_buffer {
-            let text_block = TextBlockInfo::from_arc_buffer(
-                buffer,
-                node.dimensions.x,
-                node.dimensions.y,
-                node.colors.color,
-            );
+            let text_block =
+                TextBlockInfo::from_arc_buffer(buffer, node.dimensions.x, node.dimensions.y, node.colors.color);
             if !text_block.glyphs.is_empty() {
                 data.text_blocks.push(text_block);
             }

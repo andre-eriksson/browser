@@ -219,13 +219,7 @@ impl GlyphAtlas {
     }
 
     /// Upload glyph image data to the atlas texture
-    fn upload_glyph_data(
-        &self,
-        queue: &wgpu::Queue,
-        image: &SwashImage,
-        atlas_x: u32,
-        atlas_y: u32,
-    ) {
+    fn upload_glyph_data(&self, queue: &wgpu::Queue, image: &SwashImage, atlas_x: u32, atlas_y: u32) {
         let data = match image.content {
             SwashContent::Mask => image.data.as_slice(),
             SwashContent::Color => {
@@ -355,12 +349,7 @@ impl TextBlockInfo {
     }
 
     /// Extract from an Arc<Buffer>
-    pub fn from_arc_buffer(
-        buffer: &Arc<Buffer>,
-        base_x: f32,
-        base_y: f32,
-        text_color: Color4f,
-    ) -> Self {
+    pub fn from_arc_buffer(buffer: &Arc<Buffer>, base_x: f32, base_y: f32, text_color: Color4f) -> Self {
         Self::from_buffer(buffer.as_ref(), base_x, base_y, text_color)
     }
 }

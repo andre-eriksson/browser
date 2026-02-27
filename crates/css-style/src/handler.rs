@@ -24,7 +24,11 @@ pub(crate) struct PropertyError {
 }
 
 impl<'a> PropertyUpdateContext<'a> {
-    pub fn new(absolute_ctx: &'a AbsoluteContext, specified_style: &'a mut SpecifiedStyle, relative_ctx: &'a RelativeContext) -> Self {
+    pub fn new(
+        absolute_ctx: &'a AbsoluteContext,
+        specified_style: &'a mut SpecifiedStyle,
+        relative_ctx: &'a RelativeContext,
+    ) -> Self {
         Self {
             absolute_ctx,
             specified_style,
@@ -204,8 +208,26 @@ simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
 offset_shorthand_handler!(handle_margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
 offset_shorthand_handler!(handle_padding, "padding", padding_top, padding_right, padding_bottom, padding_left);
-logical_block_handler!(handle_margin_block, "margin-block", margin_top, margin_bottom, margin_right, margin_left, margin_left, margin_right);
-logical_block_handler!(handle_padding_block, "padding-block", padding_top, padding_bottom, padding_right, padding_left, padding_left, padding_right);
+logical_block_handler!(
+    handle_margin_block,
+    "margin-block",
+    margin_top,
+    margin_bottom,
+    margin_right,
+    margin_left,
+    margin_left,
+    margin_right
+);
+logical_block_handler!(
+    handle_padding_block,
+    "padding-block",
+    padding_top,
+    padding_bottom,
+    padding_right,
+    padding_left,
+    padding_left,
+    padding_right
+);
 logical_edge_handler!(handle_margin_block_start, "margin-block-start", margin_top, margin_right, margin_left);
 logical_edge_handler!(handle_margin_block_end, "margin-block-end", margin_bottom, margin_left, margin_right);
 logical_edge_handler!(handle_padding_block_start, "padding-block-start", padding_top, padding_right, padding_left);
@@ -307,7 +329,8 @@ pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[Compone
     CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
-        ctx.specified_style.computed_font_size_px = font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
+        ctx.specified_style.computed_font_size_px =
+            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
     }
 }
 
@@ -320,11 +343,13 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[Compo
                 CssTokenKind::Ident(ident) => {
                     if ident.eq_ignore_ascii_case("lighter") {
                         let lighter = ctx.relative_ctx.parent.font_weight - 100;
-                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::try_from(lighter).unwrap_or(FontWeight::Thin));
+                        ctx.specified_style.font_weight =
+                            CSSProperty::Value(FontWeight::try_from(lighter).unwrap_or(FontWeight::Thin));
                         return;
                     } else if ident.eq_ignore_ascii_case("bolder") {
                         let bolder = ctx.relative_ctx.parent.font_weight + 100;
-                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::try_from(bolder).unwrap_or(FontWeight::Black));
+                        ctx.specified_style.font_weight =
+                            CSSProperty::Value(FontWeight::try_from(bolder).unwrap_or(FontWeight::Black));
                         return;
                     }
                 }

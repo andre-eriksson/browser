@@ -181,12 +181,7 @@ impl DocumentRoot {
 
 impl Display for DocumentRoot {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        fn fmt_node(
-            node: &DomNode,
-            doc: &DocumentRoot,
-            f: &mut Formatter<'_>,
-            indent: usize,
-        ) -> std::fmt::Result {
+        fn fmt_node(node: &DomNode, doc: &DocumentRoot, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
             for _ in 0..indent {
                 write!(f, "  ")?;
             }

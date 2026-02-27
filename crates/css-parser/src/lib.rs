@@ -24,6 +24,6 @@ pub use parser::CssParser;
 pub use property::{KnownProperty, Property};
 pub use rules::{AtRule, QualifiedRule, Rule};
 pub use stylesheet::{
-    AssociatedToken, ComponentValue, Declaration, DeclarationOrAtRule, Function, SimpleBlock,
-    StyleBlockContents, Stylesheet,
+    AssociatedToken, ComponentValue, Declaration, DeclarationOrAtRule, Function, SimpleBlock, StyleBlockContents,
+    Stylesheet,
 };

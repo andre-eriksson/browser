@@ -55,8 +55,7 @@ pub(crate) fn on_image_loaded(
                             viewport_height: vh,
                             ..Default::default()
                         };
-                        let style_tree =
-                            StyleTree::build(&ctx, page.document(), page.stylesheets());
+                        let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());
                         let mut tc = text_ctx.lock().unwrap();
                         LayoutEngine::compute_layout(
                             &style_tree,
@@ -68,9 +67,7 @@ pub(crate) fn on_image_loaded(
                     .await
                     .unwrap()
                 },
-                move |layout_tree| {
-                    Event::Ui(UiEvent::RelayoutComplete(tab_id, generation, layout_tree))
-                },
+                move |layout_tree| Event::Ui(UiEvent::RelayoutComplete(tab_id, generation, layout_tree)),
             );
         }
     }
@@ -89,10 +86,7 @@ pub(crate) fn on_relayout_complete(
         if tab.layout_generation == generation {
             tab.layout_tree = layout_tree;
         } else {
-            debug!(
-                "Discarding stale relayout for tab {} (gen {} vs {})",
-                tab_id, generation, tab.layout_generation
-            );
+            debug!("Discarding stale relayout for tab {} (gen {} vs {})", tab_id, generation, tab.layout_generation);
         }
     }
 

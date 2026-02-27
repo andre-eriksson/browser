@@ -43,22 +43,13 @@ impl OffsetValue {
     }
 
     /// Convert the OffsetValue to pixels, given the relative and absolute contexts. The rel_type indicates what the percentage is relative to.
-    pub fn to_px(
-        &self,
-        rel_type: Option<RelativeType>,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             OffsetValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
             OffsetValue::Percentage(pct) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx.parent.font_size * pct.as_fraction(),
-                Some(RelativeType::ParentHeight) => {
-                    rel_ctx.parent.intrinsic_height * pct.as_fraction()
-                }
-                Some(RelativeType::ParentWidth) => {
-                    rel_ctx.parent.intrinsic_width * pct.as_fraction()
-                }
+                Some(RelativeType::ParentHeight) => rel_ctx.parent.intrinsic_height * pct.as_fraction(),
+                Some(RelativeType::ParentWidth) => rel_ctx.parent.intrinsic_width * pct.as_fraction(),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
@@ -118,12 +109,7 @@ pub struct Offset {
 
 impl Offset {
     /// Create an Offset with individual values for each side (top, right, bottom, left).
-    pub(crate) fn trbl(
-        top: OffsetValue,
-        right: OffsetValue,
-        bottom: OffsetValue,
-        left: OffsetValue,
-    ) -> Self {
+    pub(crate) fn trbl(top: OffsetValue, right: OffsetValue, bottom: OffsetValue, left: OffsetValue) -> Self {
         Self {
             top,
             right,
@@ -170,21 +156,9 @@ impl TryFrom<&[OffsetValue]> for Offset {
         match values.len() {
             1 => Ok(Offset::all(values[0].clone())),
             2 => Ok(Offset::vh(values[0].clone(), values[1].clone())),
-            3 => Ok(Offset::thb(
-                values[0].clone(),
-                values[1].clone(),
-                values[2].clone(),
-            )),
-            4 => Ok(Offset::trbl(
-                values[0].clone(),
-                values[1].clone(),
-                values[2].clone(),
-                values[3].clone(),
-            )),
-            _ => Err(format!(
-                "Invalid number of Offset values: expected 1-4, got {}",
-                values.len()
-            )),
+            3 => Ok(Offset::thb(values[0].clone(), values[1].clone(), values[2].clone())),
+            4 => Ok(Offset::trbl(values[0].clone(), values[1].clone(), values[2].clone(), values[3].clone())),
+            _ => Err(format!("Invalid number of Offset values: expected 1-4, got {}", values.len())),
         }
     }
 }
@@ -198,24 +172,17 @@ impl TryFrom<&[ComponentValue]> for Offset {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    offset_values.push(OffsetValue::Calc(CalcExpression::parse(
-                        func.value.as_slice(),
-                    )?));
+                    offset_values.push(OffsetValue::Calc(CalcExpression::parse(func.value.as_slice())?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        offset_values.push(OffsetValue::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        offset_values.push(OffsetValue::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        offset_values.push(OffsetValue::Percentage(Percentage::new(
-                            pct.to_f64() as f32
-                        )));
+                        offset_values.push(OffsetValue::Percentage(Percentage::new(pct.to_f64() as f32)));
                     }
                     CssTokenKind::Number(num) => {
                         offset_values.push(OffsetValue::Length(Length::px(num.to_f64() as f32)));

@@ -33,12 +33,7 @@ impl Dimension {
     }
 
     /// Convert the Dimension to pixels, given the relative and absolute contexts. The rel_type indicates what the percentage is relative to.
-    pub fn to_px(
-        &self,
-        rel_type: RelativeType,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: RelativeType, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             Dimension::Length(l) => l.to_px(rel_ctx, abs_ctx),
             Dimension::MaxContent => 0.0,
@@ -67,9 +62,7 @@ impl TryFrom<&[ComponentValue]> for Dimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if func.name.eq_ignore_ascii_case("calc") {
-                        return Ok(Dimension::Calc(CalcExpression::parse(
-                            func.value.as_slice(),
-                        )?));
+                        return Ok(Dimension::Calc(CalcExpression::parse(func.value.as_slice())?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -90,10 +83,7 @@ impl TryFrom<&[ComponentValue]> for Dimension {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(Dimension::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        return Ok(Dimension::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(pct) => {
                         return Ok(Dimension::Percentage(Percentage::new(pct.to_f64() as f32)));
@@ -129,12 +119,7 @@ pub enum MaxDimension {
 }
 
 impl MaxDimension {
-    pub fn to_px(
-        &self,
-        rel_type: RelativeType,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: RelativeType, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             MaxDimension::Length(l) => l.to_px(rel_ctx, abs_ctx),
             MaxDimension::MaxContent => 0.0,
@@ -163,9 +148,7 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if func.name.eq_ignore_ascii_case("calc") {
-                        return Ok(MaxDimension::Calc(CalcExpression::parse(
-                            func.value.as_slice(),
-                        )?));
+                        return Ok(MaxDimension::Calc(CalcExpression::parse(func.value.as_slice())?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -186,18 +169,13 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(MaxDimension::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        return Ok(MaxDimension::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Number(num) => {
                         return Ok(MaxDimension::Length(Length::px(num.to_f64() as f32)));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        return Ok(MaxDimension::Percentage(Percentage::new(
-                            pct.to_f64() as f32
-                        )));
+                        return Ok(MaxDimension::Percentage(Percentage::new(pct.to_f64() as f32)));
                     }
                     _ => continue,
                 },
@@ -242,10 +220,7 @@ mod tests {
         };
 
         let dim = Dimension::Percentage(Percentage::new(50.0));
-        assert_eq!(
-            dim.to_px(RelativeType::ParentWidth, &rel_ctx, &abs_ctx),
-            100.0
-        );
+        assert_eq!(dim.to_px(RelativeType::ParentWidth, &rel_ctx, &abs_ctx), 100.0);
     }
 
     #[test]

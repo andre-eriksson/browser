@@ -52,12 +52,7 @@ impl Ui {
                     .unwrap()
                     .take()
                     .expect("Boot function called more than once");
-                Application::new(
-                    receiver,
-                    browser.clone(),
-                    config.clone(),
-                    initial_url.clone(),
-                )
+                Application::new(receiver, browser.clone(), config.clone(), initial_url.clone())
             },
             Application::update,
             Application::view,
@@ -74,20 +69,17 @@ impl Ui {
 
         match result {
             Ok(_) => Ok(()),
-            Err(e) => {
-                match e {
-                    iced::Error::ExecutorCreationFailed(msg) => Err(UiError::RuntimeError(
-                        format!("Executor Creation Failed: {}", msg),
-                    )),
-                    iced::Error::GraphicsCreationFailed(msg) => Err(UiError::RuntimeError(
-                        format!("Graphics Creation Failed: {}", msg),
-                    )),
-                    iced::Error::WindowCreationFailed(msg) => Err(UiError::RuntimeError(format!(
-                        "Window Creation Failed: {}",
-                        msg
-                    ))),
+            Err(e) => match e {
+                iced::Error::ExecutorCreationFailed(msg) => {
+                    Err(UiError::RuntimeError(format!("Executor Creation Failed: {}", msg)))
                 }
-            }
+                iced::Error::GraphicsCreationFailed(msg) => {
+                    Err(UiError::RuntimeError(format!("Graphics Creation Failed: {}", msg)))
+                }
+                iced::Error::WindowCreationFailed(msg) => {
+                    Err(UiError::RuntimeError(format!("Window Creation Failed: {}", msg)))
+                }
+            },
         }
     }
 }

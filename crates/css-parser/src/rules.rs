@@ -1,8 +1,6 @@
 use css_tokenizer::CssTokenKind;
 
-use crate::{
-    AssociatedToken, ComponentValue, CssParser, Declaration, DeclarationOrAtRule, SimpleBlock,
-};
+use crate::{AssociatedToken, ComponentValue, CssParser, Declaration, DeclarationOrAtRule, SimpleBlock};
 
 /// A CSS rule, either a qualified rule or an at-rule
 ///

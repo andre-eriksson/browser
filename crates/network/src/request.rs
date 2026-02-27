@@ -108,9 +108,9 @@ impl RequestBuilder {
     /// * `Ok(RequestBuilder)` if the URL is valid.
     /// * `Err(HttpError)` if the URL is invalid or if there is no base URL in the session.
     pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, NetworkError> {
-        let joined_url = starting_url.join(url).map_err(|err| {
-            NetworkError::InvalidUrl(format!("Failed to join URL '{}': {}", url, err))
-        })?;
+        let joined_url = starting_url
+            .join(url)
+            .map_err(|err| NetworkError::InvalidUrl(format!("Failed to join URL '{}': {}", url, err)))?;
 
         Ok(RequestBuilder::from(joined_url))
     }
@@ -124,9 +124,8 @@ impl RequestBuilder {
     /// * `Ok(RequestBuilder)` if the URL is valid.
     /// * `Err(HttpError)` if the URL is invalid.
     pub fn try_new(url: &str) -> Result<Self, NetworkError> {
-        let parsed_url = Url::parse(url).map_err(|err| {
-            NetworkError::InvalidUrl(format!("Failed to parse URL '{}': {}", url, err))
-        })?;
+        let parsed_url = Url::parse(url)
+            .map_err(|err| NetworkError::InvalidUrl(format!("Failed to parse URL '{}': {}", url, err)))?;
 
         Ok(RequestBuilder {
             method: Method::GET,
@@ -187,10 +186,7 @@ impl RequestBuilder {
                 self.headers.insert(key, v);
                 Ok(self)
             }
-            Err(err) => Err(NetworkError::InvalidHeader(format!(
-                "Invalid header value: {}",
-                err
-            ))),
+            Err(err) => Err(NetworkError::InvalidHeader(format!("Invalid header value: {}", err))),
         }
     }
 
@@ -236,9 +232,7 @@ impl RequestBuilder {
     /// * `Err(HttpError)` if the request is invalid.
     pub fn try_build(self) -> Result<Request, NetworkError> {
         if (self.method == Method::GET || self.method == Method::HEAD) && self.body.is_some() {
-            return Err(NetworkError::InvalidRequest(
-                "GET and HEAD requests cannot have a body".to_string(),
-            ));
+            return Err(NetworkError::InvalidRequest("GET and HEAD requests cannot have a body".to_string()));
         }
 
         // TODO: More validations can be added here as needed.

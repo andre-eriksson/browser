@@ -39,12 +39,9 @@ impl TryFrom<&[ComponentValue]> for HexColor {
 
                         return match value.len() {
                             3 | 4 => {
-                                let r = ((parsed >> (if value.len() == 4 { 12 } else { 8 })) & 0xF)
-                                    as u8;
-                                let g = ((parsed >> (if value.len() == 4 { 8 } else { 4 })) & 0xF)
-                                    as u8;
-                                let b = ((parsed >> (if value.len() == 4 { 4 } else { 0 })) & 0xF)
-                                    as u8;
+                                let r = ((parsed >> (if value.len() == 4 { 12 } else { 8 })) & 0xF) as u8;
+                                let g = ((parsed >> (if value.len() == 4 { 8 } else { 4 })) & 0xF) as u8;
+                                let b = ((parsed >> (if value.len() == 4 { 4 } else { 0 })) & 0xF) as u8;
                                 let a = if value.len() == 4 {
                                     (parsed & 0xF) as u8
                                 } else {
@@ -79,10 +76,7 @@ impl TryFrom<&[ComponentValue]> for HexColor {
             }
         }
 
-        Err(format!(
-            "No valid hex color token found in component values: {:?}",
-            value
-        ))
+        Err(format!("No valid hex color token found in component values: {:?}", value))
     }
 }
 

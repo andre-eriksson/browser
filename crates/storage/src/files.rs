@@ -32,10 +32,7 @@ where
         let path_str = cache_path.to_str().unwrap();
         read_file(path_str)
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Cache directory not found",
-        ))
+        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Cache directory not found"))
     }
 }
 
@@ -48,10 +45,7 @@ where
         let path_str = config_path.to_str().unwrap();
         read_file(path_str)
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Config directory not found",
-        ))
+        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Config directory not found"))
     }
 }
 
@@ -64,9 +58,6 @@ where
         let path_str = data_path.to_str().unwrap();
         read_file(path_str)
     } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Data directory not found",
-        ))
+        Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Data directory not found"))
     }
 }

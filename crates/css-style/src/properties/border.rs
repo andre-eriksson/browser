@@ -49,10 +49,7 @@ impl TryFrom<&[ComponentValue]> for BorderWidth {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(BorderWidth::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        return Ok(BorderWidth::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Number(num) => {
                         return Ok(BorderWidth::Length(Length::px(num.to_f64() as f32)));

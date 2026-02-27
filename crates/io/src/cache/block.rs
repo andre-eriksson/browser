@@ -63,10 +63,7 @@ impl BlockFile {
     /// Returns `(file_id, actual_offset, header_size, content_size)` — all values
     /// are derived from the write itself, so the caller can record them in the index
     /// without any speculative prediction.
-    pub fn write(
-        value: &[u8],
-        header: &mut CacheHeader,
-    ) -> Result<(u32, u32, u32, u32), CacheError> {
+    pub fn write(value: &[u8], header: &mut CacheHeader) -> Result<(u32, u32, u32, u32), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
             None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
@@ -171,8 +168,7 @@ impl BlockFile {
         }
 
         let header_buf = &data[start..header_end];
-        let header: CacheHeader =
-            postcard::from_bytes(header_buf).map_err(|_| CacheError::CorruptedHeader)?;
+        let header: CacheHeader = postcard::from_bytes(header_buf).map_err(|_| CacheError::CorruptedHeader)?;
 
         let data_buf = data[header_end..data_end].to_vec();
 
@@ -200,8 +196,7 @@ impl BlockFile {
 
         let mut header_buf = vec![0u8; header_size as usize];
         file.read_exact(&mut header_buf)?;
-        let mut header: CacheHeader =
-            postcard::from_bytes(&header_buf).map_err(|_| CacheError::CorruptedHeader)?;
+        let mut header: CacheHeader = postcard::from_bytes(&header_buf).map_err(|_| CacheError::CorruptedHeader)?;
 
         header.dead = true;
 
@@ -209,9 +204,7 @@ impl BlockFile {
             .map_err(|_| CacheError::WriteError(String::from("Failed to serialize header")))?;
 
         if header_bytes.len() as u32 != header_size {
-            return Err(CacheError::WriteError(String::from(
-                "Serialized header size mismatch",
-            )));
+            return Err(CacheError::WriteError(String::from("Serialized header size mismatch")));
         }
 
         file.seek(SeekFrom::Start(offset as u64))?;
@@ -289,11 +282,10 @@ impl BlockFile {
             let mut cursor: &[u8] = remaining;
 
             while !cursor.is_empty() {
-                let (header, after_header): (CacheHeader, &[u8]) =
-                    match postcard::take_from_bytes(cursor) {
-                        Ok(result) => result,
-                        Err(_) => break,
-                    };
+                let (header, after_header): (CacheHeader, &[u8]) = match postcard::take_from_bytes(cursor) {
+                    Ok(result) => result,
+                    Err(_) => break,
+                };
 
                 let header_size = cursor.len() - after_header.len();
                 let content_size = header.content_size as usize;
@@ -353,8 +345,7 @@ impl BlockFile {
                         entry.header_bytes.len() as u32,
                     );
 
-                    new_offset +=
-                        entry.header_bytes.len() as u32 + entry.content_bytes.len() as u32;
+                    new_offset += entry.header_bytes.len() as u32 + entry.content_bytes.len() as u32;
                 }
 
                 new_file.flush()?;
@@ -373,10 +364,7 @@ impl BlockFile {
     /// `.bin` file (e.g. `3` for `3.bin`).  The caller derives the persisted
     /// `file_id` as `file_number + 1` so that `read()` can recover the filename via
     /// `file_id.saturating_sub(1)`.
-    fn find_writable_file(
-        block_dir: &Path,
-        item_size: usize,
-    ) -> Result<(PathBuf, u32), CacheError> {
+    fn find_writable_file(block_dir: &Path, item_size: usize) -> Result<(PathBuf, u32), CacheError> {
         if !block_dir.exists() {
             return Ok((block_dir.join("0.bin"), 0));
         }

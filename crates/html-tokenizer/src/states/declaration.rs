@@ -105,11 +105,7 @@ pub fn handle_xml_declaration_state(state: &mut TokenizerState, ch: char, tokens
 /// # Behavior
 /// - If the character is '>', the current doctype declaration token is emitted and the tokenizer transitions back to the `ParserState::Data` state.
 /// - For any other character, it appends the character to the current doctype declaration token's data.
-pub fn handle_doctype_declaration_state(
-    state: &mut TokenizerState,
-    ch: char,
-    tokens: &mut Vec<Token>,
-) {
+pub fn handle_doctype_declaration_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '>' => {
             if let Some(token) = state.current_token.take() {

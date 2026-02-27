@@ -28,10 +28,7 @@ pub trait ApplicationWindow<Application, Message, Theme, Renderer> {
     ///
     /// # Returns
     /// * `Element<'window, Message, Theme, Renderer>` - The rendered content of the window
-    fn render<'window>(
-        &'window self,
-        app: &'window Application,
-    ) -> iced::Element<'window, Message, Theme, Renderer>;
+    fn render<'window>(&'window self, app: &'window Application) -> iced::Element<'window, Message, Theme, Renderer>;
 
     /// Returns the settings for the window.
     fn settings(&self) -> window::Settings;

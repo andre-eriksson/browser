@@ -55,9 +55,7 @@ impl From<MaxDimension> for ComputedMaxDimension {
     fn from(value: MaxDimension) -> Self {
         match value {
             MaxDimension::None => Self::None,
-            MaxDimension::Length(_) | MaxDimension::Percentage(_) | MaxDimension::Calc(_) => {
-                Self::Fixed
-            }
+            MaxDimension::Length(_) | MaxDimension::Percentage(_) | MaxDimension::Calc(_) => Self::Fixed,
             MaxDimension::MaxContent => Self::MaxContent,
             MaxDimension::MinContent => Self::MinContent,
             MaxDimension::FitContent(len) => Self::FitContent(len),

@@ -88,8 +88,7 @@ impl CookieJar {
 
         let conn = CookieDatabase::open();
         if let Ok(connection) = conn {
-            let persisted_cookies =
-                CookieTable::get_cookies_by_domain(&connection, domain.to_string());
+            let persisted_cookies = CookieTable::get_cookies_by_domain(&connection, domain.to_string());
 
             cookies.extend(persisted_cookies);
         }
@@ -114,10 +113,7 @@ impl CookieJar {
                 .to_string()
                 .ends_with(domain.to_string().as_str())
         {
-            debug!(
-                "Cookie rejected: domain '{}' doesn't match request domain '{}'",
-                domain, request_domain
-            );
+            debug!("Cookie rejected: domain '{}' doesn't match request domain '{}'", domain, request_domain);
 
             return;
         }
@@ -134,10 +130,7 @@ impl CookieJar {
             let creation = CookieTable::create_table(&connection);
 
             if creation.is_err() {
-                debug!(
-                    "Unable to create the cookie table: {}",
-                    creation.err().unwrap()
-                );
+                debug!("Unable to create the cookie table: {}", creation.err().unwrap());
             } else {
                 let adding = CookieTable::insert(&connection, &cookie);
 

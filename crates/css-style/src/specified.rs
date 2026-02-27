@@ -10,24 +10,21 @@ use crate::{
     global::Global,
     handler::{
         PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
-        handle_border_bottom_style, handle_border_bottom_width, handle_border_left_color,
-        handle_border_left_style, handle_border_left_width, handle_border_right_color,
-        handle_border_right_style, handle_border_right_width, handle_border_top_color,
-        handle_border_top_style, handle_border_top_width, handle_color, handle_display,
-        handle_font_family, handle_font_size, handle_font_weight, handle_height,
-        handle_line_height, handle_margin, handle_margin_block, handle_margin_block_end,
-        handle_margin_block_start, handle_margin_bottom, handle_margin_left, handle_margin_right,
-        handle_margin_top, handle_max_height, handle_max_width, handle_padding,
-        handle_padding_block, handle_padding_block_end, handle_padding_block_start,
-        handle_padding_bottom, handle_padding_left, handle_padding_right, handle_padding_top,
-        handle_position, handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
+        handle_border_bottom_style, handle_border_bottom_width, handle_border_left_color, handle_border_left_style,
+        handle_border_left_width, handle_border_right_color, handle_border_right_style, handle_border_right_width,
+        handle_border_top_color, handle_border_top_style, handle_border_top_width, handle_color, handle_display,
+        handle_font_family, handle_font_size, handle_font_weight, handle_height, handle_line_height, handle_margin,
+        handle_margin_block, handle_margin_block_end, handle_margin_block_start, handle_margin_bottom,
+        handle_margin_left, handle_margin_right, handle_margin_top, handle_max_height, handle_max_width,
+        handle_padding, handle_padding_block, handle_padding_block_end, handle_padding_block_start,
+        handle_padding_bottom, handle_padding_left, handle_padding_right, handle_padding_top, handle_position,
+        handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
     },
     properties::{
-        AbsoluteContext, BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty,
-        ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
-        HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty,
-        OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty,
-        WidthProperty, WritingModeProperty,
+        AbsoluteContext, BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty, ColorProperty,
+        DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty, HeightProperty, LineHeightProperty,
+        MaxHeightProperty, MaxWidthProperty, OffsetValueProperty, PositionProperty, TextAlignProperty,
+        WhitespaceProperty, WidthProperty, WritingModeProperty,
     },
 };
 
@@ -113,8 +110,7 @@ impl SpecifiedStyle {
         let new_vars = cascade_variables(variables);
 
         if !new_vars.is_empty() {
-            let mut merged: HashMap<Property, Vec<ComponentValue>> = if parent_variables.is_empty()
-            {
+            let mut merged: HashMap<Property, Vec<ComponentValue>> = if parent_variables.is_empty() {
                 HashMap::with_capacity(new_vars.len())
             } else {
                 (*parent_variables)
@@ -187,8 +183,7 @@ impl SpecifiedStyle {
                     KnownProperty::WritingMode => handle_writing_mode(&mut ctx, v),
                     _ => {}
                 },
-                Property::Custom(_) => { /* Ignore custom properties here since they are already resolved */
-                }
+                Property::Custom(_) => { /* Ignore custom properties here since they are already resolved */ }
             }
         }
 

@@ -68,10 +68,7 @@ pub(crate) fn resolve_css_variables(
 /// Resolves a `var()` function by extracting the variable name and fallback values, then attempting to find the variable in the provided list of variables.
 /// If the variable is found, its value is returned. If not, the fallback values are resolved and returned. If there are no fallback values,
 /// the original `var()` function is returned as a component value.
-fn resolve_var_function(
-    variables: &[(Property, Vec<ComponentValue>)],
-    func: &Function,
-) -> Vec<ComponentValue> {
+fn resolve_var_function(variables: &[(Property, Vec<ComponentValue>)], func: &Function) -> Vec<ComponentValue> {
     let mut var_name = String::new();
     let mut fallback_values = Vec::new();
     let mut found_comma = false;
@@ -112,10 +109,7 @@ fn resolve_var_function(
 
 /// Attempts to resolve a CSS variable by searching for its name in the provided list of variables. If the variable is found, its value is resolved and returned.
 /// If the variable is not found or if its value is empty, `None` is returned.
-fn try_resolve_variable(
-    variables: &[(Property, Vec<ComponentValue>)],
-    var_name: &str,
-) -> Option<Vec<ComponentValue>> {
+fn try_resolve_variable(variables: &[(Property, Vec<ComponentValue>)], var_name: &str) -> Option<Vec<ComponentValue>> {
     for (name, vals) in variables {
         if name.to_string() != var_name {
             continue;

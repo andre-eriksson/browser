@@ -12,9 +12,7 @@ pub enum CaseSensitivity {
     CaseInsensitive,
 }
 
-pub(crate) fn parse_attribute_selectors_components(
-    components: &[ComponentValue],
-) -> Option<AttributeSelector> {
+pub(crate) fn parse_attribute_selectors_components(components: &[ComponentValue]) -> Option<AttributeSelector> {
     let mut tokens: Vec<CssToken> = Vec::with_capacity(6);
 
     for cv in components {

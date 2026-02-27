@@ -1,9 +1,7 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
 use crate::errors::CookieParsingError;
-use time::{
-    Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description,
-};
+use time::{Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description};
 use tracing::{debug, instrument};
 use url::{Host, Url};
 
@@ -231,12 +229,10 @@ impl Cookie {
                     Ok(parsed) => parsed,
                 };
 
-                cookie.expires =
-                    Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
+                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
             } else if date_parts.len() == 5 {
                 // Sun Nov 6 08:49:37 1994
-                let date_format =
-                    format_description!("[month repr:short]-[day padding:none]-[year]");
+                let date_format = format_description!("[month repr:short]-[day padding:none]-[year]");
                 let full_date = [date_parts[1], date_parts[2], date_parts[4]].join("-");
 
                 let date = match Date::parse(full_date.as_str(), date_format) {
@@ -250,8 +246,7 @@ impl Cookie {
                     Ok(parsed) => parsed,
                 };
 
-                cookie.expires =
-                    Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
+                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
             } else if date_parts.len() == 4 {
                 // Sunday, 06-Nov-94 08:49:37 GMT
                 let correct_date = if date_parts[1][7..].len() == 4 {
@@ -265,12 +260,7 @@ impl Cookie {
                         .parse::<i16>()
                         .unwrap();
 
-                    format!(
-                        "{}{}{}",
-                        &date_parts[1][..7],
-                        current_year_prefix,
-                        &date_parts[1][7..]
-                    )
+                    format!("{}{}{}", &date_parts[1][..7], current_year_prefix, &date_parts[1][7..])
                 };
 
                 let date_format = format_description!("[day]-[month repr:short]-[year]");
@@ -286,8 +276,7 @@ impl Cookie {
                     Ok(parsed) => parsed,
                 };
 
-                cookie.expires =
-                    Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
+                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
             }
         }
 
@@ -304,10 +293,7 @@ impl Cookie {
 
             let val = match value.parse::<i64>() {
                 Err(e) => {
-                    return Err(CookieParsingError::Parsing(
-                        String::from("i16"),
-                        e.to_string(),
-                    ));
+                    return Err(CookieParsingError::Parsing(String::from("i16"), e.to_string()));
                 }
                 Ok(val) => val,
             };
@@ -330,10 +316,7 @@ impl Cookie {
 
             let domain = match Host::parse(domain_mut) {
                 Err(e) => {
-                    return Err(CookieParsingError::Parsing(
-                        String::from("host"),
-                        e.to_string(),
-                    ));
+                    return Err(CookieParsingError::Parsing(String::from("host"), e.to_string()));
                 }
                 Ok(host) => host,
             };

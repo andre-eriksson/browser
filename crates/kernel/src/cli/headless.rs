@@ -8,9 +8,7 @@ use crate::{
 use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use cookies::CookieJar;
-use network::{
-    HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient,
-};
+use network::{HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient};
 
 use crate::{
     BrowserCommand, BrowserEvent, Commandable, Emitter,
@@ -136,9 +134,7 @@ impl Commandable for HeadlessBrowser {
             }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::ChangeActiveTab { tab_id } => {
-                change_active_tab(&mut self.tab_manager, tab_id)
-            }
+            BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
             BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
         }
     }

@@ -40,9 +40,7 @@ impl TryFrom<&[ComponentValue]> for Oklab {
                     } else if func.name.eq_ignore_ascii_case("oklch") {
                         let raw = FunctionColor::parse_color_components(&func.value)?;
                         return match raw.channels {
-                            [Some(l), Some(c), Some(h)] => {
-                                Ok(Oklab::Oklch(l, c, Hue::from(h), raw.alpha))
-                            }
+                            [Some(l), Some(c), Some(h)] => Ok(Oklab::Oklch(l, c, Hue::from(h), raw.alpha)),
                             _ => Err("Missing components in lch()".to_string()),
                         };
                     }
@@ -65,12 +63,7 @@ mod tests {
         let oklab = Oklab::try_from(color.as_slice()).unwrap();
         assert_eq!(
             oklab,
-            Oklab::Oklab(
-                ColorValue::Number(0.3),
-                ColorValue::Number(0.1),
-                ColorValue::Number(-0.1),
-                Alpha(0.5)
-            )
+            Oklab::Oklab(ColorValue::Number(0.3), ColorValue::Number(0.1), ColorValue::Number(-0.1), Alpha(0.5))
         );
 
         let color = css_color_fn!("oklab", "50%", "0.2", "0.4", "0.8");
@@ -90,15 +83,7 @@ mod tests {
     fn test_oklch_parsing() {
         let color = css_color_fn!("oklch", "0.5", "0.1", "30.0", "0.7");
         let oklch = Oklab::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            oklch,
-            Oklab::Oklch(
-                ColorValue::Number(0.5),
-                ColorValue::Number(0.1),
-                Hue(30.0),
-                Alpha(0.7)
-            )
-        );
+        assert_eq!(oklch, Oklab::Oklch(ColorValue::Number(0.5), ColorValue::Number(0.1), Hue(30.0), Alpha(0.7)));
 
         let color = css_color_fn!("oklch", "50%", "0.2", "120", "0.8");
         let oklch = Oklab::try_from(color.as_slice()).unwrap();

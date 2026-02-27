@@ -99,9 +99,10 @@ impl SimpleMiddleware {
                 let val_bytes = header_value.as_bytes();
 
                 // Can't contain 0x00-0x1F except 0x09 (HT), "():<>?@[\]{} and 0x7F (DEL)"
-                if val_bytes.iter().any(|&b| {
-                    (b <= 0x1F && b != 0x09) || b == 0x7F || b"():<>?@[\\]{}".contains(&b)
-                }) {
+                if val_bytes
+                    .iter()
+                    .any(|&b| (b <= 0x1F && b != 0x09) || b == 0x7F || b"():<>?@[\\]{}".contains(&b))
+                {
                     return false;
                 }
 

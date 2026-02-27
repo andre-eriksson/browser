@@ -89,9 +89,7 @@ impl Resource {
         let mut service = NetworkService::new(client, cookies, browser_headers);
         let header_response = match service.fetch(page_url.clone(), policies, request).await {
             RequestResult::Failed(err) => return Err(err),
-            RequestResult::ClientError(resp)
-            | RequestResult::ServerError(resp)
-            | RequestResult::Success(resp) => resp,
+            RequestResult::ClientError(resp) | RequestResult::ServerError(resp) | RequestResult::Success(resp) => resp,
         };
 
         Ok(header_response)

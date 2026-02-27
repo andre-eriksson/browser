@@ -101,9 +101,7 @@ impl LargeFile {
         let metadata_path = path.join(METADATA_FILE);
         let content_path = path.join(CONTENT_FILE);
 
-        if !std::path::Path::new(&metadata_path).exists()
-            || !std::path::Path::new(&content_path).exists()
-        {
+        if !std::path::Path::new(&metadata_path).exists() || !std::path::Path::new(&content_path).exists() {
             return Err(CacheError::ReadError(String::from("Large file not found")));
         }
 
@@ -111,8 +109,7 @@ impl LargeFile {
         let content_data = std::fs::read(&content_path)?;
         let content_size = content_data.len();
 
-        let header: CacheHeader =
-            postcard::from_bytes(&meta_data).map_err(|_| CacheError::CorruptedHeader)?;
+        let header: CacheHeader = postcard::from_bytes(&meta_data).map_err(|_| CacheError::CorruptedHeader)?;
 
         Ok((header, content_data, content_size))
     }
@@ -121,8 +118,8 @@ impl LargeFile {
     /// with the entry, including both the metadata and content files. If the entry does not exist, it simply returns `Ok(())`,
     /// ensuring that the method is idempotent and does not fail if the entry is already absent.
     pub fn delete(sha: [u8; 32]) -> Result<(), CacheError> {
-        let cache_path = get_cache_path()
-            .ok_or_else(|| CacheError::WriteError(String::from("Cache path not found")))?;
+        let cache_path =
+            get_cache_path().ok_or_else(|| CacheError::WriteError(String::from("Cache path not found")))?;
         let str_sha = Self::hash_to_hex(&sha);
 
         let path = cache_path

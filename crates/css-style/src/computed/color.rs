@@ -147,12 +147,7 @@ impl From<SystemColor> for Color4f {
         };
 
         if let Some(rgb) = Self::to_rgb_tuple(hex) {
-            return Self::new(
-                rgb.0 as f32 / 255.0,
-                rgb.1 as f32 / 255.0,
-                rgb.2 as f32 / 255.0,
-                1.0,
-            );
+            return Self::new(rgb.0 as f32 / 255.0, rgb.1 as f32 / 255.0, rgb.2 as f32 / 255.0, 1.0);
         }
         Self::default()
     }
@@ -167,12 +162,7 @@ impl From<NamedColor> for Color4f {
         };
 
         if let Some(rgb) = Self::to_rgb_tuple(hex) {
-            return Self::new(
-                rgb.0 as f32 / 255.0,
-                rgb.1 as f32 / 255.0,
-                rgb.2 as f32 / 255.0,
-                1.0,
-            );
+            return Self::new(rgb.0 as f32 / 255.0, rgb.1 as f32 / 255.0, rgb.2 as f32 / 255.0, 1.0);
         }
         Self::default()
     }
@@ -220,12 +210,7 @@ impl From<Oklab> for Color4f {
                 let h_rad = Self::hue_to_radians(&h);
                 let a = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.cos();
                 let b = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.sin();
-                Self::from(Oklab::Oklab(
-                    l,
-                    ColorValue::from(a),
-                    ColorValue::from(b),
-                    alpha,
-                ))
+                Self::from(Oklab::Oklab(l, ColorValue::from(a), ColorValue::from(b), alpha))
             }
         }
     }
@@ -283,12 +268,7 @@ impl From<Cielab> for Color4f {
                 let h_rad = Self::hue_to_radians(&h);
                 let a = c.value(0.0..=125.0, Fraction::Unsigned) * h_rad.cos();
                 let b = c.value(0.0..=125.0, Fraction::Unsigned) * h_rad.sin();
-                Self::from(Cielab::Lab(
-                    l,
-                    ColorValue::from(a),
-                    ColorValue::from(b),
-                    alpha,
-                ))
+                Self::from(Cielab::Lab(l, ColorValue::from(a), ColorValue::from(b), alpha))
             }
         }
     }
@@ -330,12 +310,7 @@ impl From<FunctionColor> for Color4f {
                         (c, 0.0, x)
                     };
 
-                    Self::new(
-                        (r1 + m).clamp(0.0, 1.0),
-                        (g1 + m).clamp(0.0, 1.0),
-                        (b1 + m).clamp(0.0, 1.0),
-                        a.value(),
-                    )
+                    Self::new((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), a.value())
                 }
                 SRGBAColor::Hwb(h, w, b, a) => {
                     let h_deg = h.value();

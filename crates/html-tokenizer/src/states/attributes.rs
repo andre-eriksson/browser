@@ -18,11 +18,7 @@ use crate::{
 /// - If the character is whitespace, it remains in the `ParserState::BeforeAttributeName` state.
 /// - If the character is alphabetic, it initializes a new attribute name and transitions to the `ParserState::AttributeName` state.
 /// - For any other character, it transitions to the `ParserState::Data` state.
-pub fn handle_before_attribute_name_state(
-    state: &mut TokenizerState,
-    ch: char,
-    tokens: &mut Vec<Token>,
-) {
+pub fn handle_before_attribute_name_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '>' => {
             if let Some(token) = state.current_token.take() {
@@ -101,11 +97,7 @@ pub fn handle_attribute_name_state(state: &mut TokenizerState, ch: char, tokens:
 /// - If the character is whitespace, it remains in the `ParserState::AfterAttributeName` state.
 /// - If the character is alphabetic, it finalizes the current attribute, initializes a new attribute name, and transitions to the `ParserState::AttributeName` state.
 /// - For any other character, it transitions to the `ParserState::Data` state.
-pub fn handle_after_attribute_name_state(
-    state: &mut TokenizerState,
-    ch: char,
-    tokens: &mut Vec<Token>,
-) {
+pub fn handle_after_attribute_name_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '>' => handle_closing_tag(state, tokens),
         '/' => {
@@ -117,10 +109,9 @@ pub fn handle_after_attribute_name_state(
         ch if ch.is_whitespace() => {}
         ch if ch.is_alphabetic() => {
             if let Some(token) = state.current_token.as_mut() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
+                token
+                    .attributes
+                    .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
             }
 
             state.current_attribute_name.clear();
@@ -212,19 +203,14 @@ pub fn handle_attribute_value_single_quoted_state(state: &mut TokenizerState, ch
 /// - If the character is '>', it finalizes the current attribute, emits the token, and transitions to the `ParserState::Data` state.
 /// - If the character is whitespace, it finalizes the current attribute and transitions to the `ParserState::BeforeAttributeName` state.
 /// - For any other character, it appends the character to the current attribute value.
-pub fn handle_attribute_value_unquoted_state(
-    state: &mut TokenizerState,
-    ch: char,
-    tokens: &mut Vec<Token>,
-) {
+pub fn handle_attribute_value_unquoted_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '>' => handle_closing_tag(state, tokens),
         ch if ch.is_ascii_whitespace() => {
             if let Some(token) = state.current_token.as_mut() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
+                token
+                    .attributes
+                    .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
 
                 state.current_attribute_name.clear();
                 state.current_attribute_value.clear();
@@ -248,11 +234,7 @@ pub fn handle_attribute_value_unquoted_state(
 /// - If the character is '>', it finalizes the current attribute, emits the token, and transitions to the `ParserState::Data` state.
 /// - If the character is '/', it transitions to the `ParserState::SelfClosingTagStart` state.
 /// - For any other character, it finalizes the current attribute and transitions to the `ParserState::BeforeAttributeName` state.
-pub fn handle_after_attribute_value_quoted_state(
-    state: &mut TokenizerState,
-    ch: char,
-    tokens: &mut Vec<Token>,
-) {
+pub fn handle_after_attribute_value_quoted_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
         '>' => handle_closing_tag(state, tokens),
         '/' => {
@@ -260,10 +242,9 @@ pub fn handle_after_attribute_value_quoted_state(
         }
         _ => {
             if let Some(token) = state.current_token.as_mut() {
-                token.attributes.insert(
-                    state.current_attribute_name.clone(),
-                    state.current_attribute_value.clone(),
-                );
+                token
+                    .attributes
+                    .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
 
                 state.current_attribute_name.clear();
                 state.current_attribute_value.clear();

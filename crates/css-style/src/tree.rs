@@ -50,11 +50,7 @@ pub struct StyleTree {
 impl StyleTree {
     /// Builds the style tree from the given absolute context, DOM tree, and stylesheets. This function computes the styles for each node in the
     /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
-    pub fn build(
-        absolute_ctx: &AbsoluteContext,
-        dom: &DocumentRoot,
-        stylesheets: &[CSSStyleSheet],
-    ) -> Self {
+    pub fn build(absolute_ctx: &AbsoluteContext, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
         let rules = GeneratedRule::build(stylesheets);
         let rule_index = RuleIndex::build(&rules);
         let mut relative_ctx = RelativeContext::default();
@@ -68,15 +64,8 @@ impl StyleTree {
             rule_index: &RuleIndex,
             parent_style: Option<&ComputedStyle>,
         ) -> StyledNode {
-            let computed_style = ComputedStyle::from_node(
-                absolute_ctx,
-                rel_ctx,
-                &node_id,
-                dom,
-                rules,
-                rule_index,
-                parent_style,
-            );
+            let computed_style =
+                ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, rule_index, parent_style);
 
             rel_ctx.parent = Arc::new(computed_style.clone());
 
@@ -94,15 +83,7 @@ impl StyleTree {
                 .iter()
                 .map(|&child_id| {
                     rel_ctx.parent = Arc::clone(&saved_parent);
-                    build_styled_node(
-                        absolute_ctx,
-                        rel_ctx,
-                        child_id,
-                        dom,
-                        rules,
-                        rule_index,
-                        Some(&computed_style),
-                    )
+                    build_styled_node(absolute_ctx, rel_ctx, child_id, dom, rules, rule_index, Some(&computed_style))
                 })
                 .collect();
 
@@ -126,17 +107,7 @@ impl StyleTree {
         let root_nodes = dom
             .root_nodes
             .iter()
-            .map(|&root_id| {
-                build_styled_node(
-                    absolute_ctx,
-                    &mut relative_ctx,
-                    root_id,
-                    dom,
-                    &rules,
-                    &rule_index,
-                    None,
-                )
-            })
+            .map(|&root_id| build_styled_node(absolute_ctx, &mut relative_ctx, root_id, dom, &rules, &rule_index, None))
             .collect();
 
         StyleTree { root_nodes }

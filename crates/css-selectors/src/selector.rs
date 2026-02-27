@@ -56,9 +56,7 @@ pub fn generate_selector_list(components: &[ComponentValue]) -> Vec<Vec<Compound
 ///
 /// # Returns
 /// * `Vec<CompoundSelectorSequence>` - A vector of compound selector sequences
-pub(crate) fn generate_compound_sequences(
-    components: &[ComponentValue],
-) -> Vec<CompoundSelectorSequence> {
+pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<CompoundSelectorSequence> {
     let mut sequences: Vec<CompoundSelectorSequence> = Vec::with_capacity(components.len() / 2 + 1);
     let mut current_sequence = CompoundSelectorSequence {
         compound_selectors: Vec::new(),
@@ -80,8 +78,7 @@ pub(crate) fn generate_compound_sequences(
         match component {
             ComponentValue::SimpleBlock(block) => {
                 if block.associated_token == AssociatedToken::SquareBracket {
-                    let attribute_selector =
-                        parse_attribute_selectors_components(block.value.as_slice());
+                    let attribute_selector = parse_attribute_selectors_components(block.value.as_slice());
 
                     if let Some(attr_selector) = attribute_selector {
                         let compound_selector = current_sequence.compound_selectors.last_mut();
@@ -147,10 +144,7 @@ pub(crate) fn generate_compound_sequences(
     sequences
 }
 
-fn flush_sequence(
-    current_sequence: &mut CompoundSelectorSequence,
-    sequences: &mut Vec<CompoundSelectorSequence>,
-) {
+fn flush_sequence(current_sequence: &mut CompoundSelectorSequence, sequences: &mut Vec<CompoundSelectorSequence>) {
     if !current_sequence.compound_selectors.is_empty() {
         sequences.push(std::mem::take(current_sequence));
     }

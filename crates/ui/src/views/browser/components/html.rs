@@ -12,9 +12,7 @@ use iced::{
 use crate::{
     core::{Application, UiTab},
     events::{Event, UiEvent},
-    views::browser::components::shader::{
-        HtmlRenderer, ViewportBounds, collect_render_data_from_layout,
-    },
+    views::browser::components::shader::{HtmlRenderer, ViewportBounds, collect_render_data_from_layout},
 };
 
 pub struct BrowserHtml<'renderer> {
@@ -42,8 +40,7 @@ impl<'renderer> BrowserHtml<'renderer> {
 
         let content_viewport_height = (viewport_height - 100.0).max(100.0);
 
-        let viewport_bounds =
-            ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);
+        let viewport_bounds = ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);
 
         let render_data = collect_render_data_from_layout(
             active_tab.page.document(),
@@ -71,10 +68,7 @@ impl<'renderer> BrowserHtml<'renderer> {
             .width(Length::Fill)
             .height(Length::Fill)
             .on_scroll(|viewport: Viewport| {
-                Event::Ui(UiEvent::ContentScrolled(
-                    viewport.absolute_offset().x,
-                    viewport.absolute_offset().y,
-                ))
+                Event::Ui(UiEvent::ContentScrolled(viewport.absolute_offset().x, viewport.absolute_offset().y))
             });
 
         let content_stack = stack![scrollable_layer, shader]
@@ -86,9 +80,8 @@ impl<'renderer> BrowserHtml<'renderer> {
             .height(Length::Fill)
             .style(move |_| container::Style {
                 background: Some(Background::Color(
-                    Color::from_str(app.config.theme().background.as_str()).unwrap_or(
-                        Color::from_str(&preferences::Theme::default().background).unwrap(),
-                    ),
+                    Color::from_str(app.config.theme().background.as_str())
+                        .unwrap_or(Color::from_str(&preferences::Theme::default().background).unwrap()),
                 )),
                 ..Default::default()
             })

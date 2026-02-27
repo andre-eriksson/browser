@@ -1,6 +1,4 @@
-use cosmic_text::{
-    Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap,
-};
+use cosmic_text::{Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap};
 use css_style::{FontFamily, FontFamilyName, Whitespace, font::GenericName};
 
 #[derive(Debug)]
@@ -72,23 +70,14 @@ impl TextContext {
         temp_buffer.set_size(&mut self.font_system, Some(max_width), None);
         temp_buffer.set_wrap(&mut self.font_system, wrap_mode);
 
-        temp_buffer.set_text(
-            &mut self.font_system,
-            text,
-            &attrs,
-            Shaping::Advanced,
-            Some(Align::Left),
-        );
+        temp_buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
 
         temp_buffer.shape_until_scroll(&mut self.font_system, false);
 
         let runs: Vec<_> = temp_buffer.layout_runs().collect();
 
         if runs.is_empty() {
-            return (
-                self.measure_text(text, text_description, max_width, wrap_mode),
-                None,
-            );
+            return (self.measure_text(text, text_description, max_width, wrap_mode), None);
         }
 
         if runs.len() > 1 {
@@ -101,16 +90,10 @@ impl TextContext {
             let fitted_text = &text[..split_index];
             let remaining_text = &text[split_index..];
 
-            return (
-                self.measure_text(fitted_text, text_description, max_width, wrap_mode),
-                Some(remaining_text),
-            );
+            return (self.measure_text(fitted_text, text_description, max_width, wrap_mode), Some(remaining_text));
         }
 
-        (
-            self.measure_text(text, text_description, max_width, wrap_mode),
-            None,
-        )
+        (self.measure_text(text, text_description, max_width, wrap_mode), None)
     }
 
     /// Measures the rendered size of the given text with specified styles and constraints.
@@ -137,20 +120,11 @@ impl TextContext {
             .weight(weight)
             .stretch(Stretch::Normal);
 
-        let preserve_whitespace = matches!(
-            text_description.whitespace,
-            Whitespace::Pre | Whitespace::PreWrap
-        );
+        let preserve_whitespace = matches!(text_description.whitespace, Whitespace::Pre | Whitespace::PreWrap);
 
         let is_whitespace_only = text.trim().is_empty() && !preserve_whitespace;
 
-        buffer.set_text(
-            &mut self.font_system,
-            text,
-            &attrs,
-            Shaping::Advanced,
-            Some(Align::Left),
-        );
+        buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
 
         buffer.shape_until_scroll(&mut self.font_system, false);
 

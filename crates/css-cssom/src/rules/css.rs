@@ -21,13 +21,8 @@ impl CSSRule {
     /// Returns None if the rule is invalid and should be discarded.
     pub fn from_parsed(rule: Rule, collect_positions: bool) -> Option<Self> {
         match rule {
-            Rule::QualifiedRule(qr) => {
-                CSSStyleRule::from_parsed(qr, collect_positions).map(CSSRule::Style)
-            }
-            Rule::AtRule(ar) => Some(CSSRule::AtRule(CSSAtRule::from_parsed(
-                ar,
-                collect_positions,
-            ))),
+            Rule::QualifiedRule(qr) => CSSStyleRule::from_parsed(qr, collect_positions).map(CSSRule::Style),
+            Rule::AtRule(ar) => Some(CSSRule::AtRule(CSSAtRule::from_parsed(ar, collect_positions))),
         }
     }
 

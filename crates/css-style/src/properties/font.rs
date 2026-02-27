@@ -236,9 +236,7 @@ impl TryFrom<&[ComponentValue]> for FontSize {
             match cv {
                 ComponentValue::Function(func) => {
                     if func.name.eq_ignore_ascii_case("calc") {
-                        return Ok(FontSize::Calc(CalcExpression::parse(
-                            func.value.as_slice(),
-                        )?));
+                        return Ok(FontSize::Calc(CalcExpression::parse(func.value.as_slice())?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -253,10 +251,7 @@ impl TryFrom<&[ComponentValue]> for FontSize {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(FontSize::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        return Ok(FontSize::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(num) => {
                         return Ok(FontSize::Percentage(Percentage::new(num.to_f64() as f32)));
@@ -306,14 +301,8 @@ mod tests {
 
         let font_family = FontFamily::try_from(input.as_slice()).unwrap();
         assert_eq!(font_family.names().len(), 2);
-        assert_eq!(
-            font_family.names()[0],
-            FontFamilyName::Specific("Times New Roman".to_string())
-        );
-        assert_eq!(
-            font_family.names()[1],
-            FontFamilyName::Generic(GenericName::Serif)
-        );
+        assert_eq!(font_family.names()[0], FontFamilyName::Specific("Times New Roman".to_string()));
+        assert_eq!(font_family.names()[1], FontFamilyName::Generic(GenericName::Serif));
     }
 
     #[test]
@@ -335,13 +324,7 @@ mod tests {
 
         let font_family = FontFamily::try_from(input.as_slice()).unwrap();
         assert_eq!(font_family.names().len(), 2);
-        assert_eq!(
-            font_family.names()[0],
-            FontFamilyName::Specific("Open Sans".to_string())
-        );
-        assert_eq!(
-            font_family.names()[1],
-            FontFamilyName::Generic(GenericName::Serif)
-        );
+        assert_eq!(font_family.names()[0], FontFamilyName::Specific("Open Sans".to_string()));
+        assert_eq!(font_family.names()[1], FontFamilyName::Generic(GenericName::Serif));
     }
 }

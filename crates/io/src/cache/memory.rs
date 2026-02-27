@@ -78,9 +78,8 @@ where
         let sha = Self::hash_url(key.as_ref(), vary);
 
         if let Some(data) = DiskCache::get(sha)? {
-            let deserialized: V = postcard::from_bytes(&data).map_err(|_| {
-                CacheError::ReadError(String::from("Failed to deserialize cache data"))
-            })?;
+            let deserialized: V = postcard::from_bytes(&data)
+                .map_err(|_| CacheError::ReadError(String::from("Failed to deserialize cache data")))?;
             let entry = CacheEntry::Loaded(Arc::new(CacheRead::Hit(deserialized)));
             self.insert(key.clone(), entry.clone());
             Ok(entry)
@@ -99,9 +98,7 @@ where
         drop(entries);
 
         self.get_from_disk(key, headers)?
-            .map_or(Ok(CacheEntry::Pending), |value| {
-                Ok(CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))))
-            })
+            .map_or(Ok(CacheEntry::Pending), |value| Ok(CacheEntry::Loaded(Arc::new(CacheRead::Hit(value)))))
     }
 
     /// Retrieves a cached value from disk for a given key and headers, returning `None` if not found or expired.
@@ -110,9 +107,8 @@ where
         let sha = Self::hash_url(key.as_ref(), &vary);
 
         if let Some(data) = DiskCache::get(sha)? {
-            let deserialized: V = postcard::from_bytes(&data).map_err(|_| {
-                CacheError::ReadError(String::from("Failed to deserialize cache data"))
-            })?;
+            let deserialized: V = postcard::from_bytes(&data)
+                .map_err(|_| CacheError::ReadError(String::from("Failed to deserialize cache data")))?;
             Ok(Some(deserialized))
         } else {
             Ok(None)
@@ -125,9 +121,7 @@ where
             match entries.entry(key.clone()) {
                 Entry::Occupied(mut occ) => match occ.get() {
                     CacheEntry::Loaded(_) => {
-                        return Err(CacheError::WriteError(String::from(
-                            "Cache entry already exists for this key",
-                        )));
+                        return Err(CacheError::WriteError(String::from("Cache entry already exists for this key")));
                     }
                     _ => {
                         occ.insert(CacheEntry::Pending);
@@ -154,8 +148,8 @@ where
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
-        let serialized = to_stdvec(value)
-            .map_err(|_| CacheError::WriteError(String::from("Failed to serialize cache data")))?;
+        let serialized =
+            to_stdvec(value).map_err(|_| CacheError::WriteError(String::from("Failed to serialize cache data")))?;
 
         let cache_control = CacheControlResponse::from(
             headers
@@ -165,9 +159,7 @@ where
         );
 
         if cache_control.no_store {
-            return Err(CacheError::WriteError(String::from(
-                "Cache-Control: no-store prevents caching",
-            )));
+            return Err(CacheError::WriteError(String::from("Cache-Control: no-store prevents caching")));
         }
 
         let header = CacheHeader::new(serialized.as_slice(), sha, &vary, headers, &cache_control);
@@ -243,9 +235,7 @@ where
             .unwrap_or_default();
 
         if vary.eq_ignore_ascii_case("*") {
-            return Err(CacheError::WriteError(String::from(
-                "Vary: * prevents caching",
-            )));
+            return Err(CacheError::WriteError(String::from("Vary: * prevents caching")));
         } else if vary.is_empty() {
             return Ok(String::new());
         }
@@ -253,9 +243,9 @@ where
         let mut parts = Vec::new();
 
         for header in vary.split(',').map(|s| s.trim()) {
-            let name = header.parse::<HeaderName>().map_err(|_| {
-                CacheError::WriteError(format!("Invalid header name in Vary: '{}'", header))
-            })?;
+            let name = header
+                .parse::<HeaderName>()
+                .map_err(|_| CacheError::WriteError(format!("Invalid header name in Vary: '{}'", header)))?;
 
             let value = headers
                 .get(&name)

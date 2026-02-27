@@ -40,12 +40,7 @@ pub(crate) fn close_window(application: &mut Application, window_id: Id) -> Task
 }
 
 /// Handles the resizing of a window when a `WindowResized` event is received from the UI.
-pub(crate) fn on_window_resized(
-    application: &mut Application,
-    window_id: Id,
-    width: f32,
-    height: f32,
-) -> Task<Event> {
+pub(crate) fn on_window_resized(application: &mut Application, window_id: Id, width: f32, height: f32) -> Task<Event> {
     application.viewports.insert(window_id, (width, height));
 
     if window_id == application.id
@@ -72,12 +67,8 @@ pub(crate) fn on_window_resized(
         let image_ctx = tab.image_context();
 
         let mut tc = application.text_context.lock().unwrap();
-        let layout_tree = LayoutEngine::compute_layout(
-            &style_tree,
-            Rect::new(0.0, 0.0, width, height),
-            &mut tc,
-            Some(&image_ctx),
-        );
+        let layout_tree =
+            LayoutEngine::compute_layout(&style_tree, Rect::new(0.0, 0.0, width, height), &mut tc, Some(&image_ctx));
         drop(tc);
 
         tab.layout_tree = layout_tree;

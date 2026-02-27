@@ -78,10 +78,7 @@ impl TryFrom<&[ComponentValue]> for SystemColor {
             }
         }
 
-        Err(format!(
-            "No valid system color token found in component values: {:?}",
-            value
-        ))
+        Err(format!("No valid system color token found in component values: {:?}", value))
     }
 }
 
@@ -699,10 +696,7 @@ impl TryFrom<&[ComponentValue]> for NamedColor {
             }
         }
 
-        Err(format!(
-            "No valid named color token found in component values: {:?}",
-            value
-        ))
+        Err(format!("No valid named color token found in component values: {:?}", value))
     }
 }
 

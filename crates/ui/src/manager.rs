@@ -12,8 +12,7 @@ use crate::core::{Application, ApplicationWindow};
 /// # Fields
 /// * `open_windows` - A map of currently open windows, keyed by their unique ID
 pub struct WindowController<Message, Theme, Renderer> {
-    pub open_windows:
-        HashMap<window::Id, Box<dyn ApplicationWindow<Application, Message, Theme, Renderer>>>,
+    pub open_windows: HashMap<window::Id, Box<dyn ApplicationWindow<Application, Message, Theme, Renderer>>>,
 }
 
 impl<Message, Theme, Renderer> WindowController<Message, Theme, Renderer> {
@@ -27,10 +26,7 @@ impl<Message, Theme, Renderer> WindowController<Message, Theme, Renderer> {
     ///
     /// # Arguments
     /// * `id` - The ID of the window to retrieve
-    pub fn get_window(
-        &self,
-        id: Id,
-    ) -> &dyn ApplicationWindow<Application, Message, Theme, Renderer> {
+    pub fn get_window(&self, id: Id) -> &dyn ApplicationWindow<Application, Message, Theme, Renderer> {
         self.open_windows
             .get(&id)
             .expect("Window not found")

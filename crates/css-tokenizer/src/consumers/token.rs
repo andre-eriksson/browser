@@ -41,14 +41,8 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
             let next = tokenizer.stream.peek();
             let next2 = tokenizer.stream.peek_at(1);
 
-            if next.is_some_and(is_ident_code_point)
-                || two_code_points_are_valid_escape(next, next2)
-            {
-                let type_flag = if three_code_points_would_start_ident(
-                    next,
-                    next2,
-                    tokenizer.stream.peek_at(2),
-                ) {
+            if next.is_some_and(is_ident_code_point) || two_code_points_are_valid_escape(next, next2) {
+                let type_flag = if three_code_points_would_start_ident(next, next2, tokenizer.stream.peek_at(2)) {
                     HashType::Id
                 } else {
                     HashType::Unrestricted
@@ -97,9 +91,7 @@ pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
             if input_starts_with_number(tokenizer) {
                 tokenizer.stream.reconsume();
                 consume_numeric_token(tokenizer)
-            } else if tokenizer.stream.peek() == Some('-')
-                && tokenizer.stream.peek_at(1) == Some('>')
-            {
+            } else if tokenizer.stream.peek() == Some('-') && tokenizer.stream.peek_at(1) == Some('>') {
                 // CDC token -->
                 tokenizer.stream.consume(); // -
                 tokenizer.stream.consume(); // >

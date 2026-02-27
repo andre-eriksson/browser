@@ -5,20 +5,16 @@ use crate::{
     state::TokenState,
     states::{
         attributes::{
-            handle_after_attribute_name_state, handle_after_attribute_value_quoted_state,
-            handle_attribute_name_state, handle_attribute_value_double_quoted_state,
-            handle_attribute_value_single_quoted_state, handle_attribute_value_unquoted_state,
-            handle_before_attribute_name_state, handle_before_attribute_value_state,
+            handle_after_attribute_name_state, handle_after_attribute_value_quoted_state, handle_attribute_name_state,
+            handle_attribute_value_double_quoted_state, handle_attribute_value_single_quoted_state,
+            handle_attribute_value_unquoted_state, handle_before_attribute_name_state,
+            handle_before_attribute_value_state,
         },
         comment::{
-            handle_bogus_comment_state, handle_comment_end_state, handle_comment_start_state,
-            handle_comment_state,
+            handle_bogus_comment_state, handle_comment_end_state, handle_comment_start_state, handle_comment_state,
         },
         data::handle_data_state,
-        declaration::{
-            handle_doctype_declaration_state, handle_start_declaration_state,
-            handle_xml_declaration_state,
-        },
+        declaration::{handle_doctype_declaration_state, handle_start_declaration_state, handle_xml_declaration_state},
         tag::{
             handle_end_tag_open_state, handle_self_closing_tag_start_state, handle_tag_name_state,
             handle_tag_open_state,
@@ -60,25 +56,15 @@ impl HtmlTokenizer {
             TokenState::Data => handle_data_state(state, ch, tokens),
             TokenState::TagOpen => handle_tag_open_state(state, ch),
             TokenState::EndTagOpen => handle_end_tag_open_state(state, ch, tokens),
-            TokenState::SelfClosingTagStart => {
-                handle_self_closing_tag_start_state(state, ch, tokens)
-            }
+            TokenState::SelfClosingTagStart => handle_self_closing_tag_start_state(state, ch, tokens),
             TokenState::TagName => handle_tag_name_state(state, ch, tokens),
-            TokenState::BeforeAttributeName => {
-                handle_before_attribute_name_state(state, ch, tokens)
-            }
+            TokenState::BeforeAttributeName => handle_before_attribute_name_state(state, ch, tokens),
             TokenState::AttributeName => handle_attribute_name_state(state, ch, tokens),
             TokenState::AfterAttributeName => handle_after_attribute_name_state(state, ch, tokens),
             TokenState::BeforeAttributeValue => handle_before_attribute_value_state(state, ch),
-            TokenState::AttributeValueDoubleQuoted => {
-                handle_attribute_value_double_quoted_state(state, ch)
-            }
-            TokenState::AttributeValueSingleQuoted => {
-                handle_attribute_value_single_quoted_state(state, ch)
-            }
-            TokenState::AttributeValueUnquoted => {
-                handle_attribute_value_unquoted_state(state, ch, tokens)
-            }
+            TokenState::AttributeValueDoubleQuoted => handle_attribute_value_double_quoted_state(state, ch),
+            TokenState::AttributeValueSingleQuoted => handle_attribute_value_single_quoted_state(state, ch),
+            TokenState::AttributeValueUnquoted => handle_attribute_value_unquoted_state(state, ch, tokens),
             TokenState::AfterAttributeValueQuoted => {
                 handle_after_attribute_value_quoted_state(state, ch, tokens);
             }

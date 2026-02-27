@@ -39,11 +39,7 @@ mod tests {
                         ParserState::Blocked(reason) => match reason {
                             BlockedReason::WaitingForStyle(_attributes) => {
                                 if let Ok(css) = parser.extract_style_content() {
-                                    let stylesheet = CSSStyleSheet::from_css(
-                                        &css,
-                                        StylesheetOrigin::Author,
-                                        true,
-                                    );
+                                    let stylesheet = CSSStyleSheet::from_css(&css, StylesheetOrigin::Author, true);
                                     stylesheets.push(stylesheet);
                                 }
 
@@ -115,10 +111,7 @@ mod tests {
         assert_eq!(first_div.dimensions.height, 30.0);
         assert_eq!(first_div.dimensions.width, 744.0);
         assert_eq!(first_div.resolved_margin.top, 20.0);
-        assert_eq!(
-            first_div.resolved_margin.top,
-            first_div.resolved_margin.bottom
-        );
+        assert_eq!(first_div.resolved_margin.top, first_div.resolved_margin.bottom);
 
         let second_div = &body.children[1];
         assert_eq!(second_div.dimensions.x, 28.0);
@@ -128,10 +121,7 @@ mod tests {
         assert_eq!(second_div.resolved_padding.top, 10.0);
         assert_eq!(second_div.resolved_padding.bottom, 10.0);
         assert_eq!(second_div.resolved_margin.top, 20.0);
-        assert_eq!(
-            second_div.resolved_margin.top,
-            first_div.resolved_margin.bottom
-        );
+        assert_eq!(second_div.resolved_margin.top, first_div.resolved_margin.bottom);
 
         let third_div = &body.children[2];
         assert_eq!(third_div.dimensions.x, 28.0);
@@ -139,10 +129,7 @@ mod tests {
         assert_eq!(third_div.dimensions.height, 30.0);
         assert_eq!(third_div.dimensions.width, 744.0);
         assert_eq!(third_div.resolved_margin.top, 20.0);
-        assert_eq!(
-            third_div.resolved_margin.top,
-            second_div.resolved_margin.bottom
-        );
+        assert_eq!(third_div.resolved_margin.top, second_div.resolved_margin.bottom);
 
         let fourth_div = &body.children[3];
         assert_eq!(fourth_div.dimensions.x, 108.0);
@@ -150,10 +137,7 @@ mod tests {
         assert_eq!(fourth_div.dimensions.height, 30.0);
         assert_eq!(fourth_div.dimensions.width, 584.0);
         assert_eq!(fourth_div.resolved_margin.top, 100.0);
-        assert_eq!(
-            fourth_div.resolved_margin.top,
-            fourth_div.resolved_margin.bottom
-        );
+        assert_eq!(fourth_div.resolved_margin.top, fourth_div.resolved_margin.bottom);
     }
 
     #[test]
@@ -179,10 +163,7 @@ mod tests {
         assert_eq!(first_div.dimensions.height, 30.0);
         assert_eq!(first_div.dimensions.width, 724.0);
         assert_eq!(first_div.resolved_margin.top, 20.0);
-        assert_eq!(
-            first_div.resolved_margin.top,
-            first_div.resolved_margin.bottom
-        );
+        assert_eq!(first_div.resolved_margin.top, first_div.resolved_margin.bottom);
 
         let second_div = &body.children[1];
         assert_eq!(second_div.dimensions.x, 38.0);
@@ -192,10 +173,7 @@ mod tests {
         assert_eq!(second_div.resolved_padding.top, 10.0);
         assert_eq!(second_div.resolved_padding.bottom, 10.0);
         assert_eq!(second_div.resolved_margin.top, 20.0);
-        assert_eq!(
-            second_div.resolved_margin.top,
-            first_div.resolved_margin.bottom
-        );
+        assert_eq!(second_div.resolved_margin.top, first_div.resolved_margin.bottom);
 
         let third_div = &body.children[2];
         assert_eq!(third_div.dimensions.x, 38.0);
@@ -203,10 +181,7 @@ mod tests {
         assert_eq!(third_div.dimensions.height, 30.0);
         assert_eq!(third_div.dimensions.width, 724.0);
         assert_eq!(third_div.resolved_margin.top, 20.0);
-        assert_eq!(
-            third_div.resolved_margin.top,
-            second_div.resolved_margin.bottom
-        );
+        assert_eq!(third_div.resolved_margin.top, second_div.resolved_margin.bottom);
 
         let fourth_div = &body.children[3];
         assert_eq!(fourth_div.dimensions.x, 118.0);
@@ -214,10 +189,7 @@ mod tests {
         assert_eq!(fourth_div.dimensions.height, 30.0);
         assert_eq!(fourth_div.dimensions.width, 564.0);
         assert_eq!(fourth_div.resolved_margin.top, 100.0);
-        assert_eq!(
-            fourth_div.resolved_margin.top,
-            fourth_div.resolved_margin.bottom
-        );
+        assert_eq!(fourth_div.resolved_margin.top, fourth_div.resolved_margin.bottom);
     }
 
     #[test]
@@ -282,8 +254,7 @@ mod tests {
     ///      container grew taller.
     #[test]
     fn test_image_relayout_repositions_siblings() {
-        let (style_tree, mut text_context) =
-            process_html_raw!("fixtures/image_relayout.html", true);
+        let (style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
 
         let layout_before = layout_from!(style_tree, &mut text_context);
 
@@ -366,8 +337,7 @@ mod tests {
     /// running it twice produces identical results.
     #[test]
     fn test_image_relayout_is_idempotent() {
-        let (style_tree, mut text_context) =
-            process_html_raw!("fixtures/image_relayout.html", true);
+        let (style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);

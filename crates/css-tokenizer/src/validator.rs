@@ -64,15 +64,9 @@ pub(crate) fn input_starts_with_ident_sequence(tokenizer: &mut CssTokenizer) -> 
 /// * `first` - The first code point
 /// * `second` - The second code point
 /// * `third` - The third code point
-fn three_code_points_would_start_number(
-    first: Option<char>,
-    second: Option<char>,
-    third: Option<char>,
-) -> bool {
+fn three_code_points_would_start_number(first: Option<char>, second: Option<char>, third: Option<char>) -> bool {
     match first {
-        Some('+') | Some('-') => {
-            second.is_some_and(is_digit) || (second == Some('.') && third.is_some_and(is_digit))
-        }
+        Some('+') | Some('-') => second.is_some_and(is_digit) || (second == Some('.') && third.is_some_and(is_digit)),
         Some('.') => second.is_some_and(is_digit),
         Some(c) if is_digit(c) => true,
         _ => false,
@@ -84,9 +78,5 @@ fn three_code_points_would_start_number(
 /// # Arguments
 /// * `tokenizer` - The CSS tokenizer
 pub(crate) fn input_starts_with_number(tokenizer: &mut CssTokenizer) -> bool {
-    three_code_points_would_start_number(
-        tokenizer.stream.current,
-        tokenizer.stream.peek(),
-        tokenizer.stream.peek_at(1),
-    )
+    three_code_points_would_start_number(tokenizer.stream.current, tokenizer.stream.peek(), tokenizer.stream.peek_at(1))
 }

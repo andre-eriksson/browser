@@ -41,10 +41,7 @@ impl BrowserHeader {
                                 button::Style {
                                     background: Some(Background::Color(
                                         Color::from_str(theme.secondary.as_str()).unwrap_or(
-                                            Color::from_str(
-                                                &preferences::Theme::default().secondary,
-                                            )
-                                            .unwrap(),
+                                            Color::from_str(&preferences::Theme::default().secondary).unwrap(),
                                         ),
                                     )),
                                     ..Default::default()
@@ -60,9 +57,8 @@ impl BrowserHeader {
                     .on_press(Event::Ui(UiEvent::NewTab))
                     .style(|_, _| button::Style {
                         background: Some(Background::Color(
-                            Color::from_str(theme.tertiary.as_str()).unwrap_or(
-                                Color::from_str(&preferences::Theme::default().tertiary).unwrap(),
-                            ),
+                            Color::from_str(theme.tertiary.as_str())
+                                .unwrap_or(Color::from_str(&preferences::Theme::default().tertiary).unwrap()),
                         )),
                         ..Default::default()
                     })
@@ -78,15 +74,11 @@ impl BrowserHeader {
 
         let search_bar = text_input("Search", &app.current_url)
             .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)))
-            .on_submit(Event::Browser(BrowserEvent::NavigateTo(
-                app.current_url.clone(),
-            )));
+            .on_submit(Event::Browser(BrowserEvent::NavigateTo(app.current_url.clone())));
 
         let search_field = row![
             search_bar,
-            button("Go").on_press(Event::Browser(BrowserEvent::NavigateTo(
-                app.current_url.clone()
-            )))
+            button("Go").on_press(Event::Browser(BrowserEvent::NavigateTo(app.current_url.clone())))
         ]
         .spacing(10.0);
 
@@ -95,9 +87,8 @@ impl BrowserHeader {
             .padding(10.0)
             .style(|_| container::Style {
                 background: Some(Background::Color(
-                    Color::from_str(theme.foreground.as_str()).unwrap_or(
-                        Color::from_str(&preferences::Theme::default().foreground).unwrap(),
-                    ),
+                    Color::from_str(theme.foreground.as_str())
+                        .unwrap_or(Color::from_str(&preferences::Theme::default().foreground).unwrap()),
                 )),
                 ..Default::default()
             })

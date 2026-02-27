@@ -70,18 +70,12 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
     pub(crate) fn resolve(property: &CSSProperty<T>) -> Result<&T, String> {
         match property {
             CSSProperty::Value(val) => Ok(val),
-            CSSProperty::Global(global) => {
-                Err(format!("Cannot resolve global property: {:?}", global))
-            }
+            CSSProperty::Global(global) => Err(format!("Cannot resolve global property: {:?}", global)),
         }
     }
 
     /// Resolves the property to its specific value if it is set, or computes the value based on the global value and the provided context (parent and initial values).
-    pub(crate) fn resolve_with_context<'a>(
-        &'a self,
-        parent: Option<&'a T>,
-        initial: &'a T,
-    ) -> &'a T {
+    pub(crate) fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, initial: &'a T) -> &'a T {
         match self {
             CSSProperty::Global(global) => match global {
                 Global::Initial => initial,
@@ -108,10 +102,7 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
 
     /// Updates the property based on the provided component values. It first checks if the value is a global value, and if so, updates the property accordingly.
     /// If not, it tries to parse the component values into the specific type T and updates the property with the parsed value.
-    pub(crate) fn update_property(
-        property: &mut CSSProperty<T>,
-        value: &[ComponentValue],
-    ) -> Result<(), String> {
+    pub(crate) fn update_property(property: &mut CSSProperty<T>, value: &[ComponentValue]) -> Result<(), String> {
         if let Ok(global) = Global::try_from(value) {
             *property = CSSProperty::Global(global);
             return Ok(());

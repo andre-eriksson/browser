@@ -24,18 +24,14 @@ impl<'a> Loader for ResourceType<'a> {
 
                 match cache_path {
                     Some(path) => {
-                        create_paths(&path)
-                            .map_err(|_| AssetError::Unavailable("app cache".to_string()))?;
+                        create_paths(&path).map_err(|_| AssetError::Unavailable("app cache".to_string()))?;
 
                         let full_path = path.join(file_path);
                         if !full_path.exists() {
-                            return Err(AssetError::NotFound(
-                                full_path.to_string_lossy().to_string(),
-                            ));
+                            return Err(AssetError::NotFound(full_path.to_string_lossy().to_string()));
                         }
 
-                        std::fs::read(full_path)
-                            .map_err(|_| AssetError::LoadFailed(file_path.to_string()))
+                        std::fs::read(full_path).map_err(|_| AssetError::LoadFailed(file_path.to_string()))
                     }
                     None => Err(AssetError::Unavailable("cache".to_string())),
                 }
@@ -45,18 +41,14 @@ impl<'a> Loader for ResourceType<'a> {
 
                 match config_path {
                     Some(path) => {
-                        create_paths(&path)
-                            .map_err(|_| AssetError::Unavailable("app config".to_string()))?;
+                        create_paths(&path).map_err(|_| AssetError::Unavailable("app config".to_string()))?;
 
                         let full_path = path.join(file_path);
                         if !full_path.exists() {
-                            return Err(AssetError::NotFound(
-                                full_path.to_string_lossy().to_string(),
-                            ));
+                            return Err(AssetError::NotFound(full_path.to_string_lossy().to_string()));
                         }
 
-                        std::fs::read(full_path)
-                            .map_err(|_| AssetError::LoadFailed(file_path.to_string()))
+                        std::fs::read(full_path).map_err(|_| AssetError::LoadFailed(file_path.to_string()))
                     }
                     None => Err(AssetError::Unavailable("config".to_string())),
                 }
@@ -66,25 +58,19 @@ impl<'a> Loader for ResourceType<'a> {
 
                 match user_data_path {
                     Some(path) => {
-                        create_paths(&path)
-                            .map_err(|_| AssetError::Unavailable("user data".to_string()))?;
+                        create_paths(&path).map_err(|_| AssetError::Unavailable("user data".to_string()))?;
 
                         let full_path = path.join(file_path);
                         if !full_path.exists() {
-                            return Err(AssetError::NotFound(
-                                full_path.to_string_lossy().to_string(),
-                            ));
+                            return Err(AssetError::NotFound(full_path.to_string_lossy().to_string()));
                         }
 
-                        std::fs::read(full_path)
-                            .map_err(|_| AssetError::LoadFailed(file_path.to_string()))
+                        std::fs::read(full_path).map_err(|_| AssetError::LoadFailed(file_path.to_string()))
                     }
                     None => Err(AssetError::Unavailable("user data".to_string())),
                 }
             }
-            ResourceType::FileSystem(path) => {
-                std::fs::read(path).map_err(|_| AssetError::LoadFailed(path.to_string()))
-            }
+            ResourceType::FileSystem(path) => std::fs::read(path).map_err(|_| AssetError::LoadFailed(path.to_string())),
             ResourceType::Embeded(asset) => EmbededResource::get(&asset.path())
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| AssetError::NotFound(asset.path())),
@@ -93,9 +79,7 @@ impl<'a> Loader for ResourceType<'a> {
                 "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location))),
                 "about" => {
                     let adjusted_location = location.trim_start_matches("about:");
-                    Self::load_asset(ResourceType::Embeded(EmbededType::Browser(
-                        adjusted_location,
-                    )))
+                    Self::load_asset(ResourceType::Embeded(EmbededType::Browser(adjusted_location)))
                 }
                 _ => Err(AssetError::UnsupportedProtocol(protocol.to_string())),
             },
@@ -106,11 +90,9 @@ impl<'a> Loader for ResourceType<'a> {
 impl<'a> Writer for ResourceType<'a> {
     fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError> {
         match self {
-            ResourceType::Absolute { .. } | ResourceType::Embeded(_) => {
-                Err(AssetError::UnsupportedOperation(
-                    "Cannot create or modify embedded or absolute resources".to_string(),
-                ))
-            }
+            ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(AssetError::UnsupportedOperation(
+                "Cannot create or modify embedded or absolute resources".to_string(),
+            )),
             ResourceType::Cache(file_path) => {
                 let cache_path = get_cache_path();
 
@@ -171,8 +153,9 @@ impl<'a> Writer for ResourceType<'a> {
                     None => Err(AssetError::Unavailable("user data".to_string())),
                 }
             }
-            ResourceType::FileSystem(path) => std::fs::write(path, data.as_ref())
-                .map_err(|_| AssetError::WriteFailed(path.to_string())),
+            ResourceType::FileSystem(path) => {
+                std::fs::write(path, data.as_ref()).map_err(|_| AssetError::WriteFailed(path.to_string()))
+            }
         }
     }
 }

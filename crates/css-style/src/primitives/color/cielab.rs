@@ -40,9 +40,7 @@ impl TryFrom<&[ComponentValue]> for Cielab {
                     } else if func.name.eq_ignore_ascii_case("lch") {
                         let raw = FunctionColor::parse_color_components(&func.value)?;
                         return match raw.channels {
-                            [Some(l), Some(c), Some(h)] => {
-                                Ok(Cielab::Lch(l, c, Hue::from(h), raw.alpha))
-                            }
+                            [Some(l), Some(c), Some(h)] => Ok(Cielab::Lch(l, c, Hue::from(h), raw.alpha)),
                             _ => Err("Missing components in lch()".to_string()),
                         };
                     }
@@ -65,12 +63,7 @@ mod tests {
         let lab = Cielab::try_from(color.as_slice()).unwrap();
         assert_eq!(
             lab,
-            Cielab::Lab(
-                ColorValue::Number(20.0),
-                ColorValue::Number(-30.0),
-                ColorValue::Number(50.0),
-                Alpha(1.0)
-            )
+            Cielab::Lab(ColorValue::Number(20.0), ColorValue::Number(-30.0), ColorValue::Number(50.0), Alpha(1.0))
         );
 
         let color = css_color_fn!("lab", "20.0%", "-30.0%", "50.0%", 0.5);
@@ -90,15 +83,7 @@ mod tests {
     fn test_lch_parse() {
         let color = css_color_fn!("lch", "20.0", "30.0", "60.0", "none");
         let lch = Cielab::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            lch,
-            Cielab::Lch(
-                ColorValue::Number(20.0),
-                ColorValue::Number(30.0),
-                Hue(60.0),
-                Alpha(1.0)
-            )
-        );
+        assert_eq!(lch, Cielab::Lch(ColorValue::Number(20.0), ColorValue::Number(30.0), Hue(60.0), Alpha(1.0)));
 
         let color = css_color_fn!("lch", "20.0%", "30.0%", "60.0", "0.5");
         let lch = Cielab::try_from(color.as_slice()).unwrap();

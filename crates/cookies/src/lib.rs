@@ -21,11 +21,7 @@ mod tests {
 
     #[test]
     fn test_expires_format_1() {
-        let cookie = Cookie::parse(
-            "ID=HelloWorld; Expires=Sun, 06 Nov 1994 08:49:37 GMT",
-            &localhost(),
-        )
-        .unwrap();
+        let cookie = Cookie::parse("ID=HelloWorld; Expires=Sun, 06 Nov 1994 08:49:37 GMT", &localhost()).unwrap();
 
         assert_eq!(cookie.name(), "ID");
         assert_eq!(cookie.value(), "HelloWorld");
@@ -34,11 +30,7 @@ mod tests {
 
     #[test]
     fn test_expires_format_2() {
-        let cookie = Cookie::parse(
-            "ID=HelloWorld; Expires=Sun Nov 6 08:49:37 1994",
-            &localhost(),
-        )
-        .unwrap();
+        let cookie = Cookie::parse("ID=HelloWorld; Expires=Sun Nov 6 08:49:37 1994", &localhost()).unwrap();
 
         assert_eq!(cookie.name(), "ID");
         assert_eq!(cookie.value(), "HelloWorld");
@@ -47,11 +39,7 @@ mod tests {
 
     #[test]
     fn test_expires_format_3() {
-        let cookie = Cookie::parse(
-            "ID=HelloWorld; Expires=Sunday, 06-Nov-94 08:49:37 GMT",
-            &localhost(),
-        )
-        .unwrap();
+        let cookie = Cookie::parse("ID=HelloWorld; Expires=Sunday, 06-Nov-94 08:49:37 GMT", &localhost()).unwrap();
 
         assert_eq!(cookie.name(), "ID");
         assert_eq!(cookie.value(), "HelloWorld");
@@ -94,10 +82,7 @@ mod tests {
         assert_eq!(cookie.name(), "ID");
         assert_eq!(cookie.value(), "HelloWorld");
         assert!(cookie.domain().is_some());
-        assert_eq!(
-            *cookie.domain().as_ref().unwrap(),
-            Host::Domain("google.com".to_string()).into()
-        );
+        assert_eq!(*cookie.domain().as_ref().unwrap(), Host::Domain("google.com".to_string()).into());
     }
 
     #[test]
@@ -165,11 +150,8 @@ mod tests {
 
     #[test]
     fn test_host_http_cookie_prefix() {
-        let http_host_cookie_valid = Cookie::parse(
-            "__Host-Http-ID=HelloWorld; Path=/; Secure; HttpOnly",
-            &localhost(),
-        )
-        .unwrap();
+        let http_host_cookie_valid =
+            Cookie::parse("__Host-Http-ID=HelloWorld; Path=/; Secure; HttpOnly", &localhost()).unwrap();
         assert!(Cookie::validate_cookie_prefix(&http_host_cookie_valid).is_ok());
 
         let http_host_cookie_invalid_not_secure = Cookie::builder()
@@ -212,8 +194,7 @@ mod tests {
 
     #[test]
     fn test_host_cookie_prefix() {
-        let host_cookie_valid =
-            Cookie::parse("__Host-ID=HelloWorld; Path=/; Secure", &localhost()).unwrap();
+        let host_cookie_valid = Cookie::parse("__Host-ID=HelloWorld; Path=/; Secure", &localhost()).unwrap();
         assert!(Cookie::validate_cookie_prefix(&host_cookie_valid).is_ok());
 
         let host_cookie_invalid_not_secure = Cookie::builder()
@@ -244,8 +225,7 @@ mod tests {
 
     #[test]
     fn test_http_cookie_prefix() {
-        let http_cookie_valid =
-            Cookie::parse("__Http-ID=HelloWorld; HttpOnly; Secure", &localhost()).unwrap();
+        let http_cookie_valid = Cookie::parse("__Http-ID=HelloWorld; HttpOnly; Secure", &localhost()).unwrap();
         assert!(Cookie::validate_cookie_prefix(&http_cookie_valid).is_ok());
 
         let http_cookie_invalid_no_httponly = Cookie::builder()

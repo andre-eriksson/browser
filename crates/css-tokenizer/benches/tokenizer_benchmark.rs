@@ -245,33 +245,15 @@ fn bench_specific_tokens(c: &mut Criterion) {
 
     // Benchmark specific token types
     let inputs = [
-        (
-            "identifiers",
-            "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj",
-        ),
+        ("identifiers", "aaaa bbbb cccc dddd eeee ffff gggg hhhh iiii jjjj"),
         ("numbers", "123 456.789 0.5 100 200 300 400 500 600 700"),
-        (
-            "strings",
-            r#""hello" 'world' "test" 'value' "string" 'text'"#,
-        ),
-        (
-            "hashes",
-            "#fff #000 #abc123 #header #footer #sidebar #main #content",
-        ),
+        ("strings", r#""hello" 'world' "test" 'value' "string" 'text'"#),
+        ("hashes", "#fff #000 #abc123 #header #footer #sidebar #main #content"),
         ("delimiters", "{ } [ ] ( ) : ; , . > + ~ * | ^"),
-        (
-            "at_keywords",
-            "@media @import @keyframes @font-face @supports @charset",
-        ),
-        (
-            "functions",
-            "rgb(1,2,3) rgba(1,2,3,4) calc(1+2) var(--x) url(test)",
-        ),
+        ("at_keywords", "@media @import @keyframes @font-face @supports @charset"),
+        ("functions", "rgb(1,2,3) rgba(1,2,3,4) calc(1+2) var(--x) url(test)"),
         ("whitespace", "    \n\n\n\t\t\t    \n  \t  \n  "),
-        (
-            "comments",
-            "/* comment 1 */ /* comment 2 */ /* comment 3 */",
-        ),
+        ("comments", "/* comment 1 */ /* comment 2 */ /* comment 3 */"),
     ];
 
     for (name, css) in inputs {

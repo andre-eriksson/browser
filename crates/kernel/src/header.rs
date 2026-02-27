@@ -2,8 +2,7 @@ use std::collections::HashMap;
 
 use constants::APP_NAME;
 use network::{
-    ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue,
-    USER_AGENT,
+    ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue, USER_AGENT,
 };
 
 pub struct DefaultHeaders;
@@ -26,16 +25,12 @@ impl DefaultHeaders {
             HeaderType::Browser => {
                 format!("Mozilla/5.0 ({}) MyRenderer/0.1 {}/0.1", os_info, APP_NAME)
             }
-            HeaderType::HeadlessBrowser => format!(
-                "Mozilla/5.0 ({}) MyRendererHeadless/0.1 {}/0.1",
-                os_info, APP_NAME
-            ),
+            HeaderType::HeadlessBrowser => format!("Mozilla/5.0 ({}) MyRendererHeadless/0.1 {}/0.1", os_info, APP_NAME),
         };
 
         #[cfg(debug_assertions)]
         {
-            user_agent +=
-                "-development (contact: https://github.com/andre-eriksson/browser/issues)";
+            user_agent += "-development (contact: https://github.com/andre-eriksson/browser/issues)";
         }
 
         user_agent
@@ -47,10 +42,7 @@ impl DefaultHeaders {
         let mut headers = HashMap::new();
         headers.insert(ACCEPT, "text/html".to_string());
         headers.insert(ACCEPT_ENCODING, "gzip, deflate, br".to_string());
-        headers.insert(
-            ACCEPT_LANGUAGE,
-            "en-US, sv-SE;q=0.9, en;q=0.8, sv;q=0.7".to_string(),
-        );
+        headers.insert(ACCEPT_LANGUAGE, "en-US, sv-SE;q=0.9, en;q=0.8, sv;q=0.7".to_string());
         headers.insert(CACHE_CONTROL, "no-store".to_string());
         headers.insert(CONNECTION, "keep-alive".to_string());
 
@@ -61,11 +53,7 @@ impl DefaultHeaders {
             if let Ok(header_value) = HeaderValue::from_str(&value) {
                 browser_headers.insert(key, header_value);
             } else {
-                eprintln!(
-                    "Failed to create header value for {}: {}",
-                    key.as_str(),
-                    value
-                );
+                eprintln!("Failed to create header value for {}: {}", key.as_str(), value);
             }
         }
 

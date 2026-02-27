@@ -42,16 +42,9 @@ pub(crate) async fn navigate(
         .clone();
     let cookie_jar = Arc::clone(ctx.cookie_jar());
 
-    let (url, response) = resolve_navigation_request(
-        url,
-        ctx,
-        &page.document_url,
-        page.policies(),
-        &cookies,
-        &headers,
-        client.as_ref(),
-    )
-    .await?;
+    let (url, response) =
+        resolve_navigation_request(url, ctx, &page.document_url, page.policies(), &cookies, &headers, client.as_ref())
+            .await?;
 
     let body = match response.body {
         Some(b) => b,
@@ -63,11 +56,7 @@ pub(crate) async fn navigate(
     page.document_url = Some(url.clone());
 
     let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
-    let mut parser = HtmlStreamParser::<_, TabCollector>::new(
-        body.as_slice(),
-        None,
-        Some(TabCollector::default()),
-    );
+    let mut parser = HtmlStreamParser::<_, TabCollector>::new(body.as_slice(), None, Some(TabCollector::default()));
 
     loop {
         parser.step()?;
@@ -116,9 +105,9 @@ pub(crate) async fn navigate(
                             Err(e) => {
                                 warn!(
                                     "{}",
-                                    NavigationError::RequestError(RequestError::Network(
-                                        NetworkError::InvalidUrl(e.to_string()),
-                                    ))
+                                    NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                                        e.to_string()
+                                    ),))
                                 );
                             }
                         }
@@ -133,11 +122,7 @@ pub(crate) async fn navigate(
                     let css_content = parser.extract_style_content()?;
 
                     let handle = tokio::task::spawn_blocking(move || {
-                        Some(CSSStyleSheet::from_css(
-                            &css_content,
-                            StylesheetOrigin::Author,
-                            true,
-                        ))
+                        Some(CSSStyleSheet::from_css(&css_content, StylesheetOrigin::Author, true))
                     });
                     style_handles.push(handle);
 
@@ -146,9 +131,9 @@ pub(crate) async fn navigate(
                 BlockedReason::WaitingForResource(resource_type, href) => match resource_type {
                     ResourceType::Style => {
                         let relative_url = url.join(href).map_err(|e| {
-                            NavigationError::RequestError(RequestError::Network(
-                                NetworkError::InvalidUrl(e.to_string()),
-                            ))
+                            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                                e.to_string(),
+                            )))
                         })?;
 
                         let handle = spawn_style_fetch_and_parse(
@@ -227,9 +212,10 @@ async fn resolve_navigation_request(
             .iter()
             .all(|&allowed| allowed != location)
         {
-            return Err(NavigationError::RequestError(RequestError::Network(
-                NetworkError::InvalidUrl(format!("Disallowed about URL: {}", location)),
-            )));
+            return Err(NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(format!(
+                "Disallowed about URL: {}",
+                location
+            )))));
         }
 
         let resp = Response::from(
@@ -238,24 +224,19 @@ async fn resolve_navigation_request(
                 location: format!("{}.html", location).as_str(),
             })
             .map_err(|e| {
-                NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-                    e.to_string(),
-                )))
+                NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string())))
             })?,
         );
 
-        let url = Url::parse(&format!("about:{}", location))
-            .unwrap_or_else(|_| Url::parse("about:blank").unwrap());
+        let url = Url::parse(&format!("about:{}", location)).unwrap_or_else(|_| Url::parse("about:blank").unwrap());
 
         return Ok((url, resp));
     }
 
     let decoder = Decoder::new(raw_url);
-    let decoded_url = decoder.decode().map_err(|e| {
-        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-            e.to_string(),
-        )))
-    })?;
+    let decoded_url = decoder
+        .decode()
+        .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
 
     let url = match page_url.as_ref() {
         Some(u) => u.join(&decoded_url),
@@ -270,9 +251,7 @@ async fn resolve_navigation_request(
                 location: url.path(),
             })
             .map_err(|e| {
-                NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-                    e.to_string(),
-                )))
+                NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string())))
             })?,
         )
     } else {
@@ -297,11 +276,9 @@ pub(crate) async fn resolve_request(
     client: &dyn HttpClient,
 ) -> Result<(Url, Response), NavigationError> {
     let decoder = Decoder::new(raw_url);
-    let decoded_url = decoder.decode().map_err(|e| {
-        NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-            e.to_string(),
-        )))
-    })?;
+    let decoded_url = decoder
+        .decode()
+        .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
 
     let url = match page_url.as_ref() {
         Some(u) => u.join(&decoded_url),
@@ -321,8 +298,7 @@ async fn resolve_request_inner(
     headers: &Arc<HeaderMap>,
     client: &dyn HttpClient,
 ) -> Result<(Url, Response), NavigationError> {
-    let resp =
-        Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies).await?;
+    let resp = Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies).await?;
 
     for header in resp.metadata().headers.iter() {
         if header.0 == SET_COOKIE
@@ -379,22 +355,16 @@ fn spawn_style_fetch_and_parse(
                 }
             }
         } else {
-            let resp = match Resource::from_remote(
-                url.as_str(),
-                client.as_ref(),
-                &cookies,
-                &headers,
-                &page_url,
-                &policies,
-            )
-            .await
-            {
-                Ok(r) => r,
-                Err(e) => {
-                    debug!("Failed to fetch stylesheet {}: {}", url, e);
-                    return None;
-                }
-            };
+            let resp =
+                match Resource::from_remote(url.as_str(), client.as_ref(), &cookies, &headers, &page_url, &policies)
+                    .await
+                {
+                    Ok(r) => r,
+                    Err(e) => {
+                        debug!("Failed to fetch stylesheet {}: {}", url, e);
+                        return None;
+                    }
+                };
 
             for header in resp.metadata().headers.iter() {
                 if header.0 == SET_COOKIE

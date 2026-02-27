@@ -15,11 +15,7 @@ impl ReferrerMiddleware {
     ///
     /// # Notes
     /// This function modifies the `request` in place by adding the Referrer header if applicable.
-    pub fn apply_referrer(
-        current_url: &Url,
-        request: &mut Request,
-        referrer_policy: &ReferrerPolicy,
-    ) {
+    pub fn apply_referrer(current_url: &Url, request: &mut Request, referrer_policy: &ReferrerPolicy) {
         match referrer_policy {
             ReferrerPolicy::NoReferrer => {}
             ReferrerPolicy::NoReferrerWhenDowngrade => {

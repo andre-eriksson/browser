@@ -113,10 +113,8 @@ impl LineBox {
         };
 
         for dec in &self.decorations {
-            let has_border = dec.border.top > 0.0
-                || dec.border.right > 0.0
-                || dec.border.bottom > 0.0
-                || dec.border.left > 0.0;
+            let has_border =
+                dec.border.top > 0.0 || dec.border.right > 0.0 || dec.border.bottom > 0.0 || dec.border.left > 0.0;
             let has_background = dec.style.background_color.a > 0.0;
 
             if !has_border && !has_background {
@@ -302,10 +300,7 @@ impl InlineLayout {
                             DEFAULT_IMAGE_HEIGHT
                         };
 
-                        let needs = attr_width.is_none()
-                            && attr_height.is_none()
-                            && !css_width
-                            && !css_height;
+                        let needs = attr_width.is_none() && attr_height.is_none() && !css_width && !css_height;
                         (w, h, needs)
                     };
 
@@ -393,10 +388,8 @@ impl InlineLayout {
                     last_text_align = text_align;
                     last_writing_mode = *writing_mode;
 
-                    let preserves_newlines = matches!(
-                        whitespace,
-                        Whitespace::Pre | Whitespace::PreWrap | Whitespace::PreLine
-                    );
+                    let preserves_newlines =
+                        matches!(whitespace, Whitespace::Pre | Whitespace::PreWrap | Whitespace::PreLine);
 
                     let text_desc = TextDescription {
                         whitespace: &whitespace,
@@ -478,8 +471,7 @@ impl InlineLayout {
                     if let Some(pos) = inline_box_stack.iter().rposition(|b| b.id == *id) {
                         let active = inline_box_stack.remove(pos);
 
-                        let right_edge =
-                            active.padding.right + active.border.right + active.margin.right;
+                        let right_edge = active.padding.right + active.border.right + active.margin.right;
                         line.advance(right_edge);
 
                         line.decorations.push(InlineDecoration {
@@ -501,13 +493,10 @@ impl InlineLayout {
                     };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
-                    let child_node =
-                        LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx);
+                    let child_node = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx);
 
                     if let Some(mut layout_node) = child_node {
-                        let total_width = layout_node.dimensions.width
-                            + padding.horizontal()
-                            + border.horizontal();
+                        let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
 
                         let alignment = &style.text_align;
                         let writing_mode = &style.writing_mode;
@@ -679,8 +668,7 @@ impl InlineLayout {
         while !remaining_text.is_empty() {
             let remaining_line_space = (available_width - line.width).max(0.0);
 
-            let (measured, rest) =
-                text_ctx.measure_text_that_fits(remaining_text, text_desc, remaining_line_space);
+            let (measured, rest) = text_ctx.measure_text_that_fits(remaining_text, text_desc, remaining_line_space);
 
             if measured.width == 0.0 && measured.height == 0.0 {
                 if let Some(r) = rest {

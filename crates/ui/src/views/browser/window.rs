@@ -20,10 +20,7 @@ use crate::{
 pub struct BrowserWindow;
 
 impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
-    fn render<'window>(
-        &'window self,
-        app: &'window Application,
-    ) -> iced::Element<'window, Event, Theme, Renderer> {
+    fn render<'window>(&'window self, app: &'window Application) -> iced::Element<'window, Event, Theme, Renderer> {
         let header = BrowserHeader::render(app);
         let footer = BrowserFooter::render(app);
 

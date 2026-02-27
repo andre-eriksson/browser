@@ -312,16 +312,12 @@ fn bench_to_css_string(c: &mut Criterion) {
 
     for (name, css) in inputs {
         let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author, true);
-        group.bench_with_input(
-            BenchmarkId::from_parameter(name),
-            &stylesheet,
-            |b, sheet| {
-                b.iter(|| {
-                    let css_text = sheet.to_css_string();
-                    black_box(css_text)
-                })
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(name), &stylesheet, |b, sheet| {
+            b.iter(|| {
+                let css_text = sheet.to_css_string();
+                black_box(css_text)
+            })
+        });
     }
 
     group.finish();
@@ -364,10 +360,8 @@ fn bench_property_access(c: &mut Criterion) {
             let rules = stylesheet.css_rules();
             if let Some(CSSRule::Style(style_rule)) = rules.first() {
                 let color = style_rule.get_property_value(Property::Known(KnownProperty::Color));
-                let margin =
-                    style_rule.get_property_value(Property::Known(KnownProperty::MarginTop));
-                let font =
-                    style_rule.get_property_value(Property::Known(KnownProperty::FontFamily));
+                let margin = style_rule.get_property_value(Property::Known(KnownProperty::MarginTop));
+                let font = style_rule.get_property_value(Property::Known(KnownProperty::FontFamily));
                 black_box((color, margin, font));
             }
         })
@@ -381,21 +375,9 @@ fn bench_property_modification(c: &mut Criterion) {
         b.iter_batched(
             || CSSStyleRule::new("div".to_string()),
             |mut style_rule| {
-                style_rule.set_property(
-                    Property::Known(KnownProperty::Color),
-                    "blue".to_string(),
-                    false,
-                );
-                style_rule.set_property(
-                    Property::Known(KnownProperty::Margin),
-                    "10px".to_string(),
-                    false,
-                );
-                style_rule.set_property(
-                    Property::Known(KnownProperty::Padding),
-                    "5px".to_string(),
-                    true,
-                );
+                style_rule.set_property(Property::Known(KnownProperty::Color), "blue".to_string(), false);
+                style_rule.set_property(Property::Known(KnownProperty::Margin), "10px".to_string(), false);
+                style_rule.set_property(Property::Known(KnownProperty::Padding), "5px".to_string(), true);
                 black_box(style_rule)
             },
             criterion::BatchSize::SmallInput,

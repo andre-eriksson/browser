@@ -14,7 +14,8 @@ impl CookieTable {
     pub fn get_all(conn: &Connection) -> Vec<Cookie> {
         let mut cookies = Vec::with_capacity(32);
 
-        let stmt = conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies");
+        let stmt =
+            conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies");
 
         if stmt.is_err() {
             return cookies;
@@ -66,7 +67,9 @@ impl CookieTable {
     pub fn get_cookies_by_domain<D: AsRef<str>>(conn: &Connection, domain: D) -> Vec<Cookie> {
         let mut cookies = Vec::new();
 
-        let stmt = conn.prepare("SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies WHERE domain=?1");
+        let stmt = conn.prepare(
+            "SELECT name, value, expiration, domain, path, secure, http_only, same_site FROM cookies WHERE domain=?1",
+        );
 
         if stmt.is_err() {
             return cookies;

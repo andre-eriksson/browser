@@ -111,9 +111,7 @@ fn consume_qualified_rule(css_parser: &mut CssParser) -> Option<QualifiedRule> {
             },
             None => {
                 // Parse error, return nothing
-                css_parser.record_error(CssParsingError::IncompleteQualifiedRule(
-                    SourcePosition::default(),
-                ));
+                css_parser.record_error(CssParsingError::IncompleteQualifiedRule(SourcePosition::default()));
                 return None;
             }
         }

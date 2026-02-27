@@ -2,9 +2,7 @@ use std::io::BufRead;
 use std::mem;
 
 use crate::errors::HtmlParsingError;
-use html_dom::{
-    BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
-};
+use html_dom::{BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState};
 use tracing::trace;
 
 use crate::{
@@ -165,10 +163,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// * `Ok(String)` - The content of the `<script>` tag.
     /// * `Err(String)` - An error message if the parser is not blocked waiting for a script or if extraction fails.
     pub fn extract_script_content(&mut self) -> Result<String, HtmlParsingError> {
-        if !matches!(
-            self.state,
-            ParserState::Blocked(BlockedReason::WaitingForScript(_)),
-        ) {
+        if !matches!(self.state, ParserState::Blocked(BlockedReason::WaitingForScript(_)),) {
             return Err(HtmlParsingError::InvalidBlockReason("script".to_string()));
         }
 
@@ -181,10 +176,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// * `Ok(String)` - The content of the `<style>` tag.
     /// * `Err(String)` - An error message if the parser is not blocked waiting for a style or if extraction fails.
     pub fn extract_style_content(&mut self) -> Result<String, HtmlParsingError> {
-        if !matches!(
-            self.state,
-            ParserState::Blocked(BlockedReason::WaitingForStyle(_)),
-        ) {
+        if !matches!(self.state, ParserState::Blocked(BlockedReason::WaitingForStyle(_)),) {
             return Err(HtmlParsingError::InvalidBlockReason("style".to_string()));
         }
 
@@ -290,10 +282,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                 let blocked_reason = match current_state {
                     TokenState::ScriptData => {
-                        trace!(
-                            "Blocking parser for script content at token: {:?}",
-                            tokens.last()
-                        );
+                        trace!("Blocking parser for script content at token: {:?}", tokens.last());
 
                         let attributes = tokens
                             .last()
@@ -303,10 +292,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                         Some(BlockedReason::WaitingForScript(attributes))
                     }
                     TokenState::StyleData => {
-                        trace!(
-                            "Blocking parser for style content at token: {:?}",
-                            tokens.last()
-                        );
+                        trace!("Blocking parser for style content at token: {:?}", tokens.last());
 
                         let attributes = tokens
                             .last()
@@ -316,10 +302,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                         Some(BlockedReason::WaitingForStyle(attributes))
                     }
                     TokenState::SvgData => {
-                        trace!(
-                            "Blocking parser for SVG content at token: {:?}",
-                            tokens.last()
-                        );
+                        trace!("Blocking parser for SVG content at token: {:?}", tokens.last());
 
                         Some(BlockedReason::SVGContent)
                     }
@@ -332,15 +315,9 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                                 .any(|rel| rel.eq_ignore_ascii_case("stylesheet"))
                         {
                             last_token.attributes.get("href").map(|href| {
-                                trace!(
-                                    "Blocking parser for stylesheet resource at token: {:?}",
-                                    last_token
-                                );
+                                trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
 
-                                BlockedReason::WaitingForResource(
-                                    ResourceType::Style,
-                                    href.to_string(),
-                                )
+                                BlockedReason::WaitingForResource(ResourceType::Style, href.to_string())
                             })
                         } else {
                             None
@@ -389,8 +366,8 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                     return Ok((String::new(), bytes.to_vec()));
                 }
 
-                let valid_text = str::from_utf8(&bytes[..valid_up_to])
-                    .map_err(|e| format!("Unexpected UTF-8 error: {}", e));
+                let valid_text =
+                    str::from_utf8(&bytes[..valid_up_to]).map_err(|e| format!("Unexpected UTF-8 error: {}", e));
 
                 let valid_text = match valid_text {
                     Ok(text) => text,

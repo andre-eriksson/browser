@@ -31,30 +31,15 @@ pub(crate) async fn load_image(
     let document_url = page.document_url.clone();
     let policies = *page.policies();
 
-    let (_resolved_url, response) = resolve_request(
-        url,
-        ctx,
-        &document_url,
-        &policies,
-        &cookies,
-        &headers,
-        client.as_ref(),
-    )
-    .await?;
+    let (_resolved_url, response) =
+        resolve_request(url, ctx, &document_url, &policies, &cookies, &headers, client.as_ref()).await?;
 
     let body = match response.body {
         Some(body) => body,
         None => {
-            return Err(BrowserError::ImageFetchError(
-                "No body in response".to_string(),
-            ));
+            return Err(BrowserError::ImageFetchError("No body in response".to_string()));
         }
     };
 
-    Ok(BrowserEvent::ImageFetched(
-        tab_id,
-        url.to_string(),
-        body,
-        response.headers,
-    ))
+    Ok(BrowserEvent::ImageFetched(tab_id, url.to_string(), body, response.headers))
 }

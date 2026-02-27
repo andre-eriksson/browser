@@ -6,10 +6,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use httpdate::fmt_http_date;
-use network::{
-    CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, IF_MODIFIED_SINCE, IF_NONE_MATCH,
-    LAST_MODIFIED,
-};
+use network::{CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

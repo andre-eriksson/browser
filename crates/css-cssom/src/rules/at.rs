@@ -1,6 +1,4 @@
-use css_parser::{
-    AssociatedToken, AtRule, ComponentValue, CssTokenKind, Property, QualifiedRule, SimpleBlock,
-};
+use css_parser::{AssociatedToken, AtRule, ComponentValue, CssTokenKind, Property, QualifiedRule, SimpleBlock};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -73,12 +71,9 @@ impl CSSAtRule {
             "media" | "supports" | "document" | "layer" | "scope" | "container" => {
                 self.parse_nested_rules(block, collect_positions)
             }
-            "font-face"
-            | "page"
-            | "counter-style"
-            | "font-feature-values"
-            | "font-palette-values"
-            | "property" => self.parse_declarations(block),
+            "font-face" | "page" | "counter-style" | "font-feature-values" | "font-palette-values" | "property" => {
+                self.parse_declarations(block)
+            }
             "keyframes" => self.parse_keyframe_rules(block, collect_positions),
             _ => self.parse_nested_rules(block, collect_positions),
         }
@@ -113,9 +108,7 @@ impl CSSAtRule {
                                             value: current_block_value.clone(),
                                         },
                                     };
-                                    if let Some(style_rule) =
-                                        CSSStyleRule::from_parsed(qr, collect_positions)
-                                    {
+                                    if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
                                         self.rules.push(CSSRule::Style(style_rule));
                                     }
                                     current_prelude.clear();
@@ -128,9 +121,7 @@ impl CSSAtRule {
                             }
                         }
                     }
-                    ComponentValue::SimpleBlock(sb)
-                        if sb.associated_token == AssociatedToken::CurlyBracket =>
-                    {
+                    ComponentValue::SimpleBlock(sb) if sb.associated_token == AssociatedToken::CurlyBracket => {
                         current_block_value.push(cv.clone());
                         block_depth += 1;
                     }
@@ -149,9 +140,7 @@ impl CSSAtRule {
                             current_prelude.push(cv.clone());
                         }
                     },
-                    ComponentValue::SimpleBlock(sb)
-                        if sb.associated_token == AssociatedToken::CurlyBracket =>
-                    {
+                    ComponentValue::SimpleBlock(sb) if sb.associated_token == AssociatedToken::CurlyBracket => {
                         let qr = QualifiedRule {
                             prelude: current_prelude.clone(),
                             block: sb.clone(),

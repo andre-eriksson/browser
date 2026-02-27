@@ -144,10 +144,7 @@ impl CssTokenizer {
 
     /// Record a parse error at the position of the last consumed character
     /// Use this when the error is caused by a character that was just consumed
-    pub fn record_error_at_current_char(
-        &mut self,
-        error_fn: fn(SourcePosition) -> CssTokenizationError,
-    ) {
+    pub fn record_error_at_current_char(&mut self, error_fn: fn(SourcePosition) -> CssTokenizationError) {
         let position = self.stream.prev_position();
         self.errors.push(error_fn(position));
     }
@@ -262,10 +259,7 @@ mod tests {
         assert!(has_errors(&tokenizer));
         let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 2);
-        assert!(matches!(
-            errors[0],
-            CssTokenizationError::NewlineInString(_)
-        ));
+        assert!(matches!(errors[0], CssTokenizationError::NewlineInString(_)));
         assert_eq!(errors[0].position().line, 1);
         assert_eq!(errors[0].position().column, 7);
         assert!(matches!(errors[1], CssTokenizationError::EofInString(_)));
@@ -323,10 +317,7 @@ mod tests {
         assert!(has_errors(&tokenizer));
         let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0],
-            CssTokenizationError::InvalidCharacterInUrl(_)
-        ));
+        assert!(matches!(errors[0], CssTokenizationError::InvalidCharacterInUrl(_)));
     }
 
     #[test]
@@ -337,10 +328,7 @@ mod tests {
         assert!(has_errors(&tokenizer));
         let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0],
-            CssTokenizationError::NewlineInString(_)
-        ));
+        assert!(matches!(errors[0], CssTokenizationError::NewlineInString(_)));
         assert_eq!(errors[0].position().line, 2);
         assert_eq!(errors[0].position().column, 14);
     }
@@ -362,14 +350,8 @@ mod tests {
         assert!(has_errors(&tokenizer));
         let errors = get_errors(&tokenizer);
         assert_eq!(errors.len(), 2);
-        assert!(matches!(
-            errors[0],
-            CssTokenizationError::NewlineInString(_)
-        ));
-        assert!(matches!(
-            errors[1],
-            CssTokenizationError::NewlineInString(_)
-        ));
+        assert!(matches!(errors[0], CssTokenizationError::NewlineInString(_)));
+        assert!(matches!(errors[1], CssTokenizationError::NewlineInString(_)));
     }
 
     #[test]
@@ -398,42 +380,15 @@ mod tests {
 
     #[test]
     fn test_single_tokens() {
-        assert!(matches!(
-            CssTokenizer::tokenize("(", true)[0].kind,
-            CssTokenKind::OpenParen
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize(")", true)[0].kind,
-            CssTokenKind::CloseParen
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize("{", true)[0].kind,
-            CssTokenKind::OpenCurly
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize("}", true)[0].kind,
-            CssTokenKind::CloseCurly
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize("[", true)[0].kind,
-            CssTokenKind::OpenSquare
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize("]", true)[0].kind,
-            CssTokenKind::CloseSquare
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize(":", true)[0].kind,
-            CssTokenKind::Colon
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize(";", true)[0].kind,
-            CssTokenKind::Semicolon
-        ));
-        assert!(matches!(
-            CssTokenizer::tokenize(",", true)[0].kind,
-            CssTokenKind::Comma
-        ));
+        assert!(matches!(CssTokenizer::tokenize("(", true)[0].kind, CssTokenKind::OpenParen));
+        assert!(matches!(CssTokenizer::tokenize(")", true)[0].kind, CssTokenKind::CloseParen));
+        assert!(matches!(CssTokenizer::tokenize("{", true)[0].kind, CssTokenKind::OpenCurly));
+        assert!(matches!(CssTokenizer::tokenize("}", true)[0].kind, CssTokenKind::CloseCurly));
+        assert!(matches!(CssTokenizer::tokenize("[", true)[0].kind, CssTokenKind::OpenSquare));
+        assert!(matches!(CssTokenizer::tokenize("]", true)[0].kind, CssTokenKind::CloseSquare));
+        assert!(matches!(CssTokenizer::tokenize(":", true)[0].kind, CssTokenKind::Colon));
+        assert!(matches!(CssTokenizer::tokenize(";", true)[0].kind, CssTokenKind::Semicolon));
+        assert!(matches!(CssTokenizer::tokenize(",", true)[0].kind, CssTokenKind::Comma));
     }
 
     #[test]
@@ -1167,9 +1122,7 @@ mod tests {
     fn test_id_selector() {
         let tokens = CssTokenizer::tokenize("#main", true);
         assert_eq!(tokens.len(), 1);
-        assert!(
-            matches!(&tokens[0].kind, CssTokenKind::Hash { value, type_flag: HashType::Id } if value == "main")
-        );
+        assert!(matches!(&tokens[0].kind, CssTokenKind::Hash { value, type_flag: HashType::Id } if value == "main"));
     }
 
     #[test]
@@ -1338,8 +1291,7 @@ mod tests {
         let tokens = CssTokenizer::tokenize("\"unterminated", true);
         assert!(!tokens.is_empty());
         assert!(
-            matches!(&tokens[0].kind, CssTokenKind::String(_))
-                || matches!(&tokens[0].kind, CssTokenKind::BadString)
+            matches!(&tokens[0].kind, CssTokenKind::String(_)) || matches!(&tokens[0].kind, CssTokenKind::BadString)
         );
     }
 

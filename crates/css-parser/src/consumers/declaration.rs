@@ -66,9 +66,7 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
         Some(token) => match token.kind {
             CssTokenKind::Ident(ref ident) => ident.clone(),
             _ => {
-                sub_parser.record_error(CssParsingError::InvalidDeclarationName(
-                    token.position.unwrap_or_default(),
-                ));
+                sub_parser.record_error(CssParsingError::InvalidDeclarationName(token.position.unwrap_or_default()));
                 return None;
             }
         },
@@ -83,10 +81,7 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
 
     sub_parser.skip_whitespace();
 
-    if !matches!(
-        sub_parser.peek().map(|t| &t.kind),
-        Some(CssTokenKind::Colon)
-    ) {
+    if !matches!(sub_parser.peek().map(|t| &t.kind), Some(CssTokenKind::Colon)) {
         sub_parser.record_error(CssParsingError::MissingColonInDeclaration(
             sub_parser
                 .peek()

@@ -38,8 +38,7 @@ pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) ->
         }
     } else {
         let local_regex =
-            Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)")
-                .unwrap();
+            Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
 
         if new_url.starts_with("http://") || new_url.starts_with("https://") {
             new_url
@@ -64,9 +63,7 @@ pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) ->
         |result| match result {
             Ok(event) => Event::Browser(event),
             Err(err) => match err {
-                BrowserError::NavigationError(nav_err) => {
-                    Event::Browser(BrowserEvent::NavigateError(nav_err))
-                }
+                BrowserError::NavigationError(nav_err) => Event::Browser(BrowserEvent::NavigateError(nav_err)),
                 _ => Event::Browser(BrowserEvent::Error(err)),
             },
         },
@@ -75,11 +72,7 @@ pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) ->
 
 /// Handles successful navigation by updating the tab's document, stylesheets, layout tree, and initiating image
 /// fetches for any images found on the page.
-pub(crate) fn on_navigation_success(
-    application: &mut Application,
-    tab_id: TabId,
-    page: Arc<Page>,
-) -> Task<Event> {
+pub(crate) fn on_navigation_success(application: &mut Application, tab_id: TabId, page: Arc<Page>) -> Task<Event> {
     let current_tab = application.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
     if let Some(tab) = current_tab {
@@ -134,10 +127,7 @@ pub(crate) fn on_navigation_success(
             if let Ok(CacheEntry::Loaded(decoded)) = image_cache.get_with_vary(&src, "")
                 && let CacheRead::Hit(ref data) = *decoded
             {
-                debug!(
-                    "Image cache hit (disk): {} ({}×{})",
-                    src, data.width, data.height
-                );
+                debug!("Image cache hit (disk): {} ({}×{})", src, data.width, data.height);
                 tab.set_image_dimensions(src.clone(), data.width as f32, data.height as f32);
 
                 tab.set_image_vary_key(&src, String::new());
@@ -206,10 +196,7 @@ pub(crate) fn on_navigation_success(
 }
 
 /// Handles navigation errors by logging the error and optionally displaying an error page or message to the user.
-pub(crate) fn on_navigation_error(
-    _application: &mut Application,
-    error: NavigationError,
-) -> Task<Event> {
+pub(crate) fn on_navigation_error(_application: &mut Application, error: NavigationError) -> Task<Event> {
     error!("Navigation error: {}", error);
     Task::none()
 }

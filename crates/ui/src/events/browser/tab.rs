@@ -16,11 +16,7 @@ pub(crate) fn on_new_tab(application: &mut Application, new_tab_id: TabId) -> Ta
 
 /// Handles the closure of a tab when a `TabClosed` event is received from the browser.
 /// It removes the closed tab from the application's state and updates the active tab if necessary.
-pub(crate) fn on_close_tab(
-    application: &mut Application,
-    tab_id: TabId,
-    next_tab_id: Option<TabId>,
-) -> Task<Event> {
+pub(crate) fn on_close_tab(application: &mut Application, tab_id: TabId, next_tab_id: Option<TabId>) -> Task<Event> {
     application.tabs.retain(|tab| tab.id != tab_id);
 
     if let Some(next_id) = next_tab_id {

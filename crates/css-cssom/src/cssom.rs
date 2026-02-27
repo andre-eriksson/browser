@@ -62,9 +62,7 @@ impl CSSStyleSheet {
         parsed
             .into_iter()
             .filter_map(|item| match item {
-                DeclarationOrAtRule::Declaration(decl) => {
-                    Some(CSSDeclaration::from_parser_declaration(decl))
-                }
+                DeclarationOrAtRule::Declaration(decl) => Some(CSSDeclaration::from_parser_declaration(decl)),
                 DeclarationOrAtRule::AtRule(_) => None,
             })
             .collect()
@@ -173,10 +171,7 @@ mod tests {
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert_eq!(style.selector_text(), "div");
             assert_eq!(style.declarations().len(), 1);
-            assert_eq!(
-                *style.declarations()[0].property(),
-                Property::Known(KnownProperty::Color)
-            );
+            assert_eq!(*style.declarations()[0].property(), Property::Known(KnownProperty::Color));
             assert_eq!(style.declarations()[0].value(), "red");
         }
     }
@@ -192,14 +187,8 @@ mod tests {
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert_eq!(style.selector_text(), "p");
             assert_eq!(style.declarations().len(), 2);
-            assert_eq!(
-                style.get_property_value(Property::Known(KnownProperty::Margin)),
-                Some("10px")
-            );
-            assert_eq!(
-                style.get_property_value(Property::Known(KnownProperty::Padding)),
-                Some("5px")
-            );
+            assert_eq!(style.get_property_value(Property::Known(KnownProperty::Margin)), Some("10px"));
+            assert_eq!(style.get_property_value(Property::Known(KnownProperty::Padding)), Some("5px"));
         }
     }
 
@@ -211,10 +200,7 @@ mod tests {
 
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert!(style.declarations()[0].is_important());
-            assert_eq!(
-                style.get_property_priority(Property::Known(KnownProperty::Color)),
-                "important"
-            );
+            assert_eq!(style.get_property_priority(Property::Known(KnownProperty::Color)), "important");
         }
     }
 
@@ -251,10 +237,7 @@ mod tests {
     #[test]
     fn test_parse_font_face() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css(
-            "@font-face { font-family: 'MyFont'; src: url('font.woff2'); }",
-            true,
-        );
+        let parsed = parser.parse_css("@font-face { font-family: 'MyFont'; src: url('font.woff2'); }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         if let CSSRule::AtRule(at_rule) = &stylesheet.css_rules()[0] {
@@ -297,43 +280,21 @@ mod tests {
     #[test]
     fn test_style_rule_set_property() {
         let mut style_rule = CSSStyleRule::new("div".to_string());
-        style_rule.set_property(
-            Property::Known(KnownProperty::Color),
-            "blue".to_string(),
-            false,
-        );
+        style_rule.set_property(Property::Known(KnownProperty::Color), "blue".to_string(), false);
 
-        assert_eq!(
-            style_rule.get_property_value(Property::Known(KnownProperty::Color)),
-            Some("blue")
-        );
-        assert_eq!(
-            style_rule.get_property_priority(Property::Known(KnownProperty::Color)),
-            ""
-        );
+        assert_eq!(style_rule.get_property_value(Property::Known(KnownProperty::Color)), Some("blue"));
+        assert_eq!(style_rule.get_property_priority(Property::Known(KnownProperty::Color)), "");
 
-        style_rule.set_property(
-            Property::Known(KnownProperty::Color),
-            "red".to_string(),
-            true,
-        );
-        assert_eq!(
-            style_rule.get_property_value(Property::Known(KnownProperty::Color)),
-            Some("red")
-        );
-        assert_eq!(
-            style_rule.get_property_priority(Property::Known(KnownProperty::Color)),
-            "important"
-        );
+        style_rule.set_property(Property::Known(KnownProperty::Color), "red".to_string(), true);
+        assert_eq!(style_rule.get_property_value(Property::Known(KnownProperty::Color)), Some("red"));
+        assert_eq!(style_rule.get_property_priority(Property::Known(KnownProperty::Color)), "important");
     }
 
     #[test]
     fn test_get_style_rules() {
         let mut parser = CssParser::default();
-        let parsed = parser.parse_css(
-            "div { color: red; } @media screen { p { color: blue; } } span { color: green; }",
-            true,
-        );
+        let parsed =
+            parser.parse_css("div { color: red; } @media screen { p { color: blue; } } span { color: green; }", true);
         let stylesheet = CSSStyleSheet::from(parsed);
 
         let style_rules = stylesheet.get_style_rules();
@@ -349,10 +310,7 @@ mod tests {
         assert_eq!(*decls[0].property(), Property::Known(KnownProperty::Color));
         assert_eq!(decls[0].value(), "red");
         assert!(!decls[0].is_important());
-        assert_eq!(
-            *decls[1].property(),
-            Property::Known(KnownProperty::FontSize)
-        );
+        assert_eq!(*decls[1].property(), Property::Known(KnownProperty::FontSize));
         assert_eq!(decls[1].value(), "16px");
     }
 

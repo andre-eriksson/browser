@@ -249,11 +249,7 @@ fn matches_compound_selectors(
 ///
 /// # Returns
 /// * `bool` - True if the element matches the simple selectors, false otherwise
-fn matches_simple_selectors(
-    simple_selectors: &[CssToken],
-    element: &Element,
-    class_set: &ClassSet,
-) -> bool {
+fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element, class_set: &ClassSet) -> bool {
     for i in 0..simple_selectors.len() {
         let previous_token = &simple_selectors.get(i.wrapping_sub(1));
         let current_token = &simple_selectors[i];
@@ -267,9 +263,7 @@ fn matches_simple_selectors(
                 if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                     match next {
                         None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
-                            if element.tag_name().to_lowercase() != ident.to_lowercase()
-                                && ident != "*"
-                            {
+                            if element.tag_name().to_lowercase() != ident.to_lowercase() && ident != "*" {
                                 return false;
                             }
                         }
@@ -306,8 +300,7 @@ fn matches_simple_selectors(
                     if ident.eq_ignore_ascii_case("root") {
                         return element.tag == Tag::Html(HtmlTag::Html);
                     } else if ident.eq_ignore_ascii_case("link") {
-                        return element.tag == Tag::Html(HtmlTag::A)
-                            && element.has_attribute("href");
+                        return element.tag == Tag::Html(HtmlTag::A) && element.has_attribute("href");
                     }
                 }
 
@@ -370,18 +363,10 @@ pub fn matches_compound(
 
         match &sequence.combinator {
             Some(Combinator::Child) => {
-                return matches_compound_selectors(
-                    &sequence.compound_selectors,
-                    parent_element,
-                    &parent_class_set,
-                );
+                return matches_compound_selectors(&sequence.compound_selectors, parent_element, &parent_class_set);
             }
             Some(Combinator::Descendant) => {
-                if matches_compound_selectors(
-                    &sequence.compound_selectors,
-                    parent_element,
-                    &parent_class_set,
-                ) {
+                if matches_compound_selectors(&sequence.compound_selectors, parent_element, &parent_class_set) {
                     return true;
                 }
 
@@ -468,11 +453,7 @@ pub fn matches_compound(
 
                     let sibling_class_set = ClassSet::new(sibling_element.classes());
 
-                    if matches_compound_selectors(
-                        &sequence.compound_selectors,
-                        sibling_element,
-                        &sibling_class_set,
-                    ) {
+                    if matches_compound_selectors(&sequence.compound_selectors, sibling_element, &sibling_class_set) {
                         return true;
                     }
                 }

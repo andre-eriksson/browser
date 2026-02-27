@@ -40,38 +40,28 @@ impl TryFrom<&[ComponentValue]> for SRGBAColor {
         for val in value {
             match val {
                 ComponentValue::Function(func) => {
-                    if func.name.eq_ignore_ascii_case("rgb")
-                        || func.name.eq_ignore_ascii_case("rgba")
-                    {
+                    if func.name.eq_ignore_ascii_case("rgb") || func.name.eq_ignore_ascii_case("rgba") {
                         let raw = FunctionColor::parse_color_components(&func.value)?;
                         return match raw.channels {
                             [Some(r), Some(g), Some(b)] => Ok(SRGBAColor::Rgb(r, g, b, raw.alpha)),
                             _ => Err("Missing components in rgb()".to_string()),
                         };
-                    } else if func.name.eq_ignore_ascii_case("hsl")
-                        || func.name.eq_ignore_ascii_case("hsla")
-                    {
+                    } else if func.name.eq_ignore_ascii_case("hsl") || func.name.eq_ignore_ascii_case("hsla") {
                         let raw = FunctionColor::parse_color_components(&func.value)?;
 
                         return match raw.channels {
-                            [Some(h), Some(s), Some(l)] => Ok(SRGBAColor::Hsl(
-                                Hue::from(h),
-                                Percentage::from(s),
-                                Percentage::from(l),
-                                raw.alpha,
-                            )),
+                            [Some(h), Some(s), Some(l)] => {
+                                Ok(SRGBAColor::Hsl(Hue::from(h), Percentage::from(s), Percentage::from(l), raw.alpha))
+                            }
                             _ => Err("Missing components in hsl()".to_string()),
                         };
                     } else if func.name.eq_ignore_ascii_case("hwb") {
                         let raw = FunctionColor::parse_color_components(&func.value)?;
 
                         return match raw.channels {
-                            [Some(h), Some(w), Some(b)] => Ok(SRGBAColor::Hwb(
-                                Hue::from(h),
-                                Percentage::from(w),
-                                Percentage::from(b),
-                                raw.alpha,
-                            )),
+                            [Some(h), Some(w), Some(b)] => {
+                                Ok(SRGBAColor::Hwb(Hue::from(h), Percentage::from(w), Percentage::from(b), raw.alpha))
+                            }
                             _ => Err("Missing components in hwb()".to_string()),
                         };
                     } else {
@@ -173,27 +163,11 @@ mod tests {
     fn test_hsl_parse() {
         let color = css_color_fn!("hsl", "120", "50%", "50%", "none");
         let hsl = SRGBAColor::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            hsl,
-            SRGBAColor::Hsl(
-                Hue::from(120.0),
-                Percentage::new(50.0),
-                Percentage::new(50.0),
-                Alpha(1.0)
-            )
-        );
+        assert_eq!(hsl, SRGBAColor::Hsl(Hue::from(120.0), Percentage::new(50.0), Percentage::new(50.0), Alpha(1.0)));
 
         let color = css_color_fn!("hsl", "120", "50%", "50%", "0.3");
         let hsl = SRGBAColor::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            hsl,
-            SRGBAColor::Hsl(
-                Hue::from(120.0),
-                Percentage::new(50.0),
-                Percentage::new(50.0),
-                Alpha(0.3)
-            )
-        );
+        assert_eq!(hsl, SRGBAColor::Hsl(Hue::from(120.0), Percentage::new(50.0), Percentage::new(50.0), Alpha(0.3)));
     }
 
     #[test]
@@ -233,41 +207,17 @@ mod tests {
         })];
 
         let hsla = SRGBAColor::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            hsla,
-            SRGBAColor::Hsl(
-                Hue::from(120.0),
-                Percentage::new(50.0),
-                Percentage::new(50.0),
-                Alpha(0.3)
-            )
-        );
+        assert_eq!(hsla, SRGBAColor::Hsl(Hue::from(120.0), Percentage::new(50.0), Percentage::new(50.0), Alpha(0.3)));
     }
 
     #[test]
     fn test_hwb_parse() {
         let color = css_color_fn!("hwb", "240", "0%", "0%", "none");
         let hwb = SRGBAColor::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            hwb,
-            SRGBAColor::Hwb(
-                Hue::from(240.0),
-                Percentage::new(0.0),
-                Percentage::new(0.0),
-                Alpha(1.0)
-            )
-        );
+        assert_eq!(hwb, SRGBAColor::Hwb(Hue::from(240.0), Percentage::new(0.0), Percentage::new(0.0), Alpha(1.0)));
 
         let color = css_color_fn!("hwb", "240", "0%", "0%", "0.5");
         let hwb = SRGBAColor::try_from(color.as_slice()).unwrap();
-        assert_eq!(
-            hwb,
-            SRGBAColor::Hwb(
-                Hue::from(240.0),
-                Percentage::new(0.0),
-                Percentage::new(0.0),
-                Alpha(0.5)
-            )
-        );
+        assert_eq!(hwb, SRGBAColor::Hwb(Hue::from(240.0), Percentage::new(0.0), Percentage::new(0.0), Alpha(0.5)));
     }
 }

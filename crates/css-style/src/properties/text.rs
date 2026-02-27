@@ -205,9 +205,7 @@ impl TryFrom<&[ComponentValue]> for LineHeight {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    return Ok(LineHeight::Calc(CalcExpression::parse(
-                        func.value.as_slice(),
-                    )?));
+                    return Ok(LineHeight::Calc(CalcExpression::parse(func.value.as_slice())?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => {
@@ -220,10 +218,7 @@ impl TryFrom<&[ComponentValue]> for LineHeight {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(LineHeight::Length(Length::new(
-                            value.to_f64() as f32,
-                            len_unit,
-                        )));
+                        return Ok(LineHeight::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(pct) => {
                         return Ok(LineHeight::Percentage(Percentage::new(pct.to_f64() as f32)));

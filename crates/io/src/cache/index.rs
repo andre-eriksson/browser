@@ -64,7 +64,9 @@ pub struct IndexTable;
 impl IndexTable {
     /// Retrieves an index entry by its key, ensuring it is not expired.
     pub fn get_by_key(conn: &Connection, key: &[u8; 32]) -> Result<Option<Index>> {
-        let mut stmt = conn.prepare("SELECT key, entry_type, file_id, offset, header_size, content_size, expires_at, created_at, vary FROM cache_index WHERE key = ?1")?;
+        let mut stmt = conn.prepare(
+            "SELECT key, entry_type, file_id, offset, header_size, content_size, expires_at, created_at, vary FROM cache_index WHERE key = ?1",
+        )?;
         let mut rows = stmt.query(params![key])?;
 
         if let Some(row) = rows.next()? {
@@ -102,12 +104,7 @@ impl IndexTable {
 
     /// Updates the offset of a block entry in the index, used during compaction
     /// when live entries are relocated within a block file.
-    pub fn update_block_offset(
-        conn: &Connection,
-        key: &[u8; 32],
-        new_offset: u32,
-        new_header_size: u32,
-    ) -> Result<()> {
+    pub fn update_block_offset(conn: &Connection, key: &[u8; 32], new_offset: u32, new_header_size: u32) -> Result<()> {
         conn.execute(
             "UPDATE cache_index SET offset = ?1, header_size = ?2 WHERE key = ?3 AND entry_type = 'block'",
             params![new_offset, new_header_size, key],

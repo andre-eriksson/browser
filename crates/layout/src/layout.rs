@@ -148,12 +148,7 @@ impl LayoutTree {
         collected
     }
 
-    fn resolve_in_node<'a>(
-        collected: &mut Vec<&'a LayoutNode>,
-        node: &'a LayoutNode,
-        x: f32,
-        y: f32,
-    ) {
+    fn resolve_in_node<'a>(collected: &mut Vec<&'a LayoutNode>, node: &'a LayoutNode, x: f32, y: f32) {
         if node.dimensions.contains_point(x, y) {
             for child in &node.children {
                 Self::resolve_in_node(collected, child, x, y);

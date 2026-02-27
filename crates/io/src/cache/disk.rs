@@ -25,9 +25,8 @@ impl DiskCache {
         let connection = IndexDatabase::open()
             .map_err(|e| CacheError::ReadError(format!("Failed to open index database: {}", e)))?;
 
-        let index = IndexTable::get_by_key(&connection, &key).map_err(|_| {
-            CacheError::ReadError(String::from("Failed to read index entry from database"))
-        })?;
+        let index = IndexTable::get_by_key(&connection, &key)
+            .map_err(|_| CacheError::ReadError(String::from("Failed to read index entry from database")))?;
 
         let idx = match index {
             Some(idx) => idx,
@@ -86,9 +85,8 @@ impl DiskCache {
             .execute("BEGIN TRANSACTION", [])
             .map_err(|e| CacheError::WriteError(format!("Failed to begin transaction: {}", e)))?;
 
-        let existing = IndexTable::get_by_key(&connection, &key).map_err(|_| {
-            CacheError::ReadError(String::from("Failed to read index entry from database"))
-        })?;
+        let existing = IndexTable::get_by_key(&connection, &key)
+            .map_err(|_| CacheError::ReadError(String::from("Failed to read index entry from database")))?;
 
         if existing.is_some() {
             if let Ok(Some(existing_value)) = Self::get(key) {
@@ -108,10 +106,7 @@ impl DiskCache {
 
             if let Err(e) = Self::remove(key, Some(&connection)) {
                 connection.execute("ROLLBACK", []).ok();
-                return Err(CacheError::WriteError(format!(
-                    "Failed to remove existing cache entry: {}",
-                    e
-                )));
+                return Err(CacheError::WriteError(format!("Failed to remove existing cache entry: {}", e)));
             }
         }
 
@@ -120,16 +115,15 @@ impl DiskCache {
             .unwrap_or_default()
             .as_secs();
 
-        let (entry_type, file_id, offset, header_size, content_size) =
-            if value.len() > MAX_BLOCK_SIZE as usize {
-                LargeFile::write(key, value, &header)?;
+        let (entry_type, file_id, offset, header_size, content_size) = if value.len() > MAX_BLOCK_SIZE as usize {
+            LargeFile::write(key, value, &header)?;
 
-                (IndexEntry::Large, 0u32, None, None, value.len() as u32)
-            } else {
-                let (fid, off, hsz, csz) = BlockFile::write(value, &mut header)?;
+            (IndexEntry::Large, 0u32, None, None, value.len() as u32)
+        } else {
+            let (fid, off, hsz, csz) = BlockFile::write(value, &mut header)?;
 
-                (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
-            };
+            (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
+        };
 
         let index = Index {
             key,
@@ -157,10 +151,7 @@ impl DiskCache {
                 }
             }
 
-            return Err(CacheError::WriteError(format!(
-                "Failed to insert index entry into database: {}",
-                e
-            )));
+            return Err(CacheError::WriteError(format!("Failed to insert index entry into database: {}", e)));
         }
 
         connection
@@ -175,21 +166,18 @@ impl DiskCache {
         match connection {
             Some(conn) => Self::delete(key, conn),
             None => {
-                let conn = IndexDatabase::open().map_err(|_| {
-                    CacheError::WriteError(String::from("Failed to open index database"))
-                })?;
+                let conn = IndexDatabase::open()
+                    .map_err(|_| CacheError::WriteError(String::from("Failed to open index database")))?;
 
-                conn.execute("BEGIN TRANSACTION", []).map_err(|e| {
-                    CacheError::WriteError(format!("Failed to begin transaction: {}", e))
-                })?;
+                conn.execute("BEGIN TRANSACTION", [])
+                    .map_err(|e| CacheError::WriteError(format!("Failed to begin transaction: {}", e)))?;
 
                 let result = Self::delete(key, &conn);
 
                 match result {
                     Ok(value) => {
-                        conn.execute("COMMIT", []).map_err(|e| {
-                            CacheError::WriteError(format!("Failed to commit transaction: {}", e))
-                        })?;
+                        conn.execute("COMMIT", [])
+                            .map_err(|e| CacheError::WriteError(format!("Failed to commit transaction: {}", e)))?;
 
                         Ok(value)
                     }
@@ -204,9 +192,8 @@ impl DiskCache {
 
     /// Internal function to handle the deletion of cache entries, ensuring that both the index and the associated data files are removed.
     fn delete(key: [u8; 32], connection: &Connection) -> Result<bool, CacheError> {
-        let index = IndexTable::get_by_key(connection, &key).map_err(|_| {
-            CacheError::ReadError(String::from("Failed to read index entry from database"))
-        })?;
+        let index = IndexTable::get_by_key(connection, &key)
+            .map_err(|_| CacheError::ReadError(String::from("Failed to read index entry from database")))?;
 
         if let Some(idx) = index {
             match idx.entry {
@@ -219,9 +206,8 @@ impl DiskCache {
                 }
             }
 
-            IndexTable::delete_by_key(connection, &key).map_err(|_| {
-                CacheError::WriteError(String::from("Failed to delete index entry from database"))
-            })?;
+            IndexTable::delete_by_key(connection, &key)
+                .map_err(|_| CacheError::WriteError(String::from("Failed to delete index entry from database")))?;
 
             return Ok(true);
         }

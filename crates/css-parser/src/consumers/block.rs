@@ -1,9 +1,7 @@
 use crate::errors::CssParsingError;
 use css_tokenizer::CssTokenKind;
 
-use crate::{
-    AssociatedToken, CssParser, SimpleBlock, consumers::component::consume_component_value,
-};
+use crate::{AssociatedToken, CssParser, SimpleBlock, consumers::component::consume_component_value};
 
 /// Consume a simple block
 ///

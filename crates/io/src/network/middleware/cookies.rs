@@ -54,11 +54,7 @@ impl CookieMiddleware {
     /// * `cookie_jar` - The cookie jar where the cookie will be stored.
     /// * `request_domain` - The domain of the request that received the response.
     /// * `header_value` - The value of the Set-Cookie header from the response.
-    pub fn handle_response_cookie(
-        cookie_jar: &mut CookieJar,
-        request_url: &Url,
-        header_value: &HeaderValue,
-    ) {
+    pub fn handle_response_cookie(cookie_jar: &mut CookieJar, request_url: &Url, header_value: &HeaderValue) {
         let host = match request_url.host() {
             Some(h) => h,
             _ => {

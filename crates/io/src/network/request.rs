@@ -14,8 +14,7 @@ use url::Url;
 
 use crate::network::{
     middleware::{
-        cookies::CookieMiddleware, cors::CorsMiddleware, referrer::ReferrerMiddleware,
-        simple::SimpleMiddleware,
+        cookies::CookieMiddleware, cors::CorsMiddleware, referrer::ReferrerMiddleware, simple::SimpleMiddleware,
     },
     policy::DocumentPolicy,
 };
@@ -34,11 +33,7 @@ pub struct NetworkService<'a> {
 }
 
 impl<'a> NetworkService<'a> {
-    pub fn new(
-        client: &'a dyn HttpClient,
-        cookies: &'a [Cookie],
-        browser_headers: &'a Arc<HeaderMap>,
-    ) -> Self {
+    pub fn new(client: &'a dyn HttpClient, cookies: &'a [Cookie], browser_headers: &'a Arc<HeaderMap>) -> Self {
         NetworkService {
             client,
             cookies,
@@ -51,12 +46,8 @@ impl<'a> NetworkService<'a> {
     ) -> RequestResult<Box<dyn ResponseHandle>> {
         match response {
             Ok(resp) => match resp.metadata().status_code {
-                _ if resp.metadata().status_code.is_client_error() => {
-                    RequestResult::ClientError(resp)
-                }
-                _ if resp.metadata().status_code.is_server_error() => {
-                    RequestResult::ServerError(resp)
-                }
+                _ if resp.metadata().status_code.is_client_error() => RequestResult::ClientError(resp),
+                _ if resp.metadata().status_code.is_server_error() => RequestResult::ServerError(resp),
                 _ => RequestResult::Success(resp),
             },
             Err(e) => RequestResult::Failed(RequestError::Network(e)),

@@ -37,9 +37,7 @@ impl Hash for ReceiverHandle {
 ///
 /// # Returns
 /// A pinned boxed stream of `Event` items.
-pub fn create_browser_event_stream(
-    handle: &ReceiverHandle,
-) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
+pub fn create_browser_event_stream(handle: &ReceiverHandle) -> Pin<Box<dyn Stream<Item = Event> + Send>> {
     let receiver = handle.receiver.clone();
     Box::pin(unfold(receiver, |receiver| async move {
         let event = {

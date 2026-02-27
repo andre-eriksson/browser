@@ -34,12 +34,7 @@ impl BlockFlow {
         }
     }
 
-    fn advance(
-        &mut self,
-        child_margin_top: f32,
-        child_height: f32,
-        child_margin_bottom: f32,
-    ) -> f32 {
+    fn advance(&mut self, child_margin_top: f32, child_height: f32, child_margin_bottom: f32) -> f32 {
         let clearance;
 
         if self.is_first_child {
@@ -127,14 +122,8 @@ impl BlockLayout {
                     let inline_y = y + padding.top + border.top + flow.current_y;
                     let inline_width = content_width;
 
-                    let (inline_layout_nodes, inline_height) = InlineLayout::layout(
-                        &inline_items,
-                        text_ctx,
-                        inline_width,
-                        inline_x,
-                        inline_y,
-                        image_ctx,
-                    );
+                    let (inline_layout_nodes, inline_height) =
+                        InlineLayout::layout(&inline_items, text_ctx, inline_width, inline_x, inline_y, image_ctx);
 
                     if !inline_layout_nodes.is_empty() || inline_height > 0.0 {
                         for inline_node in inline_layout_nodes {
@@ -173,8 +162,7 @@ impl BlockLayout {
 
             child_ctx.block_cursor.y = child_y_offset;
 
-            let child_node =
-                LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx);
+            let child_node = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx);
 
             if let Some(child_node) = child_node {
                 flow.advance(
@@ -196,8 +184,7 @@ impl BlockLayout {
             flow.current_y + flow.previous_margin_bottom
         };
 
-        let calculated_height =
-            PropertyResolver::calculate_height(styled_node, content_height_from_children);
+        let calculated_height = PropertyResolver::calculate_height(styled_node, content_height_from_children);
 
         let final_height = if styled_node.style.height == ComputedDimension::Auto {
             content_height_from_children + padding.vertical() + border.vertical()
@@ -210,22 +197,14 @@ impl BlockLayout {
             margin.top = f32::max(margin.top, children[0].resolved_margin.top);
         }
         if !has_bottom_fence && !children.is_empty() {
-            margin.bottom = f32::max(
-                margin.bottom,
-                children.last().unwrap().resolved_margin.bottom,
-            );
+            margin.bottom = f32::max(margin.bottom, children.last().unwrap().resolved_margin.bottom);
         }
 
         let colors = LayoutColors::from(styled_node);
 
         LayoutNode {
             node_id: styled_node.node_id,
-            dimensions: Rect::new(
-                x,
-                y,
-                content_width + padding.horizontal() + border.horizontal(),
-                final_height,
-            ),
+            dimensions: Rect::new(x, y, content_width + padding.horizontal() + border.horizontal(), final_height),
             resolved_margin: margin,
             resolved_padding: padding,
             resolved_border: border,
@@ -334,14 +313,7 @@ mod tests {
         };
         let content_width = 400.0;
 
-        let x = BlockLayout::calculate_x(
-            &styled_node,
-            &ctx,
-            &margin,
-            &padding,
-            &border,
-            content_width,
-        );
+        let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &padding, &border, content_width);
 
         assert_eq!(x, 200.0);
     }

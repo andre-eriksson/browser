@@ -12,9 +12,8 @@ fn criterion_benchmark(c: &mut Criterion) {
 
         c.bench_function(&format!("streaming_html_parse_{}", file), |b| {
             b.iter(|| {
-                let mut parser = HtmlStreamParser::<_, DefaultCollector>::simple(
-                    std::io::Cursor::new(html_content.clone()),
-                );
+                let mut parser =
+                    HtmlStreamParser::<_, DefaultCollector>::simple(std::io::Cursor::new(html_content.clone()));
                 let mut success = false;
 
                 loop {

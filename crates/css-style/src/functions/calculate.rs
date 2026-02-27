@@ -56,12 +56,7 @@ pub enum CalculateValue {
 }
 
 impl CalculateValue {
-    pub fn to_px(
-        &self,
-        rel_type: Option<RelativeType>,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             CalculateValue::Number(n) => *n,
             CalculateValue::Length(l) => l.to_px(rel_ctx, abs_ctx),
@@ -69,9 +64,7 @@ impl CalculateValue {
             CalculateValue::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
             CalculateValue::Percentage(p) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx.parent.font_size * p.as_fraction(),
-                Some(RelativeType::ParentHeight) => {
-                    rel_ctx.parent.intrinsic_height * p.as_fraction()
-                }
+                Some(RelativeType::ParentHeight) => rel_ctx.parent.intrinsic_height * p.as_fraction(),
                 Some(RelativeType::ParentWidth) => rel_ctx.parent.intrinsic_width * p.as_fraction(),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
@@ -91,12 +84,7 @@ pub enum CalculateProduct {
 }
 
 impl CalculateProduct {
-    pub fn to_px(
-        &self,
-        rel_type: Option<RelativeType>,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             CalculateProduct::Value(v) => v.to_px(rel_type, rel_ctx, abs_ctx),
             CalculateProduct::Multiply(left, right) => {
@@ -123,12 +111,7 @@ pub enum CalculateSum {
 }
 
 impl CalculateSum {
-    pub fn to_px(
-        &self,
-        rel_type: Option<RelativeType>,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             CalculateSum::Product(p) => p.to_px(rel_type, rel_ctx, abs_ctx),
             CalculateSum::Add(left, right) => {
@@ -149,12 +132,7 @@ pub struct CalcExpression {
 }
 
 impl CalcExpression {
-    pub fn to_px(
-        &self,
-        rel_type: Option<RelativeType>,
-        rel_ctx: &RelativeContext,
-        abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    pub fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         self.sum.to_px(rel_type, rel_ctx, abs_ctx)
     }
 
@@ -164,10 +142,7 @@ impl CalcExpression {
 
         parser.skip_whitespace();
         if parser.current_pos < parser.input.len() {
-            return Err(format!(
-                "Unexpected trailing input at position {}",
-                parser.current_pos
-            ));
+            return Err(format!("Unexpected trailing input at position {}", parser.current_pos));
         }
 
         Ok(CalcExpression { sum })
@@ -232,16 +207,13 @@ impl<'a> CalcParser<'a> {
                 break;
             }
 
-            let is_plus_or_minus =
-                matches!(self.peek_token(), Some(CssTokenKind::Delim('+' | '-')));
+            let is_plus_or_minus = matches!(self.peek_token(), Some(CssTokenKind::Delim('+' | '-')));
             if !is_plus_or_minus {
                 break;
             }
 
             if !had_whitespace_before {
-                return Err(
-                    "Whitespace is required before '+' or '-' operator in calc()".to_string(),
-                );
+                return Err("Whitespace is required before '+' or '-' operator in calc()".to_string());
             }
 
             let op = match self.consume_token() {
@@ -255,9 +227,7 @@ impl<'a> CalcParser<'a> {
 
             let had_whitespace_after = self.skip_whitespace();
             if !had_whitespace_after {
-                return Err(
-                    "Whitespace is required after '+' or '-' operator in calc()".to_string()
-                );
+                return Err("Whitespace is required after '+' or '-' operator in calc()".to_string());
             }
 
             let next_product = self.parse_product()?;
@@ -325,9 +295,7 @@ impl<'a> CalcParser<'a> {
                 Ok(CalculateValue::NestedSum(Box::new(nested.sum)))
             }
 
-            ComponentValue::SimpleBlock(block)
-                if matches!(block.associated_token, AssociatedToken::Parenthesis) =>
-            {
+            ComponentValue::SimpleBlock(block) if matches!(block.associated_token, AssociatedToken::Parenthesis) => {
                 self.current_pos += 1;
                 let nested = CalcExpression::parse(&block.value)?;
                 Ok(CalculateValue::NestedSum(Box::new(nested.sum)))
@@ -344,17 +312,12 @@ impl<'a> CalcParser<'a> {
                     let len_unit = unit
                         .parse::<LengthUnit>()
                         .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                    Ok(CalculateValue::Length(Length::new(
-                        value.to_f64() as f32,
-                        len_unit,
-                    )))
+                    Ok(CalculateValue::Length(Length::new(value.to_f64() as f32, len_unit)))
                 }
 
                 CssTokenKind::Percentage(num) => {
                     self.current_pos += 1;
-                    Ok(CalculateValue::Percentage(Percentage::new(
-                        num.to_f64() as f32
-                    )))
+                    Ok(CalculateValue::Percentage(Percentage::new(num.to_f64() as f32)))
                 }
 
                 CssTokenKind::Ident(ident) => {

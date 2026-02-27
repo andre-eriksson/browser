@@ -57,9 +57,7 @@ impl FromStr for Property {
 /// A known CSS property
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties>
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, StrumDisplay, EnumString, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, StrumDisplay, EnumString, Serialize, Deserialize)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum KnownProperty {
     AccentColor,

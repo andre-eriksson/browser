@@ -33,8 +33,8 @@ mod rules;
 mod string;
 
 pub use css_parser::{
-    AssociatedToken, ComponentValue, CssParser, CssToken, CssTokenKind, Function, HashType,
-    KnownProperty, NumericValue, Property, SimpleBlock,
+    AssociatedToken, ComponentValue, CssParser, CssToken, CssTokenKind, Function, HashType, KnownProperty,
+    NumericValue, Property, SimpleBlock,
 };
 pub use cssom::{CSSStyleSheet, StylesheetOrigin};
 pub use declaration::CSSDeclaration;
