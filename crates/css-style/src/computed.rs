@@ -144,9 +144,10 @@ impl ComputedStyle {
         Self {
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
-                &CSSProperty::Value(Color::Transparent),
+                &specified_style.color,
                 &Color::Transparent,
                 parent_style.map(|s| Color::from(s.background_color)),
+                relative_ctx,
                 absolute_ctx,
             ),
             border_top_color: Color4f::from_css_color_property(
@@ -154,6 +155,7 @@ impl ComputedStyle {
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_top_color)),
+                relative_ctx,
                 absolute_ctx,
             ),
             border_right_color: Color4f::from_css_color_property(
@@ -161,6 +163,7 @@ impl ComputedStyle {
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_right_color)),
+                relative_ctx,
                 absolute_ctx,
             ),
             border_bottom_color: Color4f::from_css_color_property(
@@ -168,6 +171,7 @@ impl ComputedStyle {
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_bottom_color)),
+                relative_ctx,
                 absolute_ctx,
             ),
             border_left_color: Color4f::from_css_color_property(
@@ -175,6 +179,7 @@ impl ComputedStyle {
                 &specified_style.color,
                 &Color::Current,
                 parent_style.map(|s| Color::from(s.border_left_color)),
+                relative_ctx,
                 absolute_ctx,
             ),
             border_top_style: specified_style
@@ -216,6 +221,7 @@ impl ComputedStyle {
                 &CSSProperty::Value(Color::Named(NamedColor::Black)),
                 &Color::Named(NamedColor::Black),
                 parent_style.map(|s| Color::from(s.color)),
+                relative_ctx,
                 absolute_ctx,
             ),
             display: specified_style

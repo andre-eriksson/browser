@@ -1,7 +1,7 @@
 use preferences::ThemeCategory;
 
 use crate::{
-    AbsoluteContext, Color,
+    AbsoluteContext, Color, RelativeContext,
     color::{
         ColorValue, Fraction, FunctionColor, Hue,
         cielab::Cielab,
@@ -45,18 +45,29 @@ impl Color4f {
     }
 
     /// Converts a CSS Color to Color4f
-    fn from_css_color(color: &Color, absolute_ctx: &AbsoluteContext) -> Self {
+    fn from_css_color(
+        color: &Color,
+        text_color: &CSSProperty<Color>,
+        relative_ctx: &RelativeContext,
+        absolute_ctx: &AbsoluteContext,
+    ) -> Self {
         match color {
             Color::Named(named) => Self::from(*named),
             Color::Hex(hex) => Self::from(*hex),
             Color::Functional(func) => match func {
                 FunctionColor::LightDark(light, dark) => match absolute_ctx.theme_category {
-                    ThemeCategory::Light => Self::from_css_color(light, absolute_ctx),
-                    ThemeCategory::Dark => Self::from_css_color(dark, absolute_ctx),
+                    ThemeCategory::Light => Self::from_css_color(light, text_color, relative_ctx, absolute_ctx),
+                    ThemeCategory::Dark => Self::from_css_color(dark, text_color, relative_ctx, absolute_ctx),
                 },
                 _ => Self::from(func.clone()),
             },
-            Color::Current => Self::default(), // TODO: Handle currentColor properly
+            Color::Current => {
+                if let Some(resolved) = text_color.as_value() {
+                    Self::from_css_color(resolved, text_color, relative_ctx, absolute_ctx)
+                } else {
+                    relative_ctx.parent.color
+                }
+            }
             Color::System(system) => Self::from(*system),
             Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
         }
@@ -68,6 +79,7 @@ impl Color4f {
         text_color: &CSSProperty<Color>,
         initial: &Color,
         parent: Option<Color>,
+        relative_ctx: &RelativeContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         let initial = match initial {
@@ -77,7 +89,7 @@ impl Color4f {
 
         let resolved_color = color.resolve_with_context(parent.as_ref(), initial);
 
-        Self::from_css_color(resolved_color, absolute_ctx)
+        Self::from_css_color(resolved_color, text_color, relative_ctx, absolute_ctx)
     }
 
     /// Parses a hex color string (e.g. "#RRGGBB") into an (r, g, b) tuple.
