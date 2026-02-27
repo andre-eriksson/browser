@@ -6,6 +6,7 @@ use html_dom::{DocumentRoot, NodeId};
 use crate::{
     ComputedStyle, RelativeContext,
     cascade::{CascadedDeclaration, GeneratedRule, RuleIndex, cascade, cascade_variables},
+    functions::variables::resolve_css_variables,
     global::Global,
     handler::{
         PropertyUpdateContext, handle_background_color, handle_border, handle_border_bottom_color,
@@ -20,7 +21,6 @@ use crate::{
         handle_padding_block, handle_padding_block_end, handle_padding_block_start,
         handle_padding_bottom, handle_padding_left, handle_padding_right, handle_padding_top,
         handle_position, handle_text_align, handle_whitespace, handle_width, handle_writing_mode,
-        resolve_css_variables,
     },
     properties::{
         AbsoluteContext, BorderStyleValueProperty, BorderWidthValueProperty, CSSProperty,

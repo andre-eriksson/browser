@@ -3,7 +3,7 @@
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
-    calculate::CalcExpression,
+    functions::calculate::CalcExpression,
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},

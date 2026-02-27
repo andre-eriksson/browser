@@ -5,7 +5,7 @@ use strum::EnumString;
 
 use crate::{
     ComputedStyle, RelativeType,
-    calculate::CalcExpression,
+    functions::calculate::CalcExpression,
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext},

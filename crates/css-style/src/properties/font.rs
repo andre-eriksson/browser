@@ -6,7 +6,7 @@ use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
     ComputedStyle, RelativeType,
-    calculate::CalcExpression,
+    functions::calculate::CalcExpression,
     length::LengthUnit,
     primitives::{
         font::{AbsoluteSize, GenericName, RelativeSize},

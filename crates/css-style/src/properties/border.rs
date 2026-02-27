@@ -5,7 +5,7 @@ use css_cssom::{ComponentValue, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
-    calculate::CalcExpression,
+    functions::calculate::CalcExpression,
     length::LengthUnit,
     primitives::length::Length,
     properties::{AbsoluteContext, RelativeContext},
