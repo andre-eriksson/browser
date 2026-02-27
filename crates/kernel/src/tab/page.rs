@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
 use io::DocumentPolicy;
@@ -12,7 +10,7 @@ pub struct Page {
     title: String,
     document: DocumentRoot,
     stylesheets: Vec<CSSStyleSheet>,
-    policies: Arc<DocumentPolicy>,
+    policies: DocumentPolicy,
     images: Vec<String>,
 }
 
@@ -24,7 +22,7 @@ impl Page {
             document: DocumentRoot::new(),
             stylesheets: Vec::new(),
             document_url: None,
-            policies: Arc::new(DocumentPolicy::default()),
+            policies: DocumentPolicy::default(),
             images: Vec::new(),
         }
     }
@@ -36,7 +34,7 @@ impl Page {
         document_url: Option<Url>,
         document: DocumentRoot,
         stylesheets: Vec<CSSStyleSheet>,
-        policies: Arc<DocumentPolicy>,
+        policies: DocumentPolicy,
         images: Vec<String>,
     ) -> Self {
         self.title = title;
@@ -52,7 +50,7 @@ impl Page {
         &self.title
     }
 
-    pub fn policies(&self) -> &Arc<DocumentPolicy> {
+    pub fn policies(&self) -> &DocumentPolicy {
         &self.policies
     }
 

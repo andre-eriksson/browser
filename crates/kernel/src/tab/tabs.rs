@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use io::DocumentPolicy;
 
@@ -16,7 +16,7 @@ impl Display for TabId {
 #[derive(Debug, Clone)]
 pub struct Tab {
     pub id: TabId,
-    page: Page,
+    page: Arc<Page>,
     policies: DocumentPolicy,
 }
 
@@ -24,16 +24,16 @@ impl Tab {
     pub fn new(id: TabId) -> Self {
         Tab {
             id,
-            page: Page::blank(),
+            page: Page::blank().into(),
             policies: DocumentPolicy::default(),
         }
     }
 
-    pub fn page(&self) -> &Page {
+    pub fn page(&self) -> &Arc<Page> {
         &self.page
     }
 
-    pub fn set_page(&mut self, page: Page) {
+    pub fn set_page(&mut self, page: Arc<Page>) {
         self.page = page;
     }
 

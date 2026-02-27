@@ -123,15 +123,14 @@ impl Commandable for HeadlessBrowser {
             BrowserCommand::Navigate { tab_id, url } => {
                 let stylesheets = Vec::new();
 
-                let page = navigate(self, tab_id, &url, stylesheets).await?;
+                let page = Arc::new(navigate(self, tab_id, &url, stylesheets).await?);
 
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
                     .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
-                tab.set_page(page);
-                let page = tab.page().clone();
+                tab.set_page(Arc::clone(&page));
 
                 Ok(BrowserEvent::NavigateSuccess(tab_id, page))
             }

@@ -202,7 +202,7 @@ pub(crate) async fn navigate(
         Some(url.clone()),
         result.dom_tree,
         stylesheets,
-        Arc::new(policies),
+        policies,
         result.metadata.images,
     ))
 }
@@ -217,7 +217,7 @@ async fn resolve_navigation_request(
     raw_url: &str,
     ctx: &mut dyn NavigationContext,
     page_url: &Option<Url>,
-    policies: &Arc<DocumentPolicy>,
+    policies: &DocumentPolicy,
     cookies: &[Cookie],
     headers: &Arc<HeaderMap>,
     client: &dyn HttpClient,
@@ -291,7 +291,7 @@ pub(crate) async fn resolve_request(
     raw_url: &str,
     ctx: &mut dyn NavigationContext,
     page_url: &Option<Url>,
-    policies: &Arc<DocumentPolicy>,
+    policies: &DocumentPolicy,
     cookies: &[Cookie],
     headers: &Arc<HeaderMap>,
     client: &dyn HttpClient,
@@ -316,7 +316,7 @@ async fn resolve_request_inner(
     url: Url,
     ctx: &mut dyn NavigationContext,
     page_url: &Option<Url>,
-    policies: &Arc<DocumentPolicy>,
+    policies: &DocumentPolicy,
     cookies: &[Cookie],
     headers: &Arc<HeaderMap>,
     client: &dyn HttpClient,
@@ -348,7 +348,7 @@ fn spawn_style_fetch_and_parse(
     cookie_jar: Arc<Mutex<CookieJar>>,
 ) -> JoinHandle<Option<CSSStyleSheet>> {
     let page_url = page.document_url.clone();
-    let policies = page.policies().clone();
+    let policies = *page.policies();
 
     tokio::spawn(async move {
         if url.scheme() != "http" && url.scheme() != "https" {

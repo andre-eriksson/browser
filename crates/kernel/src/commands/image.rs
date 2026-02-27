@@ -29,8 +29,7 @@ pub(crate) async fn load_image(
         .ok_or(BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
     let page = tab.page();
     let document_url = page.document_url.clone();
-
-    let policies = page.policies().clone();
+    let policies = *page.policies();
 
     let (_resolved_url, response) = resolve_request(
         url,

@@ -46,7 +46,7 @@ impl<'renderer> BrowserHtml<'renderer> {
             ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);
 
         let render_data = collect_render_data_from_layout(
-            &active_tab.document,
+            active_tab.page.document(),
             &active_tab.layout_tree,
             Some(viewport_bounds),
             app.image_cache.as_ref(),

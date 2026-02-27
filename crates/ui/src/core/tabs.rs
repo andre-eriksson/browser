@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
-use css_cssom::CSSStyleSheet;
-use html_dom::DocumentRoot;
-use kernel::TabId;
+use kernel::{Page, TabId};
 use layout::{ImageContext, LayoutTree};
-use url::Url;
 
 /// Represents the scroll position of a tab's content.
 #[derive(Debug, Clone, Copy, Default)]
@@ -27,23 +27,14 @@ pub struct UiTab {
     /// The unique identifier for the tab.
     pub id: TabId,
 
-    /// The title of the tab, if available.
-    pub title: Option<String>,
-
-    /// The current URL loaded in the tab.
-    pub current_url: Option<Url>,
+    /// The page contents.
+    pub page: Arc<Page>,
 
     /// The layout tree of the tab's content.
     pub layout_tree: LayoutTree,
 
     /// The current scroll offset of the tab's content.
     pub scroll_offset: ScrollOffset,
-
-    /// The document root of the tab's content.
-    pub document: DocumentRoot,
-
-    /// The stylesheets associated with the tab.
-    pub stylesheets: Vec<CSSStyleSheet>,
 
     /// Known intrinsic image metadata from previously decoded images, keyed by
     /// source URL.  Persisted across relayouts (e.g. window resize) so that
@@ -68,12 +59,9 @@ impl UiTab {
     pub fn new(id: TabId) -> Self {
         Self {
             id,
-            title: None,
-            current_url: None,
+            page: Page::blank().into(),
             layout_tree: LayoutTree::default(),
             scroll_offset: ScrollOffset::default(),
-            document: DocumentRoot::new(),
-            stylesheets: Vec::new(),
             known_images: HashMap::new(),
             pending_image_urls: HashSet::new(),
             layout_generation: 0,

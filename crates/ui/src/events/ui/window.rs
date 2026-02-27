@@ -68,7 +68,7 @@ pub(crate) fn on_window_resized(
                 .unwrap_or(600.0),
             ..Default::default()
         };
-        let style_tree = StyleTree::build(&ctx, &tab.document, &tab.stylesheets);
+        let style_tree = StyleTree::build(&ctx, tab.page.document(), tab.page.stylesheets());
         let image_ctx = tab.image_context();
 
         let mut tc = application.text_context.lock().unwrap();

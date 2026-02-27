@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use css_style::{AbsoluteContext, StyleTree};
 use iced::Task;
 use io::{CacheEntry, CacheRead};
@@ -40,8 +42,7 @@ pub(crate) fn on_image_loaded(
                 .unwrap_or((800.0, 600.0));
 
             let text_ctx = application.text_context.clone();
-            let document = tab.document.clone();
-            let stylesheets = tab.stylesheets.clone();
+            let page = Arc::clone(&tab.page);
             let image_ctx = tab.image_context();
             let generation = tab.layout_generation;
 
@@ -54,7 +55,8 @@ pub(crate) fn on_image_loaded(
                             viewport_height: vh,
                             ..Default::default()
                         };
-                        let style_tree = StyleTree::build(&ctx, &document, &stylesheets);
+                        let style_tree =
+                            StyleTree::build(&ctx, page.document(), page.stylesheets());
                         let mut tc = text_ctx.lock().unwrap();
                         LayoutEngine::compute_layout(
                             &style_tree,

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::errors::{BrowserError, NavigationError};
 use async_trait::async_trait;
 use network::HeaderMap;
@@ -31,7 +33,7 @@ pub enum BrowserEvent {
     NavigateTo(String),
 
     /// Navigation succeeded.
-    NavigateSuccess(TabId, Page),
+    NavigateSuccess(TabId, Arc<Page>),
 
     /// Navigation failed with a network error.
     NavigateError(NavigationError),

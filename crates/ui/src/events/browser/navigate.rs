@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use css_style::{AbsoluteContext, StyleTree};
 use http::HeaderMap;
 use iced::Task;
@@ -76,7 +78,7 @@ pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) ->
 pub(crate) fn on_navigation_success(
     application: &mut Application,
     tab_id: TabId,
-    page: Page,
+    page: Arc<Page>,
 ) -> Task<Event> {
     let current_tab = application.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
@@ -114,16 +116,12 @@ pub(crate) fn on_navigation_success(
         );
         drop(tc);
 
-        tab.document = page.document().clone();
-        tab.stylesheets = page.stylesheets().clone();
-        tab.current_url = Some(application.current_url.parse().unwrap());
+        let image_srcs = page.images().clone();
+        tab.page = page;
         tab.layout_tree = layout_tree;
-        tab.title = Some(page.title().to_string());
 
         let image_cache = ImageCache::new();
         application.image_cache = Some(image_cache.clone());
-
-        let image_srcs = page.images().clone();
 
         let mut cache_hit = false;
         let mut fetch_srcs: Vec<String> = Vec::new();

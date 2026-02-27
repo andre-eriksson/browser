@@ -28,7 +28,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
         let footer = BrowserFooter::render(app);
 
         let (dom, layout) = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
-            Some(tab) => (&tab.document, &tab.layout_tree),
+            Some(tab) => (&tab.page.document(), &tab.layout_tree),
             None => {
                 return container(column![header, footer].spacing(10.0))
                     .width(Length::Fill)
