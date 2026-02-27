@@ -19,17 +19,13 @@ Supported CSS properties can be found: [./docs/CSS.md](./docs/CSS.md).
 
 ## Screenshots
 
-https://github.com/andre-eriksson
+https://docs.rs/dioxus/0.7.3/dioxus/
 
-<img src="./docs/github.png" alt="A screenshot of the app rendering my own GitHub page" width="800"/>
+<img src="./docs/code.png" alt="A screenshot of the Dioxus crate on docs.rs" width="800"/>
 
-https://flask.palletsprojects.com/en/stable/quickstart
+https://en.wikipedia.org/wiki/Sweden
 
-<img src="./docs/flask.png" alt="A screenshot of the app rendering the Flask quickstart page" width="800"/>
-
-https://en.wikipedia.org/wiki/Web_browser
-
-<img src="./docs/wikipedia.png" alt="A screenshot of the app rendering the Wikipedia page for web browsers" width="800"/>
+<img src="./docs/wikipedia.png" alt="A screenshot of the app rendering the Wikipedia page for Sweden" width="800"/>
 
 ## Architecture
 
