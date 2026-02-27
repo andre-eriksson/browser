@@ -91,10 +91,22 @@ fn matches_compound_selectors(
     compound_selectors: &[CompoundSelector],
     element: &Element,
     class_set: &ClassSet,
+    tree: &DocumentRoot,
+    node: &DomNode,
 ) -> bool {
     for compound_selector in compound_selectors {
         if !matches_simple_selectors(&compound_selector.tokens, element, class_set) {
             return false;
+        }
+
+        for is_selector_list in &compound_selector.is_selector_lists {
+            let any_match = is_selector_list
+                .iter()
+                .any(|sequence| matches_compound(sequence, tree, node, class_set));
+
+            if !any_match {
+                return false;
+            }
         }
 
         for attribute_selector in &compound_selector.attribute_selectors {
@@ -336,7 +348,7 @@ pub fn matches_compound(
     };
 
     for sequence in sequence.iter().rev() {
-        let matched = matches_compound_selectors(&sequence.compound_selectors, element, class_set);
+        let matched = matches_compound_selectors(&sequence.compound_selectors, element, class_set, tree, node);
 
         if sequence.combinator.is_none() && !matched {
             return false;
@@ -363,10 +375,22 @@ pub fn matches_compound(
 
         match &sequence.combinator {
             Some(Combinator::Child) => {
-                return matches_compound_selectors(&sequence.compound_selectors, parent_element, &parent_class_set);
+                return matches_compound_selectors(
+                    &sequence.compound_selectors,
+                    parent_element,
+                    &parent_class_set,
+                    tree,
+                    parent_node,
+                );
             }
             Some(Combinator::Descendant) => {
-                if matches_compound_selectors(&sequence.compound_selectors, parent_element, &parent_class_set) {
+                if matches_compound_selectors(
+                    &sequence.compound_selectors,
+                    parent_element,
+                    &parent_class_set,
+                    tree,
+                    parent_node,
+                ) {
                     return true;
                 }
 
@@ -387,6 +411,8 @@ pub fn matches_compound(
                         &sequence.compound_selectors,
                         grandparent_element,
                         &grandparent_class_set,
+                        tree,
+                        grandparent_node,
                     ) {
                         return true;
                     }
@@ -430,6 +456,8 @@ pub fn matches_compound(
                         &sequence.compound_selectors,
                         previous_sibling_element,
                         &sibling_class_set,
+                        tree,
+                        previous_sibling_node,
                     );
                 }
             }
@@ -453,7 +481,13 @@ pub fn matches_compound(
 
                     let sibling_class_set = ClassSet::new(sibling_element.classes());
 
-                    if matches_compound_selectors(&sequence.compound_selectors, sibling_element, &sibling_class_set) {
+                    if matches_compound_selectors(
+                        &sequence.compound_selectors,
+                        sibling_element,
+                        &sibling_class_set,
+                        tree,
+                        sibling_node,
+                    ) {
                         return true;
                     }
                 }

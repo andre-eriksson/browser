@@ -29,6 +29,11 @@ pub struct CompoundSelector {
 
     /// A list of attribute selectors
     pub attribute_selectors: Vec<AttributeSelector>,
+
+    /// Selector lists from `:is()` pseudo-class arguments.
+    /// Each inner `Vec<CompoundSelectorSequence>` is one selector in the comma-separated list.
+    /// The element must match at least one of these selector lists for the `:is()` to match.
+    pub is_selector_lists: Vec<Vec<Vec<CompoundSelectorSequence>>>,
 }
 
 /// A sequence of compound selectors with an optional combinator
@@ -74,7 +79,7 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
         .unwrap_or(0);
     let trimmed_components = &components[start..end];
 
-    for component in trimmed_components.iter() {
+    for (idx, component) in trimmed_components.iter().enumerate() {
         match component {
             ComponentValue::SimpleBlock(block) => {
                 if block.associated_token == AssociatedToken::SquareBracket {
@@ -88,6 +93,7 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
                             let new_compound_selector = CompoundSelector {
                                 attribute_selectors: vec![attr_selector],
                                 tokens: Vec::new(),
+                                is_selector_lists: Vec::new(),
                             };
 
                             current_sequence
@@ -116,7 +122,17 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
                         flush_sequence(&mut current_sequence, &mut sequences);
                     }
                 }
-                _ => {
+                CssTokenKind::Ident(_)
+                | CssTokenKind::Hash { .. }
+                | CssTokenKind::Delim('.')
+                | CssTokenKind::Delim('*')
+                | CssTokenKind::Colon => {
+                    if matches!(&token.kind, CssTokenKind::Colon)
+                        && let Some(ComponentValue::Function(f)) = trimmed_components.get(idx + 1)
+                        && f.name.eq_ignore_ascii_case("is")
+                    {
+                        continue;
+                    }
                     let compound_selector = current_sequence.compound_selectors.last_mut();
 
                     if let Some(cs) = compound_selector {
@@ -125,6 +141,7 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
                         let new_compound_selector = CompoundSelector {
                             attribute_selectors: Vec::new(),
                             tokens: vec![token.clone()],
+                            is_selector_lists: Vec::new(),
                         };
 
                         current_sequence
@@ -132,8 +149,28 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
                             .push(new_compound_selector);
                     }
                 }
+                _ => continue,
             },
-            _ => {}
+            ComponentValue::Function(function) => {
+                if function.name.eq_ignore_ascii_case("is") {
+                    let selector_lists = generate_selector_list(&function.value);
+
+                    let compound_selector = current_sequence.compound_selectors.last_mut();
+                    if let Some(cs) = compound_selector {
+                        cs.is_selector_lists.push(selector_lists);
+                    } else {
+                        let new_compound_selector = CompoundSelector {
+                            tokens: Vec::new(),
+                            attribute_selectors: Vec::new(),
+                            is_selector_lists: vec![selector_lists],
+                        };
+
+                        current_sequence
+                            .compound_selectors
+                            .push(new_compound_selector);
+                    }
+                }
+            }
         }
     }
 

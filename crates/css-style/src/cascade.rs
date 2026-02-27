@@ -198,6 +198,7 @@ impl<'a> GeneratedRule<'a> {
         style_rule: &'a CSSStyleRule,
     ) {
         let selector_list = generate_selector_list(&style_rule.prelude);
+
         for selector_sequence in selector_list {
             let specificity = selector_sequence
                 .iter()

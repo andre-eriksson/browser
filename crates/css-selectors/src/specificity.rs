@@ -118,6 +118,21 @@ impl SpecificityCalculable for CompoundSelector {
             }
         }
 
+        for is_selector_list in &self.is_selector_lists {
+            let max_specificity = is_selector_list
+                .iter()
+                .map(|selector_sequence| {
+                    selector_sequence
+                        .iter()
+                        .map(|seq| seq.specificity())
+                        .fold(SelectorSpecificity::default(), |acc, sp| acc + sp)
+                })
+                .max()
+                .unwrap_or_default();
+
+            specificity += max_specificity;
+        }
+
         specificity
     }
 }
