@@ -6,7 +6,7 @@ use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
     ComputedStyle, RelativeType,
-    functions::calculate::CalcExpression,
+    functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{
         font::{AbsoluteSize, GenericName, RelativeSize},
@@ -235,8 +235,11 @@ impl TryFrom<&[ComponentValue]> for FontSize {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) => {
-                    if func.name.eq_ignore_ascii_case("calc") {
-                        return Ok(FontSize::Calc(CalcExpression::parse(func.value.as_slice())?));
+                    if is_math_function(&func.name) {
+                        return Ok(FontSize::Calc(CalcExpression::parse_math_function(
+                            &func.name,
+                            func.value.as_slice(),
+                        )?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {

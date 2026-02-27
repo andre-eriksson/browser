@@ -5,7 +5,7 @@ use strum::EnumString;
 
 use crate::{
     ComputedStyle, RelativeType,
-    functions::calculate::CalcExpression,
+    functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext},
@@ -204,8 +204,11 @@ impl TryFrom<&[ComponentValue]> for LineHeight {
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         for cv in value {
             match cv {
-                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    return Ok(LineHeight::Calc(CalcExpression::parse(func.value.as_slice())?));
+                ComponentValue::Function(func) if is_math_function(&func.name) => {
+                    return Ok(LineHeight::Calc(CalcExpression::parse_math_function(
+                        &func.name,
+                        func.value.as_slice(),
+                    )?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => {

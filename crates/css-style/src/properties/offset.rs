@@ -6,7 +6,7 @@
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
-    functions::calculate::CalcExpression,
+    functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},
@@ -67,8 +67,8 @@ impl TryFrom<&[ComponentValue]> for OffsetValue {
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         for cv in value {
             match cv {
-                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    return Ok(Self::Calc(CalcExpression::parse(func.value.as_slice())?));
+                ComponentValue::Function(func) if is_math_function(&func.name) => {
+                    return Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -171,8 +171,11 @@ impl TryFrom<&[ComponentValue]> for Offset {
 
         for cv in value {
             match cv {
-                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                    offset_values.push(OffsetValue::Calc(CalcExpression::parse(func.value.as_slice())?));
+                ComponentValue::Function(func) if is_math_function(&func.name) => {
+                    offset_values.push(OffsetValue::Calc(CalcExpression::parse_math_function(
+                        &func.name,
+                        func.value.as_slice(),
+                    )?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {

@@ -3,7 +3,7 @@
 use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::{
-    functions::calculate::CalcExpression,
+    functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, RelativeContext, RelativeType},
@@ -61,8 +61,11 @@ impl TryFrom<&[ComponentValue]> for Dimension {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) => {
-                    if func.name.eq_ignore_ascii_case("calc") {
-                        return Ok(Dimension::Calc(CalcExpression::parse(func.value.as_slice())?));
+                    if is_math_function(&func.name) {
+                        return Ok(Dimension::Calc(CalcExpression::parse_math_function(
+                            &func.name,
+                            func.value.as_slice(),
+                        )?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -147,8 +150,11 @@ impl TryFrom<&[ComponentValue]> for MaxDimension {
         for cv in value {
             match cv {
                 ComponentValue::Function(func) => {
-                    if func.name.eq_ignore_ascii_case("calc") {
-                        return Ok(MaxDimension::Calc(CalcExpression::parse(func.value.as_slice())?));
+                    if is_math_function(&func.name) {
+                        return Ok(MaxDimension::Calc(CalcExpression::parse_math_function(
+                            &func.name,
+                            func.value.as_slice(),
+                        )?));
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
