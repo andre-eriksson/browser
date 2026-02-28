@@ -311,9 +311,9 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [x] margin-block-start
 - [x] margin-block (shorthand)
 - [x] margin-bottom
-- [ ] margin-inline-end
-- [ ] margin-inline-start
-- [ ] margin-inline (shorthand)
+- [x] margin-inline-end
+- [x] margin-inline-start
+- [x] margin-inline (shorthand)
 - [x] margin-left
 - [x] margin-right
 - [x] margin-top
@@ -390,9 +390,9 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [x] padding-block-start
 - [x] padding-block (shorthand)
 - [x] padding-bottom
-- [ ] padding-inline-end
-- [ ] padding-inline-start
-- [ ] padding-inline (shorthand)
+- [x] padding-inline-end
+- [x] padding-inline-start
+- [x] padding-inline (shorthand)
 - [x] padding-left
 - [x] padding-right
 - [x] padding-top

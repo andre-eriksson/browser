@@ -113,7 +113,7 @@ macro_rules! offset_shorthand_handler {
 ///
 /// Arguments: `(fn_name, prop_name, htb_start, htb_end, vrl_start, vrl_end, vlr_start, vlr_end)`
 /// where each `*_start`/`*_end` is a field on `SpecifiedStyle`.
-macro_rules! logical_block_handler {
+macro_rules! logical_pair_handler {
     ($fn_name:ident, $prop_name:expr,
      $htb_start:ident, $htb_end:ident,
      $vrl_start:ident, $vrl_end:ident,
@@ -208,7 +208,7 @@ simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
 offset_shorthand_handler!(handle_margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
 offset_shorthand_handler!(handle_padding, "padding", padding_top, padding_right, padding_bottom, padding_left);
-logical_block_handler!(
+logical_pair_handler!(
     handle_margin_block,
     "margin-block",
     margin_top,
@@ -218,7 +218,7 @@ logical_block_handler!(
     margin_left,
     margin_right
 );
-logical_block_handler!(
+logical_pair_handler!(
     handle_padding_block,
     "padding-block",
     padding_top,
@@ -228,10 +228,34 @@ logical_block_handler!(
     padding_left,
     padding_right
 );
+logical_pair_handler!(
+    handle_margin_inline,
+    "margin-inline",
+    margin_left,
+    margin_right,
+    margin_top,
+    margin_bottom,
+    margin_top,
+    margin_bottom
+);
+logical_pair_handler!(
+    handle_padding_inline,
+    "padding-inline",
+    padding_left,
+    padding_right,
+    padding_top,
+    padding_bottom,
+    padding_top,
+    padding_bottom
+);
 logical_edge_handler!(handle_margin_block_start, "margin-block-start", margin_top, margin_right, margin_left);
 logical_edge_handler!(handle_margin_block_end, "margin-block-end", margin_bottom, margin_left, margin_right);
 logical_edge_handler!(handle_padding_block_start, "padding-block-start", padding_top, padding_right, padding_left);
 logical_edge_handler!(handle_padding_block_end, "padding-block-end", padding_bottom, padding_left, padding_right);
+logical_edge_handler!(handle_margin_inline_start, "margin-inline-start", margin_left, margin_top, margin_top);
+logical_edge_handler!(handle_margin_inline_end, "margin-inline-end", margin_right, margin_bottom, margin_bottom);
+logical_edge_handler!(handle_padding_inline_start, "padding-inline-start", padding_left, padding_top, padding_top);
+logical_edge_handler!(handle_padding_inline_end, "padding-inline-end", padding_right, padding_bottom, padding_bottom);
 
 /// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
 pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
