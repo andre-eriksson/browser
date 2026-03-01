@@ -300,6 +300,9 @@ fn is_length_percentage(cv: &ComponentValue) -> bool {
 
 fn try_one_value(cv: &ComponentValue) -> Result<PositionOne, String> {
     if let Some(ident) = try_ident(cv) {
+        if ident.eq_ignore_ascii_case("center") {
+            return Ok(PositionOne::Center(Center::Center));
+        }
         if let Ok(x) = ident.parse() {
             return Ok(PositionOne::Horizontal(x));
         }

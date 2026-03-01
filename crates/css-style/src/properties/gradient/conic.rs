@@ -189,3 +189,127 @@ impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use css_cssom::CSSStyleSheet;
+
+    /// Helper: parse an inline CSS declaration and return the component values.
+    fn parse_value(css: &str) -> Vec<ComponentValue> {
+        let decls = CSSStyleSheet::from_inline(css);
+        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
+        decls[0].original_values.clone()
+    }
+
+    /// Helper: extract the first Function from parsed component values.
+    fn extract_function(cvs: &[ComponentValue]) -> &css_cssom::Function {
+        cvs.iter()
+            .find_map(|cv| match cv {
+                ComponentValue::Function(f) => Some(f),
+                _ => None,
+            })
+            .expect("No function found in component values")
+    }
+
+    #[test]
+    fn conic_two_colors() {
+        let cvs = parse_value("background-image: conic-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.from_angle.is_none());
+        assert!(syn.position.is_none());
+        assert!(syn.interpolation.is_none());
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn conic_three_colors() {
+        let cvs = parse_value("background-image: conic-gradient(red, green, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 2);
+    }
+
+    #[test]
+    fn conic_from_angle() {
+        let cvs = parse_value("background-image: conic-gradient(from 45deg, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.from_angle.is_some());
+        assert!(syn.position.is_none());
+    }
+
+    #[test]
+    fn conic_from_turn() {
+        let cvs = parse_value("background-image: conic-gradient(from 0.25turn, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(matches!(syn.from_angle, Some(AngleOrZero::Angle(_))));
+    }
+
+    #[test]
+    fn conic_at_center() {
+        let cvs = parse_value("background-image: conic-gradient(at center, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.position.is_some());
+        assert!(syn.from_angle.is_none());
+    }
+
+    #[test]
+    fn conic_from_angle_at_position() {
+        let cvs = parse_value("background-image: conic-gradient(from 90deg at center, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.from_angle.is_some());
+        assert!(syn.position.is_some());
+    }
+
+    #[test]
+    fn conic_stops_with_angles() {
+        let cvs = parse_value("background-image: conic-gradient(red 0deg, blue 360deg)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.stops.first.angle.is_some());
+        assert!(syn.stops.rest[0].1.angle.is_some());
+    }
+
+    #[test]
+    fn conic_stops_with_percentages() {
+        let cvs = parse_value("background-image: conic-gradient(red 0%, blue 100%)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.stops.first.angle.is_some());
+        assert!(syn.stops.rest[0].1.angle.is_some());
+    }
+
+    #[test]
+    fn conic_hex_colors() {
+        let cvs = parse_value("background-image: conic-gradient(#ff0000, #0000ff)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn conic_single_stop_fails() {
+        let cvs = parse_value("background-image: conic-gradient(red)");
+        let func = extract_function(&cvs);
+        assert!(ConicGradientSyntax::try_from(func.value.as_slice()).is_err());
+    }
+
+    #[test]
+    fn conic_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(ConicGradientSyntax::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn conic_many_stops() {
+        let cvs = parse_value("background-image: conic-gradient(red, orange, yellow, green, blue)");
+        let func = extract_function(&cvs);
+        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 4);
+    }
+}

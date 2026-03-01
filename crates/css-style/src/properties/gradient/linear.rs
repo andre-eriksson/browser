@@ -155,3 +155,183 @@ impl TryFrom<&[ComponentValue]> for LinearGradientSyntax {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use css_cssom::CSSStyleSheet;
+
+    /// Helper: parse an inline CSS declaration and return the component values.
+    fn parse_value(css: &str) -> Vec<ComponentValue> {
+        let decls = CSSStyleSheet::from_inline(css);
+        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
+        decls[0].original_values.clone()
+    }
+
+    /// Helper: extract the first Function from parsed component values.
+    fn extract_function(cvs: &[ComponentValue]) -> &css_cssom::Function {
+        cvs.iter()
+            .find_map(|cv| match cv {
+                ComponentValue::Function(f) => Some(f),
+                _ => None,
+            })
+            .expect("No function found in component values")
+    }
+
+    #[test]
+    fn linear_two_colors() {
+        let cvs = parse_value("background-image: linear-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.direction.is_none());
+        assert!(syn.interpolation.is_none());
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn linear_three_colors() {
+        let cvs = parse_value("background-image: linear-gradient(red, green, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.direction.is_none());
+        assert_eq!(syn.stops.rest.len(), 2);
+    }
+
+    #[test]
+    fn linear_angle_deg() {
+        let cvs = parse_value("background-image: linear-gradient(45deg, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(matches!(syn.direction, Some(LinearDirection::Angle(AngleOrZero::Angle(_)))));
+    }
+
+    #[test]
+    fn linear_angle_turn() {
+        let cvs = parse_value("background-image: linear-gradient(0.25turn, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(matches!(syn.direction, Some(LinearDirection::Angle(AngleOrZero::Angle(_)))));
+    }
+
+    #[test]
+    fn linear_angle_zero() {
+        let cvs = parse_value("background-image: linear-gradient(0, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.direction.is_some());
+    }
+
+    #[test]
+    fn linear_to_right() {
+        let cvs = parse_value("background-image: linear-gradient(to right, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        if let Some(LinearDirection::Side(sc)) = &syn.direction {
+            assert_eq!(sc.horizontal, Some(crate::position::HorizontalSide::Right));
+            assert_eq!(sc.vertical, None);
+        } else {
+            panic!("Expected LinearDirection::Side, got {:?}", syn.direction);
+        }
+    }
+
+    #[test]
+    fn linear_to_bottom_left() {
+        let cvs = parse_value("background-image: linear-gradient(to bottom left, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        if let Some(LinearDirection::Side(sc)) = &syn.direction {
+            assert_eq!(sc.horizontal, Some(crate::position::HorizontalSide::Left));
+            assert_eq!(sc.vertical, Some(crate::position::VerticalSide::Bottom));
+        } else {
+            panic!("Expected LinearDirection::Side, got {:?}", syn.direction);
+        }
+    }
+
+    #[test]
+    fn linear_to_top() {
+        let cvs = parse_value("background-image: linear-gradient(to top, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        if let Some(LinearDirection::Side(sc)) = &syn.direction {
+            assert_eq!(sc.horizontal, None);
+            assert_eq!(sc.vertical, Some(crate::position::VerticalSide::Top));
+        } else {
+            panic!("Expected LinearDirection::Side, got {:?}", syn.direction);
+        }
+    }
+
+    #[test]
+    fn linear_stops_with_percentages() {
+        let cvs = parse_value("background-image: linear-gradient(red 0%, blue 100%)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.stops.first.length.is_some());
+        assert!(syn.stops.rest[0].1.length.is_some());
+    }
+
+    #[test]
+    fn linear_stops_with_lengths() {
+        let cvs = parse_value("background-image: linear-gradient(red 10px, blue 200px)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.stops.first.length.is_some());
+        assert!(syn.stops.rest[0].1.length.is_some());
+    }
+
+    #[test]
+    fn linear_stop_with_two_positions() {
+        let cvs = parse_value("background-image: linear-gradient(red 10% 30%, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        if let Some(ref len) = syn.stops.first.length {
+            assert!(len.1.is_some(), "Expected two-position stop");
+        } else {
+            panic!("Expected stop with length positions");
+        }
+    }
+
+    #[test]
+    fn linear_with_color_hint() {
+        let cvs = parse_value("background-image: linear-gradient(red, 30%, blue)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.stops.rest[0].0.is_some(), "Expected a color hint");
+    }
+
+    #[test]
+    fn linear_hex_colors() {
+        let cvs = parse_value("background-image: linear-gradient(#ff0000, #0000ff)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn linear_rgb_colors() {
+        let cvs = parse_value("background-image: linear-gradient(rgb(255, 0, 0), rgb(0, 0, 255))");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn linear_single_stop_fails() {
+        let cvs = parse_value("background-image: linear-gradient(red)");
+        let func = extract_function(&cvs);
+        assert!(LinearGradientSyntax::try_from(func.value.as_slice()).is_err());
+    }
+
+    #[test]
+    fn linear_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(LinearGradientSyntax::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn linear_many_stops() {
+        let cvs = parse_value("background-image: linear-gradient(red, orange, yellow, green, blue, indigo, violet)");
+        let func = extract_function(&cvs);
+        let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 6);
+    }
+}

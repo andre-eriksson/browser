@@ -347,3 +347,250 @@ impl TryFrom<&[ComponentValue]> for AngularColorStopList {
         Ok(AngularColorStopList { first, rest })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use css_cssom::CSSStyleSheet;
+
+    /// Helper: parse an inline CSS declaration and return the component values.
+    fn parse_value(css: &str) -> Vec<ComponentValue> {
+        let decls = CSSStyleSheet::from_inline(css);
+        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
+        decls[0].original_values.clone()
+    }
+
+    /// Helper: extract the inner values of the first function found.
+    fn extract_function_values(cvs: &[ComponentValue]) -> &[ComponentValue] {
+        cvs.iter()
+            .find_map(|cv| match cv {
+                ComponentValue::Function(f) => Some(f.value.as_slice()),
+                _ => None,
+            })
+            .expect("No function found in component values")
+    }
+
+    /// Helper: given a gradient function's inner values, skip the direction/config
+    /// segment(s) before the first comma and return only the color stop portion.
+    /// For bare stop lists (no direction), pass the inner values directly.
+    fn stop_cvs_from(css: &str) -> Vec<ComponentValue> {
+        let cvs = parse_value(css);
+        let inner = extract_function_values(&cvs);
+        inner.to_vec()
+    }
+
+    #[test]
+    fn linear_color_stop_color_only() {
+        let cvs = parse_value("color: red");
+        let stop = LinearColorStop::try_from(cvs.as_slice()).unwrap();
+        assert!(stop.length.is_none());
+    }
+
+    #[test]
+    fn linear_color_stop_with_percentage() {
+        let cvs = parse_value("x: red 50%");
+        let stop = LinearColorStop::try_from(cvs.as_slice()).unwrap();
+        assert!(stop.length.is_some());
+        let len = stop.length.unwrap();
+        assert!(len.1.is_none());
+    }
+
+    #[test]
+    fn linear_color_stop_with_two_positions() {
+        let cvs = parse_value("x: red 10% 30%");
+        let stop = LinearColorStop::try_from(cvs.as_slice()).unwrap();
+        let len = stop.length.unwrap();
+        assert!(len.1.is_some());
+    }
+
+    #[test]
+    fn linear_color_stop_hex() {
+        let cvs = parse_value("x: #ff0000 20px");
+        let stop = LinearColorStop::try_from(cvs.as_slice()).unwrap();
+        assert!(stop.length.is_some());
+    }
+
+    #[test]
+    fn linear_color_stop_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(LinearColorStop::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn linear_color_hint_percentage() {
+        let cvs = parse_value("x: 30%");
+        let hint = LinearColorHint::try_from(cvs.as_slice()).unwrap();
+        assert!(matches!(hint.0, LengthPercentage::Percentage(_)));
+    }
+
+    #[test]
+    fn linear_color_hint_length() {
+        let cvs = parse_value("x: 50px");
+        let hint = LinearColorHint::try_from(cvs.as_slice()).unwrap();
+        assert!(matches!(hint.0, LengthPercentage::Length(_)));
+    }
+
+    #[test]
+    fn linear_color_hint_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(LinearColorHint::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn color_stop_list_two_stops() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red, blue)");
+        let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 1);
+        assert!(list.rest[0].0.is_none());
+    }
+
+    #[test]
+    fn color_stop_list_three_stops() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red, green, blue)");
+        let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 2);
+    }
+
+    #[test]
+    fn color_stop_list_with_hint() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red, 30%, blue)");
+        let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 1);
+        assert!(list.rest[0].0.is_some());
+    }
+
+    #[test]
+    fn color_stop_list_with_positions() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red 0%, blue 100%)");
+        let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert!(list.first.length.is_some());
+        assert!(list.rest[0].1.length.is_some());
+    }
+
+    #[test]
+    fn color_stop_list_hex_colors() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(#ff0000, #00ff00, #0000ff)");
+        let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 2);
+    }
+
+    #[test]
+    fn color_stop_list_single_stop_fails() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red)");
+        assert!(ColorStopList::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn color_stop_list_trailing_hint_fails() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red, blue, 50%)");
+        assert!(ColorStopList::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn color_stop_list_many_stops() {
+        let cvs = stop_cvs_from("background-image: linear-gradient(red, orange, yellow, green, blue, indigo, violet)");
+        let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 6);
+    }
+
+    #[test]
+    fn angular_color_stop_color_only() {
+        let cvs = parse_value("color: red");
+        let stop = AngularColorStop::try_from(cvs.as_slice()).unwrap();
+        assert!(stop.angle.is_none());
+    }
+
+    #[test]
+    fn angular_color_stop_with_angle() {
+        let cvs = parse_value("x: red 90deg");
+        let stop = AngularColorStop::try_from(cvs.as_slice()).unwrap();
+        assert!(stop.angle.is_some());
+        let a = stop.angle.unwrap();
+        assert!(a.1.is_none());
+    }
+
+    #[test]
+    fn angular_color_stop_with_two_angles() {
+        let cvs = parse_value("x: red 90deg 180deg");
+        let stop = AngularColorStop::try_from(cvs.as_slice()).unwrap();
+        let a = stop.angle.unwrap();
+        assert!(a.1.is_some());
+    }
+
+    #[test]
+    fn angular_color_stop_with_percentage() {
+        let cvs = parse_value("x: red 25%");
+        let stop = AngularColorStop::try_from(cvs.as_slice()).unwrap();
+        assert!(stop.angle.is_some());
+    }
+
+    #[test]
+    fn angular_color_stop_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(AngularColorStop::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn angular_color_hint_angle() {
+        let cvs = parse_value("x: 45deg");
+        let hint = AngularColorHint::try_from(cvs.as_slice()).unwrap();
+        assert!(matches!(hint, AngularColorHint::AnglePercentage(AnglePercentage::Angle(_))));
+    }
+
+    #[test]
+    fn angular_color_hint_percentage() {
+        let cvs = parse_value("x: 50%");
+        let hint = AngularColorHint::try_from(cvs.as_slice()).unwrap();
+        assert!(matches!(hint, AngularColorHint::AnglePercentage(AnglePercentage::Percentage(_))));
+    }
+
+    #[test]
+    fn angular_color_hint_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(AngularColorHint::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn angular_stop_list_two_stops() {
+        let cvs = stop_cvs_from("background-image: conic-gradient(red, blue)");
+        let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 1);
+        assert!(list.rest[0].0.is_none());
+    }
+
+    #[test]
+    fn angular_stop_list_three_stops() {
+        let cvs = stop_cvs_from("background-image: conic-gradient(red, green, blue)");
+        let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 2);
+    }
+
+    #[test]
+    fn angular_stop_list_with_hint() {
+        let cvs = stop_cvs_from("background-image: conic-gradient(red, 50%, blue)");
+        let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 1);
+        assert!(list.rest[0].0.is_some());
+    }
+
+    #[test]
+    fn angular_stop_list_with_angles() {
+        let cvs = stop_cvs_from("background-image: conic-gradient(red 0deg, blue 360deg)");
+        let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert!(list.first.angle.is_some());
+        assert!(list.rest[0].1.angle.is_some());
+    }
+
+    #[test]
+    fn angular_stop_list_single_stop_fails() {
+        let cvs = stop_cvs_from("background-image: conic-gradient(red)");
+        assert!(AngularColorStopList::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn angular_stop_list_many_stops() {
+        let cvs = stop_cvs_from("background-image: conic-gradient(red, orange, yellow, green, blue)");
+        let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(list.rest.len(), 4);
+    }
+}

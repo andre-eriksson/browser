@@ -412,3 +412,386 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::position::{HorizontalOrXSide, HorizontalSide, VerticalOrYSide, VerticalSide};
+    use css_cssom::CSSStyleSheet;
+
+    /// Helper: parse an inline CSS declaration and return the component values
+    /// for the first declaration found.
+    fn parse_value(css: &str) -> Vec<css_cssom::ComponentValue> {
+        let decls = CSSStyleSheet::from_inline(css);
+        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
+        decls[0].original_values.clone()
+    }
+
+    #[test]
+    fn attachment_scroll() {
+        let cvs = parse_value("background-attachment: scroll");
+        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(att.attachments, vec![Attachment::Scroll]);
+    }
+
+    #[test]
+    fn attachment_fixed() {
+        let cvs = parse_value("background-attachment: fixed");
+        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(att.attachments, vec![Attachment::Fixed]);
+    }
+
+    #[test]
+    fn attachment_local() {
+        let cvs = parse_value("background-attachment: local");
+        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(att.attachments, vec![Attachment::Local]);
+    }
+
+    #[test]
+    fn attachment_invalid() {
+        let cvs = parse_value("background-attachment: banana");
+        assert!(BackgroundAttachment::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn repeat_single_repeat() {
+        let cvs = parse_value("background-repeat: repeat");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
+        assert_eq!(rep.vertical, RepeatStyle::Repeat);
+    }
+
+    #[test]
+    fn repeat_no_repeat() {
+        let cvs = parse_value("background-repeat: no-repeat");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::NoRepeat);
+        assert_eq!(rep.vertical, RepeatStyle::NoRepeat);
+    }
+
+    #[test]
+    fn repeat_repeat_x() {
+        let cvs = parse_value("background-repeat: repeat-x");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
+        assert_eq!(rep.vertical, RepeatStyle::NoRepeat);
+    }
+
+    #[test]
+    fn repeat_repeat_y() {
+        let cvs = parse_value("background-repeat: repeat-y");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::NoRepeat);
+        assert_eq!(rep.vertical, RepeatStyle::Repeat);
+    }
+
+    #[test]
+    fn repeat_two_values() {
+        let cvs = parse_value("background-repeat: round space");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::Round);
+        assert_eq!(rep.vertical, RepeatStyle::Space);
+    }
+
+    #[test]
+    fn repeat_invalid() {
+        let cvs = parse_value("background-repeat: banana");
+        assert!(BackgroundRepeat::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn origin_padding_box() {
+        let cvs = parse_value("background-origin: padding-box");
+        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(orig.origins, vec![VisualBox::Padding]);
+    }
+
+    #[test]
+    fn origin_content_box() {
+        let cvs = parse_value("background-origin: content-box");
+        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(orig.origins, vec![VisualBox::Content]);
+    }
+
+    #[test]
+    fn origin_border_box() {
+        let cvs = parse_value("background-origin: border-box");
+        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(orig.origins, vec![VisualBox::Border]);
+    }
+
+    #[test]
+    fn origin_invalid() {
+        let cvs = parse_value("background-origin: banana");
+        assert!(BackgroundOrigin::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn clip_border_box() {
+        let cvs = parse_value("background-clip: border-box");
+        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(clip.clips, vec![BgClip::Visual(VisualBox::Border)]);
+    }
+
+    #[test]
+    fn clip_padding_box() {
+        let cvs = parse_value("background-clip: padding-box");
+        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(clip.clips, vec![BgClip::Visual(VisualBox::Padding)]);
+    }
+
+    #[test]
+    fn clip_content_box() {
+        let cvs = parse_value("background-clip: content-box");
+        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(clip.clips, vec![BgClip::Visual(VisualBox::Content)]);
+    }
+
+    #[test]
+    fn clip_text() {
+        let cvs = parse_value("background-clip: text");
+        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(clip.clips, vec![BgClip::Clip(Clip::Text, None)]);
+    }
+
+    #[test]
+    fn clip_invalid() {
+        let cvs = parse_value("background-clip: banana");
+        assert!(BackgroundClip::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn size_cover() {
+        let cvs = parse_value("background-size: cover");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(sz.sizes, vec![(Size::Cover, Size::Auto)]);
+    }
+
+    #[test]
+    fn size_contain() {
+        let cvs = parse_value("background-size: contain");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(sz.sizes, vec![(Size::Contain, Size::Auto)]);
+    }
+
+    #[test]
+    fn size_auto() {
+        let cvs = parse_value("background-size: auto");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(sz.sizes, vec![(Size::Auto, Size::Auto)]);
+    }
+
+    #[test]
+    fn size_length() {
+        let cvs = parse_value("background-size: 100px");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(sz.sizes, vec![(Size::Length(Length::new(100.0, LengthUnit::Px)), Size::Auto)]);
+    }
+
+    #[test]
+    fn size_percentage() {
+        let cvs = parse_value("background-size: 50%");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(sz.sizes, vec![(Size::Percentage(Percentage::new(50.0)), Size::Auto)]);
+    }
+
+    #[test]
+    fn size_two_values() {
+        let cvs = parse_value("background-size: 100px 50%");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(
+            sz.sizes,
+            vec![(Size::Length(Length::new(100.0, LengthUnit::Px)), Size::Percentage(Percentage::new(50.0)))]
+        );
+    }
+
+    #[test]
+    fn size_auto_auto() {
+        let cvs = parse_value("background-size: auto auto");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(sz.sizes, vec![(Size::Auto, Size::Auto)]);
+    }
+
+    #[test]
+    fn image_url() {
+        let cvs = parse_value("background-image: url('test.png')");
+        let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(img.images.len(), 1);
+        assert!(matches!(&img.images[0], Image::Url(s) if s == "test.png"));
+    }
+
+    #[test]
+    fn image_linear_gradient() {
+        let cvs = parse_value("background-image: linear-gradient(red, blue)");
+        let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(img.images.len(), 1);
+        assert!(matches!(&img.images[0], Image::Gradient(_)));
+    }
+
+    #[test]
+    fn image_invalid() {
+        let cvs = parse_value("background-image: banana");
+        assert!(BackgroundImage::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn position_x_left() {
+        let cvs = parse_value("background-position-x: left");
+        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+    }
+
+    #[test]
+    fn position_x_center() {
+        let cvs = parse_value("background-position-x: center");
+        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+        assert!(matches!(pos.0[0], PositionX::Center(_)));
+    }
+
+    #[test]
+    fn position_x_percentage() {
+        let cvs = parse_value("background-position-x: 50%");
+        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+    }
+
+    #[test]
+    fn position_y_top() {
+        let cvs = parse_value("background-position-y: top");
+        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+    }
+
+    #[test]
+    fn position_y_center() {
+        let cvs = parse_value("background-position-y: center");
+        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+        assert!(matches!(pos.0[0], PositionY::Center(_)));
+    }
+
+    #[test]
+    fn position_y_percentage() {
+        let cvs = parse_value("background-position-y: 25%");
+        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+    }
+
+    #[test]
+    fn attachment_multiple_values() {
+        let cvs = parse_value("background-attachment: scroll, fixed, local");
+        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(att.attachments, vec![Attachment::Scroll, Attachment::Fixed, Attachment::Local]);
+    }
+
+    #[test]
+    fn repeat_case_insensitive() {
+        let cvs = parse_value("background-repeat: REPEAT");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
+        assert_eq!(rep.vertical, RepeatStyle::Repeat);
+    }
+
+    #[test]
+    fn repeat_two_values_with_no_repeat() {
+        let cvs = parse_value("background-repeat: repeat no-repeat");
+        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
+        assert_eq!(rep.vertical, RepeatStyle::NoRepeat);
+    }
+
+    #[test]
+    fn origin_multiple_values() {
+        let cvs = parse_value("background-origin: padding-box content-box");
+        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(orig.origins, vec![VisualBox::Padding, VisualBox::Content]);
+    }
+
+    #[test]
+    fn clip_text_border_area_pair() {
+        let cvs = parse_value("background-clip: text border-area");
+        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(clip.clips, vec![BgClip::Clip(Clip::Text, Some(Clip::BorderArea))]);
+    }
+
+    #[test]
+    fn clip_multiple_groups() {
+        let cvs = parse_value("background-clip: text, padding-box");
+        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(
+            clip.clips,
+            vec![
+                BgClip::Clip(Clip::Text, None),
+                BgClip::Visual(VisualBox::Padding)
+            ]
+        );
+    }
+
+    #[test]
+    fn size_multiple_groups() {
+        let cvs = parse_value("background-size: cover, 100px 50%");
+        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(
+            sz.sizes,
+            vec![
+                (Size::Cover, Size::Auto),
+                (Size::Length(Length::new(100.0, LengthUnit::Px)), Size::Percentage(Percentage::new(50.0)))
+            ]
+        );
+    }
+
+    #[test]
+    fn size_invalid_three_values() {
+        let cvs = parse_value("background-size: auto auto auto");
+        assert!(BackgroundSize::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn image_multiple_urls() {
+        let cvs = parse_value("background-image: url('a.png'), url('b.png')");
+        let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(img.images.len(), 2);
+    }
+
+    #[test]
+    fn position_x_left_with_offset() {
+        let cvs = parse_value("background-position-x: left 10%");
+        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+        assert!(matches!(
+            pos.0[0],
+            PositionX::Relative((
+                Some(HorizontalOrXSide::Horizontal(HorizontalSide::Left)),
+                Some(LengthPercentage::Percentage(p))
+            )) if p == Percentage::new(10.0)
+        ));
+    }
+
+    #[test]
+    fn position_y_bottom_with_length() {
+        let cvs = parse_value("background-position-y: bottom 12px");
+        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
+        assert_eq!(pos.0.len(), 1);
+        assert!(matches!(
+            pos.0[0],
+            PositionY::Relative((
+                Some(VerticalOrYSide::Vertical(VerticalSide::Bottom)),
+                Some(LengthPercentage::Length(l))
+            )) if l == Length::new(12.0, LengthUnit::Px)
+        ));
+    }
+
+    #[test]
+    fn position_x_duplicate_lengths_error() {
+        let cvs = parse_value("background-position-x: 10% 20%");
+        assert!(BackgroundPositionX::try_from(cvs.as_slice()).is_err());
+    }
+
+    #[test]
+    fn position_y_duplicate_lengths_error() {
+        let cvs = parse_value("background-position-y: 10% 20%");
+        assert!(BackgroundPositionY::try_from(cvs.as_slice()).is_err());
+    }
+}

@@ -248,3 +248,159 @@ impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use css_cssom::CSSStyleSheet;
+
+    /// Helper: parse an inline CSS declaration and return the component values.
+    fn parse_value(css: &str) -> Vec<ComponentValue> {
+        let decls = CSSStyleSheet::from_inline(css);
+        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
+        decls[0].original_values.clone()
+    }
+
+    /// Helper: extract the first Function from parsed component values.
+    fn extract_function(cvs: &[ComponentValue]) -> &css_cssom::Function {
+        cvs.iter()
+            .find_map(|cv| match cv {
+                ComponentValue::Function(f) => Some(f),
+                _ => None,
+            })
+            .expect("No function found in component values")
+    }
+
+    #[test]
+    fn radial_two_colors() {
+        let cvs = parse_value("background-image: radial-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.shape.is_none());
+        assert!(syn.size.is_none());
+        assert!(syn.position.is_none());
+        assert!(syn.interpolation.is_none());
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn radial_three_colors() {
+        let cvs = parse_value("background-image: radial-gradient(red, green, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 2);
+    }
+
+    #[test]
+    fn radial_circle() {
+        let cvs = parse_value("background-image: radial-gradient(circle, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.shape, Some(RadialShape::Circle));
+        assert!(syn.size.is_none());
+    }
+
+    #[test]
+    fn radial_ellipse() {
+        let cvs = parse_value("background-image: radial-gradient(ellipse, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.shape, Some(RadialShape::Ellipse));
+    }
+
+    #[test]
+    fn radial_closest_side() {
+        let cvs = parse_value("background-image: radial-gradient(closest-side, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.size, Some(RadialSize::Extent(RadialExtent::ClosestSide)));
+    }
+
+    #[test]
+    fn radial_farthest_corner() {
+        let cvs = parse_value("background-image: radial-gradient(farthest-corner, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.size, Some(RadialSize::Extent(RadialExtent::FarthestCorner)));
+    }
+
+    #[test]
+    fn radial_explicit_length() {
+        let cvs = parse_value("background-image: radial-gradient(50px, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(matches!(syn.size, Some(RadialSize::Length(_))));
+    }
+
+    #[test]
+    fn radial_explicit_two_lengths() {
+        let cvs = parse_value("background-image: radial-gradient(50px 100px, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(matches!(syn.size, Some(RadialSize::LengthPercentagePair(_, _))));
+    }
+
+    #[test]
+    fn radial_circle_closest_side() {
+        let cvs = parse_value("background-image: radial-gradient(circle closest-side, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.shape, Some(RadialShape::Circle));
+        assert_eq!(syn.size, Some(RadialSize::Extent(RadialExtent::ClosestSide)));
+    }
+
+    #[test]
+    fn radial_at_center() {
+        let cvs = parse_value("background-image: radial-gradient(at center, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.position.is_some());
+    }
+
+    #[test]
+    fn radial_circle_at_top_left() {
+        let cvs = parse_value("background-image: radial-gradient(circle at top left, red, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.shape, Some(RadialShape::Circle));
+        assert!(syn.position.is_some());
+    }
+
+    #[test]
+    fn radial_stops_with_percentages() {
+        let cvs = parse_value("background-image: radial-gradient(red 0%, blue 100%)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert!(syn.stops.first.length.is_some());
+        assert!(syn.stops.rest[0].1.length.is_some());
+    }
+
+    #[test]
+    fn radial_single_stop_fails() {
+        let cvs = parse_value("background-image: radial-gradient(red)");
+        let func = extract_function(&cvs);
+        assert!(RadialGradientSyntax::try_from(func.value.as_slice()).is_err());
+    }
+
+    #[test]
+    fn radial_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(RadialGradientSyntax::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn radial_hex_colors() {
+        let cvs = parse_value("background-image: radial-gradient(#ff0000, #0000ff)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 1);
+    }
+
+    #[test]
+    fn radial_many_stops() {
+        let cvs = parse_value("background-image: radial-gradient(red, orange, yellow, green, blue)");
+        let func = extract_function(&cvs);
+        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        assert_eq!(syn.stops.rest.len(), 4);
+    }
+}

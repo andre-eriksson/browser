@@ -265,3 +265,196 @@ impl TryFrom<&Function> for Gradient {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use css_cssom::CSSStyleSheet;
+
+    /// Helper: parse an inline CSS declaration and return the component values
+    /// for the first declaration found.
+    fn parse_value(css: &str) -> Vec<ComponentValue> {
+        let decls = CSSStyleSheet::from_inline(css);
+        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
+        decls[0].original_values.clone()
+    }
+
+    /// Helper: extract the first Function from parsed component values.
+    fn extract_function(cvs: &[ComponentValue]) -> &Function {
+        cvs.iter()
+            .find_map(|cv| match cv {
+                ComponentValue::Function(f) => Some(f),
+                _ => None,
+            })
+            .expect("No function found in component values")
+    }
+
+    #[test]
+    fn side_or_corner_left() {
+        let cvs = parse_value("x: to left");
+        let stripped = strip_whitespace(&cvs);
+        let to_pos = stripped
+            .iter()
+            .position(|cv| matches!(cv, ComponentValue::Token(t) if matches!(&t.kind, CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("to"))))
+            .unwrap();
+        let after_to = &stripped[to_pos + 1..];
+        let sc = SideOrCorner::try_from(after_to).unwrap();
+        assert_eq!(sc.horizontal, Some(HorizontalSide::Left));
+        assert_eq!(sc.vertical, None);
+    }
+
+    #[test]
+    fn side_or_corner_top_right() {
+        let cvs = parse_value("x: to top right");
+        let stripped = strip_whitespace(&cvs);
+        let to_pos = stripped
+            .iter()
+            .position(|cv| matches!(cv, ComponentValue::Token(t) if matches!(&t.kind, CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("to"))))
+            .unwrap();
+        let after_to = &stripped[to_pos + 1..];
+        let sc = SideOrCorner::try_from(after_to).unwrap();
+        assert_eq!(sc.horizontal, Some(HorizontalSide::Right));
+        assert_eq!(sc.vertical, Some(VerticalSide::Top));
+    }
+
+    #[test]
+    fn side_or_corner_bottom() {
+        let cvs = parse_value("x: to bottom");
+        let stripped = strip_whitespace(&cvs);
+        let to_pos = stripped
+            .iter()
+            .position(|cv| matches!(cv, ComponentValue::Token(t) if matches!(&t.kind, CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("to"))))
+            .unwrap();
+        let after_to = &stripped[to_pos + 1..];
+        let sc = SideOrCorner::try_from(after_to).unwrap();
+        assert_eq!(sc.horizontal, None);
+        assert_eq!(sc.vertical, Some(VerticalSide::Bottom));
+    }
+
+    #[test]
+    fn side_or_corner_empty_fails() {
+        let empty: &[ComponentValue] = &[];
+        assert!(SideOrCorner::try_from(empty).is_err());
+    }
+
+    #[test]
+    fn gradient_linear() {
+        let cvs = parse_value("background-image: linear-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        assert!(matches!(grad, Gradient::Linear(_)));
+    }
+
+    #[test]
+    fn gradient_repeating_linear() {
+        let cvs = parse_value("background-image: repeating-linear-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        assert!(matches!(grad, Gradient::RepeatingLinear(_)));
+    }
+
+    #[test]
+    fn gradient_radial() {
+        let cvs = parse_value("background-image: radial-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        assert!(matches!(grad, Gradient::Radial(_)));
+    }
+
+    #[test]
+    fn gradient_repeating_radial() {
+        let cvs = parse_value("background-image: repeating-radial-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        assert!(matches!(grad, Gradient::RepeatingRadial(_)));
+    }
+
+    #[test]
+    fn gradient_conic() {
+        let cvs = parse_value("background-image: conic-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        assert!(matches!(grad, Gradient::Conic(_)));
+    }
+
+    #[test]
+    fn gradient_repeating_conic() {
+        let cvs = parse_value("background-image: repeating-conic-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        assert!(matches!(grad, Gradient::RepeatingConic(_)));
+    }
+
+    #[test]
+    fn gradient_unknown_function_fails() {
+        let cvs = parse_value("background-image: fancy-gradient(red, blue)");
+        let func = extract_function(&cvs);
+        assert!(Gradient::try_from(func).is_err());
+    }
+
+    #[test]
+    fn gradient_linear_with_direction() {
+        let cvs = parse_value("background-image: linear-gradient(to right, red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        if let Gradient::Linear(syn) = grad {
+            assert!(syn.direction.is_some());
+        } else {
+            panic!("Expected Gradient::Linear");
+        }
+    }
+
+    #[test]
+    fn gradient_linear_with_angle() {
+        let cvs = parse_value("background-image: linear-gradient(45deg, red, blue)");
+        let func = extract_function(&cvs);
+        let grad = Gradient::try_from(func).unwrap();
+        if let Gradient::Linear(syn) = grad {
+            assert!(syn.direction.is_some());
+        } else {
+            panic!("Expected Gradient::Linear");
+        }
+    }
+
+    #[test]
+    fn split_on_commas_basic() {
+        let cvs = parse_value("x: red, blue, green");
+        let segments = split_on_commas(&cvs);
+        assert_eq!(segments.len(), 3);
+    }
+
+    #[test]
+    fn strip_whitespace_trims() {
+        let cvs = parse_value("x: hello");
+        let stripped = strip_whitespace(&cvs);
+        assert!(!stripped.is_empty());
+        assert!(!matches!(&stripped[0], ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)));
+    }
+
+    #[test]
+    fn try_parse_length_percentage_dimension() {
+        let cvs = parse_value("x: 10px");
+        let stripped = strip_whitespace(&cvs);
+        let meaningful = meaningful_cvs(stripped);
+        let lp = try_parse_length_percentage(meaningful[0]).unwrap();
+        assert!(matches!(lp, crate::percentage::LengthPercentage::Length(_)));
+    }
+
+    #[test]
+    fn try_parse_length_percentage_pct() {
+        let cvs = parse_value("x: 50%");
+        let stripped = strip_whitespace(&cvs);
+        let meaningful = meaningful_cvs(stripped);
+        let lp = try_parse_length_percentage(meaningful[0]).unwrap();
+        assert!(matches!(lp, crate::percentage::LengthPercentage::Percentage(_)));
+    }
+
+    #[test]
+    fn try_parse_length_percentage_zero() {
+        let cvs = parse_value("x: 0");
+        let stripped = strip_whitespace(&cvs);
+        let meaningful = meaningful_cvs(stripped);
+        let lp = try_parse_length_percentage(meaningful[0]).unwrap();
+        assert!(matches!(lp, crate::percentage::LengthPercentage::Length(_)));
+    }
+}
