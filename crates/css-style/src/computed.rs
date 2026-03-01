@@ -5,6 +5,7 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext, RelativeType,
+    background::{Attachment, VisualBox},
     cascade::{GeneratedRule, RuleIndex},
     color::named::NamedColor,
     computed::{
@@ -18,6 +19,7 @@ use crate::{
     },
     properties::{
         AbsoluteContext, CSSProperty,
+        background::{BackgroundAttachment, BackgroundOrigin},
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -36,7 +38,9 @@ pub mod dimension;
 /// with all values resolved to their final forms (e.g., colors as RGBA, lengths in pixels, etc.).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
+    pub background_attachment: BackgroundAttachment,
     pub background_color: Color4f,
+    pub background_origin: BackgroundOrigin,
     pub border_top_color: Color4f,
     pub border_right_color: Color4f,
     pub border_bottom_color: Color4f,
@@ -142,6 +146,14 @@ impl ComputedStyle {
         );
 
         Self {
+            background_attachment: specified_style
+                .background_attachment
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_attachment.clone(),
+                    BackgroundAttachment {
+                        attachments: vec![Attachment::Scroll],
+                    },
+                ),
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
                 &specified_style.color,
@@ -150,6 +162,14 @@ impl ComputedStyle {
                 relative_ctx,
                 absolute_ctx,
             ),
+            background_origin: specified_style
+                .background_origin
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_origin.clone(),
+                    BackgroundOrigin {
+                        origins: vec![VisualBox::Padding],
+                    },
+                ),
             border_top_color: Color4f::from_css_color_property(
                 &specified_style.border_top_color,
                 &specified_style.color,
@@ -320,7 +340,13 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
+            background_attachment: BackgroundAttachment {
+                attachments: vec![Attachment::Scroll],
+            },
             background_color: Color4f::new(0.0, 0.0, 0.0, 0.0),
+            background_origin: BackgroundOrigin {
+                origins: vec![VisualBox::Padding],
+            },
             border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),

@@ -7,6 +7,10 @@ use crate::{
     BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
     primitives::global::Global,
     properties::{
+        background::{
+            BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPositionX,
+            BackgroundPositionY, BackgroundRepeat, BackgroundSize,
+        },
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -16,11 +20,13 @@ use crate::{
     },
 };
 
+pub mod background;
 pub mod border;
 pub mod color;
 pub mod dimension;
 pub mod display;
 pub mod font;
+pub mod gradient;
 pub mod offset;
 pub mod position;
 pub mod text;
@@ -120,6 +126,16 @@ impl<T> From<T> for CSSProperty<T> {
         CSSProperty::Value(value)
     }
 }
+
+// Background
+pub type BackgroundAttachmentProperty = CSSProperty<BackgroundAttachment>;
+pub type BackgroundClipProperty = CSSProperty<BackgroundClip>;
+pub type BackgroundImageProperty = CSSProperty<BackgroundImage>;
+pub type BackgroundOriginProperty = CSSProperty<BackgroundOrigin>;
+pub type BackgroundRepeatProperty = CSSProperty<BackgroundRepeat>;
+pub type BackgroundPositionXProperty = CSSProperty<BackgroundPositionX>;
+pub type BackgroundPositionYProperty = CSSProperty<BackgroundPositionY>;
+pub type BackgroundSizeProperty = CSSProperty<BackgroundSize>;
 
 // Border
 pub type BorderWidthValueProperty = CSSProperty<BorderWidth>;

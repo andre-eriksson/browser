@@ -81,21 +81,23 @@ impl Angle {
     }
 }
 
-impl From<&CssToken> for Angle {
-    fn from(token: &CssToken) -> Self {
+impl TryFrom<&CssToken> for Angle {
+    type Error = String;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 let unit_str = unit.to_ascii_lowercase();
                 match unit_str.as_str() {
-                    "deg" => Angle::from_degrees(value.to_f64() as f32),
-                    "rad" => Angle::from_radians(value.to_f64() as f32),
-                    "grad" => Angle::from_gradians(value.to_f64() as f32),
-                    "turn" => Angle::from_turns(value.to_f64() as f32),
-                    _ => Angle::from_degrees(value.to_f64() as f32),
+                    "deg" => Ok(Angle::from_degrees(value.to_f64() as f32)),
+                    "rad" => Ok(Angle::from_radians(value.to_f64() as f32)),
+                    "grad" => Ok(Angle::from_gradians(value.to_f64() as f32)),
+                    "turn" => Ok(Angle::from_turns(value.to_f64() as f32)),
+                    _ => Ok(Angle::from_degrees(value.to_f64() as f32)),
                 }
             }
-            CssTokenKind::Number(value) => Angle::from_degrees(value.to_f64() as f32),
-            _ => Angle::Deg(0.0),
+            CssTokenKind::Number(value) => Ok(Angle::from_degrees(value.to_f64() as f32)),
+            _ => Err(format!("Expected a dimension or number token for angle, got {:?}", token.kind)),
         }
     }
 }
