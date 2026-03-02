@@ -438,6 +438,12 @@ pub enum Size {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundSize(pub Vec<Size>);
 
+impl Default for BackgroundSize {
+    fn default() -> Self {
+        Self(vec![(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)))])
+    }
+}
+
 impl TryFrom<&[ComponentValue]> for BackgroundSize {
     type Error = String;
 
