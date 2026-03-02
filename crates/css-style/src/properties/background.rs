@@ -427,6 +427,7 @@ impl TryFrom<&[ComponentValue]> for BackgroundImage {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("none") => {
                         return Ok(Self(vec![Image::None]));
                     }
+                    CssTokenKind::Url(url) => images.push(Image::Url(url.clone())),
                     _ => continue,
                 },
                 ComponentValue::Function(func) => {

@@ -652,14 +652,14 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         return;
     }
 
-    let mut images: Vec<Image> = Vec::new();
-    let mut attachments: Vec<Attachment> = Vec::new();
-    let mut repeats: Vec<(RepeatStyle, RepeatStyle)> = Vec::new();
-    let mut origins: Vec<VisualBox> = Vec::new();
-    let mut clips: Vec<BgClip> = Vec::new();
-    let mut sizes: Vec<Size> = Vec::new();
-    let mut all_position_cvs: Vec<Vec<ComponentValue>> = Vec::new();
-    let mut final_color: Color = Color::Transparent;
+    let mut images = Vec::new();
+    let mut attachments = Vec::new();
+    let mut repeats = Vec::new();
+    let mut origins = Vec::new();
+    let mut clips = Vec::new();
+    let mut sizes = Vec::new();
+    let mut all_position_cvs = Vec::new();
+    let mut final_color = Color::Transparent;
 
     fn is_position_keyword(ident: &str) -> bool {
         ident.eq_ignore_ascii_case("left")
@@ -763,20 +763,21 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                 }
             }
 
+            if is_final_layer
+                && layer_color.is_none()
+                && let Ok(c) = Color::try_from(&layer[i..=i])
+            {
+                layer_color = Some(c);
+                i += 1;
+                continue;
+            }
+
             match cv {
                 ComponentValue::Function(func) => {
                     if layer_image.is_none()
                         && let Ok(img) = Image::try_from(func)
                     {
                         layer_image = Some(img);
-                        i += 1;
-                        continue;
-                    }
-                    if is_final_layer
-                        && layer_color.is_none()
-                        && let Ok(c) = Color::try_from(&layer[i..=i])
-                    {
-                        layer_color = Some(c);
                         i += 1;
                         continue;
                     }
@@ -875,6 +876,13 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                             && let Ok(c) = Color::try_from(&layer[i..=i])
                         {
                             layer_color = Some(c);
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Url(url) => {
+                        if layer_image.is_none() {
+                            layer_image = Some(Image::Url(url.clone()));
                             i += 1;
                             continue;
                         }
@@ -983,10 +991,14 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
 
     if !all_position_cvs.is_empty() {
         let mut combined_position_cvs = Vec::new();
+
         for position_cvs in all_position_cvs {
             combined_position_cvs.extend(position_cvs);
         }
-        handle_background_position(ctx, &combined_position_cvs);
+
+        if !combined_position_cvs.is_empty() {
+            handle_background_position(ctx, &combined_position_cvs);
+        }
     }
 }
 
