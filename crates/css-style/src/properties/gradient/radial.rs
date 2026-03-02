@@ -280,7 +280,7 @@ mod tests {
         assert!(syn.size.is_none());
         assert!(syn.position.is_none());
         assert!(syn.interpolation.is_none());
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -288,7 +288,7 @@ mod tests {
         let cvs = parse_value("background-image: radial-gradient(red, green, blue)");
         let func = extract_function(&cvs);
         let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 2);
+        assert_eq!(syn.stops.1.len(), 2);
     }
 
     #[test]
@@ -371,8 +371,8 @@ mod tests {
         let cvs = parse_value("background-image: radial-gradient(red 0%, blue 100%)");
         let func = extract_function(&cvs);
         let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert!(syn.stops.first.length.is_some());
-        assert!(syn.stops.rest[0].1.length.is_some());
+        assert!(syn.stops.0.length.is_some());
+        assert!(syn.stops.1[0].1.length.is_some());
     }
 
     #[test]
@@ -393,7 +393,7 @@ mod tests {
         let cvs = parse_value("background-image: radial-gradient(#ff0000, #0000ff)");
         let func = extract_function(&cvs);
         let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -401,6 +401,6 @@ mod tests {
         let cvs = parse_value("background-image: radial-gradient(red, orange, yellow, green, blue)");
         let func = extract_function(&cvs);
         let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 4);
+        assert_eq!(syn.stops.1.len(), 4);
     }
 }

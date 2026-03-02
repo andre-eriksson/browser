@@ -185,7 +185,7 @@ mod tests {
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
         assert!(syn.direction.is_none());
         assert!(syn.interpolation.is_none());
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -194,7 +194,7 @@ mod tests {
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
         assert!(syn.direction.is_none());
-        assert_eq!(syn.stops.rest.len(), 2);
+        assert_eq!(syn.stops.1.len(), 2);
     }
 
     #[test]
@@ -265,8 +265,8 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(red 0%, blue 100%)");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert!(syn.stops.first.length.is_some());
-        assert!(syn.stops.rest[0].1.length.is_some());
+        assert!(syn.stops.0.length.is_some());
+        assert!(syn.stops.1[0].1.length.is_some());
     }
 
     #[test]
@@ -274,8 +274,8 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(red 10px, blue 200px)");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert!(syn.stops.first.length.is_some());
-        assert!(syn.stops.rest[0].1.length.is_some());
+        assert!(syn.stops.0.length.is_some());
+        assert!(syn.stops.1[0].1.length.is_some());
     }
 
     #[test]
@@ -283,7 +283,7 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(red 10% 30%, blue)");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        if let Some(ref len) = syn.stops.first.length {
+        if let Some(ref len) = syn.stops.0.length {
             assert!(len.1.is_some(), "Expected two-position stop");
         } else {
             panic!("Expected stop with length positions");
@@ -295,7 +295,7 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(red, 30%, blue)");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert!(syn.stops.rest[0].0.is_some(), "Expected a color hint");
+        assert!(syn.stops.1[0].0.is_some(), "Expected a color hint");
     }
 
     #[test]
@@ -303,7 +303,7 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(#ff0000, #0000ff)");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -311,7 +311,7 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(rgb(255, 0, 0), rgb(0, 0, 255))");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -332,6 +332,6 @@ mod tests {
         let cvs = parse_value("background-image: linear-gradient(red, orange, yellow, green, blue, indigo, violet)");
         let func = extract_function(&cvs);
         let syn = LinearGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 6);
+        assert_eq!(syn.stops.1.len(), 6);
     }
 }

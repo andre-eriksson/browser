@@ -11,15 +11,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundAttachment {
-    pub attachments: Vec<Attachment>,
-}
+pub struct BackgroundAttachment(pub Vec<Attachment>);
 
 impl Default for BackgroundAttachment {
     fn default() -> Self {
-        Self {
-            attachments: vec![Attachment::Scroll],
-        }
+        Self(vec![Attachment::Scroll])
     }
 }
 
@@ -46,21 +42,17 @@ impl TryFrom<&[ComponentValue]> for BackgroundAttachment {
         if attachments.is_empty() {
             Err(format!("No valid Attachment found for BackgroundAttachment: {:?}", value))
         } else {
-            Ok(Self { attachments })
+            Ok(Self(attachments))
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundBlendMode {
-    pub modes: Vec<BlendMode>,
-}
+pub struct BackgroundBlendMode(pub Vec<BlendMode>);
 
 impl Default for BackgroundBlendMode {
     fn default() -> Self {
-        Self {
-            modes: vec![BlendMode::Normal],
-        }
+        Self(vec![BlendMode::Normal])
     }
 }
 
@@ -81,21 +73,17 @@ impl TryFrom<&[ComponentValue]> for BackgroundBlendMode {
         if modes.is_empty() {
             Err(format!("No valid BlendMode found for BackgroundBlendMode: {:?}", value))
         } else {
-            Ok(Self { modes })
+            Ok(Self(modes))
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundClip {
-    pub clips: Vec<BgClip>,
-}
+pub struct BackgroundClip(pub Vec<BgClip>);
 
 impl Default for BackgroundClip {
     fn default() -> Self {
-        Self {
-            clips: vec![BgClip::Visual(VisualBox::Border)],
-        }
+        Self(vec![BgClip::Visual(VisualBox::Border)])
     }
 }
 
@@ -139,21 +127,17 @@ impl TryFrom<&[ComponentValue]> for BackgroundClip {
         if clips.is_empty() {
             Err(format!("No valid BgClip found for BackgroundClip: {:?}", value))
         } else {
-            Ok(Self { clips })
+            Ok(Self(clips))
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundOrigin {
-    pub origins: Vec<VisualBox>,
-}
+pub struct BackgroundOrigin(pub Vec<VisualBox>);
 
 impl Default for BackgroundOrigin {
     fn default() -> Self {
-        Self {
-            origins: vec![VisualBox::Padding],
-        }
+        Self(vec![VisualBox::Padding])
     }
 }
 
@@ -180,7 +164,7 @@ impl TryFrom<&[ComponentValue]> for BackgroundOrigin {
         if origins.is_empty() {
             Err(format!("No valid VisualBox found for BackgroundOrigin: {:?}", value))
         } else {
-            Ok(Self { origins })
+            Ok(Self(origins))
         }
     }
 }
@@ -195,15 +179,11 @@ pub enum RepeatStyle {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundRepeat {
-    pub repeats: Vec<(RepeatStyle, RepeatStyle)>,
-}
+pub struct BackgroundRepeat(pub Vec<(RepeatStyle, RepeatStyle)>);
 
 impl Default for BackgroundRepeat {
     fn default() -> Self {
-        Self {
-            repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
-        }
+        Self(vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)])
     }
 }
 
@@ -239,7 +219,7 @@ impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
         if keywords.is_empty() {
             Err(format!("No valid RepeatStyle pairs found for BackgroundRepeat: {:?}", value))
         } else {
-            Ok(Self { repeats: keywords })
+            Ok(Self(keywords))
         }
     }
 }
@@ -388,16 +368,8 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionY {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundImage {
-    pub images: Vec<Image>,
-}
-
-impl BackgroundImage {
-    pub fn none() -> Self {
-        Self { images: vec![] }
-    }
-}
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BackgroundImage(pub Vec<Image>);
 
 impl TryFrom<&[ComponentValue]> for BackgroundImage {
     type Error = String;
@@ -416,7 +388,7 @@ impl TryFrom<&[ComponentValue]> for BackgroundImage {
         if images.is_empty() {
             Err(format!("No valid Image found for BackgroundImage: {:?}", value))
         } else {
-            Ok(Self { images })
+            Ok(Self(images))
         }
     }
 }
@@ -435,9 +407,7 @@ pub enum Size {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundSize {
-    pub sizes: Vec<Size>,
-}
+pub struct BackgroundSize(pub Vec<Size>);
 
 impl TryFrom<&[ComponentValue]> for BackgroundSize {
     type Error = String;
@@ -507,7 +477,7 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
         if sizes.is_empty() {
             Err(format!("No valid Size pairs found for BackgroundSize: {:?}", value))
         } else {
-            Ok(Self { sizes })
+            Ok(Self(sizes))
         }
     }
 }
@@ -530,21 +500,21 @@ mod tests {
     fn attachment_scroll() {
         let cvs = parse_value("background-attachment: scroll");
         let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.attachments, vec![Attachment::Scroll]);
+        assert_eq!(att.0, vec![Attachment::Scroll]);
     }
 
     #[test]
     fn attachment_fixed() {
         let cvs = parse_value("background-attachment: fixed");
         let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.attachments, vec![Attachment::Fixed]);
+        assert_eq!(att.0, vec![Attachment::Fixed]);
     }
 
     #[test]
     fn attachment_local() {
         let cvs = parse_value("background-attachment: local");
         let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.attachments, vec![Attachment::Local]);
+        assert_eq!(att.0, vec![Attachment::Local]);
     }
 
     #[test]
@@ -557,40 +527,40 @@ mod tests {
     fn repeat_single_repeat() {
         let cvs = parse_value("background-repeat: repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[1].0, RepeatStyle::Repeat);
     }
 
     #[test]
     fn repeat_no_repeat() {
         let cvs = parse_value("background-repeat: no-repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::NoRepeat);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[0].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[1].0, RepeatStyle::NoRepeat);
     }
 
     #[test]
     fn repeat_repeat_x() {
         let cvs = parse_value("background-repeat: repeat-x");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[1].0, RepeatStyle::NoRepeat);
     }
 
     #[test]
     fn repeat_repeat_y() {
         let cvs = parse_value("background-repeat: repeat-y");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::NoRepeat);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[0].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[1].0, RepeatStyle::Repeat);
     }
 
     #[test]
     fn repeat_two_values() {
         let cvs = parse_value("background-repeat: round space");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::Round);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::Space);
+        assert_eq!(rep.0[0].0, RepeatStyle::Round);
+        assert_eq!(rep.0[1].0, RepeatStyle::Space);
     }
 
     #[test]
@@ -603,21 +573,21 @@ mod tests {
     fn origin_padding_box() {
         let cvs = parse_value("background-origin: padding-box");
         let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.origins, vec![VisualBox::Padding]);
+        assert_eq!(orig.0, vec![VisualBox::Padding]);
     }
 
     #[test]
     fn origin_content_box() {
         let cvs = parse_value("background-origin: content-box");
         let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.origins, vec![VisualBox::Content]);
+        assert_eq!(orig.0, vec![VisualBox::Content]);
     }
 
     #[test]
     fn origin_border_box() {
         let cvs = parse_value("background-origin: border-box");
         let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.origins, vec![VisualBox::Border]);
+        assert_eq!(orig.0, vec![VisualBox::Border]);
     }
 
     #[test]
@@ -630,28 +600,28 @@ mod tests {
     fn clip_border_box() {
         let cvs = parse_value("background-clip: border-box");
         let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.clips, vec![BgClip::Visual(VisualBox::Border)]);
+        assert_eq!(clip.0, vec![BgClip::Visual(VisualBox::Border)]);
     }
 
     #[test]
     fn clip_padding_box() {
         let cvs = parse_value("background-clip: padding-box");
         let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.clips, vec![BgClip::Visual(VisualBox::Padding)]);
+        assert_eq!(clip.0, vec![BgClip::Visual(VisualBox::Padding)]);
     }
 
     #[test]
     fn clip_content_box() {
         let cvs = parse_value("background-clip: content-box");
         let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.clips, vec![BgClip::Visual(VisualBox::Content)]);
+        assert_eq!(clip.0, vec![BgClip::Visual(VisualBox::Content)]);
     }
 
     #[test]
     fn clip_text() {
         let cvs = parse_value("background-clip: text");
         let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.clips, vec![BgClip::Clip(Clip::Text, None)]);
+        assert_eq!(clip.0, vec![BgClip::Clip(Clip::Text, None)]);
     }
 
     #[test]
@@ -664,14 +634,14 @@ mod tests {
     fn size_cover() {
         let cvs = parse_value("background-size: cover");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![Size::Cover]);
+        assert_eq!(sz.0, vec![Size::Cover]);
     }
 
     #[test]
     fn size_contain() {
         let cvs = parse_value("background-size: contain");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![Size::Contain]);
+        assert_eq!(sz.0, vec![Size::Contain]);
     }
 
     #[test]
@@ -679,7 +649,7 @@ mod tests {
         let cvs = parse_value("background-size: auto");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            sz.sizes,
+            sz.0,
             vec![Size::WidthHeight(
                 WidthHeightSize::Auto,
                 Some(WidthHeightSize::Auto)
@@ -692,7 +662,7 @@ mod tests {
         let cvs = parse_value("background-size: 100px");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            sz.sizes,
+            sz.0,
             vec![Size::WidthHeight(
                 WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
                 None
@@ -705,7 +675,7 @@ mod tests {
         let cvs = parse_value("background-size: 50%");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            sz.sizes,
+            sz.0,
             vec![Size::WidthHeight(
                 WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))),
                 None
@@ -718,7 +688,7 @@ mod tests {
         let cvs = parse_value("background-size: 100px 50%");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            sz.sizes,
+            sz.0,
             vec![Size::WidthHeight(
                 WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
                 Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))))
@@ -731,7 +701,7 @@ mod tests {
         let cvs = parse_value("background-size: auto auto");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            sz.sizes,
+            sz.0,
             vec![Size::WidthHeight(
                 WidthHeightSize::Auto,
                 Some(WidthHeightSize::Auto)
@@ -743,16 +713,16 @@ mod tests {
     fn image_url() {
         let cvs = parse_value("background-image: url('test.png')");
         let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(img.images.len(), 1);
-        assert!(matches!(&img.images[0], Image::Url(s) if s == "test.png"));
+        assert_eq!(img.0.len(), 1);
+        assert!(matches!(&img.0[0], Image::Url(s) if s == "test.png"));
     }
 
     #[test]
     fn image_linear_gradient() {
         let cvs = parse_value("background-image: linear-gradient(red, blue)");
         let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(img.images.len(), 1);
-        assert!(matches!(&img.images[0], Image::Gradient(_)));
+        assert_eq!(img.0.len(), 1);
+        assert!(matches!(&img.0[0], Image::Gradient(_)));
     }
 
     #[test]
@@ -809,37 +779,37 @@ mod tests {
     fn attachment_multiple_values() {
         let cvs = parse_value("background-attachment: scroll, fixed, local");
         let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.attachments, vec![Attachment::Scroll, Attachment::Fixed, Attachment::Local]);
+        assert_eq!(att.0, vec![Attachment::Scroll, Attachment::Fixed, Attachment::Local]);
     }
 
     #[test]
     fn repeat_case_insensitive() {
         let cvs = parse_value("background-repeat: REPEAT");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[1].0, RepeatStyle::Repeat);
     }
 
     #[test]
     fn repeat_two_values_with_no_repeat() {
         let cvs = parse_value("background-repeat: repeat no-repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.repeats[1].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[1].0, RepeatStyle::NoRepeat);
     }
 
     #[test]
     fn origin_multiple_values() {
         let cvs = parse_value("background-origin: padding-box content-box");
         let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.origins, vec![VisualBox::Padding, VisualBox::Content]);
+        assert_eq!(orig.0, vec![VisualBox::Padding, VisualBox::Content]);
     }
 
     #[test]
     fn clip_text_border_area_pair() {
         let cvs = parse_value("background-clip: text border-area");
         let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.clips, vec![BgClip::Clip(Clip::Text, Some(Clip::BorderArea))]);
+        assert_eq!(clip.0, vec![BgClip::Clip(Clip::Text, Some(Clip::BorderArea))]);
     }
 
     #[test]
@@ -847,7 +817,7 @@ mod tests {
         let cvs = parse_value("background-clip: text, padding-box");
         let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            clip.clips,
+            clip.0,
             vec![
                 BgClip::Clip(Clip::Text, None),
                 BgClip::Visual(VisualBox::Padding)
@@ -860,7 +830,7 @@ mod tests {
         let cvs = parse_value("background-size: cover, 100px 50%");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
-            sz.sizes,
+            sz.0,
             vec![
                 Size::Cover,
                 Size::WidthHeight(
@@ -881,7 +851,7 @@ mod tests {
     fn image_multiple_urls() {
         let cvs = parse_value("background-image: url('a.png'), url('b.png')");
         let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(img.images.len(), 2);
+        assert_eq!(img.0.len(), 2);
     }
 
     #[test]

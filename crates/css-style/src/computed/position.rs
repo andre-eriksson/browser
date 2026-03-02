@@ -49,18 +49,14 @@ pub enum ComputedSize {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComputedBackgroundSize {
-    pub sizes: Vec<ComputedSize>,
-}
+pub struct ComputedBackgroundSize(pub Vec<ComputedSize>);
 
 impl Default for ComputedBackgroundSize {
     fn default() -> Self {
-        Self {
-            sizes: vec![ComputedSize::WidthHeight(
-                ComputedWidthHeightSize::Auto,
-                Some(ComputedWidthHeightSize::Auto),
-            )],
-        }
+        Self(vec![ComputedSize::WidthHeight(
+            ComputedWidthHeightSize::Auto,
+            Some(ComputedWidthHeightSize::Auto),
+        )])
     }
 }
 
@@ -71,7 +67,7 @@ impl ComputedBackgroundSize {
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         let sizes = background_size
-            .sizes
+            .0
             .into_iter()
             .map(|size| match size {
                 Size::Cover => ComputedSize::Cover,
@@ -83,14 +79,14 @@ impl ComputedBackgroundSize {
                 }
             })
             .collect();
-        Self { sizes }
+        Self(sizes)
     }
 }
 
 impl From<ComputedBackgroundSize> for BackgroundSize {
     fn from(value: ComputedBackgroundSize) -> Self {
         let sizes = value
-            .sizes
+            .0
             .into_iter()
             .map(|size| match size {
                 ComputedSize::Cover => Size::Cover,
@@ -118,6 +114,6 @@ impl From<ComputedBackgroundSize> for BackgroundSize {
                 }
             })
             .collect();
-        Self { sizes }
+        Self(sizes)
     }
 }

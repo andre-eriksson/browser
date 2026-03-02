@@ -168,23 +168,17 @@ impl ComputedStyle {
                 .background_attachment
                 .resolve_with_context_owned(
                     relative_ctx.parent.background_attachment.clone(),
-                    BackgroundAttachment {
-                        attachments: vec![Attachment::Scroll],
-                    },
+                    BackgroundAttachment(vec![Attachment::Scroll]),
                 ),
             background_blend_mode: specified_style
                 .background_blend_mode
                 .resolve_with_context_owned(
                     relative_ctx.parent.background_blend_mode.clone(),
-                    BackgroundBlendMode {
-                        modes: vec![BlendMode::Normal],
-                    },
+                    BackgroundBlendMode(vec![BlendMode::Normal]),
                 ),
             background_clip: specified_style.background_clip.resolve_with_context_owned(
                 relative_ctx.parent.background_clip.clone(),
-                BackgroundClip {
-                    clips: vec![BgClip::Visual(VisualBox::Border)],
-                },
+                BackgroundClip(vec![BgClip::Visual(VisualBox::Border)]),
             ),
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
@@ -198,21 +192,19 @@ impl ComputedStyle {
                 .background_origin
                 .resolve_with_context_owned(
                     relative_ctx.parent.background_origin.clone(),
-                    BackgroundOrigin {
-                        origins: vec![VisualBox::Padding],
-                    },
+                    BackgroundOrigin(vec![VisualBox::Padding]),
                 ),
             background_image: ComputedBackgroundImage::resolve(
                 specified_style
                     .background_image
                     .resolve_with_context_owned(
                         BackgroundImage::from(relative_ctx.parent.background_image.clone()),
-                        BackgroundImage::none(),
+                        BackgroundImage::default(),
                     )
-                    .images,
+                    .0,
                 absolute_ctx,
             )
-            .unwrap_or(ComputedBackgroundImage { images: vec![] }),
+            .unwrap_or(ComputedBackgroundImage(vec![])),
             background_position_x: specified_style
                 .background_position_x
                 .resolve_with_context_owned(
@@ -235,16 +227,12 @@ impl ComputedStyle {
                 .background_repeat
                 .resolve_with_context_owned(
                     relative_ctx.parent.background_repeat.clone(),
-                    BackgroundRepeat {
-                        repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
-                    },
+                    BackgroundRepeat(vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)]),
                 ),
             background_size: ComputedBackgroundSize::resolve(
                 specified_style.background_size.resolve_with_context_owned(
                     BackgroundSize::from(relative_ctx.parent.background_size.clone()),
-                    BackgroundSize {
-                        sizes: vec![(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)))],
-                    },
+                    BackgroundSize(vec![(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)))]),
                 ),
                 relative_ctx,
                 absolute_ctx,

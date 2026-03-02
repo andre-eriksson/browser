@@ -36,25 +36,17 @@ impl ComputedImage {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComputedBackgroundImage {
-    pub images: Vec<ComputedImage>,
-}
+pub struct ComputedBackgroundImage(pub Vec<ComputedImage>);
 
 impl From<ComputedBackgroundImage> for BackgroundImage {
     fn from(computed: ComputedBackgroundImage) -> Self {
-        BackgroundImage {
-            images: computed
-                .images
-                .into_iter()
-                .map(ComputedImage::into)
-                .collect(),
-        }
+        BackgroundImage(computed.0.into_iter().map(ComputedImage::into).collect())
     }
 }
 
 impl ComputedBackgroundImage {
     pub fn none() -> Self {
-        ComputedBackgroundImage { images: vec![] }
+        ComputedBackgroundImage(vec![])
     }
 
     pub fn resolve(images: Vec<Image>, absolute_ctx: &AbsoluteContext) -> Result<Self, String> {
@@ -62,8 +54,6 @@ impl ComputedBackgroundImage {
         for image in images {
             computed_images.push(ComputedImage::resolve(image, absolute_ctx)?);
         }
-        Ok(ComputedBackgroundImage {
-            images: computed_images,
-        })
+        Ok(ComputedBackgroundImage(computed_images))
     }
 }

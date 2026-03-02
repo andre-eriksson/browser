@@ -869,38 +869,26 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         let _ = CSSProperty::update_property(&mut ctx.specified_style.background_image, value);
     } else if image_none {
         ctx.specified_style.background_image =
-            CSSProperty::Value(crate::properties::background::BackgroundImage::none());
+            CSSProperty::Value(crate::properties::background::BackgroundImage::default());
     }
 
     if let Some(att) = attachment {
-        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment {
-            attachments: vec![att],
-        });
+        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment(vec![att]));
     }
 
     if let Some(rh) = repeat_h {
         let rv = repeat_v.unwrap_or(rh);
-        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat {
-            repeats: vec![(rh, rv)],
-        });
+        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat(vec![(rh, rv)]));
     }
 
     match boxes.len() {
         1 => {
-            ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin {
-                origins: vec![boxes[0]],
-            });
-            ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip {
-                clips: vec![BgClip::Visual(boxes[0])],
-            });
+            ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin(vec![boxes[0]]));
+            ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip(vec![BgClip::Visual(boxes[0])]));
         }
         n if n >= 2 => {
-            ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin {
-                origins: vec![boxes[0]],
-            });
-            ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip {
-                clips: vec![BgClip::Visual(boxes[1])],
-            });
+            ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin(vec![boxes[0]]));
+            ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip(vec![BgClip::Visual(boxes[1])]));
         }
         _ => {}
     }

@@ -220,7 +220,7 @@ mod tests {
         assert!(syn.from_angle.is_none());
         assert!(syn.position.is_none());
         assert!(syn.interpolation.is_none());
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -228,7 +228,7 @@ mod tests {
         let cvs = parse_value("background-image: conic-gradient(red, green, blue)");
         let func = extract_function(&cvs);
         let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 2);
+        assert_eq!(syn.stops.1.len(), 2);
     }
 
     #[test]
@@ -271,8 +271,8 @@ mod tests {
         let cvs = parse_value("background-image: conic-gradient(red 0deg, blue 360deg)");
         let func = extract_function(&cvs);
         let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert!(syn.stops.first.angle.is_some());
-        assert!(syn.stops.rest[0].1.angle.is_some());
+        assert!(syn.stops.0.angle.is_some());
+        assert!(syn.stops.1[0].1.angle.is_some());
     }
 
     #[test]
@@ -280,8 +280,8 @@ mod tests {
         let cvs = parse_value("background-image: conic-gradient(red 0%, blue 100%)");
         let func = extract_function(&cvs);
         let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert!(syn.stops.first.angle.is_some());
-        assert!(syn.stops.rest[0].1.angle.is_some());
+        assert!(syn.stops.0.angle.is_some());
+        assert!(syn.stops.1[0].1.angle.is_some());
     }
 
     #[test]
@@ -289,7 +289,7 @@ mod tests {
         let cvs = parse_value("background-image: conic-gradient(#ff0000, #0000ff)");
         let func = extract_function(&cvs);
         let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 1);
+        assert_eq!(syn.stops.1.len(), 1);
     }
 
     #[test]
@@ -310,6 +310,6 @@ mod tests {
         let cvs = parse_value("background-image: conic-gradient(red, orange, yellow, green, blue)");
         let func = extract_function(&cvs);
         let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.rest.len(), 4);
+        assert_eq!(syn.stops.1.len(), 4);
     }
 }

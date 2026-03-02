@@ -21,10 +21,7 @@ pub struct LinearColorStop {
 pub struct LinearColorHint(pub LengthPercentage);
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ColorStopList {
-    pub first: LinearColorStop,
-    pub rest: Vec<(Option<LinearColorHint>, LinearColorStop)>,
-}
+pub struct ColorStopList(pub LinearColorStop, pub Vec<(Option<LinearColorHint>, LinearColorStop)>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ColorStopAngle(pub AnglePercentageOrZero, pub Option<AnglePercentageOrZero>);
@@ -42,10 +39,7 @@ pub enum AngularColorHint {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AngularColorStopList {
-    pub first: AngularColorStop,
-    pub rest: Vec<(Option<AngularColorHint>, AngularColorStop)>,
-}
+pub struct AngularColorStopList(pub AngularColorStop, pub Vec<(Option<AngularColorHint>, AngularColorStop)>);
 
 /// Try to parse a single `ComponentValue` as an `AnglePercentageOrZero`.
 fn try_parse_angle_percentage_or_zero(cv: &ComponentValue) -> Result<AnglePercentageOrZero, String> {
@@ -205,7 +199,7 @@ impl TryFrom<&[ComponentValue]> for ColorStopList {
             return Err("Color stop list must have at least 2 color stops".to_string());
         }
 
-        Ok(ColorStopList { first, rest })
+        Ok(ColorStopList(first, rest))
     }
 }
 
@@ -344,7 +338,7 @@ impl TryFrom<&[ComponentValue]> for AngularColorStopList {
             return Err("Angular color stop list must have at least 2 color stops".to_string());
         }
 
-        Ok(AngularColorStopList { first, rest })
+        Ok(AngularColorStopList(first, rest))
     }
 }
 
@@ -440,38 +434,38 @@ mod tests {
     fn color_stop_list_two_stops() {
         let cvs = stop_cvs_from("background-image: linear-gradient(red, blue)");
         let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 1);
-        assert!(list.rest[0].0.is_none());
+        assert_eq!(list.1.len(), 1);
+        assert!(list.1[0].0.is_none());
     }
 
     #[test]
     fn color_stop_list_three_stops() {
         let cvs = stop_cvs_from("background-image: linear-gradient(red, green, blue)");
         let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 2);
+        assert_eq!(list.1.len(), 2);
     }
 
     #[test]
     fn color_stop_list_with_hint() {
         let cvs = stop_cvs_from("background-image: linear-gradient(red, 30%, blue)");
         let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 1);
-        assert!(list.rest[0].0.is_some());
+        assert_eq!(list.1.len(), 1);
+        assert!(list.1[0].0.is_some());
     }
 
     #[test]
     fn color_stop_list_with_positions() {
         let cvs = stop_cvs_from("background-image: linear-gradient(red 0%, blue 100%)");
         let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert!(list.first.length.is_some());
-        assert!(list.rest[0].1.length.is_some());
+        assert!(list.0.length.is_some());
+        assert!(list.1[0].1.length.is_some());
     }
 
     #[test]
     fn color_stop_list_hex_colors() {
         let cvs = stop_cvs_from("background-image: linear-gradient(#ff0000, #00ff00, #0000ff)");
         let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 2);
+        assert_eq!(list.1.len(), 2);
     }
 
     #[test]
@@ -490,7 +484,7 @@ mod tests {
     fn color_stop_list_many_stops() {
         let cvs = stop_cvs_from("background-image: linear-gradient(red, orange, yellow, green, blue, indigo, violet)");
         let list = ColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 6);
+        assert_eq!(list.1.len(), 6);
     }
 
     #[test]
@@ -554,31 +548,31 @@ mod tests {
     fn angular_stop_list_two_stops() {
         let cvs = stop_cvs_from("background-image: conic-gradient(red, blue)");
         let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 1);
-        assert!(list.rest[0].0.is_none());
+        assert_eq!(list.1.len(), 1);
+        assert!(list.1[0].0.is_none());
     }
 
     #[test]
     fn angular_stop_list_three_stops() {
         let cvs = stop_cvs_from("background-image: conic-gradient(red, green, blue)");
         let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 2);
+        assert_eq!(list.1.len(), 2);
     }
 
     #[test]
     fn angular_stop_list_with_hint() {
         let cvs = stop_cvs_from("background-image: conic-gradient(red, 50%, blue)");
         let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 1);
-        assert!(list.rest[0].0.is_some());
+        assert_eq!(list.1.len(), 1);
+        assert!(list.1[0].0.is_some());
     }
 
     #[test]
     fn angular_stop_list_with_angles() {
         let cvs = stop_cvs_from("background-image: conic-gradient(red 0deg, blue 360deg)");
         let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert!(list.first.angle.is_some());
-        assert!(list.rest[0].1.angle.is_some());
+        assert!(list.0.angle.is_some());
+        assert!(list.1[0].1.angle.is_some());
     }
 
     #[test]
@@ -591,6 +585,6 @@ mod tests {
     fn angular_stop_list_many_stops() {
         let cvs = stop_cvs_from("background-image: conic-gradient(red, orange, yellow, green, blue)");
         let list = AngularColorStopList::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(list.rest.len(), 4);
+        assert_eq!(list.1.len(), 4);
     }
 }
