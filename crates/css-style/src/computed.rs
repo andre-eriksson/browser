@@ -15,6 +15,8 @@ use crate::{
         image::ComputedBackgroundImage,
     },
     length::Length,
+    percentage::{LengthPercentage, Percentage},
+    position::{PositionX, PositionY},
     primitives::{
         display::{InsideDisplay, OutsideDisplay},
         font::GenericName,
@@ -23,7 +25,7 @@ use crate::{
         AbsoluteContext, CSSProperty,
         background::{
             BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
-            BackgroundRepeat, RepeatStyle,
+            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, RepeatStyle,
         },
         color::Color,
         dimension::{Dimension, MaxDimension},
@@ -52,6 +54,8 @@ pub struct ComputedStyle {
     pub background_image: ComputedBackgroundImage,
     pub background_origin: BackgroundOrigin,
     pub background_repeat: BackgroundRepeat,
+    pub background_position_x: BackgroundPositionX,
+    pub background_position_y: BackgroundPositionY,
     pub border_top_color: Color4f,
     pub border_right_color: Color4f,
     pub border_bottom_color: Color4f,
@@ -213,6 +217,24 @@ impl ComputedStyle {
                     BackgroundRepeat {
                         repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
                     },
+                ),
+            background_position_x: specified_style
+                .background_position_x
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_position_x.clone(),
+                    BackgroundPositionX(vec![PositionX::Relative((
+                        None,
+                        Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+                    ))]),
+                ),
+            background_position_y: specified_style
+                .background_position_y
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_position_y.clone(),
+                    BackgroundPositionY(vec![PositionY::Relative((
+                        None,
+                        Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+                    ))]),
                 ),
             border_top_color: Color4f::from_css_color_property(
                 &specified_style.border_top_color,
@@ -401,6 +423,14 @@ impl Default for ComputedStyle {
             background_repeat: BackgroundRepeat {
                 repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
             },
+            background_position_x: BackgroundPositionX(vec![PositionX::Relative((
+                None,
+                Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+            ))]),
+            background_position_y: BackgroundPositionY(vec![PositionY::Relative((
+                None,
+                Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+            ))]),
             border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),

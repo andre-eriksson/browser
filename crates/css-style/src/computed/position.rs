@@ -1,3 +1,6 @@
+
+pub struct ComputedBackgroundPositionX {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComputedSize {
     Contain,
