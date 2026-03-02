@@ -223,13 +223,13 @@ impl CalcExpression {
 }
 
 /// A simple recursive descent parser for calc() expressions that respects operator precedence and associativity.
-struct CalcParser<'a> {
-    input: &'a [ComponentValue],
+struct CalcParser<'css> {
+    input: &'css [ComponentValue],
     current_pos: usize,
 }
 
-impl<'a> CalcParser<'a> {
-    fn new(input: &'a [ComponentValue]) -> Self {
+impl<'css> CalcParser<'css> {
+    fn new(input: &'css [ComponentValue]) -> Self {
         Self {
             input,
             current_pos: 0,

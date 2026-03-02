@@ -148,15 +148,15 @@ impl RuleIndex {
 
 /// A rule that has been generated from the stylesheets, containing the selector sequences, declarations, origin, and specificity for cascade resolution.
 #[derive(Debug)]
-pub struct GeneratedRule<'a> {
+pub struct GeneratedRule<'css> {
     pub selector_sequences: Vec<CompoundSelectorSequence>,
-    pub declarations: &'a [CSSDeclaration],
+    pub declarations: &'css [CSSDeclaration],
     pub origin: StylesheetOrigin,
     pub specificity: SelectorSpecificity,
 }
 
-impl<'a> GeneratedRule<'a> {
-    pub fn build(stylesheets: &'a [CSSStyleSheet]) -> Vec<GeneratedRule<'a>> {
+impl<'css> GeneratedRule<'css> {
+    pub fn build(stylesheets: &'css [CSSStyleSheet]) -> Vec<GeneratedRule<'css>> {
         let mut generated_rules = Vec::new();
 
         for stylesheet in stylesheets {
@@ -193,9 +193,9 @@ impl<'a> GeneratedRule<'a> {
     }
 
     fn push_rule(
-        generated_rules: &mut Vec<GeneratedRule<'a>>,
+        generated_rules: &mut Vec<GeneratedRule<'css>>,
         stylesheet: &CSSStyleSheet,
-        style_rule: &'a CSSStyleRule,
+        style_rule: &'css CSSStyleRule,
     ) {
         let selector_list = generate_selector_list(&style_rule.prelude);
 
@@ -273,13 +273,13 @@ pub struct CascadedDeclaration<'rules> {
 
 impl CascadedDeclaration<'_> {
     /// Collect all declarations that apply to the given DOM node from the provided stylesheets, including inline styles.
-    pub fn collect<'a>(
+    pub fn collect<'css>(
         node: &DomNode,
         dom: &DocumentRoot,
-        rules: &'a [GeneratedRule],
+        rules: &'css [GeneratedRule],
         rule_index: &RuleIndex,
-        inline_declarations: &'a [CSSDeclaration],
-    ) -> (Vec<CascadedDeclaration<'a>>, Vec<CascadedDeclaration<'a>>) {
+        inline_declarations: &'css [CSSDeclaration],
+    ) -> (Vec<CascadedDeclaration<'css>>, Vec<CascadedDeclaration<'css>>) {
         let mut declarations = Vec::new();
         let mut variables = Vec::new();
         let mut source_order: usize = 0;

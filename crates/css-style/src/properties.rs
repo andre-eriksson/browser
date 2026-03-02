@@ -45,13 +45,13 @@ pub enum RelativeType {
 
 /// Context for resolving absolute CSS properties, such as 'px' units or named colors. It provides access to the root font size, viewport dimensions, and root color for calculations.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct AbsoluteContext<'a> {
+pub struct AbsoluteContext<'page> {
     pub root_font_size: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub root_color: Color,
     pub theme_category: ThemeCategory,
-    pub document_url: Option<&'a Url>,
+    pub document_url: Option<&'page Url>,
 }
 
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.
@@ -67,7 +67,7 @@ pub(crate) enum CSSProperty<T> {
     Global(Global),
 }
 
-impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
+impl<T: for<'css> TryFrom<&'css [ComponentValue], Error = String>> CSSProperty<T> {
     /// Returns the specific value of the property if it is set, or None if it is a global value.
     pub(crate) fn as_value(&self) -> Option<&T> {
         match self {
@@ -85,7 +85,7 @@ impl<T: for<'a> TryFrom<&'a [ComponentValue], Error = String>> CSSProperty<T> {
     }
 
     /// Resolves the property to its specific value if it is set, or computes the value based on the global value and the provided context (parent and initial values).
-    pub(crate) fn resolve_with_context<'a>(&'a self, parent: Option<&'a T>, initial: &'a T) -> &'a T {
+    pub(crate) fn resolve_with_context<'css>(&'css self, parent: Option<&'css T>, initial: &'css T) -> &'css T {
         match self {
             CSSProperty::Global(global) => match global {
                 Global::Initial => initial,

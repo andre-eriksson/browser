@@ -19,10 +19,10 @@ use crate::specified::SpecifiedStyle;
 use crate::{BorderStyle, BorderWidth, Color, FontWeight, Offset, RelativeContext};
 
 /// Context for updating a CSS property, containing necessary information and utilities for the update process.
-pub(crate) struct PropertyUpdateContext<'a> {
-    pub absolute_ctx: &'a AbsoluteContext<'a>,
-    pub specified_style: &'a mut SpecifiedStyle,
-    pub relative_ctx: &'a RelativeContext,
+pub(crate) struct PropertyUpdateContext<'css> {
+    pub absolute_ctx: &'css AbsoluteContext<'css>,
+    pub specified_style: &'css mut SpecifiedStyle,
+    pub relative_ctx: &'css RelativeContext,
     pub errors: Vec<PropertyError>,
 }
 
@@ -34,11 +34,11 @@ pub(crate) struct PropertyError {
     pub error: String,
 }
 
-impl<'a> PropertyUpdateContext<'a> {
+impl<'css> PropertyUpdateContext<'css> {
     pub fn new(
-        absolute_ctx: &'a AbsoluteContext,
-        specified_style: &'a mut SpecifiedStyle,
-        relative_ctx: &'a RelativeContext,
+        absolute_ctx: &'css AbsoluteContext,
+        specified_style: &'css mut SpecifiedStyle,
+        relative_ctx: &'css RelativeContext,
     ) -> Self {
         Self {
             absolute_ctx,
