@@ -91,6 +91,7 @@ pub(crate) fn on_navigation_success(application: &mut Application, tab_id: TabId
                 .map(|(_, h)| *h)
                 .unwrap_or(600.0),
             theme_category: application.config.active_theme().category,
+            document_url: page.document_url.as_ref(),
             ..Default::default()
         };
         let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());

@@ -512,7 +512,7 @@ mod tests {
     use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, NumericValue};
 
     /// Helper function to create test contexts
-    fn create_test_contexts() -> (RelativeContext, AbsoluteContext) {
+    fn create_test_contexts() -> (RelativeContext, AbsoluteContext<'static>) {
         let rel_ctx = RelativeContext {
             parent: ComputedStyle {
                 font_size: 16.0,

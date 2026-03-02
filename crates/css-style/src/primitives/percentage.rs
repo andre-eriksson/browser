@@ -1,7 +1,6 @@
 //! A module for handling percentage values in CSS styles.
-use std::str::FromStr;
 
-use crate::color::ColorValue;
+use crate::{angle::Angle, color::ColorValue, length::Length};
 
 /// Percentage representation for CSS properties that accept percentage values, such as width, height, opacity, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -45,37 +44,21 @@ impl From<ColorValue> for Percentage {
     }
 }
 
-impl FromStr for Percentage {
-    type Err = String;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LengthPercentage {
+    Length(Length),
+    Percentage(Percentage),
+}
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
-
-        if s.eq_ignore_ascii_case("none") {
-            Ok(Self::new(0.0))
-        } else if let Some(stripped) = s.strip_suffix('%')
-            && let Ok(num) = stripped.trim().parse::<f32>()
-        {
-            Ok(Self::new(num))
-        } else if let Ok(num) = s.trim().parse::<f32>() {
-            Ok(Self::new(num))
-        } else {
-            Err(format!("Invalid percentage value: {}", s))
-        }
-    }
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AnglePercentage {
+    Angle(Angle),
+    Percentage(Percentage),
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_resolve_percentage() {
-        assert_eq!("50%".parse(), Ok(Percentage::new(50.0)));
-        assert_eq!("100%".parse(), Ok(Percentage::new(100.0)));
-        assert_eq!("75.5%".parse(), Ok(Percentage::new(75.5)));
-        assert!("invalid".parse::<Percentage>().is_err());
-    }
 
     #[test]
     fn test_percentage_clamping() {

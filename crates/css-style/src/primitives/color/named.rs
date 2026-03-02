@@ -34,8 +34,6 @@ pub enum SystemColor {
 impl SystemColor {
     /// Converts the SystemColor to its hexadecimal string representation, or returns None if the color is not recognized.
     pub fn to_hex(self) -> Option<&'static str> {
-        // TODO: Get actual system colors from the OS or the browser theme, i.e., the `prefs` crate.
-
         match self {
             SystemColor::AccentColor => Some("#0078D7"),
             SystemColor::AccentColorText => Some("#FFFFFF"),
