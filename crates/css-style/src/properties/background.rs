@@ -44,22 +44,29 @@ impl TryFrom<&[ComponentValue]> for BackgroundAttachment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundBlendMode(BlendMode);
+pub struct BackgroundBlendMode {
+    pub modes: Vec<BlendMode>,
+}
 
 impl TryFrom<&[ComponentValue]> for BackgroundBlendMode {
     type Error = String;
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        let mut modes = Vec::new();
         for cv in value {
             if let ComponentValue::Token(token) = cv
                 && let CssTokenKind::Ident(ident) = &token.kind
-                && let Ok(blend_mode) = ident.parse()
+                && let Ok(mode) = ident.parse::<BlendMode>()
             {
-                return Ok(Self(blend_mode));
+                modes.push(mode);
             }
         }
 
-        Err(format!("No valid BlendMode found for BackgroundBlendMode: {:?}", value))
+        if modes.is_empty() {
+            Err(format!("No valid BlendMode found for BackgroundBlendMode: {:?}", value))
+        } else {
+            Ok(Self { modes })
+        }
     }
 }
 
@@ -155,10 +162,9 @@ pub enum RepeatStyle {
     NoRepeat,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundRepeat {
-    pub horizontal: RepeatStyle,
-    pub vertical: RepeatStyle,
+    pub repeats: Vec<(RepeatStyle, RepeatStyle)>,
 }
 
 impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
@@ -172,23 +178,17 @@ impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("repeat") {
-                            keywords.push(RepeatStyle::Repeat);
+                            keywords.push((RepeatStyle::Repeat, RepeatStyle::Repeat));
                         } else if ident.eq_ignore_ascii_case("space") {
-                            keywords.push(RepeatStyle::Space);
+                            keywords.push((RepeatStyle::Space, RepeatStyle::Space));
                         } else if ident.eq_ignore_ascii_case("round") {
-                            keywords.push(RepeatStyle::Round);
+                            keywords.push((RepeatStyle::Round, RepeatStyle::Round));
                         } else if ident.eq_ignore_ascii_case("no-repeat") {
-                            keywords.push(RepeatStyle::NoRepeat);
+                            keywords.push((RepeatStyle::NoRepeat, RepeatStyle::NoRepeat));
                         } else if ident.eq_ignore_ascii_case("repeat-x") {
-                            return Ok(Self {
-                                horizontal: RepeatStyle::Repeat,
-                                vertical: RepeatStyle::NoRepeat,
-                            });
+                            keywords.push((RepeatStyle::Repeat, RepeatStyle::NoRepeat));
                         } else if ident.eq_ignore_ascii_case("repeat-y") {
-                            return Ok(Self {
-                                horizontal: RepeatStyle::NoRepeat,
-                                vertical: RepeatStyle::Repeat,
-                            });
+                            keywords.push((RepeatStyle::NoRepeat, RepeatStyle::Repeat));
                         }
                     }
                     _ => continue,
@@ -197,17 +197,9 @@ impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
         }
 
         if keywords.is_empty() {
-            Err(format!("No valid BackgroundRepeatKeyword found for BackgroundRepeat: {:?}", value))
-        } else if keywords.len() == 1 {
-            Ok(Self {
-                horizontal: keywords[0],
-                vertical: keywords[0],
-            })
+            Err(format!("No valid RepeatStyle pairs found for BackgroundRepeat: {:?}", value))
         } else {
-            Ok(Self {
-                horizontal: keywords[0],
-                vertical: keywords[1],
-            })
+            Ok(Self { repeats: keywords })
         }
     }
 }
@@ -231,11 +223,11 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionX {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("center") {
-                            if horizontal_side.is_some() || length_percentage.is_some() {
+                            if horizontal_side.is_some() {
                                 positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
+                            } else if length_percentage.is_some() {
+                                positions.push(PositionX::Center(Center::Center, length_percentage.take()));
                             }
-
-                            positions.push(PositionX::Center(Center::Center));
                         } else if let Ok(h) = ident.parse() {
                             if horizontal_side.is_some() || length_percentage.is_some() {
                                 positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
@@ -291,11 +283,11 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionY {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("center") {
-                            if vertical_side.is_some() || length_percentage.is_some() {
+                            if vertical_side.is_some() {
                                 positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
+                            } else if length_percentage.is_some() {
+                                positions.push(PositionY::Center(Center::Center, length_percentage.take()));
                             }
-
-                            positions.push(PositionY::Center(Center::Center));
                         } else if let Ok(v) = ident.parse() {
                             if vertical_side.is_some() || length_percentage.is_some() {
                                 positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
@@ -340,7 +332,13 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionY {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundImage {
-    images: Vec<Image>,
+    pub images: Vec<Image>,
+}
+
+impl BackgroundImage {
+    pub fn none() -> Self {
+        Self { images: vec![] }
+    }
 }
 
 impl TryFrom<&[ComponentValue]> for BackgroundImage {
@@ -366,17 +364,21 @@ impl TryFrom<&[ComponentValue]> for BackgroundImage {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Size {
+pub enum WidthHeightSize {
     Auto,
+    Length(LengthPercentage),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Size {
     Cover,
     Contain,
-    Length(Length),
-    Percentage(Percentage),
+    WidthHeight(WidthHeightSize, Option<WidthHeightSize>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundSize {
-    pub sizes: Vec<(Size, Size)>,
+    pub sizes: Vec<Size>,
 }
 
 impl TryFrom<&[ComponentValue]> for BackgroundSize {
@@ -384,8 +386,8 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         let values = value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma));
-
         let mut sizes = Vec::new();
+        let mut width_height_values = Vec::with_capacity(2);
 
         for group in values {
             let mut size_pair = Vec::new();
@@ -394,10 +396,20 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
                     match &token.kind {
                         CssTokenKind::Ident(ident) => {
                             if ident.eq_ignore_ascii_case("auto") {
-                                size_pair.push(Size::Auto);
+                                width_height_values.push(WidthHeightSize::Auto);
                             } else if ident.eq_ignore_ascii_case("cover") {
+                                if !width_height_values.is_empty() {
+                                    let values = std::mem::take(&mut width_height_values);
+                                    size_pair.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                                }
+
                                 size_pair.push(Size::Cover);
                             } else if ident.eq_ignore_ascii_case("contain") {
+                                if !width_height_values.is_empty() {
+                                    let values = std::mem::take(&mut width_height_values);
+                                    size_pair.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                                }
+
                                 size_pair.push(Size::Contain);
                             } else {
                                 continue;
@@ -407,22 +419,26 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
                             let len_unit = unit
                                 .parse::<LengthUnit>()
                                 .map_err(|_| "Invalid length unit".to_string())?;
-                            size_pair.push(Size::Length(Length::new(value.to_f64() as f32, len_unit)));
+                            width_height_values.push(WidthHeightSize::Length(LengthPercentage::Length(Length::new(
+                                value.to_f64() as f32,
+                                len_unit,
+                            ))));
                         }
                         CssTokenKind::Percentage(value) => {
-                            size_pair.push(Size::Percentage(Percentage::new(value.to_f64() as f32)));
+                            width_height_values.push(WidthHeightSize::Length(LengthPercentage::Percentage(
+                                Percentage::new(value.to_f64() as f32),
+                            )));
                         }
                         _ => continue,
                     }
                 }
             }
 
-            if size_pair.len() == 1 {
-                sizes.push((size_pair[0], Size::Auto));
-            } else if size_pair.len() == 2 {
-                sizes.push((size_pair[0], size_pair[1]));
-            } else {
-                return Err(format!("Invalid number of values in BackgroundSize group: {:?}", group));
+            if !size_pair.is_empty() {
+                sizes.extend(size_pair);
+            } else if !width_height_values.is_empty() {
+                let values = std::mem::take(&mut width_height_values);
+                sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
             }
         }
 
@@ -479,40 +495,40 @@ mod tests {
     fn repeat_single_repeat() {
         let cvs = parse_value("background-repeat: repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
-        assert_eq!(rep.vertical, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::Repeat);
     }
 
     #[test]
     fn repeat_no_repeat() {
         let cvs = parse_value("background-repeat: no-repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::NoRepeat);
-        assert_eq!(rep.vertical, RepeatStyle::NoRepeat);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::NoRepeat);
     }
 
     #[test]
     fn repeat_repeat_x() {
         let cvs = parse_value("background-repeat: repeat-x");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
-        assert_eq!(rep.vertical, RepeatStyle::NoRepeat);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::NoRepeat);
     }
 
     #[test]
     fn repeat_repeat_y() {
         let cvs = parse_value("background-repeat: repeat-y");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::NoRepeat);
-        assert_eq!(rep.vertical, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::Repeat);
     }
 
     #[test]
     fn repeat_two_values() {
         let cvs = parse_value("background-repeat: round space");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::Round);
-        assert_eq!(rep.vertical, RepeatStyle::Space);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::Round);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::Space);
     }
 
     #[test]
@@ -586,35 +602,47 @@ mod tests {
     fn size_cover() {
         let cvs = parse_value("background-size: cover");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![(Size::Cover, Size::Auto)]);
+        assert_eq!(sz.sizes, vec![Size::Cover]);
     }
 
     #[test]
     fn size_contain() {
         let cvs = parse_value("background-size: contain");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![(Size::Contain, Size::Auto)]);
+        assert_eq!(sz.sizes, vec![Size::Contain]);
     }
 
     #[test]
     fn size_auto() {
         let cvs = parse_value("background-size: auto");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![(Size::Auto, Size::Auto)]);
+        assert_eq!(sz.sizes, vec![Size::WidthHeight(WidthHeightSize::Auto, None)]);
     }
 
     #[test]
     fn size_length() {
         let cvs = parse_value("background-size: 100px");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![(Size::Length(Length::new(100.0, LengthUnit::Px)), Size::Auto)]);
+        assert_eq!(
+            sz.sizes,
+            vec![Size::WidthHeight(
+                WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
+                None
+            )]
+        );
     }
 
     #[test]
     fn size_percentage() {
         let cvs = parse_value("background-size: 50%");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![(Size::Percentage(Percentage::new(50.0)), Size::Auto)]);
+        assert_eq!(
+            sz.sizes,
+            vec![Size::WidthHeight(
+                WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))),
+                None
+            )]
+        );
     }
 
     #[test]
@@ -623,7 +651,10 @@ mod tests {
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
         assert_eq!(
             sz.sizes,
-            vec![(Size::Length(Length::new(100.0, LengthUnit::Px)), Size::Percentage(Percentage::new(50.0)))]
+            vec![Size::WidthHeight(
+                WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
+                Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))))
+            )]
         );
     }
 
@@ -631,7 +662,13 @@ mod tests {
     fn size_auto_auto() {
         let cvs = parse_value("background-size: auto auto");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![(Size::Auto, Size::Auto)]);
+        assert_eq!(
+            sz.sizes,
+            vec![Size::WidthHeight(
+                WidthHeightSize::Auto,
+                Some(WidthHeightSize::Auto)
+            )]
+        );
     }
 
     #[test]
@@ -668,7 +705,7 @@ mod tests {
         let cvs = parse_value("background-position-x: center");
         let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
         assert_eq!(pos.0.len(), 1);
-        assert!(matches!(pos.0[0], PositionX::Center(_)));
+        assert!(matches!(pos.0[0], PositionX::Center(_, _)));
     }
 
     #[test]
@@ -690,7 +727,7 @@ mod tests {
         let cvs = parse_value("background-position-y: center");
         let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
         assert_eq!(pos.0.len(), 1);
-        assert!(matches!(pos.0[0], PositionY::Center(_)));
+        assert!(matches!(pos.0[0], PositionY::Center(_, _)));
     }
 
     #[test]
@@ -711,16 +748,16 @@ mod tests {
     fn repeat_case_insensitive() {
         let cvs = parse_value("background-repeat: REPEAT");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
-        assert_eq!(rep.vertical, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::Repeat);
     }
 
     #[test]
     fn repeat_two_values_with_no_repeat() {
         let cvs = parse_value("background-repeat: repeat no-repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.horizontal, RepeatStyle::Repeat);
-        assert_eq!(rep.vertical, RepeatStyle::NoRepeat);
+        assert_eq!(rep.repeats[0].0, RepeatStyle::Repeat);
+        assert_eq!(rep.repeats[1].0, RepeatStyle::NoRepeat);
     }
 
     #[test]
@@ -757,8 +794,11 @@ mod tests {
         assert_eq!(
             sz.sizes,
             vec![
-                (Size::Cover, Size::Auto),
-                (Size::Length(Length::new(100.0, LengthUnit::Px)), Size::Percentage(Percentage::new(50.0)))
+                Size::Cover,
+                Size::WidthHeight(
+                    WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
+                    Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))))
+                )
             ]
         );
     }

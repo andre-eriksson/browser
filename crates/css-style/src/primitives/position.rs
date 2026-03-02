@@ -270,14 +270,14 @@ pub enum BackgroundPosition {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PositionX {
-    Center(Center),
+    Center(Center, Option<LengthPercentage>),
     /// At least one option must be provided, but both can be present. If both are present, the horizontal or x-side value must come before the length or percentage value.
     Relative((Option<HorizontalOrXSide>, Option<LengthPercentage>)),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PositionY {
-    Center(Center),
+    Center(Center, Option<LengthPercentage>),
     /// At least one option must be provided, but both can be present. If both are present, the vertical or y-side value must come before the length or percentage value.
     Relative((Option<VerticalOrYSide>, Option<LengthPercentage>)),
 }

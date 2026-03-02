@@ -5,12 +5,14 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext, RelativeType,
-    background::{Attachment, VisualBox},
+    background::{Attachment, BgClip, VisualBox},
+    blend::BlendMode,
     cascade::{GeneratedRule, RuleIndex},
     color::named::NamedColor,
     computed::{
         color::Color4f,
         dimension::{ComputedDimension, ComputedMaxDimension},
+        image::ComputedBackgroundImage,
     },
     length::Length,
     primitives::{
@@ -19,7 +21,10 @@ use crate::{
     },
     properties::{
         AbsoluteContext, CSSProperty,
-        background::{BackgroundAttachment, BackgroundOrigin},
+        background::{
+            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
+            BackgroundRepeat, RepeatStyle,
+        },
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -32,6 +37,8 @@ use crate::{
 
 pub mod color;
 pub mod dimension;
+pub mod image;
+pub mod position;
 
 /// The ComputedStyle struct represents the computed style for a DOM node after applying all CSS rules, resolving inheritance,
 /// and applying the cascade. It contains all the properties that affect the layout and rendering of the node,
@@ -39,8 +46,12 @@ pub mod dimension;
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
     pub background_attachment: BackgroundAttachment,
+    pub background_blend_mode: BackgroundBlendMode,
+    pub background_clip: BackgroundClip,
     pub background_color: Color4f,
+    pub background_image: ComputedBackgroundImage,
     pub background_origin: BackgroundOrigin,
+    pub background_repeat: BackgroundRepeat,
     pub border_top_color: Color4f,
     pub border_right_color: Color4f,
     pub border_bottom_color: Color4f,
@@ -154,6 +165,20 @@ impl ComputedStyle {
                         attachments: vec![Attachment::Scroll],
                     },
                 ),
+            background_blend_mode: specified_style
+                .background_blend_mode
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_blend_mode.clone(),
+                    BackgroundBlendMode {
+                        modes: vec![BlendMode::Normal],
+                    },
+                ),
+            background_clip: specified_style.background_clip.resolve_with_context_owned(
+                relative_ctx.parent.background_clip.clone(),
+                BackgroundClip {
+                    clips: vec![BgClip::Visual(VisualBox::Border)],
+                },
+            ),
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
                 &specified_style.color,
@@ -168,6 +193,25 @@ impl ComputedStyle {
                     relative_ctx.parent.background_origin.clone(),
                     BackgroundOrigin {
                         origins: vec![VisualBox::Padding],
+                    },
+                ),
+            background_image: ComputedBackgroundImage::resolve(
+                specified_style
+                    .background_image
+                    .resolve_with_context_owned(
+                        BackgroundImage::from(relative_ctx.parent.background_image.clone()),
+                        BackgroundImage::none(),
+                    )
+                    .images,
+                absolute_ctx,
+            )
+            .unwrap_or(ComputedBackgroundImage { images: vec![] }),
+            background_repeat: specified_style
+                .background_repeat
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_repeat.clone(),
+                    BackgroundRepeat {
+                        repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
                     },
                 ),
             border_top_color: Color4f::from_css_color_property(
@@ -343,9 +387,19 @@ impl Default for ComputedStyle {
             background_attachment: BackgroundAttachment {
                 attachments: vec![Attachment::Scroll],
             },
+            background_blend_mode: BackgroundBlendMode {
+                modes: vec![BlendMode::Normal],
+            },
+            background_clip: BackgroundClip {
+                clips: vec![BgClip::Visual(VisualBox::Border)],
+            },
             background_color: Color4f::new(0.0, 0.0, 0.0, 0.0),
             background_origin: BackgroundOrigin {
                 origins: vec![VisualBox::Padding],
+            },
+            background_image: ComputedBackgroundImage::none(),
+            background_repeat: BackgroundRepeat {
+                repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
             },
             border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),

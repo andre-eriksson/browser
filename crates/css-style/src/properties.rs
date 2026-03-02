@@ -2,14 +2,15 @@ use std::{fmt::Debug, sync::Arc};
 
 use css_cssom::ComponentValue;
 use preferences::ThemeCategory;
+use url::Url;
 
 use crate::{
     BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
     primitives::global::Global,
     properties::{
         background::{
-            BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPositionX,
-            BackgroundPositionY, BackgroundRepeat, BackgroundSize,
+            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
+            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
         },
         color::Color,
         dimension::{Dimension, MaxDimension},
@@ -44,12 +45,13 @@ pub enum RelativeType {
 
 /// Context for resolving absolute CSS properties, such as 'px' units or named colors. It provides access to the root font size, viewport dimensions, and root color for calculations.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct AbsoluteContext {
+pub struct AbsoluteContext<'a> {
     pub root_font_size: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub root_color: Color,
     pub theme_category: ThemeCategory,
+    pub document_url: Option<&'a Url>,
 }
 
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.
@@ -129,6 +131,7 @@ impl<T> From<T> for CSSProperty<T> {
 
 // Background
 pub type BackgroundAttachmentProperty = CSSProperty<BackgroundAttachment>;
+pub type BackgroundBlendModeProperty = CSSProperty<BackgroundBlendMode>;
 pub type BackgroundClipProperty = CSSProperty<BackgroundClip>;
 pub type BackgroundImageProperty = CSSProperty<BackgroundImage>;
 pub type BackgroundOriginProperty = CSSProperty<BackgroundOrigin>;

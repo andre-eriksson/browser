@@ -19,7 +19,7 @@ use crate::{BorderStyle, BorderWidth, Color, FontWeight, Offset, RelativeContext
 
 /// Context for updating a CSS property, containing necessary information and utilities for the update process.
 pub(crate) struct PropertyUpdateContext<'a> {
-    pub absolute_ctx: &'a AbsoluteContext,
+    pub absolute_ctx: &'a AbsoluteContext<'a>,
     pub specified_style: &'a mut SpecifiedStyle,
     pub relative_ctx: &'a RelativeContext,
     pub errors: Vec<PropertyError>,
@@ -398,7 +398,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
 
     fn resolve_x_axis(x_axis: XAxis) -> PositionX {
         match x_axis {
-            XAxis::Center(center) => PositionX::Center(center),
+            XAxis::Center(center) => PositionX::Center(center, None),
             XAxis::Horizontal(horizontal) => {
                 PositionX::Relative((Some(HorizontalOrXSide::Horizontal(horizontal)), None))
             }
@@ -408,7 +408,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
 
     fn resolve_y_axis(y_axis: YAxis) -> PositionY {
         match y_axis {
-            YAxis::Center(center) => PositionY::Center(center),
+            YAxis::Center(center) => PositionY::Center(center, None),
             YAxis::Vertical(vertical) => PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical)), None)),
             YAxis::YSide(yside) => resolve_y_side(yside),
         }
@@ -442,8 +442,8 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                         }
                     },
                     PositionOne::Center(center) => {
-                        x_pos.push(PositionX::Center(center));
-                        y_pos.push(PositionY::Center(center));
+                        x_pos.push(PositionX::Center(center, None));
+                        y_pos.push(PositionY::Center(center, None));
                     }
                     PositionOne::BlockAxis(block) => {
                         let resolved = resolve_block_axis(block, writing_mode);
@@ -461,13 +461,13 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                     }
                     PositionTwo::Relative(x_rel, y_rel) => {
                         match x_rel {
-                            RelativeAxis::Center(center) => x_pos.push(PositionX::Center(center)),
+                            RelativeAxis::Center(center) => x_pos.push(PositionX::Center(center, None)),
                             RelativeAxis::Side(side) => x_pos
                                 .push(PositionX::Relative((Some(resolve_horizontal_x_side(side, writing_mode)), None))),
                         }
 
                         match y_rel {
-                            RelativeAxis::Center(center) => y_pos.push(PositionY::Center(center)),
+                            RelativeAxis::Center(center) => y_pos.push(PositionY::Center(center, None)),
                             RelativeAxis::Side(side) => y_pos
                                 .push(PositionY::Relative((Some(resolve_vertical_y_side(side, writing_mode)), None))),
                         }
@@ -502,7 +502,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                             x_pos.push(PositionX::Relative((Some(resolved_horizontal), Some(len_pct))));
 
                             match rel_vertical_side {
-                                RelativeVerticalSide::Center(center) => y_pos.push(PositionY::Center(center)),
+                                RelativeVerticalSide::Center(center) => y_pos.push(PositionY::Center(center, None)),
                                 RelativeVerticalSide::Vertical(vertical_side) => y_pos
                                     .push(PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical_side)), None))),
                             }
@@ -512,7 +512,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                             y_pos.push(PositionY::Relative((Some(resolved_vertical), Some(len_pct))));
 
                             match rel_horionztal_side {
-                                RelativeHorizontalSide::Center(center) => x_pos.push(PositionX::Center(center)),
+                                RelativeHorizontalSide::Center(center) => x_pos.push(PositionX::Center(center, None)),
                                 RelativeHorizontalSide::Horizontal(horizontal_side) => x_pos.push(PositionX::Relative(
                                     (Some(HorizontalOrXSide::Horizontal(horizontal_side)), None),
                                 )),
@@ -881,8 +881,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
     if let Some(rh) = repeat_h {
         let rv = repeat_v.unwrap_or(rh);
         ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat {
-            horizontal: rh,
-            vertical: rv,
+            repeats: vec![(rh, rv)],
         });
     }
 

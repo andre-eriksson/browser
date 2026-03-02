@@ -1268,6 +1268,7 @@ dependencies = [
  "html-dom",
  "preferences",
  "strum",
+ "url",
 ]
 
 [[package]]
