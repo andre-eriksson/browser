@@ -193,26 +193,51 @@ impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         let mut keywords = Vec::new();
 
-        for cv in value {
-            if let ComponentValue::Token(token) = cv {
-                match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if ident.eq_ignore_ascii_case("repeat") {
-                            keywords.push((RepeatStyle::Repeat, RepeatStyle::Repeat));
-                        } else if ident.eq_ignore_ascii_case("space") {
-                            keywords.push((RepeatStyle::Space, RepeatStyle::Space));
-                        } else if ident.eq_ignore_ascii_case("round") {
-                            keywords.push((RepeatStyle::Round, RepeatStyle::Round));
-                        } else if ident.eq_ignore_ascii_case("no-repeat") {
-                            keywords.push((RepeatStyle::NoRepeat, RepeatStyle::NoRepeat));
-                        } else if ident.eq_ignore_ascii_case("repeat-x") {
-                            keywords.push((RepeatStyle::Repeat, RepeatStyle::NoRepeat));
-                        } else if ident.eq_ignore_ascii_case("repeat-y") {
-                            keywords.push((RepeatStyle::NoRepeat, RepeatStyle::Repeat));
+        for value in value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma)) {
+            let mut current_pair = (None, None);
+            for cv in value {
+                if let ComponentValue::Token(token) = cv {
+                    match &token.kind {
+                        CssTokenKind::Ident(ident) => {
+                            if ident.eq_ignore_ascii_case("repeat") {
+                                if current_pair.0.is_none() {
+                                    current_pair.0 = Some(RepeatStyle::Repeat);
+                                } else if current_pair.1.is_none() {
+                                    current_pair.1 = Some(RepeatStyle::Repeat);
+                                }
+                            } else if ident.eq_ignore_ascii_case("space") {
+                                if current_pair.0.is_none() {
+                                    current_pair.0 = Some(RepeatStyle::Space);
+                                } else if current_pair.1.is_none() {
+                                    current_pair.1 = Some(RepeatStyle::Space);
+                                }
+                            } else if ident.eq_ignore_ascii_case("round") {
+                                if current_pair.0.is_none() {
+                                    current_pair.0 = Some(RepeatStyle::Round);
+                                } else if current_pair.1.is_none() {
+                                    current_pair.1 = Some(RepeatStyle::Round);
+                                }
+                            } else if ident.eq_ignore_ascii_case("no-repeat") {
+                                if current_pair.0.is_none() {
+                                    current_pair.0 = Some(RepeatStyle::NoRepeat);
+                                } else if current_pair.1.is_none() {
+                                    current_pair.1 = Some(RepeatStyle::NoRepeat);
+                                }
+                            } else if ident.eq_ignore_ascii_case("repeat-x") {
+                                current_pair = (Some(RepeatStyle::Repeat), Some(RepeatStyle::NoRepeat));
+                            } else if ident.eq_ignore_ascii_case("repeat-y") {
+                                current_pair = (Some(RepeatStyle::NoRepeat), Some(RepeatStyle::Repeat));
+                            }
                         }
+                        _ => continue,
                     }
-                    _ => continue,
                 }
+            }
+
+            if let (Some(first), Some(second)) = current_pair {
+                keywords.push((first, second));
+            } else if let (Some(first), None) = current_pair {
+                keywords.push((first, first));
             }
         }
 
@@ -265,6 +290,8 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionX {
                                 positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
                             } else if length_percentage.is_some() {
                                 positions.push(PositionX::Center(Center::Center, length_percentage.take()));
+                            } else {
+                                positions.push(PositionX::Center(Center::Center, None));
                             }
                         } else if let Ok(h) = ident.parse() {
                             if horizontal_side.is_some() || length_percentage.is_some() {
@@ -325,6 +352,8 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionY {
                                 positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
                             } else if length_percentage.is_some() {
                                 positions.push(PositionY::Center(Center::Center, length_percentage.take()));
+                            } else {
+                                positions.push(PositionY::Center(Center::Center, None));
                             }
                         } else if let Ok(v) = ident.parse() {
                             if vertical_side.is_some() || length_percentage.is_some() {
@@ -464,6 +493,8 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
 
             if !size_pair.is_empty() {
                 sizes.extend(size_pair);
+            } else if width_height_values.len() > 2 {
+                return Err("Too many width/height values".to_string());
             } else if !width_height_values.is_empty() {
                 if width_height_values.len() == 1 && width_height_values[0] == WidthHeightSize::Auto {
                     sizes.push(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)));
@@ -528,7 +559,7 @@ mod tests {
         let cvs = parse_value("background-repeat: repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[1].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[0].1, RepeatStyle::Repeat);
     }
 
     #[test]
@@ -536,7 +567,7 @@ mod tests {
         let cvs = parse_value("background-repeat: no-repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::NoRepeat);
-        assert_eq!(rep.0[1].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[0].1, RepeatStyle::NoRepeat);
     }
 
     #[test]
@@ -544,7 +575,7 @@ mod tests {
         let cvs = parse_value("background-repeat: repeat-x");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[1].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[0].1, RepeatStyle::NoRepeat);
     }
 
     #[test]
@@ -552,7 +583,7 @@ mod tests {
         let cvs = parse_value("background-repeat: repeat-y");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::NoRepeat);
-        assert_eq!(rep.0[1].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[0].1, RepeatStyle::Repeat);
     }
 
     #[test]
@@ -560,7 +591,7 @@ mod tests {
         let cvs = parse_value("background-repeat: round space");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::Round);
-        assert_eq!(rep.0[1].0, RepeatStyle::Space);
+        assert_eq!(rep.0[0].1, RepeatStyle::Space);
     }
 
     #[test]
@@ -787,7 +818,7 @@ mod tests {
         let cvs = parse_value("background-repeat: REPEAT");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[1].0, RepeatStyle::Repeat);
+        assert_eq!(rep.0[0].1, RepeatStyle::Repeat);
     }
 
     #[test]
@@ -795,7 +826,7 @@ mod tests {
         let cvs = parse_value("background-repeat: repeat no-repeat");
         let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
         assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[1].0, RepeatStyle::NoRepeat);
+        assert_eq!(rep.0[0].1, RepeatStyle::NoRepeat);
     }
 
     #[test]
