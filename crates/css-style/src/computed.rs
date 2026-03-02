@@ -2,6 +2,7 @@ use std::{f32, sync::Arc};
 
 use css_cssom::{ComponentValue, Property};
 use html_dom::{DocumentRoot, NodeId};
+use tracing::debug;
 
 use crate::{
     BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext, RelativeType,
@@ -10,6 +11,8 @@ use crate::{
     computed::{
         color::Color4f,
         dimension::{ComputedDimension, ComputedMaxDimension},
+        image::ComputedBackgroundImage,
+        position::ComputedBackgroundSize,
     },
     length::Length,
     primitives::{
@@ -18,6 +21,10 @@ use crate::{
     },
     properties::{
         AbsoluteContext, CSSProperty,
+        background::{
+            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
+            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
+        },
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -30,13 +37,24 @@ use crate::{
 
 pub mod color;
 pub mod dimension;
+pub mod image;
+pub mod position;
 
 /// The ComputedStyle struct represents the computed style for a DOM node after applying all CSS rules, resolving inheritance,
 /// and applying the cascade. It contains all the properties that affect the layout and rendering of the node,
 /// with all values resolved to their final forms (e.g., colors as RGBA, lengths in pixels, etc.).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
+    pub background_attachment: BackgroundAttachment,
+    pub background_blend_mode: BackgroundBlendMode,
+    pub background_clip: BackgroundClip,
     pub background_color: Color4f,
+    pub background_image: ComputedBackgroundImage,
+    pub background_origin: BackgroundOrigin,
+    pub background_position_x: BackgroundPositionX,
+    pub background_position_y: BackgroundPositionY,
+    pub background_repeat: BackgroundRepeat,
+    pub background_size: ComputedBackgroundSize,
     pub border_top_color: Color4f,
     pub border_right_color: Color4f,
     pub border_bottom_color: Color4f,
@@ -142,11 +160,67 @@ impl ComputedStyle {
         );
 
         Self {
+            background_attachment: specified_style
+                .background_attachment
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_attachment.clone(),
+                    BackgroundAttachment::default(),
+                ),
+            background_blend_mode: specified_style
+                .background_blend_mode
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_blend_mode.clone(),
+                    BackgroundBlendMode::default(),
+                ),
+            background_clip: specified_style
+                .background_clip
+                .resolve_with_context_owned(relative_ctx.parent.background_clip.clone(), BackgroundClip::default()),
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
                 &specified_style.color,
                 &Color::Transparent,
                 parent_style.map(|s| Color::from(s.background_color)),
+                relative_ctx,
+                absolute_ctx,
+            ),
+            background_origin: specified_style
+                .background_origin
+                .resolve_with_context_owned(relative_ctx.parent.background_origin.clone(), BackgroundOrigin::default()),
+            background_image: ComputedBackgroundImage::resolve(
+                specified_style
+                    .background_image
+                    .resolve_with_context_owned(
+                        BackgroundImage::from(relative_ctx.parent.background_image.clone()),
+                        BackgroundImage::default(),
+                    )
+                    .0,
+                absolute_ctx,
+            )
+            .unwrap_or_else(|e| {
+                debug!("Failed to resolve background image URL: {}", e);
+
+                ComputedBackgroundImage(vec![])
+            }),
+            background_position_x: specified_style
+                .background_position_x
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_position_x.clone(),
+                    BackgroundPositionX::default(),
+                ),
+            background_position_y: specified_style
+                .background_position_y
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_position_y.clone(),
+                    BackgroundPositionY::default(),
+                ),
+            background_repeat: specified_style
+                .background_repeat
+                .resolve_with_context_owned(relative_ctx.parent.background_repeat.clone(), BackgroundRepeat::default()),
+            background_size: ComputedBackgroundSize::resolve(
+                specified_style.background_size.resolve_with_context_owned(
+                    BackgroundSize::from(relative_ctx.parent.background_size.clone()),
+                    BackgroundSize::default(),
+                ),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -320,7 +394,16 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
+            background_attachment: BackgroundAttachment::default(),
+            background_blend_mode: BackgroundBlendMode::default(),
+            background_clip: BackgroundClip::default(),
             background_color: Color4f::new(0.0, 0.0, 0.0, 0.0),
+            background_origin: BackgroundOrigin::default(),
+            background_image: ComputedBackgroundImage::none(),
+            background_repeat: BackgroundRepeat::default(),
+            background_position_x: BackgroundPositionX::default(),
+            background_position_y: BackgroundPositionY::default(),
+            background_size: ComputedBackgroundSize::default(),
             border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),

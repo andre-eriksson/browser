@@ -268,9 +268,12 @@ impl FunctionColor {
                         if parsing_alpha {
                             return Err("Dimension tokens are not allowed in alpha component".to_string());
                         } else if channel_idx < 3 {
-                            let angle = Angle::from(token);
-                            channels[channel_idx] = Some(ColorValue::Number(angle.to_degrees()));
-                            channel_idx += 1;
+                            if let Ok(angle) = Angle::try_from(token) {
+                                channels[channel_idx] = Some(ColorValue::Number(angle.to_degrees()));
+                                channel_idx += 1;
+                            } else {
+                                return Err("Invalid angle value in color function".to_string());
+                            }
                         } else {
                             return Err("Too many components in color function".to_string());
                         }

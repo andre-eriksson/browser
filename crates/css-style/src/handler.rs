@@ -1,7 +1,18 @@
 use css_cssom::{ComponentValue, CssTokenKind};
 
+use crate::background::{Attachment, BgClip, VisualBox};
 use crate::global::Global;
+use crate::image::Image;
 use crate::length::{Length, LengthUnit};
+use crate::position::{
+    BackgroundPosition, BlockAxis, HorizontalOrXSide, HorizontalSide, InlineAxis, PositionFour, PositionOne,
+    PositionThree, PositionTwo, PositionX, PositionY, RelativeAxis, RelativeHorizontalSide, RelativeVerticalSide, Side,
+    VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage, YSide,
+};
+use crate::properties::background::{
+    BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPositionX, BackgroundPositionY,
+    BackgroundRepeat, BackgroundSize, RepeatStyle, Size,
+};
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
 use crate::specified::SpecifiedStyle;
@@ -9,7 +20,7 @@ use crate::{BorderStyle, BorderWidth, Color, FontWeight, Offset, RelativeContext
 
 /// Context for updating a CSS property, containing necessary information and utilities for the update process.
 pub(crate) struct PropertyUpdateContext<'a> {
-    pub absolute_ctx: &'a AbsoluteContext,
+    pub absolute_ctx: &'a AbsoluteContext<'a>,
     pub specified_style: &'a mut SpecifiedStyle,
     pub relative_ctx: &'a RelativeContext,
     pub errors: Vec<PropertyError>,
@@ -173,7 +184,15 @@ macro_rules! logical_edge_handler {
     };
 }
 
+simple_property_handler!(handle_background_attachment, background_attachment, "background-attachment");
+simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
+simple_property_handler!(handle_background_clip, background_clip, "background-clip");
 simple_property_handler!(handle_background_color, background_color, "background-color");
+simple_property_handler!(handle_background_origin, background_origin, "background-origin");
+simple_property_handler!(handle_background_position_x, background_position_x, "background-position-x");
+simple_property_handler!(handle_background_position_y, background_position_y, "background-position-y");
+simple_property_handler!(handle_background_repeat, background_repeat, "background-repeat");
+simple_property_handler!(handle_background_size, background_size, "background-size");
 simple_property_handler!(handle_border_top_color, border_top_color, "border-top-color");
 simple_property_handler!(handle_border_right_color, border_right_color, "border-right-color");
 simple_property_handler!(handle_border_bottom_color, border_bottom_color, "border-bottom-color");
@@ -256,6 +275,714 @@ logical_edge_handler!(handle_margin_inline_start, "margin-inline-start", margin_
 logical_edge_handler!(handle_margin_inline_end, "margin-inline-end", margin_right, margin_bottom, margin_bottom);
 logical_edge_handler!(handle_padding_inline_start, "padding-inline-start", padding_left, padding_top, padding_top);
 logical_edge_handler!(handle_padding_inline_end, "padding-inline-end", padding_right, padding_bottom, padding_bottom);
+
+pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    if let Ok(global) = Global::try_from(value) {
+        ctx.specified_style.background_position_x = CSSProperty::Global(global);
+        ctx.specified_style.background_position_y = CSSProperty::Global(global);
+        return;
+    }
+
+    let writing_mode = ctx.resolve_writing_mode();
+
+    fn resolve_horizontal_side(horizontal: HorizontalSide, writing_mode: WritingMode) -> HorizontalOrXSide {
+        match writing_mode {
+            WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => {
+                HorizontalOrXSide::Horizontal(horizontal)
+            }
+            WritingMode::VerticalRl | WritingMode::VerticalLr => match horizontal {
+                HorizontalSide::Left => HorizontalOrXSide::XSide(XSide::XStart),
+                HorizontalSide::Right => HorizontalOrXSide::XSide(XSide::XEnd),
+            },
+        }
+    }
+
+    fn resolve_vertical_side(vertical: VerticalSide, writing_mode: WritingMode) -> VerticalOrYSide {
+        match writing_mode {
+            WritingMode::HorizontalTb => match vertical {
+                VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
+                VerticalSide::Bottom => VerticalOrYSide::YSide(YSide::YEnd),
+            },
+            WritingMode::VerticalRl | WritingMode::VerticalLr => VerticalOrYSide::Vertical(vertical),
+            WritingMode::SidewaysLr | WritingMode::SidewaysRl => match vertical {
+                VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
+                VerticalSide::Bottom => VerticalOrYSide::YSide(YSide::YEnd),
+            },
+        }
+    }
+
+    fn resolve_horizontal_x_side(side: Side, writing_mode: WritingMode) -> HorizontalOrXSide {
+        match writing_mode {
+            WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
+                Side::Start => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
+                Side::End => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
+            },
+            WritingMode::VerticalRl | WritingMode::VerticalLr => match side {
+                Side::Start => HorizontalOrXSide::XSide(XSide::XStart),
+                Side::End => HorizontalOrXSide::XSide(XSide::XEnd),
+            },
+        }
+    }
+
+    fn resolve_vertical_y_side(side: Side, writing_mode: WritingMode) -> VerticalOrYSide {
+        match writing_mode {
+            WritingMode::HorizontalTb => match side {
+                Side::Start => VerticalOrYSide::YSide(YSide::YStart),
+                Side::End => VerticalOrYSide::YSide(YSide::YEnd),
+            },
+            WritingMode::VerticalRl | WritingMode::VerticalLr => match side {
+                Side::Start => VerticalOrYSide::Vertical(VerticalSide::Top),
+                Side::End => VerticalOrYSide::Vertical(VerticalSide::Bottom),
+            },
+            WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
+                Side::Start => VerticalOrYSide::YSide(YSide::YStart),
+                Side::End => VerticalOrYSide::YSide(YSide::YEnd),
+            },
+        }
+    }
+
+    fn resolve_inline_axis(inline: InlineAxis, writing_mode: WritingMode) -> HorizontalOrXSide {
+        match writing_mode {
+            WritingMode::HorizontalTb => match inline {
+                InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
+                InlineAxis::InlineEnd => HorizontalOrXSide::XSide(XSide::XEnd),
+            },
+            WritingMode::SidewaysLr => match inline {
+                InlineAxis::InlineStart => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
+                InlineAxis::InlineEnd => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
+            },
+            WritingMode::SidewaysRl => match inline {
+                InlineAxis::InlineStart => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
+                InlineAxis::InlineEnd => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
+            },
+            WritingMode::VerticalRl | WritingMode::VerticalLr => match inline {
+                InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
+                InlineAxis::InlineEnd => HorizontalOrXSide::XSide(XSide::XEnd),
+            },
+        }
+    }
+
+    fn resolve_block_axis(block: BlockAxis, writing_mode: WritingMode) -> VerticalOrYSide {
+        match writing_mode {
+            WritingMode::HorizontalTb => match block {
+                BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
+                BlockAxis::BlockEnd => VerticalOrYSide::YSide(YSide::YEnd),
+            },
+            WritingMode::VerticalRl => match block {
+                BlockAxis::BlockStart => VerticalOrYSide::Vertical(VerticalSide::Top),
+                BlockAxis::BlockEnd => VerticalOrYSide::Vertical(VerticalSide::Bottom),
+            },
+            WritingMode::VerticalLr => match block {
+                BlockAxis::BlockStart => VerticalOrYSide::Vertical(VerticalSide::Bottom),
+                BlockAxis::BlockEnd => VerticalOrYSide::Vertical(VerticalSide::Top),
+            },
+            WritingMode::SidewaysLr | WritingMode::SidewaysRl => match block {
+                BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
+                BlockAxis::BlockEnd => VerticalOrYSide::YSide(YSide::YEnd),
+            },
+        }
+    }
+
+    fn resolve_x_side(x_side: XSide) -> PositionX {
+        match x_side {
+            XSide::XStart => PositionX::Relative((Some(HorizontalOrXSide::XSide(XSide::XStart)), None)),
+            XSide::XEnd => PositionX::Relative((Some(HorizontalOrXSide::XSide(XSide::XEnd)), None)),
+        }
+    }
+
+    fn resolve_y_side(y_side: YSide) -> PositionY {
+        match y_side {
+            YSide::YStart => PositionY::Relative((Some(VerticalOrYSide::YSide(YSide::YStart)), None)),
+            YSide::YEnd => PositionY::Relative((Some(VerticalOrYSide::YSide(YSide::YEnd)), None)),
+        }
+    }
+
+    fn resolve_x_axis(x_axis: XAxis) -> PositionX {
+        match x_axis {
+            XAxis::Center(center) => PositionX::Center(center, None),
+            XAxis::Horizontal(horizontal) => {
+                PositionX::Relative((Some(HorizontalOrXSide::Horizontal(horizontal)), None))
+            }
+            XAxis::XSide(xside) => resolve_x_side(xside),
+        }
+    }
+
+    fn resolve_y_axis(y_axis: YAxis) -> PositionY {
+        match y_axis {
+            YAxis::Center(center) => PositionY::Center(center, None),
+            YAxis::Vertical(vertical) => PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical)), None)),
+            YAxis::YSide(yside) => resolve_y_side(yside),
+        }
+    }
+
+    let mut x_pos = Vec::new();
+    let mut y_pos = Vec::new();
+
+    let values = value
+        .split(|cv| matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)))
+        .collect::<Vec<_>>();
+
+    for cv in values {
+        if let Ok(bg_position) = BackgroundPosition::try_from(cv) {
+            match bg_position {
+                BackgroundPosition::One(one) => match one {
+                    PositionOne::LengthPercentage(lp) => {
+                        x_pos.push(PositionX::Relative((None, Some(lp))));
+                        y_pos.push(PositionY::Relative((None, Some(lp))));
+                    }
+                    PositionOne::Horizontal(horizontal) => match horizontal {
+                        HorizontalOrXSide::XSide(xside) => x_pos.push(resolve_x_side(xside)),
+                        HorizontalOrXSide::Horizontal(h) => {
+                            x_pos.push(PositionX::Relative((Some(HorizontalOrXSide::Horizontal(h)), None)));
+                        }
+                    },
+                    PositionOne::Vertical(vertical) => match vertical {
+                        VerticalOrYSide::YSide(yside) => y_pos.push(resolve_y_side(yside)),
+                        VerticalOrYSide::Vertical(v) => {
+                            y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), None)));
+                        }
+                    },
+                    PositionOne::Center(center) => {
+                        x_pos.push(PositionX::Center(center, None));
+                        y_pos.push(PositionY::Center(center, None));
+                    }
+                    PositionOne::BlockAxis(block) => {
+                        let resolved = resolve_block_axis(block, writing_mode);
+                        y_pos.push(PositionY::Relative((Some(resolved), None)));
+                    }
+                    PositionOne::InlineAxis(inline) => {
+                        let resolved = resolve_inline_axis(inline, writing_mode);
+                        x_pos.push(PositionX::Relative((Some(resolved), None)));
+                    }
+                },
+                BackgroundPosition::Two(two) => match two {
+                    PositionTwo::Axis(x, y) => {
+                        x_pos.push(resolve_x_axis(x));
+                        y_pos.push(resolve_y_axis(y));
+                    }
+                    PositionTwo::Relative(x_rel, y_rel) => {
+                        match x_rel {
+                            RelativeAxis::Center(center) => x_pos.push(PositionX::Center(center, None)),
+                            RelativeAxis::Side(side) => x_pos
+                                .push(PositionX::Relative((Some(resolve_horizontal_x_side(side, writing_mode)), None))),
+                        }
+
+                        match y_rel {
+                            RelativeAxis::Center(center) => y_pos.push(PositionY::Center(center, None)),
+                            RelativeAxis::Side(side) => y_pos
+                                .push(PositionY::Relative((Some(resolve_vertical_y_side(side, writing_mode)), None))),
+                        }
+                    }
+                    PositionTwo::AxisOrPercentage(x_pct, y_pct) => {
+                        match x_pct {
+                            XAxisOrLengthPercentage::XAxis(x_axis) => x_pos.push(resolve_x_axis(x_axis)),
+                            XAxisOrLengthPercentage::LengthPercentage(lp) => {
+                                x_pos.push(PositionX::Relative((None, Some(lp))));
+                            }
+                        }
+
+                        match y_pct {
+                            YAxisOrLengthPercentage::YAxis(y_axis) => y_pos.push(resolve_y_axis(y_axis)),
+                            YAxisOrLengthPercentage::LengthPercentage(lp) => {
+                                y_pos.push(PositionY::Relative((None, Some(lp))));
+                            }
+                        }
+                    }
+                    PositionTwo::BlockInline(block, inline) => {
+                        let resolved_block = resolve_block_axis(block, writing_mode);
+                        let resolved_inline = resolve_inline_axis(inline, writing_mode);
+                        y_pos.push(PositionY::Relative((Some(resolved_block), None)));
+                        x_pos.push(PositionX::Relative((Some(resolved_inline), None)));
+                    }
+                },
+
+                BackgroundPosition::Three(three) => {
+                    match three {
+                        PositionThree::RelativeHorizontal((horizontal, len_pct), rel_vertical_side) => {
+                            let resolved_horizontal = resolve_horizontal_side(horizontal, writing_mode);
+                            x_pos.push(PositionX::Relative((Some(resolved_horizontal), Some(len_pct))));
+
+                            match rel_vertical_side {
+                                RelativeVerticalSide::Center(center) => y_pos.push(PositionY::Center(center, None)),
+                                RelativeVerticalSide::Vertical(vertical_side) => y_pos
+                                    .push(PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical_side)), None))),
+                            }
+                        }
+                        PositionThree::RelativeVertical(rel_horionztal_side, (vertical, len_pct)) => {
+                            let resolved_vertical = resolve_vertical_side(vertical, writing_mode);
+                            y_pos.push(PositionY::Relative((Some(resolved_vertical), Some(len_pct))));
+
+                            match rel_horionztal_side {
+                                RelativeHorizontalSide::Center(center) => x_pos.push(PositionX::Center(center, None)),
+                                RelativeHorizontalSide::Horizontal(horizontal_side) => x_pos.push(PositionX::Relative(
+                                    (Some(HorizontalOrXSide::Horizontal(horizontal_side)), None),
+                                )),
+                            }
+                        }
+                    }
+                }
+
+                BackgroundPosition::Four(four) => match four {
+                    PositionFour::BlockInline((block, x_len_pct), (inline, y_len_pct)) => {
+                        let resolved_block = resolve_block_axis(block, writing_mode);
+                        let resolved_inline = resolve_inline_axis(inline, writing_mode);
+                        y_pos.push(PositionY::Relative((Some(resolved_block), Some(y_len_pct))));
+                        x_pos.push(PositionX::Relative((Some(resolved_inline), Some(x_len_pct))));
+                    }
+                    PositionFour::StartEnd((x_side, x_len_pct), (y_side, y_len_pct)) => {
+                        let resolved_x_side = resolve_horizontal_x_side(x_side, writing_mode);
+                        let resolved_y_side = resolve_vertical_y_side(y_side, writing_mode);
+                        x_pos.push(PositionX::Relative((Some(resolved_x_side), Some(x_len_pct))));
+                        y_pos.push(PositionY::Relative((Some(resolved_y_side), Some(y_len_pct))));
+                    }
+                    PositionFour::XYPercentage((horizontal_side, x_len_pct), (vertical_side, y_len_pct)) => {
+                        match horizontal_side {
+                            HorizontalOrXSide::Horizontal(h) => {
+                                x_pos.push(PositionX::Relative((
+                                    Some(HorizontalOrXSide::Horizontal(h)),
+                                    Some(x_len_pct),
+                                )));
+                            }
+                            HorizontalOrXSide::XSide(xside) => {
+                                x_pos.push(PositionX::Relative((
+                                    Some(HorizontalOrXSide::XSide(xside)),
+                                    Some(x_len_pct),
+                                )));
+                            }
+                        }
+
+                        match vertical_side {
+                            VerticalOrYSide::Vertical(v) => {
+                                y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), Some(y_len_pct))));
+                            }
+                            VerticalOrYSide::YSide(yside) => {
+                                y_pos.push(PositionY::Relative((Some(VerticalOrYSide::YSide(yside)), Some(y_len_pct))));
+                            }
+                        }
+                    }
+                },
+            }
+        } else {
+            ctx.record_error(
+                "background-position",
+                value.to_vec(),
+                "Invalid value for background-position".to_string(),
+            );
+        }
+    }
+
+    if !x_pos.is_empty() {
+        ctx.specified_style.background_position_x = CSSProperty::Value(BackgroundPositionX(x_pos));
+    }
+
+    if !y_pos.is_empty() {
+        ctx.specified_style.background_position_y = CSSProperty::Value(BackgroundPositionY(y_pos));
+    }
+}
+
+/// Handles the `background` shorthand property.
+///
+/// CSS grammar:
+/// background =
+/// <bg-layer>#? , <final-bg-layer>
+///
+/// <bg-layer> =
+///   <bg-image>                      ||
+///   <bg-position> [ / <bg-size> ]?  ||
+///   <repeat-style>                  ||
+///   <attachment>                    ||
+///   <bg-clip>                       ||
+///   <visual-box>
+///
+/// <final-bg-layer> =
+///   <bg-image>                      ||
+///   <bg-position> [ / <bg-size> ]?  ||
+///   <repeat-style>                  ||
+///   <attachment>                    ||
+///   <bg-clip>                       ||
+///   <visual-box>                    ||
+///   <'background-color'>
+pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+    if let Ok(global) = Global::try_from(value) {
+        ctx.specified_style.background_attachment = CSSProperty::Global(global);
+        ctx.specified_style.background_clip = CSSProperty::Global(global);
+        ctx.specified_style.background_color = CSSProperty::Global(global);
+        ctx.specified_style.background_image = CSSProperty::Global(global);
+        ctx.specified_style.background_origin = CSSProperty::Global(global);
+        ctx.specified_style.background_repeat = CSSProperty::Global(global);
+        ctx.specified_style.background_position_x = CSSProperty::Global(global);
+        ctx.specified_style.background_position_y = CSSProperty::Global(global);
+        ctx.specified_style.background_size = CSSProperty::Global(global);
+        return;
+    }
+
+    if value.iter().any(|cv| {
+        matches!(cv, ComponentValue::Token(t) if matches!(&t.kind, CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none")))
+    }) && value
+        .iter()
+        .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
+        .count()
+        == 1
+    {
+        ctx.specified_style.background_image = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.background_color = CSSProperty::Value(Color::Transparent);
+        return;
+    }
+
+    let layers: Vec<Vec<ComponentValue>> = value
+        .split(|cv| matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)))
+        .map(|layer| {
+            layer
+                .iter()
+                .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
+                .cloned()
+                .collect()
+        })
+        .filter(|layer: &Vec<ComponentValue>| !layer.is_empty())
+        .collect();
+
+    if layers.is_empty() {
+        return;
+    }
+
+    let mut images: Vec<Image> = Vec::new();
+    let mut attachments: Vec<Attachment> = Vec::new();
+    let mut repeats: Vec<(RepeatStyle, RepeatStyle)> = Vec::new();
+    let mut origins: Vec<VisualBox> = Vec::new();
+    let mut clips: Vec<BgClip> = Vec::new();
+    let mut sizes: Vec<Size> = Vec::new();
+    let mut all_position_cvs: Vec<Vec<ComponentValue>> = Vec::new();
+    let mut final_color: Color = Color::Transparent;
+
+    fn is_position_keyword(ident: &str) -> bool {
+        ident.eq_ignore_ascii_case("left")
+            || ident.eq_ignore_ascii_case("right")
+            || ident.eq_ignore_ascii_case("top")
+            || ident.eq_ignore_ascii_case("bottom")
+            || ident.eq_ignore_ascii_case("center")
+    }
+
+    fn is_size_token(cv: &ComponentValue) -> bool {
+        match cv {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(ident) => {
+                    ident.eq_ignore_ascii_case("auto")
+                        || ident.eq_ignore_ascii_case("cover")
+                        || ident.eq_ignore_ascii_case("contain")
+                }
+                CssTokenKind::Dimension { .. } => true,
+                CssTokenKind::Percentage(_) => true,
+                CssTokenKind::Number(n) if n.to_f64() == 0.0 => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    for (layer_idx, layer) in layers.iter().enumerate() {
+        let is_final_layer = layer_idx == layers.len() - 1;
+
+        let mut layer_image: Option<Image> = None;
+        let mut layer_image_none = false;
+        let mut layer_attachment: Option<Attachment> = None;
+        let mut layer_repeat_h: Option<RepeatStyle> = None;
+        let mut layer_repeat_v: Option<RepeatStyle> = None;
+        let mut layer_origin: Option<VisualBox> = None;
+        let mut layer_clip: Option<VisualBox> = None;
+        let mut layer_size: Option<Size> = None;
+        let mut layer_position_cvs: Vec<ComponentValue> = Vec::new();
+        let mut layer_color: Option<Color> = None;
+
+        let mut collecting_position = false;
+        let mut collecting_size = false;
+        let mut size_cvs: Vec<ComponentValue> = Vec::new();
+
+        let mut i = 0;
+        while i < layer.len() {
+            let cv = &layer[i];
+
+            if collecting_size {
+                if is_size_token(cv) {
+                    size_cvs.push(cv.clone());
+                    i += 1;
+                    continue;
+                }
+
+                if !size_cvs.is_empty() {
+                    if let Ok(BackgroundSize(size_vec)) = BackgroundSize::try_from(size_cvs.as_slice())
+                        && let Some(sz) = size_vec.first()
+                    {
+                        layer_size = Some(*sz);
+                    }
+                    size_cvs.clear();
+                }
+                collecting_size = false;
+                continue;
+            }
+
+            if collecting_position {
+                match cv {
+                    ComponentValue::Token(token) => match &token.kind {
+                        CssTokenKind::Delim('/') => {
+                            collecting_position = false;
+                            collecting_size = true;
+                            size_cvs.clear();
+                            i += 1;
+                            continue;
+                        }
+                        CssTokenKind::Ident(ident) if is_position_keyword(ident) => {
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                        CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                        CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                        _ => {
+                            collecting_position = false;
+                            continue;
+                        }
+                    },
+                    _ => {
+                        collecting_position = false;
+                        continue;
+                    }
+                }
+            }
+
+            match cv {
+                ComponentValue::Function(func) => {
+                    if layer_image.is_none()
+                        && let Ok(img) = Image::try_from(func)
+                    {
+                        layer_image = Some(img);
+                        layer_image_none = false;
+                        i += 1;
+                        continue;
+                    }
+                    if is_final_layer
+                        && layer_color.is_none()
+                        && let Ok(c) = Color::try_from(&layer[i..=i])
+                    {
+                        layer_color = Some(c);
+                        i += 1;
+                        continue;
+                    }
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if layer_image.is_none() && !layer_image_none && ident.eq_ignore_ascii_case("none") {
+                            layer_image_none = true;
+                            i += 1;
+                            continue;
+                        }
+
+                        if layer_attachment.is_none() {
+                            if ident.eq_ignore_ascii_case("scroll") {
+                                layer_attachment = Some(Attachment::Scroll);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("fixed") {
+                                layer_attachment = Some(Attachment::Fixed);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("local") {
+                                layer_attachment = Some(Attachment::Local);
+                                i += 1;
+                                continue;
+                            }
+                        }
+
+                        if layer_repeat_h.is_none() {
+                            if ident.eq_ignore_ascii_case("repeat-x") {
+                                layer_repeat_h = Some(RepeatStyle::Repeat);
+                                layer_repeat_v = Some(RepeatStyle::NoRepeat);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("repeat-y") {
+                                layer_repeat_h = Some(RepeatStyle::NoRepeat);
+                                layer_repeat_v = Some(RepeatStyle::Repeat);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("repeat") {
+                                layer_repeat_h = Some(RepeatStyle::Repeat);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("space") {
+                                layer_repeat_h = Some(RepeatStyle::Space);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("round") {
+                                layer_repeat_h = Some(RepeatStyle::Round);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("no-repeat") {
+                                layer_repeat_h = Some(RepeatStyle::NoRepeat);
+                                i += 1;
+                                continue;
+                            }
+                        } else if layer_repeat_v.is_none()
+                            && let Ok(rs) = ident.parse::<RepeatStyle>()
+                        {
+                            layer_repeat_v = Some(rs);
+                            i += 1;
+                            continue;
+                        }
+
+                        if ident.eq_ignore_ascii_case("content-box") {
+                            layer_origin = Some(VisualBox::Content);
+                            layer_clip = Some(VisualBox::Content);
+                            i += 1;
+                            continue;
+                        } else if ident.eq_ignore_ascii_case("padding-box") {
+                            if layer_origin.is_none() {
+                                layer_origin = Some(VisualBox::Padding);
+                            } else if layer_clip.is_none() {
+                                layer_clip = Some(VisualBox::Padding);
+                            }
+                            i += 1;
+                            continue;
+                        } else if ident.eq_ignore_ascii_case("border-box") {
+                            if layer_origin.is_none() {
+                                layer_origin = Some(VisualBox::Border);
+                            } else if layer_clip.is_none() {
+                                layer_clip = Some(VisualBox::Border);
+                            }
+                            i += 1;
+                            continue;
+                        }
+
+                        if is_position_keyword(ident) && layer_position_cvs.is_empty() {
+                            collecting_position = true;
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+
+                        if is_final_layer
+                            && layer_color.is_none()
+                            && let Ok(c) = Color::try_from(&layer[i..=i])
+                        {
+                            layer_color = Some(c);
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Hash { .. } => {
+                        if is_final_layer
+                            && layer_color.is_none()
+                            && let Ok(c) = Color::try_from(&layer[i..=i])
+                        {
+                            layer_color = Some(c);
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
+                        if layer_position_cvs.is_empty() {
+                            collecting_position = true;
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
+                        if layer_position_cvs.is_empty() {
+                            collecting_position = true;
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+
+            i += 1;
+        }
+
+        if collecting_size
+            && !size_cvs.is_empty()
+            && let Ok(BackgroundSize(size_vec)) = BackgroundSize::try_from(size_cvs.as_slice())
+            && let Some(sz) = size_vec.first()
+        {
+            layer_size = Some(*sz);
+        }
+
+        if let Some(layer_image) = layer_image {
+            images.push(layer_image);
+        }
+
+        attachments.push(layer_attachment.unwrap_or(Attachment::Scroll));
+
+        let repeat_h = layer_repeat_h.unwrap_or(RepeatStyle::Repeat);
+        let repeat_v = layer_repeat_v.unwrap_or(repeat_h);
+        repeats.push((repeat_h, repeat_v));
+
+        origins.push(layer_origin.unwrap_or(VisualBox::Padding));
+        clips.push(BgClip::Visual(layer_clip.unwrap_or(VisualBox::Border)));
+
+        if let Some(size) = layer_size {
+            sizes.push(size);
+        }
+
+        if !layer_position_cvs.is_empty() {
+            all_position_cvs.push(layer_position_cvs);
+        }
+
+        if is_final_layer {
+            final_color = layer_color.unwrap_or(Color::Transparent);
+        }
+    }
+
+    ctx.specified_style.background_color = CSSProperty::Value(final_color);
+
+    ctx.specified_style.background_image = CSSProperty::Value(BackgroundImage(images));
+
+    if attachments.is_empty() {
+        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment::default());
+    } else {
+        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment(attachments));
+    }
+
+    if repeats.is_empty() {
+        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat::default());
+    } else {
+        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat(repeats));
+    }
+
+    if origins.is_empty() {
+        ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin::default());
+    } else {
+        ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin(origins));
+    }
+
+    if clips.is_empty() {
+        ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip::default());
+    } else {
+        ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip(clips));
+    }
+
+    if sizes.is_empty() {
+        ctx.specified_style.background_size = CSSProperty::Value(BackgroundSize::default());
+    } else {
+        ctx.specified_style.background_size = CSSProperty::Value(BackgroundSize(sizes));
+    }
+
+    if !all_position_cvs.is_empty() {
+        for position_cvs in all_position_cvs {
+            handle_background_position(ctx, &position_cvs);
+        }
+    }
+}
 
 /// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
 pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {

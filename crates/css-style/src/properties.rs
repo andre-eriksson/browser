@@ -2,11 +2,16 @@ use std::{fmt::Debug, sync::Arc};
 
 use css_cssom::ComponentValue;
 use preferences::ThemeCategory;
+use url::Url;
 
 use crate::{
     BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
     primitives::global::Global,
     properties::{
+        background::{
+            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
+            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
+        },
         color::Color,
         dimension::{Dimension, MaxDimension},
         display::Display,
@@ -16,11 +21,13 @@ use crate::{
     },
 };
 
+pub mod background;
 pub mod border;
 pub mod color;
 pub mod dimension;
 pub mod display;
 pub mod font;
+pub mod gradient;
 pub mod offset;
 pub mod position;
 pub mod text;
@@ -38,12 +45,13 @@ pub enum RelativeType {
 
 /// Context for resolving absolute CSS properties, such as 'px' units or named colors. It provides access to the root font size, viewport dimensions, and root color for calculations.
 #[derive(Debug, Clone, Default, PartialEq)]
-pub struct AbsoluteContext {
+pub struct AbsoluteContext<'a> {
     pub root_font_size: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub root_color: Color,
     pub theme_category: ThemeCategory,
+    pub document_url: Option<&'a Url>,
 }
 
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.
@@ -120,6 +128,17 @@ impl<T> From<T> for CSSProperty<T> {
         CSSProperty::Value(value)
     }
 }
+
+// Background
+pub type BackgroundAttachmentProperty = CSSProperty<BackgroundAttachment>;
+pub type BackgroundBlendModeProperty = CSSProperty<BackgroundBlendMode>;
+pub type BackgroundClipProperty = CSSProperty<BackgroundClip>;
+pub type BackgroundImageProperty = CSSProperty<BackgroundImage>;
+pub type BackgroundOriginProperty = CSSProperty<BackgroundOrigin>;
+pub type BackgroundRepeatProperty = CSSProperty<BackgroundRepeat>;
+pub type BackgroundPositionXProperty = CSSProperty<BackgroundPositionX>;
+pub type BackgroundPositionYProperty = CSSProperty<BackgroundPositionY>;
+pub type BackgroundSizeProperty = CSSProperty<BackgroundSize>;
 
 // Border
 pub type BorderWidthValueProperty = CSSProperty<BorderWidth>;
