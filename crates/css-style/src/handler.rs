@@ -10,8 +10,8 @@ use crate::position::{
     VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage, YSide,
 };
 use crate::properties::background::{
-    BackgroundAttachment, BackgroundClip, BackgroundOrigin, BackgroundPositionX, BackgroundPositionY, BackgroundRepeat,
-    BackgroundSize, RepeatStyle,
+    BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPositionX, BackgroundPositionY,
+    BackgroundRepeat, BackgroundSize, RepeatStyle, Size,
 };
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
@@ -582,10 +582,26 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
 
 /// Handles the `background` shorthand property.
 ///
-/// CSS grammar (simplified, single layer):
+/// CSS grammar:
+/// background =
+/// <bg-layer>#? , <final-bg-layer>
+///
+/// <bg-layer> =
+///   <bg-image>                      ||
+///   <bg-position> [ / <bg-size> ]?  ||
+///   <repeat-style>                  ||
+///   <attachment>                    ||
+///   <bg-clip>                       ||
+///   <visual-box>
+///
 /// <final-bg-layer> =
-///   <'background-color'> || <bg-image> || <bg-position> [ / <bg-size> ]? ||
-///   <repeat-style> || <attachment> || <visual-box>{1,2}
+///   <bg-image>                      ||
+///   <bg-position> [ / <bg-size> ]?  ||
+///   <repeat-style>                  ||
+///   <attachment>                    ||
+///   <bg-clip>                       ||
+///   <visual-box>                    ||
+///   <'background-color'>
 pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     if let Ok(global) = Global::try_from(value) {
         ctx.specified_style.background_attachment = CSSProperty::Global(global);
@@ -613,19 +629,30 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         return;
     }
 
-    let mut color: Option<Color> = None;
-    let mut image: Option<Image> = None;
-    let mut image_none = false;
-    let mut attachment: Option<Attachment> = None;
-    let mut repeat_h: Option<RepeatStyle> = None;
-    let mut repeat_v: Option<RepeatStyle> = None;
-    let mut boxes: Vec<VisualBox> = Vec::new();
-    let mut position_cvs: Vec<ComponentValue> = Vec::new();
-    let mut size: Option<BackgroundSize> = None;
+    let layers: Vec<Vec<ComponentValue>> = value
+        .split(|cv| matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)))
+        .map(|layer| {
+            layer
+                .iter()
+                .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
+                .cloned()
+                .collect()
+        })
+        .filter(|layer: &Vec<ComponentValue>| !layer.is_empty())
+        .collect();
 
-    let mut collecting_position = false;
-    let mut collecting_size = false;
-    let mut size_cvs: Vec<ComponentValue> = Vec::new();
+    if layers.is_empty() {
+        return;
+    }
+
+    let mut images: Vec<Image> = Vec::new();
+    let mut attachments: Vec<Attachment> = Vec::new();
+    let mut repeats: Vec<(RepeatStyle, RepeatStyle)> = Vec::new();
+    let mut origins: Vec<VisualBox> = Vec::new();
+    let mut clips: Vec<BgClip> = Vec::new();
+    let mut sizes: Vec<Size> = Vec::new();
+    let mut all_position_cvs: Vec<Vec<ComponentValue>> = Vec::new();
+    let mut final_color: Color = Color::Transparent;
 
     fn is_position_keyword(ident: &str) -> bool {
         ident.eq_ignore_ascii_case("left")
@@ -652,262 +679,308 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         }
     }
 
-    fn finalize_size(size_cvs: &mut Vec<ComponentValue>, size: &mut Option<BackgroundSize>) {
-        if !size_cvs.is_empty() {
-            if let Ok(bg_size) = BackgroundSize::try_from(size_cvs.as_slice()) {
-                *size = Some(bg_size);
-            }
-            size_cvs.clear();
-        }
-    }
+    for (layer_idx, layer) in layers.iter().enumerate() {
+        let is_final_layer = layer_idx == layers.len() - 1;
 
-    let mut i = 0;
-    while i < value.len() {
-        let cv = &value[i];
+        let mut layer_image: Option<Image> = None;
+        let mut layer_image_none = false;
+        let mut layer_attachment: Option<Attachment> = None;
+        let mut layer_repeat_h: Option<RepeatStyle> = None;
+        let mut layer_repeat_v: Option<RepeatStyle> = None;
+        let mut layer_origin: Option<VisualBox> = None;
+        let mut layer_clip: Option<VisualBox> = None;
+        let mut layer_size: Option<Size> = None;
+        let mut layer_position_cvs: Vec<ComponentValue> = Vec::new();
+        let mut layer_color: Option<Color> = None;
 
-        if collecting_size {
-            if matches!(cv, ComponentValue::Token(token) if matches!(token.kind, CssTokenKind::Whitespace)) {
-                i += 1;
+        let mut collecting_position = false;
+        let mut collecting_size = false;
+        let mut size_cvs: Vec<ComponentValue> = Vec::new();
+
+        let mut i = 0;
+        while i < layer.len() {
+            let cv = &layer[i];
+
+            if collecting_size {
+                if is_size_token(cv) {
+                    size_cvs.push(cv.clone());
+                    i += 1;
+                    continue;
+                }
+
+                if !size_cvs.is_empty() {
+                    if let Ok(BackgroundSize(size_vec)) = BackgroundSize::try_from(size_cvs.as_slice())
+                        && let Some(sz) = size_vec.first()
+                    {
+                        layer_size = Some(*sz);
+                    }
+                    size_cvs.clear();
+                }
+                collecting_size = false;
                 continue;
             }
 
-            if is_size_token(cv) {
-                size_cvs.push(cv.clone());
-                i += 1;
-                continue;
-            }
-
-            finalize_size(&mut size_cvs, &mut size);
-            collecting_size = false;
-            continue;
-        }
-
-        if collecting_position {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Whitespace => {
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
-                    CssTokenKind::Delim('/') => {
-                        collecting_position = false;
-                        collecting_size = true;
-                        size_cvs.clear();
-                        i += 1;
-                        continue;
-                    }
-                    CssTokenKind::Ident(ident) if is_position_keyword(ident) => {
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
-                    CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
-                    CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
+            if collecting_position {
+                match cv {
+                    ComponentValue::Token(token) => match &token.kind {
+                        CssTokenKind::Delim('/') => {
+                            collecting_position = false;
+                            collecting_size = true;
+                            size_cvs.clear();
+                            i += 1;
+                            continue;
+                        }
+                        CssTokenKind::Ident(ident) if is_position_keyword(ident) => {
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                        CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                        CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                        _ => {
+                            collecting_position = false;
+                            continue;
+                        }
+                    },
                     _ => {
                         collecting_position = false;
                         continue;
                     }
+                }
+            }
+
+            match cv {
+                ComponentValue::Function(func) => {
+                    if layer_image.is_none()
+                        && let Ok(img) = Image::try_from(func)
+                    {
+                        layer_image = Some(img);
+                        layer_image_none = false;
+                        i += 1;
+                        continue;
+                    }
+                    if is_final_layer
+                        && layer_color.is_none()
+                        && let Ok(c) = Color::try_from(&layer[i..=i])
+                    {
+                        layer_color = Some(c);
+                        i += 1;
+                        continue;
+                    }
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if layer_image.is_none() && !layer_image_none && ident.eq_ignore_ascii_case("none") {
+                            layer_image_none = true;
+                            i += 1;
+                            continue;
+                        }
+
+                        if layer_attachment.is_none() {
+                            if ident.eq_ignore_ascii_case("scroll") {
+                                layer_attachment = Some(Attachment::Scroll);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("fixed") {
+                                layer_attachment = Some(Attachment::Fixed);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("local") {
+                                layer_attachment = Some(Attachment::Local);
+                                i += 1;
+                                continue;
+                            }
+                        }
+
+                        if layer_repeat_h.is_none() {
+                            if ident.eq_ignore_ascii_case("repeat-x") {
+                                layer_repeat_h = Some(RepeatStyle::Repeat);
+                                layer_repeat_v = Some(RepeatStyle::NoRepeat);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("repeat-y") {
+                                layer_repeat_h = Some(RepeatStyle::NoRepeat);
+                                layer_repeat_v = Some(RepeatStyle::Repeat);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("repeat") {
+                                layer_repeat_h = Some(RepeatStyle::Repeat);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("space") {
+                                layer_repeat_h = Some(RepeatStyle::Space);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("round") {
+                                layer_repeat_h = Some(RepeatStyle::Round);
+                                i += 1;
+                                continue;
+                            } else if ident.eq_ignore_ascii_case("no-repeat") {
+                                layer_repeat_h = Some(RepeatStyle::NoRepeat);
+                                i += 1;
+                                continue;
+                            }
+                        } else if layer_repeat_v.is_none()
+                            && let Ok(rs) = ident.parse::<RepeatStyle>()
+                        {
+                            layer_repeat_v = Some(rs);
+                            i += 1;
+                            continue;
+                        }
+
+                        if ident.eq_ignore_ascii_case("content-box") {
+                            layer_origin = Some(VisualBox::Content);
+                            layer_clip = Some(VisualBox::Content);
+                            i += 1;
+                            continue;
+                        } else if ident.eq_ignore_ascii_case("padding-box") {
+                            if layer_origin.is_none() {
+                                layer_origin = Some(VisualBox::Padding);
+                            } else if layer_clip.is_none() {
+                                layer_clip = Some(VisualBox::Padding);
+                            }
+                            i += 1;
+                            continue;
+                        } else if ident.eq_ignore_ascii_case("border-box") {
+                            if layer_origin.is_none() {
+                                layer_origin = Some(VisualBox::Border);
+                            } else if layer_clip.is_none() {
+                                layer_clip = Some(VisualBox::Border);
+                            }
+                            i += 1;
+                            continue;
+                        }
+
+                        if is_position_keyword(ident) && layer_position_cvs.is_empty() {
+                            collecting_position = true;
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+
+                        if is_final_layer
+                            && layer_color.is_none()
+                            && let Ok(c) = Color::try_from(&layer[i..=i])
+                        {
+                            layer_color = Some(c);
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Hash { .. } => {
+                        if is_final_layer
+                            && layer_color.is_none()
+                            && let Ok(c) = Color::try_from(&layer[i..=i])
+                        {
+                            layer_color = Some(c);
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
+                        if layer_position_cvs.is_empty() {
+                            collecting_position = true;
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
+                        if layer_position_cvs.is_empty() {
+                            collecting_position = true;
+                            layer_position_cvs.push(cv.clone());
+                            i += 1;
+                            continue;
+                        }
+                    }
+                    _ => {}
                 },
-                _ => {
-                    collecting_position = false;
-                    continue;
-                }
-            }
-        }
-
-        match cv {
-            ComponentValue::Function(func) => {
-                if image.is_none()
-                    && let Ok(img) = Image::try_from(func)
-                {
-                    image = Some(img);
-                    image_none = false;
-                    i += 1;
-                    continue;
-                }
-                if color.is_none()
-                    && let Ok(c) = Color::try_from(&value[i..=i])
-                {
-                    color = Some(c);
-                    i += 1;
-                    continue;
-                }
-            }
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Whitespace => {
-                    i += 1;
-                    continue;
-                }
-                CssTokenKind::Ident(ident) => {
-                    if image.is_none() && !image_none && ident.eq_ignore_ascii_case("none") {
-                        image_none = true;
-                        i += 1;
-                        continue;
-                    }
-
-                    if attachment.is_none() {
-                        if ident.eq_ignore_ascii_case("scroll") {
-                            attachment = Some(Attachment::Scroll);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("fixed") {
-                            attachment = Some(Attachment::Fixed);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("local") {
-                            attachment = Some(Attachment::Local);
-                            i += 1;
-                            continue;
-                        }
-                    }
-
-                    if repeat_h.is_none() {
-                        if ident.eq_ignore_ascii_case("repeat-x") {
-                            repeat_h = Some(RepeatStyle::Repeat);
-                            repeat_v = Some(RepeatStyle::NoRepeat);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("repeat-y") {
-                            repeat_h = Some(RepeatStyle::NoRepeat);
-                            repeat_v = Some(RepeatStyle::Repeat);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("repeat") {
-                            repeat_h = Some(RepeatStyle::Repeat);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("space") {
-                            repeat_h = Some(RepeatStyle::Space);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("round") {
-                            repeat_h = Some(RepeatStyle::Round);
-                            i += 1;
-                            continue;
-                        } else if ident.eq_ignore_ascii_case("no-repeat") {
-                            repeat_h = Some(RepeatStyle::NoRepeat);
-                            i += 1;
-                            continue;
-                        }
-                    } else if repeat_v.is_none()
-                        && let Ok(rs) = ident.parse::<RepeatStyle>()
-                    {
-                        repeat_v = Some(rs);
-                        i += 1;
-                        continue;
-                    }
-
-                    if ident.eq_ignore_ascii_case("content-box") {
-                        boxes.push(VisualBox::Content);
-                        i += 1;
-                        continue;
-                    } else if ident.eq_ignore_ascii_case("padding-box") {
-                        boxes.push(VisualBox::Padding);
-                        i += 1;
-                        continue;
-                    } else if ident.eq_ignore_ascii_case("border-box") {
-                        boxes.push(VisualBox::Border);
-                        i += 1;
-                        continue;
-                    }
-
-                    if is_position_keyword(ident) && position_cvs.is_empty() {
-                        collecting_position = true;
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
-
-                    if color.is_none()
-                        && let Ok(c) = Color::try_from(&value[i..=i])
-                    {
-                        color = Some(c);
-                        i += 1;
-                        continue;
-                    }
-                }
-                CssTokenKind::Hash { .. } => {
-                    if color.is_none()
-                        && let Ok(c) = Color::try_from(&value[i..=i])
-                    {
-                        color = Some(c);
-                        i += 1;
-                        continue;
-                    }
-                }
-                CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
-                    if position_cvs.is_empty() {
-                        collecting_position = true;
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
-                }
-                CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
-                    if position_cvs.is_empty() {
-                        collecting_position = true;
-                        position_cvs.push(cv.clone());
-                        i += 1;
-                        continue;
-                    }
-                }
                 _ => {}
-            },
-            _ => {}
+            }
+
+            i += 1;
         }
 
-        i += 1;
-    }
-
-    if collecting_size {
-        finalize_size(&mut size_cvs, &mut size);
-    }
-
-    ctx.specified_style.background_color = CSSProperty::Value(color.unwrap_or(Color::Transparent));
-
-    if image.is_some() {
-        let _ = CSSProperty::update_property(&mut ctx.specified_style.background_image, value);
-    } else if image_none {
-        ctx.specified_style.background_image =
-            CSSProperty::Value(crate::properties::background::BackgroundImage::default());
-    }
-
-    if let Some(att) = attachment {
-        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment(vec![att]));
-    }
-
-    if let Some(rh) = repeat_h {
-        let rv = repeat_v.unwrap_or(rh);
-        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat(vec![(rh, rv)]));
-    }
-
-    match boxes.len() {
-        1 => {
-            ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin(vec![boxes[0]]));
-            ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip(vec![BgClip::Visual(boxes[0])]));
+        if collecting_size
+            && !size_cvs.is_empty()
+            && let Ok(BackgroundSize(size_vec)) = BackgroundSize::try_from(size_cvs.as_slice())
+            && let Some(sz) = size_vec.first()
+        {
+            layer_size = Some(*sz);
         }
-        n if n >= 2 => {
-            ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin(vec![boxes[0]]));
-            ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip(vec![BgClip::Visual(boxes[1])]));
+
+        if let Some(layer_image) = layer_image {
+            images.push(layer_image);
         }
-        _ => {}
+
+        attachments.push(layer_attachment.unwrap_or(Attachment::Scroll));
+
+        let repeat_h = layer_repeat_h.unwrap_or(RepeatStyle::Repeat);
+        let repeat_v = layer_repeat_v.unwrap_or(repeat_h);
+        repeats.push((repeat_h, repeat_v));
+
+        origins.push(layer_origin.unwrap_or(VisualBox::Padding));
+        clips.push(BgClip::Visual(layer_clip.unwrap_or(VisualBox::Border)));
+
+        if let Some(size) = layer_size {
+            sizes.push(size);
+        }
+
+        if !layer_position_cvs.is_empty() {
+            all_position_cvs.push(layer_position_cvs);
+        }
+
+        if is_final_layer {
+            final_color = layer_color.unwrap_or(Color::Transparent);
+        }
     }
 
-    if !position_cvs.is_empty() {
-        handle_background_position(ctx, &position_cvs);
+    ctx.specified_style.background_color = CSSProperty::Value(final_color);
+
+    ctx.specified_style.background_image = CSSProperty::Value(BackgroundImage(images));
+
+    if attachments.is_empty() {
+        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment::default());
+    } else {
+        ctx.specified_style.background_attachment = CSSProperty::Value(BackgroundAttachment(attachments));
     }
 
-    if let Some(sz) = size {
-        ctx.specified_style.background_size = CSSProperty::Value(sz);
+    if repeats.is_empty() {
+        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat::default());
+    } else {
+        ctx.specified_style.background_repeat = CSSProperty::Value(BackgroundRepeat(repeats));
+    }
+
+    if origins.is_empty() {
+        ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin::default());
+    } else {
+        ctx.specified_style.background_origin = CSSProperty::Value(BackgroundOrigin(origins));
+    }
+
+    if clips.is_empty() {
+        ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip::default());
+    } else {
+        ctx.specified_style.background_clip = CSSProperty::Value(BackgroundClip(clips));
+    }
+
+    if sizes.is_empty() {
+        ctx.specified_style.background_size = CSSProperty::Value(BackgroundSize::default());
+    } else {
+        ctx.specified_style.background_size = CSSProperty::Value(BackgroundSize(sizes));
+    }
+
+    if !all_position_cvs.is_empty() {
+        for position_cvs in all_position_cvs {
+            handle_background_position(ctx, &position_cvs);
+        }
     }
 }
 
