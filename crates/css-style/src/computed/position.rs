@@ -53,6 +53,17 @@ pub struct ComputedBackgroundSize {
     pub sizes: Vec<ComputedSize>,
 }
 
+impl Default for ComputedBackgroundSize {
+    fn default() -> Self {
+        Self {
+            sizes: vec![ComputedSize::WidthHeight(
+                ComputedWidthHeightSize::Auto,
+                Some(ComputedWidthHeightSize::Auto),
+            )],
+        }
+    }
+}
+
 impl ComputedBackgroundSize {
     pub fn resolve(
         background_size: BackgroundSize,

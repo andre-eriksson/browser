@@ -15,6 +15,14 @@ pub struct BackgroundAttachment {
     pub attachments: Vec<Attachment>,
 }
 
+impl Default for BackgroundAttachment {
+    fn default() -> Self {
+        Self {
+            attachments: vec![Attachment::Scroll],
+        }
+    }
+}
+
 impl TryFrom<&[ComponentValue]> for BackgroundAttachment {
     type Error = String;
 
@@ -48,6 +56,14 @@ pub struct BackgroundBlendMode {
     pub modes: Vec<BlendMode>,
 }
 
+impl Default for BackgroundBlendMode {
+    fn default() -> Self {
+        Self {
+            modes: vec![BlendMode::Normal],
+        }
+    }
+}
+
 impl TryFrom<&[ComponentValue]> for BackgroundBlendMode {
     type Error = String;
 
@@ -73,6 +89,14 @@ impl TryFrom<&[ComponentValue]> for BackgroundBlendMode {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundClip {
     pub clips: Vec<BgClip>,
+}
+
+impl Default for BackgroundClip {
+    fn default() -> Self {
+        Self {
+            clips: vec![BgClip::Visual(VisualBox::Border)],
+        }
+    }
 }
 
 impl TryFrom<&[ComponentValue]> for BackgroundClip {
@@ -125,6 +149,14 @@ pub struct BackgroundOrigin {
     pub origins: Vec<VisualBox>,
 }
 
+impl Default for BackgroundOrigin {
+    fn default() -> Self {
+        Self {
+            origins: vec![VisualBox::Padding],
+        }
+    }
+}
+
 impl TryFrom<&[ComponentValue]> for BackgroundOrigin {
     type Error = String;
 
@@ -167,6 +199,14 @@ pub struct BackgroundRepeat {
     pub repeats: Vec<(RepeatStyle, RepeatStyle)>,
 }
 
+impl Default for BackgroundRepeat {
+    fn default() -> Self {
+        Self {
+            repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
+        }
+    }
+}
+
 impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
     type Error = String;
 
@@ -207,8 +247,26 @@ impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundPositionX(pub Vec<PositionX>);
 
+impl Default for BackgroundPositionX {
+    fn default() -> Self {
+        Self(vec![PositionX::Relative((
+            None,
+            Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+        ))])
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundPositionY(pub Vec<PositionY>);
+
+impl Default for BackgroundPositionY {
+    fn default() -> Self {
+        Self(vec![PositionY::Relative((
+            None,
+            Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+        ))])
+    }
+}
 
 impl TryFrom<&[ComponentValue]> for BackgroundPositionX {
     type Error = String;

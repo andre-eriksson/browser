@@ -13,7 +13,7 @@ use crate::{
         color::Color4f,
         dimension::{ComputedDimension, ComputedMaxDimension},
         image::ComputedBackgroundImage,
-        position::{ComputedBackgroundSize, ComputedSize, ComputedWidthHeightSize},
+        position::ComputedBackgroundSize,
     },
     length::Length,
     percentage::{LengthPercentage, Percentage},
@@ -419,37 +419,16 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
-            background_attachment: BackgroundAttachment {
-                attachments: vec![Attachment::Scroll],
-            },
-            background_blend_mode: BackgroundBlendMode {
-                modes: vec![BlendMode::Normal],
-            },
-            background_clip: BackgroundClip {
-                clips: vec![BgClip::Visual(VisualBox::Border)],
-            },
+            background_attachment: BackgroundAttachment::default(),
+            background_blend_mode: BackgroundBlendMode::default(),
+            background_clip: BackgroundClip::default(),
             background_color: Color4f::new(0.0, 0.0, 0.0, 0.0),
-            background_origin: BackgroundOrigin {
-                origins: vec![VisualBox::Padding],
-            },
+            background_origin: BackgroundOrigin::default(),
             background_image: ComputedBackgroundImage::none(),
-            background_repeat: BackgroundRepeat {
-                repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
-            },
-            background_position_x: BackgroundPositionX(vec![PositionX::Relative((
-                None,
-                Some(LengthPercentage::Percentage(Percentage::new(0.0))),
-            ))]),
-            background_position_y: BackgroundPositionY(vec![PositionY::Relative((
-                None,
-                Some(LengthPercentage::Percentage(Percentage::new(0.0))),
-            ))]),
-            background_size: ComputedBackgroundSize {
-                sizes: vec![ComputedSize::WidthHeight(
-                    ComputedWidthHeightSize::Auto,
-                    Some(ComputedWidthHeightSize::Auto),
-                )],
-            },
+            background_repeat: BackgroundRepeat::default(),
+            background_position_x: BackgroundPositionX::default(),
+            background_position_y: BackgroundPositionY::default(),
+            background_size: ComputedBackgroundSize::default(),
             border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
