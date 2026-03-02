@@ -97,7 +97,6 @@ fn parse_conic_config(segment: &[ComponentValue]) -> Result<ConicConfig, String>
         position = Some(Position::try_from(pos_cvs)?);
     }
 
-    // `in <color-interpolation-method>`
     if let Some(ip) = in_pos {
         let interp_cvs = &stripped[ip + 1..];
         interpolation = Some(crate::properties::gradient::try_parse_interpolation(interp_cvs)?);
