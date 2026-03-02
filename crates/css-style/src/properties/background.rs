@@ -278,53 +278,61 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionX {
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         let mut positions: Vec<PositionX> = Vec::new();
-        let mut horizontal_side = None;
-        let mut length_percentage = None;
 
-        for cv in value {
-            if let ComponentValue::Token(token) = cv {
-                match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if ident.eq_ignore_ascii_case("center") {
-                            if horizontal_side.is_some() {
-                                positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
-                            } else if length_percentage.is_some() {
-                                positions.push(PositionX::Center(Center::Center, length_percentage.take()));
+        let groups = value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma));
+
+        for group in groups {
+            let mut horizontal_side = None;
+            let mut length_percentage = None;
+
+            for cv in group {
+                if let ComponentValue::Token(token) = cv {
+                    match &token.kind {
+                        CssTokenKind::Ident(ident) => {
+                            if ident.eq_ignore_ascii_case("center") {
+                                if horizontal_side.is_some() {
+                                    positions
+                                        .push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
+                                } else if length_percentage.is_some() {
+                                    positions.push(PositionX::Center(Center::Center, length_percentage.take()));
+                                } else {
+                                    positions.push(PositionX::Center(Center::Center, None));
+                                }
+                            } else if let Ok(h) = ident.parse() {
+                                if horizontal_side.is_some() || length_percentage.is_some() {
+                                    positions
+                                        .push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
+                                }
+                                horizontal_side = Some(h);
                             } else {
-                                positions.push(PositionX::Center(Center::Center, None));
+                                return Err(format!("Invalid horizontal side keyword: '{}'", ident));
                             }
-                        } else if let Ok(h) = ident.parse() {
-                            if horizontal_side.is_some() || length_percentage.is_some() {
-                                positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
+                        }
+                        CssTokenKind::Dimension { value, unit } => {
+                            let len_unit = unit
+                                .parse::<LengthUnit>()
+                                .map_err(|_| "Invalid length unit".to_string())?;
+                            if length_percentage.is_some() {
+                                return Err("Duplicate length or percentage".to_string());
                             }
-                            horizontal_side = Some(h);
-                        } else {
-                            return Err(format!("Invalid horizontal side keyword: '{}'", ident));
+                            length_percentage =
+                                Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
                         }
-                    }
-                    CssTokenKind::Dimension { value, unit } => {
-                        let len_unit = unit
-                            .parse::<LengthUnit>()
-                            .map_err(|_| "Invalid length unit".to_string())?;
-                        if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
+                        CssTokenKind::Percentage(value) => {
+                            if length_percentage.is_some() {
+                                return Err("Duplicate length or percentage".to_string());
+                            }
+                            length_percentage =
+                                Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
                         }
-                        length_percentage =
-                            Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        _ => continue,
                     }
-                    CssTokenKind::Percentage(value) => {
-                        if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
-                        }
-                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
-                    }
-                    _ => continue,
                 }
             }
-        }
 
-        if horizontal_side.is_some() || length_percentage.is_some() {
-            positions.push(PositionX::Relative((horizontal_side, length_percentage)));
+            if horizontal_side.is_some() || length_percentage.is_some() {
+                positions.push(PositionX::Relative((horizontal_side, length_percentage)));
+            }
         }
 
         if positions.is_empty() {
@@ -340,53 +348,60 @@ impl TryFrom<&[ComponentValue]> for BackgroundPositionY {
 
     fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         let mut positions: Vec<PositionY> = Vec::new();
-        let mut vertical_side = None;
-        let mut length_percentage = None;
+        let groups = value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma));
 
-        for cv in value {
-            if let ComponentValue::Token(token) = cv {
-                match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if ident.eq_ignore_ascii_case("center") {
-                            if vertical_side.is_some() {
-                                positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
-                            } else if length_percentage.is_some() {
-                                positions.push(PositionY::Center(Center::Center, length_percentage.take()));
+        for group in groups {
+            let mut vertical_side = None;
+            let mut length_percentage = None;
+
+            for cv in group {
+                if let ComponentValue::Token(token) = cv {
+                    match &token.kind {
+                        CssTokenKind::Ident(ident) => {
+                            if ident.eq_ignore_ascii_case("center") {
+                                if vertical_side.is_some() {
+                                    positions
+                                        .push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
+                                } else if length_percentage.is_some() {
+                                    positions.push(PositionY::Center(Center::Center, length_percentage.take()));
+                                } else {
+                                    positions.push(PositionY::Center(Center::Center, None));
+                                }
+                            } else if let Ok(v) = ident.parse() {
+                                if vertical_side.is_some() || length_percentage.is_some() {
+                                    positions
+                                        .push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
+                                }
+                                vertical_side = Some(v);
                             } else {
-                                positions.push(PositionY::Center(Center::Center, None));
+                                return Err(format!("Invalid vertical side keyword: '{}'", ident));
                             }
-                        } else if let Ok(v) = ident.parse() {
-                            if vertical_side.is_some() || length_percentage.is_some() {
-                                positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
+                        }
+                        CssTokenKind::Dimension { value, unit } => {
+                            let len_unit = unit
+                                .parse::<LengthUnit>()
+                                .map_err(|_| "Invalid length unit".to_string())?;
+                            if length_percentage.is_some() {
+                                return Err("Duplicate length or percentage".to_string());
                             }
-                            vertical_side = Some(v);
-                        } else {
-                            return Err(format!("Invalid vertical side keyword: '{}'", ident));
+                            length_percentage =
+                                Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
                         }
-                    }
-                    CssTokenKind::Dimension { value, unit } => {
-                        let len_unit = unit
-                            .parse::<LengthUnit>()
-                            .map_err(|_| "Invalid length unit".to_string())?;
-                        if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
+                        CssTokenKind::Percentage(value) => {
+                            if length_percentage.is_some() {
+                                return Err("Duplicate length or percentage".to_string());
+                            }
+                            length_percentage =
+                                Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
                         }
-                        length_percentage =
-                            Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        _ => continue,
                     }
-                    CssTokenKind::Percentage(value) => {
-                        if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
-                        }
-                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
-                    }
-                    _ => continue,
                 }
             }
-        }
 
-        if vertical_side.is_some() || length_percentage.is_some() {
-            positions.push(PositionY::Relative((vertical_side, length_percentage)));
+            if vertical_side.is_some() || length_percentage.is_some() {
+                positions.push(PositionY::Relative((vertical_side, length_percentage)));
+            }
         }
 
         if positions.is_empty() {

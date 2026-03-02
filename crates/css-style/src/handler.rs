@@ -10,7 +10,8 @@ use crate::position::{
     VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage, YSide,
 };
 use crate::properties::background::{
-    BackgroundAttachment, BackgroundClip, BackgroundOrigin, BackgroundRepeat, BackgroundSize, RepeatStyle,
+    BackgroundAttachment, BackgroundClip, BackgroundOrigin, BackgroundPositionX, BackgroundPositionY, BackgroundRepeat,
+    BackgroundSize, RepeatStyle,
 };
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
@@ -568,6 +569,14 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                 "Invalid value for background-position".to_string(),
             );
         }
+    }
+
+    if !x_pos.is_empty() {
+        ctx.specified_style.background_position_x = CSSProperty::Value(BackgroundPositionX(x_pos));
+    }
+
+    if !y_pos.is_empty() {
+        ctx.specified_style.background_position_y = CSSProperty::Value(BackgroundPositionY(y_pos));
     }
 }
 

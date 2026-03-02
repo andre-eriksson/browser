@@ -85,6 +85,18 @@ impl ComputedBackgroundSize {
 
 impl From<ComputedBackgroundSize> for BackgroundSize {
     fn from(value: ComputedBackgroundSize) -> Self {
+        fn resolve_width_height_size(computed: ComputedWidthHeightSize) -> WidthHeightSize {
+            match computed {
+                ComputedWidthHeightSize::Auto => WidthHeightSize::Auto,
+                ComputedWidthHeightSize::Length(len_pct) => WidthHeightSize::Length(match len_pct {
+                    ComputedLengthPercentage::Length(px) => LengthPercentage::Length(Length::px(px)),
+                    ComputedLengthPercentage::Percentage(frac) => {
+                        LengthPercentage::Percentage(Percentage::from_fraction(frac))
+                    }
+                }),
+            }
+        }
+
         let sizes = value
             .0
             .into_iter()
@@ -92,24 +104,9 @@ impl From<ComputedBackgroundSize> for BackgroundSize {
                 ComputedSize::Cover => Size::Cover,
                 ComputedSize::Contain => Size::Contain,
                 ComputedSize::WidthHeight(width, height) => {
-                    let width = match width {
-                        ComputedWidthHeightSize::Auto => WidthHeightSize::Auto,
-                        ComputedWidthHeightSize::Length(len_pct) => WidthHeightSize::Length(match len_pct {
-                            ComputedLengthPercentage::Length(px) => LengthPercentage::Length(Length::px(px)),
-                            ComputedLengthPercentage::Percentage(frac) => {
-                                LengthPercentage::Percentage(Percentage::from_fraction(frac))
-                            }
-                        }),
-                    };
-                    let height = height.map(|h| match h {
-                        ComputedWidthHeightSize::Auto => WidthHeightSize::Auto,
-                        ComputedWidthHeightSize::Length(len_pct) => WidthHeightSize::Length(match len_pct {
-                            ComputedLengthPercentage::Length(len) => LengthPercentage::Length(Length::px(len)),
-                            ComputedLengthPercentage::Percentage(frac) => {
-                                LengthPercentage::Percentage(Percentage::from_fraction(frac))
-                            }
-                        }),
-                    });
+                    let width = resolve_width_height_size(width);
+                    let height = height.map(resolve_width_height_size);
+
                     Size::WidthHeight(width, height)
                 }
             })

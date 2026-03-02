@@ -22,11 +22,11 @@ pub enum VisualBox {
     /// The background will extend into the padding area but not into the border area.
     /// This is the default value for the `background-origin` property, meaning that if no value is specified,
     /// the background will be painted within the padding box.
-    #[default]
     Padding,
 
     /// The background is painted within the border box, which includes the content box, padding box, and border area. T
     /// he background will extend into both the padding and border areas.
+    #[default]
     Border,
 }
 
@@ -44,6 +44,6 @@ pub enum BgClip {
 
 impl Default for BgClip {
     fn default() -> Self {
-        BgClip::Visual(VisualBox::Padding)
+        BgClip::Visual(VisualBox::default())
     }
 }

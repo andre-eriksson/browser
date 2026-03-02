@@ -50,10 +50,10 @@ impl ComputedBackgroundImage {
     }
 
     pub fn resolve(images: Vec<Image>, absolute_ctx: &AbsoluteContext) -> Result<Self, String> {
-        let mut computed_images = Vec::new();
-        for image in images {
-            computed_images.push(ComputedImage::resolve(image, absolute_ctx)?);
-        }
-        Ok(ComputedBackgroundImage(computed_images))
+        images
+            .into_iter()
+            .map(|image| ComputedImage::resolve(image, absolute_ctx))
+            .collect::<Result<Vec<_>, _>>()
+            .map(ComputedBackgroundImage)
     }
 }

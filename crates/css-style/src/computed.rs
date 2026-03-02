@@ -2,6 +2,7 @@ use std::{f32, sync::Arc};
 
 use css_cssom::{ComponentValue, Property};
 use html_dom::{DocumentRoot, NodeId};
+use tracing::debug;
 
 use crate::{
     BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext, RelativeType,
@@ -195,7 +196,11 @@ impl ComputedStyle {
                     .0,
                 absolute_ctx,
             )
-            .unwrap_or(ComputedBackgroundImage(vec![])),
+            .unwrap_or_else(|e| {
+                debug!("Failed to resolve background image URL: {}", e);
+
+                ComputedBackgroundImage(vec![])
+            }),
             background_position_x: specified_style
                 .background_position_x
                 .resolve_with_context_owned(
