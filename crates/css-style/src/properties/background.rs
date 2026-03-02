@@ -422,10 +422,19 @@ impl TryFrom<&[ComponentValue]> for BackgroundImage {
         let mut images = Vec::new();
 
         for cv in value {
-            if let ComponentValue::Function(func) = cv
-                && let Ok(image) = Image::try_from(func)
-            {
-                images.push(image);
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("none") => {
+                        return Ok(Self(vec![Image::None]));
+                    }
+                    _ => continue,
+                },
+                ComponentValue::Function(func) => {
+                    if let Ok(image) = Image::try_from(func) {
+                        images.push(image);
+                    }
+                }
+                _ => continue,
             }
         }
 
@@ -448,6 +457,12 @@ pub enum Size {
     Cover,
     Contain,
     WidthHeight(WidthHeightSize, Option<WidthHeightSize>),
+}
+
+impl Default for Size {
+    fn default() -> Self {
+        Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

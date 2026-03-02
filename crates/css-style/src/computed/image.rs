@@ -8,6 +8,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComputedImage {
+    None,
     Url(Url),
     Gradient(Gradient),
 }
@@ -15,6 +16,7 @@ pub enum ComputedImage {
 impl From<ComputedImage> for Image {
     fn from(computed: ComputedImage) -> Self {
         match computed {
+            ComputedImage::None => Image::None,
             ComputedImage::Url(url) => Image::Url(url.to_string()),
             ComputedImage::Gradient(gradient) => Image::Gradient(gradient),
         }
@@ -31,6 +33,7 @@ impl ComputedImage {
                 None => Url::parse(&url).map_err(|e| format!("Failed to parse URL: {}", e))?,
             })),
             Image::Gradient(gradient) => Ok(ComputedImage::Gradient(gradient)),
+            Image::None => Ok(ComputedImage::None),
         }
     }
 }

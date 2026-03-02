@@ -188,6 +188,7 @@ simple_property_handler!(handle_background_attachment, background_attachment, "b
 simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
 simple_property_handler!(handle_background_color, background_color, "background-color");
+simple_property_handler!(handle_background_image, background_image, "background-image");
 simple_property_handler!(handle_background_origin, background_origin, "background-origin");
 simple_property_handler!(handle_background_position_x, background_position_x, "background-position-x");
 simple_property_handler!(handle_background_position_y, background_position_y, "background-position-y");
@@ -508,11 +509,11 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                                     .push(PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical_side)), None))),
                             }
                         }
-                        PositionThree::RelativeVertical(rel_horionztal_side, (vertical, len_pct)) => {
+                        PositionThree::RelativeVertical(rel_horizontal_side, (vertical, len_pct)) => {
                             let resolved_vertical = resolve_vertical_side(vertical, writing_mode);
                             y_pos.push(PositionY::Relative((Some(resolved_vertical), Some(len_pct))));
 
-                            match rel_horionztal_side {
+                            match rel_horizontal_side {
                                 RelativeHorizontalSide::Center(center) => x_pos.push(PositionX::Center(center, None)),
                                 RelativeHorizontalSide::Horizontal(horizontal_side) => x_pos.push(PositionX::Relative(
                                     (Some(HorizontalOrXSide::Horizontal(horizontal_side)), None),
@@ -624,8 +625,14 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         .count()
         == 1
     {
+        ctx.specified_style.background_attachment = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.background_clip = CSSProperty::Global(Global::Initial);
         ctx.specified_style.background_image = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.background_color = CSSProperty::Value(Color::Transparent);
+        ctx.specified_style.background_origin = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.background_repeat = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.background_position_x = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.background_position_y = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.background_size = CSSProperty::Global(Global::Initial);
         return;
     }
 
@@ -683,7 +690,6 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         let is_final_layer = layer_idx == layers.len() - 1;
 
         let mut layer_image: Option<Image> = None;
-        let mut layer_image_none = false;
         let mut layer_attachment: Option<Attachment> = None;
         let mut layer_repeat_h: Option<RepeatStyle> = None;
         let mut layer_repeat_v: Option<RepeatStyle> = None;
@@ -763,7 +769,6 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                         && let Ok(img) = Image::try_from(func)
                     {
                         layer_image = Some(img);
-                        layer_image_none = false;
                         i += 1;
                         continue;
                     }
@@ -778,8 +783,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
-                        if layer_image.is_none() && !layer_image_none && ident.eq_ignore_ascii_case("none") {
-                            layer_image_none = true;
+                        if layer_image.is_none() && ident.eq_ignore_ascii_case("none") {
                             i += 1;
                             continue;
                         }
@@ -917,8 +921,9 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
             layer_size = Some(*sz);
         }
 
-        if let Some(layer_image) = layer_image {
-            images.push(layer_image);
+        match layer_image {
+            Some(img) => images.push(img),
+            None => images.push(Image::None),
         }
 
         attachments.push(layer_attachment.unwrap_or(Attachment::Scroll));
@@ -930,13 +935,12 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         origins.push(layer_origin.unwrap_or(VisualBox::Padding));
         clips.push(BgClip::Visual(layer_clip.unwrap_or(VisualBox::Border)));
 
-        if let Some(size) = layer_size {
-            sizes.push(size);
+        if collecting_size {
+            let size_to_push: Size = layer_size.unwrap_or_default();
+            sizes.push(size_to_push);
         }
 
-        if !layer_position_cvs.is_empty() {
-            all_position_cvs.push(layer_position_cvs);
-        }
+        all_position_cvs.push(layer_position_cvs);
 
         if is_final_layer {
             final_color = layer_color.unwrap_or(Color::Transparent);
@@ -978,9 +982,11 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
     }
 
     if !all_position_cvs.is_empty() {
+        let mut combined_position_cvs = Vec::new();
         for position_cvs in all_position_cvs {
-            handle_background_position(ctx, &position_cvs);
+            combined_position_cvs.extend(position_cvs);
         }
+        handle_background_position(ctx, &combined_position_cvs);
     }
 }
 

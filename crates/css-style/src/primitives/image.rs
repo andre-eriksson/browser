@@ -4,6 +4,7 @@ use crate::properties::gradient::Gradient;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Image {
+    None,
     Url(String),
     Gradient(Gradient),
     // TODO: Element()
