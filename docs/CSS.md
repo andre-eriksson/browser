@@ -39,18 +39,18 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 
 - [ ] backdrop-filter
 - [ ] backface-visibility
-- [ ] background-attachment
-- [ ] background-blend-mode
-- [ ] background-clip
+- [x] background-attachment
+- [x] background-blend-mode
+- [x] background-clip
 - [x] background-color
-- [ ] background-image
-- [ ] background-origin
-- [ ] background-position-x
-- [ ] background-position-y
-- [ ] background-position
-- [ ] background-repeat
-- [ ] background-size
-- [ ] background (shorthand)
+- [x] background-image
+- [x] background-origin
+- [x] background-position-x
+- [x] background-position-y
+- [x] background-position
+- [x] background-repeat
+- [x] background-size
+- [x] background (shorthand)
 - [ ] baseline-source
 - [ ] block-size
 
