@@ -455,7 +455,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                     }
                 },
                 BackgroundPosition::Two(two) => match two {
-                    PositionTwo::XY(x, y) => {
+                    PositionTwo::Axis(x, y) => {
                         x_pos.push(resolve_x_axis(x));
                         y_pos.push(resolve_y_axis(y));
                     }
@@ -472,7 +472,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
                                 .push(PositionY::Relative((Some(resolve_vertical_y_side(side, writing_mode)), None))),
                         }
                     }
-                    PositionTwo::XYPercentage(x_pct, y_pct) => {
+                    PositionTwo::AxisOrPercentage(x_pct, y_pct) => {
                         match x_pct {
                             XAxisOrLengthPercentage::XAxis(x_axis) => x_pos.push(resolve_x_axis(x_axis)),
                             XAxisOrLengthPercentage::LengthPercentage(lp) => {

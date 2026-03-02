@@ -234,8 +234,8 @@ pub enum PositionOne {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PositionTwo {
-    XY(XAxis, YAxis),
-    XYPercentage(XAxisOrLengthPercentage, YAxisOrLengthPercentage),
+    Axis(XAxis, YAxis),
+    AxisOrPercentage(XAxisOrLengthPercentage, YAxisOrLengthPercentage),
     BlockInline(BlockAxis, InlineAxis),
     Relative(RelativeAxis, RelativeAxis),
 }
@@ -343,11 +343,11 @@ fn try_two_values(a: &ComponentValue, b: &ComponentValue) -> Result<PositionTwo,
         }
 
         if let (Ok(x), Ok(y)) = (ai.parse(), bi.parse()) {
-            return Ok(PositionTwo::XY(x, y));
+            return Ok(PositionTwo::Axis(x, y));
         }
 
         if let (Ok(y), Ok(x)) = (ai.parse(), bi.parse()) {
-            return Ok(PositionTwo::XY(x, y));
+            return Ok(PositionTwo::Axis(x, y));
         }
     }
 
@@ -375,7 +375,7 @@ fn try_two_values(a: &ComponentValue, b: &ComponentValue) -> Result<PositionTwo,
         return Err("Expected position keyword or length/percentage for y component".to_string());
     };
 
-    Ok(PositionTwo::XYPercentage(x_or_lp, y_or_lp))
+    Ok(PositionTwo::AxisOrPercentage(x_or_lp, y_or_lp))
 }
 
 fn try_three_values(a: &ComponentValue, b: &ComponentValue, c: &ComponentValue) -> Result<PositionThree, String> {
