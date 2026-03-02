@@ -3,6 +3,7 @@ use strum::EnumString;
 
 use crate::{
     background::{Attachment, BgClip, Clip, VisualBox},
+    blend::BlendMode,
     image::Image,
     length::{Length, LengthUnit},
     percentage::{LengthPercentage, Percentage},
@@ -39,6 +40,26 @@ impl TryFrom<&[ComponentValue]> for BackgroundAttachment {
         } else {
             Ok(Self { attachments })
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackgroundBlendMode(BlendMode);
+
+impl TryFrom<&[ComponentValue]> for BackgroundBlendMode {
+    type Error = String;
+
+    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+        for cv in value {
+            if let ComponentValue::Token(token) = cv
+                && let CssTokenKind::Ident(ident) = &token.kind
+                && let Ok(blend_mode) = ident.parse()
+            {
+                return Ok(Self(blend_mode));
+            }
+        }
+
+        Err(format!("No valid BlendMode found for BackgroundBlendMode: {:?}", value))
     }
 }
 

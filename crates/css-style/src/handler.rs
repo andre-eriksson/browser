@@ -4,14 +4,13 @@ use crate::background::{Attachment, BgClip, VisualBox};
 use crate::global::Global;
 use crate::image::Image;
 use crate::length::{Length, LengthUnit};
-use crate::percentage::Percentage;
 use crate::position::{
     BackgroundPosition, BlockAxis, HorizontalOrXSide, HorizontalSide, InlineAxis, PositionFour, PositionOne,
     PositionThree, PositionTwo, PositionX, PositionY, RelativeAxis, RelativeHorizontalSide, RelativeVerticalSide, Side,
     VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage, YSide,
 };
 use crate::properties::background::{
-    BackgroundAttachment, BackgroundClip, BackgroundOrigin, BackgroundRepeat, BackgroundSize, RepeatStyle, Size,
+    BackgroundAttachment, BackgroundClip, BackgroundOrigin, BackgroundRepeat, BackgroundSize, RepeatStyle,
 };
 use crate::properties::text::WritingMode;
 use crate::properties::{AbsoluteContext, CSSProperty};
@@ -185,6 +184,7 @@ macro_rules! logical_edge_handler {
 }
 
 simple_property_handler!(handle_background_attachment, background_attachment, "background-attachment");
+simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
 simple_property_handler!(handle_background_color, background_color, "background-color");
 simple_property_handler!(handle_background_origin, background_origin, "background-origin");
@@ -574,15 +574,9 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
 /// Handles the `background` shorthand property.
 ///
 /// CSS grammar (simplified, single layer):
-/// ```text
 /// <final-bg-layer> =
 ///   <'background-color'> || <bg-image> || <bg-position> [ / <bg-size> ]? ||
 ///   <repeat-style> || <attachment> || <visual-box>{1,2}
-/// ```
-///
-/// Strategy: iterate through component values, classifying each token by
-/// trying the most specific match first.  Position may be followed by
-/// `/ <bg-size>`, so after consuming a position we peek for a `/`.
 pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
     if let Ok(global) = Global::try_from(value) {
         ctx.specified_style.background_attachment = CSSProperty::Global(global);
@@ -612,46 +606,18 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
 
     let mut color: Option<Color> = None;
     let mut image: Option<Image> = None;
+    let mut image_none = false;
     let mut attachment: Option<Attachment> = None;
     let mut repeat_h: Option<RepeatStyle> = None;
     let mut repeat_v: Option<RepeatStyle> = None;
     let mut boxes: Vec<VisualBox> = Vec::new();
     let mut position_cvs: Vec<ComponentValue> = Vec::new();
-    let mut size: Option<(Size, Size)> = None;
+    let mut size: Option<BackgroundSize> = None;
 
     let mut collecting_position = false;
     let mut collecting_size = false;
-    let mut size_values: Vec<Size> = Vec::new();
+    let mut size_cvs: Vec<ComponentValue> = Vec::new();
 
-    /// Try to parse a single CV as a `Size` value.
-    fn try_parse_size(cv: &ComponentValue) -> Option<Size> {
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Ident(ident) => {
-                    if ident.eq_ignore_ascii_case("auto") {
-                        Some(Size::Auto)
-                    } else if ident.eq_ignore_ascii_case("cover") {
-                        Some(Size::Cover)
-                    } else if ident.eq_ignore_ascii_case("contain") {
-                        Some(Size::Contain)
-                    } else {
-                        None
-                    }
-                }
-                CssTokenKind::Dimension { value, unit } => {
-                    let len_unit = unit.parse::<LengthUnit>().ok()?;
-                    Some(Size::Length(Length::new(value.to_f64() as f32, len_unit)))
-                }
-                CssTokenKind::Percentage(value) => Some(Size::Percentage(Percentage::new(value.to_f64() as f32))),
-                CssTokenKind::Number(n) if n.to_f64() == 0.0 => Some(Size::Length(Length::zero())),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
-    /// Check whether an ident is a keyword that starts a background-position
-    /// (not a repeat, attachment, box, or color keyword).
     fn is_position_keyword(ident: &str) -> bool {
         ident.eq_ignore_ascii_case("left")
             || ident.eq_ignore_ascii_case("right")
@@ -660,25 +626,51 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
             || ident.eq_ignore_ascii_case("center")
     }
 
-    for (i, cv) in value.iter().enumerate() {
-        if collecting_size {
-            match cv {
-                ComponentValue::Token(token) if matches!(token.kind, CssTokenKind::Whitespace) => continue,
-                _ => {}
-            }
-
-            if let Some(s) = try_parse_size(cv) {
-                size_values.push(s);
-                if size_values.len() >= 2 {
-                    size = Some((size_values[0], size_values[1]));
-                    collecting_size = false;
+    fn is_size_token(cv: &ComponentValue) -> bool {
+        match cv {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(ident) => {
+                    ident.eq_ignore_ascii_case("auto")
+                        || ident.eq_ignore_ascii_case("cover")
+                        || ident.eq_ignore_ascii_case("contain")
                 }
+                CssTokenKind::Dimension { .. } => true,
+                CssTokenKind::Percentage(_) => true,
+                CssTokenKind::Number(n) if n.to_f64() == 0.0 => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    fn finalize_size(size_cvs: &mut Vec<ComponentValue>, size: &mut Option<BackgroundSize>) {
+        if !size_cvs.is_empty() {
+            if let Ok(bg_size) = BackgroundSize::try_from(size_cvs.as_slice()) {
+                *size = Some(bg_size);
+            }
+            size_cvs.clear();
+        }
+    }
+
+    let mut i = 0;
+    while i < value.len() {
+        let cv = &value[i];
+
+        if collecting_size {
+            if matches!(cv, ComponentValue::Token(token) if matches!(token.kind, CssTokenKind::Whitespace)) {
+                i += 1;
                 continue;
             }
-            if size_values.len() == 1 {
-                size = Some((size_values[0], Size::Auto));
+
+            if is_size_token(cv) {
+                size_cvs.push(cv.clone());
+                i += 1;
+                continue;
             }
+
+            finalize_size(&mut size_cvs, &mut size);
             collecting_size = false;
+            continue;
         }
 
         if collecting_position {
@@ -686,32 +678,39 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Whitespace => {
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
                     CssTokenKind::Delim('/') => {
                         collecting_position = false;
                         collecting_size = true;
-                        size_values.clear();
+                        size_cvs.clear();
+                        i += 1;
                         continue;
                     }
                     CssTokenKind::Ident(ident) if is_position_keyword(ident) => {
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
                     CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => {
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
                     CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
                     _ => {
                         collecting_position = false;
+                        continue;
                     }
                 },
                 _ => {
                     collecting_position = false;
+                    continue;
                 }
             }
         }
@@ -722,27 +721,42 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                     && let Ok(img) = Image::try_from(func)
                 {
                     image = Some(img);
+                    image_none = false;
+                    i += 1;
                     continue;
                 }
                 if color.is_none()
                     && let Ok(c) = Color::try_from(&value[i..=i])
                 {
                     color = Some(c);
+                    i += 1;
                     continue;
                 }
             }
             ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Whitespace => continue,
+                CssTokenKind::Whitespace => {
+                    i += 1;
+                    continue;
+                }
                 CssTokenKind::Ident(ident) => {
+                    if image.is_none() && !image_none && ident.eq_ignore_ascii_case("none") {
+                        image_none = true;
+                        i += 1;
+                        continue;
+                    }
+
                     if attachment.is_none() {
                         if ident.eq_ignore_ascii_case("scroll") {
                             attachment = Some(Attachment::Scroll);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("fixed") {
                             attachment = Some(Attachment::Fixed);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("local") {
                             attachment = Some(Attachment::Local);
+                            i += 1;
                             continue;
                         }
                     }
@@ -751,45 +765,56 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                         if ident.eq_ignore_ascii_case("repeat-x") {
                             repeat_h = Some(RepeatStyle::Repeat);
                             repeat_v = Some(RepeatStyle::NoRepeat);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("repeat-y") {
                             repeat_h = Some(RepeatStyle::NoRepeat);
                             repeat_v = Some(RepeatStyle::Repeat);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("repeat") {
                             repeat_h = Some(RepeatStyle::Repeat);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("space") {
                             repeat_h = Some(RepeatStyle::Space);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("round") {
                             repeat_h = Some(RepeatStyle::Round);
+                            i += 1;
                             continue;
                         } else if ident.eq_ignore_ascii_case("no-repeat") {
                             repeat_h = Some(RepeatStyle::NoRepeat);
+                            i += 1;
                             continue;
                         }
                     } else if repeat_v.is_none()
                         && let Ok(rs) = ident.parse::<RepeatStyle>()
                     {
                         repeat_v = Some(rs);
+                        i += 1;
                         continue;
                     }
 
                     if ident.eq_ignore_ascii_case("content-box") {
                         boxes.push(VisualBox::Content);
+                        i += 1;
                         continue;
                     } else if ident.eq_ignore_ascii_case("padding-box") {
                         boxes.push(VisualBox::Padding);
+                        i += 1;
                         continue;
                     } else if ident.eq_ignore_ascii_case("border-box") {
                         boxes.push(VisualBox::Border);
+                        i += 1;
                         continue;
                     }
 
                     if is_position_keyword(ident) && position_cvs.is_empty() {
                         collecting_position = true;
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
 
@@ -797,6 +822,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                         && let Ok(c) = Color::try_from(&value[i..=i])
                     {
                         color = Some(c);
+                        i += 1;
                         continue;
                     }
                 }
@@ -805,6 +831,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                         && let Ok(c) = Color::try_from(&value[i..=i])
                     {
                         color = Some(c);
+                        i += 1;
                         continue;
                     }
                 }
@@ -812,6 +839,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                     if position_cvs.is_empty() {
                         collecting_position = true;
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
                 }
@@ -819,27 +847,29 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                     if position_cvs.is_empty() {
                         collecting_position = true;
                         position_cvs.push(cv.clone());
+                        i += 1;
                         continue;
                     }
                 }
-                _ => continue,
+                _ => {}
             },
-            _ => continue,
+            _ => {}
         }
+
+        i += 1;
     }
 
-    if collecting_size && !size_values.is_empty() && size.is_none() {
-        if size_values.len() == 1 {
-            size = Some((size_values[0], Size::Auto));
-        } else if size_values.len() >= 2 {
-            size = Some((size_values[0], size_values[1]));
-        }
+    if collecting_size {
+        finalize_size(&mut size_cvs, &mut size);
     }
 
     ctx.specified_style.background_color = CSSProperty::Value(color.unwrap_or(Color::Transparent));
 
     if image.is_some() {
         let _ = CSSProperty::update_property(&mut ctx.specified_style.background_image, value);
+    } else if image_none {
+        ctx.specified_style.background_image =
+            CSSProperty::Value(crate::properties::background::BackgroundImage::none());
     }
 
     if let Some(att) = attachment {
@@ -880,9 +910,8 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         handle_background_position(ctx, &position_cvs);
     }
 
-    // Size
     if let Some(sz) = size {
-        ctx.specified_style.background_size = CSSProperty::Value(BackgroundSize { sizes: vec![sz] });
+        ctx.specified_style.background_size = CSSProperty::Value(sz);
     }
 }
 
