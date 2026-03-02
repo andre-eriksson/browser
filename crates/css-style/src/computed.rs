@@ -13,6 +13,7 @@ use crate::{
         color::Color4f,
         dimension::{ComputedDimension, ComputedMaxDimension},
         image::ComputedBackgroundImage,
+        position::{ComputedBackgroundSize, ComputedSize, ComputedWidthHeightSize},
     },
     length::Length,
     percentage::{LengthPercentage, Percentage},
@@ -25,7 +26,8 @@ use crate::{
         AbsoluteContext, CSSProperty,
         background::{
             BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
-            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, RepeatStyle,
+            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize, RepeatStyle, Size,
+            WidthHeightSize,
         },
         color::Color,
         dimension::{Dimension, MaxDimension},
@@ -56,6 +58,7 @@ pub struct ComputedStyle {
     pub background_repeat: BackgroundRepeat,
     pub background_position_x: BackgroundPositionX,
     pub background_position_y: BackgroundPositionY,
+    pub background_size: ComputedBackgroundSize,
     pub border_top_color: Color4f,
     pub border_right_color: Color4f,
     pub border_bottom_color: Color4f,
@@ -236,6 +239,16 @@ impl ComputedStyle {
                         Some(LengthPercentage::Percentage(Percentage::new(0.0))),
                     ))]),
                 ),
+            background_size: ComputedBackgroundSize::resolve(
+                specified_style.background_size.resolve_with_context_owned(
+                    BackgroundSize::from(relative_ctx.parent.background_size.clone()),
+                    BackgroundSize {
+                        sizes: vec![(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)))],
+                    },
+                ),
+                relative_ctx,
+                absolute_ctx,
+            ),
             border_top_color: Color4f::from_css_color_property(
                 &specified_style.border_top_color,
                 &specified_style.color,
@@ -431,6 +444,12 @@ impl Default for ComputedStyle {
                 None,
                 Some(LengthPercentage::Percentage(Percentage::new(0.0))),
             ))]),
+            background_size: ComputedBackgroundSize {
+                sizes: vec![ComputedSize::WidthHeight(
+                    ComputedWidthHeightSize::Auto,
+                    Some(ComputedWidthHeightSize::Auto),
+                )],
+            },
             border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
             border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),

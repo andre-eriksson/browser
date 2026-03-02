@@ -437,8 +437,12 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
             if !size_pair.is_empty() {
                 sizes.extend(size_pair);
             } else if !width_height_values.is_empty() {
-                let values = std::mem::take(&mut width_height_values);
-                sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                if width_height_values.len() == 1 && width_height_values[0] == WidthHeightSize::Auto {
+                    sizes.push(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)));
+                } else {
+                    let values = std::mem::take(&mut width_height_values);
+                    sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                }
             }
         }
 
@@ -616,7 +620,13 @@ mod tests {
     fn size_auto() {
         let cvs = parse_value("background-size: auto");
         let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.sizes, vec![Size::WidthHeight(WidthHeightSize::Auto, None)]);
+        assert_eq!(
+            sz.sizes,
+            vec![Size::WidthHeight(
+                WidthHeightSize::Auto,
+                Some(WidthHeightSize::Auto)
+            )]
+        );
     }
 
     #[test]
