@@ -188,9 +188,9 @@ simple_property_handler!(handle_background_blend_mode, background_blend_mode, "b
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
 simple_property_handler!(handle_background_color, background_color, "background-color");
 simple_property_handler!(handle_background_origin, background_origin, "background-origin");
-simple_property_handler!(handle_background_repeat, background_repeat, "background-repeat");
 simple_property_handler!(handle_background_position_x, background_position_x, "background-position-x");
 simple_property_handler!(handle_background_position_y, background_position_y, "background-position-y");
+simple_property_handler!(handle_background_repeat, background_repeat, "background-repeat");
 simple_property_handler!(handle_background_size, background_size, "background-size");
 simple_property_handler!(handle_border_top_color, border_top_color, "border-top-color");
 simple_property_handler!(handle_border_right_color, border_right_color, "border-right-color");

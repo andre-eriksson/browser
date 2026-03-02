@@ -55,9 +55,9 @@ pub struct ComputedStyle {
     pub background_color: Color4f,
     pub background_image: ComputedBackgroundImage,
     pub background_origin: BackgroundOrigin,
-    pub background_repeat: BackgroundRepeat,
     pub background_position_x: BackgroundPositionX,
     pub background_position_y: BackgroundPositionY,
+    pub background_repeat: BackgroundRepeat,
     pub background_size: ComputedBackgroundSize,
     pub border_top_color: Color4f,
     pub border_right_color: Color4f,
@@ -213,14 +213,6 @@ impl ComputedStyle {
                 absolute_ctx,
             )
             .unwrap_or(ComputedBackgroundImage { images: vec![] }),
-            background_repeat: specified_style
-                .background_repeat
-                .resolve_with_context_owned(
-                    relative_ctx.parent.background_repeat.clone(),
-                    BackgroundRepeat {
-                        repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
-                    },
-                ),
             background_position_x: specified_style
                 .background_position_x
                 .resolve_with_context_owned(
@@ -238,6 +230,14 @@ impl ComputedStyle {
                         None,
                         Some(LengthPercentage::Percentage(Percentage::new(0.0))),
                     ))]),
+                ),
+            background_repeat: specified_style
+                .background_repeat
+                .resolve_with_context_owned(
+                    relative_ctx.parent.background_repeat.clone(),
+                    BackgroundRepeat {
+                        repeats: vec![(RepeatStyle::Repeat, RepeatStyle::Repeat)],
+                    },
                 ),
             background_size: ComputedBackgroundSize::resolve(
                 specified_style.background_size.resolve_with_context_owned(
