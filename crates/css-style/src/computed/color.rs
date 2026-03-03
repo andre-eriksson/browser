@@ -44,6 +44,30 @@ impl Color4f {
         Self { r, g, b, a }
     }
 
+    /// Resolves the `color` property used by `currentColor` into a concrete color reference.
+    ///
+    /// Returns `None` when resolution loops back to `currentColor` (directly or through
+    /// `light-dark(...)`) so callers can safely fall back to inherited parent color.
+    fn resolve_current_color<'css>(
+        text_color: &'css CSSProperty<Color>,
+        absolute_ctx: &AbsoluteContext,
+    ) -> Option<&'css Color> {
+        let mut resolved = text_color.as_value()?;
+
+        loop {
+            match resolved {
+                Color::Current => return None,
+                Color::Functional(FunctionColor::LightDark(light, dark)) => {
+                    resolved = match absolute_ctx.theme_category {
+                        ThemeCategory::Light => light.as_ref(),
+                        ThemeCategory::Dark => dark.as_ref(),
+                    };
+                }
+                _ => return Some(resolved),
+            }
+        }
+    }
+
     /// Converts a CSS Color to Color4f
     fn from_css_color(
         color: &Color,
@@ -62,7 +86,7 @@ impl Color4f {
                 _ => Self::from(func.clone()),
             },
             Color::Current => {
-                if let Some(resolved) = text_color.as_value() {
+                if let Some(resolved) = Self::resolve_current_color(text_color, absolute_ctx) {
                     Self::from_css_color(resolved, text_color, relative_ctx, absolute_ctx)
                 } else {
                     relative_ctx.parent.color
@@ -83,7 +107,7 @@ impl Color4f {
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         let initial = match initial {
-            Color::Current => text_color.as_value().unwrap_or(initial),
+            Color::Current => Self::resolve_current_color(text_color, absolute_ctx).unwrap_or(initial),
             _ => initial,
         };
 
@@ -379,5 +403,93 @@ impl From<FunctionColor> for Color4f {
                 Self::new(0.0, 0.0, 0.0, 0.0)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::ComputedStyle;
+
+    fn relative_ctx_with_parent_color(color: Color4f) -> RelativeContext {
+        let parent = ComputedStyle {
+            color,
+            ..Default::default()
+        };
+        RelativeContext {
+            parent: Arc::new(parent),
+        }
+    }
+
+    #[test]
+    fn current_color_self_reference_falls_back_to_parent_color() {
+        let parent_color = Color4f::new(0.2, 0.3, 0.4, 1.0);
+        let relative_ctx = relative_ctx_with_parent_color(parent_color);
+        let absolute_ctx = AbsoluteContext::default();
+
+        let text_color = CSSProperty::Value(Color::Current);
+        let color = Color4f::from_css_color_property(
+            &CSSProperty::Value(Color::Current),
+            &text_color,
+            &Color::Current,
+            None,
+            &relative_ctx,
+            &absolute_ctx,
+        );
+
+        assert_eq!(color, parent_color);
+    }
+
+    #[test]
+    fn light_dark_current_in_light_theme_falls_back_to_parent_color() {
+        let parent_color = Color4f::new(0.1, 0.2, 0.3, 1.0);
+        let relative_ctx = relative_ctx_with_parent_color(parent_color);
+        let absolute_ctx = AbsoluteContext {
+            theme_category: ThemeCategory::Light,
+            ..Default::default()
+        };
+
+        let text_color = CSSProperty::Value(Color::Functional(FunctionColor::LightDark(
+            Box::new(Color::Current),
+            Box::new(Color::Named(NamedColor::Red)),
+        )));
+
+        let color = Color4f::from_css_color_property(
+            &CSSProperty::Value(Color::Current),
+            &text_color,
+            &Color::Current,
+            None,
+            &relative_ctx,
+            &absolute_ctx,
+        );
+
+        assert_eq!(color, parent_color);
+    }
+
+    #[test]
+    fn light_dark_current_in_dark_theme_uses_dark_branch() {
+        let relative_ctx = relative_ctx_with_parent_color(Color4f::new(0.1, 0.2, 0.3, 1.0));
+        let absolute_ctx = AbsoluteContext {
+            theme_category: ThemeCategory::Dark,
+            ..Default::default()
+        };
+
+        let text_color = CSSProperty::Value(Color::Functional(FunctionColor::LightDark(
+            Box::new(Color::Current),
+            Box::new(Color::Named(NamedColor::Red)),
+        )));
+
+        let color = Color4f::from_css_color_property(
+            &CSSProperty::Value(Color::Current),
+            &text_color,
+            &Color::Current,
+            None,
+            &relative_ctx,
+            &absolute_ctx,
+        );
+
+        assert_eq!(color, Color4f::from(NamedColor::Red));
     }
 }
