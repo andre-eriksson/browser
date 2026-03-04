@@ -283,8 +283,7 @@ mod tests {
             kind: CssTokenKind::Ident("bold".into()),
             position: None,
         })];
-        let mut stream = ComponentValueStream::new(&input);
-        let font_weight = FontWeight::parse(&mut stream).unwrap();
+        let font_weight = FontWeight::parse(&mut input.as_slice().into()).unwrap();
         assert_eq!(font_weight, FontWeight::Bold);
     }
 
@@ -304,8 +303,7 @@ mod tests {
                 position: None,
             }),
         ];
-        let mut stream = ComponentValueStream::new(&input);
-        let font_family = FontFamily::parse(&mut stream).unwrap();
+        let font_family = FontFamily::parse(&mut input.as_slice().into()).unwrap();
         assert_eq!(font_family.names.len(), 2);
         assert_eq!(font_family.names[0], FontFamilyName::Specific("Arial".into()));
         assert_eq!(font_family.names[1], FontFamilyName::Generic(GenericName::SansSerif));
@@ -320,8 +318,7 @@ mod tests {
             },
             position: None,
         })];
-        let mut stream = ComponentValueStream::new(&input);
-        let font_size = FontSize::parse(&mut stream).unwrap();
+        let font_size = FontSize::parse(&mut input.as_slice().into()).unwrap();
         assert_eq!(font_size, FontSize::Length(Length::px(16.0)));
     }
 }

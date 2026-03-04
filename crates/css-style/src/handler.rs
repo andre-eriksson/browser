@@ -1,4 +1,4 @@
-use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
+use css_cssom::{ComponentValue, CssTokenKind};
 
 use crate::background::{Attachment, BgClip, VisualBox};
 use crate::global::Global;

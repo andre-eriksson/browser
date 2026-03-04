@@ -48,8 +48,7 @@ pub trait CSSParsable: Sized {
     /// temporary stream. Override this if you need custom slice-level logic
     /// (e.g. scanning for a specific token anywhere in the slice).
     fn try_parse(value: &[ComponentValue]) -> Result<Self, String> {
-        let mut stream = ComponentValueStream::new(value);
-        Self::parse(&mut stream)
+        Self::parse(&mut value.into())
     }
 }
 

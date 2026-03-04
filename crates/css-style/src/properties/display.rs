@@ -272,8 +272,7 @@ mod tests {
             }),
         ];
 
-        let display =
-            Display::parse(&mut ComponentValueStream::new(input.as_slice())).expect("Failed to parse display value");
+        let display = Display::parse(&mut input.as_slice().into()).expect("Failed to parse display value");
         assert_eq!(
             display,
             Display {

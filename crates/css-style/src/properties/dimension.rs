@@ -232,7 +232,7 @@ mod tests {
             },
             position: None,
         })];
-        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
+        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
         assert_eq!(dim, Dimension::Length(Length::new(16.0, LengthUnit::Px)));
     }
 
@@ -242,7 +242,7 @@ mod tests {
             kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
             position: None,
         })];
-        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
+        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
         assert_eq!(dim, Dimension::Percentage(Percentage::new(50.0)));
     }
 
@@ -252,7 +252,7 @@ mod tests {
             kind: CssTokenKind::Ident("auto".to_string()),
             position: None,
         })];
-        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
+        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
         assert_eq!(dim, Dimension::Auto);
     }
 
@@ -286,7 +286,7 @@ mod tests {
                 }),
             ],
         })];
-        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
+        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
         assert!(matches!(dim, Dimension::Calc(_)));
     }
 
@@ -296,7 +296,7 @@ mod tests {
             kind: CssTokenKind::Ident("max-content".to_string()),
             position: None,
         })];
-        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
+        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
         assert_eq!(dim, Dimension::MaxContent);
     }
 
@@ -306,7 +306,7 @@ mod tests {
             kind: CssTokenKind::Ident("invalid".to_string()),
             position: None,
         })];
-        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice()));
+        let dim = Dimension::parse(&mut tokens.as_slice().into());
         assert!(dim.is_err());
     }
 }

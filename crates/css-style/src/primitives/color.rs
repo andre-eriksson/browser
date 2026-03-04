@@ -7,7 +7,7 @@
 
 use std::ops::RangeInclusive;
 
-use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, Function};
+use css_cssom::{ComponentValue, CssTokenKind, Function};
 
 use crate::{
     Color,
@@ -328,8 +328,8 @@ impl TryFrom<&Function> for FunctionColor {
                 let (light_values, dark_values) = func.value.split_at(pos);
                 let dark_values = &dark_values[1..]; // Skip the comma
 
-                let light_color = Color::parse(&mut ComponentValueStream::new(light_values))?;
-                let dark_color = Color::parse(&mut ComponentValueStream::new(dark_values))?;
+                let light_color = Color::parse(&mut light_values.into())?;
+                let dark_color = Color::parse(&mut dark_values.into())?;
 
                 Ok(Self::LightDark(Box::new(light_color), Box::new(dark_color)))
             } else {
@@ -480,7 +480,7 @@ mod tests {
     #[test]
     fn test_rgb_parsing() {
         let rgb = css_color_fn!("rgb", 255, 0, 128, "none");
-        let parsed = Color::parse(&mut ComponentValueStream::new(rgb.as_slice())).unwrap();
+        let parsed = Color::parse(&mut rgb.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
@@ -495,7 +495,7 @@ mod tests {
     #[test]
     fn test_rgba_parsing() {
         let rgba = css_color_fn!("rgba", 255, 0, 128, 0.5);
-        let parsed = Color::parse(&mut ComponentValueStream::new(rgba.as_slice())).unwrap();
+        let parsed = Color::parse(&mut rgba.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn test_hsl_parsing() {
         let hsl = css_color_fn!("hsl", 120, "100%", "50%", "none");
-        let parsed = Color::parse(&mut ComponentValueStream::new(hsl.as_slice())).unwrap();
+        let parsed = Color::parse(&mut hsl.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Srgba(SRGBAColor::Hsl(
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn test_hsla_parsing() {
         let hsla = css_color_fn!("hsla", 120, "100%", "50%", 0.5);
-        let parsed = Color::parse(&mut ComponentValueStream::new(hsla.as_slice())).unwrap();
+        let parsed = Color::parse(&mut hsla.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Srgba(SRGBAColor::Hsl(
@@ -540,7 +540,7 @@ mod tests {
     #[test]
     fn test_hwb_parsing() {
         let hwb = css_color_fn!("hwb", 120, "100%", "50%", "none");
-        let parsed = Color::parse(&mut ComponentValueStream::new(hwb.as_slice())).unwrap();
+        let parsed = Color::parse(&mut hwb.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Srgba(SRGBAColor::Hwb(
@@ -555,7 +555,7 @@ mod tests {
     #[test]
     fn test_lab_parsing() {
         let lab = css_color_fn!("lab", 50, 20, -30, "none");
-        let parsed = Color::parse(&mut ComponentValueStream::new(lab.as_slice())).unwrap();
+        let parsed = Color::parse(&mut lab.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Cielab(Cielab::Lab(
@@ -570,7 +570,7 @@ mod tests {
     #[test]
     fn test_oklab_parsing() {
         let oklab = css_color_fn!("oklab", 0.5, 0.1, -0.1, "none");
-        let parsed = Color::parse(&mut ComponentValueStream::new(oklab.as_slice())).unwrap();
+        let parsed = Color::parse(&mut oklab.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Oklab(Oklab::Oklab(
@@ -585,7 +585,7 @@ mod tests {
     #[test]
     fn test_oklch_parsing() {
         let oklch = css_color_fn!("oklch", 0.5, 0.1, 120, "none");
-        let parsed = Color::parse(&mut ComponentValueStream::new(oklch.as_slice())).unwrap();
+        let parsed = Color::parse(&mut oklch.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
@@ -659,7 +659,7 @@ mod tests {
             ],
         })];
 
-        let parsed = Color::parse(&mut ComponentValueStream::new(light_dark.as_slice())).unwrap();
+        let parsed = Color::parse(&mut light_dark.as_slice().into()).unwrap();
         assert_eq!(
             parsed,
             Color::Functional(FunctionColor::LightDark(

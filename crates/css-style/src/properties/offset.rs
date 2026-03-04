@@ -219,7 +219,7 @@ mod tests {
             }),
         ];
 
-        let offset = Offset::parse(&mut ComponentValueStream::new(input.as_slice())).unwrap();
+        let offset = Offset::parse(&mut input.as_slice().into()).unwrap();
         assert_eq!(offset.top, OffsetValue::Length(Length::px(10.0)));
         assert_eq!(offset.right, OffsetValue::Percentage(Percentage::new(50.0)));
         assert_eq!(offset.bottom, OffsetValue::Length(Length::px(10.0)));
