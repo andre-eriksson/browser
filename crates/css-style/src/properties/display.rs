@@ -3,11 +3,12 @@
 //! inside, list-item, internal, and box display types. This structured representation allows for easier handling of
 //! the `display` property in the layout engine.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     display::ListItemDisplay,
     primitives::display::{BoxDisplay, InsideDisplay, InternalDisplay, OutsideDisplay},
+    properties::CSSParsable,
 };
 
 /// Represents the computed value of the CSS `display` property, which can be a combination of outside, inside, list-item, internal, and box display types.
@@ -137,23 +138,28 @@ impl From<BoxDisplay> for Display {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for Display {
-    type Error = String;
+impl CSSParsable for Display {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        let mut parts: Vec<String> = Vec::with_capacity(3);
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let parts: Vec<&str> = value
-            .iter()
-            .filter_map(|cv| match cv {
-                ComponentValue::Token(token) => Some(token),
-                _ => None,
-            })
-            .filter(|token| !matches!(token.kind, CssTokenKind::Whitespace))
-            .map(|token| match &token.kind {
-                CssTokenKind::Ident(ident) => Ok(ident.as_str()),
-                other => Err(format!("Unexpected token in display value: {:?}", other)),
-            })
-            .collect::<Result<_, _>>()?;
+        while let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => parts.push(ident.to_ascii_lowercase()),
+                    CssTokenKind::Whitespace => continue,
+                    other => return Err(format!("Unexpected token in display value: {:?}", other)),
+                },
+                _ => return Err(format!("Unexpected component value in display value: {:?}", cv)),
+            }
 
+            if parts.len() == 3 {
+                break;
+            }
+        }
+
+        // TODO: Optimize
+
+        let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         match parts.as_slice() {
             ["inline"] => Ok(Display {
                 outside: Some(OutsideDisplay::Inline),
@@ -266,7 +272,8 @@ mod tests {
             }),
         ];
 
-        let display = Display::try_from(input.as_slice()).expect("Failed to parse display value");
+        let display =
+            Display::parse(&mut ComponentValueStream::new(input.as_slice())).expect("Failed to parse display value");
         assert_eq!(
             display,
             Display {

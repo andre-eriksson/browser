@@ -1,11 +1,11 @@
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     gradient::AngleOrZero,
     position::Position,
-    properties::gradient::{
-        collect_idents, find_ident_position, interpolation::ColorInterpolationMethod, reassemble_to_comma_separated,
-        split_on_commas, stops::AngularColorStopList, strip_whitespace, try_consume_interpolation,
+    properties::{
+        CSSParsable,
+        gradient::{Gradient, interpolation::ColorInterpolationMethod, stops::AngularColorStopList},
     },
 };
 
@@ -20,94 +20,95 @@ pub struct ConicGradientSyntax {
     pub stops: AngularColorStopList,
 }
 
-/// Checks whether a segment looks like conic-gradient configuration
-/// (`from <angle>`, `at <position>`, or `in <interpolation>`) rather than
-/// a color stop.
-///
-/// Conic config segments can start with:
-///   - `from` keyword (angle)
-///   - `at` keyword (position)
-///   - `in` keyword (color interpolation)
-///   - A dimension token (bare angle like `45deg`)
-fn segment_is_conic_config(segment: &[ComponentValue]) -> bool {
-    let stripped = strip_whitespace(segment);
-    if stripped.is_empty() {
-        return false;
-    }
+/// Parsing helpers for `ConicGradientSyntax`.
+impl ConicGradientSyntax {
+    /// Checks whether a segment looks like conic-gradient configuration
+    /// (`from <angle>`, `at <position>`, or `in <interpolation>`) rather than
+    /// a color stop.
+    ///
+    /// Conic config segments can start with:
+    ///   - `from` keyword (angle)
+    ///   - `at` keyword (position)
+    ///   - `in` keyword (color interpolation)
+    ///   - A dimension token (bare angle like `45deg`)
+    fn segment_is_conic_config(segment: &[ComponentValue]) -> bool {
+        let stripped = Gradient::strip_whitespace(segment);
+        if stripped.is_empty() {
+            return false;
+        }
 
-    match &stripped[0] {
-        ComponentValue::Token(token) => match &token.kind {
-            CssTokenKind::Ident(s) => {
-                s.eq_ignore_ascii_case("from") || s.eq_ignore_ascii_case("at") || s.eq_ignore_ascii_case("in")
-            }
+        match &stripped[0] {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(s) => {
+                    s.eq_ignore_ascii_case("from") || s.eq_ignore_ascii_case("at") || s.eq_ignore_ascii_case("in")
+                }
+                _ => false,
+            },
             _ => false,
-        },
-        _ => false,
-    }
-}
-
-/// Parse the conic configuration segment which may contain any combination
-/// of `from <angle>` and `at <position>` (and possibly `in <interpolation>`).
-///
-/// ```text
-/// [ from <angle> ]? [ at <position> ]?
-/// ```
-///
-/// The `from` and `at` parts may appear in the same comma-segment.
-/// The `in` part is handled separately in the main parser, but if it
-/// appears here we also handle it.
-fn parse_conic_config(segment: &[ComponentValue]) -> Result<ConicConfig, String> {
-    let stripped = strip_whitespace(segment);
-    if stripped.is_empty() {
-        return Ok((None, None, None));
-    }
-
-    let mut from_angle: Option<AngleOrZero> = None;
-    let mut position: Option<Position> = None;
-    let mut interpolation: Option<ColorInterpolationMethod> = None;
-
-    let from_pos = find_ident_position(stripped, |s| s.eq_ignore_ascii_case("from"));
-    let at_pos = find_ident_position(stripped, |s| s.eq_ignore_ascii_case("at"));
-    let in_pos = find_ident_position(stripped, |s| s.eq_ignore_ascii_case("in"));
-
-    if let Some(fp) = from_pos {
-        let end = [at_pos, in_pos]
-            .iter()
-            .filter_map(|p| *p)
-            .filter(|&p| p > fp)
-            .min()
-            .unwrap_or(stripped.len());
-        let angle_cvs = &stripped[fp + 1..end];
-        let meaningful: Vec<&ComponentValue> = angle_cvs
-            .iter()
-            .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
-            .collect();
-        if meaningful.len() == 1 {
-            if let ComponentValue::Token(token) = meaningful[0] {
-                from_angle = Some(AngleOrZero::try_from(token)?);
-            }
-        } else if !meaningful.is_empty() {
-            return Err(format!("Expected a single angle after 'from', got {} tokens", meaningful.len()));
         }
     }
 
-    if let Some(ap) = at_pos {
-        let end = in_pos.filter(|&p| p > ap).unwrap_or(stripped.len());
-        let pos_cvs = &stripped[ap + 1..end];
-        position = Some(Position::try_from(pos_cvs)?);
-    }
+    /// Parse the conic configuration segment which may contain any combination
+    /// of `from <angle>` and `at <position>` (and possibly `in <interpolation>`).
+    ///
+    /// ```text
+    /// [ from <angle> ]? [ at <position> ]?
+    /// ```
+    ///
+    /// The `from` and `at` parts may appear in the same comma-segment.
+    /// The `in` part is handled separately in the main parser, but if it
+    /// appears here we also handle it.
+    fn parse_conic_config(segment: &[ComponentValue]) -> Result<ConicConfig, String> {
+        let stripped = Gradient::strip_whitespace(segment);
+        if stripped.is_empty() {
+            return Ok((None, None, None));
+        }
 
-    if let Some(ip) = in_pos {
-        let interp_cvs = &stripped[ip + 1..];
-        interpolation = Some(crate::properties::gradient::try_parse_interpolation(interp_cvs)?);
-    }
+        let mut from_angle: Option<AngleOrZero> = None;
+        let mut position: Option<Position> = None;
+        let mut interpolation: Option<ColorInterpolationMethod> = None;
 
-    Ok((from_angle, position, interpolation))
+        let from_pos = Gradient::find_ident_position(stripped, |s| s.eq_ignore_ascii_case("from"));
+        let at_pos = Gradient::find_ident_position(stripped, |s| s.eq_ignore_ascii_case("at"));
+        let in_pos = Gradient::find_ident_position(stripped, |s| s.eq_ignore_ascii_case("in"));
+
+        if let Some(fp) = from_pos {
+            let end = [at_pos, in_pos]
+                .iter()
+                .filter_map(|p| *p)
+                .filter(|&p| p > fp)
+                .min()
+                .unwrap_or(stripped.len());
+            let angle_cvs = &stripped[fp + 1..end];
+            let meaningful: Vec<&ComponentValue> = angle_cvs
+                .iter()
+                .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
+                .collect();
+            if meaningful.len() == 1 {
+                if let ComponentValue::Token(token) = meaningful[0] {
+                    from_angle = Some(AngleOrZero::try_from(token)?);
+                }
+            } else if !meaningful.is_empty() {
+                return Err(format!("Expected a single angle after 'from', got {} tokens", meaningful.len()));
+            }
+        }
+
+        if let Some(ap) = at_pos {
+            let end = in_pos.filter(|&p| p > ap).unwrap_or(stripped.len());
+            let pos_cvs = &stripped[ap + 1..end];
+            position = Some(Position::parse(&mut pos_cvs.into())?);
+        }
+
+        if let Some(ip) = in_pos {
+            let interp_cvs = &stripped[ip + 1..];
+            interpolation = Some(Gradient::try_parse_interpolation(interp_cvs)?);
+        }
+
+        Ok((from_angle, position, interpolation))
+    }
 }
 
-impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
-    type Error = String;
-
+impl CSSParsable for ConicGradientSyntax {
     /// Parse the inner component values of a `conic-gradient()` function.
     ///
     /// CSS grammar:
@@ -125,8 +126,12 @@ impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
     ///    (`from`, `at`, or `in`) consume it.
     /// 3. Check the next segment for `in <color-interpolation-method>`.
     /// 4. The remaining segments form the `<angular-color-stop-list>`.
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let segments = split_on_commas(value);
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        Self::try_parse(stream.remaining())
+    }
+
+    fn try_parse(value: &[ComponentValue]) -> Result<Self, String> {
+        let segments = Gradient::split_on_commas(value);
 
         if segments.is_empty() {
             return Err("Empty conic-gradient arguments".into());
@@ -137,22 +142,22 @@ impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
         let mut position: Option<Position> = None;
         let mut interpolation: Option<ColorInterpolationMethod> = None;
 
-        if idx < segments.len() && segment_is_conic_config(&segments[idx]) {
+        if idx < segments.len() && Self::segment_is_conic_config(&segments[idx]) {
             let seg = &segments[idx];
-            let stripped = strip_whitespace(seg);
-            let idents = collect_idents(stripped);
+            let stripped = Gradient::strip_whitespace(seg);
+            let idents = Gradient::collect_idents(stripped);
 
             if let Some(first) = idents.first() {
                 if first.eq_ignore_ascii_case("in")
                     && !idents.iter().any(|i| i.eq_ignore_ascii_case("from"))
                     && !idents.iter().any(|i| i.eq_ignore_ascii_case("at"))
                 {
-                    if let Ok(Some(method)) = try_consume_interpolation(stripped) {
+                    if let Ok(Some(method)) = Gradient::try_consume_interpolation(stripped) {
                         interpolation = Some(method);
                         idx += 1;
                     }
                 } else {
-                    let (angle, pos, interp) = parse_conic_config(seg)?;
+                    let (angle, pos, interp) = Self::parse_conic_config(seg)?;
                     from_angle = angle;
                     position = pos;
                     if interp.is_some() {
@@ -165,9 +170,9 @@ impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
 
         if interpolation.is_none() && idx < segments.len() {
             let seg = &segments[idx];
-            let stripped = strip_whitespace(seg);
+            let stripped = Gradient::strip_whitespace(seg);
 
-            if let Ok(Some(method)) = try_consume_interpolation(stripped) {
+            if let Ok(Some(method)) = Gradient::try_consume_interpolation(stripped) {
                 interpolation = Some(method);
                 idx += 1;
             }
@@ -177,8 +182,8 @@ impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
             return Err("Missing angular color stop list in conic-gradient".into());
         }
 
-        let stop_cvs = reassemble_to_comma_separated(&segments[idx..]);
-        let stops = AngularColorStopList::try_from(stop_cvs.as_slice())?;
+        let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);
+        let stops = AngularColorStopList::try_parse(stop_cvs.as_slice())?;
 
         Ok(ConicGradientSyntax {
             from_angle,
@@ -192,6 +197,7 @@ impl TryFrom<&[ComponentValue]> for ConicGradientSyntax {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::properties::CSSParsable;
     use css_cssom::CSSStyleSheet;
 
     /// Helper: parse an inline CSS declaration and return the component values.
@@ -215,7 +221,7 @@ mod tests {
     fn conic_two_colors() {
         let cvs = parse_value("background-image: conic-gradient(red, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.from_angle.is_none());
         assert!(syn.position.is_none());
         assert!(syn.interpolation.is_none());
@@ -226,7 +232,7 @@ mod tests {
     fn conic_three_colors() {
         let cvs = parse_value("background-image: conic-gradient(red, green, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.stops.1.len(), 2);
     }
 
@@ -234,7 +240,7 @@ mod tests {
     fn conic_from_angle() {
         let cvs = parse_value("background-image: conic-gradient(from 45deg, red, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.from_angle.is_some());
         assert!(syn.position.is_none());
     }
@@ -243,7 +249,7 @@ mod tests {
     fn conic_from_turn() {
         let cvs = parse_value("background-image: conic-gradient(from 0.25turn, red, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(matches!(syn.from_angle, Some(AngleOrZero::Angle(_))));
     }
 
@@ -251,7 +257,7 @@ mod tests {
     fn conic_at_center() {
         let cvs = parse_value("background-image: conic-gradient(at center, red, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.position.is_some());
         assert!(syn.from_angle.is_none());
     }
@@ -260,7 +266,7 @@ mod tests {
     fn conic_from_angle_at_position() {
         let cvs = parse_value("background-image: conic-gradient(from 90deg at center, red, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.from_angle.is_some());
         assert!(syn.position.is_some());
     }
@@ -269,7 +275,7 @@ mod tests {
     fn conic_stops_with_angles() {
         let cvs = parse_value("background-image: conic-gradient(red 0deg, blue 360deg)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.stops.0.angle.is_some());
         assert!(syn.stops.1[0].1.angle.is_some());
     }
@@ -278,7 +284,7 @@ mod tests {
     fn conic_stops_with_percentages() {
         let cvs = parse_value("background-image: conic-gradient(red 0%, blue 100%)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.stops.0.angle.is_some());
         assert!(syn.stops.1[0].1.angle.is_some());
     }
@@ -287,7 +293,7 @@ mod tests {
     fn conic_hex_colors() {
         let cvs = parse_value("background-image: conic-gradient(#ff0000, #0000ff)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.stops.1.len(), 1);
     }
 
@@ -295,20 +301,20 @@ mod tests {
     fn conic_single_stop_fails() {
         let cvs = parse_value("background-image: conic-gradient(red)");
         let func = extract_function(&cvs);
-        assert!(ConicGradientSyntax::try_from(func.value.as_slice()).is_err());
+        assert!(ConicGradientSyntax::try_parse(func.value.as_slice()).is_err());
     }
 
     #[test]
     fn conic_empty_fails() {
         let empty: &[ComponentValue] = &[];
-        assert!(ConicGradientSyntax::try_from(empty).is_err());
+        assert!(ConicGradientSyntax::try_parse(empty).is_err());
     }
 
     #[test]
     fn conic_many_stops() {
         let cvs = parse_value("background-image: conic-gradient(red, orange, yellow, green, blue)");
         let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.stops.1.len(), 4);
     }
 }

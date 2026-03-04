@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use css_cssom::{AssociatedToken, ComponentValue, CssTokenKind};
+use css_cssom::{AssociatedToken, ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     length::LengthUnit,
@@ -179,12 +179,12 @@ impl CalcExpression {
 
     /// Parse a `<calc-sum>` from a flat list of component values (i.e. the contents inside a `calc()` function).
     pub fn parse(input: &[ComponentValue]) -> Result<Self, String> {
-        let mut parser = CalcParser::new(input);
-        let sum = parser.parse_sum()?;
+        let mut stream = ComponentValueStream::new(input);
+        let sum = Self::parse_sum(&mut stream)?;
 
-        parser.skip_whitespace();
-        if parser.current_pos < parser.input.len() {
-            return Err(format!("Unexpected trailing input at position {}", parser.current_pos));
+        stream.skip_whitespace();
+        if stream.peek().is_some() {
+            return Err("Unexpected trailing input in calc()".to_string());
         }
 
         Ok(CalcExpression { sum })
@@ -196,7 +196,7 @@ impl CalcExpression {
         if name.eq_ignore_ascii_case("calc") {
             Self::parse(value)
         } else if name.eq_ignore_ascii_case("min") {
-            let args = CalcParser::parse_comma_separated_sums(value)?;
+            let args = Self::parse_comma_separated_sums(value)?;
             if args.is_empty() {
                 return Err("min() requires at least one argument".to_string());
             }
@@ -204,7 +204,7 @@ impl CalcExpression {
                 sum: CalculateSum::Product(CalculateProduct::Value(CalculateValue::Min(args))),
             })
         } else if name.eq_ignore_ascii_case("max") {
-            let args = CalcParser::parse_comma_separated_sums(value)?;
+            let args = Self::parse_comma_separated_sums(value)?;
             if args.is_empty() {
                 return Err("max() requires at least one argument".to_string());
             }
@@ -212,7 +212,7 @@ impl CalcExpression {
                 sum: CalculateSum::Product(CalculateProduct::Value(CalculateValue::Max(args))),
             })
         } else if name.eq_ignore_ascii_case("clamp") {
-            let args = CalcParser::parse_clamp_args(value)?;
+            let args = Self::parse_clamp_args(value)?;
             Ok(CalcExpression {
                 sum: CalculateSum::Product(CalculateProduct::Value(CalculateValue::Clamp(args))),
             })
@@ -220,67 +220,33 @@ impl CalcExpression {
             Err(format!("Unknown math function: {}", name))
         }
     }
-}
 
-/// A simple recursive descent parser for calc() expressions that respects operator precedence and associativity.
-struct CalcParser<'css> {
-    input: &'css [ComponentValue],
-    current_pos: usize,
-}
-
-impl<'css> CalcParser<'css> {
-    fn new(input: &'css [ComponentValue]) -> Self {
-        Self {
-            input,
-            current_pos: 0,
-        }
+    /// Skips whitespace in the stream and returns whether any was consumed.
+    fn skip_whitespace_check(stream: &mut ComponentValueStream) -> bool {
+        let checkpoint = stream.checkpoint();
+        stream.skip_whitespace();
+        stream.checkpoint() > checkpoint
     }
 
-    fn skip_whitespace(&mut self) -> bool {
-        let start_pos = self.current_pos;
-        while self.current_pos < self.input.len() {
-            if let ComponentValue::Token(token) = &self.input[self.current_pos]
-                && token.kind == CssTokenKind::Whitespace
-            {
-                self.current_pos += 1;
-                continue;
-            }
-            break;
-        }
-        self.current_pos > start_pos
-    }
-
-    fn peek_token(&self) -> Option<&CssTokenKind> {
-        if self.current_pos >= self.input.len() {
-            return None;
-        }
-
-        if let ComponentValue::Token(token) = &self.input[self.current_pos] {
+    /// Peeks at the current token kind without consuming it.
+    fn peek_token_kind<'a>(stream: &'a ComponentValueStream) -> Option<&'a CssTokenKind> {
+        if let Some(ComponentValue::Token(token)) = stream.peek() {
             Some(&token.kind)
         } else {
             None
         }
     }
 
-    fn consume_token(&mut self) -> Option<&ComponentValue> {
-        if self.current_pos >= self.input.len() {
-            return None;
-        }
-        let token = &self.input[self.current_pos];
-        self.current_pos += 1;
-        Some(token)
-    }
-
-    fn parse_sum(&mut self) -> Result<CalculateSum, String> {
-        let mut left = CalculateSum::Product(self.parse_product()?);
+    fn parse_sum(stream: &mut ComponentValueStream) -> Result<CalculateSum, String> {
+        let mut left = CalculateSum::Product(Self::parse_product(stream)?);
 
         loop {
-            let had_whitespace_before = self.skip_whitespace();
-            if self.current_pos >= self.input.len() {
+            let had_whitespace_before = Self::skip_whitespace_check(stream);
+            if stream.peek().is_none() {
                 break;
             }
 
-            let is_plus_or_minus = matches!(self.peek_token(), Some(CssTokenKind::Delim('+' | '-')));
+            let is_plus_or_minus = matches!(Self::peek_token_kind(stream), Some(CssTokenKind::Delim('+' | '-')));
             if !is_plus_or_minus {
                 break;
             }
@@ -289,7 +255,7 @@ impl<'css> CalcParser<'css> {
                 return Err("Whitespace is required before '+' or '-' operator in calc()".to_string());
             }
 
-            let op = match self.consume_token() {
+            let op = match stream.next_cv() {
                 Some(ComponentValue::Token(token)) => match &token.kind {
                     CssTokenKind::Delim('+') => '+',
                     CssTokenKind::Delim('-') => '-',
@@ -298,12 +264,12 @@ impl<'css> CalcParser<'css> {
                 _ => break,
             };
 
-            let had_whitespace_after = self.skip_whitespace();
+            let had_whitespace_after = Self::skip_whitespace_check(stream);
             if !had_whitespace_after {
                 return Err("Whitespace is required after '+' or '-' operator in calc()".to_string());
             }
 
-            let next_product = self.parse_product()?;
+            let next_product = Self::parse_product(stream)?;
             let right = CalculateSum::Product(next_product);
 
             if op == '+' {
@@ -316,31 +282,30 @@ impl<'css> CalcParser<'css> {
         Ok(left)
     }
 
-    fn parse_product(&mut self) -> Result<CalculateProduct, String> {
-        let mut left = CalculateProduct::Value(self.parse_value()?);
+    fn parse_product(stream: &mut ComponentValueStream) -> Result<CalculateProduct, String> {
+        let mut left = CalculateProduct::Value(Self::parse_value(stream)?);
 
         loop {
-            let pos_before_ws = self.current_pos;
-            self.skip_whitespace();
+            let checkpoint_before_ws = stream.checkpoint();
+            stream.skip_whitespace();
 
-            if self.current_pos >= self.input.len() {
+            if stream.peek().is_none() {
                 break;
             }
 
-            let op_char = match self.peek_token() {
+            let op_char = match Self::peek_token_kind(stream) {
                 Some(CssTokenKind::Delim('*')) => '*',
                 Some(CssTokenKind::Delim('/')) => '/',
                 _ => {
-                    self.current_pos = pos_before_ws;
+                    stream.restore(checkpoint_before_ws);
                     break;
                 }
             };
 
-            self.current_pos += 1;
+            stream.next_cv();
+            stream.skip_whitespace();
 
-            self.skip_whitespace();
-
-            let next_value = self.parse_value()?;
+            let next_value = Self::parse_value(stream)?;
             let right = CalculateProduct::Value(next_value);
 
             if op_char == '*' {
@@ -353,23 +318,24 @@ impl<'css> CalcParser<'css> {
         Ok(left)
     }
 
-    fn parse_value(&mut self) -> Result<CalculateValue, String> {
-        self.skip_whitespace();
-        if self.current_pos >= self.input.len() {
-            return Err("Unexpected end of input".to_string());
-        }
+    fn parse_value(stream: &mut ComponentValueStream) -> Result<CalculateValue, String> {
+        stream.skip_whitespace();
 
-        let cv = &self.input[self.current_pos];
+        let Some(cv) = stream.peek() else {
+            return Err("Unexpected end of input".to_string());
+        };
 
         match cv {
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
-                self.current_pos += 1;
+                let func = func.clone();
+                stream.next_cv();
                 let nested = CalcExpression::parse(&func.value)?;
                 Ok(CalculateValue::NestedSum(Box::new(nested.sum)))
             }
 
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("min") => {
-                self.current_pos += 1;
+                let func = func.clone();
+                stream.next_cv();
                 let args = Self::parse_comma_separated_sums(&func.value)?;
                 if args.is_empty() {
                     return Err("min() requires at least one argument".to_string());
@@ -378,7 +344,8 @@ impl<'css> CalcParser<'css> {
             }
 
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("max") => {
-                self.current_pos += 1;
+                let func = func.clone();
+                stream.next_cv();
                 let args = Self::parse_comma_separated_sums(&func.value)?;
                 if args.is_empty() {
                     return Err("max() requires at least one argument".to_string());
@@ -387,41 +354,49 @@ impl<'css> CalcParser<'css> {
             }
 
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("clamp") => {
-                self.current_pos += 1;
+                let func = func.clone();
+                stream.next_cv();
                 let args = Self::parse_clamp_args(&func.value)?;
                 Ok(CalculateValue::Clamp(args))
             }
 
             ComponentValue::SimpleBlock(block) if matches!(block.associated_token, AssociatedToken::Parenthesis) => {
-                self.current_pos += 1;
+                let block = block.clone();
+                stream.next_cv();
                 let nested = CalcExpression::parse(&block.value)?;
                 Ok(CalculateValue::NestedSum(Box::new(nested.sum)))
             }
 
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Number(num) => {
-                    self.current_pos += 1;
-                    Ok(CalculateValue::Number(num.to_f64() as f32))
+                    let val = num.to_f64() as f32;
+                    stream.next_cv();
+                    Ok(CalculateValue::Number(val))
                 }
 
                 CssTokenKind::Dimension { value, unit } => {
-                    self.current_pos += 1;
+                    let val = value.to_f64() as f32;
                     let len_unit = unit
                         .parse::<LengthUnit>()
                         .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                    Ok(CalculateValue::Length(Length::new(value.to_f64() as f32, len_unit)))
+                    stream.next_cv();
+                    Ok(CalculateValue::Length(Length::new(val, len_unit)))
                 }
 
                 CssTokenKind::Percentage(num) => {
-                    self.current_pos += 1;
-                    Ok(CalculateValue::Percentage(Percentage::new(num.to_f64() as f32)))
+                    let val = num.to_f64() as f32;
+                    stream.next_cv();
+                    Ok(CalculateValue::Percentage(Percentage::new(val)))
                 }
 
                 CssTokenKind::Ident(ident) => {
-                    self.current_pos += 1;
-                    CalculateKeyword::from_str(ident)
+                    let result = CalculateKeyword::from_str(ident)
                         .map(CalculateValue::Keyword)
-                        .map_err(|_| format!("Invalid calc() keyword or identifier: {}", ident))
+                        .map_err(|_| format!("Invalid calc() keyword or identifier: {}", ident));
+                    if result.is_ok() {
+                        stream.next_cv();
+                    }
+                    result
                 }
 
                 _ => Err(format!("Unexpected token in calc(): {:?}", token.kind)),
@@ -436,7 +411,7 @@ impl<'css> CalcParser<'css> {
     ///
     /// `<clamp()> = clamp( [ <calc-sum> | none ] , <calc-sum> , [ <calc-sum> | none ] )`
     fn parse_clamp_args(input: &[ComponentValue]) -> Result<ClampArgs, String> {
-        let segments = Self::split_on_commas(input);
+        let segments = split_on_commas(input);
         if segments.len() != 3 {
             return Err(format!("clamp() requires exactly 3 arguments, got {}", segments.len()));
         }
@@ -452,17 +427,18 @@ impl<'css> CalcParser<'css> {
 
     /// Parses a single clamp() bound, which is either `none` or a `<calc-sum>`.
     fn parse_clamp_bound(segment: &[ComponentValue]) -> Result<Option<Box<CalculateSum>>, String> {
-        let non_ws: Vec<&ComponentValue> = segment
-            .iter()
-            .filter(|cv| !matches!(cv, ComponentValue::Token(t) if t.kind == CssTokenKind::Whitespace))
-            .collect();
+        let mut stream = ComponentValueStream::new(segment);
+        stream.skip_whitespace();
 
-        if non_ws.len() == 1
-            && let ComponentValue::Token(token) = non_ws[0]
+        if let Some(ComponentValue::Token(token)) = stream.peek()
             && let CssTokenKind::Ident(ident) = &token.kind
             && ident.eq_ignore_ascii_case("none")
         {
-            return Ok(None);
+            stream.next_cv();
+            stream.skip_whitespace();
+            if stream.peek().is_none() {
+                return Ok(None);
+            }
         }
 
         CalcExpression::parse(segment)
@@ -470,29 +446,10 @@ impl<'css> CalcParser<'css> {
             .map_err(|e| format!("Invalid clamp() bound: {}", e))
     }
 
-    /// Splits a token slice on `CssTokenKind::Comma`, returning the segments between commas.
-    fn split_on_commas(input: &[ComponentValue]) -> Vec<Vec<ComponentValue>> {
-        let mut segments: Vec<Vec<ComponentValue>> = Vec::new();
-        let mut current_segment: Vec<ComponentValue> = Vec::new();
-
-        for cv in input {
-            if matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)) {
-                segments.push(std::mem::take(&mut current_segment));
-            } else {
-                current_segment.push(cv.clone());
-            }
-        }
-        if !current_segment.is_empty() {
-            segments.push(current_segment);
-        }
-
-        segments
-    }
-
     /// Parses comma-separated `<calc-sum>` arguments from a function's value tokens.
     /// Used for `min()` and `max()` which take `<calc-sum>#` arguments.
     fn parse_comma_separated_sums(input: &[ComponentValue]) -> Result<Vec<CalculateSum>, String> {
-        let segments = Self::split_on_commas(input);
+        let segments = split_on_commas(input);
 
         let mut sums = Vec::with_capacity(segments.len());
         for segment in &segments {
@@ -502,6 +459,25 @@ impl<'css> CalcParser<'css> {
 
         Ok(sums)
     }
+}
+
+/// Splits a token slice on `CssTokenKind::Comma`, returning the segments between commas.
+fn split_on_commas(input: &[ComponentValue]) -> Vec<Vec<ComponentValue>> {
+    let mut segments: Vec<Vec<ComponentValue>> = Vec::new();
+    let mut current_segment: Vec<ComponentValue> = Vec::new();
+
+    for cv in input {
+        if matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)) {
+            segments.push(std::mem::take(&mut current_segment));
+        } else {
+            current_segment.push(cv.clone());
+        }
+    }
+    if !current_segment.is_empty() {
+        segments.push(current_segment);
+    }
+
+    segments
 }
 
 #[cfg(test)]

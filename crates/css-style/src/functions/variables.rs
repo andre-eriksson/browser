@@ -73,6 +73,10 @@ fn resolve_var_function(variables: &[(Property, Vec<ComponentValue>)], func: &Fu
     let mut fallback_values = Vec::new();
     let mut found_comma = false;
 
+    if func.value.is_empty() {
+        return vec![];
+    }
+
     for cv in func.value.iter() {
         match cv {
             ComponentValue::Token(token) if matches!(token.kind, CssTokenKind::Comma) => {

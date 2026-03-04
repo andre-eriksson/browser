@@ -2,7 +2,7 @@
 //! It provides functionality to parse these properties from CSS component values and to compute their effective values based on the context
 //! of the element and its parent.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     ComputedStyle, RelativeType,
@@ -13,7 +13,7 @@ use crate::{
         length::Length,
         percentage::Percentage,
     },
-    properties::{AbsoluteContext, RelativeContext},
+    properties::{AbsoluteContext, CSSParsable, RelativeContext},
 };
 
 /// Represents the font weight property, which can be a keyword (normal, bold) or a numeric value (100-900).
@@ -53,32 +53,30 @@ impl TryFrom<u16> for FontWeight {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for FontWeight {
-    type Error = String;
+impl CSSParsable for FontWeight {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("normal") {
-                            return Ok(FontWeight::Normal);
+                            Ok(Self::Normal)
                         } else if ident.eq_ignore_ascii_case("bold") {
-                            return Ok(FontWeight::Bold);
+                            Ok(Self::Bold)
+                        } else {
+                            Err(format!("Invalid font weight keyword: {}", ident))
                         }
                     }
-                    CssTokenKind::Number(num) => {
-                        if let Ok(weight) = FontWeight::try_from(num.to_f64() as u16) {
-                            return Ok(weight);
-                        }
-                    }
-                    _ => continue,
+                    CssTokenKind::Number(num) => Self::try_from(num.to_f64() as u16),
+                    _ => Err("Expected a valid font weight value".to_string()),
                 },
-                _ => continue,
+                _ => Err("Expected a valid font weight value".to_string()),
             }
+        } else {
+            Err("No font weight value found".to_string())
         }
-
-        Err(format!("Invalid font weight value: {:?}", value))
     }
 }
 
@@ -135,14 +133,15 @@ impl FontFamily {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for FontFamily {
-    type Error = String;
+impl CSSParsable for FontFamily {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let checkpoint = stream.checkpoint();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
         let mut full: Vec<FontFamilyName> = Vec::with_capacity(4);
         let mut names: Vec<String> = Vec::with_capacity(4);
 
-        for cv in value {
+        while let Some(cv) = stream.next_cv() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
@@ -168,6 +167,7 @@ impl TryFrom<&[ComponentValue]> for FontFamily {
 
         if names.is_empty() {
             if full.is_empty() {
+                stream.restore(checkpoint); // TODO: ?
                 return Err("No valid font family names found".to_string());
             }
         } else {
@@ -228,91 +228,71 @@ impl FontSize {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for FontSize {
-    type Error = String;
+impl CSSParsable for FontSize {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        let font_size = if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        return Ok(FontSize::Calc(CalcExpression::parse_math_function(
-                            &func.name,
-                            func.value.as_slice(),
-                        )?));
+                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                    } else {
+                        Err(format!("Invalid function for font size: {}", func.name))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if let Ok(abs_size) = ident.parse() {
-                            return Ok(FontSize::Absolute(abs_size));
+                            Ok(Self::Absolute(abs_size))
                         } else if let Ok(rel_size) = ident.parse() {
-                            return Ok(FontSize::Relative(rel_size));
+                            Ok(Self::Relative(rel_size))
+                        } else {
+                            Err(format!("Invalid font size identifier: {}", ident))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(FontSize::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Percentage(num) => {
-                        return Ok(FontSize::Percentage(Percentage::new(num.to_f64() as f32)));
-                    }
-                    _ => continue,
+                    CssTokenKind::Percentage(num) => Ok(Self::Percentage(Percentage::new(num.to_f64() as f32))),
+                    _ => Err("Expected a valid font size value".to_string()),
                 },
-                _ => continue,
+                _ => Err("Expected a valid font size value".to_string()),
             }
-        }
+        } else {
+            Err("No font size value found".to_string())
+        }?;
 
-        Err(format!("Invalid font size value: {:?}", value))
+        stream.next_cv(); // Consume the parsed value
+        Ok(font_size)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use css_cssom::CssToken;
-
-    use crate::primitives::font::GenericName;
+    use css_cssom::{CssToken, NumericValue};
 
     use super::*;
 
     #[test]
-    fn test_font_family_ident_parse() {
-        let input = vec![
-            ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("Times".to_string()),
-                position: None,
-            }),
-            ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("New".to_string()),
-                position: None,
-            }),
-            ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("Roman".to_string()),
-                position: None,
-            }),
-            ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Comma,
-                position: None,
-            }),
-            ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("serif".to_string()),
-                position: None,
-            }),
-        ];
-
-        let font_family = FontFamily::try_from(input.as_slice()).unwrap();
-        assert_eq!(font_family.names().len(), 2);
-        assert_eq!(font_family.names()[0], FontFamilyName::Specific("Times New Roman".to_string()));
-        assert_eq!(font_family.names()[1], FontFamilyName::Generic(GenericName::Serif));
+    fn test_font_weight_parsing() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("bold".into()),
+            position: None,
+        })];
+        let mut stream = ComponentValueStream::new(&input);
+        let font_weight = FontWeight::parse(&mut stream).unwrap();
+        assert_eq!(font_weight, FontWeight::Bold);
     }
 
     #[test]
-    fn test_font_family_string_parse() {
+    fn test_font_family_parsing() {
         let input = vec![
             ComponentValue::Token(CssToken {
-                kind: CssTokenKind::String("Open Sans".to_string()),
+                kind: CssTokenKind::Ident("Arial".into()),
                 position: None,
             }),
             ComponentValue::Token(CssToken {
@@ -320,14 +300,28 @@ mod tests {
                 position: None,
             }),
             ComponentValue::Token(CssToken {
-                kind: CssTokenKind::Ident("serif".to_string()),
+                kind: CssTokenKind::Ident("sans-serif".into()),
                 position: None,
             }),
         ];
+        let mut stream = ComponentValueStream::new(&input);
+        let font_family = FontFamily::parse(&mut stream).unwrap();
+        assert_eq!(font_family.names.len(), 2);
+        assert_eq!(font_family.names[0], FontFamilyName::Specific("Arial".into()));
+        assert_eq!(font_family.names[1], FontFamilyName::Generic(GenericName::SansSerif));
+    }
 
-        let font_family = FontFamily::try_from(input.as_slice()).unwrap();
-        assert_eq!(font_family.names().len(), 2);
-        assert_eq!(font_family.names()[0], FontFamilyName::Specific("Open Sans".to_string()));
-        assert_eq!(font_family.names()[1], FontFamilyName::Generic(GenericName::Serif));
+    #[test]
+    fn test_font_size_parsing() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Dimension {
+                value: NumericValue::from(16.0),
+                unit: "px".into(),
+            },
+            position: None,
+        })];
+        let mut stream = ComponentValueStream::new(&input);
+        let font_size = FontSize::parse(&mut stream).unwrap();
+        assert_eq!(font_size, FontSize::Length(Length::px(16.0)));
     }
 }

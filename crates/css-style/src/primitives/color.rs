@@ -7,12 +7,13 @@
 
 use std::ops::RangeInclusive;
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, Function};
 
 use crate::{
     Color,
     color::{cielab::Cielab, oklab::Oklab, srgba::SRGBAColor},
     primitives::{angle::Angle, percentage::Percentage},
+    properties::CSSParsable,
 };
 
 pub mod cielab;
@@ -112,36 +113,6 @@ impl ColorValue {
     fn signed_lerp(fraction: f32, range: RangeInclusive<f32>) -> f32 {
         let t = (fraction.clamp(-1.0, 1.0) + 1.0) / 2.0;
         range.start() + t * (range.end() - range.start())
-    }
-}
-
-impl TryFrom<&[ComponentValue]> for ColorValue {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if ident.eq_ignore_ascii_case("none") {
-                            return Ok(ColorValue::Number(0.0));
-                        } else {
-                            return Err(format!("Invalid color value: '{}'", ident));
-                        }
-                    }
-                    CssTokenKind::Percentage(percent) => {
-                        return Ok(ColorValue::Percentage(Percentage::new(percent.to_f64() as f32)));
-                    }
-                    CssTokenKind::Number(num) => {
-                        return Ok(ColorValue::Number(num.to_f64() as f32));
-                    }
-                    _ => continue,
-                },
-                _ => continue,
-            }
-        }
-
-        Err("No valid color value found".to_string())
     }
 }
 
@@ -291,48 +262,82 @@ impl FunctionColor {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for FunctionColor {
+impl TryFrom<&Function> for FunctionColor {
     type Error = String;
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        if let Ok(srgba) = value.try_into() {
-            return Ok(Self::Srgba(srgba));
-        }
+    fn try_from(func: &Function) -> Result<Self, Self::Error> {
+        if func.name.eq_ignore_ascii_case("rgb") || func.name.eq_ignore_ascii_case("rgba") {
+            let raw = Self::parse_color_components(&func.value)?;
 
-        if let Ok(cielab) = value.try_into() {
-            return Ok(Self::Cielab(cielab));
-        }
-
-        if let Ok(oklab) = value.try_into() {
-            return Ok(Self::Oklab(oklab));
-        }
-
-        for cv in value {
-            match cv {
-                ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("light-dark") => {
-                    if let Some(pos) = func
-                        .value
-                        .iter()
-                        .position(|c| matches!(c, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma))
-                    {
-                        let (light_values, dark_values) = func.value.split_at(pos);
-                        let dark_values = &dark_values[1..]; // Skip the comma
-
-                        let light_color = Color::try_from(light_values)?;
-                        let dark_color = Color::try_from(dark_values)?;
-
-                        return Ok(Self::LightDark(Box::new(light_color), Box::new(dark_color)));
-                    } else {
-                        return Err(
-                            "light-dark() function requires two color arguments separated by a comma".to_string()
-                        );
-                    }
-                }
-                _ => continue,
+            match raw.channels {
+                [Some(r), Some(g), Some(b)] => Ok(Self::Srgba(SRGBAColor::Rgb(r, g, b, raw.alpha))),
+                _ => Err("Missing components in rgb() or rgba()".to_string()),
             }
-        }
+        } else if func.name.eq_ignore_ascii_case("hsl") || func.name.eq_ignore_ascii_case("hsla") {
+            let raw = Self::parse_color_components(&func.value)?;
 
-        Err("Invalid functional color format".to_string())
+            match raw.channels {
+                [Some(h), Some(s), Some(l)] => {
+                    Ok(Self::Srgba(SRGBAColor::Hsl(Hue::from(h), Percentage::from(s), Percentage::from(l), raw.alpha)))
+                }
+                _ => Err("Missing components in hsl() or hsla()".to_string()),
+            }
+        } else if func.name.eq_ignore_ascii_case("hwb") {
+            let raw = Self::parse_color_components(&func.value)?;
+
+            match raw.channels {
+                [Some(h), Some(w), Some(b)] => {
+                    Ok(Self::Srgba(SRGBAColor::Hwb(Hue::from(h), Percentage::from(w), Percentage::from(b), raw.alpha)))
+                }
+                _ => Err("Missing components in hwb()".to_string()),
+            }
+        } else if func.name.eq_ignore_ascii_case("lab") {
+            let raw = Self::parse_color_components(&func.value)?;
+
+            match raw.channels {
+                [Some(l), Some(a), Some(b)] => Ok(Self::Cielab(Cielab::Lab(l, a, b, raw.alpha))),
+                _ => Err("Missing components in lab() or lch()".to_string()),
+            }
+        } else if func.name.eq_ignore_ascii_case("lch") {
+            let raw = Self::parse_color_components(&func.value)?;
+
+            match raw.channels {
+                [Some(l), Some(c), Some(h)] => Ok(Self::Cielab(Cielab::Lch(l, c, Hue::from(h), raw.alpha))),
+                _ => Err("Missing components in lab() or lch()".to_string()),
+            }
+        } else if func.name.eq_ignore_ascii_case("oklab") {
+            let raw = Self::parse_color_components(&func.value)?;
+
+            match raw.channels {
+                [Some(l), Some(a), Some(b)] => Ok(Self::Oklab(Oklab::Oklab(l, a, b, raw.alpha))),
+                _ => Err("Missing components in oklab() or oklch()".to_string()),
+            }
+        } else if func.name.eq_ignore_ascii_case("oklch") {
+            let raw = Self::parse_color_components(&func.value)?;
+
+            match raw.channels {
+                [Some(l), Some(c), Some(h)] => Ok(Self::Oklab(Oklab::Oklch(l, c, Hue::from(h), raw.alpha))),
+                _ => Err("Missing components in oklab() or oklch()".to_string()),
+            }
+        } else if func.name.eq_ignore_ascii_case("light-dark") {
+            if let Some(pos) = func
+                .value
+                .iter()
+                .position(|c| matches!(c, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma))
+            {
+                let (light_values, dark_values) = func.value.split_at(pos);
+                let dark_values = &dark_values[1..]; // Skip the comma
+
+                let light_color = Color::parse(&mut ComponentValueStream::new(light_values))?;
+                let dark_color = Color::parse(&mut ComponentValueStream::new(dark_values))?;
+
+                Ok(Self::LightDark(Box::new(light_color), Box::new(dark_color)))
+            } else {
+                Err("light-dark() function requires two color arguments separated by a comma".to_string())
+            }
+        } else {
+            Err(format!("Unsupported color function: '{}'", func.name))
+        }
     }
 }
 
@@ -444,6 +449,8 @@ pub mod macros {
 mod tests {
     use css_cssom::{CssToken, NumericValue};
 
+    use crate::css_color_fn;
+
     use super::*;
 
     #[test]
@@ -468,5 +475,207 @@ mod tests {
         assert_eq!(result.channels[1], Some(ColorValue::Percentage(Percentage::new(50.0))));
         assert_eq!(result.channels[2], Some(ColorValue::Number(0.0)));
         assert_eq!(result.alpha, Alpha(1.0));
+    }
+
+    #[test]
+    fn test_rgb_parsing() {
+        let rgb = css_color_fn!("rgb", 255, 0, 128, "none");
+        let parsed = Color::parse(&mut ComponentValueStream::new(rgb.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
+                ColorValue::Number(255.0),
+                ColorValue::Number(0.0),
+                ColorValue::Number(128.0),
+                Alpha(1.0)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_rgba_parsing() {
+        let rgba = css_color_fn!("rgba", 255, 0, 128, 0.5);
+        let parsed = Color::parse(&mut ComponentValueStream::new(rgba.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
+                ColorValue::Number(255.0),
+                ColorValue::Number(0.0),
+                ColorValue::Number(128.0),
+                Alpha(0.5)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_hsl_parsing() {
+        let hsl = css_color_fn!("hsl", 120, "100%", "50%", "none");
+        let parsed = Color::parse(&mut ComponentValueStream::new(hsl.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Srgba(SRGBAColor::Hsl(
+                Hue(120.0),
+                Percentage::new(100.0),
+                Percentage::new(50.0),
+                Alpha(1.0)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_hsla_parsing() {
+        let hsla = css_color_fn!("hsla", 120, "100%", "50%", 0.5);
+        let parsed = Color::parse(&mut ComponentValueStream::new(hsla.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Srgba(SRGBAColor::Hsl(
+                Hue(120.0),
+                Percentage::new(100.0),
+                Percentage::new(50.0),
+                Alpha(0.5)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_hwb_parsing() {
+        let hwb = css_color_fn!("hwb", 120, "100%", "50%", "none");
+        let parsed = Color::parse(&mut ComponentValueStream::new(hwb.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Srgba(SRGBAColor::Hwb(
+                Hue(120.0),
+                Percentage::new(100.0),
+                Percentage::new(50.0),
+                Alpha(1.0)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_lab_parsing() {
+        let lab = css_color_fn!("lab", 50, 20, -30, "none");
+        let parsed = Color::parse(&mut ComponentValueStream::new(lab.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Cielab(Cielab::Lab(
+                ColorValue::Number(50.0),
+                ColorValue::Number(20.0),
+                ColorValue::Number(-30.0),
+                Alpha(1.0)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_oklab_parsing() {
+        let oklab = css_color_fn!("oklab", 0.5, 0.1, -0.1, "none");
+        let parsed = Color::parse(&mut ComponentValueStream::new(oklab.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Oklab(Oklab::Oklab(
+                ColorValue::Number(0.5),
+                ColorValue::Number(0.1),
+                ColorValue::Number(-0.1),
+                Alpha(1.0)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_oklch_parsing() {
+        let oklch = css_color_fn!("oklch", 0.5, 0.1, 120, "none");
+        let parsed = Color::parse(&mut ComponentValueStream::new(oklch.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::Oklab(Oklab::Oklch(
+                ColorValue::Number(0.5),
+                ColorValue::Number(0.1),
+                Hue(120.0),
+                Alpha(1.0)
+            )))
+        );
+    }
+
+    #[test]
+    fn test_light_dark_parsing() {
+        let light_dark = vec![ComponentValue::Function(Function {
+            name: "light-dark".to_string(),
+            value: vec![
+                ComponentValue::Function(Function {
+                    name: "rgb".to_string(),
+                    value: vec![
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Number(NumericValue::from(255.0)),
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Number(NumericValue::from(0.0)),
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Number(NumericValue::from(128.0)),
+                            position: None,
+                        }),
+                    ],
+                }),
+                ComponentValue::Token(CssToken {
+                    kind: CssTokenKind::Comma,
+                    position: None,
+                }),
+                ComponentValue::Function(Function {
+                    name: "rgb".to_string(),
+                    value: vec![
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Number(NumericValue::from(0.0)),
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Number(NumericValue::from(255.0)),
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Whitespace,
+                            position: None,
+                        }),
+                        ComponentValue::Token(CssToken {
+                            kind: CssTokenKind::Number(NumericValue::from(128.0)),
+                            position: None,
+                        }),
+                    ],
+                }),
+            ],
+        })];
+
+        let parsed = Color::parse(&mut ComponentValueStream::new(light_dark.as_slice())).unwrap();
+        assert_eq!(
+            parsed,
+            Color::Functional(FunctionColor::LightDark(
+                Box::new(Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
+                    ColorValue::Number(255.0),
+                    ColorValue::Number(0.0),
+                    ColorValue::Number(128.0),
+                    Alpha(1.0)
+                )))),
+                Box::new(Color::Functional(FunctionColor::Srgba(SRGBAColor::Rgb(
+                    ColorValue::Number(0.0),
+                    ColorValue::Number(255.0),
+                    ColorValue::Number(128.0),
+                    Alpha(1.0)
+                ))))
+            ))
+        );
     }
 }

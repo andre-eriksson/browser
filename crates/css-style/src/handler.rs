@@ -1,4 +1,4 @@
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::background::{Attachment, BgClip, VisualBox};
 use crate::global::Global;
@@ -9,6 +9,7 @@ use crate::position::{
     PositionThree, PositionTwo, PositionX, PositionY, RelativeAxis, RelativeHorizontalSide, RelativeVerticalSide, Side,
     VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage, YSide,
 };
+use crate::properties::CSSParsable;
 use crate::properties::background::{
     BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPositionX, BackgroundPositionY,
     BackgroundRepeat, BackgroundSize, RepeatStyle, Size,
@@ -101,12 +102,12 @@ macro_rules! simple_property_handler {
 macro_rules! offset_shorthand_handler {
     ($fn_name:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
         pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-            if let Ok(global) = Global::try_from(value) {
+            if let Ok(global) = Global::parse(&mut value.into()) {
                 ctx.specified_style.$top = CSSProperty::Global(global);
                 ctx.specified_style.$right = CSSProperty::Global(global);
                 ctx.specified_style.$bottom = CSSProperty::Global(global);
                 ctx.specified_style.$left = CSSProperty::Global(global);
-            } else if let Ok(offset) = Offset::try_from(value) {
+            } else if let Ok(offset) = Offset::parse(&mut value.into()) {
                 ctx.specified_style.$top = offset.top.into();
                 ctx.specified_style.$right = offset.right.into();
                 ctx.specified_style.$bottom = offset.bottom.into();
@@ -130,9 +131,9 @@ macro_rules! logical_pair_handler {
      $vrl_start:ident, $vrl_end:ident,
      $vlr_start:ident, $vlr_end:ident) => {
         pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-            let global = Global::try_from(value).ok();
+            let global = Global::parse(&mut value.into()).ok();
             let offset = if global.is_none() {
-                Offset::try_from(value).ok()
+                Offset::parse(&mut value.into()).ok()
             } else {
                 None
             };
@@ -278,7 +279,7 @@ logical_edge_handler!(handle_padding_inline_start, "padding-inline-start", paddi
 logical_edge_handler!(handle_padding_inline_end, "padding-inline-end", padding_right, padding_bottom, padding_bottom);
 
 pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    if let Ok(global) = Global::try_from(value) {
+    if let Ok(global) = Global::parse(&mut value.into()) {
         ctx.specified_style.background_position_x = CSSProperty::Global(global);
         ctx.specified_style.background_position_y = CSSProperty::Global(global);
         return;
@@ -424,7 +425,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
         .collect::<Vec<_>>();
 
     for cv in values {
-        if let Ok(bg_position) = BackgroundPosition::try_from(cv) {
+        if let Ok(bg_position) = BackgroundPosition::parse(&mut cv.into()) {
             match bg_position {
                 BackgroundPosition::One(one) => match one {
                     PositionOne::LengthPercentage(lp) => {
@@ -604,7 +605,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
 ///   <visual-box>                    ||
 ///   <'background-color'>
 pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    if let Ok(global) = Global::try_from(value) {
+    if let Ok(global) = Global::parse(&mut value.into()) {
         ctx.specified_style.background_attachment = CSSProperty::Global(global);
         ctx.specified_style.background_clip = CSSProperty::Global(global);
         ctx.specified_style.background_color = CSSProperty::Global(global);
@@ -715,7 +716,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                 }
 
                 if !size_cvs.is_empty() {
-                    if let Ok(BackgroundSize(size_vec)) = BackgroundSize::try_from(size_cvs.as_slice())
+                    if let Ok(BackgroundSize(size_vec)) = BackgroundSize::parse(&mut size_cvs.as_slice().into())
                         && let Some(sz) = size_vec.first()
                     {
                         layer_size = Some(*sz);
@@ -765,7 +766,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
 
             if is_final_layer
                 && layer_color.is_none()
-                && let Ok(c) = Color::try_from(&layer[i..=i])
+                && let Ok(c) = Color::parse(&mut layer[i..=i].into())
             {
                 layer_color = Some(c);
                 i += 1;
@@ -873,7 +874,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
 
                         if is_final_layer
                             && layer_color.is_none()
-                            && let Ok(c) = Color::try_from(&layer[i..=i])
+                            && let Ok(c) = Color::parse(&mut layer[i..=i].into())
                         {
                             layer_color = Some(c);
                             i += 1;
@@ -890,7 +891,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
                     CssTokenKind::Hash { .. } => {
                         if is_final_layer
                             && layer_color.is_none()
-                            && let Ok(c) = Color::try_from(&layer[i..=i])
+                            && let Ok(c) = Color::parse(&mut layer[i..=i].into())
                         {
                             layer_color = Some(c);
                             i += 1;
@@ -923,7 +924,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
 
         if collecting_size
             && !size_cvs.is_empty()
-            && let Ok(BackgroundSize(size_vec)) = BackgroundSize::try_from(size_cvs.as_slice())
+            && let Ok(BackgroundSize(size_vec)) = BackgroundSize::parse(&mut size_cvs.as_slice().into())
             && let Some(sz) = size_vec.first()
         {
             layer_size = Some(*sz);
@@ -1014,13 +1015,13 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
                 CssTokenKind::Ident(ident) => {
                     if ident.eq_ignore_ascii_case("none") {
                         break;
-                    } else if let Ok(w) = BorderWidth::try_from(&value[i..])
+                    } else if let Ok(w) = BorderWidth::parse(&mut value[i..].into())
                         && width.is_none()
                     {
                         width = Some(w);
                     } else if let Ok(s) = ident.parse::<BorderStyle>() {
                         style = Some(s);
-                    } else if let Ok(c) = Color::try_from(&value[i..]) {
+                    } else if let Ok(c) = Color::parse(&mut value[i..].into()) {
                         color = Some(c);
                     }
                 }

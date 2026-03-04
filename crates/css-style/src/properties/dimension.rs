@@ -1,12 +1,12 @@
 //! Defines the Dimension and MaxDimension types, which represent CSS dimension values (width, height, max-width, max-height) and their parsing from CSS component values.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
-    properties::{AbsoluteContext, RelativeContext, RelativeType},
+    properties::{AbsoluteContext, CSSParsable, RelativeContext, RelativeType},
 };
 
 /// Represents a CSS dimension value (width or height), which can be a
@@ -54,53 +54,50 @@ impl Dimension {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for Dimension {
-    type Error = String;
+impl CSSParsable for Dimension {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        return Ok(Dimension::Calc(CalcExpression::parse_math_function(
-                            &func.name,
-                            func.value.as_slice(),
-                        )?));
+                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
+                    } else {
+                        Err(format!("Unexpected function for Dimension value: {}", func.name))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("auto") {
-                            return Ok(Dimension::Auto);
+                            Ok(Self::Auto)
                         } else if ident.eq_ignore_ascii_case("max-content") {
-                            return Ok(Dimension::MaxContent);
+                            Ok(Self::MaxContent)
                         } else if ident.eq_ignore_ascii_case("min-content") {
-                            return Ok(Dimension::MinContent);
+                            Ok(Self::MinContent)
                         } else if ident.eq_ignore_ascii_case("fit-content") {
-                            return Ok(Dimension::FitContent(None)); // TODO: Fix?
+                            Ok(Self::FitContent(None)) // TODO: Fix?
                         } else if ident.eq_ignore_ascii_case("stretch") {
-                            return Ok(Dimension::Stretch);
+                            Ok(Self::Stretch)
+                        } else {
+                            Err(format!("Unexpected identifier for Dimension value: {}", ident))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(Dimension::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Percentage(pct) => {
-                        return Ok(Dimension::Percentage(Percentage::new(pct.to_f64() as f32)));
-                    }
-                    CssTokenKind::Number(num) => {
-                        return Ok(Dimension::Length(Length::px(num.to_f64() as f32)));
-                    }
-                    _ => continue,
+                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
+                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    _ => Err(format!("Unexpected token kind for Dimension: {:?}", token.kind)),
                 },
-                _ => continue,
+                _ => Err("Expected a token or function for Dimension value".to_string()),
             }
+        } else {
+            Err("Unexpected end of input while parsing Dimension value".to_string())
         }
-
-        Err("No valid Dimension found in component values".to_string())
     }
 }
 
@@ -143,53 +140,50 @@ impl MaxDimension {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for MaxDimension {
-    type Error = String;
+impl CSSParsable for MaxDimension {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        return Ok(MaxDimension::Calc(CalcExpression::parse_math_function(
-                            &func.name,
-                            func.value.as_slice(),
-                        )?));
+                        Ok(MaxDimension::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                    } else {
+                        Err(format!("Unexpected function for MaxDimension value: {}", func.name))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("none") {
-                            return Ok(MaxDimension::None);
+                            Ok(MaxDimension::None)
                         } else if ident.eq_ignore_ascii_case("max-content") {
-                            return Ok(MaxDimension::MaxContent);
+                            Ok(MaxDimension::MaxContent)
                         } else if ident.eq_ignore_ascii_case("min-content") {
-                            return Ok(MaxDimension::MinContent);
+                            Ok(MaxDimension::MinContent)
                         } else if ident.eq_ignore_ascii_case("fit-content") {
-                            return Ok(MaxDimension::FitContent(None)); // TODO: Fix?
+                            Ok(MaxDimension::FitContent(None)) // TODO: Fix?
                         } else if ident.eq_ignore_ascii_case("stretch") {
-                            return Ok(MaxDimension::Stretch);
+                            Ok(MaxDimension::Stretch)
+                        } else {
+                            Err(format!("Unexpected identifier for MaxDimension value: {}", ident))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(MaxDimension::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        Ok(MaxDimension::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Number(num) => {
-                        return Ok(MaxDimension::Length(Length::px(num.to_f64() as f32)));
-                    }
-                    CssTokenKind::Percentage(pct) => {
-                        return Ok(MaxDimension::Percentage(Percentage::new(pct.to_f64() as f32)));
-                    }
-                    _ => continue,
+                    CssTokenKind::Number(num) => Ok(MaxDimension::Length(Length::px(num.to_f64() as f32))),
+                    CssTokenKind::Percentage(pct) => Ok(MaxDimension::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    _ => Err(format!("Unexpected token kind for MaxDimension: {:?}", token.kind)),
                 },
-                _ => continue,
+                _ => Err(format!("Expected a token or function for MaxDimension value, found: {:?}", cv)),
             }
+        } else {
+            Err("Unexpected end of input while parsing MaxDimension value".to_string())
         }
-
-        Err("No valid MaxDimension found in component values".to_string())
     }
 }
 
@@ -238,7 +232,7 @@ mod tests {
             },
             position: None,
         })];
-        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
         assert_eq!(dim, Dimension::Length(Length::new(16.0, LengthUnit::Px)));
     }
 
@@ -248,7 +242,7 @@ mod tests {
             kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
             position: None,
         })];
-        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
         assert_eq!(dim, Dimension::Percentage(Percentage::new(50.0)));
     }
 
@@ -258,7 +252,7 @@ mod tests {
             kind: CssTokenKind::Ident("auto".to_string()),
             position: None,
         })];
-        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
         assert_eq!(dim, Dimension::Auto);
     }
 
@@ -292,7 +286,7 @@ mod tests {
                 }),
             ],
         })];
-        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
         assert!(matches!(dim, Dimension::Calc(_)));
     }
 
@@ -302,7 +296,7 @@ mod tests {
             kind: CssTokenKind::Ident("max-content".to_string()),
             position: None,
         })];
-        let dim = Dimension::try_from(tokens.as_slice()).unwrap();
+        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice())).unwrap();
         assert_eq!(dim, Dimension::MaxContent);
     }
 
@@ -312,7 +306,7 @@ mod tests {
             kind: CssTokenKind::Ident("invalid".to_string()),
             position: None,
         })];
-        let dim = Dimension::try_from(tokens.as_slice());
+        let dim = Dimension::parse(&mut ComponentValueStream::new(tokens.as_slice()));
         assert!(dim.is_err());
     }
 }

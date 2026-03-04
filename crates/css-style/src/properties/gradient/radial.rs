@@ -1,14 +1,13 @@
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     gradient::{RadialExtent, RadialShape},
     length::{Length, LengthUnit},
     percentage::LengthPercentage,
     position::Position,
-    properties::gradient::{
-        find_ident_position, interpolation::ColorInterpolationMethod, meaningful_cvs, reassemble_to_comma_separated,
-        split_on_commas, stops::ColorStopList, strip_whitespace, try_consume_interpolation,
-        try_parse_length_percentage,
+    properties::{
+        CSSParsable,
+        gradient::{Gradient, interpolation::ColorInterpolationMethod, stops::ColorStopList},
     },
 };
 
@@ -31,151 +30,152 @@ pub struct RadialGradientSyntax {
     pub stops: ColorStopList,
 }
 
-/// Try to parse a single `ComponentValue` as a `Length`.
-fn try_parse_length(cv: &ComponentValue) -> Result<Length, String> {
-    match cv {
-        ComponentValue::Token(token) => match &token.kind {
-            CssTokenKind::Dimension { value, unit } => {
-                let len_unit = unit
-                    .parse::<LengthUnit>()
-                    .map_err(|_| format!("Invalid length unit: '{}'", unit))?;
-                Ok(Length::new(value.to_f64() as f32, len_unit))
-            }
-            CssTokenKind::Number(value) if value.to_f64() == 0.0 => Ok(Length::new(0.0, LengthUnit::Px)),
-            _ => Err(format!("Expected dimension, got {:?}", token.kind)),
-        },
-        _ => Err("Expected a token for length".to_string()),
-    }
-}
-
-/// Checks whether the first segment (before the first comma) contains
-/// radial-gradient configuration (shape, size, `at`, or `in`) rather than
-/// being a color stop.
-///
-/// Radial config segments can start with:
-///   - A shape keyword (`circle`, `ellipse`)
-///   - An extent keyword (`closest-side`, `farthest-corner`, etc.)
-///   - A dimension (explicit size like `50px`)
-///   - A percentage (for ellipse sizes)
-///   - The `at` keyword (position)
-///   - The `in` keyword (color interpolation)
-fn segment_is_radial_config(segment: &[ComponentValue]) -> bool {
-    let stripped = strip_whitespace(segment);
-    if stripped.is_empty() {
-        return false;
-    }
-
-    match &stripped[0] {
-        ComponentValue::Token(token) => match &token.kind {
-            CssTokenKind::Ident(s) => {
-                s.eq_ignore_ascii_case("circle")
-                    || s.eq_ignore_ascii_case("ellipse")
-                    || s.eq_ignore_ascii_case("at")
-                    || s.eq_ignore_ascii_case("in")
-                    || s.parse::<RadialExtent>().is_ok()
-            }
-            CssTokenKind::Dimension { .. } => true,
-            CssTokenKind::Percentage(_) => true,
-            CssTokenKind::Number(n) if n.to_f64() == 0.0 => true,
-            _ => false,
-        },
-        _ => false,
-    }
-}
-
-/// Parse the radial shape/size/position configuration from a segment.
-///
-/// CSS grammar for the configuration part:
-/// ```text
-/// [ [ <radial-shape> || <radial-size> ] [ at <position> ]? ]
-/// | [ at <position> ]
-/// ```
-///
-/// Returns `(shape, size, position)`.
-fn parse_radial_config(segment: &[ComponentValue]) -> Result<RadialConfig, String> {
-    let stripped = strip_whitespace(segment);
-    if stripped.is_empty() {
-        return Ok((None, None, None));
-    }
-
-    let at_pos = find_ident_position(stripped, |s| s.eq_ignore_ascii_case("at"));
-
-    let (shape_size_cvs, position_cvs) = if let Some(pos) = at_pos {
-        (&stripped[..pos], Some(&stripped[pos + 1..]))
-    } else {
-        (stripped, None)
-    };
-
-    let mut shape: Option<RadialShape> = None;
-    let mut size: Option<RadialSize> = None;
-
-    let tokens = meaningful_cvs(shape_size_cvs);
-
-    let mut length_values: Vec<&ComponentValue> = Vec::new();
-
-    for cv in &tokens {
+/// Parsing helpers for `RadialGradientSyntax`.
+impl RadialGradientSyntax {
+    /// Try to parse a single `ComponentValue` as a `Length`.
+    fn try_parse_length(cv: &ComponentValue) -> Result<Length, String> {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Ident(ident) => {
-                    if let Ok(s) = ident.parse::<RadialShape>() {
-                        if shape.is_some() {
-                            return Err("Duplicate shape keyword".to_string());
-                        }
-                        shape = Some(s);
-                    } else if let Ok(extent) = ident.parse::<RadialExtent>() {
-                        if size.is_some() {
-                            return Err("Duplicate size value".to_string());
-                        }
-                        size = Some(RadialSize::Extent(extent));
-                    } else {
-                        return Err(format!("Unexpected ident in radial config: '{}'", ident));
-                    }
+                CssTokenKind::Dimension { value, unit } => {
+                    let len_unit = unit
+                        .parse::<LengthUnit>()
+                        .map_err(|_| format!("Invalid length unit: '{}'", unit))?;
+                    Ok(Length::new(value.to_f64() as f32, len_unit))
                 }
-                CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) | CssTokenKind::Number(_) => {
-                    length_values.push(cv);
-                }
-                _ => {
-                    return Err(format!("Unexpected token in radial config: {:?}", token.kind));
-                }
+                CssTokenKind::Number(value) if value.to_f64() == 0.0 => Ok(Length::new(0.0, LengthUnit::Px)),
+                _ => Err(format!("Expected dimension, got {:?}", token.kind)),
             },
-            _ => {
-                return Err("Unexpected non-token in radial config".to_string());
-            }
+            _ => Err("Expected a token for length".to_string()),
         }
     }
 
-    if !length_values.is_empty() {
-        if size.is_some() {
-            return Err("Cannot combine extent keyword with explicit size".to_string());
+    /// Checks whether the first segment (before the first comma) contains
+    /// radial-gradient configuration (shape, size, `at`, or `in`) rather than
+    /// being a color stop.
+    ///
+    /// Radial config segments can start with:
+    ///   - A shape keyword (`circle`, `ellipse`)
+    ///   - An extent keyword (`closest-side`, `farthest-corner`, etc.)
+    ///   - A dimension (explicit size like `50px`)
+    ///   - A percentage (for ellipse sizes)
+    ///   - The `at` keyword (position)
+    ///   - The `in` keyword (color interpolation)
+    fn segment_is_radial_config(segment: &[ComponentValue]) -> bool {
+        let stripped = Gradient::strip_whitespace(segment);
+        if stripped.is_empty() {
+            return false;
         }
-        match length_values.len() {
-            1 => {
-                let len = try_parse_length(length_values[0])?;
-                size = Some(RadialSize::Length(len));
-            }
-            2 => {
-                let lp1 = try_parse_length_percentage(length_values[0])?;
-                let lp2 = try_parse_length_percentage(length_values[1])?;
-                size = Some(RadialSize::LengthPercentagePair(lp1, lp2));
-            }
-            n => {
-                return Err(format!("Too many size values in radial config (expected 1-2, got {})", n));
-            }
+
+        match &stripped[0] {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(s) => {
+                    s.eq_ignore_ascii_case("circle")
+                        || s.eq_ignore_ascii_case("ellipse")
+                        || s.eq_ignore_ascii_case("at")
+                        || s.eq_ignore_ascii_case("in")
+                        || s.parse::<RadialExtent>().is_ok()
+                }
+                CssTokenKind::Dimension { .. } => true,
+                CssTokenKind::Percentage(_) => true,
+                CssTokenKind::Number(n) if n.to_f64() == 0.0 => true,
+                _ => false,
+            },
+            _ => false,
         }
     }
 
-    let position = if let Some(pos_cvs) = position_cvs {
-        Some(Position::try_from(pos_cvs)?)
-    } else {
-        None
-    };
+    /// Parse the radial shape/size/position configuration from a segment.
+    ///
+    /// CSS grammar for the configuration part:
+    /// ```text
+    /// [ [ <radial-shape> || <radial-size> ] [ at <position> ]? ]
+    /// | [ at <position> ]
+    /// ```
+    ///
+    /// Returns `(shape, size, position)`.
+    fn parse_radial_config(segment: &[ComponentValue]) -> Result<RadialConfig, String> {
+        let stripped = Gradient::strip_whitespace(segment);
+        if stripped.is_empty() {
+            return Ok((None, None, None));
+        }
 
-    Ok((shape, size, position))
+        let at_pos = Gradient::find_ident_position(stripped, |s| s.eq_ignore_ascii_case("at"));
+
+        let (shape_size_cvs, position_cvs) = if let Some(pos) = at_pos {
+            (&stripped[..pos], Some(&stripped[pos + 1..]))
+        } else {
+            (stripped, None)
+        };
+
+        let mut shape: Option<RadialShape> = None;
+        let mut size: Option<RadialSize> = None;
+
+        let tokens = Gradient::meaningful_cvs(shape_size_cvs);
+
+        let mut length_values: Vec<&ComponentValue> = Vec::new();
+
+        for cv in &tokens {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if let Ok(s) = ident.parse::<RadialShape>() {
+                            if shape.is_some() {
+                                return Err("Duplicate shape keyword".to_string());
+                            }
+                            shape = Some(s);
+                        } else if let Ok(extent) = ident.parse::<RadialExtent>() {
+                            if size.is_some() {
+                                return Err("Duplicate size value".to_string());
+                            }
+                            size = Some(RadialSize::Extent(extent));
+                        } else {
+                            return Err(format!("Unexpected ident in radial config: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) | CssTokenKind::Number(_) => {
+                        length_values.push(cv);
+                    }
+                    _ => {
+                        return Err(format!("Unexpected token in radial config: {:?}", token.kind));
+                    }
+                },
+                _ => {
+                    return Err("Unexpected non-token in radial config".to_string());
+                }
+            }
+        }
+
+        if !length_values.is_empty() {
+            if size.is_some() {
+                return Err("Cannot combine extent keyword with explicit size".to_string());
+            }
+            match length_values.len() {
+                1 => {
+                    let len = Self::try_parse_length(length_values[0])?;
+                    size = Some(RadialSize::Length(len));
+                }
+                2 => {
+                    let lp1 = Gradient::try_parse_length_percentage(length_values[0])?;
+                    let lp2 = Gradient::try_parse_length_percentage(length_values[1])?;
+                    size = Some(RadialSize::LengthPercentagePair(lp1, lp2));
+                }
+                n => {
+                    return Err(format!("Too many size values in radial config (expected 1-2, got {})", n));
+                }
+            }
+        }
+
+        let position = if let Some(pos_cvs) = position_cvs {
+            Some(Position::parse(&mut pos_cvs.into())?)
+        } else {
+            None
+        };
+
+        Ok((shape, size, position))
+    }
 }
 
-impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
-    type Error = String;
-
+impl CSSParsable for RadialGradientSyntax {
     /// Parse the inner component values of a `radial-gradient()` function.
     ///
     /// CSS grammar:
@@ -193,8 +193,13 @@ impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
     ///    (shape, size, `at <position>`) consume it.
     /// 3. Check the next segment for `in <color-interpolation-method>`.
     /// 4. The remaining segments form the `<color-stop-list>`.
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let segments = split_on_commas(value);
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        // Collect remaining stream into a slice for comma-based splitting.
+        Self::try_parse(stream.remaining())
+    }
+
+    fn try_parse(value: &[ComponentValue]) -> Result<Self, String> {
+        let segments = Gradient::split_on_commas(value);
 
         if segments.is_empty() {
             return Err("Empty radial-gradient arguments".into());
@@ -208,13 +213,13 @@ impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
 
         if idx < segments.len() {
             let seg = &segments[idx];
-            let stripped = strip_whitespace(seg);
+            let stripped = Gradient::strip_whitespace(seg);
 
-            if let Ok(Some(method)) = try_consume_interpolation(stripped) {
+            if let Ok(Some(method)) = Gradient::try_consume_interpolation(stripped) {
                 interpolation = Some(method);
                 idx += 1;
-            } else if segment_is_radial_config(seg) {
-                let (s, sz, pos) = parse_radial_config(seg)?;
+            } else if Self::segment_is_radial_config(seg) {
+                let (s, sz, pos) = Self::parse_radial_config(seg)?;
                 shape = s;
                 size = sz;
                 position = pos;
@@ -224,9 +229,9 @@ impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
 
         if interpolation.is_none() && idx < segments.len() {
             let seg = &segments[idx];
-            let stripped = strip_whitespace(seg);
+            let stripped = Gradient::strip_whitespace(seg);
 
-            if let Ok(Some(method)) = try_consume_interpolation(stripped) {
+            if let Ok(Some(method)) = Gradient::try_consume_interpolation(stripped) {
                 interpolation = Some(method);
                 idx += 1;
             }
@@ -236,8 +241,8 @@ impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
             return Err("Missing color stop list in radial-gradient".into());
         }
 
-        let stop_cvs = reassemble_to_comma_separated(&segments[idx..]);
-        let stops = ColorStopList::try_from(stop_cvs.as_slice())?;
+        let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);
+        let stops = ColorStopList::try_parse(stop_cvs.as_slice())?;
 
         Ok(RadialGradientSyntax {
             shape,
@@ -252,6 +257,7 @@ impl TryFrom<&[ComponentValue]> for RadialGradientSyntax {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::properties::CSSParsable;
     use css_cssom::CSSStyleSheet;
 
     /// Helper: parse an inline CSS declaration and return the component values.
@@ -275,7 +281,7 @@ mod tests {
     fn radial_two_colors() {
         let cvs = parse_value("background-image: radial-gradient(red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.shape.is_none());
         assert!(syn.size.is_none());
         assert!(syn.position.is_none());
@@ -287,7 +293,7 @@ mod tests {
     fn radial_three_colors() {
         let cvs = parse_value("background-image: radial-gradient(red, green, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.stops.1.len(), 2);
     }
 
@@ -295,7 +301,7 @@ mod tests {
     fn radial_circle() {
         let cvs = parse_value("background-image: radial-gradient(circle, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.shape, Some(RadialShape::Circle));
         assert!(syn.size.is_none());
     }
@@ -304,7 +310,7 @@ mod tests {
     fn radial_ellipse() {
         let cvs = parse_value("background-image: radial-gradient(ellipse, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.shape, Some(RadialShape::Ellipse));
     }
 
@@ -312,7 +318,7 @@ mod tests {
     fn radial_closest_side() {
         let cvs = parse_value("background-image: radial-gradient(closest-side, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.size, Some(RadialSize::Extent(RadialExtent::ClosestSide)));
     }
 
@@ -320,7 +326,7 @@ mod tests {
     fn radial_farthest_corner() {
         let cvs = parse_value("background-image: radial-gradient(farthest-corner, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.size, Some(RadialSize::Extent(RadialExtent::FarthestCorner)));
     }
 
@@ -328,7 +334,7 @@ mod tests {
     fn radial_explicit_length() {
         let cvs = parse_value("background-image: radial-gradient(50px, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(matches!(syn.size, Some(RadialSize::Length(_))));
     }
 
@@ -336,7 +342,7 @@ mod tests {
     fn radial_explicit_two_lengths() {
         let cvs = parse_value("background-image: radial-gradient(50px 100px, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(matches!(syn.size, Some(RadialSize::LengthPercentagePair(_, _))));
     }
 
@@ -344,7 +350,7 @@ mod tests {
     fn radial_circle_closest_side() {
         let cvs = parse_value("background-image: radial-gradient(circle closest-side, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.shape, Some(RadialShape::Circle));
         assert_eq!(syn.size, Some(RadialSize::Extent(RadialExtent::ClosestSide)));
     }
@@ -353,7 +359,7 @@ mod tests {
     fn radial_at_center() {
         let cvs = parse_value("background-image: radial-gradient(at center, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.position.is_some());
     }
 
@@ -361,7 +367,7 @@ mod tests {
     fn radial_circle_at_top_left() {
         let cvs = parse_value("background-image: radial-gradient(circle at top left, red, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.shape, Some(RadialShape::Circle));
         assert!(syn.position.is_some());
     }
@@ -370,7 +376,7 @@ mod tests {
     fn radial_stops_with_percentages() {
         let cvs = parse_value("background-image: radial-gradient(red 0%, blue 100%)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert!(syn.stops.0.length.is_some());
         assert!(syn.stops.1[0].1.length.is_some());
     }
@@ -379,20 +385,20 @@ mod tests {
     fn radial_single_stop_fails() {
         let cvs = parse_value("background-image: radial-gradient(red)");
         let func = extract_function(&cvs);
-        assert!(RadialGradientSyntax::try_from(func.value.as_slice()).is_err());
+        assert!(RadialGradientSyntax::try_parse(func.value.as_slice()).is_err());
     }
 
     #[test]
     fn radial_empty_fails() {
         let empty: &[ComponentValue] = &[];
-        assert!(RadialGradientSyntax::try_from(empty).is_err());
+        assert!(RadialGradientSyntax::try_parse(empty).is_err());
     }
 
     #[test]
     fn radial_hex_colors() {
         let cvs = parse_value("background-image: radial-gradient(#ff0000, #0000ff)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.stops.1.len(), 1);
     }
 
@@ -400,7 +406,7 @@ mod tests {
     fn radial_many_stops() {
         let cvs = parse_value("background-image: radial-gradient(red, orange, yellow, green, blue)");
         let func = extract_function(&cvs);
-        let syn = RadialGradientSyntax::try_from(func.value.as_slice()).unwrap();
+        let syn = RadialGradientSyntax::try_parse(func.value.as_slice()).unwrap();
         assert_eq!(syn.stops.1.len(), 4);
     }
 }

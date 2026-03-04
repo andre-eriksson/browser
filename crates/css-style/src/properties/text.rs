@@ -1,6 +1,6 @@
 //! Properties related to text layout and formatting, such as `writing-mode`, `text-align`, `white-space`, and `line-height`.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
     functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
-    properties::{AbsoluteContext, RelativeContext},
+    properties::{AbsoluteContext, CSSParsable, RelativeContext},
 };
 
 /// The `writing-mode` property defines whether lines of text are laid out horizontally or vertically, and the direction in which blocks progress.
@@ -40,23 +40,23 @@ pub enum WritingMode {
     SidewaysLr,
 }
 
-impl TryFrom<&[ComponentValue]> for WritingMode {
-    type Error = String;
+impl CSSParsable for WritingMode {
+    fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
-                ComponentValue::Token(token) => {
-                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
-                        && let Ok(mode) = ident.parse()
-                    {
-                        return Ok(mode);
-                    }
-                }
-                _ => continue,
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => ident
+                        .parse()
+                        .map_err(|_| format!("Invalid writing-mode value: {}", ident)),
+                    _ => Err("Expected an identifier for writing-mode value".to_string()),
+                },
+                _ => Err("Expected a token for writing-mode value".to_string()),
             }
+        } else {
+            Err("Unexpected end of input while parsing writing-mode value".to_string())
         }
-        Err("No valid writing-mode value found".to_string())
     }
 }
 
@@ -89,23 +89,23 @@ pub enum TextAlign {
     MatchParent,
 }
 
-impl TryFrom<&[ComponentValue]> for TextAlign {
-    type Error = String;
+impl CSSParsable for TextAlign {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
-                ComponentValue::Token(token) => {
-                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
-                        && let Ok(align) = ident.parse()
-                    {
-                        return Ok(align);
-                    }
-                }
-                _ => continue,
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => ident
+                        .parse()
+                        .map_err(|_| format!("Invalid text-align value: {}", ident)),
+                    _ => Err("Expected an identifier for text-align value".to_string()),
+                },
+                _ => Err("Expected a token for text-align value".to_string()),
             }
+        } else {
+            Err("Unexpected end of input while parsing text-align value".to_string())
         }
-        Err("No valid text-align value found".to_string())
     }
 }
 
@@ -140,23 +140,23 @@ pub enum Whitespace {
     Collapse,
 }
 
-impl TryFrom<&[ComponentValue]> for Whitespace {
-    type Error = String;
+impl CSSParsable for Whitespace {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
-                ComponentValue::Token(token) => {
-                    if let css_cssom::CssTokenKind::Ident(ident) = &token.kind
-                        && let Ok(ws) = ident.parse()
-                    {
-                        return Ok(ws);
-                    }
-                }
-                _ => continue,
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => ident
+                        .parse()
+                        .map_err(|_| format!("Invalid white-space value: {}", ident)),
+                    _ => Err("Expected an identifier for white-space value".to_string()),
+                },
+                _ => Err("Expected a token for white-space value".to_string()),
             }
+        } else {
+            Err("Unexpected end of input while parsing white-space value".to_string())
         }
-        Err("No valid whitespace value found".to_string())
     }
 }
 
@@ -198,41 +198,32 @@ impl LineHeight {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for LineHeight {
-    type Error = String;
+impl CSSParsable for LineHeight {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    return Ok(LineHeight::Calc(CalcExpression::parse_math_function(
-                        &func.name,
-                        func.value.as_slice(),
-                    )?));
+                    Ok(LineHeight::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
                 }
                 ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => {
-                        return Ok(LineHeight::Normal);
-                    }
-                    CssTokenKind::Number(num) => {
-                        return Ok(LineHeight::Number(num.to_f64() as f32));
-                    }
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => Ok(LineHeight::Normal),
+                    CssTokenKind::Number(num) => Ok(LineHeight::Number(num.to_f64() as f32)),
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(LineHeight::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        Ok(LineHeight::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Percentage(pct) => {
-                        return Ok(LineHeight::Percentage(Percentage::new(pct.to_f64() as f32)));
-                    }
-                    _ => continue,
+                    CssTokenKind::Percentage(pct) => Ok(LineHeight::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    _ => Err("Expected a valid line-height value".to_string()),
                 },
-                _ => continue,
+                _ => Err("Expected a valid line-height value".to_string()),
             }
+        } else {
+            Err("Unexpected end of input while parsing line-height value".to_string())
         }
-
-        Err("No valid line-height value found".to_string())
     }
 }
 

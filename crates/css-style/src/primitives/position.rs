@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
     percentage::LengthPercentage,
-    properties::gradient::{meaningful_cvs, strip_whitespace, try_parse_length_percentage},
+    properties::{CSSParsable, gradient::Gradient},
 };
 
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, EnumString)]
@@ -295,7 +295,7 @@ fn try_ident(cv: &ComponentValue) -> Option<&str> {
 
 /// Check whether a `ComponentValue` is a length/percentage/zero token.
 fn is_length_percentage(cv: &ComponentValue) -> bool {
-    try_parse_length_percentage(cv).is_ok()
+    Gradient::try_parse_length_percentage(cv).is_ok()
 }
 
 fn try_one_value(cv: &ComponentValue) -> Result<PositionOne, String> {
@@ -319,7 +319,7 @@ fn try_one_value(cv: &ComponentValue) -> Result<PositionOne, String> {
     }
 
     if is_length_percentage(cv) {
-        let lp = try_parse_length_percentage(cv)?;
+        let lp = Gradient::try_parse_length_percentage(cv)?;
         return Ok(PositionOne::LengthPercentage(lp));
     }
 
@@ -358,7 +358,7 @@ fn try_two_values(a: &ComponentValue, b: &ComponentValue) -> Result<PositionTwo,
             return Err(format!("Invalid x-axis position: '{}'", ident));
         }
     } else if is_length_percentage(a) {
-        XAxisOrLengthPercentage::LengthPercentage(try_parse_length_percentage(a)?)
+        XAxisOrLengthPercentage::LengthPercentage(Gradient::try_parse_length_percentage(a)?)
     } else {
         return Err("Expected position keyword or length/percentage for x component".to_string());
     };
@@ -370,7 +370,7 @@ fn try_two_values(a: &ComponentValue, b: &ComponentValue) -> Result<PositionTwo,
             return Err(format!("Invalid y-axis position: '{}'", ident));
         }
     } else if is_length_percentage(b) {
-        YAxisOrLengthPercentage::LengthPercentage(try_parse_length_percentage(b)?)
+        YAxisOrLengthPercentage::LengthPercentage(Gradient::try_parse_length_percentage(b)?)
     } else {
         return Err("Expected position keyword or length/percentage for y component".to_string());
     };
@@ -381,7 +381,7 @@ fn try_two_values(a: &ComponentValue, b: &ComponentValue) -> Result<PositionTwo,
 fn try_three_values(a: &ComponentValue, b: &ComponentValue, c: &ComponentValue) -> Result<PositionThree, String> {
     let a_ident = try_ident(a).ok_or("Expected keyword for first of 3-value position")?;
     let c_ident = try_ident(c).ok_or("Expected keyword for third of 3-value position")?;
-    let b_lp = try_parse_length_percentage(b)?;
+    let b_lp = Gradient::try_parse_length_percentage(b)?;
 
     if let (Ok(rh), Ok(v)) = (a_ident.parse(), c_ident.parse()) {
         return Ok(PositionThree::RelativeVertical(rh, (v, b_lp)));
@@ -401,8 +401,8 @@ fn try_four_values(
 ) -> Result<PositionFour, String> {
     let a_ident = try_ident(a).ok_or("Expected keyword for first of 4-value position")?;
     let c_ident = try_ident(c).ok_or("Expected keyword for third of 4-value position")?;
-    let b_lp = try_parse_length_percentage(b)?;
-    let d_lp = try_parse_length_percentage(d)?;
+    let b_lp = Gradient::try_parse_length_percentage(b)?;
+    let d_lp = Gradient::try_parse_length_percentage(d)?;
 
     if let (Ok(ba), Ok(ia)) = (a_ident.parse::<BlockAxis>(), c_ident.parse::<InlineAxis>()) {
         return Ok(PositionFour::BlockInline((ba, b_lp), (ia, d_lp)));
@@ -426,52 +426,61 @@ fn try_four_values(
     Err(format!("Invalid 4-value position: '{}' and '{}' are not a valid axis pair", a_ident, c_ident))
 }
 
-impl TryFrom<&[ComponentValue]> for Position {
-    type Error = String;
+impl CSSParsable for Position {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let mut values = Vec::new();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let stripped = strip_whitespace(value);
-        if stripped.is_empty() {
-            return Err("Empty position".to_string());
+        while let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Whitespace => continue,
+                    _ => values.push(ComponentValue::Token(token.clone())),
+                },
+                _ => values.push(cv.clone()),
+            }
+
+            if values.len() == 4 {
+                break; // We only need up to 4 tokens for position
+            }
         }
 
-        let tokens = meaningful_cvs(stripped);
-
-        match tokens.len() {
-            1 => {
-                let one = try_one_value(tokens[0])?;
-                Ok(Position::One(one))
-            }
-            2 => {
-                let two = try_two_values(tokens[0], tokens[1])?;
-                Ok(Position::Two(two))
-            }
+        match values.len() {
+            0 => Err("Empty position".to_string()),
+            1 => Ok(Position::One(try_one_value(&values[0])?)),
+            2 => Ok(Position::Two(try_two_values(&values[0], &values[1])?)),
             3 => Err("3-value <position> syntax is not supported for <position>. Did you mean <bg-position>?".into()),
-            4 => {
-                let four = try_four_values(tokens[0], tokens[1], tokens[2], tokens[3])?;
-                Ok(Position::Four(four))
-            }
+            4 => Ok(Position::Four(try_four_values(&values[0], &values[1], &values[2], &values[3])?)),
             n => Err(format!("Too many tokens for <position> (expected 1-4, got {})", n)),
         }
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundPosition {
-    type Error = String;
+impl CSSParsable for BackgroundPosition {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let mut values = Vec::new();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let stripped = strip_whitespace(value);
-        if stripped.is_empty() {
-            return Err("Empty background-position".to_string());
+        while let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Whitespace => continue,
+                    _ => values.push(ComponentValue::Token(token.clone())),
+                },
+                _ => values.push(cv.clone()),
+            }
+
+            if values.len() == 4 {
+                break; // We only need up to 4 tokens for background-position
+            }
         }
 
-        let tokens = meaningful_cvs(stripped);
-
-        match tokens.len() {
-            1 => Ok(BackgroundPosition::One(try_one_value(tokens[0])?)),
-            2 => Ok(BackgroundPosition::Two(try_two_values(tokens[0], tokens[1])?)),
-            3 => Ok(BackgroundPosition::Three(try_three_values(tokens[0], tokens[1], tokens[2])?)),
-            4 => Ok(BackgroundPosition::Four(try_four_values(tokens[0], tokens[1], tokens[2], tokens[3])?)),
+        match values.len() {
+            0 => Err("Empty background-position".to_string()),
+            1 => Ok(BackgroundPosition::One(try_one_value(&values[0])?)),
+            2 => Ok(BackgroundPosition::Two(try_two_values(&values[0], &values[1])?)),
+            3 => Ok(BackgroundPosition::Three(try_three_values(&values[0], &values[1], &values[2])?)),
+            4 => Ok(BackgroundPosition::Four(try_four_values(&values[0], &values[1], &values[2], &values[3])?)),
             n => Err(format!("Too many tokens for <background-position> (expected 1-4, got {})", n)),
         }
     }

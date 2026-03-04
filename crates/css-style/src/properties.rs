@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use css_cssom::ComponentValue;
+use css_cssom::{ComponentValue, ComponentValueStream};
 use preferences::ThemeCategory;
 use url::Url;
 
@@ -31,6 +31,27 @@ pub mod gradient;
 pub mod offset;
 pub mod position;
 pub mod text;
+
+/// Trait for CSS value types that can be parsed from a `ComponentValueStream`.
+///
+/// This is the primary parsing interface for the css-style crate. Types that
+/// implement this trait can be used as the inner value of `CSSProperty<T>`.
+///
+/// The trait provides a default `try_parse` method that constructs a stream
+/// from a `&[ComponentValue]` slice and delegates to `parse`, so call sites
+/// that still operate on slices (e.g. `update_property`) continue to work.
+pub trait CSSParsable: Sized {
+    /// Parse a value from a `ComponentValueStream`.
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String>;
+
+    /// Convenience: parse from a `&[ComponentValue]` slice by constructing a
+    /// temporary stream. Override this if you need custom slice-level logic
+    /// (e.g. scanning for a specific token anywhere in the slice).
+    fn try_parse(value: &[ComponentValue]) -> Result<Self, String> {
+        let mut stream = ComponentValueStream::new(value);
+        Self::parse(&mut stream)
+    }
+}
 
 /// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -67,7 +88,7 @@ pub(crate) enum CSSProperty<T> {
     Global(Global),
 }
 
-impl<T: for<'css> TryFrom<&'css [ComponentValue], Error = String>> CSSProperty<T> {
+impl<T: CSSParsable> CSSProperty<T> {
     /// Returns the specific value of the property if it is set, or None if it is a global value.
     pub(crate) fn as_value(&self) -> Option<&T> {
         match self {
@@ -113,12 +134,12 @@ impl<T: for<'css> TryFrom<&'css [ComponentValue], Error = String>> CSSProperty<T
     /// Updates the property based on the provided component values. It first checks if the value is a global value, and if so, updates the property accordingly.
     /// If not, it tries to parse the component values into the specific type T and updates the property with the parsed value.
     pub(crate) fn update_property(property: &mut CSSProperty<T>, value: &[ComponentValue]) -> Result<(), String> {
-        if let Ok(global) = Global::try_from(value) {
+        if let Ok(global) = Global::parse(&mut value.into()) {
             *property = CSSProperty::Global(global);
             return Ok(());
         }
 
-        *property = CSSProperty::from(T::try_from(value)?);
+        *property = CSSProperty::from(T::parse(&mut value.into())?);
         Ok(())
     }
 }

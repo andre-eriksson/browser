@@ -18,7 +18,7 @@ impl TryFrom<&Function> for Image {
     type Error = String;
 
     fn try_from(value: &Function) -> Result<Self, Self::Error> {
-        if let Ok(gradient) = Gradient::try_from(value) {
+        if let Ok(gradient) = Gradient::parse_function(value) {
             Ok(Image::Gradient(gradient))
         } else if value.name.eq_ignore_ascii_case("url") {
             if let Some(ComponentValue::Token(token)) = value.value.first() {

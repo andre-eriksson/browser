@@ -1,4 +1,4 @@
-use css_tokenizer::CssToken;
+use css_tokenizer::{CssToken, CssTokenKind};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -112,6 +112,87 @@ impl ComponentValue {
             ComponentValue::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
             _ => false,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComponentValueStream<'a> {
+    values: &'a [ComponentValue],
+    position: usize,
+}
+
+impl ComponentValueStream<'_> {
+    pub fn new(values: &[ComponentValue]) -> ComponentValueStream<'_> {
+        ComponentValueStream {
+            values,
+            position: 0,
+        }
+    }
+
+    pub fn peek(&self) -> Option<&ComponentValue> {
+        self.values.get(self.position)
+    }
+
+    pub fn next_cv(&mut self) -> Option<&ComponentValue> {
+        let value = self.values.get(self.position);
+        if value.is_some() {
+            self.position += 1;
+        }
+        value
+    }
+
+    pub fn checkpoint(&self) -> usize {
+        self.position
+    }
+
+    pub fn restore(&mut self, checkpoint: usize) {
+        self.position = checkpoint;
+    }
+
+    /// Returns the unconsumed portion of the underlying slice.
+    pub fn remaining(&self) -> &[ComponentValue] {
+        &self.values[self.position..]
+    }
+
+    pub fn skip_whitespace(&mut self) {
+        while let Some(value) = self.peek() {
+            if value.is_whitespace() {
+                self.next_cv();
+            } else {
+                break;
+            }
+        }
+    }
+
+    pub fn peek_non_whitespace(&mut self) -> Option<&ComponentValue> {
+        self.values[self.position..]
+            .iter()
+            .find(|v| !v.is_whitespace())
+    }
+
+    pub fn eat_comma(&mut self) -> bool {
+        let checkpoint = self.checkpoint();
+        self.skip_whitespace();
+
+        if matches!(self.peek(), Some(ComponentValue::Token(t)) if matches!(t.kind, CssTokenKind::Comma)) {
+            self.next_cv();
+            true
+        } else {
+            self.restore(checkpoint);
+            false
+        }
+    }
+}
+
+impl<'a> From<&'a [ComponentValue]> for ComponentValueStream<'a> {
+    fn from(values: &'a [ComponentValue]) -> Self {
+        ComponentValueStream::new(values)
+    }
+}
+
+impl<'a> From<&'a Vec<ComponentValue>> for ComponentValueStream<'a> {
+    fn from(values: &'a Vec<ComponentValue>) -> Self {
+        ComponentValueStream::new(values)
     }
 }
 

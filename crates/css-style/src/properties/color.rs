@@ -1,7 +1,7 @@
 //! Defines the `Color` enum, which represents a CSS color value. This includes system colors, named colors, hex colors, functional colors, and special values like `currentColor` and `transparent`.
 //! The `Color` enum can be constructed from CSS component values and can be converted to a `Color4f` for rendering purposes.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     color::{
@@ -12,6 +12,7 @@ use crate::{
     },
     computed::color::Color4f,
     primitives::color::FunctionColor,
+    properties::CSSParsable,
 };
 
 /// Represents a CSS color value, which can be a system color, named color, hex color, functional color, currentColor, or transparent.
@@ -44,32 +45,48 @@ impl From<Color4f> for Color {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for Color {
-    type Error = String;
+impl CSSParsable for Color {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
-            if let ComponentValue::Token(token) = cv
-                && let CssTokenKind::Ident(ident) = &token.kind
-            {
-                if ident.eq_ignore_ascii_case("currentColor") {
-                    return Ok(Self::Current);
-                } else if ident.eq_ignore_ascii_case("transparent") {
-                    return Ok(Self::Transparent);
+        let color = if let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("currentColor") {
+                            Ok(Self::Current)
+                        } else if ident.eq_ignore_ascii_case("transparent") {
+                            Ok(Self::Transparent)
+                        } else if let Ok(system_color) = ident.parse() {
+                            Ok(Self::System(system_color))
+                        } else if let Ok(named_color) = ident.parse() {
+                            Ok(Self::Named(named_color))
+                        } else {
+                            Err(format!("Unrecognized color identifier: {}", ident))
+                        }
+                    }
+                    CssTokenKind::Hash { .. } => {
+                        let hex_color = HexColor::try_from(token)?;
+                        Ok(Self::Hex(hex_color))
+                    }
+                    _ => Err("Expected an identifier or hash token for color".to_string()),
+                },
+                ComponentValue::Function(function) => {
+                    let function_color = FunctionColor::try_from(function)?;
+                    Ok(Self::Functional(function_color))
                 }
+                _ => Err("Unexpected component value type for color".to_string()),
             }
-        }
-
-        if let Ok(hex_color) = value.try_into() {
-            Ok(Self::Hex(hex_color))
-        } else if let Ok(function_color) = value.try_into() {
-            Ok(Self::Functional(function_color))
-        } else if let Ok(system_color) = value.try_into() {
-            Ok(Self::System(system_color))
-        } else if let Ok(named_color) = value.try_into() {
-            Ok(Self::Named(named_color))
         } else {
-            Err("Invalid color value".to_string())
+            Err("Expected a component value for color".to_string())
+        };
+
+        stream.skip_whitespace();
+
+        if stream.peek().is_some() {
+            Err("Unexpected extra tokens after color value".to_string())
+        } else {
+            color
         }
     }
 }
