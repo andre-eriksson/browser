@@ -1,4 +1,4 @@
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::background::{Attachment, BgClip, VisualBox};
 use crate::global::Global;
@@ -31,7 +31,7 @@ pub(crate) struct PropertyUpdateContext<'css> {
 #[derive(Debug)]
 pub(crate) struct PropertyError {
     pub property: String,
-    pub value: Vec<ComponentValue>,
+    pub value: String,
     pub error: String,
 }
 
@@ -49,12 +49,22 @@ impl<'css> PropertyUpdateContext<'css> {
         }
     }
 
-    fn record_error(&mut self, property: &str, value: Vec<ComponentValue>, error: String) {
+    fn record_error(&mut self, property: &str, value: String, error: String) {
         self.errors.push(PropertyError {
             property: property.to_string(),
             value,
             error,
         });
+    }
+
+    fn record_error_from_stream(&mut self, property: &str, stream: &ComponentValueStream, error: String) {
+        let value = stream
+            .values()
+            .iter()
+            .map(|cv| cv.to_css_string())
+            .collect::<String>();
+
+        self.record_error(property, value, error);
     }
 
     /// Resolves the current writing mode from the specified style, falling back to the parent's
@@ -74,12 +84,7 @@ impl<'css> PropertyUpdateContext<'css> {
             eprintln!("Property update errors:");
 
             for err in &self.errors {
-                let mut errors = String::with_capacity(32);
-                for cv in &err.value {
-                    errors.push_str(cv.to_css_string().as_str());
-                }
-
-                eprintln!("  {}: '{}' - {}", err.property, errors, err.error);
+                eprintln!("  {}: '{}' - {}", err.property, err.value, err.error);
             }
         }
     }
@@ -89,9 +94,9 @@ impl<'css> PropertyUpdateContext<'css> {
 /// The macro takes the function name, the field to update, and the property name for error reporting.
 macro_rules! simple_property_handler {
     ($fn_name:ident, $field:ident, $prop_name:expr) => {
-        pub fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-            if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.$field, value) {
-                ctx.record_error($prop_name, value.to_vec(), e);
+        pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+            if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.$field, stream) {
+                ctx.record_error_from_stream($prop_name, stream, e);
             }
         }
     };
@@ -101,19 +106,29 @@ macro_rules! simple_property_handler {
 /// Parses the value once as either a `Global` or an `Offset`, then assigns to all four physical side fields.
 macro_rules! offset_shorthand_handler {
     ($fn_name:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
-        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-            if let Ok(global) = Global::parse(&mut value.into()) {
+        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+            let checkpoint = stream.checkpoint();
+
+            if let Ok(global) = Global::parse(stream) {
                 ctx.specified_style.$top = CSSProperty::Global(global);
                 ctx.specified_style.$right = CSSProperty::Global(global);
                 ctx.specified_style.$bottom = CSSProperty::Global(global);
                 ctx.specified_style.$left = CSSProperty::Global(global);
-            } else if let Ok(offset) = Offset::parse(&mut value.into()) {
-                ctx.specified_style.$top = offset.top.into();
-                ctx.specified_style.$right = offset.right.into();
-                ctx.specified_style.$bottom = offset.bottom.into();
-                ctx.specified_style.$left = offset.left.into();
             } else {
-                ctx.record_error($prop_name, value.to_vec(), format!("Invalid value for {} property", $prop_name));
+                stream.restore(checkpoint);
+                if let Ok(offset) = Offset::parse(stream) {
+                    ctx.specified_style.$top = offset.top.into();
+                    ctx.specified_style.$right = offset.right.into();
+                    ctx.specified_style.$bottom = offset.bottom.into();
+                    ctx.specified_style.$left = offset.left.into();
+                } else {
+                    stream.restore(checkpoint);
+                    ctx.record_error_from_stream(
+                        $prop_name,
+                        stream,
+                        format!("Invalid value for {} property", $prop_name),
+                    );
+                }
             }
         }
     };
@@ -130,10 +145,13 @@ macro_rules! logical_pair_handler {
      $htb_start:ident, $htb_end:ident,
      $vrl_start:ident, $vrl_end:ident,
      $vlr_start:ident, $vlr_end:ident) => {
-        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-            let global = Global::parse(&mut value.into()).ok();
+        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+            let checkpoint = stream.checkpoint();
+            let global = Global::parse(stream).ok();
+
             let offset = if global.is_none() {
-                Offset::parse(&mut value.into()).ok()
+                stream.restore(checkpoint);
+                Offset::parse(stream).ok()
             } else {
                 None
             };
@@ -143,7 +161,8 @@ macro_rules! logical_pair_handler {
                 WritingMode::VerticalRl => (&mut ctx.specified_style.$vrl_start, &mut ctx.specified_style.$vrl_end),
                 WritingMode::VerticalLr => (&mut ctx.specified_style.$vlr_start, &mut ctx.specified_style.$vlr_end),
                 _ => {
-                    ctx.record_error($prop_name, value.to_vec(), String::from("Unsupported writing mode"));
+                    stream.restore(checkpoint);
+                    ctx.record_error_from_stream($prop_name, stream, String::from("Unsupported writing mode"));
                     return;
                 }
             };
@@ -167,19 +186,19 @@ macro_rules! logical_pair_handler {
 /// where each `*_field` is a field on `SpecifiedStyle`.
 macro_rules! logical_edge_handler {
     ($fn_name:ident, $prop_name:expr, $htb:ident, $vrl:ident, $vlr:ident) => {
-        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
             let field = match ctx.resolve_writing_mode() {
                 WritingMode::HorizontalTb => &mut ctx.specified_style.$htb,
                 WritingMode::VerticalRl => &mut ctx.specified_style.$vrl,
                 WritingMode::VerticalLr => &mut ctx.specified_style.$vlr,
                 _ => {
-                    ctx.record_error($prop_name, value.to_vec(), String::from("Unsupported writing mode"));
+                    ctx.record_error_from_stream($prop_name, stream, String::from("Unsupported writing mode"));
                     return;
                 }
             };
 
-            if let Err(e) = CSSProperty::update_property(field, value) {
-                ctx.record_error($prop_name, value.to_vec(), e);
+            if let Err(e) = CSSProperty::update_property(field, stream) {
+                ctx.record_error_from_stream($prop_name, stream, e);
             }
         }
     };
@@ -278,12 +297,16 @@ logical_edge_handler!(handle_margin_inline_end, "margin-inline-end", margin_righ
 logical_edge_handler!(handle_padding_inline_start, "padding-inline-start", padding_left, padding_top, padding_top);
 logical_edge_handler!(handle_padding_inline_end, "padding-inline-end", padding_right, padding_bottom, padding_bottom);
 
-pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    if let Ok(global) = Global::parse(&mut value.into()) {
+pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
         ctx.specified_style.background_position_x = CSSProperty::Global(global);
         ctx.specified_style.background_position_y = CSSProperty::Global(global);
         return;
     }
+
+    stream.restore(checkpoint);
 
     let writing_mode = ctx.resolve_writing_mode();
 
@@ -416,6 +439,9 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
             YAxis::YSide(yside) => resolve_y_side(yside),
         }
     }
+
+    let value: Vec<ComponentValue> = stream.remaining().to_vec();
+    while stream.next_cv().is_some() {}
 
     let mut x_pos = Vec::new();
     let mut y_pos = Vec::new();
@@ -567,7 +593,10 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
         } else {
             ctx.record_error(
                 "background-position",
-                value.to_vec(),
+                value
+                    .iter()
+                    .map(|cv| cv.to_css_string())
+                    .collect::<String>(),
                 "Invalid value for background-position".to_string(),
             );
         }
@@ -604,8 +633,10 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, value:
 ///   <bg-clip>                       ||
 ///   <visual-box>                    ||
 ///   <'background-color'>
-pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    if let Ok(global) = Global::parse(&mut value.into()) {
+pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
         ctx.specified_style.background_attachment = CSSProperty::Global(global);
         ctx.specified_style.background_clip = CSSProperty::Global(global);
         ctx.specified_style.background_color = CSSProperty::Global(global);
@@ -617,6 +648,11 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         ctx.specified_style.background_size = CSSProperty::Global(global);
         return;
     }
+
+    stream.restore(checkpoint);
+
+    let value: Vec<ComponentValue> = stream.remaining().to_vec();
+    while stream.next_cv().is_some() {}
 
     if value.iter().any(|cv| {
         matches!(cv, ComponentValue::Token(t) if matches!(&t.kind, CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none")))
@@ -998,13 +1034,16 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, value: &[Compon
         }
 
         if !combined_position_cvs.is_empty() {
-            handle_background_position(ctx, &combined_position_cvs);
+            handle_background_position(ctx, &mut combined_position_cvs.as_slice().into());
         }
     }
 }
 
 /// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
-pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
+pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let value: Vec<ComponentValue> = stream.remaining().to_vec();
+    while stream.next_cv().is_some() {}
+
     let mut style = None;
     let mut width = None;
     let mut color = None;
@@ -1095,8 +1134,8 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, value: &[ComponentV
 
 /// Handles the `font-size` property by updating the specified style's font size based on the provided component values. The function first attempts to update the font size
 /// using the `CSSProperty::update_property` method.
-pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    CSSProperty::update_property(&mut ctx.specified_style.font_size, value).unwrap_or(());
+pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    CSSProperty::update_property(&mut ctx.specified_style.font_size, stream).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
         ctx.specified_style.computed_font_size_px =
@@ -1106,8 +1145,10 @@ pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, value: &[Compone
 
 /// Handles the `font-weight` property by parsing the provided component values and updating the specified style's font weight accordingly. The function checks for the presence
 /// of `lighter` and `bolder` keywords, which adjust the font weight relative to the parent's font weight.
-pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[ComponentValue]) {
-    for cv in value {
+pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    while let Some(cv) = stream.next_cv() {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Ident(ident) => {
@@ -1129,7 +1170,9 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, value: &[Compo
         }
     }
 
-    if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, value) {
-        ctx.record_error("font-weight", value.to_vec(), e);
+    stream.restore(checkpoint);
+
+    if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, stream) {
+        ctx.record_error_from_stream("font-weight", stream, e);
     }
 }

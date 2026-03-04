@@ -129,6 +129,10 @@ impl ComponentValueStream<'_> {
         }
     }
 
+    pub fn values(&self) -> &[ComponentValue] {
+        self.values
+    }
+
     pub fn peek(&self) -> Option<&ComponentValue> {
         self.values.get(self.position)
     }
