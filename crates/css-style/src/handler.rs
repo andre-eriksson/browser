@@ -895,6 +895,8 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut C
 
 #[cfg(test)]
 mod tests {
+    use crate::position::{PositionX, PositionY};
+
     use super::*;
 
     use css_cssom::CSSStyleSheet;
@@ -980,5 +982,198 @@ mod tests {
 
         assert_eq!(ctx.errors.len(), 1);
         assert_eq!(specified, before);
+    }
+
+    #[test]
+    fn test_background_multiple_layers_with_size_and_color() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline(
+            "background: linear-gradient(red, blue) left top / 10px 20px no-repeat fixed padding-box border-box, none right bottom / contain repeat-y scroll #00ff00;",
+        );
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_background(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+
+        match &specified.background_image {
+            CSSProperty::Value(BackgroundImage(images)) => {
+                assert_eq!(images.len(), 2);
+                assert!(matches!(images[0], Image::Gradient(_)));
+                assert!(matches!(images[1], Image::None));
+            }
+            _ => panic!("expected background-image value"),
+        }
+
+        match &specified.background_attachment {
+            CSSProperty::Value(BackgroundAttachment(a)) => {
+                assert_eq!(a.len(), 2);
+                assert_eq!(a[0], Attachment::Fixed);
+                assert_eq!(a[1], Attachment::Scroll);
+            }
+            _ => panic!("expected background-attachment value"),
+        }
+
+        match &specified.background_repeat {
+            CSSProperty::Value(BackgroundRepeat(r)) => {
+                assert_eq!(r.len(), 2);
+                assert_eq!(r[0], (RepeatStyle::NoRepeat, RepeatStyle::NoRepeat));
+                assert_eq!(r[1], (RepeatStyle::NoRepeat, RepeatStyle::Repeat));
+            }
+            _ => panic!("expected background-repeat value"),
+        }
+
+        match &specified.background_origin {
+            CSSProperty::Value(BackgroundOrigin(o)) => {
+                assert_eq!(o.len(), 2);
+                assert_eq!(o[0], VisualBox::Padding);
+                assert_eq!(o[1], VisualBox::Padding);
+            }
+            _ => panic!("expected background-origin value"),
+        }
+
+        match &specified.background_clip {
+            CSSProperty::Value(BackgroundClip(c)) => {
+                assert_eq!(c.len(), 2);
+                assert_eq!(c[0], BgClip::Visual(VisualBox::Border));
+                assert_eq!(c[1], BgClip::Visual(VisualBox::Border));
+            }
+            _ => panic!("expected background-clip value"),
+        }
+
+        match &specified.background_size {
+            CSSProperty::Value(BackgroundSize(s)) => {
+                assert_eq!(s.len(), 2);
+                assert_eq!(
+                    s[0],
+                    Size::WidthHeight(
+                        WidthHeightSize::Length(LengthPercentage::Length(Length::new(10.0, LengthUnit::Px))),
+                        Some(WidthHeightSize::Length(LengthPercentage::Length(Length::new(20.0, LengthUnit::Px))))
+                    )
+                );
+                assert_eq!(s[1], Size::Contain);
+            }
+            _ => panic!("expected background-size value"),
+        }
+
+        match &specified.background_color {
+            CSSProperty::Value(c) => assert!(matches!(c, Color::Hex(_))),
+            _ => panic!("expected background-color value"),
+        }
+
+        match &specified.background_position_x {
+            CSSProperty::Value(BackgroundPositionX(xs)) => assert_eq!(xs.len(), 2),
+            _ => panic!("expected background-position-x value"),
+        }
+
+        match &specified.background_position_y {
+            CSSProperty::Value(BackgroundPositionY(ys)) => assert_eq!(ys.len(), 2),
+            _ => panic!("expected background-position-y value"),
+        }
+    }
+
+    #[test]
+    fn test_background_repeat_two_values() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("background: none left top / cover repeat no-repeat;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_background(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+
+        match &specified.background_repeat {
+            CSSProperty::Value(BackgroundRepeat(r)) => {
+                assert_eq!(r.len(), 1);
+                assert_eq!(r[0], (RepeatStyle::Repeat, RepeatStyle::NoRepeat));
+            }
+            _ => panic!("expected background-repeat value"),
+        }
+
+        match &specified.background_size {
+            CSSProperty::Value(BackgroundSize(s)) => {
+                assert_eq!(s.len(), 1);
+                assert_eq!(s[0], Size::Cover);
+            }
+            _ => panic!("expected background-size value"),
+        }
+    }
+
+    #[test]
+    fn test_background_origin_clip_chain_padding_border() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("background: none padding-box border-box;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_background(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+
+        match &specified.background_origin {
+            CSSProperty::Value(BackgroundOrigin(o)) => {
+                assert_eq!(o.len(), 1);
+                assert_eq!(o[0], VisualBox::Padding);
+            }
+            _ => panic!("expected background-origin value"),
+        }
+
+        match &specified.background_clip {
+            CSSProperty::Value(BackgroundClip(c)) => {
+                assert_eq!(c.len(), 1);
+                assert_eq!(c[0], BgClip::Visual(VisualBox::Border));
+            }
+            _ => panic!("expected background-clip value"),
+        }
+    }
+
+    #[test]
+    fn test_background_zero_zero() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("background: 0 0;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_background(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        match &specified.background_position_x {
+            CSSProperty::Value(BackgroundPositionX(xs)) => {
+                assert_eq!(xs.len(), 1);
+                assert_eq!(
+                    xs[0],
+                    PositionX::Relative((None, Some(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px)))))
+                );
+            }
+            _ => panic!("expected background-position-x value"),
+        }
+        match &specified.background_position_y {
+            CSSProperty::Value(BackgroundPositionY(ys)) => {
+                assert_eq!(ys.len(), 1);
+                assert_eq!(
+                    ys[0],
+                    PositionY::Relative((None, Some(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px)))))
+                );
+            }
+            _ => panic!("expected background-position-y value"),
+        }
     }
 }
