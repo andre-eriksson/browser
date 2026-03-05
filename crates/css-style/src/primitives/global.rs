@@ -1,7 +1,9 @@
 //! Global CSS primitives, used by most properties.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
+
+use crate::properties::CSSParsable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
@@ -25,23 +27,19 @@ pub enum Global {
     Unset,
 }
 
-impl TryFrom<&[ComponentValue]> for Global {
-    type Error = String;
+impl CSSParsable for Global {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
-            match cv {
-                ComponentValue::Token(token) => {
-                    if let CssTokenKind::Ident(ident) = &token.kind
-                        && let Ok(global) = ident.parse()
-                    {
-                        return Ok(global);
-                    }
-                }
-                _ => continue,
-            }
+        if let Some(ComponentValue::Token(token)) = stream.peek()
+            && let CssTokenKind::Ident(ident) = &token.kind
+            && let Ok(global) = ident.parse()
+        {
+            stream.next_cv();
+            return Ok(global);
         }
-        Err("No valid global value found".to_string())
+
+        Err("Expected a global value (inherit, initial, revert, revert-layer, unset)".to_string())
     }
 }
 

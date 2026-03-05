@@ -1,4 +1,4 @@
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     length::{Length, LengthUnit},
     percentage::{LengthPercentage, Percentage},
     position::{Center, PositionX, PositionY},
+    properties::CSSParsable,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,28 +20,44 @@ impl Default for BackgroundAttachment {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundAttachment {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+impl CSSParsable for BackgroundAttachment {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
         let mut attachments = Vec::new();
+        let mut current_attachment = None;
 
-        for cv in value {
+        while let Some(cv) = stream.next_cv() {
             if let ComponentValue::Token(token) = cv {
                 match &token.kind {
-                    CssTokenKind::Ident(ident) => match ident.as_str() {
-                        "scroll" => attachments.push(Attachment::Scroll),
-                        "fixed" => attachments.push(Attachment::Fixed),
-                        "local" => attachments.push(Attachment::Local),
-                        _ => continue,
-                    },
+                    CssTokenKind::Ident(ident) => {
+                        if current_attachment.is_some() {
+                            return Err("Multiple attachment keywords without a comma".to_string());
+                        } else if ident.eq_ignore_ascii_case("scroll") {
+                            current_attachment = Some(Attachment::Scroll);
+                        } else if ident.eq_ignore_ascii_case("fixed") {
+                            current_attachment = Some(Attachment::Fixed);
+                        } else if ident.eq_ignore_ascii_case("local") {
+                            current_attachment = Some(Attachment::Local);
+                        } else {
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(attachment) = current_attachment.take() {
+                            attachments.push(attachment);
+                        }
+                    }
                     _ => continue,
                 }
             }
         }
 
+        if let Some(attachment) = current_attachment.take() {
+            attachments.push(attachment);
+        }
+
         if attachments.is_empty() {
-            Err(format!("No valid Attachment found for BackgroundAttachment: {:?}", value))
+            Err("No valid Attachment found for BackgroundAttachment".to_string())
         } else {
             Ok(Self(attachments))
         }
@@ -56,22 +73,41 @@ impl Default for BackgroundBlendMode {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundBlendMode {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+impl CSSParsable for BackgroundBlendMode {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
         let mut modes = Vec::new();
-        for cv in value {
-            if let ComponentValue::Token(token) = cv
-                && let CssTokenKind::Ident(ident) = &token.kind
-                && let Ok(mode) = ident.parse::<BlendMode>()
-            {
-                modes.push(mode);
+        let mut current_mode = None;
+
+        while let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if current_mode.is_some() {
+                            return Err("Multiple blend mode keywords without a comma".to_string());
+                        } else if let Ok(mode) = ident.parse() {
+                            current_mode = Some(mode);
+                        } else {
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(mode) = current_mode.take() {
+                            modes.push(mode);
+                        }
+                    }
+                    _ => continue,
+                },
+                _ => continue,
             }
         }
 
+        if let Some(mode) = current_mode.take() {
+            modes.push(mode);
+        }
+
         if modes.is_empty() {
-            Err(format!("No valid BlendMode found for BackgroundBlendMode: {:?}", value))
+            Err("No valid BlendMode found for BackgroundBlendMode".to_string())
         } else {
             Ok(Self(modes))
         }
@@ -87,26 +123,37 @@ impl Default for BackgroundClip {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundClip {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+impl CSSParsable for BackgroundClip {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
         let mut clips = Vec::new();
+        let mut current_clip = None;
         let mut clip_values = Vec::with_capacity(2);
 
-        for cv in value {
+        while let Some(cv) = stream.next_cv() {
             if let ComponentValue::Token(token) = cv {
                 match &token.kind {
-                    CssTokenKind::Ident(ident) => match ident.as_str() {
-                        "text" => clip_values.push(Clip::Text),
-                        "border-area" => clip_values.push(Clip::BorderArea),
-                        "border-box" => clips.push(BgClip::Visual(VisualBox::Border)),
-                        "padding-box" => clips.push(BgClip::Visual(VisualBox::Padding)),
-                        "content-box" => clips.push(BgClip::Visual(VisualBox::Content)),
-                        _ => continue,
-                    },
+                    CssTokenKind::Ident(ident) => {
+                        if current_clip.is_some() {
+                            return Err("Multiple clip keywords without a comma".to_string());
+                        } else if ident.eq_ignore_ascii_case("text") {
+                            clip_values.push(Clip::Text);
+                        } else if ident.eq_ignore_ascii_case("border-area") {
+                            clip_values.push(Clip::BorderArea);
+                        } else if ident.eq_ignore_ascii_case("border-box") {
+                            current_clip = Some(BgClip::Visual(VisualBox::Border));
+                        } else if ident.eq_ignore_ascii_case("padding-box") {
+                            current_clip = Some(BgClip::Visual(VisualBox::Padding));
+                        } else if ident.eq_ignore_ascii_case("content-box") {
+                            current_clip = Some(BgClip::Visual(VisualBox::Content));
+                        } else {
+                            continue;
+                        }
+                    }
                     CssTokenKind::Comma => {
-                        if !clip_values.is_empty() {
+                        if let Some(clip) = current_clip.take() {
+                            clips.push(clip);
+                        } else if !clip_values.is_empty() {
                             let first_clip = clip_values[0];
                             let second_clip = clip_values.get(1).cloned();
                             clips.push(BgClip::Clip(first_clip, second_clip));
@@ -118,16 +165,72 @@ impl TryFrom<&[ComponentValue]> for BackgroundClip {
             }
         }
 
-        if !clip_values.is_empty() {
+        if let Some(clip) = current_clip.take() {
+            clips.push(clip);
+        } else if !clip_values.is_empty() {
             let first_clip = clip_values[0];
             let second_clip = clip_values.get(1).cloned();
             clips.push(BgClip::Clip(first_clip, second_clip));
+            clip_values.clear();
         }
 
         if clips.is_empty() {
-            Err(format!("No valid BgClip found for BackgroundClip: {:?}", value))
+            Err("No valid BgClip found for BackgroundClip".to_string())
         } else {
             Ok(Self(clips))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BackgroundImage(pub Vec<Image>);
+
+impl CSSParsable for BackgroundImage {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let mut images = Vec::new();
+        let mut current_image = None;
+
+        while let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("none") => {
+                        if current_image.is_some() {
+                            return Err("Multiple image values without a comma".to_string());
+                        }
+
+                        current_image = Some(Image::None);
+                    }
+                    CssTokenKind::Url(url) => {
+                        if current_image.is_some() {
+                            return Err("Multiple image values without a comma".to_string());
+                        }
+
+                        current_image = Some(Image::Url(url.clone()))
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(image) = current_image.take() {
+                            images.push(image);
+                        }
+                    }
+                    _ => continue,
+                },
+                ComponentValue::Function(func) => match Image::try_from(func) {
+                    Ok(img) => current_image = Some(img),
+                    Err(e) => return Err(format!("Failed to parse image function '{}': {}", func.name, e)),
+                },
+                _ => continue,
+            }
+        }
+
+        if let Some(image) = current_image.take() {
+            images.push(image);
+        }
+
+        if images.is_empty() {
+            Err("No valid Image found for BackgroundImage".to_string())
+        } else {
+            Ok(Self(images))
         }
     }
 }
@@ -141,30 +244,220 @@ impl Default for BackgroundOrigin {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundOrigin {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+impl CSSParsable for BackgroundOrigin {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let mut current_origin = None;
         let mut origins = Vec::new();
 
-        for cv in value {
+        while let Some(cv) = stream.next_cv() {
             if let ComponentValue::Token(token) = cv {
                 match &token.kind {
-                    CssTokenKind::Ident(ident) => match ident.as_str() {
-                        "content-box" => origins.push(VisualBox::Content),
-                        "padding-box" => origins.push(VisualBox::Padding),
-                        "border-box" => origins.push(VisualBox::Border),
-                        _ => continue,
-                    },
+                    CssTokenKind::Ident(ident) => {
+                        if current_origin.is_some() {
+                            return Err("Multiple origin keywords without a comma".to_string());
+                        } else if ident.eq_ignore_ascii_case("content-box") {
+                            current_origin = Some(VisualBox::Content);
+                        } else if ident.eq_ignore_ascii_case("padding-box") {
+                            current_origin = Some(VisualBox::Padding);
+                        } else if ident.eq_ignore_ascii_case("border-box") {
+                            current_origin = Some(VisualBox::Border);
+                        } else {
+                            continue;
+                        }
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(origin) = current_origin.take() {
+                            origins.push(origin);
+                        }
+                    }
                     _ => continue,
                 }
             }
         }
 
+        if let Some(origin) = current_origin.take() {
+            origins.push(origin);
+        }
+
         if origins.is_empty() {
-            Err(format!("No valid VisualBox found for BackgroundOrigin: {:?}", value))
+            Err("No valid VisualBox found for BackgroundOrigin".to_string())
         } else {
             Ok(Self(origins))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackgroundPositionX(pub Vec<PositionX>);
+
+impl Default for BackgroundPositionX {
+    fn default() -> Self {
+        Self(vec![PositionX::Relative((
+            None,
+            Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+        ))])
+    }
+}
+
+impl CSSParsable for BackgroundPositionX {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let mut positions = Vec::new();
+        let mut current_position = None;
+        let mut horizontal_side = None;
+        let mut length_percentage = None;
+
+        while let Some(cv) = stream.next_cv() {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if current_position.is_some() {
+                            return Err("Multiple position keywords without a comma.".to_string());
+                        } else if ident.eq_ignore_ascii_case("center") {
+                            current_position = Some(PositionX::Center(Center::Center, length_percentage.take()));
+                        } else if let Ok(h) = ident.parse() {
+                            horizontal_side = Some(h);
+                        } else {
+                            return Err(format!("Invalid horizontal side keyword: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| "Invalid length unit".to_string())?;
+                        if length_percentage.is_some() {
+                            return Err("Duplicate length or percentage".to_string());
+                        }
+                        length_percentage =
+                            Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
+                    }
+                    CssTokenKind::Percentage(value) => {
+                        if length_percentage.is_some() {
+                            return Err("Duplicate length or percentage".to_string());
+                        }
+                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(pos) = current_position.take() {
+                            if horizontal_side.is_some() || length_percentage.is_some() {
+                                return Err(
+                                    "Cannot have a center position with additional length/percentage when multiple positions are specified"
+                                        .to_string(),
+                                );
+                            }
+
+                            positions.push(pos);
+                        } else if horizontal_side.is_some() || length_percentage.is_some() {
+                            positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
+                        }
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        if let Some(pos) = current_position.take() {
+            if horizontal_side.is_some() || length_percentage.is_some() {
+                return Err("Cannot have a center position with additional length/percentage".to_string());
+            }
+
+            positions.push(pos);
+        } else if horizontal_side.is_some() || length_percentage.is_some() {
+            positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
+        }
+
+        if positions.is_empty() {
+            Err("No valid PositionX found for BackgroundPositionX.".to_string())
+        } else {
+            Ok(Self(positions))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BackgroundPositionY(pub Vec<PositionY>);
+
+impl Default for BackgroundPositionY {
+    fn default() -> Self {
+        Self(vec![PositionY::Relative((
+            None,
+            Some(LengthPercentage::Percentage(Percentage::new(0.0))),
+        ))])
+    }
+}
+
+impl CSSParsable for BackgroundPositionY {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
+        let mut positions = Vec::new();
+        let mut current_position = None;
+        let mut vertical_side = None;
+        let mut length_percentage = None;
+
+        while let Some(cv) = stream.next_cv() {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if current_position.is_some() {
+                            return Err("Multiple position keywords without a comma.".to_string());
+                        } else if ident.eq_ignore_ascii_case("center") {
+                            current_position = Some(PositionY::Center(Center::Center, length_percentage.take()));
+                        } else if let Ok(v) = ident.parse() {
+                            vertical_side = Some(v);
+                        } else {
+                            return Err(format!("Invalid vertical side keyword: '{}'", ident));
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| "Invalid length unit".to_string())?;
+                        if length_percentage.is_some() {
+                            return Err("Duplicate length or percentage".to_string());
+                        }
+                        length_percentage =
+                            Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
+                    }
+                    CssTokenKind::Percentage(value) => {
+                        if length_percentage.is_some() {
+                            return Err("Duplicate length or percentage".to_string());
+                        }
+                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(pos) = current_position.take() {
+                            if vertical_side.is_some() || length_percentage.is_some() {
+                                return Err(
+                                    "Cannot have a center position with additional length/percentage when multiple positions are specified"
+                                        .to_string(),
+                                );
+                            }
+
+                            positions.push(pos);
+                        } else if vertical_side.is_some() || length_percentage.is_some() {
+                            positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
+                        }
+                    }
+                    _ => continue,
+                }
+            }
+        }
+
+        if let Some(pos) = current_position.take() {
+            if vertical_side.is_some() || length_percentage.is_some() {
+                return Err("Cannot have a center position with additional length/percentage".to_string());
+            }
+
+            positions.push(pos);
+        } else if vertical_side.is_some() || length_percentage.is_some() {
+            positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
+        }
+
+        if positions.is_empty() {
+            Err("No valid PositionY found for BackgroundPositionY.".to_string())
+        } else {
+            Ok(Self(positions))
         }
     }
 }
@@ -187,262 +480,72 @@ impl Default for BackgroundRepeat {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundRepeat {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+impl CSSParsable for BackgroundRepeat {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
         let mut keywords = Vec::new();
+        let mut current_pair = (None, None);
 
-        for value in value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma)) {
-            let mut current_pair = (None, None);
-            for cv in value {
-                if let ComponentValue::Token(token) = cv {
-                    match &token.kind {
-                        CssTokenKind::Ident(ident) => {
-                            if ident.eq_ignore_ascii_case("repeat") {
-                                if current_pair.0.is_none() {
-                                    current_pair.0 = Some(RepeatStyle::Repeat);
-                                } else if current_pair.1.is_none() {
-                                    current_pair.1 = Some(RepeatStyle::Repeat);
-                                }
-                            } else if ident.eq_ignore_ascii_case("space") {
-                                if current_pair.0.is_none() {
-                                    current_pair.0 = Some(RepeatStyle::Space);
-                                } else if current_pair.1.is_none() {
-                                    current_pair.1 = Some(RepeatStyle::Space);
-                                }
-                            } else if ident.eq_ignore_ascii_case("round") {
-                                if current_pair.0.is_none() {
-                                    current_pair.0 = Some(RepeatStyle::Round);
-                                } else if current_pair.1.is_none() {
-                                    current_pair.1 = Some(RepeatStyle::Round);
-                                }
-                            } else if ident.eq_ignore_ascii_case("no-repeat") {
-                                if current_pair.0.is_none() {
-                                    current_pair.0 = Some(RepeatStyle::NoRepeat);
-                                } else if current_pair.1.is_none() {
-                                    current_pair.1 = Some(RepeatStyle::NoRepeat);
-                                }
-                            } else if ident.eq_ignore_ascii_case("repeat-x") {
-                                current_pair = (Some(RepeatStyle::Repeat), Some(RepeatStyle::NoRepeat));
-                            } else if ident.eq_ignore_ascii_case("repeat-y") {
-                                current_pair = (Some(RepeatStyle::NoRepeat), Some(RepeatStyle::Repeat));
-                            }
-                        }
-                        _ => continue,
-                    }
-                }
-            }
-
-            if let (Some(first), Some(second)) = current_pair {
-                keywords.push((first, second));
-            } else if let (Some(first), None) = current_pair {
-                keywords.push((first, first));
-            }
-        }
-
-        if keywords.is_empty() {
-            Err(format!("No valid RepeatStyle pairs found for BackgroundRepeat: {:?}", value))
-        } else {
-            Ok(Self(keywords))
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundPositionX(pub Vec<PositionX>);
-
-impl Default for BackgroundPositionX {
-    fn default() -> Self {
-        Self(vec![PositionX::Relative((
-            None,
-            Some(LengthPercentage::Percentage(Percentage::new(0.0))),
-        ))])
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct BackgroundPositionY(pub Vec<PositionY>);
-
-impl Default for BackgroundPositionY {
-    fn default() -> Self {
-        Self(vec![PositionY::Relative((
-            None,
-            Some(LengthPercentage::Percentage(Percentage::new(0.0))),
-        ))])
-    }
-}
-
-impl TryFrom<&[ComponentValue]> for BackgroundPositionX {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let mut positions: Vec<PositionX> = Vec::new();
-
-        let groups = value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma));
-
-        for group in groups {
-            let mut horizontal_side = None;
-            let mut length_percentage = None;
-
-            for cv in group {
-                if let ComponentValue::Token(token) = cv {
-                    match &token.kind {
-                        CssTokenKind::Ident(ident) => {
-                            if ident.eq_ignore_ascii_case("center") {
-                                if horizontal_side.is_some() {
-                                    positions
-                                        .push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
-                                } else if length_percentage.is_some() {
-                                    positions.push(PositionX::Center(Center::Center, length_percentage.take()));
-                                } else {
-                                    positions.push(PositionX::Center(Center::Center, None));
-                                }
-                            } else if let Ok(h) = ident.parse() {
-                                if horizontal_side.is_some() || length_percentage.is_some() {
-                                    positions
-                                        .push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
-                                }
-                                horizontal_side = Some(h);
-                            } else {
-                                return Err(format!("Invalid horizontal side keyword: '{}'", ident));
-                            }
-                        }
-                        CssTokenKind::Dimension { value, unit } => {
-                            let len_unit = unit
-                                .parse::<LengthUnit>()
-                                .map_err(|_| "Invalid length unit".to_string())?;
-                            if length_percentage.is_some() {
-                                return Err("Duplicate length or percentage".to_string());
-                            }
-                            length_percentage =
-                                Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
-                        }
-                        CssTokenKind::Percentage(value) => {
-                            if length_percentage.is_some() {
-                                return Err("Duplicate length or percentage".to_string());
-                            }
-                            length_percentage =
-                                Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
-                        }
-                        _ => continue,
-                    }
-                }
-            }
-
-            if horizontal_side.is_some() || length_percentage.is_some() {
-                positions.push(PositionX::Relative((horizontal_side, length_percentage)));
-            }
-        }
-
-        if positions.is_empty() {
-            Err(format!("No valid PositionX found for BackgroundPositionX: {:?}", value))
-        } else {
-            Ok(Self(positions))
-        }
-    }
-}
-
-impl TryFrom<&[ComponentValue]> for BackgroundPositionY {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let mut positions: Vec<PositionY> = Vec::new();
-        let groups = value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma));
-
-        for group in groups {
-            let mut vertical_side = None;
-            let mut length_percentage = None;
-
-            for cv in group {
-                if let ComponentValue::Token(token) = cv {
-                    match &token.kind {
-                        CssTokenKind::Ident(ident) => {
-                            if ident.eq_ignore_ascii_case("center") {
-                                if vertical_side.is_some() {
-                                    positions
-                                        .push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
-                                } else if length_percentage.is_some() {
-                                    positions.push(PositionY::Center(Center::Center, length_percentage.take()));
-                                } else {
-                                    positions.push(PositionY::Center(Center::Center, None));
-                                }
-                            } else if let Ok(v) = ident.parse() {
-                                if vertical_side.is_some() || length_percentage.is_some() {
-                                    positions
-                                        .push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
-                                }
-                                vertical_side = Some(v);
-                            } else {
-                                return Err(format!("Invalid vertical side keyword: '{}'", ident));
-                            }
-                        }
-                        CssTokenKind::Dimension { value, unit } => {
-                            let len_unit = unit
-                                .parse::<LengthUnit>()
-                                .map_err(|_| "Invalid length unit".to_string())?;
-                            if length_percentage.is_some() {
-                                return Err("Duplicate length or percentage".to_string());
-                            }
-                            length_percentage =
-                                Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
-                        }
-                        CssTokenKind::Percentage(value) => {
-                            if length_percentage.is_some() {
-                                return Err("Duplicate length or percentage".to_string());
-                            }
-                            length_percentage =
-                                Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
-                        }
-                        _ => continue,
-                    }
-                }
-            }
-
-            if vertical_side.is_some() || length_percentage.is_some() {
-                positions.push(PositionY::Relative((vertical_side, length_percentage)));
-            }
-        }
-
-        if positions.is_empty() {
-            Err(format!("No valid PositionY found for BackgroundPositionY: {:?}", value))
-        } else {
-            Ok(Self(positions))
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct BackgroundImage(pub Vec<Image>);
-
-impl TryFrom<&[ComponentValue]> for BackgroundImage {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let mut images = Vec::new();
-
-        for cv in value {
+        while let Some(cv) = stream.next_cv() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("none") => {
-                        return Ok(Self(vec![Image::None]));
+                    CssTokenKind::Ident(ident) => {
+                        if current_pair.0.is_some() && current_pair.1.is_some() {
+                            return Err("Too many repeat style keywords without a comma".to_string());
+                        } else if ident.eq_ignore_ascii_case("repeat") {
+                            if current_pair.0.is_none() {
+                                current_pair.0 = Some(RepeatStyle::Repeat);
+                            } else if current_pair.1.is_none() {
+                                current_pair.1 = Some(RepeatStyle::Repeat);
+                            }
+                        } else if ident.eq_ignore_ascii_case("space") {
+                            if current_pair.0.is_none() {
+                                current_pair.0 = Some(RepeatStyle::Space);
+                            } else if current_pair.1.is_none() {
+                                current_pair.1 = Some(RepeatStyle::Space);
+                            }
+                        } else if ident.eq_ignore_ascii_case("round") {
+                            if current_pair.0.is_none() {
+                                current_pair.0 = Some(RepeatStyle::Round);
+                            } else if current_pair.1.is_none() {
+                                current_pair.1 = Some(RepeatStyle::Round);
+                            }
+                        } else if ident.eq_ignore_ascii_case("no-repeat") {
+                            if current_pair.0.is_none() {
+                                current_pair.0 = Some(RepeatStyle::NoRepeat);
+                            } else if current_pair.1.is_none() {
+                                current_pair.1 = Some(RepeatStyle::NoRepeat);
+                            }
+                        } else if ident.eq_ignore_ascii_case("repeat-x") {
+                            current_pair = (Some(RepeatStyle::Repeat), Some(RepeatStyle::NoRepeat));
+                        } else if ident.eq_ignore_ascii_case("repeat-y") {
+                            current_pair = (Some(RepeatStyle::NoRepeat), Some(RepeatStyle::Repeat));
+                        }
                     }
-                    CssTokenKind::Url(url) => images.push(Image::Url(url.clone())),
+                    CssTokenKind::Comma => {
+                        if let (Some(first), Some(second)) = current_pair {
+                            keywords.push((first, second));
+                        } else if let (Some(first), None) = current_pair {
+                            keywords.push((first, first));
+                        }
+                        current_pair = (None, None);
+                    }
                     _ => continue,
                 },
-                ComponentValue::Function(func) => {
-                    if let Ok(image) = Image::try_from(func) {
-                        images.push(image);
-                    }
-                }
                 _ => continue,
             }
         }
 
-        if images.is_empty() {
-            Err(format!("No valid Image found for BackgroundImage: {:?}", value))
+        if let (Some(first), Some(second)) = current_pair {
+            keywords.push((first, second));
+        } else if let (Some(first), None) = current_pair {
+            keywords.push((first, first));
+        }
+
+        if keywords.is_empty() {
+            Err("No valid RepeatStyle pairs found for BackgroundRepeat".to_string())
         } else {
-            Ok(Self(images))
+            Ok(Self(keywords))
         }
     }
 }
@@ -475,75 +578,111 @@ impl Default for BackgroundSize {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BackgroundSize {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        let values = value.split(|cv| matches!(cv, ComponentValue::Token(token) if token.kind == CssTokenKind::Comma));
+impl CSSParsable for BackgroundSize {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
         let mut sizes = Vec::new();
+        let mut current_size = None;
         let mut width_height_values = Vec::with_capacity(2);
 
-        for group in values {
-            let mut size_pair = Vec::new();
-            for cv in group {
-                if let ComponentValue::Token(token) = cv {
-                    match &token.kind {
-                        CssTokenKind::Ident(ident) => {
-                            if ident.eq_ignore_ascii_case("auto") {
-                                width_height_values.push(WidthHeightSize::Auto);
-                            } else if ident.eq_ignore_ascii_case("cover") {
-                                if !width_height_values.is_empty() {
-                                    let values = std::mem::take(&mut width_height_values);
-                                    size_pair.push(Size::WidthHeight(values[0], values.get(1).cloned()));
-                                }
+        // TODO: calc();
 
-                                size_pair.push(Size::Cover);
-                            } else if ident.eq_ignore_ascii_case("contain") {
-                                if !width_height_values.is_empty() {
-                                    let values = std::mem::take(&mut width_height_values);
-                                    size_pair.push(Size::WidthHeight(values[0], values.get(1).cloned()));
-                                }
+        while let Some(cv) = stream.next_cv() {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if current_size.is_some() {
+                            return Err("Multiple size keywords without a comma".to_string());
+                        }
 
-                                size_pair.push(Size::Contain);
-                            } else {
-                                continue;
+                        if ident.eq_ignore_ascii_case("auto") {
+                            if width_height_values.len() > 2 {
+                                return Err("Too many width/height values".to_string());
+                            }
+
+                            width_height_values.push(WidthHeightSize::Auto);
+                        } else if ident.eq_ignore_ascii_case("cover") {
+                            current_size = Some(Size::Cover);
+                        } else if ident.eq_ignore_ascii_case("contain") {
+                            current_size = Some(Size::Contain);
+                        }
+                    }
+                    CssTokenKind::Dimension { value, unit } => {
+                        if current_size.is_some() {
+                            return Err("Multiple size keywords without a comma".to_string());
+                        } else if width_height_values.len() > 2 {
+                            return Err("Too many width/height values".to_string());
+                        }
+
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| "Invalid length unit".to_string())?;
+                        width_height_values.push(WidthHeightSize::Length(LengthPercentage::Length(Length::new(
+                            value.to_f64() as f32,
+                            len_unit,
+                        ))));
+                    }
+                    CssTokenKind::Percentage(value) => {
+                        if current_size.is_some() {
+                            return Err("Multiple size keywords without a comma".to_string());
+                        } else if width_height_values.len() > 2 {
+                            return Err("Too many width/height values".to_string());
+                        }
+
+                        width_height_values.push(WidthHeightSize::Length(LengthPercentage::Percentage(
+                            Percentage::new(value.to_f64() as f32),
+                        )));
+                    }
+                    CssTokenKind::Comma => {
+                        if let Some(size) = current_size.take() {
+                            sizes.push(size);
+                        } else if width_height_values.len() > 2 {
+                            return Err("Too many width/height values".to_string());
+                        } else if !width_height_values.is_empty() {
+                            match width_height_values.len() {
+                                1 if width_height_values[0] == WidthHeightSize::Auto => {
+                                    sizes.push(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)));
+                                }
+                                1 => {
+                                    let values = std::mem::take(&mut width_height_values);
+                                    sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                                }
+                                2 => {
+                                    let values = std::mem::take(&mut width_height_values);
+                                    sizes.push(Size::WidthHeight(values[0], Some(values[1])));
+                                }
+                                _ => return Err("Too many width/height values".to_string()),
                             }
                         }
-                        CssTokenKind::Dimension { value, unit } => {
-                            let len_unit = unit
-                                .parse::<LengthUnit>()
-                                .map_err(|_| "Invalid length unit".to_string())?;
-                            width_height_values.push(WidthHeightSize::Length(LengthPercentage::Length(Length::new(
-                                value.to_f64() as f32,
-                                len_unit,
-                            ))));
-                        }
-                        CssTokenKind::Percentage(value) => {
-                            width_height_values.push(WidthHeightSize::Length(LengthPercentage::Percentage(
-                                Percentage::new(value.to_f64() as f32),
-                            )));
-                        }
-                        _ => continue,
                     }
-                }
-            }
-
-            if !size_pair.is_empty() {
-                sizes.extend(size_pair);
-            } else if width_height_values.len() > 2 {
-                return Err("Too many width/height values".to_string());
-            } else if !width_height_values.is_empty() {
-                if width_height_values.len() == 1 && width_height_values[0] == WidthHeightSize::Auto {
-                    sizes.push(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)));
-                } else {
-                    let values = std::mem::take(&mut width_height_values);
-                    sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                    _ => continue,
                 }
             }
         }
 
+        if let Some(size) = current_size.take() {
+            sizes.push(size);
+        } else if width_height_values.len() > 2 {
+            return Err("Too many width/height values".to_string());
+        } else if !width_height_values.is_empty() {
+            match width_height_values.len() {
+                1 if width_height_values[0] == WidthHeightSize::Auto => {
+                    sizes.push(Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto)));
+                }
+                1 => {
+                    let values = std::mem::take(&mut width_height_values);
+                    sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                }
+                2 => {
+                    let values = std::mem::take(&mut width_height_values);
+                    sizes.push(Size::WidthHeight(values[0], Some(values[1])));
+                }
+                _ => return Err("Too many width/height values".to_string()),
+            }
+        }
+
         if sizes.is_empty() {
-            Err(format!("No valid Size pairs found for BackgroundSize: {:?}", value))
+            Err(format!("No valid Size pairs found for BackgroundSize: {:?}", sizes))
         } else {
             Ok(Self(sizes))
         }
@@ -552,413 +691,906 @@ impl TryFrom<&[ComponentValue]> for BackgroundSize {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use css_cssom::CssToken;
+
     use crate::position::{HorizontalOrXSide, HorizontalSide, VerticalOrYSide, VerticalSide};
-    use css_cssom::CSSStyleSheet;
 
-    /// Helper: parse an inline CSS declaration and return the component values
-    /// for the first declaration found.
-    fn parse_value(css: &str) -> Vec<css_cssom::ComponentValue> {
-        let decls = CSSStyleSheet::from_inline(css);
-        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
-        decls[0].original_values.clone()
+    use super::*;
+
+    #[test]
+    fn test_background_attachment() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("scroll".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("fixed".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("local".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundAttachment::parse(&mut stream);
+        assert!(result.is_ok());
+        let background_attachment = result.unwrap();
+        assert_eq!(background_attachment.0.len(), 3);
+        assert_eq!(background_attachment.0[0], Attachment::Scroll);
+        assert_eq!(background_attachment.0[1], Attachment::Fixed);
+        assert_eq!(background_attachment.0[2], Attachment::Local);
     }
 
     #[test]
-    fn attachment_scroll() {
-        let cvs = parse_value("background-attachment: scroll");
-        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.0, vec![Attachment::Scroll]);
+    fn test_background_attachment_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("fixed".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundAttachment::parse(&mut stream);
+        assert!(result.is_ok());
+        let background_attachment = result.unwrap();
+        assert_eq!(background_attachment.0.len(), 1);
+        assert_eq!(background_attachment.0[0], Attachment::Fixed);
     }
 
     #[test]
-    fn attachment_fixed() {
-        let cvs = parse_value("background-attachment: fixed");
-        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.0, vec![Attachment::Fixed]);
+    fn test_background_attachment_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("scroll".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("fixed".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("local".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundAttachment::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn attachment_local() {
-        let cvs = parse_value("background-attachment: local");
-        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.0, vec![Attachment::Local]);
+    fn test_background_attachment_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundAttachment::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn attachment_invalid() {
-        let cvs = parse_value("background-attachment: banana");
-        assert!(BackgroundAttachment::try_from(cvs.as_slice()).is_err());
+    fn test_background_blend_mode() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("normal".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("darken".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("color".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundBlendMode::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_blend_mode = result.unwrap();
+        assert_eq!(background_blend_mode.0.len(), 3);
+        assert_eq!(background_blend_mode.0[0], BlendMode::Normal);
+        assert_eq!(background_blend_mode.0[1], BlendMode::Darken);
+        assert_eq!(background_blend_mode.0[2], BlendMode::Color);
     }
 
     #[test]
-    fn repeat_single_repeat() {
-        let cvs = parse_value("background-repeat: repeat");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[0].1, RepeatStyle::Repeat);
+    fn test_background_blend_mode_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("multiply".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundBlendMode::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_blend_mode = result.unwrap();
+        assert_eq!(background_blend_mode.0.len(), 1);
+        assert_eq!(background_blend_mode.0[0], BlendMode::Multiply);
     }
 
     #[test]
-    fn repeat_no_repeat() {
-        let cvs = parse_value("background-repeat: no-repeat");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::NoRepeat);
-        assert_eq!(rep.0[0].1, RepeatStyle::NoRepeat);
+    fn test_background_blend_mode_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("normal".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("darken".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("color".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundBlendMode::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn repeat_repeat_x() {
-        let cvs = parse_value("background-repeat: repeat-x");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[0].1, RepeatStyle::NoRepeat);
+    fn test_background_blend_mode_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundBlendMode::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn repeat_repeat_y() {
-        let cvs = parse_value("background-repeat: repeat-y");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::NoRepeat);
-        assert_eq!(rep.0[0].1, RepeatStyle::Repeat);
+    fn test_background_clip() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("border-box".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("text".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("border-area".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundClip::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_clip = result.unwrap();
+        assert_eq!(background_clip.0.len(), 2);
+        assert_eq!(background_clip.0[0], BgClip::Visual(VisualBox::Border));
+        assert_eq!(background_clip.0[1], BgClip::Clip(Clip::Text, Some(Clip::BorderArea)));
     }
 
     #[test]
-    fn repeat_two_values() {
-        let cvs = parse_value("background-repeat: round space");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::Round);
-        assert_eq!(rep.0[0].1, RepeatStyle::Space);
+    fn test_background_clip_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("padding-box".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundClip::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_clip = result.unwrap();
+        assert_eq!(background_clip.0.len(), 1);
+        assert_eq!(background_clip.0[0], BgClip::Visual(VisualBox::Padding));
     }
 
     #[test]
-    fn repeat_invalid() {
-        let cvs = parse_value("background-repeat: banana");
-        assert!(BackgroundRepeat::try_from(cvs.as_slice()).is_err());
+    fn test_background_clip_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("border-box".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("text".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("border-area".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundClip::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn origin_padding_box() {
-        let cvs = parse_value("background-origin: padding-box");
-        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.0, vec![VisualBox::Padding]);
+    fn test_background_clip_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundClip::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn origin_content_box() {
-        let cvs = parse_value("background-origin: content-box");
-        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.0, vec![VisualBox::Content]);
+    fn test_background_image() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("none".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Url("https://example.com/image.png".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundImage::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_image = result.unwrap();
+        assert_eq!(background_image.0.len(), 2);
+        assert_eq!(background_image.0[0], Image::None);
+        assert_eq!(background_image.0[1], Image::Url("https://example.com/image.png".to_string()));
     }
 
     #[test]
-    fn origin_border_box() {
-        let cvs = parse_value("background-origin: border-box");
-        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.0, vec![VisualBox::Border]);
+    fn test_background_image_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Url("https://example.com/image.png".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundImage::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_image = result.unwrap();
+        assert_eq!(background_image.0.len(), 1);
+        assert_eq!(background_image.0[0], Image::Url("https://example.com/image.png".to_string()));
     }
 
     #[test]
-    fn origin_invalid() {
-        let cvs = parse_value("background-origin: banana");
-        assert!(BackgroundOrigin::try_from(cvs.as_slice()).is_err());
+    fn test_background_image_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("none".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Url("https://example.com/image.png".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundImage::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn clip_border_box() {
-        let cvs = parse_value("background-clip: border-box");
-        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.0, vec![BgClip::Visual(VisualBox::Border)]);
+    fn test_background_image_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundImage::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn clip_padding_box() {
-        let cvs = parse_value("background-clip: padding-box");
-        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.0, vec![BgClip::Visual(VisualBox::Padding)]);
+    fn test_background_origin() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("content-box".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("padding-box".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundOrigin::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_origin = result.unwrap();
+        assert_eq!(background_origin.0.len(), 2);
+        assert_eq!(background_origin.0[0], VisualBox::Content);
+        assert_eq!(background_origin.0[1], VisualBox::Padding);
     }
 
     #[test]
-    fn clip_content_box() {
-        let cvs = parse_value("background-clip: content-box");
-        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.0, vec![BgClip::Visual(VisualBox::Content)]);
+    fn test_background_origin_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("border-box".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundOrigin::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_origin = result.unwrap();
+        assert_eq!(background_origin.0.len(), 1);
+        assert_eq!(background_origin.0[0], VisualBox::Border);
     }
 
     #[test]
-    fn clip_text() {
-        let cvs = parse_value("background-clip: text");
-        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.0, vec![BgClip::Clip(Clip::Text, None)]);
+    fn test_background_origin_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("content-box".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("padding-box".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundOrigin::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn clip_invalid() {
-        let cvs = parse_value("background-clip: banana");
-        assert!(BackgroundClip::try_from(cvs.as_slice()).is_err());
+    fn test_background_origin_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundOrigin::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn size_cover() {
-        let cvs = parse_value("background-size: cover");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.0, vec![Size::Cover]);
-    }
+    fn test_background_position_x() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("left".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".to_string()),
+                position: None,
+            }),
+        ];
 
-    #[test]
-    fn size_contain() {
-        let cvs = parse_value("background-size: contain");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(sz.0, vec![Size::Contain]);
-    }
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionX::parse(&mut stream);
 
-    #[test]
-    fn size_auto() {
-        let cvs = parse_value("background-size: auto");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+        assert!(result.is_ok());
+        let background_position_x = result.unwrap();
+        assert_eq!(background_position_x.0.len(), 2);
         assert_eq!(
-            sz.0,
-            vec![Size::WidthHeight(
-                WidthHeightSize::Auto,
-                Some(WidthHeightSize::Auto)
-            )]
+            background_position_x.0[0],
+            PositionX::Relative((Some(HorizontalOrXSide::Horizontal(HorizontalSide::Left)), None))
+        );
+        assert_eq!(background_position_x.0[1], PositionX::Center(Center::Center, None));
+    }
+
+    #[test]
+    fn test_background_position_x_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("right".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionX::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_position_x = result.unwrap();
+        assert_eq!(background_position_x.0.len(), 1);
+        assert_eq!(
+            background_position_x.0[0],
+            PositionX::Relative((Some(HorizontalOrXSide::Horizontal(HorizontalSide::Right)), None))
         );
     }
 
     #[test]
-    fn size_length() {
-        let cvs = parse_value("background-size: 100px");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
+    fn test_background_position_x_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("left".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionX::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_position_x_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionX::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_position_x_invalid_center() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: 50.into(),
+                    unit: "px".to_string(),
+                },
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionX::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_position_y() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("top".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionY::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_position_y = result.unwrap();
+        assert_eq!(background_position_y.0.len(), 2);
         assert_eq!(
-            sz.0,
-            vec![Size::WidthHeight(
+            background_position_y.0[0],
+            PositionY::Relative((Some(VerticalOrYSide::Vertical(VerticalSide::Top)), None))
+        );
+        assert_eq!(background_position_y.0[1], PositionY::Center(Center::Center, None));
+    }
+
+    #[test]
+    fn test_background_position_y_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("bottom".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionY::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_position_y = result.unwrap();
+        assert_eq!(background_position_y.0.len(), 1);
+        assert_eq!(
+            background_position_y.0[0],
+            PositionY::Relative((Some(VerticalOrYSide::Vertical(VerticalSide::Bottom)), None))
+        );
+    }
+
+    #[test]
+    fn test_background_position_y_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("top".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionY::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_position_y_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionY::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_position_y_invalid_center() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: 50.into(),
+                    unit: "px".to_string(),
+                },
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPositionY::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_repeat() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("repeat".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("space".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundRepeat::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_repeat = result.unwrap();
+        assert_eq!(background_repeat.0.len(), 2);
+        assert_eq!(background_repeat.0[0], (RepeatStyle::Repeat, RepeatStyle::Repeat));
+        assert_eq!(background_repeat.0[1], (RepeatStyle::Space, RepeatStyle::Space));
+    }
+
+    #[test]
+    fn test_background_repeat_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("no-repeat".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundRepeat::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_repeat = result.unwrap();
+        assert_eq!(background_repeat.0.len(), 1);
+        assert_eq!(background_repeat.0[0], (RepeatStyle::NoRepeat, RepeatStyle::NoRepeat));
+    }
+
+    #[test]
+    fn test_background_repeat_shorthand() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("repeat-x".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundRepeat::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_repeat = result.unwrap();
+        assert_eq!(background_repeat.0.len(), 1);
+        assert_eq!(background_repeat.0[0], (RepeatStyle::Repeat, RepeatStyle::NoRepeat));
+    }
+
+    #[test]
+    fn test_background_repeat_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("repeat".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("space".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("repeat".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundRepeat::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_repeat_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundRepeat::parse(&mut stream);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_background_size() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("cover".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: 100.into(),
+                    unit: "px".to_string(),
+                },
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: 200.into(),
+                    unit: "px".to_string(),
+                },
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundSize::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_size = result.unwrap();
+        assert_eq!(background_size.0.len(), 2);
+        assert_eq!(background_size.0[0], Size::Cover);
+        assert_eq!(
+            background_size.0[1],
+            Size::WidthHeight(
                 WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
-                None
-            )]
+                Some(WidthHeightSize::Length(LengthPercentage::Length(Length::new(200.0, LengthUnit::Px))))
+            )
         );
     }
 
     #[test]
-    fn size_percentage() {
-        let cvs = parse_value("background-size: 50%");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(
-            sz.0,
-            vec![Size::WidthHeight(
-                WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))),
-                None
-            )]
-        );
+    fn test_background_size_single() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("contain".to_string()),
+            position: None,
+        })];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundSize::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let background_size = result.unwrap();
+        assert_eq!(background_size.0.len(), 1);
+        assert_eq!(background_size.0[0], Size::Contain);
     }
 
     #[test]
-    fn size_two_values() {
-        let cvs = parse_value("background-size: 100px 50%");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(
-            sz.0,
-            vec![Size::WidthHeight(
-                WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
-                Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))))
-            )]
-        );
+    fn test_background_size_invalid_whitespace() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("cover".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("cover".to_string()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundSize::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn size_auto_auto() {
-        let cvs = parse_value("background-size: auto auto");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(
-            sz.0,
-            vec![Size::WidthHeight(
-                WidthHeightSize::Auto,
-                Some(WidthHeightSize::Auto)
-            )]
-        );
+    fn test_background_size_invalid_mix() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("cover".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Dimension {
+                    value: 100.into(),
+                    unit: "px".to_string(),
+                },
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundSize::parse(&mut stream);
+
+        assert!(result.is_err());
     }
 
     #[test]
-    fn image_url() {
-        let cvs = parse_value("background-image: url('test.png')");
-        let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(img.0.len(), 1);
-        assert!(matches!(&img.0[0], Image::Url(s) if s == "test.png"));
-    }
+    fn test_background_size_invalid() {
+        let input = vec![ComponentValue::Token(CssToken {
+            kind: CssTokenKind::Ident("invalid".to_string()),
+            position: None,
+        })];
 
-    #[test]
-    fn image_linear_gradient() {
-        let cvs = parse_value("background-image: linear-gradient(red, blue)");
-        let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(img.0.len(), 1);
-        assert!(matches!(&img.0[0], Image::Gradient(_)));
-    }
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundSize::parse(&mut stream);
 
-    #[test]
-    fn image_invalid() {
-        let cvs = parse_value("background-image: banana");
-        assert!(BackgroundImage::try_from(cvs.as_slice()).is_err());
-    }
-
-    #[test]
-    fn position_x_left() {
-        let cvs = parse_value("background-position-x: left");
-        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-    }
-
-    #[test]
-    fn position_x_center() {
-        let cvs = parse_value("background-position-x: center");
-        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-        assert!(matches!(pos.0[0], PositionX::Center(_, _)));
-    }
-
-    #[test]
-    fn position_x_percentage() {
-        let cvs = parse_value("background-position-x: 50%");
-        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-    }
-
-    #[test]
-    fn position_y_top() {
-        let cvs = parse_value("background-position-y: top");
-        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-    }
-
-    #[test]
-    fn position_y_center() {
-        let cvs = parse_value("background-position-y: center");
-        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-        assert!(matches!(pos.0[0], PositionY::Center(_, _)));
-    }
-
-    #[test]
-    fn position_y_percentage() {
-        let cvs = parse_value("background-position-y: 25%");
-        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-    }
-
-    #[test]
-    fn attachment_multiple_values() {
-        let cvs = parse_value("background-attachment: scroll, fixed, local");
-        let att = BackgroundAttachment::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(att.0, vec![Attachment::Scroll, Attachment::Fixed, Attachment::Local]);
-    }
-
-    #[test]
-    fn repeat_case_insensitive() {
-        let cvs = parse_value("background-repeat: REPEAT");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[0].1, RepeatStyle::Repeat);
-    }
-
-    #[test]
-    fn repeat_two_values_with_no_repeat() {
-        let cvs = parse_value("background-repeat: repeat no-repeat");
-        let rep = BackgroundRepeat::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(rep.0[0].0, RepeatStyle::Repeat);
-        assert_eq!(rep.0[0].1, RepeatStyle::NoRepeat);
-    }
-
-    #[test]
-    fn origin_multiple_values() {
-        let cvs = parse_value("background-origin: padding-box content-box");
-        let orig = BackgroundOrigin::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(orig.0, vec![VisualBox::Padding, VisualBox::Content]);
-    }
-
-    #[test]
-    fn clip_text_border_area_pair() {
-        let cvs = parse_value("background-clip: text border-area");
-        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(clip.0, vec![BgClip::Clip(Clip::Text, Some(Clip::BorderArea))]);
-    }
-
-    #[test]
-    fn clip_multiple_groups() {
-        let cvs = parse_value("background-clip: text, padding-box");
-        let clip = BackgroundClip::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(
-            clip.0,
-            vec![
-                BgClip::Clip(Clip::Text, None),
-                BgClip::Visual(VisualBox::Padding)
-            ]
-        );
-    }
-
-    #[test]
-    fn size_multiple_groups() {
-        let cvs = parse_value("background-size: cover, 100px 50%");
-        let sz = BackgroundSize::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(
-            sz.0,
-            vec![
-                Size::Cover,
-                Size::WidthHeight(
-                    WidthHeightSize::Length(LengthPercentage::Length(Length::new(100.0, LengthUnit::Px))),
-                    Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(50.0))))
-                )
-            ]
-        );
-    }
-
-    #[test]
-    fn size_invalid_three_values() {
-        let cvs = parse_value("background-size: auto auto auto");
-        assert!(BackgroundSize::try_from(cvs.as_slice()).is_err());
-    }
-
-    #[test]
-    fn image_multiple_urls() {
-        let cvs = parse_value("background-image: url('a.png'), url('b.png')");
-        let img = BackgroundImage::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(img.0.len(), 2);
-    }
-
-    #[test]
-    fn position_x_left_with_offset() {
-        let cvs = parse_value("background-position-x: left 10%");
-        let pos = BackgroundPositionX::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-        assert!(matches!(
-            pos.0[0],
-            PositionX::Relative((
-                Some(HorizontalOrXSide::Horizontal(HorizontalSide::Left)),
-                Some(LengthPercentage::Percentage(p))
-            )) if p == Percentage::new(10.0)
-        ));
-    }
-
-    #[test]
-    fn position_y_bottom_with_length() {
-        let cvs = parse_value("background-position-y: bottom 12px");
-        let pos = BackgroundPositionY::try_from(cvs.as_slice()).unwrap();
-        assert_eq!(pos.0.len(), 1);
-        assert!(matches!(
-            pos.0[0],
-            PositionY::Relative((
-                Some(VerticalOrYSide::Vertical(VerticalSide::Bottom)),
-                Some(LengthPercentage::Length(l))
-            )) if l == Length::new(12.0, LengthUnit::Px)
-        ));
-    }
-
-    #[test]
-    fn position_x_duplicate_lengths_error() {
-        let cvs = parse_value("background-position-x: 10% 20%");
-        assert!(BackgroundPositionX::try_from(cvs.as_slice()).is_err());
-    }
-
-    #[test]
-    fn position_y_duplicate_lengths_error() {
-        let cvs = parse_value("background-position-y: 10% 20%");
-        assert!(BackgroundPositionY::try_from(cvs.as_slice()).is_err());
+        assert!(result.is_err());
     }
 }

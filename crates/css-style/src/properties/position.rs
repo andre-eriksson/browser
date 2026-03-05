@@ -1,8 +1,10 @@
 //! The `position` property specifies how an element is positioned in a document. It has five possible values: `static`, `relative`, `absolute`, `fixed`, and `sticky`.
 //! Each value determines how the element is positioned in relation to its normal flow, its containing block, and the viewport.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
+
+use crate::properties::CSSParsable;
 
 /// The `position` property specifies how an element is positioned in a document. It has five possible values: `static`, `relative`, `absolute`, `fixed`, and `sticky`.
 /// Each value determines how the element is positioned in relation to its normal flow, its containing block, and the viewport.
@@ -31,23 +33,23 @@ pub enum Position {
     Sticky,
 }
 
-impl TryFrom<&[ComponentValue]> for Position {
-    type Error = String;
+impl CSSParsable for Position {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
-                ComponentValue::Token(token) => {
-                    if let CssTokenKind::Ident(ident) = &token.kind
-                        && let Ok(pos) = ident.parse()
-                    {
-                        return Ok(pos);
-                    }
-                }
-                _ => continue,
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => ident
+                        .parse()
+                        .map_err(|_| format!("Invalid position value: {}", ident)),
+                    _ => Err("Expected an identifier for position value".to_string()),
+                },
+                _ => Err("Expected a token for position value".to_string()),
             }
+        } else {
+            Err("Unexpected end of input while parsing position value".to_string())
         }
-        Err("No valid position value found".to_string())
     }
 }
 

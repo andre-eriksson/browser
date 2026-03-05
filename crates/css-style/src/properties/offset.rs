@@ -3,13 +3,13 @@
 //! of a CSS property, each with its own `OffsetValue`. The module also includes methods to convert these values to pixels based on the
 //! relative and absolute contexts.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
-    properties::{AbsoluteContext, RelativeContext, RelativeType},
+    properties::{AbsoluteContext, CSSParsable, RelativeContext, RelativeType},
 };
 
 /// Represents a CSS offset value, used for specific margin and padding values. It can be a length, percentage, calc expression, or auto.
@@ -61,38 +61,32 @@ impl OffsetValue {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for OffsetValue {
-    type Error = String;
+impl CSSParsable for OffsetValue {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    return Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?));
+                    Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Percentage(pct) => {
-                        return Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32)));
-                    }
-                    CssTokenKind::Number(num) => {
-                        return Ok(Self::Length(Length::px(num.to_f64() as f32)));
-                    }
-                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
-                        return Ok(Self::Auto);
-                    }
-                    _ => continue,
+                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
+                    _ => Err("Expected a valid offset value".to_string()),
                 },
-                _ => continue,
+                _ => Err("Expected a valid offset value".to_string()),
             }
+        } else {
+            Err("Expected a valid offset value".to_string())
         }
-
-        Err("No valid OffsetValue found in ComponentValue list".into())
     }
 }
 
@@ -163,19 +157,16 @@ impl TryFrom<&[OffsetValue]> for Offset {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for Offset {
-    type Error = String;
-
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
+impl CSSParsable for Offset {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
         let mut offset_values = Vec::new();
 
-        for cv in value {
+        while let Some(cv) = stream.next_cv() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    offset_values.push(OffsetValue::Calc(CalcExpression::parse_math_function(
-                        &func.name,
-                        func.value.as_slice(),
-                    )?));
+                    offset_values
+                        .push(OffsetValue::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -195,8 +186,12 @@ impl TryFrom<&[ComponentValue]> for Offset {
                     }
                     _ => continue,
                 },
-                _ => continue,
+                _ => return Err("Expected a valid offset value".to_string()),
             }
+        }
+
+        if offset_values.is_empty() || offset_values.len() > 4 {
+            return Err(format!("Invalid number of Offset values: expected 1-4, got {}", offset_values.len()));
         }
 
         Offset::try_from(offset_values.as_slice())
@@ -224,7 +219,7 @@ mod tests {
             }),
         ];
 
-        let offset = Offset::try_from(input.as_slice()).unwrap();
+        let offset = Offset::parse(&mut input.as_slice().into()).unwrap();
         assert_eq!(offset.top, OffsetValue::Length(Length::px(10.0)));
         assert_eq!(offset.right, OffsetValue::Percentage(Percentage::new(50.0)));
         assert_eq!(offset.bottom, OffsetValue::Length(Length::px(10.0)));

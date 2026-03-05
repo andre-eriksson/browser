@@ -115,6 +115,84 @@ impl ComponentValue {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComponentValueStream<'a> {
+    values: &'a [ComponentValue],
+    position: usize,
+}
+
+impl ComponentValueStream<'_> {
+    pub fn new(values: &[ComponentValue]) -> ComponentValueStream<'_> {
+        ComponentValueStream {
+            values,
+            position: 0,
+        }
+    }
+
+    /// Get the underlying slice of component values
+    pub fn values(&self) -> &[ComponentValue] {
+        self.values
+    }
+
+    /// Peek at the next component value without consuming it
+    pub fn peek(&self) -> Option<&ComponentValue> {
+        self.values.get(self.position)
+    }
+
+    /// Consume and return the next component value
+    pub fn next_cv(&mut self) -> Option<&ComponentValue> {
+        let value = self.values.get(self.position);
+        if value.is_some() {
+            self.position += 1;
+        }
+        value
+    }
+
+    /// Create a checkpoint of the current position in the stream
+    pub fn checkpoint(&self) -> usize {
+        self.position
+    }
+
+    /// Restore the stream to a previously created checkpoint
+    pub fn restore(&mut self, checkpoint: usize) {
+        self.position = checkpoint;
+    }
+
+    /// Returns the unconsumed portion of the underlying slice.
+    pub fn remaining(&self) -> &[ComponentValue] {
+        &self.values[self.position..]
+    }
+
+    /// Skip over any whitespace tokens in the stream
+    pub fn skip_whitespace(&mut self) {
+        while let Some(value) = self.peek() {
+            if value.is_whitespace() {
+                self.next_cv();
+            } else {
+                break;
+            }
+        }
+    }
+
+    /// Skip whitespace and return the next non-whitespace component value
+    pub fn next_non_whitespace(&mut self) -> Option<&ComponentValue> {
+        self.skip_whitespace();
+        self.next_cv()
+    }
+}
+
+impl<'a> From<&'a [ComponentValue]> for ComponentValueStream<'a> {
+    fn from(values: &'a [ComponentValue]) -> Self {
+        ComponentValueStream::new(values)
+    }
+}
+
+impl<'a> From<&'a Vec<ComponentValue>> for ComponentValueStream<'a> {
+    fn from(values: &'a Vec<ComponentValue>) -> Self {
+        ComponentValueStream::new(values)
+    }
+}
+
 /// A CSS function (name followed by parentheses with content)
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#function>

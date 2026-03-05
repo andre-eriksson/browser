@@ -1,14 +1,14 @@
 //! This module defines the `BorderWidth` and `BorderStyle` types, which represent the width and style of CSS borders, respectively.
 //! These types can be constructed from CSS component values and can be converted to pixel values for rendering.
 
-use css_cssom::{ComponentValue, CssTokenKind};
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
-    functions::calculate::CalcExpression,
+    functions::calculate::{CalcExpression, is_math_function},
     length::LengthUnit,
     primitives::length::Length,
-    properties::{AbsoluteContext, RelativeContext},
+    properties::{AbsoluteContext, CSSParsable, RelativeContext},
 };
 
 /// Represents the width of a CSS border, which can be a length, a calc expression, or one of the keywords thin, medium, or thick.
@@ -29,38 +29,45 @@ impl Default for BorderWidth {
     }
 }
 
-impl TryFrom<&[ComponentValue]> for BorderWidth {
-    type Error = String;
+impl CSSParsable for BorderWidth {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        let width = if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("thin") {
-                            return Ok(BorderWidth::Thin);
+                            Ok(Self::Thin)
                         } else if ident.eq_ignore_ascii_case("medium") {
-                            return Ok(BorderWidth::Medium);
+                            Ok(Self::Medium)
                         } else if ident.eq_ignore_ascii_case("thick") {
-                            return Ok(BorderWidth::Thick);
+                            Ok(Self::Thick)
+                        } else {
+                            Err(format!("Invalid border width keyword: {}", ident))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        return Ok(BorderWidth::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Number(num) => {
-                        return Ok(BorderWidth::Length(Length::px(num.to_f64() as f32)));
-                    }
-                    _ => continue,
+                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
+                    _ => Err("Expected a valid border width value".to_string()),
                 },
-                _ => continue,
+                ComponentValue::Function(func) if is_math_function(&func.name) => {
+                    let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    Ok(Self::Calc(calc_expr))
+                }
+                _ => Err("Expected a valid border width value".to_string()),
             }
-        }
+        } else {
+            Err("Unexpected end of input while parsing border width".to_string())
+        }?;
 
-        Err("No valid BorderWidthValue found".to_string())
+        stream.next_cv();
+        Ok(width)
     }
 }
 
@@ -133,19 +140,21 @@ pub enum BorderStyle {
     Outset,
 }
 
-impl TryFrom<&[ComponentValue]> for BorderStyle {
-    type Error = String;
+impl CSSParsable for BorderStyle {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        stream.skip_whitespace();
 
-    fn try_from(value: &[ComponentValue]) -> Result<Self, Self::Error> {
-        for cv in value {
+        if let Some(cv) = stream.peek() {
             if let ComponentValue::Token(token) = cv
                 && let CssTokenKind::Ident(ident) = &token.kind
                 && let Ok(style) = ident.parse()
             {
-                return Ok(style);
+                Ok(style)
+            } else {
+                Err("Expected a valid border style keyword".to_string())
             }
+        } else {
+            Err("Unexpected end of input while parsing border style".to_string())
         }
-
-        Err("No valid BorderStyle found".to_string())
     }
 }
