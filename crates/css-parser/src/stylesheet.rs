@@ -173,6 +173,12 @@ impl ComponentValueStream<'_> {
             }
         }
     }
+
+    /// Skip whitespace and return the next non-whitespace component value
+    pub fn next_non_whitespace(&mut self) -> Option<&ComponentValue> {
+        self.skip_whitespace();
+        self.next_cv()
+    }
 }
 
 impl<'a> From<&'a [ComponentValue]> for ComponentValueStream<'a> {

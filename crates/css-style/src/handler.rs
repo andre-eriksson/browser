@@ -5,9 +5,10 @@ use crate::global::Global;
 use crate::image::Image;
 use crate::length::{Length, LengthUnit};
 use crate::position::{
-    BackgroundPosition, BlockAxis, HorizontalOrXSide, HorizontalSide, InlineAxis, PositionFour, PositionOne,
-    PositionThree, PositionTwo, PositionX, PositionY, RelativeAxis, RelativeHorizontalSide, RelativeVerticalSide, Side,
-    VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage, YSide,
+    BackgroundPosition, BgPosition, BlockAxis, HorizontalOrXSide, HorizontalSide, InlineAxis, PositionFour,
+    PositionOne, PositionThree, PositionTwo, PositionX, PositionY, RelativeAxis, RelativeHorizontalSide,
+    RelativeVerticalSide, Side, VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis,
+    YAxisOrLengthPercentage, YSide,
 };
 use crate::properties::CSSParsable;
 use crate::properties::background::{
@@ -440,92 +441,90 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, stream
         }
     }
 
-    let value: Vec<ComponentValue> = stream.remaining().to_vec();
-    while stream.next_cv().is_some() {}
-
     let mut x_pos = Vec::new();
     let mut y_pos = Vec::new();
 
-    let values = value
-        .split(|cv| matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)))
-        .collect::<Vec<_>>();
-
-    for cv in values {
-        if let Ok(bg_position) = BackgroundPosition::parse(&mut cv.into()) {
-            match bg_position {
-                BackgroundPosition::One(one) => match one {
-                    PositionOne::LengthPercentage(lp) => {
-                        x_pos.push(PositionX::Relative((None, Some(lp))));
-                        y_pos.push(PositionY::Relative((None, Some(lp))));
-                    }
-                    PositionOne::Horizontal(horizontal) => match horizontal {
-                        HorizontalOrXSide::XSide(xside) => x_pos.push(resolve_x_side(xside)),
-                        HorizontalOrXSide::Horizontal(h) => {
-                            x_pos.push(PositionX::Relative((Some(HorizontalOrXSide::Horizontal(h)), None)));
+    stream.skip_whitespace();
+    match BackgroundPosition::parse(stream) {
+        Ok(bg_position) => {
+            for position in bg_position.0 {
+                match position {
+                    BgPosition::One(one) => match one {
+                        PositionOne::LengthPercentage(lp) => {
+                            x_pos.push(PositionX::Relative((None, Some(lp))));
+                            y_pos.push(PositionY::Relative((None, Some(lp))));
+                        }
+                        PositionOne::Horizontal(horizontal) => match horizontal {
+                            HorizontalOrXSide::XSide(xside) => x_pos.push(resolve_x_side(xside)),
+                            HorizontalOrXSide::Horizontal(h) => {
+                                x_pos.push(PositionX::Relative((Some(HorizontalOrXSide::Horizontal(h)), None)));
+                            }
+                        },
+                        PositionOne::Vertical(vertical) => match vertical {
+                            VerticalOrYSide::YSide(yside) => y_pos.push(resolve_y_side(yside)),
+                            VerticalOrYSide::Vertical(v) => {
+                                y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), None)));
+                            }
+                        },
+                        PositionOne::Center(center) => {
+                            x_pos.push(PositionX::Center(center, None));
+                            y_pos.push(PositionY::Center(center, None));
+                        }
+                        PositionOne::BlockAxis(block) => {
+                            let resolved = resolve_block_axis(block, writing_mode);
+                            y_pos.push(PositionY::Relative((Some(resolved), None)));
+                        }
+                        PositionOne::InlineAxis(inline) => {
+                            let resolved = resolve_inline_axis(inline, writing_mode);
+                            x_pos.push(PositionX::Relative((Some(resolved), None)));
                         }
                     },
-                    PositionOne::Vertical(vertical) => match vertical {
-                        VerticalOrYSide::YSide(yside) => y_pos.push(resolve_y_side(yside)),
-                        VerticalOrYSide::Vertical(v) => {
-                            y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), None)));
+                    BgPosition::Two(two) => match two {
+                        PositionTwo::Axis(x, y) => {
+                            x_pos.push(resolve_x_axis(x));
+                            y_pos.push(resolve_y_axis(y));
+                        }
+                        PositionTwo::Relative(x_rel, y_rel) => {
+                            match x_rel {
+                                RelativeAxis::Center(center) => x_pos.push(PositionX::Center(center, None)),
+                                RelativeAxis::Side(side) => x_pos.push(PositionX::Relative((
+                                    Some(resolve_horizontal_x_side(side, writing_mode)),
+                                    None,
+                                ))),
+                            }
+
+                            match y_rel {
+                                RelativeAxis::Center(center) => y_pos.push(PositionY::Center(center, None)),
+                                RelativeAxis::Side(side) => y_pos.push(PositionY::Relative((
+                                    Some(resolve_vertical_y_side(side, writing_mode)),
+                                    None,
+                                ))),
+                            }
+                        }
+                        PositionTwo::AxisOrPercentage(x_pct, y_pct) => {
+                            match x_pct {
+                                XAxisOrLengthPercentage::XAxis(x_axis) => x_pos.push(resolve_x_axis(x_axis)),
+                                XAxisOrLengthPercentage::LengthPercentage(lp) => {
+                                    x_pos.push(PositionX::Relative((None, Some(lp))));
+                                }
+                            }
+
+                            match y_pct {
+                                YAxisOrLengthPercentage::YAxis(y_axis) => y_pos.push(resolve_y_axis(y_axis)),
+                                YAxisOrLengthPercentage::LengthPercentage(lp) => {
+                                    y_pos.push(PositionY::Relative((None, Some(lp))));
+                                }
+                            }
+                        }
+                        PositionTwo::BlockInline(block, inline) => {
+                            let resolved_block = resolve_block_axis(block, writing_mode);
+                            let resolved_inline = resolve_inline_axis(inline, writing_mode);
+                            y_pos.push(PositionY::Relative((Some(resolved_block), None)));
+                            x_pos.push(PositionX::Relative((Some(resolved_inline), None)));
                         }
                     },
-                    PositionOne::Center(center) => {
-                        x_pos.push(PositionX::Center(center, None));
-                        y_pos.push(PositionY::Center(center, None));
-                    }
-                    PositionOne::BlockAxis(block) => {
-                        let resolved = resolve_block_axis(block, writing_mode);
-                        y_pos.push(PositionY::Relative((Some(resolved), None)));
-                    }
-                    PositionOne::InlineAxis(inline) => {
-                        let resolved = resolve_inline_axis(inline, writing_mode);
-                        x_pos.push(PositionX::Relative((Some(resolved), None)));
-                    }
-                },
-                BackgroundPosition::Two(two) => match two {
-                    PositionTwo::Axis(x, y) => {
-                        x_pos.push(resolve_x_axis(x));
-                        y_pos.push(resolve_y_axis(y));
-                    }
-                    PositionTwo::Relative(x_rel, y_rel) => {
-                        match x_rel {
-                            RelativeAxis::Center(center) => x_pos.push(PositionX::Center(center, None)),
-                            RelativeAxis::Side(side) => x_pos
-                                .push(PositionX::Relative((Some(resolve_horizontal_x_side(side, writing_mode)), None))),
-                        }
 
-                        match y_rel {
-                            RelativeAxis::Center(center) => y_pos.push(PositionY::Center(center, None)),
-                            RelativeAxis::Side(side) => y_pos
-                                .push(PositionY::Relative((Some(resolve_vertical_y_side(side, writing_mode)), None))),
-                        }
-                    }
-                    PositionTwo::AxisOrPercentage(x_pct, y_pct) => {
-                        match x_pct {
-                            XAxisOrLengthPercentage::XAxis(x_axis) => x_pos.push(resolve_x_axis(x_axis)),
-                            XAxisOrLengthPercentage::LengthPercentage(lp) => {
-                                x_pos.push(PositionX::Relative((None, Some(lp))));
-                            }
-                        }
-
-                        match y_pct {
-                            YAxisOrLengthPercentage::YAxis(y_axis) => y_pos.push(resolve_y_axis(y_axis)),
-                            YAxisOrLengthPercentage::LengthPercentage(lp) => {
-                                y_pos.push(PositionY::Relative((None, Some(lp))));
-                            }
-                        }
-                    }
-                    PositionTwo::BlockInline(block, inline) => {
-                        let resolved_block = resolve_block_axis(block, writing_mode);
-                        let resolved_inline = resolve_inline_axis(inline, writing_mode);
-                        y_pos.push(PositionY::Relative((Some(resolved_block), None)));
-                        x_pos.push(PositionX::Relative((Some(resolved_inline), None)));
-                    }
-                },
-
-                BackgroundPosition::Three(three) => {
-                    match three {
+                    BgPosition::Three(three) => match three {
                         PositionThree::RelativeHorizontal((horizontal, len_pct), rel_vertical_side) => {
                             let resolved_horizontal = resolve_horizontal_side(horizontal, writing_mode);
                             x_pos.push(PositionX::Relative((Some(resolved_horizontal), Some(len_pct))));
@@ -547,57 +546,62 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, stream
                                 )),
                             }
                         }
-                    }
+                    },
+
+                    BgPosition::Four(four) => match four {
+                        PositionFour::BlockInline((block, x_len_pct), (inline, y_len_pct)) => {
+                            let resolved_block = resolve_block_axis(block, writing_mode);
+                            let resolved_inline = resolve_inline_axis(inline, writing_mode);
+                            y_pos.push(PositionY::Relative((Some(resolved_block), Some(y_len_pct))));
+                            x_pos.push(PositionX::Relative((Some(resolved_inline), Some(x_len_pct))));
+                        }
+                        PositionFour::StartEnd((x_side, x_len_pct), (y_side, y_len_pct)) => {
+                            let resolved_x_side = resolve_horizontal_x_side(x_side, writing_mode);
+                            let resolved_y_side = resolve_vertical_y_side(y_side, writing_mode);
+                            x_pos.push(PositionX::Relative((Some(resolved_x_side), Some(x_len_pct))));
+                            y_pos.push(PositionY::Relative((Some(resolved_y_side), Some(y_len_pct))));
+                        }
+                        PositionFour::XYPercentage((horizontal_side, x_len_pct), (vertical_side, y_len_pct)) => {
+                            match horizontal_side {
+                                HorizontalOrXSide::Horizontal(h) => {
+                                    x_pos.push(PositionX::Relative((
+                                        Some(HorizontalOrXSide::Horizontal(h)),
+                                        Some(x_len_pct),
+                                    )));
+                                }
+                                HorizontalOrXSide::XSide(xside) => {
+                                    x_pos.push(PositionX::Relative((
+                                        Some(HorizontalOrXSide::XSide(xside)),
+                                        Some(x_len_pct),
+                                    )));
+                                }
+                            }
+
+                            match vertical_side {
+                                VerticalOrYSide::Vertical(v) => {
+                                    y_pos.push(PositionY::Relative((
+                                        Some(VerticalOrYSide::Vertical(v)),
+                                        Some(y_len_pct),
+                                    )));
+                                }
+                                VerticalOrYSide::YSide(yside) => {
+                                    y_pos.push(PositionY::Relative((
+                                        Some(VerticalOrYSide::YSide(yside)),
+                                        Some(y_len_pct),
+                                    )));
+                                }
+                            }
+                        }
+                    },
                 }
-
-                BackgroundPosition::Four(four) => match four {
-                    PositionFour::BlockInline((block, x_len_pct), (inline, y_len_pct)) => {
-                        let resolved_block = resolve_block_axis(block, writing_mode);
-                        let resolved_inline = resolve_inline_axis(inline, writing_mode);
-                        y_pos.push(PositionY::Relative((Some(resolved_block), Some(y_len_pct))));
-                        x_pos.push(PositionX::Relative((Some(resolved_inline), Some(x_len_pct))));
-                    }
-                    PositionFour::StartEnd((x_side, x_len_pct), (y_side, y_len_pct)) => {
-                        let resolved_x_side = resolve_horizontal_x_side(x_side, writing_mode);
-                        let resolved_y_side = resolve_vertical_y_side(y_side, writing_mode);
-                        x_pos.push(PositionX::Relative((Some(resolved_x_side), Some(x_len_pct))));
-                        y_pos.push(PositionY::Relative((Some(resolved_y_side), Some(y_len_pct))));
-                    }
-                    PositionFour::XYPercentage((horizontal_side, x_len_pct), (vertical_side, y_len_pct)) => {
-                        match horizontal_side {
-                            HorizontalOrXSide::Horizontal(h) => {
-                                x_pos.push(PositionX::Relative((
-                                    Some(HorizontalOrXSide::Horizontal(h)),
-                                    Some(x_len_pct),
-                                )));
-                            }
-                            HorizontalOrXSide::XSide(xside) => {
-                                x_pos.push(PositionX::Relative((
-                                    Some(HorizontalOrXSide::XSide(xside)),
-                                    Some(x_len_pct),
-                                )));
-                            }
-                        }
-
-                        match vertical_side {
-                            VerticalOrYSide::Vertical(v) => {
-                                y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), Some(y_len_pct))));
-                            }
-                            VerticalOrYSide::YSide(yside) => {
-                                y_pos.push(PositionY::Relative((Some(VerticalOrYSide::YSide(yside)), Some(y_len_pct))));
-                            }
-                        }
-                    }
-                },
             }
-        } else {
-            ctx.record_error(
+        }
+
+        Err(e) => {
+            ctx.record_error_from_stream(
                 "background-position",
-                value
-                    .iter()
-                    .map(|cv| cv.to_css_string())
-                    .collect::<String>(),
-                "Invalid value for background-position".to_string(),
+                stream,
+                format!("Invalid value for background-position: {}", e),
             );
         }
     }
