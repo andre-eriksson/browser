@@ -151,10 +151,10 @@ impl CSSParsable for Display {
                 },
                 _ => return Err(format!("Unexpected component value in display value: {:?}", cv)),
             }
+        }
 
-            if parts.len() == 3 {
-                break;
-            }
+        if parts.is_empty() || parts.len() > 3 {
+            return Err(format!("Invalid number of components in display value: expected 1-3, got {}", parts.len()));
         }
 
         // TODO: Optimize

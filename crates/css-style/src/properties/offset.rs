@@ -188,10 +188,10 @@ impl CSSParsable for Offset {
                 },
                 _ => return Err("Expected a valid offset value".to_string()),
             }
+        }
 
-            if offset_values.len() == 4 {
-                break;
-            }
+        if offset_values.is_empty() || offset_values.len() > 4 {
+            return Err(format!("Invalid number of Offset values: expected 1-4, got {}", offset_values.len()));
         }
 
         Offset::try_from(offset_values.as_slice())
