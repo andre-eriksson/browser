@@ -718,46 +718,113 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Co
 
 /// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
 pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    fn reset_border_color(ctx: &mut PropertyUpdateContext) {
+        ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_bottom_color = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+    }
+
+    fn reset_border_style(ctx: &mut PropertyUpdateContext) {
+        ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+    }
+
+    fn reset_border_width(ctx: &mut PropertyUpdateContext) {
+        ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_bottom_width = CSSProperty::Global(Global::Initial);
+        ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+    }
+
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        stream.skip_whitespace();
+        if stream.peek().is_none() {
+            ctx.specified_style.border_top_style = CSSProperty::Global(global);
+            ctx.specified_style.border_right_style = CSSProperty::Global(global);
+            ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+            ctx.specified_style.border_left_style = CSSProperty::Global(global);
+            ctx.specified_style.border_top_width = CSSProperty::Global(global);
+            ctx.specified_style.border_right_width = CSSProperty::Global(global);
+            ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+            ctx.specified_style.border_left_width = CSSProperty::Global(global);
+            ctx.specified_style.border_top_color = CSSProperty::Global(global);
+            ctx.specified_style.border_right_color = CSSProperty::Global(global);
+            ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+            ctx.specified_style.border_left_color = CSSProperty::Global(global);
+            return;
+        }
+    }
+
+    stream.restore(checkpoint);
+
     let mut style = None;
     let mut width = None;
     let mut color = None;
+    let mut parsed_any = false;
 
-    while let Some(cv) = stream.next_cv().cloned() {
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Ident(ident) => {
-                    if ident.eq_ignore_ascii_case("none") {
-                        break;
-                    } else if width.is_none()
-                        && let Ok(w) = BorderWidth::parse(stream)
-                    {
-                        width = Some(w);
-                    } else if let Ok(s) = ident.parse::<BorderStyle>() {
-                        style = Some(s);
-                    } else if let Ok(c) = Color::parse(stream) {
-                        color = Some(c);
-                    }
-                }
-                CssTokenKind::Number(num) => {
-                    if width.is_some() || num.to_f64() != 0.0 {
-                        continue;
-                    }
-
-                    width = Some(BorderWidth::Length(Length::zero()));
-                }
-                CssTokenKind::Dimension { value, unit } => {
-                    if width.is_some() {
-                        continue;
-                    }
-
-                    if let Ok(len_unit) = unit.parse::<LengthUnit>() {
-                        width = Some(BorderWidth::Length(Length::new(value.to_f64() as f32, len_unit)));
-                    }
-                }
-                _ => continue,
-            },
-            _ => continue,
+    while stream.peek().is_some() {
+        stream.skip_whitespace();
+        if stream.peek().is_none() {
+            break;
         }
+
+        if width.is_none() {
+            let cp = stream.checkpoint();
+            if let Ok(w) = BorderWidth::parse(stream) {
+                width = Some(w);
+                parsed_any = true;
+                continue;
+            }
+            stream.restore(cp);
+        }
+
+        if style.is_none()
+            && let Some(ComponentValue::Token(token)) = stream.peek()
+            && let CssTokenKind::Ident(ident) = &token.kind
+            && let Ok(s) = ident.parse::<BorderStyle>()
+        {
+            style = Some(s);
+            parsed_any = true;
+            stream.next_cv();
+            continue;
+        }
+
+        if color.is_none()
+            && let Some(cv) = stream.peek().cloned()
+        {
+            let mut one = ComponentValueStream::from(std::slice::from_ref(&cv));
+            if let Ok(c) = Color::parse(&mut one) {
+                color = Some(c);
+                parsed_any = true;
+                stream.next_cv();
+                continue;
+            }
+        }
+
+        stream.restore(checkpoint);
+        ctx.record_error_from_stream("border", stream, "Invalid value for border property".to_string());
+        return;
+    }
+
+    if !parsed_any {
+        stream.restore(checkpoint);
+        ctx.record_error_from_stream("border", stream, "Invalid value for border property".to_string());
+        return;
+    }
+
+    match color {
+        Some(c) => {
+            ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
+            ctx.specified_style.border_right_color = CSSProperty::Value(c.clone());
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(c.clone());
+            ctx.specified_style.border_left_color = CSSProperty::Value(c);
+        }
+        None => reset_border_color(ctx),
     }
 
     match style {
@@ -767,12 +834,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut Compon
             ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
             ctx.specified_style.border_left_style = CSSProperty::Value(s);
         }
-        None => {
-            ctx.specified_style.border_top_style = CSSProperty::Value(BorderStyle::default());
-            ctx.specified_style.border_right_style = CSSProperty::Value(BorderStyle::default());
-            ctx.specified_style.border_bottom_style = CSSProperty::Value(BorderStyle::default());
-            ctx.specified_style.border_left_style = CSSProperty::Value(BorderStyle::default());
-        }
+        None => reset_border_style(ctx),
     }
 
     match width {
@@ -782,27 +844,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut Compon
             ctx.specified_style.border_bottom_width = CSSProperty::Value(w.clone());
             ctx.specified_style.border_left_width = CSSProperty::Value(w);
         }
-        None => {
-            ctx.specified_style.border_top_width = CSSProperty::Value(BorderWidth::default());
-            ctx.specified_style.border_right_width = CSSProperty::Value(BorderWidth::default());
-            ctx.specified_style.border_bottom_width = CSSProperty::Value(BorderWidth::default());
-            ctx.specified_style.border_left_width = CSSProperty::Value(BorderWidth::default());
-        }
-    }
-
-    match color {
-        Some(c) => {
-            ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
-            ctx.specified_style.border_right_color = CSSProperty::Value(c.clone());
-            ctx.specified_style.border_bottom_color = CSSProperty::Value(c.clone());
-            ctx.specified_style.border_left_color = CSSProperty::Value(c.clone());
-        }
-        None => {
-            ctx.specified_style.border_top_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-            ctx.specified_style.border_right_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-            ctx.specified_style.border_bottom_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-            ctx.specified_style.border_left_color = CSSProperty::Value(Color::from(ctx.relative_ctx.parent.color));
-        }
+        None => reset_border_width(ctx),
     }
 }
 
@@ -848,5 +890,95 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut C
 
     if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, stream) {
         ctx.record_error_from_stream("font-weight", stream, e);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use css_cssom::CSSStyleSheet;
+
+    #[test]
+    fn test_border_extra_tokens() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle {
+            border_top_style: CSSProperty::Value(BorderStyle::Solid),
+            border_right_style: CSSProperty::Value(BorderStyle::Solid),
+            border_bottom_style: CSSProperty::Value(BorderStyle::Solid),
+            border_left_style: CSSProperty::Value(BorderStyle::Solid),
+            ..Default::default()
+        };
+
+        let before = specified.clone();
+
+        let decls = CSSStyleSheet::from_inline("border: red 1px solid somethingelse;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_border(&mut ctx, &mut stream);
+
+        assert_eq!(ctx.errors.len(), 1);
+        assert_eq!(specified, before);
+    }
+
+    #[test]
+    fn test_border_any_order() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("border: red 1px solid;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_border(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+
+        assert_eq!(specified.border_top_style, CSSProperty::Value(BorderStyle::Solid));
+        assert_eq!(specified.border_top_width, CSSProperty::Value(BorderWidth::px(1.0)));
+    }
+
+    #[test]
+    fn test_border_some_missing() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("border: solid;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_border(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+
+        assert_eq!(specified.border_top_style, CSSProperty::Value(BorderStyle::Solid));
+        assert_eq!(specified.border_top_width, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.border_top_color, CSSProperty::Global(Global::Initial));
+    }
+
+    #[test]
+    fn test_border_global_keyword() {
+        let abs = AbsoluteContext::default();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let before = specified.clone();
+
+        let decls = CSSStyleSheet::from_inline("border: inherit solid;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_border(&mut ctx, &mut stream);
+
+        assert_eq!(ctx.errors.len(), 1);
+        assert_eq!(specified, before);
     }
 }
