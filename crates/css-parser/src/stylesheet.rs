@@ -1,4 +1,4 @@
-use css_tokenizer::{CssToken, CssTokenKind};
+use css_tokenizer::CssToken;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -129,14 +129,17 @@ impl ComponentValueStream<'_> {
         }
     }
 
+    /// Get the underlying slice of component values
     pub fn values(&self) -> &[ComponentValue] {
         self.values
     }
 
+    /// Peek at the next component value without consuming it
     pub fn peek(&self) -> Option<&ComponentValue> {
         self.values.get(self.position)
     }
 
+    /// Consume and return the next component value
     pub fn next_cv(&mut self) -> Option<&ComponentValue> {
         let value = self.values.get(self.position);
         if value.is_some() {
@@ -145,10 +148,12 @@ impl ComponentValueStream<'_> {
         value
     }
 
+    /// Create a checkpoint of the current position in the stream
     pub fn checkpoint(&self) -> usize {
         self.position
     }
 
+    /// Restore the stream to a previously created checkpoint
     pub fn restore(&mut self, checkpoint: usize) {
         self.position = checkpoint;
     }
@@ -158,6 +163,7 @@ impl ComponentValueStream<'_> {
         &self.values[self.position..]
     }
 
+    /// Skip over any whitespace tokens in the stream
     pub fn skip_whitespace(&mut self) {
         while let Some(value) = self.peek() {
             if value.is_whitespace() {
@@ -165,25 +171,6 @@ impl ComponentValueStream<'_> {
             } else {
                 break;
             }
-        }
-    }
-
-    pub fn peek_non_whitespace(&mut self) -> Option<&ComponentValue> {
-        self.values[self.position..]
-            .iter()
-            .find(|v| !v.is_whitespace())
-    }
-
-    pub fn eat_comma(&mut self) -> bool {
-        let checkpoint = self.checkpoint();
-        self.skip_whitespace();
-
-        if matches!(self.peek(), Some(ComponentValue::Token(t)) if matches!(t.kind, CssTokenKind::Comma)) {
-            self.next_cv();
-            true
-        } else {
-            self.restore(checkpoint);
-            false
         }
     }
 }
