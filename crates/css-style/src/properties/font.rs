@@ -167,7 +167,7 @@ impl CSSParsable for FontFamily {
 
         if names.is_empty() {
             if full.is_empty() {
-                stream.restore(checkpoint); // TODO: ?
+                stream.restore(checkpoint);
                 return Err("No valid font family names found".to_string());
             }
         } else {
@@ -285,6 +285,37 @@ mod tests {
         })];
         let font_weight = FontWeight::parse(&mut input.as_slice().into()).unwrap();
         assert_eq!(font_weight, FontWeight::Bold);
+    }
+
+    #[test]
+    fn test_font_family_ident_parse() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("Times".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("New".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("Roman".to_string()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("serif".to_string()),
+                position: None,
+            }),
+        ];
+
+        let font_family = FontFamily::parse(&mut input.as_slice().into()).unwrap();
+        assert_eq!(font_family.names.len(), 2);
+        assert_eq!(font_family.names[0], FontFamilyName::Specific("Times New Roman".into()));
+        assert_eq!(font_family.names[1], FontFamilyName::Generic(GenericName::Serif));
     }
 
     #[test]
