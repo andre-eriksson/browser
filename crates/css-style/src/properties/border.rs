@@ -66,7 +66,7 @@ impl CSSParsable for BorderWidth {
             Err("Unexpected end of input while parsing border width".to_string())
         }?;
 
-        stream.next_cv(); // Consume the parsed value
+        stream.next_cv();
         Ok(width)
     }
 }

@@ -101,7 +101,7 @@ impl CSSParsable for Gradient {
             && let ComponentValue::Function(func) = cv
         {
             let result = Self::parse_function(func)?;
-            stream.next_cv(); // consume the function
+            stream.next_cv();
             return Ok(result);
         }
 

@@ -266,7 +266,7 @@ impl CSSParsable for FontSize {
             Err("No font size value found".to_string())
         }?;
 
-        stream.next_cv(); // Consume the parsed value
+        stream.next_cv();
         Ok(font_size)
     }
 }

@@ -194,7 +194,6 @@ impl CSSParsable for RadialGradientSyntax {
     /// 3. Check the next segment for `in <color-interpolation-method>`.
     /// 4. The remaining segments form the `<color-stop-list>`.
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
-        // Collect remaining stream into a slice for comma-based splitting.
         Self::try_parse(stream.remaining())
     }
 

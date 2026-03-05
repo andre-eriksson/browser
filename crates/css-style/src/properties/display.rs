@@ -157,8 +157,6 @@ impl CSSParsable for Display {
             return Err(format!("Invalid number of components in display value: expected 1-3, got {}", parts.len()));
         }
 
-        // TODO: Optimize
-
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         match parts.as_slice() {
             ["inline"] => Ok(Display {
