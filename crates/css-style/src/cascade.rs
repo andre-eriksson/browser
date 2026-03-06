@@ -1,14 +1,17 @@
 use std::collections::HashMap;
 
 use css_cssom::{
-    CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, CssTokenKind, HashType, Property,
-    StylesheetOrigin,
+    CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
+    CssTokenKind, HashType, Property, StylesheetOrigin,
 };
 use css_selectors::{
     ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list,
     matches_compound,
 };
 use html_dom::{DocumentRoot, DomNode, Element};
+use preferences::ThemeCategory;
+
+use crate::AbsoluteContext;
 
 /// The key extracted from a rule's rightmost (subject) compound selector,
 /// used for fast pre-filtering of rules that cannot possibly match an element.
@@ -156,7 +159,9 @@ pub struct GeneratedRule<'css> {
 }
 
 impl<'css> GeneratedRule<'css> {
-    pub fn build(stylesheets: &'css [CSSStyleSheet]) -> Vec<GeneratedRule<'css>> {
+    /// Build a list of generated rules from the provided stylesheets, filtering out any rules that are not
+    /// applicable based on the absolute context (e.g. media queries that don't match the current environment).
+    pub fn build(stylesheets: &'css [CSSStyleSheet], absolute_ctx: &AbsoluteContext) -> Vec<GeneratedRule<'css>> {
         let mut generated_rules = Vec::new();
 
         for stylesheet in stylesheets {
@@ -166,22 +171,21 @@ impl<'css> GeneratedRule<'css> {
                         Self::push_rule(&mut generated_rules, stylesheet, style);
                     }
                     CSSRule::AtRule(at_rule) => {
-                        if at_rule.name() == "import"
-                            || at_rule.name() == "supports"
-                            || at_rule.name() == "scope"
-                            || at_rule.name() == "font-face"
-                            || at_rule.name() == "keyframes"
-                        {
-                            continue;
-                        }
-
-                        if at_rule.prelude() == "print" {
+                        if !Self::allows_at_rule(at_rule, absolute_ctx) {
                             continue;
                         }
 
                         for rule in &at_rule.rules {
-                            if let Some(style_rule) = rule.as_style_rule() {
-                                Self::push_rule(&mut generated_rules, stylesheet, style_rule);
+                            match rule {
+                                CSSRule::Style(style) => Self::push_rule(&mut generated_rules, stylesheet, style),
+                                CSSRule::AtRule(nested_at_rule) => {
+                                    Self::handle_nested_at_rule(
+                                        &mut generated_rules,
+                                        stylesheet,
+                                        nested_at_rule,
+                                        absolute_ctx,
+                                    );
+                                }
                             }
                         }
                     }
@@ -192,6 +196,76 @@ impl<'css> GeneratedRule<'css> {
         generated_rules
     }
 
+    /// Recursively handle nested at-rules, filtering out any that are not applicable based on the absolute context.
+    fn handle_nested_at_rule(
+        generated_rules: &mut Vec<GeneratedRule<'css>>,
+        stylesheet: &CSSStyleSheet,
+        at_rule: &'css CSSAtRule,
+        absolute_ctx: &AbsoluteContext,
+    ) {
+        if !at_rule.can_be_nested() || !Self::allows_at_rule(at_rule, absolute_ctx) {
+            return;
+        }
+
+        for rule in &at_rule.rules {
+            match rule {
+                CSSRule::Style(style) => Self::push_rule(generated_rules, stylesheet, style),
+                CSSRule::AtRule(nested_at_rule) => {
+                    Self::handle_nested_at_rule(generated_rules, stylesheet, nested_at_rule, absolute_ctx)
+                }
+            }
+        }
+    }
+
+    /// Check if an at-rule is allowed based on the absolute context (e.g. media queries that don't match the current environment should be disallowed).
+    fn allows_at_rule(at_rule: &CSSAtRule, absolute_ctx: &AbsoluteContext) -> bool {
+        if at_rule.name().eq_ignore_ascii_case("import")
+            || at_rule.name().eq_ignore_ascii_case("supports")
+            || at_rule.name().eq_ignore_ascii_case("scope")
+            || at_rule.name().eq_ignore_ascii_case("font-face")
+            || at_rule.name().eq_ignore_ascii_case("keyframes")
+        {
+            // TODO: Handle these at-rules properly
+            //       (e.g. @import should be processed as if its rules were inlined here,
+            //       @supports should conditionally include rules based on support, etc.)
+            return false;
+        }
+
+        if at_rule.name().eq_ignore_ascii_case("media") {
+            let mut stream = ComponentValueStream::new(at_rule.prelude_values());
+
+            if let Some(ComponentValue::SimpleBlock(block)) = stream.next_non_whitespace() {
+                let mut block_stream = ComponentValueStream::new(&block.value);
+
+                if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace()
+                    && let CssTokenKind::Ident(ident) = &token.kind
+                {
+                    if ident.eq_ignore_ascii_case("print") {
+                        return false;
+                    } else if ident.eq_ignore_ascii_case("prefers-color-scheme") {
+                        block_stream.skip_whitespace();
+                        block_stream.next_cv(); // Skip ':'
+                        if let Some(ComponentValue::Token(value_token)) = block_stream.next_non_whitespace()
+                            && let CssTokenKind::Ident(value_ident) = &value_token.kind
+                        {
+                            return match absolute_ctx.theme_category {
+                                ThemeCategory::Dark => value_ident.eq_ignore_ascii_case("dark"),
+                                ThemeCategory::Light => value_ident.eq_ignore_ascii_case("light"),
+                            };
+                        }
+                    }
+                }
+            }
+        } else if at_rule.name().eq_ignore_ascii_case("layer") {
+            // TODO: Handle @layer properly by respecting layer order and allowing layers to be enabled/disabled via media queries or other conditions.
+            //       For now, we will simply ignore all rules inside @layer blocks to avoid complications with layer ordering and conditional enabling.
+            return true;
+        }
+
+        false
+    }
+
+    /// Push a style rule into the generated rules list, extracting its selector sequences, declarations, origin, and specificity for cascade resolution.
     fn push_rule(
         generated_rules: &mut Vec<GeneratedRule<'css>>,
         stylesheet: &CSSStyleSheet,

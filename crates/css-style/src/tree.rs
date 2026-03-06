@@ -51,7 +51,7 @@ impl StyleTree {
     /// Builds the style tree from the given absolute context, DOM tree, and stylesheets. This function computes the styles for each node in the
     /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
     pub fn build(absolute_ctx: &AbsoluteContext, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
-        let rules = GeneratedRule::build(stylesheets);
+        let rules = GeneratedRule::build(stylesheets, absolute_ctx);
         let rule_index = RuleIndex::build(&rules);
         let mut relative_ctx = RelativeContext::default();
 
