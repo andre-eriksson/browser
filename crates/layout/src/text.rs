@@ -49,7 +49,8 @@ impl TextContext {
         text_description: &TextDescription,
         max_width: f32,
     ) -> (Text, Option<&'a str>) {
-        let line_height_px = text_description.line_height;
+        // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
+        let line_height_px = text_description.line_height.max(1.0);
 
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let family = Self::resolve_font_family(text_description.font_family);
@@ -104,7 +105,8 @@ impl TextContext {
         available_width: f32,
         wrap_mode: Wrap,
     ) -> Text {
-        let line_height_px = text_description.line_height;
+        // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
+        let line_height_px = text_description.line_height.max(1.0);
 
         let metrics = Metrics::new(text_description.font_size_px, line_height_px);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
