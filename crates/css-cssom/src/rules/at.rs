@@ -82,72 +82,59 @@ impl CSSAtRule {
     /// Parse block as nested rules
     fn parse_nested_rules(&mut self, block: &SimpleBlock, collect_positions: bool) {
         let mut current_prelude: Vec<ComponentValue> = Vec::new();
-        let mut in_block = false;
         let mut block_depth = 0;
-        let mut current_block_value: Vec<ComponentValue> = Vec::new();
+        let mut is_nested_at_rule = String::new();
 
         for cv in &block.value {
-            if in_block {
+            if block_depth > 0 {
                 match cv {
-                    ComponentValue::Token(token) => {
-                        match token.kind {
-                            CssTokenKind::OpenCurly => {
-                                block_depth += 1;
-                                current_block_value.push(cv.clone());
-                            }
-                            CssTokenKind::CloseCurly => {
-                                if block_depth > 0 {
-                                    block_depth -= 1;
-                                    current_block_value.push(cv.clone());
-                                } else {
-                                    // End of this rule's block
-                                    let qr = QualifiedRule {
-                                        prelude: current_prelude.clone(),
-                                        block: SimpleBlock {
-                                            associated_token: AssociatedToken::CurlyBracket,
-                                            value: current_block_value.clone(),
-                                        },
-                                    };
-                                    if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
-                                        self.rules.push(CSSRule::Style(style_rule));
-                                    }
-                                    current_prelude.clear();
-                                    current_block_value.clear();
-                                    in_block = false;
-                                }
-                            }
-                            _ => {
-                                current_block_value.push(cv.clone());
+                    ComponentValue::Token(token) => match token.kind {
+                        CssTokenKind::OpenCurly => block_depth += 1,
+                        CssTokenKind::CloseCurly => {
+                            if block_depth > 0 {
+                                block_depth -= 1;
                             }
                         }
-                    }
+                        _ => continue,
+                    },
                     ComponentValue::SimpleBlock(sb) if sb.associated_token == AssociatedToken::CurlyBracket => {
-                        current_block_value.push(cv.clone());
                         block_depth += 1;
                     }
-                    _ => {
-                        current_block_value.push(cv.clone());
-                    }
+                    _ => continue,
                 }
             } else {
                 match cv {
-                    ComponentValue::Token(token) => match token.kind {
-                        CssTokenKind::OpenCurly => {
-                            in_block = true;
-                        }
+                    ComponentValue::Token(token) => match &token.kind {
+                        CssTokenKind::OpenCurly => block_depth += 1,
                         CssTokenKind::Whitespace if current_prelude.is_empty() => {}
+                        CssTokenKind::AtKeyword(name) => {
+                            current_prelude.push(cv.clone());
+                            is_nested_at_rule = name.clone();
+                        }
                         _ => {
                             current_prelude.push(cv.clone());
                         }
                     },
                     ComponentValue::SimpleBlock(sb) if sb.associated_token == AssociatedToken::CurlyBracket => {
-                        let qr = QualifiedRule {
-                            prelude: current_prelude.clone(),
-                            block: sb.clone(),
-                        };
-                        if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
-                            self.rules.push(CSSRule::Style(style_rule));
+                        if !is_nested_at_rule.is_empty() {
+                            let nested_at_rule = AtRule {
+                                name: is_nested_at_rule.clone(),
+                                prelude: current_prelude[1..].to_vec(), // Skip the @token
+                                block: Some(sb.clone()),
+                            };
+                            let css_at_rule = CSSAtRule::from_parsed(nested_at_rule, collect_positions);
+                            self.rules.push(CSSRule::AtRule(css_at_rule));
+                            is_nested_at_rule.clear();
+                        } else {
+                            let qr = QualifiedRule {
+                                prelude: current_prelude.clone(),
+                                block: sb.clone(),
+                            };
+                            if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
+                                self.rules.push(CSSRule::Style(style_rule));
+                            }
                         }
+
                         current_prelude.clear();
                     }
                     _ => {
@@ -220,6 +207,11 @@ impl CSSAtRule {
     /// Get the at-rule name
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Get the prelude values
+    pub fn prelude_values(&self) -> &[ComponentValue] {
+        &self.prelude_values
     }
 
     /// Get the prelude text
