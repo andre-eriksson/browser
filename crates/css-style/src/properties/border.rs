@@ -29,6 +29,15 @@ impl Default for BorderWidth {
     }
 }
 
+impl TryFrom<&ComponentValue> for BorderWidth {
+    type Error = String;
+
+    fn try_from(value: &ComponentValue) -> Result<Self, Self::Error> {
+        let mut stream = ComponentValueStream::new(std::slice::from_ref(value));
+        Self::parse(&mut stream)
+    }
+}
+
 impl CSSParsable for BorderWidth {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
         stream.skip_whitespace();

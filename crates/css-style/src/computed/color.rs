@@ -110,7 +110,6 @@ impl Color4f {
             Color::Current => Self::resolve_current_color(text_color, absolute_ctx).unwrap_or(initial),
             _ => initial,
         };
-
         let resolved_color = color.resolve_with_context(parent.as_ref(), initial);
 
         Self::from_css_color(resolved_color, text_color, relative_ctx, absolute_ctx)

@@ -45,6 +45,15 @@ impl From<Color4f> for Color {
     }
 }
 
+impl TryFrom<&ComponentValue> for Color {
+    type Error = String;
+
+    fn try_from(value: &ComponentValue) -> Result<Self, Self::Error> {
+        let mut stream = ComponentValueStream::new(std::slice::from_ref(value));
+        Self::parse(&mut stream)
+    }
+}
+
 impl CSSParsable for Color {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
         stream.skip_whitespace();

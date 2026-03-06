@@ -848,6 +848,171 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut Compon
     }
 }
 
+/// Handles the `border-color` shorthand property by parsing the provided component values and updating the corresponding border color properties in the specified style.
+/// The function supports both global values and individual color values for each side of the border.
+pub(crate) fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    stream.skip_whitespace();
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.border_top_color = CSSProperty::Global(global);
+        ctx.specified_style.border_right_color = CSSProperty::Global(global);
+        ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+        ctx.specified_style.border_left_color = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+    let mut colors = Vec::new();
+
+    while let Some(cv) = stream.next_non_whitespace() {
+        if let Ok(c) = Color::try_from(cv) {
+            colors.push(c);
+        }
+    }
+
+    match colors.len() {
+        1 => {
+            ctx.specified_style.border_top_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_right_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_left_color = CSSProperty::Value(colors[0].clone());
+        }
+        2 => {
+            ctx.specified_style.border_top_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_right_color = CSSProperty::Value(colors[1].clone());
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_left_color = CSSProperty::Value(colors[1].clone());
+        }
+        3 => {
+            ctx.specified_style.border_top_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_right_color = CSSProperty::Value(colors[1].clone());
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(colors[2].clone());
+            ctx.specified_style.border_left_color = CSSProperty::Value(colors[1].clone());
+        }
+        4 => {
+            ctx.specified_style.border_top_color = CSSProperty::Value(colors[0].clone());
+            ctx.specified_style.border_right_color = CSSProperty::Value(colors[1].clone());
+            ctx.specified_style.border_bottom_color = CSSProperty::Value(colors[2].clone());
+            ctx.specified_style.border_left_color = CSSProperty::Value(colors[3].clone());
+        }
+        _ => {
+            ctx.record_error_from_stream("border-color", stream, "Invalid number of color values".to_string());
+        }
+    }
+}
+
+/// Handles the `border-style` shorthand property by parsing the provided component values and updating the corresponding border style properties in the specified style.
+/// The function supports both global values and individual style values for each side of the border.
+pub(crate) fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    stream.skip_whitespace();
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.border_top_style = CSSProperty::Global(global);
+        ctx.specified_style.border_right_style = CSSProperty::Global(global);
+        ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+        ctx.specified_style.border_left_style = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+    let mut styles = Vec::new();
+
+    while let Some(cv) = stream.next_non_whitespace() {
+        if let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+            && let Ok(s) = ident.parse::<BorderStyle>()
+        {
+            styles.push(s);
+        }
+    }
+
+    match styles.len() {
+        1 => {
+            ctx.specified_style.border_top_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_right_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_left_style = CSSProperty::Value(styles[0]);
+        }
+        2 => {
+            ctx.specified_style.border_top_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_right_style = CSSProperty::Value(styles[1]);
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_left_style = CSSProperty::Value(styles[1]);
+        }
+        3 => {
+            ctx.specified_style.border_top_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_right_style = CSSProperty::Value(styles[1]);
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(styles[2]);
+            ctx.specified_style.border_left_style = CSSProperty::Value(styles[1]);
+        }
+        4 => {
+            ctx.specified_style.border_top_style = CSSProperty::Value(styles[0]);
+            ctx.specified_style.border_right_style = CSSProperty::Value(styles[1]);
+            ctx.specified_style.border_bottom_style = CSSProperty::Value(styles[2]);
+            ctx.specified_style.border_left_style = CSSProperty::Value(styles[3]);
+        }
+        _ => {
+            ctx.record_error_from_stream("border-style", stream, "Invalid number of style values".to_string());
+        }
+    }
+}
+
+/// Handles the `border-width` shorthand property by parsing the provided component values and updating the corresponding border width properties in the specified style.
+/// The function supports both global values and individual width values for each side of the border.
+pub(crate) fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    stream.skip_whitespace();
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.border_top_width = CSSProperty::Global(global);
+        ctx.specified_style.border_right_width = CSSProperty::Global(global);
+        ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+        ctx.specified_style.border_left_width = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+    let mut widths = Vec::new();
+
+    while let Some(cv) = stream.next_non_whitespace() {
+        if let Ok(w) = BorderWidth::try_from(cv) {
+            widths.push(w);
+        }
+    }
+
+    match widths.len() {
+        1 => {
+            ctx.specified_style.border_top_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_right_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_left_width = CSSProperty::Value(widths[0].clone());
+        }
+        2 => {
+            ctx.specified_style.border_top_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_right_width = CSSProperty::Value(widths[1].clone());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_left_width = CSSProperty::Value(widths[1].clone());
+        }
+        3 => {
+            ctx.specified_style.border_top_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_right_width = CSSProperty::Value(widths[1].clone());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(widths[2].clone());
+            ctx.specified_style.border_left_width = CSSProperty::Value(widths[1].clone());
+        }
+        4 => {
+            ctx.specified_style.border_top_width = CSSProperty::Value(widths[0].clone());
+            ctx.specified_style.border_right_width = CSSProperty::Value(widths[1].clone());
+            ctx.specified_style.border_bottom_width = CSSProperty::Value(widths[2].clone());
+            ctx.specified_style.border_left_width = CSSProperty::Value(widths[3].clone());
+        }
+        _ => {
+            ctx.record_error_from_stream("border-width", stream, "Invalid number of width values".to_string());
+        }
+    }
+}
+
 /// Handles the `font-size` property by updating the specified style's font size based on the provided component values. The function first attempts to update the font size
 /// using the `CSSProperty::update_property` method.
 pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
