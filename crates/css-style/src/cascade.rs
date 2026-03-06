@@ -502,6 +502,7 @@ pub fn cascade<'decl>(
         }
     }
 
+    cascaded_styles.reverse();
     cascaded_styles
 }
 
