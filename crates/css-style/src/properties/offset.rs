@@ -6,7 +6,7 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
-    functions::calculate::{CalcExpression, is_math_function},
+    functions::math::{MathExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, CSSParsable, RelativeContext, RelativeType},
@@ -19,7 +19,7 @@ use crate::{
 pub enum OffsetValue {
     Percentage(Percentage),
     Length(Length),
-    Calc(CalcExpression),
+    Math(MathExpression),
     Auto,
 }
 
@@ -55,7 +55,7 @@ impl OffsetValue {
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
                 None => 0.0,
             },
-            OffsetValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            OffsetValue::Math(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             OffsetValue::Auto => 0.0,
         }
     }
@@ -68,7 +68,7 @@ impl CSSParsable for OffsetValue {
         if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
+                    Ok(Self::Math(MathExpression::parse_math_function(&func.name, &func.value)?))
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -166,7 +166,7 @@ impl CSSParsable for Offset {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     offset_values
-                        .push(OffsetValue::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?));
+                        .push(OffsetValue::Math(MathExpression::parse_math_function(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {

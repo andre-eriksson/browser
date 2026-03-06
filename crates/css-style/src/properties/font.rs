@@ -6,7 +6,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     ComputedStyle, RelativeType,
-    functions::calculate::{CalcExpression, is_math_function},
+    functions::math::{MathExpression, is_math_function},
     length::LengthUnit,
     primitives::{
         font::{AbsoluteSize, GenericName, RelativeSize},
@@ -193,7 +193,7 @@ pub enum FontSize {
     Relative(RelativeSize),
     Length(Length),
     Percentage(Percentage),
-    Calc(CalcExpression),
+    Math(MathExpression),
 }
 
 impl Default for FontSize {
@@ -223,7 +223,7 @@ impl FontSize {
             FontSize::Length(len) => len.to_px(&rel_ctx, abs_ctx),
             FontSize::Percentage(pct) => pct.as_fraction() * rel_ctx.parent.font_size,
             FontSize::Relative(rel) => rel.to_px(rel_ctx.parent.font_size),
-            FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
+            FontSize::Math(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
     }
 }
@@ -236,7 +236,7 @@ impl CSSParsable for FontSize {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                        Ok(Self::Math(MathExpression::parse_math_function(&func.name, func.value.as_slice())?))
                     } else {
                         Err(format!("Invalid function for font size: {}", func.name))
                     }

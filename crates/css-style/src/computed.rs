@@ -316,7 +316,7 @@ impl ComputedStyle {
             intrinsic_height: match &CSSProperty::resolve(&specified_style.height) {
                 Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
                 Ok(Dimension::Percentage(p)) => relative_ctx.parent.intrinsic_height * p.as_fraction(),
-                Ok(Dimension::Calc(calc)) => calc.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
+                Ok(Dimension::Math(calc)) => calc.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
                 _ => 0.0,
             },
             height: ComputedDimension::from(
@@ -358,7 +358,7 @@ impl ComputedStyle {
             intrinsic_width: match &CSSProperty::resolve(&specified_style.width) {
                 Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
                 Ok(Dimension::Percentage(p)) => relative_ctx.parent.intrinsic_width * p.as_fraction(),
-                Ok(Dimension::Calc(calc)) => calc.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+                Ok(Dimension::Math(calc)) => calc.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
                 _ => 0.0,
             },
             width: ComputedDimension::from(

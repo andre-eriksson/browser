@@ -5,7 +5,7 @@ use strum::EnumString;
 
 use crate::{
     ComputedStyle, RelativeType,
-    functions::calculate::{CalcExpression, is_math_function},
+    functions::math::{MathExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, CSSParsable, RelativeContext},
@@ -170,7 +170,7 @@ pub enum LineHeight {
     Number(f32),
     Length(Length),
     Percentage(Percentage),
-    Calc(CalcExpression),
+    Math(MathExpression),
 }
 
 impl LineHeight {
@@ -193,7 +193,7 @@ impl LineHeight {
             LineHeight::Number(num) => font_size_px * num,
             LineHeight::Length(len) => len.to_px(&rel_ctx, abs_ctx),
             LineHeight::Percentage(pct) => pct.as_fraction() * font_size_px,
-            LineHeight::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
+            LineHeight::Math(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
         }
     }
 }
@@ -205,7 +205,7 @@ impl CSSParsable for LineHeight {
         if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    Ok(LineHeight::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                    Ok(LineHeight::Math(MathExpression::parse_math_function(&func.name, func.value.as_slice())?))
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => Ok(LineHeight::Normal),

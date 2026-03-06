@@ -3,7 +3,7 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
-    functions::calculate::{CalcExpression, is_math_function},
+    functions::math::{MathExpression, is_math_function},
     length::LengthUnit,
     primitives::{length::Length, percentage::Percentage},
     properties::{AbsoluteContext, CSSParsable, RelativeContext, RelativeType},
@@ -17,7 +17,7 @@ use crate::{
 pub enum Dimension {
     Percentage(Percentage),
     Length(Length),
-    Calc(CalcExpression),
+    Math(MathExpression),
     #[default]
     Auto,
     MaxContent,
@@ -41,7 +41,7 @@ impl Dimension {
             Dimension::FitContent(_) => 0.0,
             Dimension::Stretch => 0.0,
             Dimension::Auto => 0.0,
-            Dimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
+            Dimension::Math(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
             Dimension::Percentage(p) => match rel_type {
                 RelativeType::FontSize => rel_ctx.parent.font_size * p.as_fraction(),
                 RelativeType::ParentHeight => rel_ctx.parent.intrinsic_height * p.as_fraction(),
@@ -62,7 +62,7 @@ impl CSSParsable for Dimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
+                        Ok(Self::Math(MathExpression::parse_math_function(&func.name, &func.value)?))
                     } else {
                         Err(format!("Unexpected function for Dimension value: {}", func.name))
                     }
@@ -109,7 +109,7 @@ impl CSSParsable for Dimension {
 pub enum MaxDimension {
     Length(Length),
     Percentage(Percentage),
-    Calc(CalcExpression),
+    Math(MathExpression),
     #[default]
     None,
     MaxContent,
@@ -127,7 +127,7 @@ impl MaxDimension {
             MaxDimension::FitContent(_) => 0.0,
             MaxDimension::Stretch => 0.0,
             MaxDimension::None => f32::INFINITY,
-            MaxDimension::Calc(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
+            MaxDimension::Math(calc) => calc.to_px(Some(rel_type), rel_ctx, abs_ctx),
             MaxDimension::Percentage(p) => match rel_type {
                 RelativeType::FontSize => rel_ctx.parent.font_size * p.as_fraction(),
                 RelativeType::ParentHeight => rel_ctx.parent.intrinsic_height * p.as_fraction(),
@@ -148,7 +148,7 @@ impl CSSParsable for MaxDimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(MaxDimension::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                        Ok(MaxDimension::Math(MathExpression::parse_math_function(&func.name, func.value.as_slice())?))
                     } else {
                         Err(format!("Unexpected function for MaxDimension value: {}", func.name))
                     }
@@ -287,7 +287,7 @@ mod tests {
             ],
         })];
         let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
-        assert!(matches!(dim, Dimension::Calc(_)));
+        assert!(matches!(dim, Dimension::Math(_)));
     }
 
     #[test]

@@ -5,7 +5,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
 use crate::{
-    functions::calculate::{CalcExpression, is_math_function},
+    functions::math::{MathExpression, is_math_function},
     length::LengthUnit,
     primitives::length::Length,
     properties::{AbsoluteContext, CSSParsable, RelativeContext},
@@ -17,7 +17,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum BorderWidth {
     Length(Length),
-    Calc(CalcExpression),
+    Math(MathExpression),
     Thin,
     Medium,
     Thick,
@@ -57,8 +57,8 @@ impl CSSParsable for BorderWidth {
                     _ => Err("Expected a valid border width value".to_string()),
                 },
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    Ok(Self::Calc(calc_expr))
+                    let calc_expr = MathExpression::parse_math_function(&func.name, &func.value)?;
+                    Ok(Self::Math(calc_expr))
                 }
                 _ => Err("Expected a valid border width value".to_string()),
             }
@@ -86,7 +86,7 @@ impl BorderWidth {
     pub(crate) fn to_px(&self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
             BorderWidth::Length(len) => len.to_px(rel_ctx, abs_ctx),
-            BorderWidth::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
+            BorderWidth::Math(calc) => calc.to_px(None, rel_ctx, abs_ctx),
             BorderWidth::Thin => 1.0,
             BorderWidth::Medium => 3.0,
             BorderWidth::Thick => 5.0,
