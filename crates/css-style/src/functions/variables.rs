@@ -2,16 +2,19 @@ use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, Property, Simp
 
 /// Resolves CSS variables in a given value by replacing any `var()` functions with their corresponding values from the provided variables list.
 /// This function recursively resolves nested `var()` functions and handles fallback values if a variable is not found.
+///
+/// Returns `None` if any `var()` reference cannot be resolved (variable not found and no fallback),
+/// which signals that the entire property value is invalid at computed-value time per the CSS spec.
 pub(crate) fn resolve_css_variables(
     variables: &[(Property, Vec<ComponentValue>)],
     value: &[ComponentValue],
-) -> Vec<ComponentValue> {
+) -> Option<Vec<ComponentValue>> {
     let mut output: Vec<ComponentValue> = Vec::new();
 
     for (i, cv) in value.iter().enumerate() {
         match cv {
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("var") => {
-                let resolved = resolve_var_function(variables, func);
+                let resolved = resolve_var_function(variables, func)?;
 
                 if !resolved.is_empty() {
                     let needs_leading_whitespace = !output.is_empty()
@@ -43,14 +46,14 @@ pub(crate) fn resolve_css_variables(
                 }
             }
             ComponentValue::Function(func) => {
-                let resolved_inner = resolve_css_variables(variables, &func.value);
+                let resolved_inner = resolve_css_variables(variables, &func.value)?;
                 output.push(ComponentValue::Function(Function {
                     name: func.name.clone(),
                     value: resolved_inner,
                 }));
             }
             ComponentValue::SimpleBlock(block) => {
-                let resolved_inner = resolve_css_variables(variables, &block.value);
+                let resolved_inner = resolve_css_variables(variables, &block.value)?;
                 output.push(ComponentValue::SimpleBlock(SimpleBlock {
                     associated_token: block.associated_token,
                     value: resolved_inner,
@@ -62,19 +65,19 @@ pub(crate) fn resolve_css_variables(
         }
     }
 
-    output
+    Some(output)
 }
 
 /// Resolves a `var()` function by extracting the variable name and fallback values, then attempting to find the variable in the provided list of variables.
-/// If the variable is found, its value is returned. If not, the fallback values are resolved and returned. If there are no fallback values,
-/// the original `var()` function is returned as a component value.
-fn resolve_var_function(variables: &[(Property, Vec<ComponentValue>)], func: &Function) -> Vec<ComponentValue> {
+/// If the variable is found, its value is returned. If not, the fallback values are resolved and returned.
+/// Returns `None` if the variable is not found and there are no fallback values.
+fn resolve_var_function(variables: &[(Property, Vec<ComponentValue>)], func: &Function) -> Option<Vec<ComponentValue>> {
     let mut var_name = String::new();
     let mut fallback_values = Vec::new();
     let mut found_comma = false;
 
     if func.value.is_empty() {
-        return vec![];
+        return Some(Vec::new());
     }
 
     for cv in func.value.iter() {
@@ -101,14 +104,14 @@ fn resolve_var_function(variables: &[(Property, Vec<ComponentValue>)], func: &Fu
     let var_name = var_name.trim();
 
     if let Some(resolved) = try_resolve_variable(variables, var_name) {
-        return resolved;
+        return Some(resolved);
     }
 
     if !fallback_values.is_empty() {
         return resolve_css_variables(variables, &fallback_values);
     }
 
-    vec![ComponentValue::Function(func.clone())]
+    None
 }
 
 /// Attempts to resolve a CSS variable by searching for its name in the provided list of variables. If the variable is found, its value is resolved and returned.
@@ -123,7 +126,7 @@ fn try_resolve_variable(variables: &[(Property, Vec<ComponentValue>)], var_name:
             return None;
         }
 
-        let resolved = resolve_css_variables(variables, vals);
+        let resolved = resolve_css_variables(variables, vals)?;
 
         if resolved.is_empty() {
             return None;

@@ -147,7 +147,13 @@ impl SpecifiedStyle {
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
 
         for (key, value) in properties {
-            let val = resolve_css_variables(&ctx.specified_style.variables, value.as_slice());
+            let val = match resolve_css_variables(&ctx.specified_style.variables, value.as_slice()) {
+                Some(v) => v,
+                None => {
+                    eprintln!("Failed to resolve variables for property {:?} with value {:?}", key, value);
+                    continue;
+                }
+            };
             let mut stream = ComponentValueStream::new(&val);
 
             match key {
