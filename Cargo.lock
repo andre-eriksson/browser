@@ -1265,6 +1265,7 @@ version = "0.1.0"
 dependencies = [
  "css-cssom",
  "css-selectors",
+ "css-values",
  "html-dom",
  "preferences",
  "strum",
@@ -1280,6 +1281,14 @@ dependencies = [
  "serde",
  "thiserror 2.0.17",
  "tracing",
+]
+
+[[package]]
+name = "css-values"
+version = "0.1.0"
+dependencies = [
+ "css-cssom",
+ "strum",
 ]
 
 [[package]]
@@ -2815,6 +2824,7 @@ dependencies = [
  "cosmic-text",
  "css-cssom",
  "css-style",
+ "css-values",
  "html-dom",
  "html-parser",
  "io",

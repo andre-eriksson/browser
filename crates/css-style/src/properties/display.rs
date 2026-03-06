@@ -4,11 +4,9 @@
 //! the `display` property in the layout engine.
 
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
-
-use crate::{
-    display::ListItemDisplay,
-    primitives::display::{BoxDisplay, InsideDisplay, InternalDisplay, OutsideDisplay},
-    properties::CSSParsable,
+use css_values::{
+    CSSParsable,
+    display::{BoxDisplay, InsideDisplay, InternalDisplay, ListItemDisplay, OutsideDisplay},
 };
 
 /// Represents the computed value of the CSS `display` property, which can be a combination of outside, inside, list-item, internal, and box display types.
@@ -23,22 +21,6 @@ pub struct Display {
 }
 
 impl Display {
-    pub(crate) fn new(
-        outside: Option<OutsideDisplay>,
-        inside: Option<InsideDisplay>,
-        list_item: Option<ListItemDisplay>,
-        internal: Option<InternalDisplay>,
-        box_display: Option<BoxDisplay>,
-    ) -> Self {
-        Self {
-            outside,
-            inside,
-            list_item,
-            internal,
-            box_display,
-        }
-    }
-
     /// Returns the outside display type, if set.
     pub fn outside(&self) -> Option<OutsideDisplay> {
         self.outside

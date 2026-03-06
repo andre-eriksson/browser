@@ -1,14 +1,10 @@
-//! Defines the `Length` struct and related types for representing CSS length values.
-
+use css_cssom::{CssToken, CssTokenKind};
 use strum::EnumString;
-
-use crate::properties::{AbsoluteContext, RelativeContext};
 
 /// Length units as defined in CSS Values and Units Module Level 4
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum LengthUnit {
-    // Relative length units based on font
     /// Equal to the "cap height" (nominal height of capital letters) of the element's font.
     Cap,
 
@@ -33,7 +29,6 @@ pub enum LengthUnit {
     /// line boxes may differ based on their content.
     Lh,
 
-    // Relative length units based on root element's font
     /// Equal to the "cap height" (nominal height of capital letters) of the root element's font.
     Rcap,
 
@@ -55,7 +50,6 @@ pub enum LengthUnit {
     /// However, the size of actual line boxes may differ based on their content.
     Rlh,
 
-    // Relative length units based on viewport
     /// Represents a percentage of the height of the viewport's initial containing block.
     /// `1vh` is 1% of the viewport height. For example, if the viewport height is `300px`,
     /// then a value of `70vh` on a property will be `210px`.
@@ -78,7 +72,6 @@ pub enum LengthUnit {
     /// Represents a percentage of the size of the initial containing block, in the direction of the root element's inline axis.
     Vi,
 
-    // Small
     /// The small viewport height variant, see `vh` for details.
     Svh,
 
@@ -97,7 +90,6 @@ pub enum LengthUnit {
     /// The small viewport inline size variant, see `vi` for details.
     Svi,
 
-    // Large
     /// The large viewport height variant, see `vh` for details.
     Lvh,
 
@@ -116,7 +108,6 @@ pub enum LengthUnit {
     /// The large viewport inline size variant, see `vi` for details.
     Lvi,
 
-    // Dynamic
     /// The dynamic viewport height variant, see `vh` for details.
     Dvh,
 
@@ -135,7 +126,6 @@ pub enum LengthUnit {
     /// The dynamic viewport inline size variant, see `vi` for details.
     Dvi,
 
-    // Container query length units
     /// Represents a percentage of the width of the query container.
     /// `1cqw` is 1% of the query container's width. For example, if the query container's width is `800px`,
     /// then a value of `50cqw` on a property will be `400px`.
@@ -168,7 +158,6 @@ pub enum LengthUnit {
     /// property will be `400px`.
     Cqmax,
 
-    // Absolute length units
     /// One pixel. For screen displays, it traditionally represents one device pixel (dot).
     /// However, for printers and high-resolution screens, one CSS pixel implies multiple device pixels.
     /// `1px` = `1in / 96`.
@@ -235,55 +224,154 @@ impl Length {
             unit: LengthUnit::Px,
         }
     }
+}
 
-    /// Converts the Length to pixels based on the provided relative and absolute contexts.
-    pub fn to_px(self, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
-        match self.unit {
-            LengthUnit::Px => self.value,
-            LengthUnit::Cm => self.value * 96.0 / 2.54,
-            LengthUnit::Mm => self.value * 96.0 / 25.4,
-            LengthUnit::Q => self.value * 96.0 / 101.6,
-            LengthUnit::In => self.value * 96.0,
-            LengthUnit::Pc => self.value * 16.0,
-            LengthUnit::Pt => self.value * 96.0 / 72.0,
-            LengthUnit::Vw => abs_ctx.viewport_width * self.value / 100.0,
-            LengthUnit::Vh => abs_ctx.viewport_height * self.value / 100.0,
+/// Angle representation for CSS properties that accept angles, such as hue in HSL colors or rotation in transforms
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Angle {
+    /// Degrees (e.g., "45deg")
+    ///
+    /// Note: The value is normalized to the [0, 360) range, so "450deg" would be treated as "90deg".
+    Deg(f32),
 
-            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.parent.font_size * 0.5 * self.value,
-            LengthUnit::Rem => abs_ctx.root_font_size * self.value,
-            LengthUnit::Em => rel_ctx.parent.font_size * self.value,
-            _ => self.value, // TODO: Handle other units properly
+    /// Radians (e.g., "3.14rad")
+    ///
+    /// Note: The value is normalized to the [0, 2π) range, so "7.28rad" would be treated as "0.28rad".
+    Rad(f32),
+
+    /// Gradians (e.g., "100grad")
+    ///
+    /// Note: The value is normalized to the [0, 400) range, so "450grad" would be treated as "50grad".
+    Grad(f32),
+
+    /// Turns (e.g., "0.5turn")
+    ///
+    /// Note: The value is normalized to the [0, 1) range, so "1.5turn" would be treated as "0.5turn".
+    Turn(f32),
+}
+
+impl Angle {
+    /// Convert the angle to degrees
+    pub fn to_degrees(self) -> f32 {
+        match self {
+            Angle::Deg(v) => v,
+            Angle::Rad(v) => v.to_degrees(),
+            Angle::Grad(v) => v * 0.9,
+            Angle::Turn(v) => v * 360.0,
+        }
+    }
+
+    /// Convert the angle to radians
+    pub fn to_radians(self) -> f32 {
+        match self {
+            Angle::Deg(v) => v.to_radians(),
+            Angle::Rad(v) => v,
+            Angle::Grad(v) => v * 0.9 * std::f32::consts::PI / 180.0,
+            Angle::Turn(v) => v * 2.0 * std::f32::consts::PI,
+        }
+    }
+
+    /// Convert f32 degrees to an Angle, normalizing it to the [0, 360) range
+    pub fn from_degrees(deg: f32) -> Self {
+        Angle::Deg((deg / 360.0).fract() * 360.0)
+    }
+
+    /// Convert f32 radians to an Angle, normalizing it to the [0, 2π) range
+    pub fn from_radians(rad: f32) -> Self {
+        Angle::Rad((rad / (2.0 * std::f32::consts::PI)).fract() * (2.0 * std::f32::consts::PI))
+    }
+
+    /// Convert f32 gradians to an Angle, normalizing it to the [0, 400) range
+    pub fn from_gradians(grad: f32) -> Self {
+        Angle::Grad((grad / 400.0).fract() * 400.0)
+    }
+
+    /// Convert f32 turns to an Angle, normalizing it to the [0, 1) range
+    pub fn from_turns(turn: f32) -> Self {
+        Angle::Turn((turn).fract())
+    }
+}
+
+impl TryFrom<&CssToken> for Angle {
+    type Error = String;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
+        match &token.kind {
+            CssTokenKind::Dimension { value, unit } => {
+                let unit_str = unit.to_ascii_lowercase();
+                match unit_str.as_str() {
+                    "deg" => Ok(Angle::from_degrees(value.to_f64() as f32)),
+                    "rad" => Ok(Angle::from_radians(value.to_f64() as f32)),
+                    "grad" => Ok(Angle::from_gradians(value.to_f64() as f32)),
+                    "turn" => Ok(Angle::from_turns(value.to_f64() as f32)),
+                    _ => Ok(Angle::from_degrees(value.to_f64() as f32)),
+                }
+            }
+            CssTokenKind::Number(value) => Ok(Angle::from_degrees(value.to_f64() as f32)),
+            _ => Err(format!("Expected a dimension or number token for angle, got {:?}", token.kind)),
         }
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Time {
+    /// Seconds (e.g., "2s")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-1s" would be treated as "0s".
+    Seconds(f32),
+
+    /// Milliseconds (e.g., "500ms")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-500ms" would be treated as "0ms".
+    Milliseconds(f32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Frequency {
+    /// Hertz (e.g., "440Hz")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-440Hz" would be treated as "0Hz".
+    Hz(f32),
+
+    /// Kilohertz (e.g., "1.5kHz")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-1.5kHz" would be treated as "0kHz".
+    KHz(f32),
+}
+
+pub enum Resolution {
+    /// Dots per inch (e.g., "300dpi")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-300dpi" would be treated as "0dpi".
+    Dpi(f32),
+
+    /// Dots per centimeter (e.g., "118dpcm")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-118dpcm" would be treated as "0dpcm".
+    Dpcm(f32),
+
+    /// Dots per pixel (e.g., "2dppx")
+    ///
+    /// Note: The value is normalized to a non-negative number, so "-2dppx" would be treated as "0dppx".
+    Dppx(f32),
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use crate::ComputedStyle;
-
     use super::*;
 
     #[test]
-    fn test_length_to_px() {
-        let abs_ctx = AbsoluteContext {
-            viewport_width: 800.0,
-            viewport_height: 600.0,
-            root_font_size: 16.0,
-            ..Default::default()
-        };
-        let rel_ctx = RelativeContext {
-            parent: Arc::new(ComputedStyle {
-                font_size: 16.0,
-                ..Default::default()
-            }),
-        };
+    fn test_to_degrees() {
+        let angle_deg = Angle::Deg(90.0);
+        assert_eq!(angle_deg.to_degrees(), 90.0);
 
-        let length = Length::new(2.0, LengthUnit::In);
-        assert_eq!(length.to_px(&rel_ctx, &abs_ctx), 192.0);
+        let angle_rad = Angle::Rad(std::f32::consts::PI / 2.0);
+        assert!((angle_rad.to_degrees() - 90.0).abs() < 1e-6);
 
-        let length = Length::new(50.0, LengthUnit::Vw);
-        assert_eq!(length.to_px(&rel_ctx, &abs_ctx), 400.0);
+        let angle_grad = Angle::Grad(100.0);
+        assert_eq!(angle_grad.to_degrees(), 90.0);
+
+        let angle_turn = Angle::Turn(0.25);
+        assert_eq!(angle_turn.to_degrees(), 90.0);
     }
 }

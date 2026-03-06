@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 css-style.workspace = true
+css-values.workspace = true
 html-dom.workspace = true
 
 # External dependencies

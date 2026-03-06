@@ -1,61 +1,4 @@
-//! Named and system colors (e.g., "red", "blue", "LinkText", "CanvasText")
-
 use strum::EnumString;
-
-/// System colors defined in CSS specifications.
-///
-/// These are colors that correspond to the user's operating system or browser theme settings,
-/// for now only a fixed set of colors is provided.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
-pub enum SystemColor {
-    AccentColor,
-    AccentColorText,
-    ActiveText,
-    ButtonBorder,
-    ButtonFace,
-    ButtonText,
-    Canvas,
-    CanvasText,
-    Field,
-    FieldText,
-    GrayText,
-    Highlight,
-    HighlightText,
-    LinkText,
-    Mark,
-    MarkText,
-    SelectedItem,
-    SelectedItemText,
-    VisitedText,
-}
-
-impl SystemColor {
-    /// Converts the SystemColor to its hexadecimal string representation, or returns None if the color is not recognized.
-    pub fn to_hex(self) -> Option<&'static str> {
-        match self {
-            SystemColor::AccentColor => Some("#0078D7"),
-            SystemColor::AccentColorText => Some("#FFFFFF"),
-            SystemColor::ActiveText => Some("#0000FF"),
-            SystemColor::ButtonBorder => Some("#A9A9A9"),
-            SystemColor::ButtonFace => Some("#F0F0F0"),
-            SystemColor::ButtonText => Some("#000000"),
-            SystemColor::Canvas => Some("#FFFFFF"),
-            SystemColor::CanvasText => Some("#000000"),
-            SystemColor::Field => Some("#FFFFFF"),
-            SystemColor::FieldText => Some("#000000"),
-            SystemColor::GrayText => Some("#A9A9A9"),
-            SystemColor::Highlight => Some("#3399FF"),
-            SystemColor::HighlightText => Some("#FFFFFF"),
-            SystemColor::LinkText => Some("#0000FF"),
-            SystemColor::Mark => Some("#FFFF00"),
-            SystemColor::MarkText => Some("#000000"),
-            SystemColor::SelectedItem => Some("#3399FF"),
-            SystemColor::SelectedItemText => Some("#FFFFFF"),
-            SystemColor::VisitedText => Some("#800080"),
-        }
-    }
-}
 
 /// Named colors defined in CSS specifications.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -656,18 +599,6 @@ impl NamedColor {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn parse_system_color() {
-        let color: SystemColor = "accentColor".parse().unwrap();
-        assert_eq!(color, SystemColor::AccentColor);
-
-        let color: SystemColor = "LinkText".parse().unwrap();
-        assert_eq!(color, SystemColor::LinkText);
-
-        let color = "invalidColor".parse::<SystemColor>();
-        assert!(color.is_err());
-    }
 
     #[test]
     fn parse_named_color() {

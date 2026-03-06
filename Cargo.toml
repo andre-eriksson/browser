@@ -10,6 +10,7 @@ members = [
     "crates/css-selectors",
     "crates/css-style",
     "crates/css-tokenizer",
+    "crates/css-values",
     "crates/database",
     "crates/html-dom",
     "crates/html-parser",
@@ -37,6 +38,7 @@ css-parser     = { path = "crates/css-parser" }
 css-selectors  = { path = "crates/css-selectors" }
 css-style      = { path = "crates/css-style" }
 css-tokenizer  = { path = "crates/css-tokenizer" }
+css-values     = { path = "crates/css-values" }
 database       = { path = "crates/database" }
 html-dom       = { path = "crates/html-dom" }
 html-parser    = { path = "crates/html-parser" }

@@ -8,7 +8,6 @@ mod cascade;
 mod computed;
 mod functions;
 mod handler;
-mod primitives;
 mod properties;
 mod specified;
 mod tree;
@@ -18,14 +17,9 @@ pub use computed::{
     color::Color4f,
     dimension::{ComputedDimension, ComputedMaxDimension},
 };
-pub use primitives::*;
-pub use properties::border::*;
-pub use properties::color::*;
-pub use properties::dimension::*;
 pub use properties::display::*;
 pub use properties::font::*;
 pub use properties::offset::*;
 pub use properties::position::*;
-pub use properties::text::*;
 pub use properties::{AbsoluteContext, RelativeContext, RelativeType};
 pub use tree::{StyleTree, StyledNode};

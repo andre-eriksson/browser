@@ -1,3 +1,7 @@
+use strum::EnumString;
+
+use crate::combination::LengthPercentage;
+
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
 pub enum Attachment {
     /// The background scrolls along with the element's content. This is the default value for the `background-attachment` property.
@@ -9,6 +13,27 @@ pub enum Attachment {
 
     /// The background scrolls along with the element's content, but only within the bounds of the element itself. When the content of the element is scrolled, the background will move, but it will not scroll outside of the element's area.
     Local,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+pub enum BlendMode {
+    Normal,
+    Multiply,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
 }
 
 /// The `background-origin` property specifies the background painting area for an element. It determines where the
@@ -45,5 +70,33 @@ pub enum BgClip {
 impl Default for BgClip {
     fn default() -> Self {
         BgClip::Visual(VisualBox::default())
+    }
+}
+
+#[derive(Debug, Clone, Copy, EnumString, PartialEq, Eq)]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
+pub enum RepeatStyle {
+    Repeat,
+    Space,
+    Round,
+    NoRepeat,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum WidthHeightSize {
+    Auto,
+    Length(LengthPercentage),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Size {
+    Cover,
+    Contain,
+    WidthHeight(WidthHeightSize, Option<WidthHeightSize>),
+}
+
+impl Default for Size {
+    fn default() -> Self {
+        Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto))
     }
 }

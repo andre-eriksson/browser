@@ -1,20 +1,30 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, HashType};
-
-use crate::background::{Attachment, BgClip, VisualBox};
-use crate::global::Global;
-use crate::image::Image;
-use crate::length::{Length, LengthUnit};
-use crate::percentage::{LengthPercentage, Percentage};
-use crate::position::{BackgroundPosition, BgPosition};
-use crate::properties::CSSParsable;
-use crate::properties::background::{
-    BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPositionX, BackgroundPositionY,
-    BackgroundRepeat, BackgroundSize, RepeatStyle, Size, WidthHeightSize,
+use css_values::{
+    CSSParsable,
+    background::{Attachment, BgClip, RepeatStyle, Size, VisualBox, WidthHeightSize},
+    border::{BorderStyle, BorderWidth},
+    color::{Color, base::ColorBase},
+    combination::LengthPercentage,
+    global::Global,
+    image::Image,
+    numeric::Percentage,
+    position::BgPosition,
+    quantity::{Length, LengthUnit},
+    text::{FontWeight, WritingMode},
 };
-use crate::properties::text::WritingMode;
-use crate::properties::{AbsoluteContext, CSSProperty};
-use crate::specified::SpecifiedStyle;
-use crate::{BorderStyle, BorderWidth, Color, FontWeight, Offset, RelativeContext};
+
+use crate::{
+    AbsoluteContext, RelativeContext, RelativeType,
+    properties::{
+        CSSProperty, PixelRepr,
+        background::{
+            BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPosition,
+            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
+        },
+        offset::Offset,
+    },
+    specified::SpecifiedStyle,
+};
 
 /// Context for updating a CSS property, containing necessary information and utilities for the update process.
 pub(crate) struct PropertyUpdateContext<'css> {
@@ -406,7 +416,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Co
     let mut sizes = Vec::new();
     let mut x_positions = Vec::new();
     let mut y_positions = Vec::new();
-    let mut final_color = Color::Transparent;
+    let mut final_color = Color::Base(ColorBase::Transparent);
 
     /// Try to parse a single `Size` value (1–2 tokens: cover | contain | auto | <length-percentage> ){1,2}
     /// directly from the stream. Returns `None` and restores on failure.
@@ -670,7 +680,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Co
         }
 
         if done {
-            final_color = layer_color.unwrap_or(Color::Transparent);
+            final_color = layer_color.unwrap_or(Color::Base(ColorBase::Transparent));
         }
     }
 
@@ -1020,7 +1030,7 @@ pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut Com
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
         ctx.specified_style.computed_font_size_px =
-            font_size.to_px(ctx.absolute_ctx, ctx.relative_ctx.parent.font_size);
+            font_size.to_px(Some(RelativeType::FontSize), ctx.relative_ctx, ctx.absolute_ctx);
     }
 }
 
@@ -1060,11 +1070,10 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut C
 
 #[cfg(test)]
 mod tests {
-    use crate::position::{PositionX, PositionY};
-
     use super::*;
 
     use css_cssom::CSSStyleSheet;
+    use css_values::position::{PositionX, PositionY};
 
     #[test]
     fn test_border_extra_tokens() {
@@ -1227,7 +1236,7 @@ mod tests {
         }
 
         match &specified.background_color {
-            CSSProperty::Value(c) => assert!(matches!(c, Color::Hex(_))),
+            CSSProperty::Value(c) => assert!(matches!(c, Color::Base(ColorBase::Hex(_)))),
             _ => panic!("expected background-color value"),
         }
 

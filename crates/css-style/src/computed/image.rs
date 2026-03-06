@@ -1,10 +1,7 @@
+use css_values::image::{Gradient, Image};
 use url::Url;
 
-use crate::{
-    AbsoluteContext,
-    image::Image,
-    properties::{background::BackgroundImage, gradient::Gradient},
-};
+use crate::{AbsoluteContext, properties::background::BackgroundImage};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ComputedImage {

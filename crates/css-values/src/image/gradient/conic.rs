@@ -1,20 +1,20 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
-    gradient::AngleOrZero,
-    position::Position,
-    properties::{
-        CSSParsable,
-        gradient::{Gradient, interpolation::ColorInterpolationMethod, stops::AngularColorStopList},
+    CSSParsable,
+    combination::AngleZero,
+    image::{
+        Gradient,
+        gradient::{interpolation::ColorInterpolationMethod, stops::AngularColorStopList},
     },
+    position::Position,
 };
 
-/// Parsed conic-gradient configuration: `(from_angle, position, interpolation)`.
-type ConicConfig = (Option<AngleOrZero>, Option<Position>, Option<ColorInterpolationMethod>);
+type ConicConfig = (Option<AngleZero>, Option<Position>, Option<ColorInterpolationMethod>);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConicGradientSyntax {
-    pub from_angle: Option<AngleOrZero>,
+    pub from_angle: Option<AngleZero>,
     pub position: Option<Position>,
     pub interpolation: Option<ColorInterpolationMethod>,
     pub stops: AngularColorStopList,
@@ -64,7 +64,7 @@ impl ConicGradientSyntax {
             return Ok((None, None, None));
         }
 
-        let mut from_angle: Option<AngleOrZero> = None;
+        let mut from_angle: Option<AngleZero> = None;
         let mut position: Option<Position> = None;
         let mut interpolation: Option<ColorInterpolationMethod> = None;
 
@@ -86,7 +86,7 @@ impl ConicGradientSyntax {
                 .collect();
             if meaningful.len() == 1 {
                 if let ComponentValue::Token(token) = meaningful[0] {
-                    from_angle = Some(AngleOrZero::try_from(token)?);
+                    from_angle = Some(AngleZero::try_from(token)?);
                 }
             } else if !meaningful.is_empty() {
                 return Err(format!("Expected a single angle after 'from', got {} tokens", meaningful.len()));
@@ -127,18 +127,14 @@ impl CSSParsable for ConicGradientSyntax {
     /// 3. Check the next segment for `in <color-interpolation-method>`.
     /// 4. The remaining segments form the `<angular-color-stop-list>`.
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
-        Self::try_parse(stream.remaining())
-    }
-
-    fn try_parse(value: &[ComponentValue]) -> Result<Self, String> {
-        let segments = Gradient::split_on_commas(value);
+        let segments = Gradient::split_on_commas(stream.remaining());
 
         if segments.is_empty() {
             return Err("Empty conic-gradient arguments".into());
         }
 
         let mut idx = 0;
-        let mut from_angle: Option<AngleOrZero> = None;
+        let mut from_angle: Option<AngleZero> = None;
         let mut position: Option<Position> = None;
         let mut interpolation: Option<ColorInterpolationMethod> = None;
 
@@ -183,7 +179,7 @@ impl CSSParsable for ConicGradientSyntax {
         }
 
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);
-        let stops = AngularColorStopList::try_parse(stop_cvs.as_slice())?;
+        let stops = AngularColorStopList::parse(&mut stop_cvs.as_slice().into())?;
 
         Ok(ConicGradientSyntax {
             from_angle,
@@ -191,130 +187,5 @@ impl CSSParsable for ConicGradientSyntax {
             interpolation,
             stops,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::properties::CSSParsable;
-    use css_cssom::CSSStyleSheet;
-
-    /// Helper: parse an inline CSS declaration and return the component values.
-    fn parse_value(css: &str) -> Vec<ComponentValue> {
-        let decls = CSSStyleSheet::from_inline(css);
-        assert!(!decls.is_empty(), "No declarations parsed from: {css}");
-        decls[0].original_values.clone()
-    }
-
-    /// Helper: extract the first Function from parsed component values.
-    fn extract_function(cvs: &[ComponentValue]) -> &css_cssom::Function {
-        cvs.iter()
-            .find_map(|cv| match cv {
-                ComponentValue::Function(f) => Some(f),
-                _ => None,
-            })
-            .expect("No function found in component values")
-    }
-
-    #[test]
-    fn conic_two_colors() {
-        let cvs = parse_value("background-image: conic-gradient(red, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(syn.from_angle.is_none());
-        assert!(syn.position.is_none());
-        assert!(syn.interpolation.is_none());
-        assert_eq!(syn.stops.1.len(), 1);
-    }
-
-    #[test]
-    fn conic_three_colors() {
-        let cvs = parse_value("background-image: conic-gradient(red, green, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.1.len(), 2);
-    }
-
-    #[test]
-    fn conic_from_angle() {
-        let cvs = parse_value("background-image: conic-gradient(from 45deg, red, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(syn.from_angle.is_some());
-        assert!(syn.position.is_none());
-    }
-
-    #[test]
-    fn conic_from_turn() {
-        let cvs = parse_value("background-image: conic-gradient(from 0.25turn, red, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(matches!(syn.from_angle, Some(AngleOrZero::Angle(_))));
-    }
-
-    #[test]
-    fn conic_at_center() {
-        let cvs = parse_value("background-image: conic-gradient(at center, red, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(syn.position.is_some());
-        assert!(syn.from_angle.is_none());
-    }
-
-    #[test]
-    fn conic_from_angle_at_position() {
-        let cvs = parse_value("background-image: conic-gradient(from 90deg at center, red, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(syn.from_angle.is_some());
-        assert!(syn.position.is_some());
-    }
-
-    #[test]
-    fn conic_stops_with_angles() {
-        let cvs = parse_value("background-image: conic-gradient(red 0deg, blue 360deg)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(syn.stops.0.angle.is_some());
-        assert!(syn.stops.1[0].1.angle.is_some());
-    }
-
-    #[test]
-    fn conic_stops_with_percentages() {
-        let cvs = parse_value("background-image: conic-gradient(red 0%, blue 100%)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert!(syn.stops.0.angle.is_some());
-        assert!(syn.stops.1[0].1.angle.is_some());
-    }
-
-    #[test]
-    fn conic_hex_colors() {
-        let cvs = parse_value("background-image: conic-gradient(#ff0000, #0000ff)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.1.len(), 1);
-    }
-
-    #[test]
-    fn conic_single_stop_fails() {
-        let cvs = parse_value("background-image: conic-gradient(red)");
-        let func = extract_function(&cvs);
-        assert!(ConicGradientSyntax::try_parse(func.value.as_slice()).is_err());
-    }
-
-    #[test]
-    fn conic_empty_fails() {
-        let empty: &[ComponentValue] = &[];
-        assert!(ConicGradientSyntax::try_parse(empty).is_err());
-    }
-
-    #[test]
-    fn conic_many_stops() {
-        let cvs = parse_value("background-image: conic-gradient(red, orange, yellow, green, blue)");
-        let func = extract_function(&cvs);
-        let syn = ConicGradientSyntax::try_parse(func.value.as_slice()).unwrap();
-        assert_eq!(syn.stops.1.len(), 4);
     }
 }

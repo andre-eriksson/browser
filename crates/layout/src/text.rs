@@ -1,5 +1,6 @@
 use cosmic_text::{Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap};
-use css_style::{FontFamily, FontFamilyName, Whitespace, font::GenericName};
+use css_style::FontFamily;
+use css_values::text::{FontFamilyName, GenericName, Whitespace};
 
 #[derive(Debug)]
 pub struct Text {

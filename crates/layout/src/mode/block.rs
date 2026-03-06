@@ -1,4 +1,5 @@
-use css_style::{ComputedDimension, StyledNode, display::OutsideDisplay};
+use css_style::{ComputedDimension, StyledNode};
+use css_values::display::OutsideDisplay;
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, context::ImageContext,

@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use css_style::{
-    ComputedDimension, ComputedStyle, StyledNode, TextAlign, Whitespace, WritingMode,
+use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use css_values::{
     display::{InsideDisplay, OutsideDisplay},
+    text::{TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{HtmlTag, NodeId, Tag};
 

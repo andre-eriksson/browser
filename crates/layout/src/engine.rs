@@ -1,7 +1,5 @@
-use css_style::{
-    StyleTree, StyledNode,
-    display::{BoxDisplay, InsideDisplay},
-};
+use css_style::{StyleTree, StyledNode};
+use css_values::display::{BoxDisplay, InsideDisplay};
 
 use crate::{
     context::ImageContext,
@@ -113,7 +111,8 @@ impl LayoutEngine {
 
 #[cfg(test)]
 mod tests {
-    use css_style::{ComputedStyle, Display, display::OutsideDisplay};
+    use css_style::{ComputedStyle, Display};
+    use css_values::display::OutsideDisplay;
     use html_dom::NodeId;
 
     use crate::mode::block::BlockCursor;

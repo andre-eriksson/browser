@@ -1,17 +1,13 @@
+use css_values::color::{
+    Color, ColorValue, Fraction, Hue,
+    base::{ColorBase, HexColor},
+    function::ColorFunction,
+    named::NamedColor,
+    system::SystemColor,
+};
 use preferences::ThemeCategory;
 
-use crate::{
-    AbsoluteContext, Color, RelativeContext,
-    color::{
-        ColorValue, Fraction, FunctionColor, Hue,
-        cielab::Cielab,
-        hex::HexColor,
-        named::{NamedColor, SystemColor},
-        oklab::Oklab,
-        srgba::SRGBAColor,
-    },
-    properties::CSSProperty,
-};
+use crate::{AbsoluteContext, RelativeContext, properties::CSSProperty};
 
 /// RGBA color representation for rendering (values 0.0-1.0, sRGB gamma-encoded)
 ///
@@ -57,7 +53,7 @@ impl Color4f {
         loop {
             match resolved {
                 Color::Current => return None,
-                Color::Functional(FunctionColor::LightDark(light, dark)) => {
+                Color::LightDark(light, dark) => {
                     resolved = match absolute_ctx.theme_category {
                         ThemeCategory::Light => light.as_ref(),
                         ThemeCategory::Dark => dark.as_ref(),
@@ -76,15 +72,10 @@ impl Color4f {
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         match color {
-            Color::Named(named) => Self::from(*named),
-            Color::Hex(hex) => Self::from(*hex),
-            Color::Functional(func) => match func {
-                FunctionColor::LightDark(light, dark) => match absolute_ctx.theme_category {
-                    ThemeCategory::Light => Self::from_css_color(light, text_color, relative_ctx, absolute_ctx),
-                    ThemeCategory::Dark => Self::from_css_color(dark, text_color, relative_ctx, absolute_ctx),
-                },
-                _ => Self::from(func.clone()),
-            },
+            Color::Base(ColorBase::Named(named)) => Self::from(*named),
+            Color::Base(ColorBase::Hex(hex)) => Self::from(*hex),
+            Color::Base(ColorBase::Function(func)) => Self::from(func.clone()),
+            Color::Base(ColorBase::Transparent) => Self::new(0.0, 0.0, 0.0, 0.0),
             Color::Current => {
                 if let Some(resolved) = Self::resolve_current_color(text_color, absolute_ctx) {
                     Self::from_css_color(resolved, text_color, relative_ctx, absolute_ctx)
@@ -93,7 +84,13 @@ impl Color4f {
                 }
             }
             Color::System(system) => Self::from(*system),
-            Color::Transparent => Self::new(0.0, 0.0, 0.0, 0.0),
+            Color::LightDark(light, dark) => {
+                let branch = match absolute_ctx.theme_category {
+                    ThemeCategory::Light => light.as_ref(),
+                    ThemeCategory::Dark => dark.as_ref(),
+                };
+                Self::from_css_color(branch, text_color, relative_ctx, absolute_ctx)
+            }
         }
     }
 
@@ -223,47 +220,82 @@ impl From<HexColor> for Color4f {
     }
 }
 
-impl From<Oklab> for Color4f {
-    fn from(oklab: Oklab) -> Self {
-        match oklab {
-            Oklab::Oklab(l, a, b, alpha) => {
-                let l_val = l.value(0.0..=1.0, Fraction::Unsigned);
-                let a_val = a.value(-0.4..=0.4, Fraction::Signed);
-                let b_val = b.value(-0.4..=0.4, Fraction::Signed);
+impl From<ColorFunction> for Color4f {
+    fn from(value: ColorFunction) -> Self {
+        match value {
+            ColorFunction::Rgb(r, g, b, alpha) => Self::new(
+                r.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
+                g.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
+                b.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
+                alpha.value(),
+            ),
+            ColorFunction::Hsl(h, s, l, alpha) => {
+                let h_deg = h.value();
 
-                let l_ = l_val + 0.396_337_78 * a_val + 0.215_803_76 * b_val;
-                let m_ = l_val - 0.105_561_346 * a_val - 0.063_854_17 * b_val;
-                let s_ = l_val - 0.089_484_18 * a_val - 1.291_485_5 * b_val;
+                let s = s.as_fraction();
+                let l = l.as_fraction();
 
-                let l_lin = l_ * l_ * l_;
-                let m_lin = m_ * m_ * m_;
-                let s_lin = s_ * s_ * s_;
+                let h_deg = ((h_deg % 360.0) + 360.0) % 360.0;
 
-                let r_lin = 4.076_741_7 * l_lin - 3.307_711_6 * m_lin + 0.230_969_94 * s_lin;
-                let g_lin = -1.268_438 * l_lin + 2.609_757_4 * m_lin - 0.341_319_38 * s_lin;
-                let b_lin = -0.0041960863 * l_lin - 0.703_419 * m_lin + 1.707_614_7 * s_lin;
+                let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+                let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
+                let m = l - c / 2.0;
 
+                let (r1, g1, b1) = if h_deg < 60.0 {
+                    (c, x, 0.0)
+                } else if h_deg < 120.0 {
+                    (x, c, 0.0)
+                } else if h_deg < 180.0 {
+                    (0.0, c, x)
+                } else if h_deg < 240.0 {
+                    (0.0, x, c)
+                } else if h_deg < 300.0 {
+                    (x, 0.0, c)
+                } else {
+                    (c, 0.0, x)
+                };
+
+                Self::new((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), alpha.value())
+            }
+            ColorFunction::Hwb(h, w, b, alpha) => {
+                let h_deg = h.value();
+
+                let mut w_frac = w.as_fraction();
+                let mut b_frac = b.as_fraction();
+
+                let sum = w_frac + b_frac;
+                if sum > 1.0 {
+                    w_frac /= sum;
+                    b_frac /= sum;
+                }
+
+                let h_deg = ((h_deg % 360.0) + 360.0) % 360.0;
+                let c = 1.0_f32;
+                let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
+
+                let (r1, g1, b1) = if h_deg < 60.0 {
+                    (c, x, 0.0)
+                } else if h_deg < 120.0 {
+                    (x, c, 0.0)
+                } else if h_deg < 180.0 {
+                    (0.0, c, x)
+                } else if h_deg < 240.0 {
+                    (0.0, x, c)
+                } else if h_deg < 300.0 {
+                    (x, 0.0, c)
+                } else {
+                    (c, 0.0, x)
+                };
+
+                let scale = 1.0 - w_frac - b_frac;
                 Self::new(
-                    Self::linear_component_to_srgb(r_lin).clamp(0.0, 1.0),
-                    Self::linear_component_to_srgb(g_lin).clamp(0.0, 1.0),
-                    Self::linear_component_to_srgb(b_lin).clamp(0.0, 1.0),
+                    (r1 * scale + w_frac).clamp(0.0, 1.0),
+                    (g1 * scale + w_frac).clamp(0.0, 1.0),
+                    (b1 * scale + w_frac).clamp(0.0, 1.0),
                     alpha.value(),
                 )
             }
-            Oklab::Oklch(l, c, h, alpha) => {
-                let h_rad = Self::hue_to_radians(&h);
-                let a = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.cos();
-                let b = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.sin();
-                Self::from(Oklab::Oklab(l, ColorValue::from(a), ColorValue::from(b), alpha))
-            }
-        }
-    }
-}
-
-impl From<Cielab> for Color4f {
-    fn from(cielab: Cielab) -> Self {
-        match cielab {
-            Cielab::Lab(l, a, b, alpha) => {
+            ColorFunction::Lab(l, a, b, alpha) => {
                 let l_val = l.value(0.0..=100.0, Fraction::Unsigned);
                 let a_val = a.value(-125.0..=125.0, Fraction::Signed);
                 let b_val = b.value(-125.0..=125.0, Fraction::Signed);
@@ -308,98 +340,41 @@ impl From<Cielab> for Color4f {
                     alpha.value(),
                 )
             }
-            Cielab::Lch(l, c, h, alpha) => {
+            ColorFunction::Lch(l, c, h, alpha) => {
                 let h_rad = Self::hue_to_radians(&h);
                 let a = c.value(0.0..=125.0, Fraction::Unsigned) * h_rad.cos();
                 let b = c.value(0.0..=125.0, Fraction::Unsigned) * h_rad.sin();
-                Self::from(Cielab::Lab(l, ColorValue::from(a), ColorValue::from(b), alpha))
+                Self::from(ColorFunction::Lab(l, ColorValue::from(a), ColorValue::from(b), alpha))
             }
-        }
-    }
-}
+            ColorFunction::Oklab(l, a, b, alpha) => {
+                let l_val = l.value(0.0..=1.0, Fraction::Unsigned);
+                let a_val = a.value(-0.4..=0.4, Fraction::Signed);
+                let b_val = b.value(-0.4..=0.4, Fraction::Signed);
 
-impl From<FunctionColor> for Color4f {
-    fn from(func: FunctionColor) -> Self {
-        match func {
-            FunctionColor::Srgba(srgba) => match srgba {
-                SRGBAColor::Rgb(r, g, b, a) => Self::new(
-                    r.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
-                    g.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
-                    b.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
-                    a.value(),
-                ),
-                SRGBAColor::Hsl(h, s, l, a) => {
-                    let h_deg = h.value();
+                let l_ = l_val + 0.396_337_78 * a_val + 0.215_803_76 * b_val;
+                let m_ = l_val - 0.105_561_346 * a_val - 0.063_854_17 * b_val;
+                let s_ = l_val - 0.089_484_18 * a_val - 1.291_485_5 * b_val;
 
-                    let s = s.as_fraction();
-                    let l = l.as_fraction();
+                let l_lin = l_ * l_ * l_;
+                let m_lin = m_ * m_ * m_;
+                let s_lin = s_ * s_ * s_;
 
-                    let h_deg = ((h_deg % 360.0) + 360.0) % 360.0;
+                let r_lin = 4.076_741_7 * l_lin - 3.307_711_6 * m_lin + 0.230_969_94 * s_lin;
+                let g_lin = -1.268_438 * l_lin + 2.609_757_4 * m_lin - 0.341_319_38 * s_lin;
+                let b_lin = -0.0041960863 * l_lin - 0.703_419 * m_lin + 1.707_614_7 * s_lin;
 
-                    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
-                    let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
-                    let m = l - c / 2.0;
-
-                    let (r1, g1, b1) = if h_deg < 60.0 {
-                        (c, x, 0.0)
-                    } else if h_deg < 120.0 {
-                        (x, c, 0.0)
-                    } else if h_deg < 180.0 {
-                        (0.0, c, x)
-                    } else if h_deg < 240.0 {
-                        (0.0, x, c)
-                    } else if h_deg < 300.0 {
-                        (x, 0.0, c)
-                    } else {
-                        (c, 0.0, x)
-                    };
-
-                    Self::new((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), a.value())
-                }
-                SRGBAColor::Hwb(h, w, b, a) => {
-                    let h_deg = h.value();
-
-                    let mut w_frac = w.as_fraction();
-                    let mut b_frac = b.as_fraction();
-
-                    let sum = w_frac + b_frac;
-                    if sum > 1.0 {
-                        w_frac /= sum;
-                        b_frac /= sum;
-                    }
-
-                    let h_deg = ((h_deg % 360.0) + 360.0) % 360.0;
-                    let c = 1.0_f32;
-                    let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
-
-                    let (r1, g1, b1) = if h_deg < 60.0 {
-                        (c, x, 0.0)
-                    } else if h_deg < 120.0 {
-                        (x, c, 0.0)
-                    } else if h_deg < 180.0 {
-                        (0.0, c, x)
-                    } else if h_deg < 240.0 {
-                        (0.0, x, c)
-                    } else if h_deg < 300.0 {
-                        (x, 0.0, c)
-                    } else {
-                        (c, 0.0, x)
-                    };
-
-                    let scale = 1.0 - w_frac - b_frac;
-                    Self::new(
-                        (r1 * scale + w_frac).clamp(0.0, 1.0),
-                        (g1 * scale + w_frac).clamp(0.0, 1.0),
-                        (b1 * scale + w_frac).clamp(0.0, 1.0),
-                        a.value(),
-                    )
-                }
-            },
-            FunctionColor::Oklab(oklab) => Self::from(oklab),
-            FunctionColor::Cielab(cielab) => Self::from(cielab),
-            _ => {
-                // For unsupported function colors, return transparent black as a fallback.
-                Self::new(0.0, 0.0, 0.0, 0.0)
+                Self::new(
+                    Self::linear_component_to_srgb(r_lin).clamp(0.0, 1.0),
+                    Self::linear_component_to_srgb(g_lin).clamp(0.0, 1.0),
+                    Self::linear_component_to_srgb(b_lin).clamp(0.0, 1.0),
+                    alpha.value(),
+                )
+            }
+            ColorFunction::Oklch(l, c, h, alpha) => {
+                let h_rad = Self::hue_to_radians(&h);
+                let a = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.cos();
+                let b = c.value(0.0..=0.4, Fraction::Unsigned) * h_rad.sin();
+                Self::from(ColorFunction::Oklab(l, ColorValue::from(a), ColorValue::from(b), alpha))
             }
         }
     }
@@ -450,10 +425,10 @@ mod tests {
             ..Default::default()
         };
 
-        let text_color = CSSProperty::Value(Color::Functional(FunctionColor::LightDark(
+        let text_color = CSSProperty::Value(Color::LightDark(
             Box::new(Color::Current),
-            Box::new(Color::Named(NamedColor::Red)),
-        )));
+            Box::new(Color::Base(ColorBase::Named(NamedColor::Red))),
+        ));
 
         let color = Color4f::from_css_color_property(
             &CSSProperty::Value(Color::Current),
@@ -475,10 +450,10 @@ mod tests {
             ..Default::default()
         };
 
-        let text_color = CSSProperty::Value(Color::Functional(FunctionColor::LightDark(
+        let text_color = CSSProperty::Value(Color::LightDark(
             Box::new(Color::Current),
-            Box::new(Color::Named(NamedColor::Red)),
-        )));
+            Box::new(Color::Base(ColorBase::Named(NamedColor::Red))),
+        ));
 
         let color = Color4f::from_css_color_property(
             &CSSProperty::Value(Color::Current),

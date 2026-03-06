@@ -1,8 +1,13 @@
+use css_values::{
+    background::{Size, WidthHeightSize},
+    combination::LengthPercentage,
+    numeric::Percentage,
+    quantity::Length,
+};
+
 use crate::{
     AbsoluteContext, RelativeContext,
-    length::Length,
-    percentage::{LengthPercentage, Percentage},
-    properties::background::{BackgroundSize, Size, WidthHeightSize},
+    properties::{PixelRepr, background::BackgroundSize},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -14,7 +19,7 @@ pub enum ComputedLengthPercentage {
 impl ComputedLengthPercentage {
     pub fn resolve(len_pct: LengthPercentage, relative_ctx: &RelativeContext, absolute_ctx: &AbsoluteContext) -> Self {
         match len_pct {
-            LengthPercentage::Length(len) => Self::Length(len.to_px(relative_ctx, absolute_ctx)),
+            LengthPercentage::Length(len) => Self::Length(len.to_px(None, relative_ctx, absolute_ctx)),
             LengthPercentage::Percentage(pct) => Self::Percentage(pct.as_fraction()),
         }
     }

@@ -1,23 +1,22 @@
 use std::{fmt::Debug, sync::Arc};
 
-use css_cssom::{ComponentValue, ComponentValueStream};
+use css_cssom::ComponentValueStream;
+use css_values::{
+    CSSParsable,
+    border::{BorderStyle, BorderWidth},
+    color::Color,
+    dimension::{Dimension, MaxDimension, OffsetValue},
+    global::Global,
+    text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
+};
 use preferences::ThemeCategory;
 use url::Url;
 
 use crate::{
-    BorderStyle, BorderWidth, ComputedStyle, OffsetValue,
-    primitives::global::Global,
-    properties::{
-        background::{
-            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
-            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
-        },
-        color::Color,
-        dimension::{Dimension, MaxDimension},
-        display::Display,
-        font::{FontFamily, FontSize, FontWeight},
-        position::Position,
-        text::{LineHeight, TextAlign, Whitespace, WritingMode},
+    ComputedStyle, Display, FontFamily, Position,
+    properties::background::{
+        BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
+        BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
     },
 };
 
@@ -27,29 +26,13 @@ pub mod color;
 pub mod dimension;
 pub mod display;
 pub mod font;
-pub mod gradient;
+pub mod length;
 pub mod offset;
 pub mod position;
 pub mod text;
 
-/// Trait for CSS value types that can be parsed from a `ComponentValueStream`.
-///
-/// This is the primary parsing interface for the css-style crate. Types that
-/// implement this trait can be used as the inner value of `CSSProperty<T>`.
-///
-/// The trait provides a default `try_parse` method that constructs a stream
-/// from a `&[ComponentValue]` slice and delegates to `parse`, so call sites
-/// that still operate on slices (e.g. `update_property`) continue to work.
-pub trait CSSParsable: Sized {
-    /// Parse a value from a `ComponentValueStream`.
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String>;
-
-    /// Convenience: parse from a `&[ComponentValue]` slice by constructing a
-    /// temporary stream. Override this if you need custom slice-level logic
-    /// (e.g. scanning for a specific token anywhere in the slice).
-    fn try_parse(value: &[ComponentValue]) -> Result<Self, String> {
-        Self::parse(&mut value.into())
-    }
+pub trait PixelRepr {
+    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32;
 }
 
 /// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.

@@ -1,9 +1,7 @@
-//! Global CSS primitives, used by most properties.
-
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
-use crate::properties::CSSParsable;
+use crate::CSSParsable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]

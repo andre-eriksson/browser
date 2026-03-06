@@ -3,95 +3,37 @@
 //! of the element and its parent.
 
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
-
-use crate::{
-    ComputedStyle, RelativeType,
-    functions::math::{MathExpression, is_math_function},
-    length::LengthUnit,
-    primitives::{
-        font::{AbsoluteSize, GenericName, RelativeSize},
-        length::Length,
-        percentage::Percentage,
-    },
-    properties::{AbsoluteContext, CSSParsable, RelativeContext},
+use css_values::{
+    CSSParsable,
+    text::{AbsoluteSize, FontFamilyName, FontSize, GenericName, RelativeSize},
 };
 
-/// Represents the font weight property, which can be a keyword (normal, bold) or a numeric value (100-900).
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-weight>
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum FontWeight {
-    Thin = 100,
-    ExtraLight = 200,
-    Light = 300,
-    #[default]
-    Normal = 400,
-    Medium = 500,
-    SemiBold = 600,
-    Bold = 700,
-    ExtraBold = 800,
-    Black = 900,
-}
+use crate::{
+    RelativeType,
+    properties::{AbsoluteContext, PixelRepr, RelativeContext},
+};
 
-impl TryFrom<u16> for FontWeight {
-    type Error = String;
-
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
-        match value {
-            100 => Ok(FontWeight::Thin),
-            200 => Ok(FontWeight::ExtraLight),
-            300 => Ok(FontWeight::Light),
-            400 => Ok(FontWeight::Normal),
-            500 => Ok(FontWeight::Medium),
-            600 => Ok(FontWeight::SemiBold),
-            700 => Ok(FontWeight::Bold),
-            800 => Ok(FontWeight::ExtraBold),
-            900 => Ok(FontWeight::Black),
-            // TODO: Once we support variable font weights, we need to clamp between 1 and 1000 and drop the rounding logic.
-            _ => Self::try_from(((value.saturating_add(50)) / 100 * 100).clamp(100, 900)),
+impl PixelRepr for AbsoluteSize {
+    fn to_px(&self, _rel_type: Option<RelativeType>, _rel_ctx: &RelativeContext, _abs_ctx: &AbsoluteContext) -> f32 {
+        match self {
+            AbsoluteSize::XxSmall => 9.0,
+            AbsoluteSize::XSmall => 10.0,
+            AbsoluteSize::Small => 13.0,
+            AbsoluteSize::Medium => 16.0,
+            AbsoluteSize::Large => 18.0,
+            AbsoluteSize::XLarge => 24.0,
+            AbsoluteSize::XxLarge => 32.0,
+            AbsoluteSize::XxxLarge => 48.0,
         }
     }
 }
 
-impl CSSParsable for FontWeight {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if ident.eq_ignore_ascii_case("normal") {
-                            Ok(Self::Normal)
-                        } else if ident.eq_ignore_ascii_case("bold") {
-                            Ok(Self::Bold)
-                        } else {
-                            Err(format!("Invalid font weight keyword: {}", ident))
-                        }
-                    }
-                    CssTokenKind::Number(num) => Self::try_from(num.to_f64() as u16),
-                    _ => Err("Expected a valid font weight value".to_string()),
-                },
-                _ => Err("Expected a valid font weight value".to_string()),
-            }
-        } else {
-            Err("No font weight value found".to_string())
+impl PixelRepr for RelativeSize {
+    fn to_px(&self, _rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, _abs_ctx: &AbsoluteContext) -> f32 {
+        match self {
+            RelativeSize::Smaller => rel_ctx.parent.font_size * 0.833,
+            RelativeSize::Larger => rel_ctx.parent.font_size * 1.2,
         }
-    }
-}
-
-/// Represents a font family name, which can be either a generic family (serif, sans-serif, etc.) or a specific font name.
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-family>
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum FontFamilyName {
-    Generic(GenericName),
-    Specific(String),
-}
-
-impl Default for FontFamilyName {
-    fn default() -> Self {
-        FontFamilyName::Generic(GenericName::Serif)
     }
 }
 
@@ -183,97 +125,22 @@ impl CSSParsable for FontFamily {
     }
 }
 
-/// Represents the font-size property, which can be specified using absolute-size keywords (e.g., small, medium),
-/// relative-size keywords (e.g., larger, smaller), length units (e.g., 16px, 1.5em), percentage, or a calc() expression.
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-size>
-#[derive(Debug, Clone, PartialEq)]
-pub enum FontSize {
-    Absolute(AbsoluteSize),
-    Relative(RelativeSize),
-    Length(Length),
-    Percentage(Percentage),
-    Math(MathExpression),
-}
-
-impl Default for FontSize {
-    fn default() -> Self {
-        FontSize::Absolute(AbsoluteSize::Medium)
-    }
-}
-
-impl FontSize {
-    /// Create a FontSize from a length value in pixels.
-    pub(crate) fn px(value: f32) -> Self {
-        Self::Length(Length::px(value))
-    }
-
-    /// Convert this FontSize to an absolute length in pixels, given the context of the parent element's font size and the absolute context for resolving relative units.
-    pub fn to_px(&self, abs_ctx: &AbsoluteContext, font_size_px: f32) -> f32 {
-        let rel_ctx = RelativeContext {
-            parent: ComputedStyle {
-                font_size: font_size_px,
-                ..Default::default()
-            }
-            .into(),
-        };
-
+impl PixelRepr for FontSize {
+    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
-            FontSize::Absolute(abs) => abs.to_px(),
-            FontSize::Length(len) => len.to_px(&rel_ctx, abs_ctx),
+            FontSize::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx),
+            FontSize::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
             FontSize::Percentage(pct) => pct.as_fraction() * rel_ctx.parent.font_size,
-            FontSize::Relative(rel) => rel.to_px(rel_ctx.parent.font_size),
-            FontSize::Math(calc) => calc.to_px(Some(RelativeType::FontSize), &rel_ctx, abs_ctx),
+            FontSize::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx),
+            FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),
         }
-    }
-}
-
-impl CSSParsable for FontSize {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
-        stream.skip_whitespace();
-
-        let font_size = if let Some(cv) = stream.peek() {
-            match cv {
-                ComponentValue::Function(func) => {
-                    if is_math_function(&func.name) {
-                        Ok(Self::Math(MathExpression::parse_math_function(&func.name, func.value.as_slice())?))
-                    } else {
-                        Err(format!("Invalid function for font size: {}", func.name))
-                    }
-                }
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if let Ok(abs_size) = ident.parse() {
-                            Ok(Self::Absolute(abs_size))
-                        } else if let Ok(rel_size) = ident.parse() {
-                            Ok(Self::Relative(rel_size))
-                        } else {
-                            Err(format!("Invalid font size identifier: {}", ident))
-                        }
-                    }
-                    CssTokenKind::Dimension { value, unit } => {
-                        let len_unit = unit
-                            .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
-                    }
-                    CssTokenKind::Percentage(num) => Ok(Self::Percentage(Percentage::new(num.to_f64() as f32))),
-                    _ => Err("Expected a valid font size value".to_string()),
-                },
-                _ => Err("Expected a valid font size value".to_string()),
-            }
-        } else {
-            Err("No font size value found".to_string())
-        }?;
-
-        stream.next_cv();
-        Ok(font_size)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use css_cssom::{CssToken, NumericValue};
+    use css_values::{CSSParsable, quantity::Length, text::FontWeight};
 
     use super::*;
 

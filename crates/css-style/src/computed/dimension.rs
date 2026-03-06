@@ -1,4 +1,7 @@
-use crate::{Dimension, MaxDimension, length::Length};
+use css_values::{
+    dimension::{Dimension, MaxDimension},
+    quantity::Length,
+};
 
 #[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum ComputedDimension {
@@ -16,7 +19,7 @@ impl From<Dimension> for ComputedDimension {
     fn from(value: Dimension) -> Self {
         match value {
             Dimension::Auto => Self::Auto,
-            Dimension::Length(_) | Dimension::Math(_) => Self::Fixed,
+            Dimension::Length(_) | Dimension::Calc(_) => Self::Fixed,
             Dimension::Percentage(p) => Self::Percentage(p.as_fraction()),
             Dimension::MaxContent => Self::MaxContent,
             Dimension::MinContent => Self::MinContent,
@@ -55,7 +58,7 @@ impl From<MaxDimension> for ComputedMaxDimension {
     fn from(value: MaxDimension) -> Self {
         match value {
             MaxDimension::None => Self::None,
-            MaxDimension::Length(_) | MaxDimension::Percentage(_) | MaxDimension::Math(_) => Self::Fixed,
+            MaxDimension::Length(_) | MaxDimension::Percentage(_) | MaxDimension::Calc(_) => Self::Fixed,
             MaxDimension::MaxContent => Self::MaxContent,
             MaxDimension::MinContent => Self::MinContent,
             MaxDimension::FitContent(len) => Self::FitContent(len),

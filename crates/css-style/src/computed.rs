@@ -1,36 +1,27 @@
 use std::{f32, sync::Arc};
 
 use css_cssom::{ComponentValue, Property};
+use css_values::{
+    border::{BorderStyle, BorderWidth},
+    color::{Color, base::ColorBase, named::NamedColor},
+    dimension::{Dimension, MaxDimension, OffsetValue},
+    quantity::Length,
+    text::{FontFamilyName, FontSize, FontWeight, GenericName, LineHeight, TextAlign, Whitespace, WritingMode},
+};
 use html_dom::{DocumentRoot, NodeId};
 use tracing::debug;
 
 use crate::{
-    BorderStyle, BorderWidth, FontSize, FontWeight, OffsetValue, RelativeContext, RelativeType,
+    AbsoluteContext, Color4f, ComputedDimension, ComputedMaxDimension, Display, FontFamily, Position, RelativeContext,
+    RelativeType,
     cascade::{GeneratedRule, RuleIndex},
-    color::named::NamedColor,
-    computed::{
-        color::Color4f,
-        dimension::{ComputedDimension, ComputedMaxDimension},
-        image::ComputedBackgroundImage,
-        position::ComputedBackgroundSize,
-    },
-    length::Length,
-    primitives::{
-        display::{InsideDisplay, OutsideDisplay},
-        font::GenericName,
-    },
+    computed::{image::ComputedBackgroundImage, position::ComputedBackgroundSize},
     properties::{
-        AbsoluteContext, CSSProperty,
+        CSSProperty, PixelRepr,
         background::{
             BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
             BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
         },
-        color::Color,
-        dimension::{Dimension, MaxDimension},
-        display::Display,
-        font::{FontFamily, FontFamilyName},
-        position::Position,
-        text::{LineHeight, TextAlign, Whitespace, WritingMode},
     },
     specified::SpecifiedStyle,
 };
@@ -178,7 +169,7 @@ impl ComputedStyle {
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
                 &specified_style.color,
-                &Color::Transparent,
+                &Color::Base(ColorBase::Transparent),
                 parent_style.map(|s| Color::from(s.background_color)),
                 relative_ctx,
                 absolute_ctx,
@@ -271,29 +262,29 @@ impl ComputedStyle {
             border_top_width: specified_style
                 .border_top_width
                 .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_top_width), BorderWidth::zero())
-                .to_px(relative_ctx, absolute_ctx),
+                .to_px(None, relative_ctx, absolute_ctx),
             border_right_width: specified_style
                 .border_right_width
                 .resolve_with_context_owned(
                     BorderWidth::px(relative_ctx.parent.border_right_width),
                     BorderWidth::zero(),
                 )
-                .to_px(relative_ctx, absolute_ctx),
+                .to_px(None, relative_ctx, absolute_ctx),
             border_bottom_width: specified_style
                 .border_bottom_width
                 .resolve_with_context_owned(
                     BorderWidth::px(relative_ctx.parent.border_bottom_width),
                     BorderWidth::zero(),
                 )
-                .to_px(relative_ctx, absolute_ctx),
+                .to_px(None, relative_ctx, absolute_ctx),
             border_left_width: specified_style
                 .border_left_width
                 .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_left_width), BorderWidth::zero())
-                .to_px(relative_ctx, absolute_ctx),
+                .to_px(None, relative_ctx, absolute_ctx),
             color: Color4f::from_css_color_property(
                 &specified_style.color,
-                &CSSProperty::Value(Color::Named(NamedColor::Black)),
-                &Color::Named(NamedColor::Black),
+                &CSSProperty::Value(Color::Base(ColorBase::Named(NamedColor::Black))),
+                &Color::Base(ColorBase::Named(NamedColor::Black)),
                 parent_style.map(|s| Color::from(s.color)),
                 relative_ctx,
                 absolute_ctx,
@@ -308,15 +299,15 @@ impl ComputedStyle {
             font_size: specified_style
                 .font_size
                 .resolve_with_context_owned(FontSize::px(relative_ctx.parent.font_size), FontSize::px(16.0))
-                .to_px(absolute_ctx, relative_ctx.parent.font_size),
+                .to_px(Some(RelativeType::FontSize), relative_ctx, absolute_ctx),
             font_weight: specified_style.font_weight.resolve_with_context_owned(
                 FontWeight::try_from(relative_ctx.parent.font_weight).unwrap_or(FontWeight::Normal),
                 FontWeight::Normal,
             ) as u16,
             intrinsic_height: match &CSSProperty::resolve(&specified_style.height) {
-                Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
+                Ok(Dimension::Length(l)) => l.to_px(None, relative_ctx, absolute_ctx),
                 Ok(Dimension::Percentage(p)) => relative_ctx.parent.intrinsic_height * p.as_fraction(),
-                Ok(Dimension::Math(calc)) => calc.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
+                Ok(Dimension::Calc(calc)) => calc.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
                 _ => 0.0,
             },
             height: ComputedDimension::from(
@@ -324,12 +315,12 @@ impl ComputedStyle {
                     .height
                     .resolve_with_context_owned(relative_ctx.parent.height.into(), Dimension::Auto),
             ),
-            max_intrinsic_height: max_height.to_px(RelativeType::ParentHeight, relative_ctx, absolute_ctx),
+            max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
             max_height: ComputedMaxDimension::from(max_height),
             line_height: specified_style
                 .line_height
                 .resolve_with_context_owned(LineHeight::px(relative_ctx.parent.line_height), LineHeight::Normal)
-                .to_px(absolute_ctx, relative_ctx.parent.font_size),
+                .to_px(None, relative_ctx, absolute_ctx),
             margin_top: margin_top.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
             margin_right: margin_right.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
             margin_bottom: margin_bottom.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
@@ -356,9 +347,9 @@ impl ComputedStyle {
                 .whitespace
                 .resolve_with_context_owned(relative_ctx.parent.whitespace, Whitespace::Normal),
             intrinsic_width: match &CSSProperty::resolve(&specified_style.width) {
-                Ok(Dimension::Length(l)) => l.to_px(relative_ctx, absolute_ctx),
+                Ok(Dimension::Length(l)) => l.to_px(None, relative_ctx, absolute_ctx),
                 Ok(Dimension::Percentage(p)) => relative_ctx.parent.intrinsic_width * p.as_fraction(),
-                Ok(Dimension::Math(calc)) => calc.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+                Ok(Dimension::Calc(calc)) => calc.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
                 _ => 0.0,
             },
             width: ComputedDimension::from(
@@ -366,7 +357,7 @@ impl ComputedStyle {
                     .width
                     .resolve_with_context_owned(relative_ctx.parent.width.into(), Dimension::Auto),
             ),
-            max_intrinsic_width: max_width.to_px(RelativeType::ParentWidth, relative_ctx, absolute_ctx),
+            max_intrinsic_width: max_width.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
             max_width: ComputedMaxDimension::from(max_width),
             writing_mode: specified_style
                 .writing_mode
@@ -417,8 +408,8 @@ impl Default for ComputedStyle {
             border_bottom_width: 0.0,
             border_left_width: 0.0,
             color: Color4f::new(0.0, 0.0, 0.0, 1.0),
-            display: Display::new(Some(OutsideDisplay::Inline), Some(InsideDisplay::Flow), None, None, None),
-            font_family: Arc::new(FontFamily::new(&[FontFamilyName::Generic(GenericName::Serif)])),
+            display: Display::default(),
+            font_family: Arc::new(FontFamily::default()),
             font_size: 16.0,
             font_weight: 500,
             height: ComputedDimension::Auto,

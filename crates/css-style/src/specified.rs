@@ -1,13 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use css_cssom::{CSSStyleSheet, ComponentValue, ComponentValueStream, KnownProperty, Property};
+use css_values::global::Global;
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     ComputedStyle, RelativeContext,
     cascade::{CascadedDeclaration, GeneratedRule, RuleIndex, cascade, cascade_variables},
     functions::variables::resolve_css_variables,
-    global::Global,
     handler::{
         PropertyUpdateContext, handle_background, handle_background_attachment, handle_background_blend_mode,
         handle_background_clip, handle_background_color, handle_background_image, handle_background_origin,

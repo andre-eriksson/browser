@@ -1,17 +1,7 @@
-//! Hexadecimal color notation (e.g., #RRGGBB, #RGB, #RRGGBBAA, #RGBA)
-
 use css_cssom::{CssToken, CssTokenKind};
 
-/// Hex color representations as defined in CSS Color Module Level 4
-///
-/// It is parsed via the hex formats:
-/// * #RRGGBB (6 hex digits)
-/// * #RRGGBBAA (8 hex digits)
-/// * #RGB (3 hex digits, where each digit is repeated to form the full value)
-/// * #RGBA (4 hex digits, where each digit is repeated to form the full value, and the last digit represents alpha)
-///
-/// However it is stored as separate RGBA components for easier manipulation and conversion to other color formats.
-/// The alpha component is optional and defaults to 255 (fully opaque) if not provided.
+use crate::color::{function::ColorFunction, named::NamedColor};
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HexColor {
     /// R component (0 to 255)
@@ -70,6 +60,15 @@ impl TryFrom<&CssToken> for HexColor {
             Err("Expected a hash token for hex color".to_string())
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ColorBase {
+    Hex(HexColor),
+    Function(ColorFunction),
+    Named(NamedColor),
+    Transparent,
+    // TODO: color-mix()
 }
 
 #[cfg(test)]

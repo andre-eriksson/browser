@@ -1,0 +1,134 @@
+use css_cssom::CssToken;
+
+use crate::{
+    numeric::Percentage,
+    quantity::{Angle, Frequency, Length, Time},
+};
+
+/// Represents the <length-percentage> type, which can be either a
+/// Length or a Percentage value. This is used for CSS properties
+/// that accept both length and percentage values, such as width,
+/// height, margin, padding, etc.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LengthPercentage {
+    Length(Length),
+    Percentage(Percentage),
+}
+
+impl From<Length> for LengthPercentage {
+    fn from(length: Length) -> Self {
+        LengthPercentage::Length(length)
+    }
+}
+
+impl From<Percentage> for LengthPercentage {
+    fn from(percentage: Percentage) -> Self {
+        LengthPercentage::Percentage(percentage)
+    }
+}
+
+/// Represents the <frequency-percentage> type, which can be either a
+/// Frequency or a Percentage value. This is used for CSS properties
+/// that accept both frequency and percentage values, such as audio
+/// properties.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FrequencyPercentage {
+    Frequency(Frequency),
+    Percentage(Percentage),
+}
+
+impl From<Frequency> for FrequencyPercentage {
+    fn from(frequency: Frequency) -> Self {
+        FrequencyPercentage::Frequency(frequency)
+    }
+}
+
+impl From<Percentage> for FrequencyPercentage {
+    fn from(percentage: Percentage) -> Self {
+        FrequencyPercentage::Percentage(percentage)
+    }
+}
+
+/// Represents the <angle-percentage> type, which can be either an
+/// Angle or a Percentage value. This is used for CSS properties
+/// that accept both angle and percentage values, such as hue in HSL
+/// colors or rotation in transforms.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AnglePercentage {
+    Angle(Angle),
+    Percentage(Percentage),
+}
+
+impl From<Angle> for AnglePercentage {
+    fn from(angle: Angle) -> Self {
+        AnglePercentage::Angle(angle)
+    }
+}
+
+impl From<Percentage> for AnglePercentage {
+    fn from(percentage: Percentage) -> Self {
+        AnglePercentage::Percentage(percentage)
+    }
+}
+
+/// Represents the <time-percentage> type, which can be either a
+/// Time or a Percentage value. This is used for CSS properties
+/// that accept both time and percentage values, such as animation
+/// duration or delay.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TimePercentage {
+    Time(Time),
+    Percentage(Percentage),
+}
+
+impl From<Time> for TimePercentage {
+    fn from(time: Time) -> Self {
+        TimePercentage::Time(time)
+    }
+}
+
+impl From<Percentage> for TimePercentage {
+    fn from(percentage: Percentage) -> Self {
+        TimePercentage::Percentage(percentage)
+    }
+}
+
+/// Represents a combination of an Angle value or the math "zero".
+/// This is used for gradients.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AngleZero {
+    Angle(Angle),
+    Zero,
+}
+
+impl TryFrom<&CssToken> for AngleZero {
+    type Error = String;
+
+    fn try_from(value: &CssToken) -> Result<Self, Self::Error> {
+        if let Ok(angle) = Angle::try_from(value) {
+            Ok(AngleZero::Angle(angle))
+        } else {
+            Err("Expected an angle, <zero> is unsupported.".to_string())
+        }
+    }
+}
+
+impl From<Angle> for AngleZero {
+    fn from(angle: Angle) -> Self {
+        AngleZero::Angle(angle)
+    }
+}
+
+/// Represents a combination of an Angle or Percentage value or the math "zero".
+/// This is used for gradients.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnglePercentageZero {
+    AnglePercentage(AnglePercentage),
+    Zero,
+}
+
+impl From<AnglePercentage> for AnglePercentageZero {
+    fn from(angle_percentage: AnglePercentage) -> Self {
+        AnglePercentageZero::AnglePercentage(angle_percentage)
+    }
+}

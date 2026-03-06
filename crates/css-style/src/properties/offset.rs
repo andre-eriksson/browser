@@ -4,48 +4,19 @@
 //! relative and absolute contexts.
 
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
-
-use crate::{
-    functions::math::{MathExpression, is_math_function},
-    length::LengthUnit,
-    primitives::{length::Length, percentage::Percentage},
-    properties::{AbsoluteContext, CSSParsable, RelativeContext, RelativeType},
+use css_values::{
+    calc::{CalcExpression, is_math_function},
+    dimension::OffsetValue,
+    numeric::Percentage,
+    quantity::{Length, LengthUnit},
 };
 
-/// Represents a CSS offset value, used for specific margin and padding values. It can be a length, percentage, calc expression, or auto.
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/padding-top>
-#[derive(Debug, Clone, PartialEq)]
-pub enum OffsetValue {
-    Percentage(Percentage),
-    Length(Length),
-    Math(MathExpression),
-    Auto,
-}
+use crate::properties::{AbsoluteContext, CSSParsable, PixelRepr, RelativeContext, RelativeType};
 
-impl Default for OffsetValue {
-    fn default() -> Self {
-        OffsetValue::zero()
-    }
-}
-
-impl OffsetValue {
-    pub(crate) fn zero() -> Self {
-        Self::Length(Length::zero())
-    }
-
-    pub fn px(value: f32) -> Self {
-        Self::Length(Length::px(value))
-    }
-
-    pub fn is_auto(&self) -> bool {
-        matches!(self, OffsetValue::Auto)
-    }
-
-    /// Convert the OffsetValue to pixels, given the relative and absolute contexts. The rel_type indicates what the percentage is relative to.
-    pub fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+impl PixelRepr for OffsetValue {
+    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
         match self {
-            OffsetValue::Length(len) => len.to_px(rel_ctx, abs_ctx),
+            OffsetValue::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
             OffsetValue::Percentage(pct) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx.parent.font_size * pct.as_fraction(),
                 Some(RelativeType::ParentHeight) => rel_ctx.parent.intrinsic_height * pct.as_fraction(),
@@ -55,37 +26,8 @@ impl OffsetValue {
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
                 None => 0.0,
             },
-            OffsetValue::Math(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            OffsetValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             OffsetValue::Auto => 0.0,
-        }
-    }
-}
-
-impl CSSParsable for OffsetValue {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
-                ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    Ok(Self::Math(MathExpression::parse_math_function(&func.name, &func.value)?))
-                }
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Dimension { value, unit } => {
-                        let len_unit = unit
-                            .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
-                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
-                    }
-                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
-                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
-                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
-                    _ => Err("Expected a valid offset value".to_string()),
-                },
-                _ => Err("Expected a valid offset value".to_string()),
-            }
-        } else {
-            Err("Expected a valid offset value".to_string())
         }
     }
 }
@@ -166,7 +108,7 @@ impl CSSParsable for Offset {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     offset_values
-                        .push(OffsetValue::Math(MathExpression::parse_math_function(&func.name, &func.value)?));
+                        .push(OffsetValue::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {

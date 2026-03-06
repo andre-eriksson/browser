@@ -1,14 +1,19 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
-use strum::EnumString;
 
-use crate::{
-    background::{Attachment, BgClip, Clip, VisualBox},
-    blend::BlendMode,
+use css_values::{
+    CSSParsable,
+    background::{Attachment, BgClip, BlendMode, Clip, RepeatStyle, Size, VisualBox, WidthHeightSize},
+    combination::LengthPercentage,
     image::Image,
-    length::{Length, LengthUnit},
-    percentage::{LengthPercentage, Percentage},
-    position::{Center, PositionX, PositionY},
-    properties::CSSParsable,
+    numeric::Percentage,
+    position::{
+        BgPosition, BlockAxis, Center, HorizontalOrXSide, HorizontalSide, InlineAxis, PositionFour, PositionOne,
+        PositionThree, PositionTwo, PositionX, PositionY, RelativeAxis, RelativeHorizontalSide, RelativeVerticalSide,
+        Side, VerticalOrYSide, VerticalSide, XAxis, XAxisOrLengthPercentage, XSide, YAxis, YAxisOrLengthPercentage,
+        YSide,
+    },
+    quantity::{Length, LengthUnit},
+    text::WritingMode,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -288,6 +293,311 @@ impl CSSParsable for BackgroundOrigin {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BackgroundPosition(pub Vec<BgPosition>);
+
+impl BackgroundPosition {
+    /// Resolve a single `BgPosition` layer into `PositionX` / `PositionY` entries.
+    pub(crate) fn resolve_bg_position_layer(
+        position: BgPosition,
+        writing_mode: WritingMode,
+        x_pos: &mut Vec<PositionX>,
+        y_pos: &mut Vec<PositionY>,
+    ) {
+        fn resolve_horizontal_side(horizontal: HorizontalSide, writing_mode: WritingMode) -> HorizontalOrXSide {
+            match writing_mode {
+                WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => {
+                    HorizontalOrXSide::Horizontal(horizontal)
+                }
+                WritingMode::VerticalRl | WritingMode::VerticalLr => match horizontal {
+                    HorizontalSide::Left => HorizontalOrXSide::XSide(XSide::XStart),
+                    HorizontalSide::Right => HorizontalOrXSide::XSide(XSide::XEnd),
+                },
+            }
+        }
+
+        fn resolve_vertical_side(vertical: VerticalSide, writing_mode: WritingMode) -> VerticalOrYSide {
+            match writing_mode {
+                WritingMode::HorizontalTb => match vertical {
+                    VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
+                    VerticalSide::Bottom => VerticalOrYSide::YSide(YSide::YEnd),
+                },
+                WritingMode::VerticalRl | WritingMode::VerticalLr => VerticalOrYSide::Vertical(vertical),
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl => match vertical {
+                    VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
+                    VerticalSide::Bottom => VerticalOrYSide::YSide(YSide::YEnd),
+                },
+            }
+        }
+
+        fn resolve_horizontal_x_side(side: Side, writing_mode: WritingMode) -> HorizontalOrXSide {
+            match writing_mode {
+                WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
+                    Side::Start => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
+                    Side::End => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
+                },
+                WritingMode::VerticalRl | WritingMode::VerticalLr => match side {
+                    Side::Start => HorizontalOrXSide::XSide(XSide::XStart),
+                    Side::End => HorizontalOrXSide::XSide(XSide::XEnd),
+                },
+            }
+        }
+
+        fn resolve_vertical_y_side(side: Side, writing_mode: WritingMode) -> VerticalOrYSide {
+            match writing_mode {
+                WritingMode::HorizontalTb => match side {
+                    Side::Start => VerticalOrYSide::YSide(YSide::YStart),
+                    Side::End => VerticalOrYSide::YSide(YSide::YEnd),
+                },
+                WritingMode::VerticalRl | WritingMode::VerticalLr => match side {
+                    Side::Start => VerticalOrYSide::Vertical(VerticalSide::Top),
+                    Side::End => VerticalOrYSide::Vertical(VerticalSide::Bottom),
+                },
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
+                    Side::Start => VerticalOrYSide::YSide(YSide::YStart),
+                    Side::End => VerticalOrYSide::YSide(YSide::YEnd),
+                },
+            }
+        }
+
+        fn resolve_inline_axis(inline: InlineAxis, writing_mode: WritingMode) -> HorizontalOrXSide {
+            match writing_mode {
+                WritingMode::HorizontalTb => match inline {
+                    InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
+                    InlineAxis::InlineEnd => HorizontalOrXSide::XSide(XSide::XEnd),
+                },
+                WritingMode::SidewaysLr => match inline {
+                    InlineAxis::InlineStart => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
+                    InlineAxis::InlineEnd => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
+                },
+                WritingMode::SidewaysRl => match inline {
+                    InlineAxis::InlineStart => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
+                    InlineAxis::InlineEnd => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
+                },
+                WritingMode::VerticalRl | WritingMode::VerticalLr => match inline {
+                    InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
+                    InlineAxis::InlineEnd => HorizontalOrXSide::XSide(XSide::XEnd),
+                },
+            }
+        }
+
+        fn resolve_block_axis(block: BlockAxis, writing_mode: WritingMode) -> VerticalOrYSide {
+            match writing_mode {
+                WritingMode::HorizontalTb => match block {
+                    BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
+                    BlockAxis::BlockEnd => VerticalOrYSide::YSide(YSide::YEnd),
+                },
+                WritingMode::VerticalRl => match block {
+                    BlockAxis::BlockStart => VerticalOrYSide::Vertical(VerticalSide::Top),
+                    BlockAxis::BlockEnd => VerticalOrYSide::Vertical(VerticalSide::Bottom),
+                },
+                WritingMode::VerticalLr => match block {
+                    BlockAxis::BlockStart => VerticalOrYSide::Vertical(VerticalSide::Bottom),
+                    BlockAxis::BlockEnd => VerticalOrYSide::Vertical(VerticalSide::Top),
+                },
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl => match block {
+                    BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
+                    BlockAxis::BlockEnd => VerticalOrYSide::YSide(YSide::YEnd),
+                },
+            }
+        }
+
+        fn resolve_x_side(x_side: XSide) -> PositionX {
+            match x_side {
+                XSide::XStart => PositionX::Relative((Some(HorizontalOrXSide::XSide(XSide::XStart)), None)),
+                XSide::XEnd => PositionX::Relative((Some(HorizontalOrXSide::XSide(XSide::XEnd)), None)),
+            }
+        }
+
+        fn resolve_y_side(y_side: YSide) -> PositionY {
+            match y_side {
+                YSide::YStart => PositionY::Relative((Some(VerticalOrYSide::YSide(YSide::YStart)), None)),
+                YSide::YEnd => PositionY::Relative((Some(VerticalOrYSide::YSide(YSide::YEnd)), None)),
+            }
+        }
+
+        fn resolve_x_axis(x_axis: XAxis) -> PositionX {
+            match x_axis {
+                XAxis::Center(center) => PositionX::Center(center, None),
+                XAxis::Horizontal(horizontal) => {
+                    PositionX::Relative((Some(HorizontalOrXSide::Horizontal(horizontal)), None))
+                }
+                XAxis::XSide(xside) => resolve_x_side(xside),
+            }
+        }
+
+        fn resolve_y_axis(y_axis: YAxis) -> PositionY {
+            match y_axis {
+                YAxis::Center(center) => PositionY::Center(center, None),
+                YAxis::Vertical(vertical) => PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical)), None)),
+                YAxis::YSide(yside) => resolve_y_side(yside),
+            }
+        }
+
+        match position {
+            BgPosition::One(one) => match one {
+                PositionOne::LengthPercentage(lp) => {
+                    x_pos.push(PositionX::Relative((None, Some(lp))));
+                    y_pos.push(PositionY::Relative((None, Some(lp))));
+                }
+                PositionOne::Horizontal(horizontal) => match horizontal {
+                    HorizontalOrXSide::XSide(xside) => x_pos.push(resolve_x_side(xside)),
+                    HorizontalOrXSide::Horizontal(h) => {
+                        x_pos.push(PositionX::Relative((Some(HorizontalOrXSide::Horizontal(h)), None)));
+                    }
+                },
+                PositionOne::Vertical(vertical) => match vertical {
+                    VerticalOrYSide::YSide(yside) => y_pos.push(resolve_y_side(yside)),
+                    VerticalOrYSide::Vertical(v) => {
+                        y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), None)));
+                    }
+                },
+                PositionOne::Center(center) => {
+                    x_pos.push(PositionX::Center(center, None));
+                    y_pos.push(PositionY::Center(center, None));
+                }
+                PositionOne::BlockAxis(block) => {
+                    let resolved = resolve_block_axis(block, writing_mode);
+                    y_pos.push(PositionY::Relative((Some(resolved), None)));
+                }
+                PositionOne::InlineAxis(inline) => {
+                    let resolved = resolve_inline_axis(inline, writing_mode);
+                    x_pos.push(PositionX::Relative((Some(resolved), None)));
+                }
+            },
+            BgPosition::Two(two) => {
+                match two {
+                    PositionTwo::Axis(x, y) => {
+                        x_pos.push(resolve_x_axis(x));
+                        y_pos.push(resolve_y_axis(y));
+                    }
+                    PositionTwo::Relative(x_rel, y_rel) => {
+                        match x_rel {
+                            RelativeAxis::Center(center) => x_pos.push(PositionX::Center(center, None)),
+                            RelativeAxis::Side(side) => x_pos
+                                .push(PositionX::Relative((Some(resolve_horizontal_x_side(side, writing_mode)), None))),
+                        }
+                        match y_rel {
+                            RelativeAxis::Center(center) => y_pos.push(PositionY::Center(center, None)),
+                            RelativeAxis::Side(side) => y_pos
+                                .push(PositionY::Relative((Some(resolve_vertical_y_side(side, writing_mode)), None))),
+                        }
+                    }
+                    PositionTwo::AxisOrPercentage(x_pct, y_pct) => {
+                        match x_pct {
+                            XAxisOrLengthPercentage::XAxis(x_axis) => x_pos.push(resolve_x_axis(x_axis)),
+                            XAxisOrLengthPercentage::LengthPercentage(lp) => {
+                                x_pos.push(PositionX::Relative((None, Some(lp))));
+                            }
+                        }
+                        match y_pct {
+                            YAxisOrLengthPercentage::YAxis(y_axis) => y_pos.push(resolve_y_axis(y_axis)),
+                            YAxisOrLengthPercentage::LengthPercentage(lp) => {
+                                y_pos.push(PositionY::Relative((None, Some(lp))));
+                            }
+                        }
+                    }
+                    PositionTwo::BlockInline(block, inline) => {
+                        let resolved_block = resolve_block_axis(block, writing_mode);
+                        let resolved_inline = resolve_inline_axis(inline, writing_mode);
+                        y_pos.push(PositionY::Relative((Some(resolved_block), None)));
+                        x_pos.push(PositionX::Relative((Some(resolved_inline), None)));
+                    }
+                }
+            }
+            BgPosition::Three(three) => match three {
+                PositionThree::RelativeHorizontal((horizontal, len_pct), rel_vertical_side) => {
+                    let resolved_horizontal = resolve_horizontal_side(horizontal, writing_mode);
+                    x_pos.push(PositionX::Relative((Some(resolved_horizontal), Some(len_pct))));
+                    match rel_vertical_side {
+                        RelativeVerticalSide::Center(center) => y_pos.push(PositionY::Center(center, None)),
+                        RelativeVerticalSide::Vertical(vertical_side) => {
+                            y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical_side)), None)));
+                        }
+                    }
+                }
+                PositionThree::RelativeVertical(rel_horizontal_side, (vertical, len_pct)) => {
+                    let resolved_vertical = resolve_vertical_side(vertical, writing_mode);
+                    y_pos.push(PositionY::Relative((Some(resolved_vertical), Some(len_pct))));
+                    match rel_horizontal_side {
+                        RelativeHorizontalSide::Center(center) => x_pos.push(PositionX::Center(center, None)),
+                        RelativeHorizontalSide::Horizontal(horizontal_side) => {
+                            x_pos.push(PositionX::Relative((
+                                Some(HorizontalOrXSide::Horizontal(horizontal_side)),
+                                None,
+                            )));
+                        }
+                    }
+                }
+            },
+            BgPosition::Four(four) => match four {
+                PositionFour::BlockInline((block, x_len_pct), (inline, y_len_pct)) => {
+                    let resolved_block = resolve_block_axis(block, writing_mode);
+                    let resolved_inline = resolve_inline_axis(inline, writing_mode);
+                    y_pos.push(PositionY::Relative((Some(resolved_block), Some(y_len_pct))));
+                    x_pos.push(PositionX::Relative((Some(resolved_inline), Some(x_len_pct))));
+                }
+                PositionFour::StartEnd((x_side, x_len_pct), (y_side, y_len_pct)) => {
+                    let resolved_x_side = resolve_horizontal_x_side(x_side, writing_mode);
+                    let resolved_y_side = resolve_vertical_y_side(y_side, writing_mode);
+                    x_pos.push(PositionX::Relative((Some(resolved_x_side), Some(x_len_pct))));
+                    y_pos.push(PositionY::Relative((Some(resolved_y_side), Some(y_len_pct))));
+                }
+                PositionFour::XYPercentage((horizontal_side, x_len_pct), (vertical_side, y_len_pct)) => {
+                    match horizontal_side {
+                        HorizontalOrXSide::Horizontal(h) => {
+                            x_pos.push(PositionX::Relative((Some(HorizontalOrXSide::Horizontal(h)), Some(x_len_pct))));
+                        }
+                        HorizontalOrXSide::XSide(xside) => {
+                            x_pos.push(PositionX::Relative((Some(HorizontalOrXSide::XSide(xside)), Some(x_len_pct))));
+                        }
+                    }
+                    match vertical_side {
+                        VerticalOrYSide::Vertical(v) => {
+                            y_pos.push(PositionY::Relative((Some(VerticalOrYSide::Vertical(v)), Some(y_len_pct))));
+                        }
+                        VerticalOrYSide::YSide(yside) => {
+                            y_pos.push(PositionY::Relative((Some(VerticalOrYSide::YSide(yside)), Some(y_len_pct))));
+                        }
+                    }
+                }
+            },
+        }
+    }
+}
+
+impl CSSParsable for BackgroundPosition {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+        let mut layers = Vec::new();
+        let mut values = Vec::new();
+
+        while let Some(cv) = stream.next_cv() {
+            match cv {
+                ComponentValue::Token(t) if t.kind == CssTokenKind::Comma => {
+                    if values.is_empty() {
+                        return Err("Unexpected comma in background-position".into());
+                    }
+                    let mut value_stream = ComponentValueStream::from(&values);
+                    let pos = BgPosition::parse(&mut value_stream)?;
+                    layers.push(pos);
+                    values.clear();
+                }
+                _ => values.push(cv.clone()),
+            }
+        }
+
+        if !values.is_empty() {
+            let mut value_stream = ComponentValueStream::from(&values);
+            let pos = BgPosition::parse(&mut value_stream)?;
+            layers.push(pos);
+        } else if layers.is_empty() {
+            return Err("Expected at least one position in background-position".into());
+        }
+
+        Ok(BackgroundPosition(layers))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundPositionX(pub Vec<PositionX>);
 
@@ -462,15 +772,6 @@ impl CSSParsable for BackgroundPositionY {
     }
 }
 
-#[derive(Debug, Clone, Copy, EnumString, PartialEq, Eq)]
-#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
-pub enum RepeatStyle {
-    Repeat,
-    Space,
-    Round,
-    NoRepeat,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackgroundRepeat(pub Vec<(RepeatStyle, RepeatStyle)>);
 
@@ -547,25 +848,6 @@ impl CSSParsable for BackgroundRepeat {
         } else {
             Ok(Self(keywords))
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum WidthHeightSize {
-    Auto,
-    Length(LengthPercentage),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Size {
-    Cover,
-    Contain,
-    WidthHeight(WidthHeightSize, Option<WidthHeightSize>),
-}
-
-impl Default for Size {
-    fn default() -> Self {
-        Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto))
     }
 }
 
@@ -692,8 +974,7 @@ impl CSSParsable for BackgroundSize {
 #[cfg(test)]
 mod tests {
     use css_cssom::CssToken;
-
-    use crate::position::{HorizontalOrXSide, HorizontalSide, VerticalOrYSide, VerticalSide};
+    use css_values::image::Image;
 
     use super::*;
 
@@ -1592,5 +1873,89 @@ mod tests {
         let result = BackgroundSize::parse(&mut stream);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bg_position_multiple_layers() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("left".into()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("top".into()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Comma,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("right".into()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("bottom".into()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPosition::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let bg_pos = result.unwrap();
+        assert_eq!(bg_pos.0.len(), 2);
+        assert_eq!(
+            bg_pos.0[0],
+            BgPosition::Two(PositionTwo::Axis(
+                XAxis::Horizontal(HorizontalSide::Left),
+                YAxis::Vertical(VerticalSide::Top)
+            ))
+        );
+        assert_eq!(
+            bg_pos.0[1],
+            BgPosition::Two(PositionTwo::Axis(
+                XAxis::Horizontal(HorizontalSide::Right),
+                YAxis::Vertical(VerticalSide::Bottom)
+            ))
+        );
+    }
+
+    #[test]
+    fn test_bg_position_single_layer() {
+        let input = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".into()),
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Whitespace,
+                position: None,
+            }),
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Ident("center".into()),
+                position: None,
+            }),
+        ];
+
+        let mut stream = ComponentValueStream::from(&input);
+        let result = BackgroundPosition::parse(&mut stream);
+
+        assert!(result.is_ok());
+        let bg_pos = result.unwrap();
+        assert_eq!(bg_pos.0.len(), 1);
+        assert_eq!(
+            bg_pos.0[0],
+            BgPosition::Two(PositionTwo::Axis(XAxis::Center(Center::Center), YAxis::Center(Center::Center)))
+        );
     }
 }
