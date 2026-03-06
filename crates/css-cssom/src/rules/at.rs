@@ -44,6 +44,16 @@ impl CSSAtRule {
         }
     }
 
+    /// Check if this at-rule can contain nested rules
+    pub fn can_be_nested(&self) -> bool {
+        self.name.eq_ignore_ascii_case("media")
+            || self.name.eq_ignore_ascii_case("supports")
+            || self.name.eq_ignore_ascii_case("document")
+            || self.name.eq_ignore_ascii_case("layer")
+            || self.name.eq_ignore_ascii_case("scope")
+            || self.name.eq_ignore_ascii_case("container")
+    }
+
     /// Create a CSSAtRule from a parsed AtRule
     pub fn from_parsed(ar: AtRule, collect_positions: bool) -> Self {
         let prelude = prelude_to_string(&ar.prelude);
@@ -67,15 +77,20 @@ impl CSSAtRule {
 
     /// Parse block contents based on the at-rule type
     fn parse_block_contents(&mut self, name: &str, block: &SimpleBlock, collect_positions: bool) {
-        match name.to_lowercase().as_str() {
-            "media" | "supports" | "document" | "layer" | "scope" | "container" => {
-                self.parse_nested_rules(block, collect_positions)
-            }
-            "font-face" | "page" | "counter-style" | "font-feature-values" | "font-palette-values" | "property" => {
-                self.parse_declarations(block)
-            }
-            "keyframes" => self.parse_keyframe_rules(block, collect_positions),
-            _ => self.parse_nested_rules(block, collect_positions),
+        if self.can_be_nested() {
+            self.parse_nested_rules(block, collect_positions);
+        } else if name.eq_ignore_ascii_case("keyframes") {
+            self.parse_keyframe_rules(block, collect_positions);
+        } else if name.eq_ignore_ascii_case("font-face")
+            || name.eq_ignore_ascii_case("page")
+            || name.eq_ignore_ascii_case("counter-style")
+            || name.eq_ignore_ascii_case("font-feature-values")
+            || name.eq_ignore_ascii_case("font-palette-values")
+            || name.eq_ignore_ascii_case("property")
+        {
+            self.parse_declarations(block);
+        } else {
+            self.parse_nested_rules(block, collect_positions);
         }
     }
 
