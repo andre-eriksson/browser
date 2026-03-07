@@ -38,9 +38,11 @@ impl From<ColorValue> for Percentage {
     }
 }
 
+/// Ratio representation for CSS properties that accept ratio values, such as aspect-ratio, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ratio(f32, f32);
 
+/// Flex representation for CSS properties that accept flex values, such as flex-grow, flex-shrink, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Flex(f32);
 

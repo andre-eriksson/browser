@@ -130,11 +130,16 @@ impl From<f32> for ColorValue {
     }
 }
 
+/// Represents the <color> data type in CSS, which can be specified using various formats such as named colors,
+/// hexadecimal colors, functional notations (e.g., rgb(), hsl()), system colors, and the currentColor keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Color {
     Base(ColorBase),
+    /// The 'currentColor' keyword represents the current value of the 'color' property.
     Current,
     System(SystemColor),
+    /// The light-dark() function allows authors to specify two colors: one for light mode and one for dark mode.
+    /// The user agent will use the appropriate color based on the user's preferred color scheme, currently the app theme.
     LightDark(Box<Self>, Box<Self>),
     // TODO: contrast-color()
     // TODO: device-cmyk()

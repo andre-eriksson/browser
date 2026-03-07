@@ -15,6 +15,9 @@ use crate::{
 
 pub mod gradient;
 
+/// Represents the various types of gradients in CSS, including linear, radial, and conic gradients,
+/// as well as their repeating variants. Each variant holds the specific syntax structure for that
+/// gradient type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Gradient {
     Linear(LinearGradientSyntax),
@@ -274,6 +277,9 @@ impl CSSParsable for Gradient {
     }
 }
 
+/// Represents the various ways to specify an image in CSS, including URLs, gradients,
+/// and more complex constructs like cross-fades and image sets. Each variant holds the
+/// specific data structure relevant to that type of image.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Image {
     None,

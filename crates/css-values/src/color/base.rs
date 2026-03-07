@@ -2,6 +2,9 @@ use css_cssom::{CssToken, CssTokenKind};
 
 use crate::color::{function::ColorFunction, named::NamedColor};
 
+/// Represents a color specified in hexadecimal format, supporting 3, 4, 6, or 8 digit formats.
+/// The RGB components are stored as u8 values (0 to 255), and the alpha component is also stored
+/// as a u8 value (0 to 255, where 255 is fully opaque).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HexColor {
     /// R component (0 to 255)
@@ -62,11 +65,16 @@ impl TryFrom<&CssToken> for HexColor {
     }
 }
 
+/// Represents the <color-base> type in CSS, including hexadecimal colors, functional colors (like rgb(), hsl()), named colors, and the transparent keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ColorBase {
     Hex(HexColor),
     Function(ColorFunction),
     Named(NamedColor),
+
+    /// The 'transparent' keyword represents a fully transparent color, which is equivalent to rgba(0, 0, 0, 0).
+    /// It is a special case in CSS and does not have a specific RGB value, but it can be treated as having an
+    /// alpha value of 0 for rendering purposes.
     Transparent,
     // TODO: color-mix()
 }

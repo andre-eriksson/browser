@@ -313,6 +313,7 @@ impl TryFrom<&CssToken> for Angle {
     }
 }
 
+/// The <time> CSS data type represents a time value, which can be specified in seconds or milliseconds. It is commonly used in properties like `animation-duration` and `transition-delay`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Time {
     /// Seconds (e.g., "2s")
@@ -326,6 +327,8 @@ pub enum Time {
     Milliseconds(f32),
 }
 
+/// The <frequency> CSS data type represents a frequency value, which can be specified in hertz or kilohertz.
+/// It is currently unused.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Frequency {
     /// Hertz (e.g., "440Hz")
@@ -339,6 +342,8 @@ pub enum Frequency {
     KHz(f32),
 }
 
+/// The <resolution> CSS data type represents a resolution value, which can be specified in dots per inch,
+/// dots per centimeter, or dots per pixel. It is commonly used in media queries to specify the resolution of the output device.
 pub enum Resolution {
     /// Dots per inch (e.g., "300dpi")
     ///

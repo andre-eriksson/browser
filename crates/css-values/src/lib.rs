@@ -1,3 +1,5 @@
+//! This crate provides types and traits for representing and parsing CSS values.
+
 use css_cssom::ComponentValueStream;
 
 pub mod background;

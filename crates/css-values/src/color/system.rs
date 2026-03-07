@@ -106,6 +106,7 @@ impl SystemColor {
     }
 }
 
+/// Deprecated system colors that were defined in older versions of CSS but are no longer recommended for use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DeprecatedColor {
     ActiveBorder,

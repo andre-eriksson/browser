@@ -45,6 +45,7 @@ impl PosToken {
     }
 }
 
+/// The center keyword is used in several position-related properties to indicate the midpoint between two sides.
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum Center {
@@ -52,6 +53,7 @@ pub enum Center {
     Center,
 }
 
+/// The horizontal side keywords (left and right) are used in position-related properties to specify a position relative to the left or right edge of the containing block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum HorizontalSide {
@@ -59,6 +61,7 @@ pub enum HorizontalSide {
     Right,
 }
 
+/// The relative horizontal side keywords include the horizontal sides (left and right) or the center keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RelativeHorizontalSide {
     Horizontal(HorizontalSide),
@@ -79,6 +82,8 @@ impl FromStr for RelativeHorizontalSide {
     }
 }
 
+/// The x-side keywords (x-start and x-end) are used in position-related properties to specify a position
+/// relative to the start or end edge of the containing block in the horizontal dimension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum XSide {
@@ -86,6 +91,7 @@ pub enum XSide {
     XEnd,
 }
 
+/// The horizontal or x-side keywords include the horizontal sides (left and right) or the x-sides (x-start and x-end).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HorizontalOrXSide {
     Horizontal(HorizontalSide),
@@ -106,6 +112,7 @@ impl FromStr for HorizontalOrXSide {
     }
 }
 
+/// The x-axis keywords include the horizontal sides (left and right), the center keyword, or the x-sides (x-start and x-end).
 #[derive(Debug, Clone, PartialEq)]
 pub enum XAxis {
     Horizontal(HorizontalSide),
@@ -129,12 +136,14 @@ impl FromStr for XAxis {
     }
 }
 
+/// The x-axis or length/percentage values include the x-axis keywords (horizontal sides, center, x-sides) or a length/percentage value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum XAxisOrLengthPercentage {
     XAxis(XAxis),
     LengthPercentage(LengthPercentage),
 }
 
+/// The y-side keywords (y-start and y-end) are used in position-related properties to specify a position relative to the start or end edge of the containing block in the vertical dimension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum YSide {
@@ -142,6 +151,7 @@ pub enum YSide {
     YEnd,
 }
 
+/// The vertical side keywords (top and bottom) are used in position-related properties to specify a position relative to the top or bottom edge of the containing block.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum VerticalSide {
@@ -149,6 +159,7 @@ pub enum VerticalSide {
     Bottom,
 }
 
+/// The relative vertical side keywords include the vertical sides (top and bottom) or the center keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RelativeVerticalSide {
     Vertical(VerticalSide),
@@ -169,6 +180,7 @@ impl FromStr for RelativeVerticalSide {
     }
 }
 
+/// The vertical or y-side keywords include the vertical sides (top and bottom) or the y-sides (y-start and y-end).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VerticalOrYSide {
     Vertical(VerticalSide),
@@ -189,6 +201,7 @@ impl FromStr for VerticalOrYSide {
     }
 }
 
+/// The y-axis keywords include the vertical sides (top and bottom), the center keyword, or the y-sides (y-start and y-end).
 #[derive(Debug, Clone, PartialEq)]
 pub enum YAxis {
     Vertical(VerticalSide),
@@ -212,12 +225,15 @@ impl FromStr for YAxis {
     }
 }
 
+/// The y-axis or length/percentage values include the y-axis keywords (vertical sides, center, y-sides) or a length/percentage value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum YAxisOrLengthPercentage {
     YAxis(YAxis),
     LengthPercentage(LengthPercentage),
 }
 
+/// The block-axis keywords (block-start and block-end) are used in position-related properties to specify a position relative to the
+/// start or end edge of the containing block in the block dimension, depends on the writing mode of the document.
 #[derive(Debug, Clone, PartialEq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum BlockAxis {
@@ -225,6 +241,8 @@ pub enum BlockAxis {
     BlockEnd,
 }
 
+/// The inline-axis keywords (inline-start and inline-end) are used in position-related properties to specify a position relative to the
+/// start or end edge of the containing block in the inline dimension, depends on the writing mode of the document.
 #[derive(Debug, Clone, PartialEq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum InlineAxis {
@@ -232,6 +250,8 @@ pub enum InlineAxis {
     InlineEnd,
 }
 
+/// The side keywords (start and end) are used in position-related properties to specify a position relative to the start or end edge of the
+/// containing block in either dimension, depends on the writing mode of the document.
 #[derive(Debug, Clone, PartialEq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum Side {
@@ -239,6 +259,8 @@ pub enum Side {
     End,
 }
 
+/// The relative-axis keywords include the side keywords (start and end) or the center keyword. These are used in position-related properties to
+/// specify a position relative to the start or end edge of the containing block in either dimension, or the center of the containing block.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RelativeAxis {
     Side(Side),
@@ -259,6 +281,9 @@ impl FromStr for RelativeAxis {
     }
 }
 
+/// The side-or-corner syntax is used in position-related properties to specify a position relative to one or two edges of the containing block.
+/// It can include one horizontal side (left or right) and/or one vertical side (top or bottom), but not both horizontal sides or both vertical sides.
+/// The `to` keyword is expected to have already been consumed by the caller, so this only parses the remaining ident tokens for the sides.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SideOrCorner {
     pub horizontal: Option<HorizontalSide>,
@@ -316,6 +341,8 @@ impl CSSParsable for SideOrCorner {
     }
 }
 
+/// The <position-one> CSS data type is used in position-related properties to specify a single position keyword
+/// or a length/percentage value.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PositionOne {
     Horizontal(HorizontalOrXSide),
@@ -367,6 +394,8 @@ impl CSSParsable for PositionOne {
     }
 }
 
+/// The <position-two> CSS data type is used in position-related properties to specify a combination of two position
+/// keywords or length/percentage values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PositionTwo {
     /// X Axis and Y Axis can be in any order, but both must be present and valid axes.
@@ -520,6 +549,8 @@ impl CSSParsable for PositionTwo {
     }
 }
 
+/// The <position-three> CSS data type is used in position-related properties to specify a combination of three
+/// position keywords or length/percentage values. Only avaliable in <bg-position> data type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PositionThree {
     RelativeVertical(RelativeHorizontalSide, (VerticalSide, LengthPercentage)),
@@ -608,6 +639,7 @@ impl CSSParsable for PositionThree {
     }
 }
 
+/// The <position-four> CSS data type is used in position-related properties to specify a combination of four position keywords or length/percentage values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PositionFour {
     XYPercentage((HorizontalOrXSide, LengthPercentage), (VerticalOrYSide, LengthPercentage)),
@@ -679,6 +711,7 @@ impl CSSParsable for PositionFour {
     }
 }
 
+/// The <position> CSS data type is used in position-related properties to specify a position using one, two, or four position keywords or length/percentage values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Position {
     One(PositionOne),
@@ -722,6 +755,7 @@ impl CSSParsable for Position {
     }
 }
 
+/// The <bg-position> CSS data type is used in background-position and related properties to specify a position using one, two, three, or four position keywords or length/percentage values.
 #[derive(Debug, Clone, PartialEq)]
 pub enum BgPosition {
     One(PositionOne),
@@ -757,6 +791,8 @@ impl CSSParsable for BgPosition {
     }
 }
 
+/// The <position-x> and <position-y> CSS data types are used in position-related properties to specify a position along the
+/// horizontal (x) or vertical (y) axis, respectively, using a combination of position keywords and length/percentage values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PositionX {
     Center(Center, Option<LengthPercentage>),
@@ -764,6 +800,8 @@ pub enum PositionX {
     Relative((Option<HorizontalOrXSide>, Option<LengthPercentage>)),
 }
 
+/// The <position-y> CSS data type is used in position-related properties to specify a position along the vertical (y) axis,
+/// using a combination of position keywords and length/percentage values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PositionY {
     Center(Center, Option<LengthPercentage>),

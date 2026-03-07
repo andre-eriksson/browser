@@ -31,7 +31,15 @@ pub mod offset;
 pub mod position;
 pub mod text;
 
+/// Trait for types that can be represented in pixels. This is used for properties that can be
+/// specified in various units (e.g., 'em', '%', 'vw') and need to be converted to pixels for
+/// layout calculations. The `to_px` method takes into account the context of the property, such
+/// as the parent font size for 'em' units or the viewport dimensions for 'vw' units.
 pub trait PixelRepr {
+    /// Converts the value to pixels based on the provided context. The `rel_type` parameter indicates
+    /// the type of relative measurement (e.g., font size, parent width) that may be needed for the conversion.
+    /// The `rel_ctx` provides access to the parent style for inheritance and percentage calculations, while
+    /// the `abs_ctx` provides access to absolute context values like root font size and viewport dimensions.
     fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32;
 }
 

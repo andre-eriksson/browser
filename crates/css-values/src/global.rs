@@ -3,6 +3,7 @@ use strum::EnumString;
 
 use crate::CSSParsable;
 
+/// Represents the global values that can be used in CSS properties. These values have special meanings and affect how the property is computed and inherited.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum Global {
