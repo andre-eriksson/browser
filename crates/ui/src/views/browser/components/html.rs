@@ -2,16 +2,12 @@ use std::str::FromStr;
 
 use iced::{
     Background, Color, Length,
-    widget::{
-        Shader, Space, container,
-        scrollable::{self, Direction, Scrollbar, Viewport},
-        shader, stack,
-    },
+    widget::{Shader, container, shader},
 };
 
 use crate::{
     core::{Application, UiTab},
-    events::{Event, UiEvent},
+    events::Event,
     views::browser::components::shader::{HtmlRenderer, ViewportBounds, collect_render_data_from_layout},
 };
 
@@ -54,28 +50,13 @@ impl<'renderer> BrowserHtml<'renderer> {
         self.renderer.set_text_blocks(render_data.text_blocks);
         self.renderer.set_images(render_data.images);
         self.renderer.set_scroll_offset(active_tab.scroll_offset);
+        self.renderer.set_viewport_height(content_viewport_height);
 
         let shader: Shader<Event, HtmlRenderer> = shader(self.renderer)
             .width(Length::Fill)
             .height(Length::Fill);
 
-        let scroll_spacer = Space::new()
-            .width(Length::Fill)
-            .height(Length::Fixed(active_tab.layout_tree.content_height));
-
-        let scrollable_layer = scrollable::Scrollable::new(scroll_spacer)
-            .direction(Direction::Vertical(Scrollbar::new()))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .on_scroll(|viewport: Viewport| {
-                Event::Ui(UiEvent::ContentScrolled(viewport.absolute_offset().x, viewport.absolute_offset().y))
-            });
-
-        let content_stack = stack![scrollable_layer, shader]
-            .width(Length::Fill)
-            .height(Length::Fill);
-
-        container(content_stack)
+        container(shader)
             .width(Length::Fill)
             .height(Length::Fill)
             .style(move |_| container::Style {

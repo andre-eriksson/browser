@@ -19,7 +19,11 @@ use renderer::{
     TexturePipeline, image::ImageCache,
 };
 
-use crate::{core::ScrollOffset, events::Event, util::fonts::load_fallback_fonts};
+use crate::{
+    core::ScrollOffset,
+    events::{Event, UiEvent},
+    util::fonts::load_fallback_fonts,
+};
 
 pub const UI_VERTICAL_OFFSET: f32 = 88.0;
 
@@ -282,6 +286,9 @@ pub struct HtmlRenderer<'a> {
 
     /// The layout tree being rendered
     pub layout_tree: &'a LayoutTree,
+
+    /// The visible viewport height used to clamp wheel scrolling
+    pub viewport_height: f32,
 }
 
 impl<'html> HtmlRenderer<'html> {
@@ -294,6 +301,7 @@ impl<'html> HtmlRenderer<'html> {
             scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
             dom_tree,
             layout_tree,
+            viewport_height: 0.0,
         }
     }
 
@@ -322,6 +330,44 @@ impl<'html> HtmlRenderer<'html> {
 
     pub fn set_scroll_offset(&mut self, scroll_offset: ScrollOffset) {
         self.scroll_offset = scroll_offset;
+    }
+
+    pub fn set_viewport_height(&mut self, viewport_height: f32) {
+        self.viewport_height = viewport_height;
+    }
+
+    /// Check if the mouse is currently hovering over a link and return its href if so.
+    fn hovered_link_href(&self, cursor: iced::advanced::mouse::Cursor) -> Option<String> {
+        let position = cursor.position()?;
+        let x = position.x + self.scroll_offset.x;
+        let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+
+        let nodes = self.layout_tree.resolve(x, y);
+
+        for node in nodes {
+            let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
+                dom_node
+            } else {
+                continue;
+            };
+
+            if let Some(n) = dom_node.data.as_element()
+                && n.tag == Tag::Html(HtmlTag::A)
+            {
+                return Some(n.attributes.get("href").cloned().unwrap_or_default());
+            }
+
+            for ancestor in self.dom_tree.ancestors(&node.node_id) {
+                if let Some(n) = ancestor.data.as_element()
+                    && n.tag == Tag::Html(HtmlTag::A)
+                    && let Some(href) = n.attributes.get("href")
+                {
+                    return Some(href.clone());
+                }
+            }
+        }
+
+        None
     }
 }
 
@@ -362,49 +408,27 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
         _bounds: Rectangle,
         cursor: iced::advanced::mouse::Cursor,
     ) -> Option<iced::widget::Action<Event>> {
-        if let Some(position) = cursor.position() {
-            let x = position.x + self.scroll_offset.x;
-            let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+        if let iced::Event::Mouse(e) = event
+            && let mouse::Event::WheelScrolled { delta } = e
+        {
+            let delta = match *delta {
+                mouse::ScrollDelta::Lines { x, y } => -iced::Vector::new(x, y) * 60.0,
+                mouse::ScrollDelta::Pixels { x, y } => -iced::Vector::new(x, y),
+            };
 
-            let nodes = self.layout_tree.resolve(x, y);
-            let mut found_link = false;
-            let mut element = None;
+            let max_scroll_y = (self.layout_tree.content_height - self.viewport_height).max(0.0);
+            let new_y = (self.scroll_offset.y + delta.y).clamp(0.0, max_scroll_y);
 
-            'outer: for node in nodes {
-                let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
-                    dom_node
-                } else {
-                    continue;
-                };
-
-                if let Some(n) = dom_node.data.as_element()
-                    && n.tag == Tag::Html(HtmlTag::A)
-                {
-                    element = Some(n);
-                    found_link = true;
-                    break;
-                }
-
-                for ancestor in self.dom_tree.ancestors(&node.node_id) {
-                    if let Some(n) = ancestor.data.as_element()
-                        && n.tag == Tag::Html(HtmlTag::A)
-                    {
-                        element = Some(n);
-                        found_link = true;
-                        break 'outer;
-                    }
-                }
+            if (new_y - self.scroll_offset.y).abs() > f32::EPSILON {
+                return Some(Action::publish(Event::Ui(UiEvent::ContentScrolled(self.scroll_offset.x, new_y))));
             }
+        }
 
-            if found_link
-                && let Some(element) = element
-                && let iced::Event::Mouse(e) = event
-                && let mouse::Event::ButtonReleased(_) = e
-            {
-                return Some(Action::publish(Event::Browser(BrowserEvent::NavigateTo(
-                    element.attributes.get("href").cloned().unwrap_or_default(),
-                ))));
-            }
+        if let Some(href) = self.hovered_link_href(cursor)
+            && let iced::Event::Mouse(e) = event
+            && let mouse::Event::ButtonReleased(mouse::Button::Left) = e
+        {
+            return Some(Action::publish(Event::Browser(BrowserEvent::NavigateTo(href))));
         }
 
         None
@@ -416,40 +440,8 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
         _bounds: Rectangle,
         cursor: iced::advanced::mouse::Cursor,
     ) -> iced::advanced::mouse::Interaction {
-        if let Some(position) = cursor.position() {
-            let x = position.x + self.scroll_offset.x;
-            let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
-
-            let nodes = self.layout_tree.resolve(x, y);
-            let mut found_link = false;
-
-            'outer: for node in nodes {
-                let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
-                    dom_node
-                } else {
-                    continue;
-                };
-
-                if let Some(n) = dom_node.data.as_element()
-                    && n.tag == Tag::Html(HtmlTag::A)
-                {
-                    found_link = true;
-                    break;
-                }
-
-                for ancestor in self.dom_tree.ancestors(&node.node_id) {
-                    if let Some(n) = ancestor.data.as_element()
-                        && n.tag == Tag::Html(HtmlTag::A)
-                    {
-                        found_link = true;
-                        break 'outer;
-                    }
-                }
-            }
-
-            if found_link {
-                return iced::advanced::mouse::Interaction::Pointer;
-            }
+        if self.hovered_link_href(cursor).is_some() {
+            return iced::advanced::mouse::Interaction::Pointer;
         }
 
         iced::advanced::mouse::Interaction::default()
