@@ -163,9 +163,7 @@ impl BlockLayout {
 
             child_ctx.block_cursor.y = child_y_offset;
 
-            let child_node = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx);
-
-            if let Some(child_node) = child_node {
+            if let Some(child_node) = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx) {
                 flow.advance(
                     child_node.resolved_margin.top,
                     child_node.dimensions.height,
@@ -213,6 +211,7 @@ impl BlockLayout {
             children,
             text_buffer: None,
             image_data: None,
+            is_height_auto: styled_node.style.height == ComputedDimension::Auto,
         }
     }
 

@@ -105,10 +105,14 @@ pub struct LayoutNode {
     /// Optional text buffer for rendered text
     pub text_buffer: Option<Arc<Buffer>>,
 
+    /// Optional image data for rendered images
     pub image_data: Option<ImageData>,
 
     /// Child layout nodes
     pub children: Vec<LayoutNode>,
+
+    /// Whether this node's height is determined by its content (e.g. for block elements)
+    pub is_height_auto: bool,
 }
 
 impl LayoutNode {
@@ -124,6 +128,7 @@ impl LayoutNode {
             text_buffer: None,
             image_data: None,
             children: Vec::new(),
+            is_height_auto: false,
         }
     }
 }
@@ -155,6 +160,89 @@ impl LayoutTree {
             }
             collected.push(node);
         }
+    }
+
+    /// Collect the `NodeId` of every image node whose `image_src` matches `url`.
+    ///
+    /// An image node is any [`LayoutNode`] that has `image_data.image_src == url`.
+    /// There may be more than one if the same image appears multiple times on the page.
+    pub fn find_image_nodes_by_src(&self, url: &str) -> Vec<NodeId> {
+        let mut result = Vec::new();
+        for root in &self.root_nodes {
+            Self::collect_image_nodes(root, url, &mut result);
+        }
+        result
+    }
+
+    fn collect_image_nodes(node: &LayoutNode, url: &str, out: &mut Vec<NodeId>) {
+        if let Some(ref img) = node.image_data
+            && img.image_src == url
+        {
+            out.push(node.node_id);
+        }
+
+        for child in &node.children {
+            Self::collect_image_nodes(child, url, out);
+        }
+    }
+
+    /// Finds the path to the layout node corresponding to the given `NodeId`, if it exists.
+    pub fn find_path(&self, node_id: NodeId) -> Option<Vec<usize>> {
+        for (idx, root) in self.root_nodes.iter().enumerate() {
+            if let Some(mut path) = Self::find_path_in_node(root, node_id) {
+                path.insert(0, idx);
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    fn find_path_in_node(node: &LayoutNode, node_id: NodeId) -> Option<Vec<usize>> {
+        if node.node_id == node_id {
+            return Some(vec![]);
+        }
+
+        for (idx, child) in node.children.iter().enumerate() {
+            if let Some(mut path) = Self::find_path_in_node(child, node_id) {
+                path.insert(0, idx);
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    /// Retrieves a reference to the layout node at the specified path, if it exists.
+    pub fn node_at(&self, path: &[usize]) -> Option<&LayoutNode> {
+        if path.is_empty() {
+            return None;
+        }
+
+        let mut current = self.root_nodes.get(path[0]);
+        for &idx in &path[1..] {
+            current = match current {
+                None => return current,
+                Some(node) => node.children.get(idx),
+            };
+        }
+        current
+    }
+
+    /// Retrieves a mutable reference to the layout node at the specified path, if it exists.
+    pub fn node_at_mut(&mut self, path: &[usize]) -> Option<&mut LayoutNode> {
+        if path.is_empty() {
+            return None;
+        }
+
+        let mut current = self.root_nodes.get_mut(path[0]);
+        for &idx in &path[1..] {
+            current = match current {
+                None => return current,
+                Some(node) => node.children.get_mut(idx),
+            };
+        }
+        current
     }
 }
 

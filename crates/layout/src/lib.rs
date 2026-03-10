@@ -25,6 +25,6 @@ mod resolver;
 pub use context::ImageContext;
 pub use css_style::Color4f;
 pub use engine::LayoutEngine;
-pub use layout::{LayoutColors, LayoutNode, LayoutTree};
+pub use layout::{ImageData, LayoutColors, LayoutNode, LayoutTree};
 pub use primitives::{Rect, SideOffset};
 pub use text::TextContext;

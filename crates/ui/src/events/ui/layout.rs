@@ -4,7 +4,7 @@ use css_style::{AbsoluteContext, StyleTree};
 use iced::Task;
 use io::{CacheEntry, CacheRead};
 use kernel::TabId;
-use layout::{LayoutEngine, Rect};
+use layout::LayoutEngine;
 use tracing::debug;
 
 use crate::{
@@ -12,7 +12,16 @@ use crate::{
     events::{Event, UiEvent},
 };
 
-/// Handles the completion of image loading, updating the tab's state and triggering a relayout if necessary.
+/// Handles the completion of image loading, updating the tab's state and triggering a targeted
+/// async relayout of only the image node and its ancestors.
+///
+/// Image loads are **batched**: a relayout is only triggered once every pending image for the
+/// page has resolved (loaded or failed). This means a page with N images pays the layout cost
+/// once rather than N times. The `pending_image_urls` set on [`UiTab`] tracks what is still
+/// outstanding; `resolve_pending_image` removes the URL and returns `true` when the set is empty.
+///
+/// Once all images are ready the relayout runs off the UI thread via `spawn_blocking` so that
+/// scrolling and other interactions remain responsive while the work is in progress.
 pub(crate) fn on_image_loaded(
     application: &mut Application,
     tab_id: TabId,
@@ -31,53 +40,75 @@ pub(crate) fn on_image_loaded(
         }
     }
 
-    if let Some(tab) = application.tabs.iter_mut().find(|t| t.id == tab_id) {
-        let all_done = tab.resolve_pending_image(url);
+    let Some(tab) = application.tabs.iter_mut().find(|t| t.id == tab_id) else {
+        return Task::none();
+    };
 
-        if all_done {
-            let (vw, vh) = application
-                .viewports
-                .get(&application.id)
-                .copied()
-                .unwrap_or((800.0, 600.0));
-
-            let text_ctx = application.text_context.clone();
-            let theme_category = application.config.active_theme().category;
-            let page = Arc::clone(&tab.page);
-            let image_ctx = tab.image_context();
-            let generation = tab.layout_generation;
-
-            return Task::perform(
-                async move {
-                    tokio::task::spawn_blocking(move || {
-                        let ctx = AbsoluteContext {
-                            root_font_size: 16.0,
-                            viewport_width: vw,
-                            viewport_height: vh,
-                            theme_category,
-                            ..Default::default()
-                        };
-                        let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());
-                        let mut tc = text_ctx.lock().unwrap();
-                        LayoutEngine::compute_layout(
-                            &style_tree,
-                            Rect::new(0.0, 0.0, vw, vh),
-                            &mut tc,
-                            Some(&image_ctx),
-                        )
-                    })
-                    .await
-                    .unwrap()
-                },
-                move |layout_tree| Event::Ui(UiEvent::RelayoutComplete(tab_id, generation, layout_tree)),
-            );
-        }
+    if !tab.resolve_pending_image(url) {
+        return Task::none();
     }
 
-    Task::none()
+    let image_node_ids: Vec<_> = tab
+        .known_images
+        .keys()
+        .flat_map(|src| tab.layout_tree.find_image_nodes_by_src(src))
+        .collect();
+
+    if image_node_ids.is_empty() {
+        return Task::none();
+    }
+
+    let (vw, vh) = application
+        .viewports
+        .get(&application.id)
+        .copied()
+        .unwrap_or((800.0, 600.0));
+
+    let theme_category = application.config.active_theme().category;
+    let page = Arc::clone(&tab.page);
+    let image_ctx = tab.image_context();
+    let layout_tree = tab.layout_tree.clone();
+    let text_ctx = application.text_context.clone();
+    let generation = tab.layout_generation;
+
+    Task::perform(
+        async move {
+            tokio::task::spawn_blocking(move || {
+                let ctx = AbsoluteContext {
+                    root_font_size: 16.0,
+                    viewport_width: vw,
+                    viewport_height: vh,
+                    theme_category,
+                    document_url: page.document_url.as_ref(),
+                    ..Default::default()
+                };
+                let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());
+                let dom_tree = page.document();
+                let mut tc = text_ctx.lock().unwrap();
+                let mut layout_tree = layout_tree;
+
+                for node_id in image_node_ids {
+                    LayoutEngine::relayout_node(
+                        node_id,
+                        &mut layout_tree,
+                        &style_tree,
+                        dom_tree,
+                        &mut tc,
+                        Some(&image_ctx),
+                    );
+                }
+
+                layout_tree
+            })
+            .await
+            .unwrap()
+        },
+        move |layout_tree| Event::Ui(UiEvent::RelayoutComplete(tab_id, generation, layout_tree)),
+    )
 }
 
-/// Handles the completion of a relayout operation, updating the tab's layout tree if the generation matches.
+/// Handles the completion of a relayout operation, updating the tab's layout tree if the
+/// generation matches.
 pub(crate) fn on_relayout_complete(
     application: &mut Application,
     tab_id: TabId,

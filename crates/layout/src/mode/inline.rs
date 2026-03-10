@@ -494,9 +494,9 @@ impl InlineLayout {
                     };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
-                    let child_node = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx);
 
-                    if let Some(mut layout_node) = child_node {
+                    if let Some(mut layout_node) = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx)
+                    {
                         let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
 
                         let alignment = &style.text_align;
@@ -689,6 +689,7 @@ impl InlineLayout {
                 text_buffer: Some(Arc::new(measured.buffer)),
                 image_data: None,
                 children: vec![],
+                is_height_auto: style.height == ComputedDimension::Auto,
             };
 
             let ascent = measured.height;

@@ -68,7 +68,7 @@ mod tests {
             let style_tree = StyleTree::build(&absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
             let text_context = TextContext::new(font_system);
-            (style_tree, text_context)
+            (document, style_tree, text_context)
         }};
     }
 
@@ -83,7 +83,7 @@ mod tests {
     /// context).
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr) => {{
-            let (style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
+            let (_, style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
             LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, None)
         }};
     }
@@ -254,11 +254,11 @@ mod tests {
     ///      container grew taller.
     #[test]
     fn test_image_relayout_repositions_siblings() {
-        let (style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
+        let (dom, style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
 
-        let layout_before = layout_from!(style_tree, &mut text_context);
+        let mut layout = layout_from!(style_tree, &mut text_context);
 
-        let root = &layout_before.root_nodes[0];
+        let root = &layout.root_nodes[0];
         let body = &root.children[0];
 
         let container = &body.children[0];
@@ -284,14 +284,21 @@ mod tests {
             .expect("container should have children")
             .dimensions
             .y;
-        let content_height_before = layout_before.content_height;
+        let content_height_before = layout.content_height;
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
 
-        let layout_after = layout_from!(style_tree, &mut text_context, &image_ctx);
+        LayoutEngine::relayout_node(
+            img_node.node_id,
+            &mut layout,
+            &style_tree,
+            &dom,
+            &mut text_context,
+            Some(&image_ctx),
+        );
 
-        let root2 = &layout_after.root_nodes[0];
+        let root2 = &layout.root_nodes[0];
         let body2 = &root2.children[0];
         let container2 = &body2.children[0];
 
@@ -326,10 +333,10 @@ mod tests {
         );
 
         assert!(
-            layout_after.content_height > content_height_before,
+            layout.content_height > content_height_before,
             "Total content height should increase after relayout (before: {}, after: {})",
             content_height_before,
-            layout_after.content_height,
+            layout.content_height,
         );
     }
 
@@ -337,7 +344,7 @@ mod tests {
     /// running it twice produces identical results.
     #[test]
     fn test_image_relayout_is_idempotent() {
-        let (style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
+        let (_, style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
