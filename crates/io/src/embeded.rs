@@ -45,6 +45,11 @@ pub const WINDOW_ICON: EmbededType = EmbededType::Icon("icon.ico");
 /// Represents the DevTools variant of the main icon asset.
 pub const DEVTOOLS_ICON: EmbededType = EmbededType::Icon("devtools.ico");
 
+pub const PLUS_ICON: EmbededType = EmbededType::Icon("plus.svg");
+pub const LEFT_CHEVRON_ICON: EmbededType = EmbededType::Icon("chevron-left.svg");
+pub const RIGHT_CHEVRON_ICON: EmbededType = EmbededType::Icon("chevron-right.svg");
+pub const REFRESH_ICON: EmbededType = EmbededType::Icon("rotate-cw.svg");
+
 // === Font Assets ===
 
 pub const OPEN_SANS_LIGHT: EmbededType = EmbededType::Font("OpenSans-Light.ttf");

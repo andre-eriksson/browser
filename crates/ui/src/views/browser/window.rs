@@ -1,14 +1,17 @@
+use std::cell::Cell;
+
 use constants::APP_NAME;
 use iced::{
-    Length, Renderer, Size, Theme,
+    Length, Renderer, Size, Subscription, Theme, event, mouse,
     widget::{column, container},
-    window::{Position, Settings},
+    window::{self, Position, Settings},
 };
 use io::{Resource, embeded::WINDOW_ICON};
+use kernel::BrowserEvent;
 
 use crate::{
     core::{Application, ApplicationWindow},
-    events::Event,
+    events::{Event, UiEvent},
     util::image::load_icon,
     views::browser::components::{
         footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml, shader::HtmlRenderer,
@@ -16,10 +19,19 @@ use crate::{
 };
 
 /// BrowserWindow is the "main" application window for the browser UI.
-#[derive(Debug, Default)]
-pub struct BrowserWindow;
+#[derive(Debug)]
+pub struct BrowserWindow {
+    id: Cell<window::Id>,
+}
 
-impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
+impl ApplicationWindow<Application> for BrowserWindow {
+    fn new(id: window::Id) -> Self
+    where
+        Self: Sized,
+    {
+        Self { id: Cell::new(id) }
+    }
+
     fn render<'window>(&'window self, app: &'window Application) -> iced::Element<'window, Event, Theme, Renderer> {
         let header = BrowserHeader::render(app);
         let footer = BrowserFooter::render(app);
@@ -56,7 +68,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
             .into()
     }
 
-    fn settings(&self) -> iced::window::Settings {
+    fn settings() -> iced::window::Settings {
         let icon = Resource::load_embedded(WINDOW_ICON);
 
         let browser_icon = load_icon(icon);
@@ -71,5 +83,38 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for BrowserWindow {
 
     fn title(&self) -> String {
         APP_NAME.to_string()
+    }
+
+    fn id(&self) -> window::Id {
+        self.id.get()
+    }
+
+    fn subscription(&self) -> Subscription<Event> {
+        let resize = window::resize_events()
+            .with(self.id())
+            .filter_map(|(id, (window_id, size))| {
+                if id == window_id {
+                    Some(Event::Ui(UiEvent::WindowResized(window_id, size.width, size.height)))
+                } else {
+                    None
+                }
+            });
+
+        let mouse_nav = event::listen_with(|event, _status, _window| match event {
+            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Back)) => {
+                Some(Event::Browser(BrowserEvent::NavigateBack))
+            }
+            iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Forward)) => {
+                Some(Event::Browser(BrowserEvent::NavigateForward))
+            }
+            _ => None,
+        })
+        .with(self.id())
+        .filter_map(|(id, event)| {
+            let _ = id;
+            Some(event)
+        });
+
+        Subscription::batch([resize, mouse_nav])
     }
 }

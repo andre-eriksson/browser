@@ -50,6 +50,10 @@ impl Page {
         &self.title
     }
 
+    pub fn document_url(&self) -> Option<&Url> {
+        self.document_url.as_ref()
+    }
+
     pub fn policies(&self) -> &DocumentPolicy {
         &self.policies
     }

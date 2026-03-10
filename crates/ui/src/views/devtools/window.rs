@@ -1,8 +1,10 @@
+use std::cell::Cell;
+
 use constants::APP_NAME;
 use iced::{
     Length, Renderer, Size, Theme,
     widget::{column, container},
-    window::{Position, Settings},
+    window::{self, Position, Settings},
 };
 use io::{Resource, embeded::DEVTOOLS_ICON};
 
@@ -13,10 +15,19 @@ use crate::{
 };
 
 /// DevtoolsWindow is a window for displaying developer tools in the application.
-#[derive(Debug, Default)]
-pub struct DevtoolsWindow;
+#[derive(Debug)]
+pub struct DevtoolsWindow {
+    id: Cell<window::Id>,
+}
 
-impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
+impl ApplicationWindow<Application> for DevtoolsWindow {
+    fn new(id: window::Id) -> Self
+    where
+        Self: Sized,
+    {
+        Self { id: Cell::new(id) }
+    }
+
     fn render<'window>(&'window self, _app: &'window Application) -> iced::Element<'window, Event, Theme, Renderer> {
         //let dom_tree = match render_dom_tree(app) {
         //    Ok(content) => content,
@@ -45,7 +56,7 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
         ui.into()
     }
 
-    fn settings(&self) -> iced::window::Settings {
+    fn settings() -> iced::window::Settings {
         let icon = Resource::load_embedded(DEVTOOLS_ICON);
 
         let devtools_icon = load_icon(icon);
@@ -60,5 +71,9 @@ impl ApplicationWindow<Application, Event, Theme, Renderer> for DevtoolsWindow {
 
     fn title(&self) -> String {
         format!("{} - DevTools", APP_NAME)
+    }
+
+    fn id(&self) -> window::Id {
+        self.id.get()
     }
 }

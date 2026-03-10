@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use kernel::{Page, TabId};
+use kernel::{HistoryState, Page, TabId};
 use layout::{ImageContext, LayoutTree};
 
 /// Represents the scroll position of a tab's content.
@@ -48,11 +48,13 @@ pub struct UiTab {
     /// relaying out after every individual image.
     pub pending_image_urls: HashSet<String>,
 
-    /// Monotonically increasing generation counter, incremented on every
-    /// navigation.  Background relayout results carry the generation they were
-    /// started with; if it no longer matches the tab's current generation the
-    /// result is stale and gets discarded.
+    /// Generation counter, incremented on every navigation. Background relayout
+    /// results carry the generation they were started with; if it no longer
+    /// matches the tab's current generation the result is stale and gets discarded.
     pub layout_generation: u64,
+
+    /// Whether the tab can navigate back in history.
+    pub history_state: HistoryState,
 }
 
 impl UiTab {
@@ -65,6 +67,7 @@ impl UiTab {
             known_images: HashMap::new(),
             pending_image_urls: HashSet::new(),
             layout_generation: 0,
+            history_state: HistoryState::default(),
         }
     }
 

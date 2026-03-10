@@ -5,7 +5,7 @@ use http::HeaderMap;
 use iced::Task;
 use io::{CacheEntry, CacheRead};
 use kernel::{
-    BrowserCommand, BrowserEvent, Commandable, Page, TabId,
+    BrowserCommand, BrowserEvent, Commandable, HistoryState, Page, TabId,
     errors::{BrowserError, NavigationError},
 };
 use layout::{LayoutEngine, Rect};
@@ -72,11 +72,31 @@ pub(crate) fn navigate_to_url(application: &mut Application, new_url: String) ->
 
 /// Handles successful navigation by updating the tab's document, stylesheets, layout tree, and initiating image
 /// fetches for any images found on the page.
-pub(crate) fn on_navigation_success(application: &mut Application, tab_id: TabId, page: Arc<Page>) -> Task<Event> {
+pub(crate) fn on_navigation_success(
+    application: &mut Application,
+    tab_id: TabId,
+    page: Arc<Page>,
+    history_state: HistoryState,
+) -> Task<Event> {
     let current_tab = application.tabs.iter_mut().find(|tab| tab.id == tab_id);
 
     if let Some(tab) = current_tab {
         tab.prepare_for_navigation();
+        tab.history_state = history_state;
+
+        if application.current_url
+            != page
+                .document_url
+                .as_ref()
+                .map(|url| url.to_string())
+                .unwrap_or_default()
+        {
+            application.current_url = page
+                .document_url
+                .as_ref()
+                .map(|url| url.to_string())
+                .unwrap_or_default();
+        }
 
         let ctx = AbsoluteContext {
             root_font_size: 16.0,
@@ -195,6 +215,83 @@ pub(crate) fn on_navigation_success(application: &mut Application, tab_id: TabId
     }
 
     Task::none()
+}
+
+/// Handles navigation back in the tab's history by sending a `NavigateBack` command to the browser and processing the result,
+/// including handling any navigation errors that may occur (e.g., no history to navigate back to).
+pub(crate) fn navigate_back(application: &mut Application) -> Task<Event> {
+    let browser = application.browser.clone();
+    let active_tab = application.active_tab;
+
+    Task::perform(
+        async move {
+            let mut lock = browser.lock().await;
+            lock.execute(BrowserCommand::NavigateBack { tab_id: active_tab })
+                .await
+        },
+        |result| match result {
+            Ok(event) => Event::Browser(event),
+            Err(err) => match err {
+                BrowserError::NavigationError(nav_err) => Event::Browser(BrowserEvent::NavigateError(nav_err)),
+                _ => Event::Browser(BrowserEvent::Error(err)),
+            },
+        },
+    )
+}
+
+/// Handles navigation forward in the tab's history by sending a `NavigateForward` command to the browser and processing the result,
+/// including handling any navigation errors that may occur (e.g., no history to navigate forward to).
+pub(crate) fn navigate_forward(application: &mut Application) -> Task<Event> {
+    let browser = application.browser.clone();
+    let active_tab = application.active_tab;
+
+    Task::perform(
+        async move {
+            let mut lock = browser.lock().await;
+            lock.execute(BrowserCommand::NavigateForward { tab_id: active_tab })
+                .await
+        },
+        |result| match result {
+            Ok(event) => Event::Browser(event),
+            Err(err) => match err {
+                BrowserError::NavigationError(nav_err) => Event::Browser(BrowserEvent::NavigateError(nav_err)),
+                _ => Event::Browser(BrowserEvent::Error(err)),
+            },
+        },
+    )
+}
+
+pub(crate) fn refresh_page(application: &mut Application) -> Task<Event> {
+    let browser = application.browser.clone();
+    let active_tab = application.active_tab;
+    let url = application
+        .tabs
+        .iter()
+        .find(|tab| tab.id == active_tab)
+        .and_then(|tab| tab.page.document_url.as_ref().map(|url| url.to_string()))
+        .unwrap_or_default();
+
+    if url.is_empty() {
+        return Task::none();
+    }
+
+    Task::perform(
+        async move {
+            let mut lock = browser.lock().await;
+            lock.execute(BrowserCommand::Navigate {
+                tab_id: active_tab,
+                url,
+            })
+            .await
+        },
+        |result| match result {
+            Ok(event) => Event::Browser(event),
+            Err(err) => match err {
+                BrowserError::NavigationError(nav_err) => Event::Browser(BrowserEvent::NavigateError(nav_err)),
+                _ => Event::Browser(BrowserEvent::Error(err)),
+            },
+        },
+    )
 }
 
 /// Handles navigation errors by logging the error and optionally displaying an error page or message to the user.

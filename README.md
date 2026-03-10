@@ -119,12 +119,16 @@ This project relies on some external tools and libraries, these are not dependen
 
 ### Fonts
 
-We have fallback fonts to ensure that the browser can always render text properly, these can be found in: [./assets/font](./assets/font), licenses for these fonts can be found in [FONTS.md](FONTS.md).
+We have fallback fonts to ensure that the browser can always render text properly, these can be found in: [./assets/font](./assets/font), licenses for these fonts can be found in [FONTS.md](./docs/FONTS.md).
 
 Currently included fonts:
 
 - OpenSans (SIL Open Font License)
 - Roboto Mono (SIL Open Font License)
+
+### Icons
+
+SVG Icons used in the UI are sourced from [Lucide](https://lucide.dev/) and are licensed under the [ISC License](https://lucide.dev/license), the license can be found in [ICONS.md](./docs/ICONS.md).
 
 ## License
 

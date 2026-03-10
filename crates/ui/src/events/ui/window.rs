@@ -5,19 +5,13 @@ use layout::{LayoutEngine, Rect};
 use crate::{
     core::{Application, WindowType},
     events::Event,
-    views::devtools::window::DevtoolsWindow,
 };
 
 /// Handles the creation of a new window when a `NewWindow` event is received from the UI.
 pub(crate) fn create_window(application: &mut Application, window_type: WindowType) -> Task<Event> {
-    match window_type {
-        WindowType::Devtools => {
-            let (_, window_task) = application
-                .window_controller
-                .new_window(Box::new(DevtoolsWindow));
-            window_task.discard()
-        }
-    }
+    let (_, task) = application.window_controller.new_window(window_type);
+
+    task.discard()
 }
 
 /// Handles the closure of a window when a `CloseWindow` event is received from the UI.

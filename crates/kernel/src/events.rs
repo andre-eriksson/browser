@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::errors::{BrowserError, NavigationError};
+use crate::{
+    HistoryState,
+    errors::{BrowserError, NavigationError},
+};
 use async_trait::async_trait;
 use network::HeaderMap;
 
@@ -32,8 +35,17 @@ pub enum BrowserEvent {
     /// Navigate to the specified URL.
     NavigateTo(String),
 
+    /// Navigate back in the history of the current tab.
+    NavigateBack,
+
+    /// Navigate forward in the history of the current tab.
+    NavigateForward,
+
+    /// Reload the current page in the active tab.
+    Refresh,
+
     /// Navigation succeeded.
-    NavigateSuccess(TabId, Arc<Page>),
+    NavigateSuccess(TabId, Arc<Page>, HistoryState),
 
     /// Navigation failed with a network error.
     NavigateError(NavigationError),
@@ -50,6 +62,12 @@ pub enum BrowserEvent {
 pub enum BrowserCommand {
     /// Command to navigate a tab to a specified URL.
     Navigate { tab_id: TabId, url: String },
+
+    /// Command to navigate back in the history of a tab.
+    NavigateBack { tab_id: TabId },
+
+    /// Command to navigate forward in the history of a tab.
+    NavigateForward { tab_id: TabId },
 
     /// Command to add a new tab.
     AddTab,

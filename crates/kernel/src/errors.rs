@@ -36,4 +36,7 @@ pub enum TabError {
 
     #[error("No active tab available")]
     NoActiveTab,
+
+    #[error("Tab has no history to navigate back or forward")]
+    NoHistory,
 }

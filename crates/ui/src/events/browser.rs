@@ -6,7 +6,10 @@ use crate::{
     events::{
         Event, EventHandler,
         browser::{
-            navigate::{navigate_to_url, on_image_loaded, on_navigation_error, on_navigation_success},
+            navigate::{
+                navigate_back, navigate_forward, navigate_to_url, on_image_loaded, on_navigation_error,
+                on_navigation_success, refresh_page,
+            },
             tab::{on_close_tab, on_new_tab, on_switch_tab},
         },
     },
@@ -23,7 +26,12 @@ impl EventHandler<BrowserEvent> for Application {
             BrowserEvent::ActiveTabChanged(tab_id) => on_switch_tab(self, tab_id),
 
             BrowserEvent::NavigateTo(new_url) => navigate_to_url(self, new_url),
-            BrowserEvent::NavigateSuccess(tab_id, page) => on_navigation_success(self, tab_id, page),
+            BrowserEvent::NavigateSuccess(tab_id, page, history) => on_navigation_success(self, tab_id, page, history),
+
+            BrowserEvent::NavigateBack => navigate_back(self),
+            BrowserEvent::NavigateForward => navigate_forward(self),
+            BrowserEvent::Refresh => refresh_page(self),
+
             BrowserEvent::NavigateError(error) => on_navigation_error(self, error),
 
             BrowserEvent::ImageFetched(tab_id, url, bytes, headers) => {

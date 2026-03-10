@@ -144,9 +144,33 @@ impl Commandable for Browser {
                     .get_tab_mut(tab_id)
                     .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
-                tab.set_page(Arc::clone(&page));
+                tab.navigate_to(Arc::clone(&page));
 
-                Ok(BrowserEvent::NavigateSuccess(tab_id, page))
+                Ok(BrowserEvent::NavigateSuccess(tab_id, page, tab.history_state()))
+            }
+            BrowserCommand::NavigateBack { tab_id } => {
+                let tab = self
+                    .tab_manager
+                    .get_tab_mut(tab_id)
+                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+
+                if tab.navigate_back() {
+                    Ok(BrowserEvent::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
+                } else {
+                    Err(BrowserError::TabError(TabError::NoHistory))
+                }
+            }
+            BrowserCommand::NavigateForward { tab_id } => {
+                let tab = self
+                    .tab_manager
+                    .get_tab_mut(tab_id)
+                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+
+                if tab.navigate_forward() {
+                    Ok(BrowserEvent::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
+                } else {
+                    Err(BrowserError::TabError(TabError::NoHistory))
+                }
             }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),

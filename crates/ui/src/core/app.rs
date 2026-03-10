@@ -3,8 +3,9 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use iced::advanced::graphics::text::cosmic_text::FontSystem;
+use iced::keyboard::key;
 use iced::theme::{Custom, Palette};
-use iced::{Color, Subscription};
+use iced::{Color, Subscription, event, keyboard};
 use iced::{Renderer, Task, Theme, window};
 use kernel::{Browser, BrowserEvent, TabId};
 use layout::TextContext;
@@ -13,7 +14,7 @@ use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::core::{ReceiverHandle, UiTab, create_browser_event_stream};
+use crate::core::{ApplicationWindow, ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
 use crate::events::{Event, EventHandler, UiEvent};
 use crate::manager::WindowController;
 use crate::util::fonts::load_fallback_fonts;
@@ -40,7 +41,7 @@ pub struct Application {
     pub viewports: HashMap<window::Id, (f32, f32)>,
 
     /// The window controller managing multiple windows.
-    pub window_controller: WindowController<Event, Theme, iced::Renderer>,
+    pub window_controller: WindowController,
 
     /// The receiver for browser events.
     pub event_receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
@@ -66,22 +67,16 @@ impl Application {
         let first_tab = UiTab::new(TabId(0));
 
         let mut window_controller = WindowController::new();
-        let (main_window_id, browser_task) = window_controller.new_window(Box::new(BrowserWindow));
+        let (main_window_id, browser_task) = window_controller.new_window(WindowType::Browser);
 
         let tasks = vec![browser_task.discard()];
 
         let mut viewports = HashMap::new();
 
-        let width = window_controller
-            .get_window(main_window_id)
-            .settings()
-            .size
-            .width;
-        let height = window_controller
-            .get_window(main_window_id)
-            .settings()
-            .size
-            .height;
+        let settings = BrowserWindow::settings();
+
+        let width = settings.size.width;
+        let height = settings.size.height;
 
         viewports.insert(main_window_id, (width, height));
 
@@ -118,13 +113,28 @@ impl Application {
     }
 
     /// Returns the current subscriptions for the application.
+    ///
+    /// Global subscriptions (e.g. close events) are declared here. Per-window
+    /// subscriptions (e.g. resize events scoped to a specific window type) are
+    /// collected from each open window via [`WindowController::subscriptions`].
     pub fn subscriptions(&self) -> iced::Subscription<Event> {
         let receiver = self.event_receiver.clone();
 
         Subscription::batch([
             window::close_events().map(|window_id| Event::Ui(UiEvent::CloseWindow(window_id))),
-            window::resize_events()
-                .map(|(window_id, size)| Event::Ui(UiEvent::WindowResized(window_id, size.width, size.height))),
+            event::listen_with(|event, _status, _window| match event {
+                iced::Event::Keyboard(keyboard::Event::KeyPressed {
+                    key: keyboard::Key::Named(key::Named::F5),
+                    ..
+                }) => Some(Event::Browser(BrowserEvent::Refresh)),
+                iced::Event::Keyboard(keyboard::Event::KeyPressed {
+                    key: keyboard::Key::Character(ref c),
+                    modifiers,
+                    ..
+                }) if c.as_str() == "r" && modifiers.control() => Some(Event::Browser(BrowserEvent::Refresh)),
+                _ => None,
+            }),
+            self.window_controller.subscriptions(),
             Subscription::run_with(ReceiverHandle::new(receiver), create_browser_event_stream),
         ])
     }

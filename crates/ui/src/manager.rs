@@ -1,21 +1,25 @@
 use std::collections::HashMap;
 
 use iced::{
-    Task,
+    Renderer, Subscription, Task, Theme,
     window::{self, Id},
 };
 
-use crate::core::{Application, ApplicationWindow};
+use crate::{
+    core::{Application, ApplicationWindow, WindowType},
+    events::Event,
+    views::{browser::window::BrowserWindow, devtools::window::DevtoolsWindow},
+};
 
-/// WindowController manages multiple application windows, allowing for rendering and interaction
+/// WindowController manages multiple application windows, allowing for rendering and interaction.
 ///
 /// # Fields
-/// * `open_windows` - A map of currently open windows, keyed by their unique ID
-pub struct WindowController<Message, Theme, Renderer> {
-    pub open_windows: HashMap<window::Id, Box<dyn ApplicationWindow<Application, Message, Theme, Renderer>>>,
+/// * `open_windows` - A map of currently open windows, keyed by their unique ID.
+pub struct WindowController {
+    pub open_windows: HashMap<window::Id, Box<dyn ApplicationWindow<Application>>>,
 }
 
-impl<Message, Theme, Renderer> WindowController<Message, Theme, Renderer> {
+impl WindowController {
     pub fn new() -> Self {
         Self {
             open_windows: HashMap::new(),
@@ -25,8 +29,8 @@ impl<Message, Theme, Renderer> WindowController<Message, Theme, Renderer> {
     /// Retrieves a reference to the window with the specified ID.
     ///
     /// # Arguments
-    /// * `id` - The ID of the window to retrieve
-    pub fn get_window(&self, id: Id) -> &dyn ApplicationWindow<Application, Message, Theme, Renderer> {
+    /// * `id` - The ID of the window to retrieve.
+    pub fn get_window(&self, id: Id) -> &dyn ApplicationWindow<Application> {
         self.open_windows
             .get(&id)
             .expect("Window not found")
@@ -36,33 +40,41 @@ impl<Message, Theme, Renderer> WindowController<Message, Theme, Renderer> {
     /// Renders the content of the window with the specified ID.
     ///
     /// # Arguments
-    /// * `app` - The application instance to use for rendering
-    /// * `id` - The ID of the window to render
+    /// * `app` - The application instance to use for rendering.
+    /// * `id` - The ID of the window to render.
     pub fn render<'window>(
         &'window self,
         app: &'window Application,
         id: Id,
-    ) -> iced::Element<'window, Message, Theme, Renderer> {
+    ) -> iced::Element<'window, Event, Theme, Renderer> {
         self.get_window(id).render(app)
     }
 
     /// Returns the title of the window with the specified ID.
     ///
     /// # Arguments
-    /// * `id` - The ID of the window whose title is requested
+    /// * `id` - The ID of the window whose title is requested.
     pub fn title(&self, id: Id) -> String {
         self.get_window(id).title()
     }
 
-    /// Opens a new window with the specified settings and returns its ID and a task to track its state.
+    /// Opens a new window of the given type, constructs its instance with the
+    /// OS-assigned ID, and registers it with the controller.
     ///
     /// # Arguments
-    /// * `window` - A boxed window that implements the ApplicationWindow trait
-    pub fn new_window(
-        &mut self,
-        window: Box<dyn ApplicationWindow<Application, Message, Theme, Renderer>>,
-    ) -> (Id, Task<Id>) {
-        let (id, task) = window::open(window.settings());
+    /// * `window_type` - The type of window to open.
+    pub fn new_window(&mut self, window_type: WindowType) -> (Id, Task<Id>) {
+        let (id, task, window): (Id, Task<Id>, Box<dyn ApplicationWindow<Application>>) = match window_type {
+            WindowType::Browser => {
+                let (id, task) = window::open(BrowserWindow::settings());
+                (id, task, Box::new(BrowserWindow::new(id)))
+            }
+            WindowType::Devtools => {
+                let (id, task) = window::open(DevtoolsWindow::settings());
+                (id, task, Box::new(DevtoolsWindow::new(id)))
+            }
+        };
+
         self.open_windows.insert(id, window);
 
         (id, task)
@@ -82,8 +94,21 @@ impl<Message, Theme, Renderer> WindowController<Message, Theme, Renderer> {
     /// Closes a specific window by its ID.
     ///
     /// # Arguments
-    /// * `id` - The ID of the window to close
+    /// * `id` - The ID of the window to close.
     pub fn close(&mut self, id: Id) {
         self.open_windows.remove(&id);
+    }
+
+    /// Returns a merged subscription from all open windows.
+    ///
+    /// Each window can declare its own subscriptions (e.g. resize events scoped
+    /// to that window type). This collects them all into a single
+    /// `Subscription::batch` so the caller only needs one call site.
+    pub fn subscriptions(&self) -> Subscription<Event> {
+        Subscription::batch(
+            self.open_windows
+                .values()
+                .map(|window| window.subscription()),
+        )
     }
 }
