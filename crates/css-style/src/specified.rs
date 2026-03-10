@@ -150,7 +150,15 @@ impl SpecifiedStyle {
             let val = match resolve_css_variables(&ctx.specified_style.variables, value.as_slice()) {
                 Some(v) => v,
                 None => {
-                    eprintln!("Failed to resolve variables for property {:?} with value {:?}", key, value);
+                    eprintln!(
+                        "Failed to resolve variables for property {:?} with value {}",
+                        key,
+                        value
+                            .iter()
+                            .map(|v| v.to_string())
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    );
                     continue;
                 }
             };
