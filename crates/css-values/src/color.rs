@@ -174,7 +174,7 @@ impl CSSParsable for Color {
                             Ok(Self::Base(ColorBase::Transparent))
                         } else if let Ok(system_color) = ident.parse() {
                             Ok(Self::System(system_color))
-                        } else if let Ok(named_color) = ident.parse() {
+                        } else if let Some(named_color) = NamedColor::from_str_insensitive(ident) {
                             Ok(Self::Base(ColorBase::Named(named_color)))
                         } else {
                             Err(format!("Unrecognized color identifier: {}", ident))

@@ -578,6 +578,7 @@ impl HtmlTag {
             _ => None,
         }
     }
+
     /// Checks if the given tag is a void element.
     /// Void elements are those that do not have any content and do not require a closing tag.
     ///
