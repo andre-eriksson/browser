@@ -14,6 +14,16 @@ pub enum Tag {
 }
 
 impl Tag {
+    pub fn from_str_insensitive(s: &str) -> Self {
+        if let Some(html_tag) = HtmlTag::from_str_insensitive(s) {
+            Tag::Html(html_tag)
+        } else if let Some(svg_tag) = SvgTag::from_str_insensitive(s) {
+            Tag::Svg(svg_tag)
+        } else {
+            Tag::Unknown(s.to_string())
+        }
+    }
+
     /// Checks if the tag is a void element.
     pub fn is_void_element(&self) -> bool {
         match self {
@@ -44,18 +54,6 @@ impl Display for Tag {
                 Tag::Unknown(name) => name.clone(),
             }
         )
-    }
-}
-
-impl From<&str> for Tag {
-    fn from(value: &str) -> Self {
-        if let Ok(html_tag) = HtmlTag::try_from(value) {
-            Tag::Html(html_tag)
-        } else if let Ok(svg_tag) = SvgTag::try_from(value) {
-            Tag::Svg(svg_tag)
-        } else {
-            Tag::Unknown(value.to_string())
-        }
     }
 }
 
@@ -212,6 +210,374 @@ pub enum HtmlTag {
 }
 
 impl HtmlTag {
+    pub fn from_str_insensitive(s: &str) -> Option<Self> {
+        let bytes = s.as_bytes();
+        match bytes.len() {
+            1 => match [bytes[0].to_ascii_lowercase()] {
+                [b'p'] => Some(HtmlTag::P),
+                [b'a'] => Some(HtmlTag::A),
+                [b's'] => Some(HtmlTag::S),
+                [b'q'] => Some(HtmlTag::Q),
+                [b'i'] => Some(HtmlTag::I),
+                [b'b'] => Some(HtmlTag::B),
+                [b'u'] => Some(HtmlTag::U),
+                _ => None,
+            },
+            2 => match [bytes[0].to_ascii_lowercase(), bytes[1].to_ascii_lowercase()] {
+                [b'h', b'1'] => Some(HtmlTag::H1),
+                [b'h', b'2'] => Some(HtmlTag::H2),
+                [b'h', b'3'] => Some(HtmlTag::H3),
+                [b'h', b'4'] => Some(HtmlTag::H4),
+                [b'h', b'5'] => Some(HtmlTag::H5),
+                [b'h', b'6'] => Some(HtmlTag::H6),
+                [b'h', b'r'] => Some(HtmlTag::Hr),
+                [b'o', b'l'] => Some(HtmlTag::Ol),
+                [b'u', b'l'] => Some(HtmlTag::Ul),
+                [b'l', b'i'] => Some(HtmlTag::Li),
+                [b'd', b'l'] => Some(HtmlTag::Dl),
+                [b'd', b't'] => Some(HtmlTag::Dt),
+                [b'd', b'd'] => Some(HtmlTag::Dd),
+                [b'e', b'm'] => Some(HtmlTag::Em),
+                [b'r', b't'] => Some(HtmlTag::Rt),
+                [b'r', b'p'] => Some(HtmlTag::Rp),
+                [b'b', b'r'] => Some(HtmlTag::Br),
+                [b'm', b'i'] => Some(HtmlTag::Mi),
+                [b'm', b'o'] => Some(HtmlTag::Mo),
+                [b'm', b'n'] => Some(HtmlTag::Mn),
+                [b'm', b's'] => Some(HtmlTag::Ms),
+                [b't', b'r'] => Some(HtmlTag::Tr),
+                [b't', b'd'] => Some(HtmlTag::Td),
+                [b't', b'h'] => Some(HtmlTag::Th),
+                _ => None,
+            },
+            3 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                ] {
+                    [b'n', b'a', b'v'] => Some(HtmlTag::Nav),
+                    [b'p', b'r', b'e'] => Some(HtmlTag::Pre),
+                    [b'd', b'i', b'v'] => Some(HtmlTag::Div),
+                    [b'd', b'f', b'n'] => Some(HtmlTag::Dfn),
+                    [b'v', b'a', b'r'] => Some(HtmlTag::Var),
+                    [b'k', b'b', b'd'] => Some(HtmlTag::Kbd),
+                    [b's', b'u', b'b'] => Some(HtmlTag::Sub),
+                    [b's', b'u', b'p'] => Some(HtmlTag::Sup),
+                    [b'b', b'd', b'i'] => Some(HtmlTag::Bdi),
+                    [b'b', b'd', b'o'] => Some(HtmlTag::Bdo),
+                    [b'w', b'b', b'r'] => Some(HtmlTag::Wbr),
+                    [b'i', b'n', b's'] => Some(HtmlTag::Ins),
+                    [b'd', b'e', b'l'] => Some(HtmlTag::Del),
+                    [b'i', b'm', b'g'] => Some(HtmlTag::Img),
+                    [b'm', b'a', b'p'] => Some(HtmlTag::Map),
+                    [b'm', b't', b'd'] => Some(HtmlTag::Mtd),
+                    [b'm', b't', b'r'] => Some(HtmlTag::Mtr),
+                    [b's', b'v', b'g'] => Some(HtmlTag::Svg),
+                    [b'c', b'o', b'l'] => Some(HtmlTag::Col),
+                    _ => None,
+                }
+            }
+            4 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                ] {
+                    [b'h', b't', b'm', b'l'] => Some(HtmlTag::Html),
+                    [b'h', b'e', b'a', b'd'] => Some(HtmlTag::Head),
+                    [b'b', b'a', b's', b'e'] => Some(HtmlTag::Base),
+                    [b'l', b'i', b'n', b'k'] => Some(HtmlTag::Link),
+                    [b'm', b'e', b't', b'a'] => Some(HtmlTag::Meta),
+                    [b'b', b'o', b'd', b'y'] => Some(HtmlTag::Body),
+                    [b'm', b'e', b'n', b'u'] => Some(HtmlTag::Menu),
+                    [b'm', b'a', b'i', b'n'] => Some(HtmlTag::Main),
+                    [b'c', b'i', b't', b'e'] => Some(HtmlTag::Cite),
+                    [b'a', b'b', b'b', b'r'] => Some(HtmlTag::Abbr),
+                    [b'r', b'u', b'b', b'y'] => Some(HtmlTag::Ruby),
+                    [b'd', b'a', b't', b'a'] => Some(HtmlTag::Data),
+                    [b't', b'i', b'm', b'e'] => Some(HtmlTag::Time),
+                    [b'c', b'o', b'd', b'e'] => Some(HtmlTag::Code),
+                    [b's', b'a', b'm', b'p'] => Some(HtmlTag::Samp),
+                    [b'm', b'a', b'r', b'k'] => Some(HtmlTag::Mark),
+                    [b's', b'p', b'a', b'n'] => Some(HtmlTag::Span),
+                    [b'a', b'r', b'e', b'a'] => Some(HtmlTag::Area),
+                    [b'm', b'a', b't', b'h'] => Some(HtmlTag::Math),
+                    [b'm', b'r', b'o', b'w'] => Some(HtmlTag::Mrow),
+                    [b'm', b's', b'u', b'b'] => Some(HtmlTag::Msub),
+                    [b'm', b's', b'u', b'p'] => Some(HtmlTag::Msup),
+                    [b'f', b'o', b'r', b'm'] => Some(HtmlTag::Form),
+                    [b's', b'l', b'o', b't'] => Some(HtmlTag::Slot),
+                    _ => None,
+                }
+            }
+            5 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                ] {
+                    [b't', b'i', b't', b'l', b'e'] => Some(HtmlTag::Title),
+                    [b's', b't', b'y', b'l', b'e'] => Some(HtmlTag::Style),
+                    [b'a', b's', b'i', b'd', b'e'] => Some(HtmlTag::Aside),
+                    [b's', b'm', b'a', b'l', b'l'] => Some(HtmlTag::Small),
+                    [b'e', b'm', b'b', b'e', b'd'] => Some(HtmlTag::Embed),
+                    [b'v', b'i', b'd', b'e', b'o'] => Some(HtmlTag::Video),
+                    [b'a', b'u', b'd', b'i', b'o'] => Some(HtmlTag::Audio),
+                    [b't', b'r', b'a', b'c', b'k'] => Some(HtmlTag::Track),
+                    [b'm', b'f', b'r', b'a', b'c'] => Some(HtmlTag::Mfrac),
+                    [b'm', b'o', b'v', b'e', b'r'] => Some(HtmlTag::Mover),
+                    [b'm', b'r', b'o', b'o', b't'] => Some(HtmlTag::Mroot),
+                    [b'm', b's', b'q', b'r', b't'] => Some(HtmlTag::Msqrt),
+                    [b'm', b't', b'e', b'x', b't'] => Some(HtmlTag::Mtext),
+                    [b't', b'a', b'b', b'l', b'e'] => Some(HtmlTag::Table),
+                    [b't', b'b', b'o', b'd', b'y'] => Some(HtmlTag::Tbody),
+                    [b't', b'h', b'e', b'a', b'd'] => Some(HtmlTag::Thead),
+                    [b't', b'f', b'o', b'o', b't'] => Some(HtmlTag::Tfoot),
+                    [b'l', b'a', b'b', b'e', b'l'] => Some(HtmlTag::Label),
+                    [b'i', b'n', b'p', b'u', b't'] => Some(HtmlTag::Input),
+                    [b'm', b'e', b't', b'e', b'r'] => Some(HtmlTag::Meter),
+                    _ => None,
+                }
+            }
+            6 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                ] {
+                    [b'h', b'g', b'r', b'o', b'u', b'p'] => Some(HtmlTag::HGroup),
+                    [b'h', b'e', b'a', b'd', b'e', b'r'] => Some(HtmlTag::Header),
+                    [b'f', b'o', b'o', b't', b'e', b'r'] => Some(HtmlTag::Footer),
+                    [b'f', b'i', b'g', b'u', b'r', b'e'] => Some(HtmlTag::Figure),
+                    [b's', b'e', b'a', b'r', b'c', b'h'] => Some(HtmlTag::Search),
+                    [b's', b't', b'r', b'o', b'n', b'g'] => Some(HtmlTag::Strong),
+                    [b's', b'o', b'u', b'r', b'c', b'e'] => Some(HtmlTag::Source),
+                    [b'i', b'f', b'r', b'a', b'm', b'e'] => Some(HtmlTag::Iframe),
+                    [b'o', b'b', b'j', b'e', b'c', b't'] => Some(HtmlTag::Object),
+                    [b'm', b's', b'p', b'a', b'c', b'e'] => Some(HtmlTag::Mspace),
+                    [b'm', b's', b't', b'y', b'l', b'e'] => Some(HtmlTag::Mstyle),
+                    [b'm', b't', b'a', b'b', b'l', b'e'] => Some(HtmlTag::Mtable),
+                    [b'm', b'u', b'n', b'd', b'e', b'r'] => Some(HtmlTag::Munder),
+                    [b'm', b'e', b'r', b'r', b'o', b'r'] => Some(HtmlTag::Merror),
+                    [b'b', b'u', b't', b't', b'o', b'n'] => Some(HtmlTag::Button),
+                    [b's', b'e', b'l', b'e', b'c', b't'] => Some(HtmlTag::Select),
+                    [b'o', b'p', b't', b'i', b'o', b'n'] => Some(HtmlTag::Option),
+                    [b'o', b'u', b't', b'p', b'u', b't'] => Some(HtmlTag::Output),
+                    [b'l', b'e', b'g', b'e', b'n', b'd'] => Some(HtmlTag::Legend),
+                    [b'd', b'i', b'a', b'l', b'o', b'g'] => Some(HtmlTag::Dialog),
+                    [b's', b'c', b'r', b'i', b'p', b't'] => Some(HtmlTag::Script),
+                    [b'c', b'a', b'n', b'v', b'a', b's'] => Some(HtmlTag::Canvas),
+                    _ => None,
+                }
+            }
+            7 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                ] {
+                    [b'a', b'r', b't', b'i', b'c', b'l', b'e'] => Some(HtmlTag::Article),
+                    [b's', b'e', b'c', b't', b'i', b'o', b'n'] => Some(HtmlTag::Section),
+                    [b'a', b'd', b'd', b'r', b'e', b's', b's'] => Some(HtmlTag::Address),
+                    [b'p', b'i', b'c', b't', b'u', b'r', b'e'] => Some(HtmlTag::Picture),
+                    [b'm', b'p', b'a', b'd', b'd', b'e', b'd'] => Some(HtmlTag::Mpadded),
+                    [b'm', b's', b'u', b'b', b's', b'u', b'p'] => Some(HtmlTag::Msubsup),
+                    [b'c', b'a', b'p', b't', b'i', b'o', b'n'] => Some(HtmlTag::Caption),
+                    [b'd', b'e', b't', b'a', b'i', b'l', b's'] => Some(HtmlTag::Details),
+                    [b's', b'u', b'm', b'm', b'a', b'r', b'y'] => Some(HtmlTag::Summary),
+                    _ => None,
+                }
+            }
+            8 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                ] {
+                    [b'm', b'p', b'h', b'a', b'n', b't', b'o', b'm'] => Some(HtmlTag::Mphantom),
+                    [b'c', b'o', b'l', b'g', b'r', b'o', b'u', b'p'] => Some(HtmlTag::Colgroup),
+                    [b'd', b'a', b't', b'a', b'l', b'i', b's', b't'] => Some(HtmlTag::Datalist),
+                    [b'o', b'p', b't', b'g', b'r', b'o', b'u', b'p'] => Some(HtmlTag::Optgroup),
+                    [b't', b'e', b'x', b't', b'a', b'r', b'e', b'a'] => Some(HtmlTag::Textarea),
+                    [b'p', b'r', b'o', b'g', b'r', b'e', b's', b's'] => Some(HtmlTag::Progress),
+                    [b'f', b'i', b'e', b'l', b'd', b's', b'e', b't'] => Some(HtmlTag::Fieldset),
+                    [b'n', b'o', b's', b'c', b'r', b'i', b'p', b't'] => Some(HtmlTag::Noscript),
+                    [b't', b'e', b'm', b'p', b'l', b'a', b't', b'e'] => Some(HtmlTag::Template),
+                    _ => None,
+                }
+            }
+            9 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                ] {
+                    [b's', b'e', b'm', b'a', b'n', b't', b'i', b'c', b's'] => Some(HtmlTag::Semantics),
+                    _ => None,
+                }
+            }
+            10 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                ] {
+                    [b'b', b'l', b'o', b'c', b'k', b'q', b'u', b'o', b't', b'e'] => Some(HtmlTag::Blockquote),
+                    [b'f', b'i', b'g', b'c', b'a', b'p', b't', b'i', b'o', b'n'] => Some(HtmlTag::Figcaption),
+                    [b'a', b'n', b'n', b'o', b't', b'a', b't', b'i', b'o', b'n'] => Some(HtmlTag::Annotation),
+                    [b'm', b'u', b'n', b'd', b'e', b'r', b'o', b'v', b'e', b'r'] => Some(HtmlTag::Munderover),
+                    _ => None,
+                }
+            }
+            11 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'm',
+                        b'p',
+                        b'r',
+                        b'e',
+                        b's',
+                        b'c',
+                        b'r',
+                        b'i',
+                        b'p',
+                        b't',
+                        b's',
+                    ] => Some(HtmlTag::Mprescripts),
+                    _ => None,
+                }
+            }
+            13 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'a',
+                        b'n',
+                        b'n',
+                        b'o',
+                        b't',
+                        b'a',
+                        b't',
+                        b'i',
+                        b'o',
+                        b'n',
+                        b'x',
+                        b'm',
+                        b'l',
+                    ] => Some(HtmlTag::AnnotationXML),
+                    [
+                        b'm',
+                        b'm',
+                        b'u',
+                        b'l',
+                        b't',
+                        b'i',
+                        b's',
+                        b'c',
+                        b'r',
+                        b'i',
+                        b'p',
+                        b't',
+                        b's',
+                    ] => Some(HtmlTag::Mmultiscripts),
+                    _ => None,
+                }
+            }
+            15 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                    bytes[13].to_ascii_lowercase(),
+                    bytes[14].to_ascii_lowercase(),
+                ] {
+                    [
+                        b's',
+                        b'e',
+                        b'l',
+                        b'e',
+                        b'c',
+                        b't',
+                        b'e',
+                        b'd',
+                        b'c',
+                        b'o',
+                        b'n',
+                        b't',
+                        b'e',
+                        b'n',
+                        b't',
+                    ] => Some(HtmlTag::Selectedcontent),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
     /// Checks if the given tag is a void element.
     /// Void elements are those that do not have any content and do not require a closing tag.
     ///
@@ -457,167 +823,6 @@ impl Display for HtmlTag {
     }
 }
 
-impl TryFrom<&str> for HtmlTag {
-    type Error = String;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "html" => Ok(HtmlTag::Html),
-            "head" => Ok(HtmlTag::Head),
-            "title" => Ok(HtmlTag::Title),
-            "base" => Ok(HtmlTag::Base),
-            "link" => Ok(HtmlTag::Link),
-            "meta" => Ok(HtmlTag::Meta),
-            "style" => Ok(HtmlTag::Style),
-            "body" => Ok(HtmlTag::Body),
-            "article" => Ok(HtmlTag::Article),
-            "section" => Ok(HtmlTag::Section),
-            "nav" => Ok(HtmlTag::Nav),
-            "aside" => Ok(HtmlTag::Aside),
-            "h1" => Ok(HtmlTag::H1),
-            "h2" => Ok(HtmlTag::H2),
-            "h3" => Ok(HtmlTag::H3),
-            "h4" => Ok(HtmlTag::H4),
-            "h5" => Ok(HtmlTag::H5),
-            "h6" => Ok(HtmlTag::H6),
-            "hgroup" => Ok(HtmlTag::HGroup),
-            "header" => Ok(HtmlTag::Header),
-            "footer" => Ok(HtmlTag::Footer),
-            "address" => Ok(HtmlTag::Address),
-            "p" => Ok(HtmlTag::P),
-            "hr" => Ok(HtmlTag::Hr),
-            "pre" => Ok(HtmlTag::Pre),
-            "blockquote" => Ok(HtmlTag::Blockquote),
-            "ol" => Ok(HtmlTag::Ol),
-            "ul" => Ok(HtmlTag::Ul),
-            "menu" => Ok(HtmlTag::Menu),
-            "li" => Ok(HtmlTag::Li),
-            "dl" => Ok(HtmlTag::Dl),
-            "dt" => Ok(HtmlTag::Dt),
-            "dd" => Ok(HtmlTag::Dd),
-            "figure" => Ok(HtmlTag::Figure),
-            "figcaption" => Ok(HtmlTag::Figcaption),
-            "main" => Ok(HtmlTag::Main),
-            "search" => Ok(HtmlTag::Search),
-            "div" => Ok(HtmlTag::Div),
-            "a" => Ok(HtmlTag::A),
-            "em" => Ok(HtmlTag::Em),
-            "strong" => Ok(HtmlTag::Strong),
-            "small" => Ok(HtmlTag::Small),
-            "s" => Ok(HtmlTag::S),
-            "cite" => Ok(HtmlTag::Cite),
-            "q" => Ok(HtmlTag::Q),
-            "dfn" => Ok(HtmlTag::Dfn),
-            "abbr" => Ok(HtmlTag::Abbr),
-            "ruby" => Ok(HtmlTag::Ruby),
-            "rt" => Ok(HtmlTag::Rt),
-            "rp" => Ok(HtmlTag::Rp),
-            "data" => Ok(HtmlTag::Data),
-            "time" => Ok(HtmlTag::Time),
-            "code" => Ok(HtmlTag::Code),
-            "var" => Ok(HtmlTag::Var),
-            "samp" => Ok(HtmlTag::Samp),
-            "kbd" => Ok(HtmlTag::Kbd),
-            "sub" => Ok(HtmlTag::Sub),
-            "sup" => Ok(HtmlTag::Sup),
-            "i" => Ok(HtmlTag::I),
-            "b" => Ok(HtmlTag::B),
-            "u" => Ok(HtmlTag::U),
-            "mark" => Ok(HtmlTag::Mark),
-            "bdi" => Ok(HtmlTag::Bdi),
-            "bdo" => Ok(HtmlTag::Bdo),
-            "span" => Ok(HtmlTag::Span),
-            "br" => Ok(HtmlTag::Br),
-            "wbr" => Ok(HtmlTag::Wbr),
-            "ins" => Ok(HtmlTag::Ins),
-            "del" => Ok(HtmlTag::Del),
-            "picture" => Ok(HtmlTag::Picture),
-            "source" => Ok(HtmlTag::Source),
-            "img" => Ok(HtmlTag::Img),
-            "iframe" => Ok(HtmlTag::Iframe),
-            "embed" => Ok(HtmlTag::Embed),
-            "object" => Ok(HtmlTag::Object),
-            "video" => Ok(HtmlTag::Video),
-            "audio" => Ok(HtmlTag::Audio),
-            "track" => Ok(HtmlTag::Track),
-            "map" => Ok(HtmlTag::Map),
-            "area" => Ok(HtmlTag::Area),
-            "math" => Ok(HtmlTag::Math),
-            "annotation" => Ok(HtmlTag::Annotation),
-            "annotation-xml" => Ok(HtmlTag::AnnotationXML),
-            "mi" => Ok(HtmlTag::Mi),
-            "mo" => Ok(HtmlTag::Mo),
-            "mn" => Ok(HtmlTag::Mn),
-            "ms" => Ok(HtmlTag::Ms),
-            "mfrac" => Ok(HtmlTag::Mfrac),
-            "mmultiscripts" => Ok(HtmlTag::Mmultiscripts),
-            "mover" => Ok(HtmlTag::Mover),
-            "mpadded" => Ok(HtmlTag::Mpadded),
-            "mphantom" => Ok(HtmlTag::Mphantom),
-            "mprescripts" => Ok(HtmlTag::Mprescripts),
-            "mroot" => Ok(HtmlTag::Mroot),
-            "mrow" => Ok(HtmlTag::Mrow),
-            "mspace" => Ok(HtmlTag::Mspace),
-            "msqrt" => Ok(HtmlTag::Msqrt),
-            "mstyle" => Ok(HtmlTag::Mstyle),
-            "msub" => Ok(HtmlTag::Msub),
-            "msubsup" => Ok(HtmlTag::Msubsup),
-            "msup" => Ok(HtmlTag::Msup),
-            "mtable" => Ok(HtmlTag::Mtable),
-            "mtd" => Ok(HtmlTag::Mtd),
-            "mtr" => Ok(HtmlTag::Mtr),
-            "munder" => Ok(HtmlTag::Munder),
-            "munderover" => Ok(HtmlTag::Munderover),
-            "semantics" => Ok(HtmlTag::Semantics),
-            "mtext" => Ok(HtmlTag::Mtext),
-            "merror" => Ok(HtmlTag::Merror),
-            "svg" => Ok(HtmlTag::Svg),
-            "table" => Ok(HtmlTag::Table),
-            "caption" => Ok(HtmlTag::Caption),
-            "colgroup" => Ok(HtmlTag::Colgroup),
-            "col" => Ok(HtmlTag::Col),
-            "tbody" => Ok(HtmlTag::Tbody),
-            "thead" => Ok(HtmlTag::Thead),
-            "tfoot" => Ok(HtmlTag::Tfoot),
-            "tr" => Ok(HtmlTag::Tr),
-            "td" => Ok(HtmlTag::Td),
-            "th" => Ok(HtmlTag::Th),
-            "form" => Ok(HtmlTag::Form),
-            "label" => Ok(HtmlTag::Label),
-            "input" => Ok(HtmlTag::Input),
-            "button" => Ok(HtmlTag::Button),
-            "select" => Ok(HtmlTag::Select),
-            "datalist" => Ok(HtmlTag::Datalist),
-            "optgroup" => Ok(HtmlTag::Optgroup),
-            "option" => Ok(HtmlTag::Option),
-            "textarea" => Ok(HtmlTag::Textarea),
-            "output" => Ok(HtmlTag::Output),
-            "progress" => Ok(HtmlTag::Progress),
-            "meter" => Ok(HtmlTag::Meter),
-            "fieldset" => Ok(HtmlTag::Fieldset),
-            "legend" => Ok(HtmlTag::Legend),
-            "selectedcontent" => Ok(HtmlTag::Selectedcontent),
-            "details" => Ok(HtmlTag::Details),
-            "summary" => Ok(HtmlTag::Summary),
-            "dialog" => Ok(HtmlTag::Dialog),
-            "script" => Ok(HtmlTag::Script),
-            "noscript" => Ok(HtmlTag::Noscript),
-            "template" => Ok(HtmlTag::Template),
-            "slot" => Ok(HtmlTag::Slot),
-            "canvas" => Ok(HtmlTag::Canvas),
-            s => Err(format!("'{}' is not a recognized HTML tag", s)),
-        }
-    }
-}
-
-impl TryFrom<String> for HtmlTag {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        HtmlTag::try_from(value.as_str())
-    }
-}
-
 /// Represents SVG tags as an enum.
 ///
 /// This enum includes common SVG tags that are recognized by the parser.
@@ -690,6 +895,614 @@ pub enum SvgTag {
 }
 
 impl SvgTag {
+    pub fn from_str_insensitive(s: &str) -> Option<Self> {
+        let bytes = s.as_bytes();
+        match bytes.len() {
+            1 => match [bytes[0].to_ascii_lowercase()] {
+                [b'a'] => Some(SvgTag::A),
+                [b'g'] => Some(SvgTag::G),
+                _ => None,
+            },
+            3 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                ] {
+                    [b's', b'e', b't'] => Some(SvgTag::Set),
+                    [b's', b'v', b'g'] => Some(SvgTag::Svg),
+                    [b'u', b's', b'e'] => Some(SvgTag::Use),
+                    _ => None,
+                }
+            }
+            4 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                ] {
+                    [b'd', b'e', b'f', b's'] => Some(SvgTag::Defs),
+                    [b'd', b'e', b's', b'c'] => Some(SvgTag::Desc),
+                    [b'l', b'i', b'n', b'e'] => Some(SvgTag::Line),
+                    [b'm', b'a', b's', b'k'] => Some(SvgTag::Mask),
+                    [b'p', b'a', b't', b'h'] => Some(SvgTag::Path),
+                    [b'r', b'e', b'c', b't'] => Some(SvgTag::Rect),
+                    [b's', b't', b'o', b'p'] => Some(SvgTag::Stop),
+                    [b't', b'e', b'x', b't'] => Some(SvgTag::Text),
+                    [b'v', b'i', b'e', b'w'] => Some(SvgTag::View),
+                    _ => None,
+                }
+            }
+            5 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                ] {
+                    [b'i', b'm', b'a', b'g', b'e'] => Some(SvgTag::Image),
+                    [b'm', b'p', b'a', b't', b'h'] => Some(SvgTag::Mpath),
+                    [b't', b'i', b't', b'l', b'e'] => Some(SvgTag::Title),
+                    [b't', b's', b'p', b'a', b'n'] => Some(SvgTag::Tspan),
+                    _ => None,
+                }
+            }
+            6 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                ] {
+                    [b'c', b'i', b'r', b'c', b'l', b'e'] => Some(SvgTag::Circle),
+                    [b'f', b'e', b't', b'i', b'l', b'e'] => Some(SvgTag::FeTile),
+                    [b'f', b'i', b'l', b't', b'e', b'r'] => Some(SvgTag::Filter),
+                    [b'm', b'a', b'r', b'k', b'e', b'r'] => Some(SvgTag::Marker),
+                    [b's', b'c', b'r', b'i', b'p', b't'] => Some(SvgTag::Script),
+                    [b's', b'w', b'i', b't', b'c', b'h'] => Some(SvgTag::Switch),
+                    [b's', b'y', b'm', b'b', b'o', b'l'] => Some(SvgTag::Symbol),
+                    _ => None,
+                }
+            }
+            7 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                ] {
+                    [b'a', b'n', b'i', b'm', b'a', b't', b'e'] => Some(SvgTag::Animate),
+                    [b'e', b'l', b'l', b'i', b'p', b's', b'e'] => Some(SvgTag::Ellipse),
+                    [b'f', b'e', b'b', b'l', b'e', b'n', b'd'] => Some(SvgTag::FeBlend),
+                    [b'f', b'e', b'f', b'l', b'o', b'o', b'd'] => Some(SvgTag::FeFlood),
+                    [b'f', b'e', b'f', b'u', b'n', b'c', b'a'] => Some(SvgTag::FeFuncA),
+                    [b'f', b'e', b'f', b'u', b'n', b'c', b'b'] => Some(SvgTag::FeFuncB),
+                    [b'f', b'e', b'f', b'u', b'n', b'c', b'g'] => Some(SvgTag::FeFuncG),
+                    [b'f', b'e', b'f', b'u', b'n', b'c', b'r'] => Some(SvgTag::FeFuncR),
+                    [b'f', b'e', b'i', b'm', b'a', b'g', b'e'] => Some(SvgTag::FeImage),
+                    [b'f', b'e', b'm', b'e', b'r', b'g', b'e'] => Some(SvgTag::FeMerge),
+                    [b'p', b'a', b't', b't', b'e', b'r', b'n'] => Some(SvgTag::Pattern),
+                    [b'p', b'o', b'l', b'y', b'g', b'o', b'n'] => Some(SvgTag::Polygon),
+                    _ => None,
+                }
+            }
+            8 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                ] {
+                    [b'c', b'l', b'i', b'p', b'p', b'a', b't', b'h'] => Some(SvgTag::ClipPath),
+                    [b'f', b'e', b'o', b'f', b'f', b's', b'e', b't'] => Some(SvgTag::FeOffset),
+                    [b'm', b'e', b't', b'a', b'd', b'a', b't', b'a'] => Some(SvgTag::Metadata),
+                    [b'p', b'o', b'l', b'y', b'l', b'i', b'n', b'e'] => Some(SvgTag::Polyline),
+                    [b't', b'e', b'x', b't', b'p', b'a', b't', b'h'] => Some(SvgTag::TextPath),
+                    _ => None,
+                }
+            }
+            11 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'f',
+                        b'e',
+                        b'c',
+                        b'o',
+                        b'm',
+                        b'p',
+                        b'o',
+                        b's',
+                        b'i',
+                        b't',
+                        b'e',
+                    ] => Some(SvgTag::FeComposite),
+                    [
+                        b'f',
+                        b'e',
+                        b'm',
+                        b'e',
+                        b'r',
+                        b'g',
+                        b'e',
+                        b'n',
+                        b'o',
+                        b'd',
+                        b'e',
+                    ] => Some(SvgTag::FeMergeNode),
+                    [
+                        b'f',
+                        b'e',
+                        b's',
+                        b'p',
+                        b'o',
+                        b't',
+                        b'l',
+                        b'i',
+                        b'g',
+                        b'h',
+                        b't',
+                    ] => Some(SvgTag::FeSpotLight),
+                    _ => None,
+                }
+            }
+            12 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'f',
+                        b'e',
+                        b'd',
+                        b'r',
+                        b'o',
+                        b'p',
+                        b's',
+                        b'h',
+                        b'a',
+                        b'd',
+                        b'o',
+                        b'w',
+                    ] => Some(SvgTag::FeDropShadow),
+                    [
+                        b'f',
+                        b'e',
+                        b'm',
+                        b'o',
+                        b'r',
+                        b'p',
+                        b'h',
+                        b'o',
+                        b'l',
+                        b'o',
+                        b'g',
+                        b'y',
+                    ] => Some(SvgTag::FeMorphology),
+                    [
+                        b'f',
+                        b'e',
+                        b'p',
+                        b'o',
+                        b'i',
+                        b'n',
+                        b't',
+                        b'l',
+                        b'i',
+                        b'g',
+                        b'h',
+                        b't',
+                    ] => Some(SvgTag::FePointLight),
+                    [
+                        b'f',
+                        b'e',
+                        b't',
+                        b'u',
+                        b'r',
+                        b'b',
+                        b'u',
+                        b'l',
+                        b'e',
+                        b'n',
+                        b'c',
+                        b'e',
+                    ] => Some(SvgTag::FeTurbulence),
+                    _ => None,
+                }
+            }
+            13 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'a',
+                        b'n',
+                        b'i',
+                        b'm',
+                        b'a',
+                        b't',
+                        b'e',
+                        b'm',
+                        b'o',
+                        b't',
+                        b'i',
+                        b'o',
+                        b'n',
+                    ] => Some(SvgTag::AnimateMotion),
+                    [
+                        b'f',
+                        b'e',
+                        b'c',
+                        b'o',
+                        b'l',
+                        b'o',
+                        b'r',
+                        b'm',
+                        b'a',
+                        b't',
+                        b'r',
+                        b'i',
+                        b'x',
+                    ] => Some(SvgTag::FeColorMatrix),
+                    [
+                        b'f',
+                        b'o',
+                        b'r',
+                        b'e',
+                        b'i',
+                        b'g',
+                        b'n',
+                        b'o',
+                        b'b',
+                        b'j',
+                        b'e',
+                        b'c',
+                        b't',
+                    ] => Some(SvgTag::ForeignObject),
+                    _ => None,
+                }
+            }
+            14 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                    bytes[13].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'f',
+                        b'e',
+                        b'd',
+                        b'i',
+                        b's',
+                        b't',
+                        b'a',
+                        b'n',
+                        b't',
+                        b'l',
+                        b'i',
+                        b'g',
+                        b'h',
+                        b't',
+                    ] => Some(SvgTag::FeDistantLight),
+                    [
+                        b'f',
+                        b'e',
+                        b'g',
+                        b'a',
+                        b'u',
+                        b's',
+                        b's',
+                        b'i',
+                        b'a',
+                        b'n',
+                        b'b',
+                        b'l',
+                        b'u',
+                        b'r',
+                    ] => Some(SvgTag::FeGaussianBlur),
+                    [
+                        b'l',
+                        b'i',
+                        b'n',
+                        b'e',
+                        b'a',
+                        b'r',
+                        b'g',
+                        b'r',
+                        b'a',
+                        b'd',
+                        b'i',
+                        b'e',
+                        b'n',
+                        b't',
+                    ] => Some(SvgTag::LinearGradient),
+                    [
+                        b'r',
+                        b'a',
+                        b'd',
+                        b'i',
+                        b'a',
+                        b'l',
+                        b'g',
+                        b'r',
+                        b'a',
+                        b'd',
+                        b'i',
+                        b'e',
+                        b'n',
+                        b't',
+                    ] => Some(SvgTag::RadialGradient),
+                    _ => None,
+                }
+            }
+            16 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                    bytes[13].to_ascii_lowercase(),
+                    bytes[14].to_ascii_lowercase(),
+                    bytes[15].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'a',
+                        b'n',
+                        b'i',
+                        b'm',
+                        b'a',
+                        b't',
+                        b'e',
+                        b't',
+                        b'r',
+                        b'a',
+                        b'n',
+                        b's',
+                        b'f',
+                        b'o',
+                        b'r',
+                        b'm',
+                    ] => Some(SvgTag::AnimateTransform),
+                    [
+                        b'f',
+                        b'e',
+                        b'c',
+                        b'o',
+                        b'n',
+                        b'v',
+                        b'o',
+                        b'l',
+                        b'v',
+                        b'e',
+                        b'm',
+                        b'a',
+                        b't',
+                        b'r',
+                        b'i',
+                        b'x',
+                    ] => Some(SvgTag::FeConvolveMatrix),
+                    _ => None,
+                }
+            }
+            17 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                    bytes[13].to_ascii_lowercase(),
+                    bytes[14].to_ascii_lowercase(),
+                    bytes[15].to_ascii_lowercase(),
+                    bytes[16].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'f',
+                        b'e',
+                        b'd',
+                        b'i',
+                        b'f',
+                        b'f',
+                        b'u',
+                        b's',
+                        b'e',
+                        b'l',
+                        b'i',
+                        b'g',
+                        b'h',
+                        b't',
+                        b'i',
+                        b'n',
+                        b'g',
+                    ] => Some(SvgTag::FeDiffuseLighting),
+                    [
+                        b'f',
+                        b'e',
+                        b'd',
+                        b'i',
+                        b's',
+                        b'p',
+                        b'l',
+                        b'a',
+                        b'c',
+                        b'e',
+                        b'm',
+                        b'e',
+                        b'n',
+                        b't',
+                        b'm',
+                        b'a',
+                        b'p',
+                    ] => Some(SvgTag::FeDisplacementMap),
+                    _ => None,
+                }
+            }
+            18 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                    bytes[13].to_ascii_lowercase(),
+                    bytes[14].to_ascii_lowercase(),
+                    bytes[15].to_ascii_lowercase(),
+                    bytes[16].to_ascii_lowercase(),
+                    bytes[17].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'f',
+                        b'e',
+                        b's',
+                        b'p',
+                        b'e',
+                        b'c',
+                        b'u',
+                        b'l',
+                        b'a',
+                        b'r',
+                        b'l',
+                        b'i',
+                        b'g',
+                        b'h',
+                        b't',
+                        b'i',
+                        b'n',
+                        b'g',
+                    ] => Some(SvgTag::FeSpecularLighting),
+                    _ => None,
+                }
+            }
+            19 => {
+                match [
+                    bytes[0].to_ascii_lowercase(),
+                    bytes[1].to_ascii_lowercase(),
+                    bytes[2].to_ascii_lowercase(),
+                    bytes[3].to_ascii_lowercase(),
+                    bytes[4].to_ascii_lowercase(),
+                    bytes[5].to_ascii_lowercase(),
+                    bytes[6].to_ascii_lowercase(),
+                    bytes[7].to_ascii_lowercase(),
+                    bytes[8].to_ascii_lowercase(),
+                    bytes[9].to_ascii_lowercase(),
+                    bytes[10].to_ascii_lowercase(),
+                    bytes[11].to_ascii_lowercase(),
+                    bytes[12].to_ascii_lowercase(),
+                    bytes[13].to_ascii_lowercase(),
+                    bytes[14].to_ascii_lowercase(),
+                    bytes[15].to_ascii_lowercase(),
+                    bytes[16].to_ascii_lowercase(),
+                    bytes[17].to_ascii_lowercase(),
+                    bytes[18].to_ascii_lowercase(),
+                ] {
+                    [
+                        b'f',
+                        b'e',
+                        b'c',
+                        b'o',
+                        b'm',
+                        b'p',
+                        b'o',
+                        b'n',
+                        b'e',
+                        b'n',
+                        b't',
+                        b't',
+                        b'r',
+                        b'a',
+                        b'n',
+                        b's',
+                        b'f',
+                        b'e',
+                        b'r',
+                    ] => Some(SvgTag::FeComponentTransfer),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
     pub fn is_void_element(&self) -> bool {
         matches!(
             self,
@@ -806,85 +1619,5 @@ impl Display for SvgTag {
                 SvgTag::View => "view",
             }
         )
-    }
-}
-
-impl TryFrom<&str> for SvgTag {
-    type Error = String;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "a" => Ok(SvgTag::A),
-            "animate" => Ok(SvgTag::Animate),
-            "animateMotion" => Ok(SvgTag::AnimateMotion),
-            "animateTransform" => Ok(SvgTag::AnimateTransform),
-            "circle" => Ok(SvgTag::Circle),
-            "clipPath" => Ok(SvgTag::ClipPath),
-            "defs" => Ok(SvgTag::Defs),
-            "desc" => Ok(SvgTag::Desc),
-            "ellipse" => Ok(SvgTag::Ellipse),
-            "feBlend" => Ok(SvgTag::FeBlend),
-            "feColorMatrix" => Ok(SvgTag::FeColorMatrix),
-            "feComponentTransfer" => Ok(SvgTag::FeComponentTransfer),
-            "feComposite" => Ok(SvgTag::FeComposite),
-            "feConvolveMatrix" => Ok(SvgTag::FeConvolveMatrix),
-            "feDiffuseLighting" => Ok(SvgTag::FeDiffuseLighting),
-            "feDisplacementMap" => Ok(SvgTag::FeDisplacementMap),
-            "feDistantLight" => Ok(SvgTag::FeDistantLight),
-            "feDropShadow" => Ok(SvgTag::FeDropShadow),
-            "feFlood" => Ok(SvgTag::FeFlood),
-            "feFuncA" => Ok(SvgTag::FeFuncA),
-            "feFuncB" => Ok(SvgTag::FeFuncB),
-            "feFuncG" => Ok(SvgTag::FeFuncG),
-            "feFuncR" => Ok(SvgTag::FeFuncR),
-            "feGaussianBlur" => Ok(SvgTag::FeGaussianBlur),
-            "feImage" => Ok(SvgTag::FeImage),
-            "feMerge" => Ok(SvgTag::FeMerge),
-            "feMergeNode" => Ok(SvgTag::FeMergeNode),
-            "feMorphology" => Ok(SvgTag::FeMorphology),
-            "feOffset" => Ok(SvgTag::FeOffset),
-            "fePointLight" => Ok(SvgTag::FePointLight),
-            "feSpecularLighting" => Ok(SvgTag::FeSpecularLighting),
-            "feSpotLight" => Ok(SvgTag::FeSpotLight),
-            "feTile" => Ok(SvgTag::FeTile),
-            "feTurbulence" => Ok(SvgTag::FeTurbulence),
-            "filter" => Ok(SvgTag::Filter),
-            "foreignObject" => Ok(SvgTag::ForeignObject),
-            "g" => Ok(SvgTag::G),
-            "image" => Ok(SvgTag::Image),
-            "line" => Ok(SvgTag::Line),
-            "linearGradient" => Ok(SvgTag::LinearGradient),
-            "marker" => Ok(SvgTag::Marker),
-            "mask" => Ok(SvgTag::Mask),
-            "metadata" => Ok(SvgTag::Metadata),
-            "mpath" => Ok(SvgTag::Mpath),
-            "path" => Ok(SvgTag::Path),
-            "pattern" => Ok(SvgTag::Pattern),
-            "polygon" => Ok(SvgTag::Polygon),
-            "polyline" => Ok(SvgTag::Polyline),
-            "radialGradient" => Ok(SvgTag::RadialGradient),
-            "rect" => Ok(SvgTag::Rect),
-            "script" => Ok(SvgTag::Script),
-            "set" => Ok(SvgTag::Set),
-            "stop" => Ok(SvgTag::Stop),
-            "svg" => Ok(SvgTag::Svg),
-            "switch" => Ok(SvgTag::Switch),
-            "symbol" => Ok(SvgTag::Symbol),
-            "text" => Ok(SvgTag::Text),
-            "textPath" => Ok(SvgTag::TextPath),
-            "title" => Ok(SvgTag::Title),
-            "tspan" => Ok(SvgTag::Tspan),
-            "use" => Ok(SvgTag::Use),
-            "view" => Ok(SvgTag::View),
-            s => Err(format!("'{}' is not a recognized SVG tag", s)),
-        }
-    }
-}
-
-impl TryFrom<String> for SvgTag {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        SvgTag::try_from(value.as_str())
     }
 }

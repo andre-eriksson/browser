@@ -12,6 +12,7 @@ thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+zstd = "0.13.3"
 criterion.workspace = true
 
 [[bench]]
