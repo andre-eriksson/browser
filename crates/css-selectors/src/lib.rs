@@ -22,7 +22,7 @@ pub use specificity::{SelectorSpecificity, SpecificityCalculable};
 #[cfg(test)]
 #[allow(clippy::vec_init_then_push)]
 mod tests {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     use css_cssom::{AssociatedToken, ComponentValue, CssToken, CssTokenKind, HashType, SimpleBlock};
 
@@ -77,7 +77,7 @@ mod tests {
     }
 
     macro_rules! generate_node_data {
-        ($tag:expr, $attributes:expr) => {{ NodeData::Element(Element::new(Tag::Html($tag), $attributes)) }};
+        ($tag:expr, $hash_set:expr, $attributes:expr) => {{ NodeData::Element(Element::new(Tag::Html($tag), $hash_set, $attributes)) }};
     }
 
     #[test]
@@ -112,7 +112,9 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
-        let node_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
 
         let node = DomNode {
             id: NodeId(0),
@@ -121,7 +123,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -134,7 +138,9 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
-        let node_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
 
         let node = DomNode {
             id: NodeId(0),
@@ -142,8 +148,9 @@ mod tests {
             children: Vec::new(),
             data: node_data,
         };
+        let class_set = ClassSet::new(&hash_set);
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -156,11 +163,14 @@ mod tests {
         assert_eq!(sequences[0].specificity(), SelectorSpecificity::new(0, 1, 0));
 
         let tree = DocumentRoot::new();
+        let mut hash_set = HashSet::new();
+        hash_set.insert("my-class".to_string());
+        hash_set.insert("another-class".to_string());
 
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "my-class another-class".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -169,7 +179,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(vec!["my-class", "another-class"]);
+        let class_set = ClassSet::new(&hash_set);
 
         assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
@@ -185,10 +195,14 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let mut hash_set = HashSet::new();
+        hash_set.insert("wrong-class".to_string());
+        hash_set.insert("another-class".to_string());
+
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "wrong-class another-class".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -197,7 +211,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -213,10 +229,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("id".to_string(), "my-id".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -225,7 +243,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -241,10 +261,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("id".to_string(), "wrong-id".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -253,7 +275,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -269,11 +293,14 @@ mod tests {
         assert_eq!(sequences[0].specificity(), SelectorSpecificity::new(0, 1, 1));
 
         let tree = DocumentRoot::new();
+        let mut hash_set = HashSet::new();
+        hash_set.insert("my-class".to_string());
+        hash_set.insert("another-class".to_string());
 
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "my-class another-class".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -282,7 +309,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(vec!["my-class", "another-class"]);
+        let class_set = ClassSet::new(&hash_set);
 
         assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
@@ -301,10 +328,14 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let mut hash_set = HashSet::new();
+        hash_set.insert("wrong-class".to_string());
+        hash_set.insert("another-class".to_string());
+
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "wrong-class another-class".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -313,7 +344,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     // === Ancestor Combinator Tests ===
@@ -333,18 +366,22 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let grandparent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let grandparent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         let grandparent_id = tree.push_node(grandparent_data, None);
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, Some(grandparent_id));
 
-        let child_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        assert!(matches_compound(&sequences, &tree, child_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, child_node, &class_set));
     }
 
     #[test]
@@ -362,18 +399,22 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let grandparent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let grandparent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         let grandparent_id = tree.push_node(grandparent_data, None);
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, Some(grandparent_id));
 
-        let child_data = generate_node_data!(HtmlTag::P, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        assert!(!matches_compound(&sequences, &tree, child_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, child_node, &class_set));
     }
 
     #[test]
@@ -391,15 +432,19 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let child_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        assert!(matches_compound(&sequences, &tree, child_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, child_node, &class_set));
     }
 
     #[test]
@@ -417,15 +462,19 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let child_data = generate_node_data!(HtmlTag::P, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        assert!(!matches_compound(&sequences, &tree, child_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, child_node, &class_set));
     }
 
     #[test]
@@ -443,18 +492,22 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        assert!(matches_compound(&sequences, &tree, sibling2_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, sibling2_node, &class_set));
     }
 
     #[test]
@@ -472,18 +525,22 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        assert!(!matches_compound(&sequences, &tree, sibling2_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, sibling2_node, &class_set));
     }
 
     #[test]
@@ -501,21 +558,25 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         tree.push_node(sibling2_data, Some(parent_id));
 
-        let sibling3_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let sibling3_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling3_id = tree.push_node(sibling3_data, Some(parent_id));
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
 
-        assert!(!matches_compound(&sequences, &tree, sibling3_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, sibling3_node, &class_set));
     }
 
     #[test]
@@ -533,18 +594,22 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        assert!(matches_compound(&sequences, &tree, sibling2_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, sibling2_node, &class_set));
     }
 
     #[test]
@@ -562,18 +627,22 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        assert!(!matches_compound(&sequences, &tree, sibling2_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, sibling2_node, &class_set));
     }
 
     #[test]
@@ -591,21 +660,25 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
-        let parent_data = generate_node_data!(HtmlTag::Section, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
         let parent_id = tree.push_node(parent_data, None);
 
-        let sibling1_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
         tree.push_node(sibling1_data, Some(parent_id));
 
-        let sibling2_data = generate_node_data!(HtmlTag::P, HashMap::default());
+        let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         tree.push_node(sibling2_data, Some(parent_id));
 
-        let sibling3_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let sibling3_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling3_id = tree.push_node(sibling3_data, Some(parent_id));
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
 
-        assert!(matches_compound(&sequences, &tree, sibling3_node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, sibling3_node, &class_set));
     }
 
     // === Attribute Selector Tests ===
@@ -625,10 +698,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-active".to_string(), "true".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -636,7 +711,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -654,10 +731,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-inactive".to_string(), "true".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -665,7 +744,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -685,10 +766,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-test".to_string(), "value".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -696,7 +779,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -716,10 +801,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data".to_string(), "value".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -727,7 +814,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -748,10 +837,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-tags".to_string(), "new featured popular".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -760,7 +851,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -781,10 +874,12 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-tags".to_string(), "new discount popular".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -793,7 +888,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -814,9 +911,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-region".to_string(), "us-west".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -824,7 +923,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -845,9 +946,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-region".to_string(), "eu-north1".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -855,7 +958,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -876,9 +981,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "en-US".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -886,7 +993,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -907,9 +1016,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "sv-SE".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -917,7 +1028,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -938,9 +1051,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-file".to_string(), "image.jpg".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -948,7 +1063,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -969,9 +1086,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-file".to_string(), "document.pdf".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -979,7 +1098,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -1000,9 +1121,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-info".to_string(), "start-middle-end".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1010,7 +1133,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -1029,11 +1154,13 @@ mod tests {
         assert_eq!(sequences.len(), 1);
         assert_eq!(sequences[0].specificity(), SelectorSpecificity::new(0, 1, 0));
 
+        let hash_set = HashSet::new();
+
         let tree = DocumentRoot::new();
 
         let mut attributes = HashMap::new();
         attributes.insert("data-info".to_string(), "start-end".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1041,7 +1168,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(!matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -1062,9 +1191,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "en".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1072,7 +1203,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -1093,9 +1226,11 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let hash_set = HashSet::new();
+
         let mut attributes = HashMap::new();
         attributes.insert("data-lang".to_string(), "EN".to_string());
-        let node_data = generate_node_data!(HtmlTag::Div, attributes);
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), attributes);
         let node = DomNode {
             id: NodeId(0),
             parent: None,
@@ -1103,7 +1238,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     // === Misc Tests ===
@@ -1118,7 +1255,9 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
-        let node_data = generate_node_data!(HtmlTag::Div, HashMap::default());
+        let hash_set = HashSet::new();
+
+        let node_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
 
         let node = DomNode {
             id: NodeId(0),
@@ -1127,7 +1266,9 @@ mod tests {
             data: node_data,
         };
 
-        assert!(matches_compound(&sequences, &tree, &node, &ClassSet::empty()));
+        let class_set = ClassSet::new(&hash_set);
+
+        assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
 
     #[test]
@@ -1147,19 +1288,24 @@ mod tests {
 
         let mut tree = DocumentRoot::new();
 
+        let mut hash_set = HashSet::new();
+        hash_set.insert("my-class".to_string());
+        hash_set.insert("another-class".to_string());
+
         let parent_attributes = {
             let mut attrs = HashMap::new();
             attrs.insert("class".to_string(), "my-class another-class".to_string());
             attrs
         };
-        let parent_data = generate_node_data!(HtmlTag::Div, parent_attributes);
+        let parent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), parent_attributes);
         let parent_id = tree.push_node(parent_data, None);
 
-        let child_data = generate_node_data!(HtmlTag::Span, HashMap::default());
+        let child_data = generate_node_data!(HtmlTag::Span, HashSet::new(), HashMap::default());
         let child_id = tree.push_node(child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
-        let class_set = ClassSet::new(["my-class", "another-class"]);
+
+        let class_set = ClassSet::new(&hash_set);
 
         assert!(matches_compound(&sequences, &tree, child_node, &class_set));
     }
@@ -1188,12 +1334,15 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let mut hash_set = HashSet::new();
+        hash_set.insert("external-link".to_string());
+
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "external-link".to_string());
         attributes.insert("id".to_string(), "main-link".to_string());
         attributes.insert("href".to_string(), "https://example.com".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::A, attributes);
+        let node_data = generate_node_data!(HtmlTag::A, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -1202,7 +1351,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(["external-link"]);
+        let class_set = ClassSet::new(&hash_set);
 
         assert!(matches_compound(&sequences, &tree, &node, &class_set));
     }
@@ -1231,12 +1380,15 @@ mod tests {
 
         let tree = DocumentRoot::new();
 
+        let mut hash_set = HashSet::new();
+        hash_set.insert("external-link".to_string());
+
         let mut attributes = HashMap::new();
         attributes.insert("class".to_string(), "external-link".to_string());
         attributes.insert("id".to_string(), "main-link".to_string());
         attributes.insert("href".to_string(), "http://example.com".to_string());
 
-        let node_data = generate_node_data!(HtmlTag::A, attributes);
+        let node_data = generate_node_data!(HtmlTag::A, hash_set.clone(), attributes);
 
         let node = DomNode {
             id: NodeId(0),
@@ -1244,7 +1396,8 @@ mod tests {
             children: Vec::new(),
             data: node_data,
         };
-        let class_set = ClassSet::new(["external-link"]);
+
+        let class_set = ClassSet::new(&hash_set);
 
         assert!(!matches_compound(&sequences, &tree, &node, &class_set));
     }

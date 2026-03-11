@@ -125,6 +125,11 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
 
         let element = Element {
             tag: tag.clone(),
+            class_set: attributes
+                .iter()
+                .find(|(name, _)| name.eq_ignore_ascii_case("class"))
+                .map(|(_, value)| value.split_whitespace().map(String::from).collect())
+                .unwrap_or_default(),
             attributes: attributes.clone(),
         };
 

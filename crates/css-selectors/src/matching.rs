@@ -53,29 +53,32 @@ pub enum Combinator {
 }
 
 /// A set of classes for efficient lookup
-pub struct ClassSet {
-    classes: HashSet<String>,
+pub struct ClassSet<'a> {
+    classes: &'a HashSet<String>,
 }
 
-impl ClassSet {
-    #[cfg(test)]
-    pub fn empty() -> Self {
-        Self {
-            classes: HashSet::new(),
-        }
+impl ClassSet<'_> {
+    pub fn new(classes: &HashSet<String>) -> ClassSet<'_> {
+        ClassSet { classes }
     }
 
-    pub fn new<'a>(classes: impl IntoIterator<Item = &'a str>) -> Self {
-        let class_set = classes
-            .into_iter()
-            .map(|class| class.to_string())
-            .collect::<HashSet<String>>();
-
-        Self { classes: class_set }
-    }
-
+    /// Check if the class set contains a specific class
+    ///
+    /// # Arguments
+    /// * `class` - The class name to check for
+    ///
+    /// # Returns
+    /// * `bool` - True if the class is in the set, false otherwise
     pub fn contains(&self, class: &str) -> bool {
         self.classes.contains(class)
+    }
+}
+
+impl<'a> From<&'a Element> for ClassSet<'a> {
+    fn from(element: &'a Element) -> Self {
+        ClassSet {
+            classes: &element.class_set,
+        }
     }
 }
 
@@ -156,7 +159,7 @@ fn matches_compound_selectors(
             match operator {
                 AttributeOperator::Equals => match sensitivity {
                     CaseSensitivity::CaseInsensitive => {
-                        if !element_attribute_value.eq_ignore_ascii_case(expected_value.as_str()) {
+                        if !element_attribute_value.eq_ignore_ascii_case(expected_value) {
                             return false;
                         }
                     }
@@ -168,34 +171,37 @@ fn matches_compound_selectors(
                 },
                 AttributeOperator::Includes => match sensitivity {
                     CaseSensitivity::CaseInsensitive => {
-                        let words: Vec<&str> = element_attribute_value.split_whitespace().collect();
-                        if !words
-                            .iter()
-                            .any(|word| word.eq_ignore_ascii_case(expected_value.as_str()))
+                        if !element_attribute_value
+                            .split_whitespace()
+                            .any(|word| word.eq_ignore_ascii_case(expected_value))
                         {
                             return false;
                         }
                     }
                     CaseSensitivity::CaseSensitive => {
-                        let words: Vec<&str> = element_attribute_value.split_whitespace().collect();
-                        if !words.contains(&expected_value.as_str()) {
+                        if !element_attribute_value
+                            .split_whitespace()
+                            .any(|word| word == expected_value.as_str())
+                        {
                             return false;
                         }
                     }
                 },
                 AttributeOperator::DashMatch => match sensitivity {
                     CaseSensitivity::CaseInsensitive => {
-                        if !element_attribute_value.eq_ignore_ascii_case(expected_value.as_str())
-                            && !element_attribute_value
-                                .to_lowercase()
-                                .starts_with(&format!("{}-", expected_value.to_lowercase()))
+                        if !(element_attribute_value.eq_ignore_ascii_case(expected_value)
+                            || element_attribute_value.len() > expected_value.len()
+                                && element_attribute_value.as_bytes()[expected_value.len()] == b'-'
+                                && element_attribute_value.as_bytes()[..expected_value.len()]
+                                    .eq_ignore_ascii_case(expected_value.as_bytes()))
                         {
                             return false;
                         }
                     }
                     CaseSensitivity::CaseSensitive => {
-                        if element_attribute_value != *expected_value
-                            && !element_attribute_value.starts_with(&format!("{}-", expected_value))
+                        if !(element_attribute_value.eq_ignore_ascii_case(expected_value)
+                            || element_attribute_value.starts_with(expected_value)
+                                && element_attribute_value.as_bytes().get(expected_value.len()) == Some(&b'-'))
                         {
                             return false;
                         }
@@ -204,8 +210,9 @@ fn matches_compound_selectors(
                 AttributeOperator::PrefixMatch => match sensitivity {
                     CaseSensitivity::CaseInsensitive => {
                         if !element_attribute_value
-                            .to_lowercase()
-                            .starts_with(&expected_value.to_lowercase())
+                            .as_bytes()
+                            .get(..expected_value.len())
+                            .is_some_and(|s| s.eq_ignore_ascii_case(expected_value.as_bytes()))
                         {
                             return false;
                         }
@@ -218,9 +225,12 @@ fn matches_compound_selectors(
                 },
                 AttributeOperator::SuffixMatch => match sensitivity {
                     CaseSensitivity::CaseInsensitive => {
-                        if !element_attribute_value
-                            .to_lowercase()
-                            .ends_with(&expected_value.to_lowercase())
+                        let len = element_attribute_value.len();
+                        let sub_len = expected_value.len();
+
+                        if sub_len > len
+                            || !element_attribute_value.as_bytes()[len - sub_len..]
+                                .eq_ignore_ascii_case(expected_value.as_bytes())
                         {
                             return false;
                         }
@@ -234,8 +244,9 @@ fn matches_compound_selectors(
                 AttributeOperator::SubstringMatch => match sensitivity {
                     CaseSensitivity::CaseInsensitive => {
                         if !element_attribute_value
-                            .to_lowercase()
-                            .contains(&expected_value.to_lowercase())
+                            .as_bytes()
+                            .windows(expected_value.len())
+                            .any(|window| window.eq_ignore_ascii_case(expected_value.as_bytes()))
                         {
                             return false;
                         }
@@ -275,7 +286,7 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element, cl
                 if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                     match next {
                         None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
-                            if element.tag_name().to_lowercase() != ident.to_lowercase() && ident != "*" {
+                            if Tag::from_str_insensitive(ident) != element.tag && ident != "*" {
                                 return false;
                             }
                         }
@@ -348,12 +359,13 @@ pub fn matches_compound(
     };
 
     for sequence in sequence.iter().rev() {
-        let matched = matches_compound_selectors(&sequence.compound_selectors, element, class_set, tree, node);
-
-        if sequence.combinator.is_none() && !matched {
-            return false;
-        } else if sequence.combinator.is_none() && matched {
-            continue;
+        if sequence.combinator.is_none() {
+            let matched = matches_compound_selectors(&sequence.compound_selectors, element, class_set, tree, node);
+            if !matched {
+                return false;
+            } else {
+                continue;
+            }
         }
 
         let parent = match node.parent {
@@ -371,7 +383,7 @@ pub fn matches_compound(
             None => return false,
         };
 
-        let parent_class_set = ClassSet::new(parent_element.classes());
+        let parent_class_set = ClassSet::from(parent_element);
 
         match &sequence.combinator {
             Some(Combinator::Child) => {
@@ -405,7 +417,7 @@ pub fn matches_compound(
                         None => break,
                     };
 
-                    let grandparent_class_set = ClassSet::new(grandparent_element.classes());
+                    let grandparent_class_set = ClassSet::from(grandparent_element);
 
                     if matches_compound_selectors(
                         &sequence.compound_selectors,
@@ -450,7 +462,7 @@ pub fn matches_compound(
                         Some(elem) => elem,
                         None => continue,
                     };
-                    let sibling_class_set = ClassSet::new(previous_sibling_element.classes());
+                    let sibling_class_set = ClassSet::from(previous_sibling_element);
 
                     return matches_compound_selectors(
                         &sequence.compound_selectors,
@@ -479,7 +491,7 @@ pub fn matches_compound(
                         None => continue,
                     };
 
-                    let sibling_class_set = ClassSet::new(sibling_element.classes());
+                    let sibling_class_set = ClassSet::from(sibling_element);
 
                     if matches_compound_selectors(
                         &sequence.compound_selectors,

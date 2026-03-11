@@ -363,7 +363,7 @@ impl CascadedDeclaration<'_> {
             None => return (vec![], vec![]),
         };
 
-        let class_set = ClassSet::new(element.classes());
+        let class_set = ClassSet::new(&element.class_set);
         let candidates = rule_index.candidates(element);
 
         for &idx in &candidates {

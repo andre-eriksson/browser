@@ -114,6 +114,7 @@ pub(crate) fn on_navigation_success(
             document_url: page.document_url.as_ref(),
             ..Default::default()
         };
+
         let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());
 
         let image_ctx = tab.image_context();

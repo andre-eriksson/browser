@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
 };
 
@@ -17,6 +17,7 @@ impl Display for NodeId {
 #[derive(Debug, Clone)]
 pub struct Element {
     pub attributes: HashMap<String, String>,
+    pub class_set: HashSet<String>,
     pub tag: Tag,
 }
 
@@ -30,14 +31,19 @@ impl Default for Element {
     fn default() -> Self {
         Element {
             attributes: HashMap::new(),
+            class_set: HashSet::new(),
             tag: Tag::Unknown("".to_string()),
         }
     }
 }
 
 impl Element {
-    pub fn new(tag: Tag, attributes: HashMap<String, String>) -> Self {
-        Element { tag, attributes }
+    pub fn new(tag: Tag, class_set: HashSet<String>, attributes: HashMap<String, String>) -> Self {
+        Element {
+            tag,
+            class_set,
+            attributes,
+        }
     }
 
     /// Get the ID attribute of this element, if present
