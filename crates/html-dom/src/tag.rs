@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use strum::AsRefStr;
+
 /// Represents an HTML tag, which can be either a known tag or an unknown tag.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Tag {
@@ -41,6 +43,14 @@ impl Tag {
             Tag::Unknown(_) => false,
         }
     }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Tag::Html(html_tag) => html_tag.as_ref(),
+            Tag::Svg(svg_tag) => svg_tag.as_ref(),
+            Tag::Unknown(name) => name.as_str(),
+        }
+    }
 }
 
 impl Display for Tag {
@@ -62,7 +72,8 @@ impl Display for Tag {
 /// This enum includes common HTML tags that are recognized by the parser.
 ///
 /// <https://html.spec.whatwg.org/multipage/#toc-semantics>
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, AsRefStr)]
+#[strum(serialize_all = "lowercase")]
 pub enum HtmlTag {
     Html,
     Head,
@@ -829,7 +840,8 @@ impl Display for HtmlTag {
 /// This enum includes common SVG tags that are recognized by the parser.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Element>
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, AsRefStr)]
+#[strum(serialize_all = "lowercase")]
 pub enum SvgTag {
     A,
     Animate,

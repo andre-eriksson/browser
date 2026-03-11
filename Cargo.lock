@@ -2148,6 +2148,7 @@ name = "html-dom"
 version = "0.1.0"
 dependencies = [
  "html-tokenizer",
+ "strum",
  "tracing",
 ]
 

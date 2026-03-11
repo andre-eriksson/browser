@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use css_cssom::{
     CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
@@ -125,8 +125,7 @@ impl RuleIndex {
 
         candidates.extend_from_slice(&self.universal);
 
-        let tag = element.tag_name().to_ascii_lowercase();
-        if let Some(indices) = self.by_tag.get(&tag) {
+        if let Some(indices) = self.by_tag.get(element.tag_name().as_str()) {
             candidates.extend_from_slice(indices);
         }
 
@@ -136,11 +135,10 @@ impl RuleIndex {
             }
         }
 
-        if let Some(id) = element.id() {
-            let id_lower = id.to_ascii_lowercase();
-            if let Some(indices) = self.by_id.get(&id_lower) {
-                candidates.extend_from_slice(indices);
-            }
+        if let Some(id) = element.id()
+            && let Some(indices) = self.by_id.get(id)
+        {
+            candidates.extend_from_slice(indices);
         }
 
         candidates.sort_unstable();
@@ -424,6 +422,17 @@ impl CascadedDeclaration<'_> {
         (declarations, variables)
     }
 
+    fn origin_priority(origin: StylesheetOrigin, important: bool) -> u8 {
+        match (origin, important) {
+            (StylesheetOrigin::UserAgent, false) => 1,
+            (StylesheetOrigin::User, false) => 2,
+            (StylesheetOrigin::Author, false) => 3,
+            (StylesheetOrigin::Author, true) => 4,
+            (StylesheetOrigin::User, true) => 5,
+            (StylesheetOrigin::UserAgent, true) => 6,
+        }
+    }
+
     /// Sort the declarations according to the CSS cascade rules: !important declarations first, then by origin (user agent, user, author),
     /// then by specificity, and finally by source order.
     fn sort_declarations(declarations: &mut [CascadedDeclaration]) {
@@ -431,53 +440,7 @@ impl CascadedDeclaration<'_> {
             b.important
                 .cmp(&a.important)
                 .then_with(|| {
-                    let origin_order_a = match a.origin {
-                        StylesheetOrigin::UserAgent => {
-                            if a.important {
-                                6
-                            } else {
-                                1
-                            }
-                        }
-                        StylesheetOrigin::User => {
-                            if a.important {
-                                5
-                            } else {
-                                2
-                            }
-                        }
-                        StylesheetOrigin::Author => {
-                            if a.important {
-                                4
-                            } else {
-                                3
-                            }
-                        }
-                    };
-                    let origin_order_b = match b.origin {
-                        StylesheetOrigin::UserAgent => {
-                            if b.important {
-                                6
-                            } else {
-                                1
-                            }
-                        }
-                        StylesheetOrigin::User => {
-                            if b.important {
-                                5
-                            } else {
-                                2
-                            }
-                        }
-                        StylesheetOrigin::Author => {
-                            if b.important {
-                                4
-                            } else {
-                                3
-                            }
-                        }
-                    };
-                    origin_order_b.cmp(&origin_order_a)
+                    Self::origin_priority(b.origin, b.important).cmp(&Self::origin_priority(a.origin, a.important))
                 })
                 .then_with(|| b.specificity.cmp(&a.specificity))
                 .then_with(|| b.source_order.cmp(&a.source_order))
@@ -492,12 +455,10 @@ pub fn cascade<'decl>(
     CascadedDeclaration::sort_declarations(declarations);
 
     let mut cascaded_styles: Vec<(&Property, &Vec<ComponentValue>)> = Vec::with_capacity(32);
+    let mut seen = HashSet::with_capacity(declarations.len());
 
     for decl in declarations.iter() {
-        if !cascaded_styles
-            .iter()
-            .any(|(prop, _)| prop == &decl.property)
-        {
+        if seen.insert(decl.property) {
             cascaded_styles.push((decl.property, decl.values));
         }
     }
