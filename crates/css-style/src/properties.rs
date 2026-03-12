@@ -5,6 +5,7 @@ use css_values::{
     CSSParsable,
     border::{BorderStyle, BorderWidth},
     color::Color,
+    cursor::Cursor,
     dimension::{Dimension, MaxDimension, OffsetValue},
     global::Global,
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
@@ -191,3 +192,6 @@ pub type LineHeightProperty = CSSProperty<LineHeight>;
 pub type TextAlignProperty = CSSProperty<TextAlign>;
 pub type WritingModeProperty = CSSProperty<WritingMode>;
 pub type WhitespaceProperty = CSSProperty<Whitespace>;
+
+// Misc
+pub type CursorProperty = CSSProperty<Cursor>;

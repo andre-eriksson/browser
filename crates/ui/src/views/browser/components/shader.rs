@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use css_values::cursor::Cursor as CssCursor;
 use html_dom::{DocumentRoot, HtmlTag, Tag};
 use iced::{
     Rectangle,
     advanced::graphics::text::cosmic_text::FontSystem,
-    mouse::{self, Cursor},
+    mouse::{self, Cursor, Interaction},
     wgpu::{self, RenderPass},
     widget::{
         Action,
@@ -336,8 +337,7 @@ impl<'html> HtmlRenderer<'html> {
         self.viewport_height = viewport_height;
     }
 
-    /// Check if the mouse is currently hovering over a link and return its href if so.
-    fn hovered_link_href(&self, cursor: iced::advanced::mouse::Cursor) -> Option<String> {
+    fn get_hovered_href(&self, cursor: iced::advanced::mouse::Cursor) -> Option<String> {
         let position = cursor.position()?;
         let x = position.x + self.scroll_offset.x;
         let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
@@ -363,6 +363,127 @@ impl<'html> HtmlRenderer<'html> {
                     && let Some(href) = n.attributes.get("href")
                 {
                     return Some(href.clone());
+                }
+            }
+        }
+        None
+    }
+
+    /// Determine the mouse cursor interaction based on the layout nodes under the cursor position.
+    fn hovered_cursor(&self, cursor: iced::advanced::mouse::Cursor) -> Option<Interaction> {
+        let position = cursor.position()?;
+        let x = position.x + self.scroll_offset.x;
+        let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+
+        let nodes = self.layout_tree.resolve(x, y);
+
+        for node in nodes {
+            match node.cursor {
+                CssCursor::Alias => {
+                    return Some(Interaction::Alias);
+                }
+                CssCursor::AllScroll => {
+                    return Some(Interaction::AllScroll);
+                }
+                CssCursor::Auto => continue,
+                CssCursor::Cell => {
+                    return Some(Interaction::Cell);
+                }
+                CssCursor::ColResize => {
+                    return Some(Interaction::ResizingColumn);
+                }
+                CssCursor::ContextMenu => {
+                    return Some(Interaction::ContextMenu);
+                }
+                CssCursor::Copy => {
+                    return Some(Interaction::Copy);
+                }
+                CssCursor::Crosshair => {
+                    return Some(Interaction::Crosshair);
+                }
+                CssCursor::Default => {
+                    return Some(Interaction::None);
+                }
+                CssCursor::EResize => {
+                    return Some(Interaction::ResizingHorizontally);
+                }
+                CssCursor::EwResize => {
+                    return Some(Interaction::ResizingHorizontally);
+                }
+                CssCursor::Grab => {
+                    return Some(Interaction::Grab);
+                }
+                CssCursor::Grabbing => {
+                    return Some(Interaction::Grabbing);
+                }
+                CssCursor::Help => {
+                    return Some(Interaction::Help);
+                }
+                CssCursor::Move => {
+                    return Some(Interaction::Move);
+                }
+                CssCursor::NResize => {
+                    return Some(Interaction::ResizingVertically);
+                }
+                CssCursor::NeResize => {
+                    return Some(Interaction::ResizingDiagonallyUp);
+                }
+                CssCursor::NeswResize => {
+                    return Some(Interaction::ResizingDiagonallyDown);
+                }
+                CssCursor::NoDrop => {
+                    return Some(Interaction::NoDrop);
+                }
+                CssCursor::None => {
+                    return Some(Interaction::None);
+                }
+                CssCursor::NotAllowed => {
+                    return Some(Interaction::NotAllowed);
+                }
+                CssCursor::NsResize => {
+                    return Some(Interaction::ResizingVertically);
+                }
+                CssCursor::NwResize => {
+                    return Some(Interaction::ResizingDiagonallyDown);
+                }
+                CssCursor::NwseResize => {
+                    return Some(Interaction::ResizingDiagonallyUp);
+                }
+                CssCursor::Pointer => {
+                    return Some(Interaction::Pointer);
+                }
+                CssCursor::Progress => {
+                    return Some(Interaction::Progress);
+                }
+                CssCursor::RowResize => {
+                    return Some(Interaction::ResizingRow);
+                }
+                CssCursor::SResize => {
+                    return Some(Interaction::ResizingVertically);
+                }
+                CssCursor::SeResize => {
+                    return Some(Interaction::ResizingDiagonallyUp);
+                }
+                CssCursor::SwResize => {
+                    return Some(Interaction::ResizingDiagonallyDown);
+                }
+                CssCursor::Text => {
+                    return Some(Interaction::Text);
+                }
+                CssCursor::VerticalText => {
+                    return Some(Interaction::Text);
+                }
+                CssCursor::WResize => {
+                    return Some(Interaction::ResizingHorizontally);
+                }
+                CssCursor::Wait => {
+                    return Some(Interaction::Wait);
+                }
+                CssCursor::ZoomIn => {
+                    return Some(Interaction::ZoomIn);
+                }
+                CssCursor::ZoomOut => {
+                    return Some(Interaction::ZoomOut);
                 }
             }
         }
@@ -424,7 +545,7 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             }
         }
 
-        if let Some(href) = self.hovered_link_href(cursor)
+        if let Some(href) = self.get_hovered_href(cursor)
             && let iced::Event::Mouse(e) = event
             && let mouse::Event::ButtonReleased(mouse::Button::Left) = e
         {
@@ -440,11 +561,7 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
         _bounds: Rectangle,
         cursor: iced::advanced::mouse::Cursor,
     ) -> iced::advanced::mouse::Interaction {
-        if self.hovered_link_href(cursor).is_some() {
-            return iced::advanced::mouse::Interaction::Pointer;
-        }
-
-        iced::advanced::mouse::Interaction::default()
+        self.hovered_cursor(cursor).unwrap_or_default()
     }
 }
 

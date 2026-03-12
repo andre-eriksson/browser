@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use cosmic_text::Buffer;
 use css_style::{Color4f, ComputedStyle, StyledNode};
+use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
 use crate::{
@@ -93,6 +94,9 @@ pub struct LayoutNode {
     /// The color properties for rendering
     pub colors: LayoutColors,
 
+    /// The cursor style for this layout node
+    pub cursor: Cursor,
+
     /// The resolved margin values
     pub resolved_margin: SideOffset,
 
@@ -122,6 +126,7 @@ impl LayoutNode {
             node_id,
             dimensions: Rect::default(),
             colors: LayoutColors::default(),
+            cursor: Cursor::default(),
             resolved_margin: SideOffset::default(),
             resolved_padding: SideOffset::default(),
             resolved_border: SideOffset::default(),

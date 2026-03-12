@@ -7,6 +7,7 @@ pub mod border;
 pub mod calc;
 pub mod color;
 pub mod combination;
+pub mod cursor;
 pub mod dimension;
 pub mod display;
 pub mod global;

@@ -751,6 +751,7 @@ impl InlineLayout {
                 node_id: id,
                 dimensions: Rect::new(0.0, 0.0, measured.width, measured.height),
                 colors: LayoutColors::from(style),
+                cursor: style.cursor,
                 resolved_margin: SideOffset::zero(),
                 resolved_padding: SideOffset::zero(),
                 resolved_border: SideOffset::zero(),

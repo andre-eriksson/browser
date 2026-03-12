@@ -4,6 +4,7 @@ use css_cssom::{ComponentValue, Property};
 use css_values::{
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
+    cursor::Cursor,
     dimension::{Dimension, MaxDimension, OffsetValue},
     quantity::Length,
     text::{FontFamilyName, FontSize, FontWeight, GenericName, LineHeight, TextAlign, Whitespace, WritingMode},
@@ -59,6 +60,7 @@ pub struct ComputedStyle {
     pub border_bottom_width: f32,
     pub border_left_width: f32,
     pub color: Color4f,
+    pub cursor: Cursor,
     pub display: Display,
     pub font_family: Arc<FontFamily>,
     pub font_size: f32,
@@ -295,6 +297,9 @@ impl ComputedStyle {
                 relative_ctx,
                 absolute_ctx,
             ),
+            cursor: specified_style
+                .cursor
+                .resolve_with_context_owned(relative_ctx.parent.cursor, Cursor::Default),
             display: specified_style
                 .display
                 .resolve_with_context_owned(relative_ctx.parent.display, Display::default()),
@@ -358,6 +363,7 @@ impl ComputedStyle {
     pub fn inherited_subset(&self) -> Self {
         ComputedStyle {
             color: self.color,
+            cursor: self.cursor,
             font_family: Arc::clone(&self.font_family),
             font_size: self.font_size,
             line_height: self.line_height,
@@ -396,6 +402,7 @@ impl Default for ComputedStyle {
             border_bottom_width: 0.0,
             border_left_width: 0.0,
             color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            cursor: Cursor::default(),
             display: Display::default(),
             font_family: Arc::new(FontFamily::default()),
             font_size: 16.0,

@@ -189,7 +189,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] counter-increment
 - [ ] counter-reset
 - [ ] counter-set
-- [ ] cursor
+- [x] cursor
 - [ ] cx
 - [ ] cy
 

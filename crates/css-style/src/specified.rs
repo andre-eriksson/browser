@@ -16,7 +16,7 @@ use crate::{
         handle_border_bottom_style, handle_border_bottom_width, handle_border_color, handle_border_left_color,
         handle_border_left_style, handle_border_left_width, handle_border_right_color, handle_border_right_style,
         handle_border_right_width, handle_border_style, handle_border_top_color, handle_border_top_style,
-        handle_border_top_width, handle_border_width, handle_color, handle_display, handle_font_family,
+        handle_border_top_width, handle_border_width, handle_color, handle_cursor, handle_display, handle_font_family,
         handle_font_size, handle_font_weight, handle_height, handle_line_height, handle_margin, handle_margin_block,
         handle_margin_block_end, handle_margin_block_start, handle_margin_bottom, handle_margin_inline,
         handle_margin_inline_end, handle_margin_inline_start, handle_margin_left, handle_margin_right,
@@ -29,9 +29,10 @@ use crate::{
         AbsoluteContext, BackgroundAttachmentProperty, BackgroundBlendModeProperty, BackgroundClipProperty,
         BackgroundImageProperty, BackgroundOriginProperty, BackgroundPositionXProperty, BackgroundPositionYProperty,
         BackgroundRepeatProperty, BackgroundSizeProperty, BorderStyleValueProperty, BorderWidthValueProperty,
-        CSSProperty, ColorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty, FontWeightProperty,
-        HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty, OffsetValueProperty, PositionProperty,
-        TextAlignProperty, WhitespaceProperty, WidthProperty, WritingModeProperty,
+        CSSProperty, ColorProperty, CursorProperty, DisplayProperty, FontFamilyProperty, FontSizeProperty,
+        FontWeightProperty, HeightProperty, LineHeightProperty, MaxHeightProperty, MaxWidthProperty,
+        OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty, WidthProperty,
+        WritingModeProperty,
     },
 };
 
@@ -61,6 +62,7 @@ pub struct SpecifiedStyle {
     pub border_bottom_width: BorderWidthValueProperty,
     pub border_left_width: BorderWidthValueProperty,
     pub color: ColorProperty,
+    pub cursor: CursorProperty,
     pub display: DisplayProperty,
     pub font_family: FontFamilyProperty,
     pub font_size: FontSizeProperty,
@@ -195,6 +197,7 @@ impl SpecifiedStyle {
                     KnownProperty::BorderTopStyle => handle_border_top_style(&mut ctx, &mut stream),
                     KnownProperty::BorderTopWidth => handle_border_top_width(&mut ctx, &mut stream),
                     KnownProperty::Color => handle_color(&mut ctx, &mut stream),
+                    KnownProperty::Cursor => handle_cursor(&mut ctx, &mut stream),
                     KnownProperty::Display => handle_display(&mut ctx, &mut stream),
                     KnownProperty::FontFamily => handle_font_family(&mut ctx, &mut stream),
                     KnownProperty::FontSize => handle_font_size(&mut ctx, &mut stream),
@@ -288,6 +291,7 @@ impl Default for SpecifiedStyle {
 
             // Inherited properties
             color: CSSProperty::Global(Global::Inherit),
+            cursor: CSSProperty::Global(Global::Inherit),
             font_family: CSSProperty::Global(Global::Inherit),
             font_size: CSSProperty::Global(Global::Inherit),
             font_weight: CSSProperty::Global(Global::Inherit),

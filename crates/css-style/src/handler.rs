@@ -234,6 +234,7 @@ simple_property_handler!(handle_border_right_width, border_right_width, "border-
 simple_property_handler!(handle_border_bottom_width, border_bottom_width, "border-bottom-width");
 simple_property_handler!(handle_border_left_width, border_left_width, "border-left-width");
 simple_property_handler!(handle_color, color, "color");
+simple_property_handler!(handle_cursor, cursor, "cursor");
 simple_property_handler!(handle_display, display, "display");
 simple_property_handler!(handle_font_family, font_family, "font-family");
 simple_property_handler!(handle_height, height, "height");

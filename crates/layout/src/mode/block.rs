@@ -208,6 +208,7 @@ impl BlockLayout {
             resolved_padding: padding,
             resolved_border: border,
             colors,
+            cursor: styled_node.style.cursor,
             children,
             text_buffer: None,
             image_data: None,
