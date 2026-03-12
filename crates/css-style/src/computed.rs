@@ -141,10 +141,16 @@ impl ComputedStyle {
             OffsetValue::Length(Length::px(relative_ctx.parent.padding_left)),
             OffsetValue::zero(),
         );
+        let height = specified_style
+            .height
+            .resolve_with_context_owned(relative_ctx.parent.height.into(), Dimension::Auto);
         let max_height = specified_style.max_height.resolve_with_context_owned(
             MaxDimension::Length(Length::px(relative_ctx.parent.max_intrinsic_height)),
             MaxDimension::None,
         );
+        let width = specified_style
+            .width
+            .resolve_with_context_owned(relative_ctx.parent.width.into(), Dimension::Auto);
         let max_width = specified_style.max_width.resolve_with_context_owned(
             MaxDimension::Length(Length::px(relative_ctx.parent.max_intrinsic_width)),
             MaxDimension::None,
@@ -304,17 +310,8 @@ impl ComputedStyle {
                 FontWeight::try_from(relative_ctx.parent.font_weight).unwrap_or(FontWeight::Normal),
                 FontWeight::Normal,
             ) as u16,
-            intrinsic_height: match &CSSProperty::resolve(&specified_style.height) {
-                Ok(Dimension::Length(l)) => l.to_px(None, relative_ctx, absolute_ctx),
-                Ok(Dimension::Percentage(p)) => relative_ctx.parent.intrinsic_height * p.as_fraction(),
-                Ok(Dimension::Calc(calc)) => calc.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
-                _ => 0.0,
-            },
-            height: ComputedDimension::from(
-                specified_style
-                    .height
-                    .resolve_with_context_owned(relative_ctx.parent.height.into(), Dimension::Auto),
-            ),
+            intrinsic_height: height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
+            height: ComputedDimension::from(height),
             max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
             max_height: ComputedMaxDimension::from(max_height),
             line_height: specified_style
@@ -346,17 +343,8 @@ impl ComputedStyle {
             whitespace: specified_style
                 .whitespace
                 .resolve_with_context_owned(relative_ctx.parent.whitespace, Whitespace::Normal),
-            intrinsic_width: match &CSSProperty::resolve(&specified_style.width) {
-                Ok(Dimension::Length(l)) => l.to_px(None, relative_ctx, absolute_ctx),
-                Ok(Dimension::Percentage(p)) => relative_ctx.parent.intrinsic_width * p.as_fraction(),
-                Ok(Dimension::Calc(calc)) => calc.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-                _ => 0.0,
-            },
-            width: ComputedDimension::from(
-                specified_style
-                    .width
-                    .resolve_with_context_owned(relative_ctx.parent.width.into(), Dimension::Auto),
-            ),
+            intrinsic_width: width.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+            width: ComputedDimension::from(width),
             max_intrinsic_width: max_width.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
             max_width: ComputedMaxDimension::from(max_width),
             writing_mode: specified_style

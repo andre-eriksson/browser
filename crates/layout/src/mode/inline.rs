@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle, StyledNode};
 use css_values::{
     display::{InsideDisplay, OutsideDisplay},
     text::{TextAlign, Whitespace, WritingMode},
@@ -186,6 +186,8 @@ pub enum InlineItem {
         src: String,
         width: f32,
         height: f32,
+        has_explicit_width: bool,
+        has_explicit_height: bool,
         needs_intrinsic_size: bool,
         style: Arc<ComputedStyle>,
     },
@@ -264,16 +266,18 @@ impl InlineLayout {
                         .get("height")
                         .and_then(|v| v.parse::<f32>().ok());
 
-                    let css_width = matches!(inline_node.style.width, ComputedDimension::Fixed);
-                    let css_height = matches!(inline_node.style.height, ComputedDimension::Fixed);
+                    let css_width = !matches!(inline_node.style.width, ComputedDimension::Auto);
+                    let css_height = !matches!(inline_node.style.height, ComputedDimension::Auto);
+                    let has_explicit_width = css_width || attr_width.is_some();
+                    let has_explicit_height = css_height || attr_height.is_some();
 
-                    let (width, height, needs_intrinsic_size) = if let Some((kw, kh)) = known {
+                    let (width, height, needs_intrinsic_size) = {
                         let w = if css_width {
                             inline_node.style.intrinsic_width
                         } else if let Some(attr_w) = attr_width {
                             attr_w
                         } else {
-                            kw
+                            known.map(|m| m.0).unwrap_or(DEFAULT_IMAGE_WIDTH)
                         };
 
                         let h = if css_height {
@@ -281,28 +285,22 @@ impl InlineLayout {
                         } else if let Some(attr_h) = attr_height {
                             attr_h
                         } else {
-                            kh
-                        };
-                        (w, h, false)
-                    } else {
-                        let w = if css_width {
-                            inline_node.style.intrinsic_width
-                        } else if let Some(attr_w) = attr_width {
-                            attr_w
-                        } else {
-                            DEFAULT_IMAGE_WIDTH
+                            known.map(|m| m.1).unwrap_or(DEFAULT_IMAGE_HEIGHT)
                         };
 
-                        let h = if css_height {
-                            inline_node.style.intrinsic_height
-                        } else if let Some(attr_h) = attr_height {
-                            attr_h
-                        } else {
-                            DEFAULT_IMAGE_HEIGHT
-                        };
-
-                        let needs = attr_width.is_none() && attr_height.is_none() && !css_width && !css_height;
-                        (w, h, needs)
+                        (
+                            if inline_node.style.max_intrinsic_width > 0.0 {
+                                w.min(inline_node.style.max_intrinsic_width)
+                            } else {
+                                w
+                            },
+                            if inline_node.style.max_intrinsic_height > 0.0 {
+                                h.min(inline_node.style.max_intrinsic_height)
+                            } else {
+                                h
+                            },
+                            attr_width.is_none() && attr_height.is_none() && !css_width && !css_height,
+                        )
                     };
 
                     items.push(InlineItem::Image {
@@ -310,6 +308,8 @@ impl InlineLayout {
                         src,
                         width,
                         height,
+                        has_explicit_width,
+                        has_explicit_height,
                         needs_intrinsic_size,
                         style: Arc::new(inline_node.style.clone()),
                     });
@@ -530,6 +530,8 @@ impl InlineLayout {
                     src,
                     width,
                     height,
+                    has_explicit_width,
+                    has_explicit_height,
                     needs_intrinsic_size,
                     style,
                 } => {
@@ -537,9 +539,17 @@ impl InlineLayout {
                     let writing_mode = &style.writing_mode;
                     last_text_align = *alignment;
                     last_writing_mode = *writing_mode;
+                    let has_intrinsic_size = image_ctx.get(src).is_some_and(|(w, h)| w > 0.0 && h > 0.0);
 
-                    let img_width = *width;
-                    let img_height = *height;
+                    let (img_width, img_height) = Self::resolve_image_size(
+                        *width,
+                        *height,
+                        *has_explicit_width,
+                        *has_explicit_height,
+                        style,
+                        available_width,
+                        image_ctx.get(src),
+                    );
 
                     if line.width + img_width > available_width && line.width > 0.0 {
                         Self::finish_line_with_decorations(
@@ -565,7 +575,7 @@ impl InlineLayout {
                     node.image_data = Some(ImageData {
                         image_src: src.clone(),
                         vary_key,
-                        image_needs_intrinsic_size: *needs_intrinsic_size,
+                        image_needs_intrinsic_size: *needs_intrinsic_size && !has_intrinsic_size,
                     });
 
                     let ascent = img_height;
@@ -627,6 +637,64 @@ impl InlineLayout {
         for con_box in continuing_boxes {
             inline_box_stack.push(con_box);
         }
+    }
+
+    fn resolve_image_size(
+        width: f32,
+        height: f32,
+        has_explicit_width: bool,
+        has_explicit_height: bool,
+        style: &ComputedStyle,
+        available_width: f32,
+        intrinsic_size: Option<(f32, f32)>,
+    ) -> (f32, f32) {
+        let max_width = match style.max_width {
+            ComputedMaxDimension::Percentage(f) => (available_width * f).max(0.0),
+            _ => style.max_intrinsic_width,
+        };
+        let mut used_width = match style.width {
+            ComputedDimension::Percentage(f) => (available_width * f).max(0.0),
+            _ => width.max(0.0),
+        };
+        let mut used_height = height.max(0.0);
+
+        if let Some((intrinsic_width, intrinsic_height)) = intrinsic_size.filter(|(w, h)| *w > 0.0 && *h > 0.0) {
+            if has_explicit_width && !has_explicit_height {
+                used_height = used_width * intrinsic_height / intrinsic_width;
+            } else if has_explicit_height && !has_explicit_width {
+                used_width = used_height * intrinsic_width / intrinsic_height;
+            } else if !has_explicit_width && !has_explicit_height {
+                used_width = intrinsic_width;
+                used_height = intrinsic_height;
+            }
+
+            if has_explicit_width && has_explicit_height {
+                used_width = used_width.min(max_width);
+                used_height = used_height.min(style.max_intrinsic_height);
+            } else {
+                let width_scale = if used_width > max_width {
+                    max_width / used_width
+                } else {
+                    1.0
+                };
+                let height_scale = if used_height > style.max_intrinsic_height {
+                    style.max_intrinsic_height / used_height
+                } else {
+                    1.0
+                };
+                let scale = width_scale.min(height_scale);
+
+                if scale < 1.0 {
+                    used_width *= scale;
+                    used_height *= scale;
+                }
+            }
+        } else {
+            used_width = used_width.min(max_width);
+            used_height = used_height.min(style.max_intrinsic_height);
+        }
+
+        (used_width.max(0.0), used_height.max(0.0))
     }
 
     /// Close all active inline boxes, recording their decorations on the

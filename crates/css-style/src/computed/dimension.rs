@@ -48,6 +48,7 @@ pub enum ComputedMaxDimension {
     #[default]
     None,
     Fixed,
+    Percentage(f32),
     MaxContent,
     MinContent,
     FitContent(Option<Length>),
@@ -58,7 +59,8 @@ impl From<MaxDimension> for ComputedMaxDimension {
     fn from(value: MaxDimension) -> Self {
         match value {
             MaxDimension::None => Self::None,
-            MaxDimension::Length(_) | MaxDimension::Percentage(_) | MaxDimension::Calc(_) => Self::Fixed,
+            MaxDimension::Length(_) | MaxDimension::Calc(_) => Self::Fixed,
+            MaxDimension::Percentage(p) => Self::Percentage(p.as_fraction()),
             MaxDimension::MaxContent => Self::MaxContent,
             MaxDimension::MinContent => Self::MinContent,
             MaxDimension::FitContent(len) => Self::FitContent(len),
@@ -72,6 +74,7 @@ impl From<ComputedMaxDimension> for MaxDimension {
         match value {
             ComputedMaxDimension::None => Self::None,
             ComputedMaxDimension::Fixed => Self::None,
+            ComputedMaxDimension::Percentage(_) => Self::None,
             ComputedMaxDimension::MaxContent => Self::MaxContent,
             ComputedMaxDimension::MinContent => Self::MinContent,
             ComputedMaxDimension::FitContent(len) => Self::FitContent(len),

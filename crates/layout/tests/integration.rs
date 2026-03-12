@@ -340,6 +340,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_image_relayout_respects_css_width_percentage() {
+        let (dom, style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout_css_width.html", true);
+
+        let mut layout = layout_from!(style_tree, &mut text_context);
+
+        let root = &layout.root_nodes[0];
+        let body = &root.children[0];
+        let container = &body.children[0];
+        let img_node = container
+            .children
+            .iter()
+            .find(|n| n.image_data.is_some())
+            .expect("should have an image node");
+
+        let mut image_ctx = ImageContext::new();
+        image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
+
+        LayoutEngine::relayout_node(
+            img_node.node_id,
+            &mut layout,
+            &style_tree,
+            &dom,
+            &mut text_context,
+            Some(&image_ctx),
+        );
+
+        let root2 = &layout.root_nodes[0];
+        let body2 = &root2.children[0];
+        let container2 = &body2.children[0];
+        let img_node2 = container2
+            .children
+            .iter()
+            .find(|n| n.image_data.is_some())
+            .expect("should still have an image node");
+
+        assert_eq!(img_node2.dimensions.width, container2.dimensions.width);
+        assert_eq!(img_node2.dimensions.width, 784.0);
+        assert_eq!(img_node2.dimensions.height, 588.0);
+    }
+
     /// Verifies that relayout with the same `ImageContext` is idempotent –
     /// running it twice produces identical results.
     #[test]

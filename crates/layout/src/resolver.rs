@@ -46,6 +46,7 @@ impl PropertyResolver {
         let max_width = match &styled_node.style.max_width {
             ComputedMaxDimension::None => f32::INFINITY,
             ComputedMaxDimension::Fixed => styled_node.style.max_intrinsic_width,
+            ComputedMaxDimension::Percentage(f) => (width * f).max(0.0),
             ComputedMaxDimension::MaxContent
             | ComputedMaxDimension::MinContent
             | ComputedMaxDimension::FitContent(_)
