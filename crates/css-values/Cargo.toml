@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 strum.workspace = true
 css-cssom.workspace = true
+thiserror.workspace = true

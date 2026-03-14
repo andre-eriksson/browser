@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use css_parser::{ComponentValue, CssToken, CssTokenKind, Declaration, Property};
 use serde::{Deserialize, Serialize};
 
@@ -102,23 +104,6 @@ impl CSSDeclaration {
         }
     }
 
-    pub fn from_parser_declaration(declaration: Declaration) -> Self {
-        let mut value_parts: Vec<String> = Vec::new();
-
-        for cv in &declaration.value {
-            value_parts.push(component_value_to_string(cv));
-        }
-
-        let value = value_parts.join("").trim().to_string();
-
-        CSSDeclaration {
-            property: declaration.property,
-            value,
-            important: declaration.important,
-            original_values: declaration.value,
-        }
-    }
-
     /// Get the property name
     pub fn property(&self) -> &Property {
         &self.property
@@ -140,11 +125,36 @@ impl CSSDeclaration {
     }
 
     /// Serialize this declaration to CSS text
-    pub fn to_css_string(&self) -> String {
+    fn to_css_string(&self) -> String {
         if self.important {
             format!("{}: {} !important", self.property, self.value)
         } else {
             format!("{}: {}", self.property, self.value)
+        }
+    }
+}
+
+impl Display for CSSDeclaration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_css_string())
+    }
+}
+
+impl From<Declaration> for CSSDeclaration {
+    fn from(declaration: Declaration) -> Self {
+        let mut value_parts: Vec<String> = Vec::new();
+
+        for cv in &declaration.value {
+            value_parts.push(component_value_to_string(cv));
+        }
+
+        let value = value_parts.join("").trim().to_string();
+
+        CSSDeclaration {
+            property: declaration.property,
+            value,
+            important: declaration.important,
+            original_values: declaration.value,
         }
     }
 }

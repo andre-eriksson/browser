@@ -2,6 +2,8 @@
 
 use css_cssom::ComponentValueStream;
 
+use crate::error::CssValueError;
+
 pub mod background;
 pub mod border;
 pub mod calc;
@@ -10,6 +12,7 @@ pub mod combination;
 pub mod cursor;
 pub mod dimension;
 pub mod display;
+pub mod error;
 pub mod global;
 pub mod image;
 pub mod numeric;
@@ -28,5 +31,5 @@ pub mod text;
 /// that still operate on slices (e.g. `update_property`) continue to work.
 pub trait CSSParsable: Sized {
     /// Parse a value from a `ComponentValueStream`.
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String>;
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError>;
 }

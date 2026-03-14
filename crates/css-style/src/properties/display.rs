@@ -7,6 +7,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use css_values::{
     CSSParsable,
     display::{BoxDisplay, InsideDisplay, InternalDisplay, ListItemDisplay, OutsideDisplay},
+    error::CssValueError,
 };
 
 /// Represents the computed value of the CSS `display` property, which can be a combination of outside, inside, list-item, internal, and box display types.
@@ -121,7 +122,7 @@ impl From<BoxDisplay> for Display {
 }
 
 impl CSSParsable for Display {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let mut parts: Vec<String> = Vec::with_capacity(3);
 
         while let Some(cv) = stream.next_cv() {
@@ -129,14 +130,17 @@ impl CSSParsable for Display {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => parts.push(ident.to_ascii_lowercase()),
                     CssTokenKind::Whitespace => continue,
-                    other => return Err(format!("Unexpected token in display value: {:?}", other)),
+                    _ => return Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => return Err(format!("Unexpected component value in display value: {:?}", cv)),
+                _ => return Err(CssValueError::InvalidComponentValue(cv.clone())),
             }
         }
 
         if parts.is_empty() || parts.len() > 3 {
-            return Err(format!("Invalid number of components in display value: expected 1-3, got {}", parts.len()));
+            return Err(CssValueError::InvalidValue(format!(
+                "Invalid number of components for display property: {}",
+                parts.len()
+            )));
         }
 
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
@@ -193,7 +197,9 @@ impl CSSParsable for Display {
             ["contents"] => Ok(Display::from(BoxDisplay::Contents)),
             ["none"] => Ok(Display::from(BoxDisplay::None)),
             [outside, list_item_or_inside] => {
-                let outside = outside.parse()?;
+                let outside = outside
+                    .parse()
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {}", outside)))?;
 
                 if let Ok(list_item) = list_item_or_inside.parse::<ListItemDisplay>() {
                     return Ok(Display {
@@ -204,7 +210,9 @@ impl CSSParsable for Display {
                     });
                 }
 
-                let inside = list_item_or_inside.parse()?;
+                let inside = list_item_or_inside.parse().map_err(|_| {
+                    CssValueError::InvalidValue(format!("Invalid inside display value: {}", list_item_or_inside))
+                })?;
 
                 Ok(Display {
                     outside: Some(outside),
@@ -213,9 +221,15 @@ impl CSSParsable for Display {
                 })
             }
             [outside, inside, list_item] => {
-                let outside = outside.parse()?;
-                let inside = inside.parse()?;
-                let list_item = list_item.parse()?;
+                let outside = outside
+                    .parse()
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {}", outside)))?;
+                let inside = inside
+                    .parse()
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid inside display value: {}", inside)))?;
+                let list_item = list_item.parse().map_err(|_| {
+                    CssValueError::InvalidValue(format!("Invalid list-item display value: {}", list_item))
+                })?;
 
                 Ok(Display {
                     outside: Some(outside),
@@ -224,7 +238,7 @@ impl CSSParsable for Display {
                     ..Default::default()
                 })
             }
-            _ => Err(format!("Invalid display value: {:?}", parts)),
+            _ => Err(CssValueError::InvalidValue(format!("Invalid combination of display values: {:?}", parts))),
         }
     }
 }

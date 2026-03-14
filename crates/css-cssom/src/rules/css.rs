@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use css_parser::Rule;
 use serde::{Deserialize, Serialize};
 
@@ -27,10 +29,10 @@ impl CSSRule {
     }
 
     /// Serialize this rule to CSS text
-    pub fn to_css_string(&self) -> String {
+    fn to_css_string(&self) -> String {
         match self {
-            CSSRule::Style(style) => style.to_css_string(),
-            CSSRule::AtRule(at_rule) => at_rule.to_css_string(),
+            CSSRule::Style(style) => style.to_string(),
+            CSSRule::AtRule(at_rule) => at_rule.to_string(),
         }
     }
 
@@ -58,5 +60,11 @@ impl CSSRule {
             CSSRule::AtRule(at_rule) => Some(at_rule),
             _ => None,
         }
+    }
+}
+
+impl Display for CSSRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_css_string())
     }
 }

@@ -1,6 +1,7 @@
 use css_cssom::CssToken;
 
 use crate::{
+    error::CssValueError,
     numeric::Percentage,
     quantity::{Angle, Frequency, Length, Time},
 };
@@ -102,13 +103,13 @@ pub enum AngleZero {
 }
 
 impl TryFrom<&CssToken> for AngleZero {
-    type Error = String;
+    type Error = CssValueError;
 
     fn try_from(value: &CssToken) -> Result<Self, Self::Error> {
         if let Ok(angle) = Angle::try_from(value) {
             Ok(AngleZero::Angle(angle))
         } else {
-            Err("Expected an angle, <zero> is unsupported.".to_string())
+            Err(CssValueError::InvalidValue("Expected an angle, <zero> is unsupported.".into()))
         }
     }
 }

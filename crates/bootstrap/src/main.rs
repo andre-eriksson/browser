@@ -1,11 +1,8 @@
-mod message;
-
 use std::{str::FromStr, sync::Arc};
 
 use cli::{Parser, args::BrowserArgs};
-use kernel::{Browser, BrowserEvent, HeadlessBrowser, HeadlessEngine};
+use kernel::{Browser, HeadlessBrowser, HeadlessEngine};
 use preferences::BrowserConfig;
-use tokio::sync::mpsc::unbounded_channel;
 use tracing::{error, info};
 use tracing_subscriber::{
     EnvFilter,
@@ -15,8 +12,6 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 use ui::Ui;
-
-use crate::message::ChannelEmitter;
 
 /// The main entry point for the application
 fn main() {
@@ -36,17 +31,14 @@ fn main() {
         .init();
 
     let args = BrowserArgs::parse();
-    let config = if let Some(theme) = args.theme.clone() {
-        BrowserConfig::new(theme)
+    let config = if let Some(theme) = &args.theme {
+        BrowserConfig::new(theme.clone())
     } else {
         BrowserConfig::load()
     };
 
-    let (event_sender, event_receiver) = unbounded_channel::<BrowserEvent>();
-    let emitter = Box::new(ChannelEmitter::new(event_sender));
-
     if args.headless {
-        let browser = HeadlessBrowser::new(&args, emitter);
+        let browser = HeadlessBrowser::new(&args);
         let mut engine = HeadlessEngine::new(browser);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -57,10 +49,10 @@ fn main() {
         return runtime.block_on(engine.main(&args));
     }
 
-    let browser = Browser::new(&args, emitter);
+    let browser = Browser::new(&args);
     let browser = Arc::new(tokio::sync::Mutex::new(browser));
 
-    let ui_runtime = Ui::new(browser, event_receiver, args, config);
+    let ui_runtime = Ui::new(browser, args, config);
     let res = ui_runtime.run();
 
     if let Err(e) = res {

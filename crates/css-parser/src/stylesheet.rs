@@ -62,15 +62,9 @@ pub enum ComponentValue {
     SimpleBlock(SimpleBlock),
 }
 
-impl Display for ComponentValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_css_string())
-    }
-}
-
 impl ComponentValue {
     /// Convert this component value to a CSS string representation
-    pub fn to_css_string(&self) -> String {
+    fn to_css_string(&self) -> String {
         match self {
             ComponentValue::Token(t) => t.kind.to_string(),
             ComponentValue::Function(f) => {
@@ -120,6 +114,12 @@ impl ComponentValue {
             ComponentValue::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
             _ => false,
         }
+    }
+}
+
+impl Display for ComponentValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_css_string())
     }
 }
 

@@ -6,31 +6,24 @@ use io::{
     Resource,
     embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
-use kernel::{Browser, BrowserEvent};
+use kernel::Browser;
 use preferences::BrowserConfig;
-use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
+use tokio::sync::Mutex;
 
 use crate::{core::Application, errors::UiError};
 
 /// The main runtime for the UI, responsible for initializing and running the application.
 pub struct Ui {
     browser: Arc<Mutex<Browser>>,
-    event_receiver: UnboundedReceiver<BrowserEvent>,
     args: BrowserArgs,
     config: BrowserConfig,
 }
 
 impl Ui {
     /// Creates a new instance of the `UiRuntime`.
-    pub fn new(
-        browser: Arc<Mutex<Browser>>,
-        event_receiver: UnboundedReceiver<BrowserEvent>,
-        args: BrowserArgs,
-        config: BrowserConfig,
-    ) -> Self {
+    pub fn new(browser: Arc<Mutex<Browser>>, args: BrowserArgs, config: BrowserConfig) -> Self {
         Ui {
             browser,
-            event_receiver,
             args,
             config,
         }
@@ -43,17 +36,9 @@ impl Ui {
         let browser = self.browser;
         let config = self.config;
         let initial_url = self.args.url;
-        let event_receiver = Arc::new(std::sync::Mutex::new(Some(self.event_receiver)));
 
         let result = iced::daemon(
-            move || {
-                let receiver = event_receiver
-                    .lock()
-                    .unwrap()
-                    .take()
-                    .expect("Boot function called more than once");
-                Application::new(receiver, browser.clone(), config.clone(), initial_url.clone())
-            },
+            move || Application::new(browser.clone(), config.clone(), initial_url.clone()),
             Application::update,
             Application::view,
         )

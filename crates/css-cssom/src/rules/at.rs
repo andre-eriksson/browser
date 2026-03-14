@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use css_parser::{AssociatedToken, AtRule, ComponentValue, CssTokenKind, Property, QualifiedRule, SimpleBlock};
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +57,7 @@ impl CSSAtRule {
     }
 
     /// Create a CSSAtRule from a parsed AtRule
-    pub fn from_parsed(ar: AtRule, collect_positions: bool) -> Self {
+    pub(crate) fn from_parsed(ar: AtRule, collect_positions: bool) -> Self {
         let prelude = prelude_to_string(&ar.prelude);
         let has_block = ar.block.is_some();
 
@@ -245,7 +247,7 @@ impl CSSAtRule {
     }
 
     /// Serialize this at-rule to CSS text
-    pub fn to_css_string(&self) -> String {
+    fn to_css_string(&self) -> String {
         let mut result = format!("@{}", self.name);
 
         if !self.prelude.is_empty() {
@@ -258,13 +260,13 @@ impl CSSAtRule {
 
             for decl in &self.declarations {
                 result.push_str("  ");
-                result.push_str(&decl.to_css_string());
+                result.push_str(&decl.to_string());
                 result.push_str(";\n");
             }
 
             for rule in &self.rules {
                 result.push_str("  ");
-                result.push_str(&rule.to_css_string().replace('\n', "\n  "));
+                result.push_str(&rule.to_string().replace('\n', "\n  "));
                 result.push('\n');
             }
 
@@ -274,5 +276,11 @@ impl CSSAtRule {
         }
 
         result
+    }
+}
+
+impl Display for CSSAtRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_css_string())
     }
 }

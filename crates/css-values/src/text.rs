@@ -8,6 +8,7 @@ use strum::EnumString;
 use crate::{
     CSSParsable,
     calc::{CalcExpression, is_math_function},
+    error::CssValueError,
     numeric::Percentage,
     quantity::{Length, LengthUnit},
 };
@@ -85,7 +86,7 @@ impl Default for FontSize {
 }
 
 impl CSSParsable for FontSize {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         let font_size = if let Some(cv) = stream.peek() {
@@ -94,7 +95,7 @@ impl CSSParsable for FontSize {
                     if is_math_function(&func.name) {
                         Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
                     } else {
-                        Err(format!("Invalid function for font size: {}", func.name))
+                        Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -104,22 +105,22 @@ impl CSSParsable for FontSize {
                         } else if let Ok(rel_size) = ident.parse() {
                             Ok(Self::Relative(rel_size))
                         } else {
-                            Err(format!("Invalid font size identifier: {}", ident))
+                            Err(CssValueError::InvalidValue(format!("Invalid font size keyword: {}", ident)))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
                     CssTokenKind::Percentage(num) => Ok(Self::Percentage(Percentage::new(num.to_f64() as f32))),
-                    _ => Err("Expected a valid font size value".to_string()),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a valid font size value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("No font size value found".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }?;
 
         stream.next_cv();
@@ -144,28 +145,26 @@ pub enum FontWeight {
     Black = 900,
 }
 
-impl TryFrom<u16> for FontWeight {
-    type Error = String;
-
-    fn try_from(value: u16) -> Result<Self, Self::Error> {
+impl From<u16> for FontWeight {
+    fn from(value: u16) -> Self {
         match value {
-            100 => Ok(FontWeight::Thin),
-            200 => Ok(FontWeight::ExtraLight),
-            300 => Ok(FontWeight::Light),
-            400 => Ok(FontWeight::Normal),
-            500 => Ok(FontWeight::Medium),
-            600 => Ok(FontWeight::SemiBold),
-            700 => Ok(FontWeight::Bold),
-            800 => Ok(FontWeight::ExtraBold),
-            900 => Ok(FontWeight::Black),
+            100 => FontWeight::Thin,
+            200 => FontWeight::ExtraLight,
+            300 => FontWeight::Light,
+            400 => FontWeight::Normal,
+            500 => FontWeight::Medium,
+            600 => FontWeight::SemiBold,
+            700 => FontWeight::Bold,
+            800 => FontWeight::ExtraBold,
+            900 => FontWeight::Black,
             // TODO: Once we support variable font weights, we need to clamp between 1 and 1000 and drop the rounding logic.
-            _ => Self::try_from(((value.saturating_add(50)) / 100 * 100).clamp(100, 900)),
+            _ => Self::from(((value.saturating_add(50)) / 100 * 100).clamp(100, 900)),
         }
     }
 }
 
 impl CSSParsable for FontWeight {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -177,16 +176,16 @@ impl CSSParsable for FontWeight {
                         } else if ident.eq_ignore_ascii_case("bold") {
                             Ok(Self::Bold)
                         } else {
-                            Err(format!("Invalid font weight keyword: {}", ident))
+                            Err(CssValueError::InvalidValue(format!("Invalid font weight keyword: {}", ident)))
                         }
                     }
-                    CssTokenKind::Number(num) => Self::try_from(num.to_f64() as u16),
-                    _ => Err("Expected a valid font weight value".to_string()),
+                    CssTokenKind::Number(num) => Ok(Self::from(num.to_f64() as u16)),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a valid font weight value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("No font weight value found".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }
@@ -262,7 +261,7 @@ impl LineHeight {
 }
 
 impl CSSParsable for LineHeight {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -276,16 +275,16 @@ impl CSSParsable for LineHeight {
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         Ok(LineHeight::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
                     CssTokenKind::Percentage(pct) => Ok(LineHeight::Percentage(Percentage::new(pct.to_f64() as f32))),
-                    _ => Err("Expected a valid line-height value".to_string()),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a valid line-height value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing line-height value".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }
@@ -331,7 +330,7 @@ pub enum TextAlign {
 }
 
 impl CSSParsable for TextAlign {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -339,13 +338,13 @@ impl CSSParsable for TextAlign {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| format!("Invalid text-align value: {}", ident)),
-                    _ => Err("Expected an identifier for text-align value".to_string()),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid text-align value: {}", ident))),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a token for text-align value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing text-align value".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }
@@ -355,7 +354,7 @@ impl CSSParsable for TextAlign {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/white-space>
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum Whitespace {
     /// Sequences of white space are collapsed. Newline characters in the source are handled the same as other white spaces.
     /// Lines are broken as necessary to fill line boxes. Equivalent to `collapse wrap`.
@@ -382,7 +381,7 @@ pub enum Whitespace {
 }
 
 impl CSSParsable for Whitespace {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -390,13 +389,13 @@ impl CSSParsable for Whitespace {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| format!("Invalid white-space value: {}", ident)),
-                    _ => Err("Expected an identifier for white-space value".to_string()),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid white-space value: {}", ident))),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a token for white-space value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing white-space value".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }
@@ -406,7 +405,7 @@ impl CSSParsable for Whitespace {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/writing-mode>
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum WritingMode {
     /// For `ltr` scripts, content flows horizontally from left to right. For `rtl` scripts, content flows horizontally from right to left. The next horizontal
     /// line is positioned below the previous line.
@@ -431,7 +430,7 @@ pub enum WritingMode {
 }
 
 impl CSSParsable for WritingMode {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -439,13 +438,13 @@ impl CSSParsable for WritingMode {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| format!("Invalid writing-mode value: {}", ident)),
-                    _ => Err("Expected an identifier for writing-mode value".to_string()),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid writing-mode value: {}", ident))),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a token for writing-mode value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing writing-mode value".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }

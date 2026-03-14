@@ -4,6 +4,7 @@ use strum::EnumString;
 use crate::{
     CSSParsable,
     calc::{CalcExpression, is_math_function},
+    error::CssValueError,
     quantity::{Length, LengthUnit},
 };
 
@@ -11,7 +12,7 @@ use crate::{
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/border-style>
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "lowercase", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum BorderStyle {
     /// Like the `hidden` keyword, displays no border. Unless a `background-image` is set, the computed value of the same side's `border-width` will be `0`,
     /// even if the specified value is something else. In the case of table cell and border collapsing, the `none` value has the lowest priority:
@@ -54,7 +55,7 @@ pub enum BorderStyle {
 }
 
 impl CSSParsable for BorderStyle {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -64,10 +65,10 @@ impl CSSParsable for BorderStyle {
             {
                 Ok(style)
             } else {
-                Err("Expected a valid border style keyword".to_string())
+                Err(CssValueError::InvalidComponentValue(cv.clone()))
             }
         } else {
-            Err("Unexpected end of input while parsing border style".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }
@@ -103,7 +104,7 @@ impl Default for BorderWidth {
 }
 
 impl TryFrom<&ComponentValue> for BorderWidth {
-    type Error = String;
+    type Error = CssValueError;
 
     fn try_from(value: &ComponentValue) -> Result<Self, Self::Error> {
         let mut stream = ComponentValueStream::new(std::slice::from_ref(value));
@@ -112,7 +113,7 @@ impl TryFrom<&ComponentValue> for BorderWidth {
 }
 
 impl CSSParsable for BorderWidth {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         let width = if let Some(cv) = stream.peek() {
@@ -126,26 +127,26 @@ impl CSSParsable for BorderWidth {
                         } else if ident.eq_ignore_ascii_case("thick") {
                             Ok(Self::Thick)
                         } else {
-                            Err(format!("Invalid border width keyword: {}", ident))
+                            Err(CssValueError::InvalidValue(format!("Invalid border width keyword: {}", ident)))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
                     CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
-                    _ => Err("Expected a valid border width value".to_string()),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
                     Ok(Self::Calc(calc_expr))
                 }
-                _ => Err("Expected a valid border width value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing border width".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }?;
 
         stream.next_cv();

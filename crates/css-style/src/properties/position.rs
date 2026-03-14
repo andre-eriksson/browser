@@ -2,6 +2,7 @@
 //! Each value determines how the element is positioned in relation to its normal flow, its containing block, and the viewport.
 
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
+use css_values::error::CssValueError;
 use strum::EnumString;
 
 use crate::properties::CSSParsable;
@@ -11,7 +12,7 @@ use crate::properties::CSSParsable;
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position>
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum Position {
     /// The element is positioned according to the Normal Flow of the document. The `top`, `right`, `bottom`, `left`, and `z-index` properties have no effect.
     #[default]
@@ -34,7 +35,7 @@ pub enum Position {
 }
 
 impl CSSParsable for Position {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -42,13 +43,13 @@ impl CSSParsable for Position {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| format!("Invalid position value: {}", ident)),
-                    _ => Err("Expected an identifier for position value".to_string()),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid position value: {}", ident))),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a token for position value".to_string()),
+                _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing position value".to_string())
+            Err(CssValueError::UnexpectedEndOfInput)
         }
     }
 }

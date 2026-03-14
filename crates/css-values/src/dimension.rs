@@ -3,6 +3,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use crate::{
     CSSParsable,
     calc::{CalcExpression, is_math_function},
+    error::CssValueError,
     numeric::Percentage,
     quantity::{Length, LengthUnit},
 };
@@ -32,7 +33,7 @@ impl Dimension {
 }
 
 impl CSSParsable for Dimension {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -41,7 +42,7 @@ impl CSSParsable for Dimension {
                     if is_math_function(&func.name) {
                         Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
                     } else {
-                        Err(format!("Unexpected function for Dimension value: {}", func.name))
+                        Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -57,23 +58,23 @@ impl CSSParsable for Dimension {
                         } else if ident.eq_ignore_ascii_case("stretch") {
                             Ok(Self::Stretch)
                         } else {
-                            Err(format!("Unexpected identifier for Dimension value: {}", ident))
+                            Err(CssValueError::InvalidValue(format!("Invalid identifier: {}", ident)))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
                     CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
                     CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
-                    _ => Err(format!("Unexpected token kind for Dimension: {:?}", token.kind)),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a token or function for Dimension value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing Dimension value".to_string())
+            Err(CssValueError::UnexpectedEndOfInput)
         }
     }
 }
@@ -96,7 +97,7 @@ pub enum MaxDimension {
 }
 
 impl CSSParsable for MaxDimension {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -105,7 +106,7 @@ impl CSSParsable for MaxDimension {
                     if is_math_function(&func.name) {
                         Ok(MaxDimension::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
                     } else {
-                        Err(format!("Unexpected function for MaxDimension value: {}", func.name))
+                        Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -121,23 +122,23 @@ impl CSSParsable for MaxDimension {
                         } else if ident.eq_ignore_ascii_case("stretch") {
                             Ok(MaxDimension::Stretch)
                         } else {
-                            Err(format!("Unexpected identifier for MaxDimension value: {}", ident))
+                            Err(CssValueError::InvalidValue(format!("Invalid identifier: {}", ident)))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         Ok(MaxDimension::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
                     CssTokenKind::Number(num) => Ok(MaxDimension::Length(Length::px(num.to_f64() as f32))),
                     CssTokenKind::Percentage(pct) => Ok(MaxDimension::Percentage(Percentage::new(pct.to_f64() as f32))),
-                    _ => Err(format!("Unexpected token kind for MaxDimension: {:?}", token.kind)),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err(format!("Expected a token or function for MaxDimension value, found: {:?}", cv)),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing MaxDimension value".to_string())
+            Err(CssValueError::UnexpectedEndOfInput)
         }
     }
 }
@@ -168,7 +169,7 @@ impl OffsetValue {
 }
 
 impl CSSParsable for OffsetValue {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek() {
@@ -180,18 +181,18 @@ impl CSSParsable for OffsetValue {
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
                     CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
                     CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
-                    _ => Err("Expected a valid offset value".to_string()),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err("Expected a valid offset value".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Expected a valid offset value".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }

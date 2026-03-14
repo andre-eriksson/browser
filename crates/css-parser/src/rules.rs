@@ -51,7 +51,7 @@ impl QualifiedRule {
     pub fn selector_text(&self) -> String {
         let mut result = String::new();
         for cv in &self.prelude {
-            result.push_str(&cv.to_css_string());
+            result.push_str(&cv.to_string());
         }
         result.trim().to_string()
     }

@@ -1,13 +1,28 @@
 #[cfg(test)]
 mod tests {
+    use std::{
+        fs::File,
+        io::{BufReader, Cursor, Read},
+    };
+
     use cosmic_text::FontSystem;
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
     use css_style::{AbsoluteContext, StyleTree};
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::{Resource, embeded::DEFAULT_CSS};
-    use kernel::TabCollector;
     use layout::{ImageContext, LayoutEngine, Rect, TextContext};
     use ui::load_fallback_fonts;
+
+    fn load_fixture(html: &str) -> String {
+        let file = File::open(format!("tests/fixtures/{}", html)).expect("failed to open fixture");
+        let mut decoder = zstd::Decoder::new(file).expect("failed to create decoder");
+
+        let mut s = String::new();
+        decoder
+            .read_to_string(&mut s)
+            .expect("failed to decompress");
+        s
+    }
 
     fn viewport() -> Rect {
         Rect::new(0.0, 0.0, 800.0, 600.0)
@@ -18,7 +33,7 @@ mod tests {
     macro_rules! process_html_raw {
         ($path:literal, $user_agent_css:expr) => {{
             let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
-            let html = include_bytes!($path);
+            let html = load_fixture($path);
 
             let mut stylesheets = if $user_agent_css {
                 vec![CSSStyleSheet::from_css(
@@ -30,7 +45,10 @@ mod tests {
                 vec![]
             };
 
-            let mut parser = HtmlStreamParser::<_, TabCollector>::new(html.as_slice(), None, None);
+            let cursor = Cursor::new(html);
+            let reader = BufReader::new(cursor);
+
+            let mut parser = HtmlStreamParser::simple(reader);
 
             loop {
                 match parser.step() {
@@ -90,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_collapsing() {
-        let layout = process_html!("fixtures/collapsing.html", true);
+        let layout = process_html!("collapsing.html.zst", true);
 
         let root = &layout.root_nodes[0];
         assert_eq!(root.dimensions.x, 0.0);
@@ -110,39 +128,39 @@ mod tests {
         assert_eq!(first_div.dimensions.y, 20.0);
         assert_eq!(first_div.dimensions.height, 30.0);
         assert_eq!(first_div.dimensions.width, 744.0);
-        assert_eq!(first_div.resolved_margin.top, 20.0);
-        assert_eq!(first_div.resolved_margin.top, first_div.resolved_margin.bottom);
+        assert_eq!(first_div.margin.top, 20.0);
+        assert_eq!(first_div.margin.top, first_div.margin.bottom);
 
         let second_div = &body.children[1];
         assert_eq!(second_div.dimensions.x, 28.0);
         assert_eq!(second_div.dimensions.y, 70.0);
         assert_eq!(second_div.dimensions.height, 50.0);
         assert_eq!(second_div.dimensions.width, 744.0);
-        assert_eq!(second_div.resolved_padding.top, 10.0);
-        assert_eq!(second_div.resolved_padding.bottom, 10.0);
-        assert_eq!(second_div.resolved_margin.top, 20.0);
-        assert_eq!(second_div.resolved_margin.top, first_div.resolved_margin.bottom);
+        assert_eq!(second_div.padding.top, 10.0);
+        assert_eq!(second_div.padding.bottom, 10.0);
+        assert_eq!(second_div.margin.top, 20.0);
+        assert_eq!(second_div.margin.top, first_div.margin.bottom);
 
         let third_div = &body.children[2];
         assert_eq!(third_div.dimensions.x, 28.0);
         assert_eq!(third_div.dimensions.y, 140.0);
         assert_eq!(third_div.dimensions.height, 30.0);
         assert_eq!(third_div.dimensions.width, 744.0);
-        assert_eq!(third_div.resolved_margin.top, 20.0);
-        assert_eq!(third_div.resolved_margin.top, second_div.resolved_margin.bottom);
+        assert_eq!(third_div.margin.top, 20.0);
+        assert_eq!(third_div.margin.top, second_div.margin.bottom);
 
         let fourth_div = &body.children[3];
         assert_eq!(fourth_div.dimensions.x, 108.0);
         assert_eq!(fourth_div.dimensions.y, 270.0);
         assert_eq!(fourth_div.dimensions.height, 30.0);
         assert_eq!(fourth_div.dimensions.width, 584.0);
-        assert_eq!(fourth_div.resolved_margin.top, 100.0);
-        assert_eq!(fourth_div.resolved_margin.top, fourth_div.resolved_margin.bottom);
+        assert_eq!(fourth_div.margin.top, 100.0);
+        assert_eq!(fourth_div.margin.top, fourth_div.margin.bottom);
     }
 
     #[test]
     fn test_collapsing_padding() {
-        let layout = process_html!("fixtures/collapsing_padding.html", true);
+        let layout = process_html!("collapsing_padding.html.zst", true);
 
         let root = &layout.root_nodes[0];
         assert_eq!(root.dimensions.x, 0.0);
@@ -162,39 +180,39 @@ mod tests {
         assert_eq!(first_div.dimensions.y, 38.0);
         assert_eq!(first_div.dimensions.height, 30.0);
         assert_eq!(first_div.dimensions.width, 724.0);
-        assert_eq!(first_div.resolved_margin.top, 20.0);
-        assert_eq!(first_div.resolved_margin.top, first_div.resolved_margin.bottom);
+        assert_eq!(first_div.margin.top, 20.0);
+        assert_eq!(first_div.margin.top, first_div.margin.bottom);
 
         let second_div = &body.children[1];
         assert_eq!(second_div.dimensions.x, 38.0);
         assert_eq!(second_div.dimensions.y, 88.0);
         assert_eq!(second_div.dimensions.height, 50.0);
         assert_eq!(second_div.dimensions.width, 724.0);
-        assert_eq!(second_div.resolved_padding.top, 10.0);
-        assert_eq!(second_div.resolved_padding.bottom, 10.0);
-        assert_eq!(second_div.resolved_margin.top, 20.0);
-        assert_eq!(second_div.resolved_margin.top, first_div.resolved_margin.bottom);
+        assert_eq!(second_div.padding.top, 10.0);
+        assert_eq!(second_div.padding.bottom, 10.0);
+        assert_eq!(second_div.margin.top, 20.0);
+        assert_eq!(second_div.margin.top, first_div.margin.bottom);
 
         let third_div = &body.children[2];
         assert_eq!(third_div.dimensions.x, 38.0);
         assert_eq!(third_div.dimensions.y, 158.0);
         assert_eq!(third_div.dimensions.height, 30.0);
         assert_eq!(third_div.dimensions.width, 724.0);
-        assert_eq!(third_div.resolved_margin.top, 20.0);
-        assert_eq!(third_div.resolved_margin.top, second_div.resolved_margin.bottom);
+        assert_eq!(third_div.margin.top, 20.0);
+        assert_eq!(third_div.margin.top, second_div.margin.bottom);
 
         let fourth_div = &body.children[3];
         assert_eq!(fourth_div.dimensions.x, 118.0);
         assert_eq!(fourth_div.dimensions.y, 288.0);
         assert_eq!(fourth_div.dimensions.height, 30.0);
         assert_eq!(fourth_div.dimensions.width, 564.0);
-        assert_eq!(fourth_div.resolved_margin.top, 100.0);
-        assert_eq!(fourth_div.resolved_margin.top, fourth_div.resolved_margin.bottom);
+        assert_eq!(fourth_div.margin.top, 100.0);
+        assert_eq!(fourth_div.margin.top, fourth_div.margin.bottom);
     }
 
     #[test]
     fn test_mixed_content() {
-        let layout = process_html!("fixtures/mixed.html", true);
+        let layout = process_html!("mixed.html.zst", true);
 
         let root = &layout.root_nodes[0];
         assert_eq!(root.dimensions.x, 0.0);
@@ -231,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_child_calc_percentage_resolves_against_parent_size() {
-        let layout = process_html!("fixtures/calc_percent_child.html", true);
+        let layout = process_html!("calc_percent_child.html.zst", true);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -254,7 +272,7 @@ mod tests {
     ///      container grew taller.
     #[test]
     fn test_image_relayout_repositions_siblings() {
-        let (dom, style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
+        let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
 
         let mut layout = layout_from!(style_tree, &mut text_context);
 
@@ -342,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_image_relayout_respects_css_width_percentage() {
-        let (dom, style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout_css_width.html", true);
+        let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout_css_width.html.zst", true);
 
         let mut layout = layout_from!(style_tree, &mut text_context);
 
@@ -385,7 +403,7 @@ mod tests {
     /// running it twice produces identical results.
     #[test]
     fn test_image_relayout_is_idempotent() {
-        let (_, style_tree, mut text_context) = process_html_raw!("fixtures/image_relayout.html", true);
+        let (_, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);

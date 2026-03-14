@@ -6,11 +6,12 @@ use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
 use crate::{
+    builder::NodeBuilder,
     mode::block::BlockCursor,
     primitives::{Rect, SideOffset},
 };
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct BorderColor {
     pub top: Color4f,
     pub right: Color4f,
@@ -18,8 +19,19 @@ pub struct BorderColor {
     pub left: Color4f,
 }
 
+impl Default for BorderColor {
+    fn default() -> Self {
+        Self {
+            top: Color4f::BLACK,
+            right: Color4f::BLACK,
+            bottom: Color4f::BLACK,
+            left: Color4f::BLACK,
+        }
+    }
+}
+
 /// Color properties extracted for rendering
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct LayoutColors {
     /// The background color of the layout node
     pub background_color: Color4f,
@@ -31,11 +43,12 @@ pub struct LayoutColors {
     pub border_color: BorderColor,
 }
 
-impl LayoutColors {
-    pub fn inline(color: Color4f) -> Self {
+impl Default for LayoutColors {
+    fn default() -> Self {
         Self {
-            color,
-            ..Default::default()
+            background_color: Color4f::TRANSPARENT,
+            color: Color4f::BLACK,
+            border_color: BorderColor::default(),
         }
     }
 }
@@ -85,56 +98,22 @@ pub struct ImageData {
 /// A node in the layout tree representing a rendered element
 #[derive(Debug, Clone)]
 pub struct LayoutNode {
-    /// The associated DOM node ID
     pub node_id: NodeId,
-
-    /// The dimensions and position of the layout node
-    pub dimensions: Rect,
-
-    /// The color properties for rendering
-    pub colors: LayoutColors,
-
-    /// The cursor style for this layout node
-    pub cursor: Cursor,
-
-    /// The resolved margin values
-    pub resolved_margin: SideOffset,
-
-    /// The resolved padding values
-    pub resolved_padding: SideOffset,
-
-    /// The resolved border widths
-    pub resolved_border: SideOffset,
-
-    /// Optional text buffer for rendered text
-    pub text_buffer: Option<Arc<Buffer>>,
-
-    /// Optional image data for rendered images
-    pub image_data: Option<ImageData>,
-
-    /// Child layout nodes
+    pub border: SideOffset,
     pub children: Vec<LayoutNode>,
-
-    /// Whether this node's height is determined by its content (e.g. for block elements)
+    pub colors: LayoutColors,
+    pub cursor: Cursor,
+    pub dimensions: Rect,
+    pub image_data: Option<ImageData>,
     pub is_height_auto: bool,
+    pub margin: SideOffset,
+    pub padding: SideOffset,
+    pub text_buffer: Option<Arc<Buffer>>,
 }
 
 impl LayoutNode {
-    /// Creates a new LayoutNode with default values
-    pub fn new(node_id: NodeId) -> Self {
-        Self {
-            node_id,
-            dimensions: Rect::default(),
-            colors: LayoutColors::default(),
-            cursor: Cursor::default(),
-            resolved_margin: SideOffset::default(),
-            resolved_padding: SideOffset::default(),
-            resolved_border: SideOffset::default(),
-            text_buffer: None,
-            image_data: None,
-            children: Vec::new(),
-            is_height_auto: false,
-        }
+    pub fn builder(node_id: NodeId) -> NodeBuilder {
+        NodeBuilder::new(node_id)
     }
 }
 

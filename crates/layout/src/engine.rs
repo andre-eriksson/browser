@@ -66,8 +66,8 @@ impl LayoutEngine {
                 None => continue, // For `display: none`
             };
 
-            let top_margin = node.resolved_margin.top;
-            let bottom_margin = node.resolved_margin.bottom;
+            let top_margin = node.margin.top;
+            let bottom_margin = node.margin.bottom;
 
             Self::offset_children_y(&mut node.children, top_margin);
 
@@ -146,7 +146,7 @@ impl LayoutEngine {
             None => return, // For `display: none`
         };
 
-        Self::offset_children_y(&mut new_node.children, new_node.resolved_margin.top);
+        Self::offset_children_y(&mut new_node.children, new_node.margin.top);
 
         let new_height = new_node.dimensions.height;
         let delta = new_height - old_height;

@@ -205,15 +205,10 @@ impl Primitive for HtmlPrimitive {
                 image_info.screen_rect.height,
             );
             let full_uv = Rect::new(0.0, 0.0, 1.0, 1.0);
-            let white = Color4f {
-                r: 1.0,
-                g: 1.0,
-                b: 1.0,
-                a: 1.0,
-            };
+
             pipeline
                 .image_pipeline
-                .push_quad(screen_rect, full_uv, white);
+                .push_quad(screen_rect, full_uv, Color4f::WHITE);
         }
 
         pipeline.rect_pipeline.flush(queue);
@@ -615,7 +610,7 @@ pub fn collect_render_data_from_layout<'html>(
 
         let bg = node.colors.background_color;
 
-        let border = node.resolved_border;
+        let border = node.border;
         let border_color = &node.colors.border_color;
         if (border.top > 0.0 || border.right > 0.0 || border.bottom > 0.0 || border.left > 0.0)
             && node.dimensions.width > 0.0
@@ -698,7 +693,7 @@ pub fn collect_render_data_from_layout<'html>(
         }
 
         if bg.a > 0.0 {
-            let border = node.resolved_border;
+            let border = node.border;
             let inner_x = node.dimensions.x + border.left;
             let inner_y = node.dimensions.y + border.top;
             let inner_width = (node.dimensions.width - border.horizontal()).max(0.0);
@@ -735,12 +730,7 @@ pub fn collect_render_data_from_layout<'html>(
                     }),
                 });
             } else {
-                const IMAGE_PLACEHOLDER_COLOR: Color4f = Color4f {
-                    r: 0.9,
-                    g: 0.9,
-                    b: 0.9,
-                    a: 1.0,
-                };
+                const IMAGE_PLACEHOLDER_COLOR: Color4f = Color4f::rgba(0.8, 0.8, 0.8, 1.0);
                 data.rects.push(RenderRect {
                     rect: node.dimensions,
                     background: IMAGE_PLACEHOLDER_COLOR,

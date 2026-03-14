@@ -12,7 +12,7 @@ use strum::EnumString;
 
 /// These keywords specify the element's outer display type, which is essentially its role in flow layout:
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum OutsideDisplay {
     /// The element generates a block box, generating line breaks both before and after the element when in the normal flow.
     Block,
@@ -27,7 +27,7 @@ pub enum OutsideDisplay {
 /// as a single value, the element's outer display type defaults to block (with the exception of ruby,
 /// which defaults to inline).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum InsideDisplay {
     /// The element lays out its contents using flow layout (block-and-inline layout). If its outer display type is inline, and it is participating
     /// in a block or inline formatting context, then it generates an inline box. Otherwise it generates a block box. Depending on the value of
@@ -54,7 +54,7 @@ pub enum InsideDisplay {
 
 /// The element generates a block box for the content and a separate list-item inline box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum ListItemDisplay {
     /// A single value of list-item will cause the element to behave like a list item. This can be used together with list-style-type and list-style-position.
     /// list-item can also be combined with any `<display-outside>` keyword and the flow or flow-root `<display-inside>` keywords.
@@ -64,7 +64,7 @@ pub enum ListItemDisplay {
 /// Some layout models such as table and ruby have a complex internal structure, with several different roles that their children and descendants can fill.
 /// This section defines those "internal" display values, which only have meaning within that particular layout mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum InternalDisplay {
     /// These elements behave like `<tbody>` HTML elements.
     TableRowGroup,
@@ -105,7 +105,7 @@ pub enum InternalDisplay {
 
 /// These values define whether an element generates display boxes at all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum BoxDisplay {
     /// These elements don't produce a specific box by themselves. They are replaced by their pseudo-box and their child boxes.
     /// Please note that the CSS Display Level 3 spec defines how the contents value should affect "unusual elements" — elements

@@ -87,6 +87,7 @@ mod tests {
 
     use super::*;
     use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, NumericValue};
+    use css_values::error::CssValueError;
 
     /// Helper function to create test contexts
     fn create_test_contexts() -> (RelativeContext, AbsoluteContext<'static>) {
@@ -488,10 +489,9 @@ mod tests {
         let input = vec![number_token(10.0), delim_token('+'), number_token(5.0)];
         let result = CalcExpression::parse(&input);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .contains("Whitespace is required before")
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("Whitespace is required before '+' or '-' operator in calc()".into())
         );
     }
 
@@ -500,10 +500,9 @@ mod tests {
         let input = vec![number_token(10.0), delim_token('-'), number_token(5.0)];
         let result = CalcExpression::parse(&input);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .contains("Whitespace is required before")
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("Whitespace is required before '+' or '-' operator in calc()".into())
         );
     }
 
@@ -517,7 +516,10 @@ mod tests {
         ];
         let result = CalcExpression::parse(&input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Whitespace is required after"));
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("Whitespace is required after '+' or '-' operator in calc()".into())
+        );
     }
 
     #[test]
@@ -530,7 +532,10 @@ mod tests {
         ];
         let result = CalcExpression::parse(&input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Whitespace is required after"));
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("Whitespace is required after '+' or '-' operator in calc()".into())
+        );
     }
 
     #[test]
@@ -628,10 +633,9 @@ mod tests {
         ];
         let result = CalcExpression::parse(&input);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .contains("Whitespace is required before")
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("Whitespace is required before '+' or '-' operator in calc()".into())
         );
     }
 
@@ -978,7 +982,10 @@ mod tests {
         let input = vec![number_token(100.0), comma_token(), number_token(200.0)];
         let result = CalcExpression::parse_math_function("clamp", &input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("exactly 3 arguments"));
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("clamp() requires exactly 3 arguments separated by commas, got 2".into())
+        );
     }
 
     #[test]
@@ -994,7 +1001,10 @@ mod tests {
         ];
         let result = CalcExpression::parse_math_function("clamp", &input);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("exactly 3 arguments"));
+        assert_eq!(
+            result.unwrap_err(),
+            CssValueError::InvalidValue("clamp() requires exactly 3 arguments separated by commas, got 4".into())
+        );
     }
 
     #[test]

@@ -5,6 +5,7 @@ use css_values::{
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase},
     combination::LengthPercentage,
+    error::CssValueError,
     global::Global,
     image::Image,
     numeric::Percentage,
@@ -39,7 +40,7 @@ pub(crate) struct PropertyUpdateContext<'css> {
 pub(crate) struct PropertyError {
     pub property: String,
     pub value: String,
-    pub error: String,
+    pub error: CssValueError,
 }
 
 impl<'css> PropertyUpdateContext<'css> {
@@ -56,7 +57,7 @@ impl<'css> PropertyUpdateContext<'css> {
         }
     }
 
-    fn record_error(&mut self, property: &str, value: String, error: String) {
+    fn record_error(&mut self, property: &str, value: String, error: CssValueError) {
         self.errors.push(PropertyError {
             property: property.to_string(),
             value,
@@ -64,11 +65,11 @@ impl<'css> PropertyUpdateContext<'css> {
         });
     }
 
-    fn record_error_from_stream(&mut self, property: &str, stream: &ComponentValueStream, error: String) {
+    fn record_error_from_stream(&mut self, property: &str, stream: &ComponentValueStream, error: CssValueError) {
         let value = stream
             .values()
             .iter()
-            .map(|cv| cv.to_css_string())
+            .map(|cv| cv.to_string())
             .collect::<String>();
 
         self.record_error(property, value, error);
@@ -133,7 +134,7 @@ macro_rules! offset_shorthand_handler {
                     ctx.record_error_from_stream(
                         $prop_name,
                         stream,
-                        format!("Invalid value for {} property", $prop_name),
+                        CssValueError::InvalidValue(format!("Invalid value for {} property", $prop_name)),
                     );
                 }
             }
@@ -169,7 +170,11 @@ macro_rules! logical_pair_handler {
                 WritingMode::VerticalLr => (&mut ctx.specified_style.$vlr_start, &mut ctx.specified_style.$vlr_end),
                 _ => {
                     stream.restore(checkpoint);
-                    ctx.record_error_from_stream($prop_name, stream, String::from("Unsupported writing mode"));
+                    ctx.record_error_from_stream(
+                        $prop_name,
+                        stream,
+                        CssValueError::InvalidValue("Unsupported writing mode".into()),
+                    );
                     return;
                 }
             };
@@ -199,7 +204,11 @@ macro_rules! logical_edge_handler {
                 WritingMode::VerticalRl => &mut ctx.specified_style.$vrl,
                 WritingMode::VerticalLr => &mut ctx.specified_style.$vlr,
                 _ => {
-                    ctx.record_error_from_stream($prop_name, stream, String::from("Unsupported writing mode"));
+                    ctx.record_error_from_stream(
+                        $prop_name,
+                        stream,
+                        CssValueError::InvalidValue("Unsupported writing mode".into()),
+                    );
                     return;
                 }
             };
@@ -333,7 +342,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, stream
             ctx.record_error_from_stream(
                 "background-position",
                 stream,
-                format!("Invalid value for background-position: {}", e),
+                CssValueError::InvalidValue(format!("Invalid value for background-position: {}", e)),
             );
         }
     }
@@ -818,13 +827,13 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut Compon
         }
 
         stream.restore(checkpoint);
-        ctx.record_error_from_stream("border", stream, "Invalid value for border property".to_string());
+        ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Border property".to_string()));
         return;
     }
 
     if !parsed_any {
         stream.restore(checkpoint);
-        ctx.record_error_from_stream("border", stream, "Invalid value for border property".to_string());
+        ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Border property".to_string()));
         return;
     }
 
@@ -908,7 +917,11 @@ pub(crate) fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut 
             ctx.specified_style.border_left_color = CSSProperty::Value(colors[3].clone());
         }
         _ => {
-            ctx.record_error_from_stream("border-color", stream, "Invalid number of color values".to_string());
+            ctx.record_error_from_stream(
+                "border-color",
+                stream,
+                CssValueError::InvalidValue("Invalid number of color values".to_string()),
+            );
         }
     }
 }
@@ -965,7 +978,11 @@ pub(crate) fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut 
             ctx.specified_style.border_left_style = CSSProperty::Value(styles[3]);
         }
         _ => {
-            ctx.record_error_from_stream("border-style", stream, "Invalid number of style values".to_string());
+            ctx.record_error_from_stream(
+                "border-style",
+                stream,
+                CssValueError::InvalidValue("Invalid number of style values".to_string()),
+            );
         }
     }
 }
@@ -1019,7 +1036,11 @@ pub(crate) fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut 
             ctx.specified_style.border_left_width = CSSProperty::Value(widths[3].clone());
         }
         _ => {
-            ctx.record_error_from_stream("border-width", stream, "Invalid number of width values".to_string());
+            ctx.record_error_from_stream(
+                "border-width",
+                stream,
+                CssValueError::InvalidValue("Invalid number of width values".to_string()),
+            );
         }
     }
 }
@@ -1046,13 +1067,11 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut C
                 CssTokenKind::Ident(ident) => {
                     if ident.eq_ignore_ascii_case("lighter") {
                         let lighter = ctx.relative_ctx.parent.font_weight - 100;
-                        ctx.specified_style.font_weight =
-                            CSSProperty::Value(FontWeight::try_from(lighter).unwrap_or(FontWeight::Thin));
+                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(lighter));
                         return;
                     } else if ident.eq_ignore_ascii_case("bolder") {
                         let bolder = ctx.relative_ctx.parent.font_weight + 100;
-                        ctx.specified_style.font_weight =
-                            CSSProperty::Value(FontWeight::try_from(bolder).unwrap_or(FontWeight::Black));
+                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(bolder));
                         return;
                     }
                 }

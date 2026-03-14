@@ -93,7 +93,7 @@ fn resolve_var_function(variables: &[(Property, Vec<ComponentValue>)], func: &Fu
             }
             _ => {
                 if !found_comma {
-                    var_name.push_str(&cv.to_css_string());
+                    var_name.push_str(&cv.to_string());
                 } else {
                     fallback_values.push(cv.clone());
                 }

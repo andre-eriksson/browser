@@ -119,7 +119,7 @@ sub, sup { line-height: normal; font-size: smaller; }
 ruby { display: ruby; }
 rt { display: ruby-text; }
 
-:link { color: #0000EE; }
+:link { color: light-dark(#00E, #00B6F9); }
 :visited { color: #551A8B; }
 :link, :visited { text-decoration: underline; cursor: pointer; }
 

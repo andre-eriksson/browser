@@ -1,13 +1,13 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
-use crate::CSSParsable;
+use crate::{CSSParsable, error::CssValueError};
 
 /// Represents the CSS `cursor` property, which specifies the type of cursor to be displayed when pointing over an element.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/cursor>
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum Cursor {
     Alias,
     AllScroll,
@@ -51,19 +51,19 @@ pub enum Cursor {
 }
 
 impl CSSParsable for Cursor {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|e| format!("Failed to parse cursor value: {}", e)),
-                    _ => Err(format!("Expected an identifier token, found {:?}", token.kind)),
+                        .map_err(|e| CssValueError::InvalidValue(format!("Failed to parse cursor value: {}", e))),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => Err(format!("Expected a token, found {:?}", cv)),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Unexpected end of input while parsing cursor value".to_string())
+            Err(CssValueError::UnexpectedEndOfInput)
         }
     }
 }

@@ -6,6 +6,7 @@ use strum::EnumString;
 use crate::{
     CSSParsable,
     combination::LengthPercentage,
+    error::CssValueError,
     numeric::Percentage,
     quantity::{Length, LengthUnit},
 };
@@ -301,7 +302,7 @@ impl CSSParsable for SideOrCorner {
     /// The `to` keyword is expected to have already been consumed by the caller.
     /// This parses the remaining ident tokens for horizontal (`left`/`right`)
     /// and/or vertical (`top`/`bottom`) sides.
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let mut horizontal: Option<HorizontalSide> = None;
         let mut vertical: Option<VerticalSide> = None;
 
@@ -311,27 +312,38 @@ impl CSSParsable for SideOrCorner {
                     CssTokenKind::Ident(ident) => {
                         if let Ok(h) = ident.parse::<HorizontalSide>() {
                             if horizontal.is_some() {
-                                return Err("Duplicate horizontal side".to_string());
+                                return Err(CssValueError::InvalidValue(format!(
+                                    "Duplicate horizontal side: '{}'",
+                                    ident
+                                )));
                             }
                             horizontal = Some(h);
                         } else if let Ok(v) = ident.parse::<VerticalSide>() {
                             if vertical.is_some() {
-                                return Err("Duplicate vertical side".to_string());
+                                return Err(CssValueError::InvalidValue(format!(
+                                    "Duplicate vertical side: '{}'",
+                                    ident
+                                )));
                             }
                             vertical = Some(v);
                         } else {
-                            return Err(format!("Invalid side-or-corner keyword: '{}'", ident));
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Unexpected ident in side-or-corner: '{}'",
+                                ident
+                            )));
                         }
                     }
                     CssTokenKind::Whitespace => continue,
-                    _ => return Err(format!("Unexpected token in side-or-corner: {:?}", token.kind)),
+                    _ => return Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                _ => return Err("Expected a token in side-or-corner".to_string()),
+                cvs => return Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         }
 
         if horizontal.is_none() && vertical.is_none() {
-            return Err("Expected at least one side keyword (left, right, top, bottom)".to_string());
+            return Err(CssValueError::InvalidValue(
+                "Expected at least one side keyword (left, right, top, bottom)".into(),
+            ));
         }
 
         Ok(SideOrCorner {
@@ -354,7 +366,7 @@ pub enum PositionOne {
 }
 
 impl CSSParsable for PositionOne {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         while let Some(cv) = stream.next_cv() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
@@ -370,13 +382,13 @@ impl CSSParsable for PositionOne {
                         } else if let Ok(i) = ident.parse() {
                             return Ok(PositionOne::InlineAxis(i));
                         } else {
-                            return Err(format!("Unknown position keyword: '{}'", ident));
+                            return Err(CssValueError::InvalidValue(format!("Unknown position keyword: '{}'", ident)));
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| "Invalid length unit".to_string())?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         let len = Length::new(value.to_f64() as f32, len_unit);
                         return Ok(PositionOne::LengthPercentage(LengthPercentage::Length(len)));
                     }
@@ -386,11 +398,11 @@ impl CSSParsable for PositionOne {
                     }
                     _ => continue,
                 },
-                _ => return Err("Expected a token for position".to_string()),
+                cvs => return Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         }
 
-        Err("Expected a position keyword or length/percentage".to_string())
+        Err(CssValueError::InvalidValue("Expected a position keyword or length/percentage".into()))
     }
 }
 
@@ -412,20 +424,20 @@ pub enum PositionTwo {
 }
 
 impl PositionTwo {
-    fn try_block_inline(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn try_block_inline(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
         let ai = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected block-axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected block-axis keyword".into()));
             }
         };
         let bi = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected inline-axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected inline-axis keyword".into()));
             }
         };
         if let (Ok(ba), Ok(ia)) = (ai.parse::<BlockAxis>(), bi.parse::<InlineAxis>()) {
@@ -435,57 +447,57 @@ impl PositionTwo {
             return Ok(PositionTwo::BlockInline(ba, ia));
         }
         stream.restore(checkpoint);
-        Err("Not a block-inline pair".into())
+        Err(CssValueError::InvalidValue("Not a block-axis/inline-axis pair".into()))
     }
 
-    fn try_relative(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn try_relative(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
         let ai = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected relative-axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected relative-axis keyword".into()));
             }
         };
         if ai.parse::<XAxis>().is_ok() || ai.parse::<YAxis>().is_ok() {
             stream.restore(checkpoint);
-            return Err("Not a relative pair".into());
+            return Err(CssValueError::InvalidValue("Not a relative pair".into()));
         }
         let ra = match ai.parse::<RelativeAxis>() {
             Ok(r) => r,
             Err(_) => {
                 stream.restore(checkpoint);
-                return Err("Not a relative-axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected relative-axis keyword".into()));
             }
         };
         let bi = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected second relative-axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected relative-axis keyword".into()));
             }
         };
         if let Ok(rb) = bi.parse::<RelativeAxis>() {
             return Ok(PositionTwo::Relative(ra, rb));
         }
         stream.restore(checkpoint);
-        Err("Not a relative pair".into())
+        Err(CssValueError::InvalidValue("Expected relative-axis keyword".into()))
     }
 
-    fn try_axis(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn try_axis(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
         let ai = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected axis keyword".into()));
             }
         };
         let bi = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected axis keyword".into());
+                return Err(CssValueError::InvalidValue("Expected axis keyword".into()));
             }
         };
         if let (Ok(x), Ok(y)) = (ai.parse::<XAxis>(), bi.parse::<YAxis>()) {
@@ -495,10 +507,10 @@ impl PositionTwo {
             return Ok(PositionTwo::Axis(x, y));
         }
         stream.restore(checkpoint);
-        Err("Not an axis pair".into())
+        Err(CssValueError::InvalidValue("Not an x/y axis pair".into()))
     }
 
-    fn try_axis_or_percentage(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn try_axis_or_percentage(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
 
         let x_or_lp = match PosToken::next_pos_token(stream) {
@@ -506,13 +518,15 @@ impl PositionTwo {
                 Ok(x) => XAxisOrLengthPercentage::XAxis(x),
                 Err(_) => {
                     stream.restore(checkpoint);
-                    return Err(format!("Invalid x-axis position: '{}'", s));
+                    return Err(CssValueError::InvalidValue(format!("Invalid x-axis position: '{}'", s)));
                 }
             },
             Some(PosToken::LengthPercentage(lp)) => XAxisOrLengthPercentage::LengthPercentage(lp),
             None => {
                 stream.restore(checkpoint);
-                return Err("Expected position keyword or length/percentage for x component".into());
+                return Err(CssValueError::InvalidValue(
+                    "Expected position keyword or length/percentage for x component".into(),
+                ));
             }
         };
 
@@ -521,13 +535,15 @@ impl PositionTwo {
                 Ok(y) => YAxisOrLengthPercentage::YAxis(y),
                 Err(_) => {
                     stream.restore(checkpoint);
-                    return Err(format!("Invalid y-axis position: '{}'", s));
+                    return Err(CssValueError::InvalidValue(format!("Invalid y-axis position: '{}'", s)));
                 }
             },
             Some(PosToken::LengthPercentage(lp)) => YAxisOrLengthPercentage::LengthPercentage(lp),
             None => {
                 stream.restore(checkpoint);
-                return Err("Expected position keyword or length/percentage for y component".into());
+                return Err(CssValueError::InvalidValue(
+                    "Expected position keyword or length/percentage for y component".into(),
+                ));
             }
         };
 
@@ -536,7 +552,7 @@ impl PositionTwo {
 }
 
 impl CSSParsable for PositionTwo {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         if let Ok(v) = Self::try_block_inline(stream) {
             Ok(v)
         } else if let Ok(v) = Self::try_relative(stream) {
@@ -628,13 +644,15 @@ impl PositionThree {
 }
 
 impl CSSParsable for PositionThree {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         if let Ok(v) = Self::try_keyword_lp_keyword(stream) {
             Ok(v)
         } else if let Ok(v) = Self::try_keyword_keyword_lp(stream) {
             Ok(v)
         } else {
-            Err("Invalid 3-value position: expected two keywords and one length/percentage".into())
+            Err(CssValueError::InvalidValue(
+                "Invalid 3-value position: expected 'keyword length-percentage keyword' or 'keyword keyword length-percentage'".into(),
+            ))
         }
     }
 }
@@ -649,35 +667,39 @@ pub enum PositionFour {
 
 impl PositionFour {
     /// Parse the common 4-value shape: ident lp ident lp, then classify.
-    fn parse_ident_lp_ident_lp(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse_ident_lp_ident_lp(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
 
         let ai = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected keyword for first of 4-value position".into());
+                return Err(CssValueError::InvalidValue("Expected keyword for first of 4-value position".into()));
             }
         };
         let b_lp = match PosToken::next_pos_token(stream) {
             Some(PosToken::LengthPercentage(lp)) => lp,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected length/percentage for second of 4-value position".into());
+                return Err(CssValueError::InvalidValue(
+                    "Expected length/percentage for second of 4-value position".into(),
+                ));
             }
         };
         let ci = match PosToken::next_pos_token(stream) {
             Some(PosToken::Ident(s)) => s,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected keyword for third of 4-value position".into());
+                return Err(CssValueError::InvalidValue("Expected keyword for third of 4-value position".into()));
             }
         };
         let d_lp = match PosToken::next_pos_token(stream) {
             Some(PosToken::LengthPercentage(lp)) => lp,
             _ => {
                 stream.restore(checkpoint);
-                return Err("Expected length/percentage for fourth of 4-value position".into());
+                return Err(CssValueError::InvalidValue(
+                    "Expected length/percentage for fourth of 4-value position".into(),
+                ));
             }
         };
 
@@ -701,12 +723,15 @@ impl PositionFour {
         }
 
         stream.restore(checkpoint);
-        Err(format!("Invalid 4-value position: '{}' and '{}' are not a valid axis pair", ai, ci))
+        Err(CssValueError::InvalidValue(format!(
+            "Invalid 4-value position: '{}' and '{}' are not a valid axis pair",
+            ai, ci
+        )))
     }
 }
 
 impl CSSParsable for PositionFour {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         Self::parse_ident_lp_ident_lp(stream)
     }
 }
@@ -720,7 +745,7 @@ pub enum Position {
 }
 
 impl CSSParsable for Position {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
 
         if let Ok(v) = PositionFour::parse(stream) {
@@ -732,7 +757,7 @@ impl CSSParsable for Position {
         stream.restore(checkpoint);
 
         if PositionThree::parse(stream).is_ok() {
-            return Err("3-value positions are not allowed in <position>".into());
+            return Err(CssValueError::InvalidValue("3-value positions are not allowed in <position>".into()));
         }
         stream.restore(checkpoint);
 
@@ -751,7 +776,9 @@ impl CSSParsable for Position {
             }
         }
 
-        Err("Invalid <position>".into())
+        Err(CssValueError::InvalidValue(
+            "Invalid <position>: expected 1, 2, or 4 position keywords or length/percentage values".into(),
+        ))
     }
 }
 
@@ -765,7 +792,7 @@ pub enum BgPosition {
 }
 
 impl CSSParsable for BgPosition {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
 
         if let Ok(v) = PositionFour::parse(stream) {
@@ -787,7 +814,9 @@ impl CSSParsable for BgPosition {
             return Ok(BgPosition::One(v));
         }
 
-        Err("Invalid <bg-position>".into())
+        Err(CssValueError::InvalidValue(
+            "Invalid <bg-position>: expected 1, 2, 3, or 4 position keywords or length/percentage values".into(),
+        ))
     }
 }
 

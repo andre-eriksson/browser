@@ -3,9 +3,6 @@
 /// Main application and event definitions.
 mod app;
 
-/// Browser event receiver handle and stream creation.
-mod handle;
-
 /// Tab representation and related types.
 mod tabs;
 
@@ -13,6 +10,5 @@ mod tabs;
 mod window;
 
 pub use app::Application;
-pub use handle::{ReceiverHandle, create_browser_event_stream};
 pub use tabs::{ScrollOffset, UiTab};
 pub use window::{ApplicationWindow, WindowType};

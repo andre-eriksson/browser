@@ -129,13 +129,10 @@ impl Cookie {
             }
         }
 
-        let validation = Self::validate_cookie_prefix(&cookie);
+        if let Err(e) = Self::validate_cookie_prefix(&cookie) {
+            debug!("Cookie failed prefix validation: {}", e);
 
-        if validation.is_err() {
-            let error = validation.err().unwrap();
-            debug!("Cookie failed prefix validation: {}", error);
-
-            return Err(error);
+            return Err(e);
         }
 
         Ok(cookie)

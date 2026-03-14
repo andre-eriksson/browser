@@ -23,20 +23,13 @@ pub struct Color4f {
     pub a: f32,
 }
 
-impl Default for Color4f {
-    fn default() -> Self {
-        Self {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        }
-    }
-}
-
 impl Color4f {
+    pub const BLACK: Self = Self::rgba(0.0, 0.0, 0.0, 1.0);
+    pub const WHITE: Self = Self::rgba(1.0, 1.0, 1.0, 1.0);
+    pub const TRANSPARENT: Self = Self::rgba(0.0, 0.0, 0.0, 0.0);
+
     /// Creates a new Color4f with the specified RGBA values (0.0-1.0, sRGB gamma-encoded).
-    pub(crate) fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+    pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Self { r, g, b, a }
     }
 
@@ -75,7 +68,7 @@ impl Color4f {
             Color::Base(ColorBase::Named(named)) => Self::from(*named),
             Color::Base(ColorBase::Hex(hex)) => Self::from(*hex),
             Color::Base(ColorBase::Function(func)) => Self::from(func.clone()),
-            Color::Base(ColorBase::Transparent) => Self::new(0.0, 0.0, 0.0, 0.0),
+            Color::Base(ColorBase::Transparent) => Self::TRANSPARENT,
             Color::Current => {
                 if let Some(resolved) = Self::resolve_current_color(text_color, absolute_ctx) {
                     Self::from_css_color(resolved, text_color, relative_ctx, absolute_ctx)
@@ -113,7 +106,7 @@ impl Color4f {
     }
 
     /// Parses a hex color string (e.g. "#RRGGBB") into an (r, g, b) tuple.
-    fn to_rgb_tuple(hex: &str) -> Option<(u8, u8, u8)> {
+    fn hex_to_rgb_tuple(hex: &str) -> Option<(u8, u8, u8)> {
         let hex = hex.trim_start_matches('#');
         if hex.len() == 6
             && let Ok(parsed) = u32::from_str_radix(hex, 16)
@@ -124,39 +117,6 @@ impl Color4f {
             return Some((r, g, b));
         }
         None
-    }
-
-    /// Returns color as [r, g, b, a] array (sRGB gamma-encoded) for GPU upload.
-    ///
-    /// This is the correct choice for most rendering pipelines, including
-    /// `Rgb10a2Unorm` surfaces where the compositor still expects sRGB values.
-    pub fn to_array(self) -> [f32; 4] {
-        [self.r, self.g, self.b, self.a]
-    }
-
-    /// Returns color as [r, g, b, a] array converted to **linear** light.
-    ///
-    /// Only use this for pipelines that genuinely operate in linear space
-    /// (e.g. physically-based rendering or intermediate compute passes).
-    /// Most compositor-facing surfaces (`Rgb10a2Unorm`, `Bgra8Unorm`, etc.)
-    /// expect sRGB-encoded values — use [`to_array`](Self::to_array) instead.
-    pub fn to_linear_array(self) -> [f32; 4] {
-        [
-            Self::srgb_component_to_linear(self.r),
-            Self::srgb_component_to_linear(self.g),
-            Self::srgb_component_to_linear(self.b),
-            self.a,
-        ]
-    }
-
-    /// Converts a single sRGB gamma-encoded component (0.0–1.0) to linear light.
-    #[inline]
-    fn srgb_component_to_linear(c: f32) -> f32 {
-        if c <= 0.04045 {
-            c / 12.92
-        } else {
-            ((c + 0.055) / 1.055).powf(2.4)
-        }
     }
 
     /// Converts a single linear-light component to sRGB gamma-encoded (0.0–1.0).
@@ -179,18 +139,37 @@ impl Color4f {
     }
 }
 
+impl From<Color4f> for [f32; 4] {
+    fn from(c: Color4f) -> Self {
+        [c.r, c.g, c.b, c.a]
+    }
+}
+
+impl From<[f32; 4]> for Color4f {
+    fn from([r, g, b, a]: [f32; 4]) -> Self {
+        Self { r, g, b, a }
+    }
+}
+
+impl From<(u8, u8, u8)> for Color4f {
+    fn from((r, g, b): (u8, u8, u8)) -> Self {
+        Self::rgba(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0)
+    }
+}
+
 impl From<SystemColor> for Color4f {
     fn from(system: SystemColor) -> Self {
         let hex = if let Some(hex) = system.to_hex() {
             hex
         } else {
-            return Self::default();
+            return Self::BLACK;
         };
 
-        if let Some(rgb) = Self::to_rgb_tuple(hex) {
-            return Self::new(rgb.0 as f32 / 255.0, rgb.1 as f32 / 255.0, rgb.2 as f32 / 255.0, 1.0);
+        if let Some(rgb) = Self::hex_to_rgb_tuple(hex) {
+            return Self::from(rgb);
         }
-        Self::default()
+
+        Self::BLACK
     }
 }
 
@@ -199,13 +178,13 @@ impl From<NamedColor> for Color4f {
         let hex = if let Some(hex) = named.to_hex() {
             hex
         } else {
-            return Self::default();
+            return Self::BLACK;
         };
 
-        if let Some(rgb) = Self::to_rgb_tuple(hex) {
-            return Self::new(rgb.0 as f32 / 255.0, rgb.1 as f32 / 255.0, rgb.2 as f32 / 255.0, 1.0);
+        if let Some(rgb) = Self::hex_to_rgb_tuple(hex) {
+            return Self::from(rgb);
         }
-        Self::default()
+        Self::BLACK
     }
 }
 
@@ -223,7 +202,7 @@ impl From<HexColor> for Color4f {
 impl From<ColorFunction> for Color4f {
     fn from(value: ColorFunction) -> Self {
         match value {
-            ColorFunction::Rgb(r, g, b, alpha) => Self::new(
+            ColorFunction::Rgb(r, g, b, alpha) => Self::rgba(
                 r.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
                 g.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
                 b.value(0.0..=255.0, Fraction::Unsigned) / 255.0,
@@ -255,7 +234,7 @@ impl From<ColorFunction> for Color4f {
                     (c, 0.0, x)
                 };
 
-                Self::new((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), alpha.value())
+                Self::rgba((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), alpha.value())
             }
             ColorFunction::Hwb(h, w, b, alpha) => {
                 let h_deg = h.value();
@@ -288,7 +267,7 @@ impl From<ColorFunction> for Color4f {
                 };
 
                 let scale = 1.0 - w_frac - b_frac;
-                Self::new(
+                Self::rgba(
                     (r1 * scale + w_frac).clamp(0.0, 1.0),
                     (g1 * scale + w_frac).clamp(0.0, 1.0),
                     (b1 * scale + w_frac).clamp(0.0, 1.0),
@@ -333,7 +312,7 @@ impl From<ColorFunction> for Color4f {
                 let g = x_final * -0.9689 + y_final * 1.8758 + z_final * 0.0415;
                 let b = x_final * 0.0557 + y_final * -0.2040 + z_final * 1.0570;
 
-                Self::new(
+                Self::rgba(
                     Self::linear_component_to_srgb(r).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(g).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(b).clamp(0.0, 1.0),
@@ -363,7 +342,7 @@ impl From<ColorFunction> for Color4f {
                 let g_lin = -1.268_438 * l_lin + 2.609_757_4 * m_lin - 0.341_319_38 * s_lin;
                 let b_lin = -0.0041960863 * l_lin - 0.703_419 * m_lin + 1.707_614_7 * s_lin;
 
-                Self::new(
+                Self::rgba(
                     Self::linear_component_to_srgb(r_lin).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(g_lin).clamp(0.0, 1.0),
                     Self::linear_component_to_srgb(b_lin).clamp(0.0, 1.0),
@@ -399,7 +378,7 @@ mod tests {
 
     #[test]
     fn current_color_self_reference_falls_back_to_parent_color() {
-        let parent_color = Color4f::new(0.2, 0.3, 0.4, 1.0);
+        let parent_color = [0.2, 0.3, 0.4, 1.0].into();
         let relative_ctx = relative_ctx_with_parent_color(parent_color);
         let absolute_ctx = AbsoluteContext::default();
 
@@ -418,7 +397,7 @@ mod tests {
 
     #[test]
     fn light_dark_current_in_light_theme_falls_back_to_parent_color() {
-        let parent_color = Color4f::new(0.1, 0.2, 0.3, 1.0);
+        let parent_color = [0.1, 0.2, 0.3, 1.0].into();
         let relative_ctx = relative_ctx_with_parent_color(parent_color);
         let absolute_ctx = AbsoluteContext {
             theme_category: ThemeCategory::Light,
@@ -444,7 +423,7 @@ mod tests {
 
     #[test]
     fn light_dark_current_in_dark_theme_uses_dark_branch() {
-        let relative_ctx = relative_ctx_with_parent_color(Color4f::new(0.1, 0.2, 0.3, 1.0));
+        let relative_ctx = relative_ctx_with_parent_color([0.1, 0.2, 0.3, 1.0].into());
         let absolute_ctx = AbsoluteContext {
             theme_category: ThemeCategory::Dark,
             ..Default::default()

@@ -5,6 +5,7 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use css_values::{
     CSSParsable,
+    error::CssValueError,
     text::{AbsoluteSize, FontFamilyName, FontSize, GenericName, RelativeSize},
 };
 
@@ -76,7 +77,7 @@ impl FontFamily {
 }
 
 impl CSSParsable for FontFamily {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let checkpoint = stream.checkpoint();
 
@@ -110,7 +111,7 @@ impl CSSParsable for FontFamily {
         if names.is_empty() {
             if full.is_empty() {
                 stream.restore(checkpoint);
-                return Err("No valid font family names found".to_string());
+                return Err(CssValueError::UnexpectedEndOfInput);
             }
         } else {
             let full_name = names.join(" ");

@@ -7,6 +7,7 @@ use css_values::{
     color::Color,
     cursor::Cursor,
     dimension::{Dimension, MaxDimension, OffsetValue},
+    error::CssValueError,
     global::Global,
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
 };
@@ -129,7 +130,7 @@ impl<T: CSSParsable> CSSProperty<T> {
     pub(crate) fn update_property(
         property: &mut CSSProperty<T>,
         stream: &mut ComponentValueStream,
-    ) -> Result<(), String> {
+    ) -> Result<(), CssValueError> {
         let checkpoint = stream.checkpoint();
 
         if let Ok(global) = Global::parse(stream) {

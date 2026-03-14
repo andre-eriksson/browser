@@ -164,11 +164,7 @@ impl BlockLayout {
             child_ctx.block_cursor.y = child_y_offset;
 
             if let Some(child_node) = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx) {
-                flow.advance(
-                    child_node.resolved_margin.top,
-                    child_node.dimensions.height,
-                    child_node.resolved_margin.bottom,
-                );
+                flow.advance(child_node.margin.top, child_node.dimensions.height, child_node.margin.bottom);
                 children.push(child_node);
             }
 
@@ -193,27 +189,24 @@ impl BlockLayout {
 
         let mut margin = margin;
         if !flow.parent_has_top_fence && !children.is_empty() {
-            margin.top = f32::max(margin.top, children[0].resolved_margin.top);
+            margin.top = f32::max(margin.top, children[0].margin.top);
         }
         if !has_bottom_fence && !children.is_empty() {
-            margin.bottom = f32::max(margin.bottom, children.last().unwrap().resolved_margin.bottom);
+            margin.bottom = f32::max(margin.bottom, children.last().unwrap().margin.bottom);
         }
 
         let colors = LayoutColors::from(styled_node);
 
-        LayoutNode {
-            node_id: styled_node.node_id,
-            dimensions: Rect::new(x, y, content_width + padding.horizontal() + border.horizontal(), final_height),
-            resolved_margin: margin,
-            resolved_padding: padding,
-            resolved_border: border,
-            colors,
-            cursor: styled_node.style.cursor,
-            children,
-            text_buffer: None,
-            image_data: None,
-            is_height_auto: styled_node.style.height == ComputedDimension::Auto,
-        }
+        LayoutNode::builder(styled_node.node_id)
+            .margin(margin)
+            .padding(padding)
+            .border(border)
+            .colors(colors)
+            .cursor(styled_node.style.cursor)
+            .children(children)
+            .height_auto(styled_node.style.height == ComputedDimension::Auto)
+            .dimensions(Rect::new(x, y, content_width + padding.horizontal() + border.horizontal(), final_height))
+            .build()
     }
 
     fn is_inline(node: &StyledNode) -> bool {

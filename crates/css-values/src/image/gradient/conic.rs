@@ -3,6 +3,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use crate::{
     CSSParsable,
     combination::AngleZero,
+    error::CssValueError,
     image::{
         Gradient,
         gradient::{interpolation::ColorInterpolationMethod, stops::AngularColorStopList},
@@ -58,7 +59,7 @@ impl ConicGradientSyntax {
     /// The `from` and `at` parts may appear in the same comma-segment.
     /// The `in` part is handled separately in the main parser, but if it
     /// appears here we also handle it.
-    fn parse_conic_config(segment: &[ComponentValue]) -> Result<ConicConfig, String> {
+    fn parse_conic_config(segment: &[ComponentValue]) -> Result<ConicConfig, CssValueError> {
         let stripped = Gradient::strip_whitespace(segment);
         if stripped.is_empty() {
             return Ok((None, None, None));
@@ -89,7 +90,10 @@ impl ConicGradientSyntax {
                     from_angle = Some(AngleZero::try_from(token)?);
                 }
             } else if !meaningful.is_empty() {
-                return Err(format!("Expected a single angle after 'from', got {} tokens", meaningful.len()));
+                return Err(CssValueError::InvalidValue(format!(
+                    "Expected a single angle after 'from', got {} tokens",
+                    meaningful.len()
+                )));
             }
         }
 
@@ -126,11 +130,11 @@ impl CSSParsable for ConicGradientSyntax {
     ///    (`from`, `at`, or `in`) consume it.
     /// 3. Check the next segment for `in <color-interpolation-method>`.
     /// 4. The remaining segments form the `<angular-color-stop-list>`.
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let segments = Gradient::split_on_commas(stream.remaining());
 
         if segments.is_empty() {
-            return Err("Empty conic-gradient arguments".into());
+            return Err(CssValueError::InvalidValue("Empty conic-gradient arguments".into()));
         }
 
         let mut idx = 0;
@@ -175,7 +179,7 @@ impl CSSParsable for ConicGradientSyntax {
         }
 
         if idx >= segments.len() {
-            return Err("Missing angular color stop list in conic-gradient".into());
+            return Err(CssValueError::InvalidValue("Missing angular color stop list in conic-gradient".into()));
         }
 
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);

@@ -10,6 +10,7 @@ use crate::{
         named::NamedColor,
         system::SystemColor,
     },
+    error::CssValueError,
     numeric::Percentage,
 };
 
@@ -152,7 +153,7 @@ impl Default for Color {
 }
 
 impl TryFrom<&ComponentValue> for Color {
-    type Error = String;
+    type Error = CssValueError;
 
     fn try_from(value: &ComponentValue) -> Result<Self, Self::Error> {
         let mut stream = ComponentValueStream::new(std::slice::from_ref(value));
@@ -161,10 +162,8 @@ impl TryFrom<&ComponentValue> for Color {
 }
 
 impl CSSParsable for Color {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
-        stream.skip_whitespace();
-
-        let color = if let Some(cv) = stream.next_cv() {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        let color = if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
@@ -177,14 +176,15 @@ impl CSSParsable for Color {
                         } else if let Some(named_color) = NamedColor::from_str_insensitive(ident) {
                             Ok(Self::Base(ColorBase::Named(named_color)))
                         } else {
-                            Err(format!("Unrecognized color identifier: {}", ident))
+                            Err(CssValueError::InvalidValue(format!("Unrecognized color identifier: {}", ident)))
                         }
                     }
                     CssTokenKind::Hash { .. } => {
-                        let hex_color = HexColor::try_from(token)?;
+                        let hex_color = HexColor::try_from(token)
+                            .map_err(|e| CssValueError::InvalidValue(format!("Invalid hex color: {}", e)))?;
                         Ok(Self::Base(ColorBase::Hex(hex_color)))
                     }
-                    _ => Err("Expected an identifier or hash token for color".to_string()),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 ComponentValue::Function(function) => {
                     if let Ok(color_function) = ColorFunction::try_from(function) {
@@ -201,22 +201,24 @@ impl CSSParsable for Color {
 
                             Ok(Self::LightDark(Box::new(light_color), Box::new(dark_color)))
                         } else {
-                            Err("light-dark() function requires two color arguments separated by a comma".to_string())
+                            Err(CssValueError::InvalidValue(
+                                "light-dark() function requires two color arguments separated by a comma".into(),
+                            ))
                         }
                     } else {
-                        Err(format!("Unrecognized color function: {}", function.name))
+                        Err(CssValueError::InvalidFunction(function.name.clone()))
                     }
                 }
-                _ => Err("Unexpected component value type for color".to_string()),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
-            Err("Expected a component value for color".to_string())
+            Err(CssValueError::ExpectedComponentValue)
         };
 
         stream.skip_whitespace();
 
         if stream.peek().is_some() {
-            Err("Unexpected extra tokens after color value".to_string())
+            Err(CssValueError::UnexpectedRemainingInput)
         } else {
             color
         }

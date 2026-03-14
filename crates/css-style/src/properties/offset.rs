@@ -7,6 +7,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use css_values::{
     calc::{CalcExpression, is_math_function},
     dimension::OffsetValue,
+    error::CssValueError,
     numeric::Percentage,
     quantity::{Length, LengthUnit},
 };
@@ -86,7 +87,7 @@ impl Offset {
 }
 
 impl TryFrom<&[OffsetValue]> for Offset {
-    type Error = String;
+    type Error = CssValueError;
 
     fn try_from(values: &[OffsetValue]) -> Result<Self, Self::Error> {
         match values.len() {
@@ -94,13 +95,13 @@ impl TryFrom<&[OffsetValue]> for Offset {
             2 => Ok(Offset::vh(values[0].clone(), values[1].clone())),
             3 => Ok(Offset::thb(values[0].clone(), values[1].clone(), values[2].clone())),
             4 => Ok(Offset::trbl(values[0].clone(), values[1].clone(), values[2].clone(), values[3].clone())),
-            _ => Err(format!("Invalid number of Offset values: expected 1-4, got {}", values.len())),
+            _ => Err(CssValueError::InvalidValue(format!("Expected 1 to 4 offset values, but got {}", values.len()))),
         }
     }
 }
 
 impl CSSParsable for Offset {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut offset_values = Vec::new();
 
@@ -114,7 +115,7 @@ impl CSSParsable for Offset {
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| format!("Invalid length unit: {}", unit))?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         offset_values.push(OffsetValue::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(pct) => {
@@ -128,12 +129,15 @@ impl CSSParsable for Offset {
                     }
                     _ => continue,
                 },
-                _ => return Err("Expected a valid offset value".to_string()),
+                _ => return Err(CssValueError::InvalidComponentValue(cv.clone())),
             }
         }
 
         if offset_values.is_empty() || offset_values.len() > 4 {
-            return Err(format!("Invalid number of Offset values: expected 1-4, got {}", offset_values.len()));
+            return Err(CssValueError::InvalidValue(format!(
+                "Expected 1 to 4 offset values, but got {}",
+                offset_values.len()
+            )));
         }
 
         Offset::try_from(offset_values.as_slice())

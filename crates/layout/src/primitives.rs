@@ -23,7 +23,7 @@ impl Rect {
     }
 }
 
-/// Resolved edge values (margins, padding) in pixels
+/// Resolved edge values (border, margins, padding) in pixels
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SideOffset {
     pub top: f32,

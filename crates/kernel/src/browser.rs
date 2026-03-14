@@ -19,7 +19,7 @@ use tracing::instrument;
 
 use crate::{
     commands::{add_tab, change_active_tab, close_tab, navigate},
-    events::{BrowserCommand, BrowserEvent, Commandable, Emitter},
+    events::{BrowserCommand, BrowserEvent, Commandable},
     navigation::{NavigationContext, ScriptExecutor},
     tab::{
         manager::TabManager,
@@ -33,11 +33,10 @@ pub struct Browser {
     cookie_jar: Arc<Mutex<CookieJar>>,
     http_client: Box<dyn HttpClient>,
     headers: Arc<HeaderMap>,
-    _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
 }
 
 impl Browser {
-    pub fn new(args: &BrowserArgs, emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
+    pub fn new(args: &BrowserArgs) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
 
@@ -89,7 +88,6 @@ impl Browser {
         Browser {
             tab_manager,
             default_stylesheet: stylesheet,
-            _emitter: emitter,
             cookie_jar,
             http_client,
             headers: Arc::new(headers),

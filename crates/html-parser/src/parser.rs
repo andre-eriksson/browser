@@ -2,7 +2,9 @@ use std::io::BufRead;
 use std::mem;
 
 use crate::errors::HtmlParsingError;
-use html_dom::{BuildResult, Collector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState};
+use html_dom::{
+    BuildResult, Collector, DefaultCollector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
+};
 use tracing::trace;
 
 use crate::{
@@ -50,14 +52,6 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
             previous_token_state: TokenState::Data,
             read_buffer: vec![0u8; buffer_size],
         }
-    }
-
-    /// Creates a simple `HtmlStreamParser` with default settings.
-    ///
-    /// # Arguments
-    /// * `reader` - A buffered reader from which HTML content will be read.
-    pub fn simple(reader: R) -> Self {
-        Self::new(reader, None, None)
     }
 
     /// Returns a reference to the current state of the parser.
@@ -420,5 +414,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
         } else {
             false
         }
+    }
+}
+
+impl<R: BufRead> HtmlStreamParser<R, DefaultCollector> {
+    pub fn simple(reader: R) -> Self {
+        Self::new(reader, None, None)
     }
 }

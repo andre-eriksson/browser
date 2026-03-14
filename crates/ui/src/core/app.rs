@@ -12,9 +12,8 @@ use layout::TextContext;
 use preferences::BrowserConfig;
 use renderer::image::ImageCache;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::core::{ApplicationWindow, ReceiverHandle, UiTab, WindowType, create_browser_event_stream};
+use crate::core::{ApplicationWindow, UiTab, WindowType};
 use crate::events::{Event, EventHandler, UiEvent};
 use crate::manager::WindowController;
 use crate::util::fonts::load_fallback_fonts;
@@ -43,9 +42,6 @@ pub struct Application {
     /// The window controller managing multiple windows.
     pub window_controller: WindowController,
 
-    /// The receiver for browser events.
-    pub event_receiver: Arc<Mutex<UnboundedReceiver<BrowserEvent>>>,
-
     /// The shared browser instance.
     pub browser: Arc<Mutex<Browser>>,
 
@@ -59,7 +55,6 @@ pub struct Application {
 impl Application {
     /// Creates a new instance of the `Application` with an initial window and a default tab.
     pub fn new(
-        event_receiver: UnboundedReceiver<BrowserEvent>,
         browser: Arc<Mutex<Browser>>,
         config: BrowserConfig,
         initial_url: Option<String>,
@@ -90,7 +85,6 @@ impl Application {
             active_tab: TabId(0),
             current_url: initial_url.unwrap_or("https://www.google.com".to_string()),
             window_controller,
-            event_receiver: Arc::new(Mutex::new(event_receiver)),
             browser,
             viewports,
             text_context,
@@ -118,8 +112,6 @@ impl Application {
     /// subscriptions (e.g. resize events scoped to a specific window type) are
     /// collected from each open window via [`WindowController::subscriptions`].
     pub fn subscriptions(&self) -> iced::Subscription<Event> {
-        let receiver = self.event_receiver.clone();
-
         Subscription::batch([
             window::close_events().map(|window_id| Event::Ui(UiEvent::CloseWindow(window_id))),
             event::listen_with(|event, _status, _window| match event {
@@ -135,7 +127,6 @@ impl Application {
                 _ => None,
             }),
             self.window_controller.subscriptions(),
-            Subscription::run_with(ReceiverHandle::new(receiver), create_browser_event_stream),
         ])
     }
 

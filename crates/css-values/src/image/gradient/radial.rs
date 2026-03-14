@@ -4,6 +4,7 @@ use strum::EnumString;
 use crate::{
     CSSParsable,
     combination::LengthPercentage,
+    error::CssValueError,
     image::{
         Gradient,
         gradient::{interpolation::ColorInterpolationMethod, stops::ColorStopList},
@@ -50,19 +51,19 @@ pub struct RadialGradientSyntax {
 /// Parsing helpers for `RadialGradientSyntax`.
 impl RadialGradientSyntax {
     /// Try to parse a single `ComponentValue` as a `Length`.
-    fn try_parse_length(cv: &ComponentValue) -> Result<Length, String> {
+    fn try_parse_length(cv: &ComponentValue) -> Result<Length, CssValueError> {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Dimension { value, unit } => {
                     let len_unit = unit
                         .parse::<LengthUnit>()
-                        .map_err(|_| format!("Invalid length unit: '{}'", unit))?;
+                        .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                     Ok(Length::new(value.to_f64() as f32, len_unit))
                 }
                 CssTokenKind::Number(value) if value.to_f64() == 0.0 => Ok(Length::new(0.0, LengthUnit::Px)),
-                _ => Err(format!("Expected dimension, got {:?}", token.kind)),
+                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
             },
-            _ => Err("Expected a token for length".to_string()),
+            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
         }
     }
 
@@ -110,7 +111,7 @@ impl RadialGradientSyntax {
     /// ```
     ///
     /// Returns `(shape, size, position)`.
-    fn parse_radial_config(segment: &[ComponentValue]) -> Result<RadialConfig, String> {
+    fn parse_radial_config(segment: &[ComponentValue]) -> Result<RadialConfig, CssValueError> {
         let stripped = Gradient::strip_whitespace(segment);
         if stripped.is_empty() {
             return Ok((None, None, None));
@@ -131,40 +132,51 @@ impl RadialGradientSyntax {
 
         let mut length_values: Vec<&ComponentValue> = Vec::new();
 
-        for cv in &tokens {
+        for cv in tokens {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if let Ok(s) = ident.parse::<RadialShape>() {
                             if shape.is_some() {
-                                return Err("Duplicate shape keyword".to_string());
+                                return Err(CssValueError::InvalidValue(format!(
+                                    "Multiple shape keywords in radial config: '{}'",
+                                    ident
+                                )));
                             }
                             shape = Some(s);
                         } else if let Ok(extent) = ident.parse::<RadialExtent>() {
                             if size.is_some() {
-                                return Err("Duplicate size value".to_string());
+                                return Err(CssValueError::InvalidValue(format!(
+                                    "Multiple size keywords in radial config: '{}'",
+                                    ident
+                                )));
                             }
                             size = Some(RadialSize::Extent(extent));
                         } else {
-                            return Err(format!("Unexpected ident in radial config: '{}'", ident));
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Unexpected identifier in radial config: '{}'",
+                                ident
+                            )));
                         }
                     }
                     CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) | CssTokenKind::Number(_) => {
                         length_values.push(cv);
                     }
                     _ => {
-                        return Err(format!("Unexpected token in radial config: {:?}", token.kind));
+                        return Err(CssValueError::InvalidToken(token.kind.clone()));
                     }
                 },
-                _ => {
-                    return Err("Unexpected non-token in radial config".to_string());
+                cvs => {
+                    return Err(CssValueError::InvalidComponentValue(cvs.clone()));
                 }
             }
         }
 
         if !length_values.is_empty() {
             if size.is_some() {
-                return Err("Cannot combine extent keyword with explicit size".to_string());
+                return Err(CssValueError::InvalidValue(
+                    "Cannot specify both extent keyword and explicit lengths in radial config".into(),
+                ));
             }
             match length_values.len() {
                 1 => {
@@ -177,7 +189,10 @@ impl RadialGradientSyntax {
                     size = Some(RadialSize::LengthPercentagePair(lp1, lp2));
                 }
                 n => {
-                    return Err(format!("Too many size values in radial config (expected 1-2, got {})", n));
+                    return Err(CssValueError::InvalidValue(format!(
+                        "Too many length values in radial config: expected 1 or 2, got {}",
+                        n
+                    )));
                 }
             }
         }
@@ -210,11 +225,11 @@ impl CSSParsable for RadialGradientSyntax {
     ///    (shape, size, `at <position>`) consume it.
     /// 3. Check the next segment for `in <color-interpolation-method>`.
     /// 4. The remaining segments form the `<color-stop-list>`.
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let segments = Gradient::split_on_commas(stream.remaining());
 
         if segments.is_empty() {
-            return Err("Empty radial-gradient arguments".into());
+            return Err(CssValueError::UnexpectedEndOfInput);
         }
 
         let mut idx = 0;
@@ -250,7 +265,7 @@ impl CSSParsable for RadialGradientSyntax {
         }
 
         if idx >= segments.len() {
-            return Err("Missing color stop list in radial-gradient".into());
+            return Err(CssValueError::UnexpectedEndOfInput);
         }
 
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);

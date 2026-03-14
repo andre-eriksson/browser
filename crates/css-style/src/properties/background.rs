@@ -4,6 +4,7 @@ use css_values::{
     CSSParsable,
     background::{Attachment, BgClip, BlendMode, Clip, RepeatStyle, Size, VisualBox, WidthHeightSize},
     combination::LengthPercentage,
+    error::CssValueError,
     image::Image,
     numeric::Percentage,
     position::{
@@ -26,7 +27,7 @@ impl Default for BackgroundAttachment {
 }
 
 impl CSSParsable for BackgroundAttachment {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut attachments = Vec::new();
         let mut current_attachment = None;
@@ -36,7 +37,9 @@ impl CSSParsable for BackgroundAttachment {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_attachment.is_some() {
-                            return Err("Multiple attachment keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue(
+                                "Multiple attachment keywords without a comma".into(),
+                            ));
                         } else if ident.eq_ignore_ascii_case("scroll") {
                             current_attachment = Some(Attachment::Scroll);
                         } else if ident.eq_ignore_ascii_case("fixed") {
@@ -62,7 +65,7 @@ impl CSSParsable for BackgroundAttachment {
         }
 
         if attachments.is_empty() {
-            Err("No valid Attachment found for BackgroundAttachment".to_string())
+            Err(CssValueError::InvalidValue("No valid Attachment found for BackgroundAttachment".into()))
         } else {
             Ok(Self(attachments))
         }
@@ -79,7 +82,7 @@ impl Default for BackgroundBlendMode {
 }
 
 impl CSSParsable for BackgroundBlendMode {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut modes = Vec::new();
         let mut current_mode = None;
@@ -89,7 +92,9 @@ impl CSSParsable for BackgroundBlendMode {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_mode.is_some() {
-                            return Err("Multiple blend mode keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue(
+                                "Multiple blend mode keywords without a comma".into(),
+                            ));
                         } else if let Ok(mode) = ident.parse() {
                             current_mode = Some(mode);
                         } else {
@@ -112,7 +117,7 @@ impl CSSParsable for BackgroundBlendMode {
         }
 
         if modes.is_empty() {
-            Err("No valid BlendMode found for BackgroundBlendMode".to_string())
+            Err(CssValueError::InvalidValue("No valid BlendMode found for BackgroundBlendMode".into()))
         } else {
             Ok(Self(modes))
         }
@@ -129,7 +134,7 @@ impl Default for BackgroundClip {
 }
 
 impl CSSParsable for BackgroundClip {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut clips = Vec::new();
         let mut current_clip = None;
@@ -140,7 +145,7 @@ impl CSSParsable for BackgroundClip {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_clip.is_some() {
-                            return Err("Multiple clip keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple clip keywords without a comma".into()));
                         } else if ident.eq_ignore_ascii_case("text") {
                             clip_values.push(Clip::Text);
                         } else if ident.eq_ignore_ascii_case("border-area") {
@@ -180,7 +185,7 @@ impl CSSParsable for BackgroundClip {
         }
 
         if clips.is_empty() {
-            Err("No valid BgClip found for BackgroundClip".to_string())
+            Err(CssValueError::InvalidValue("No valid BgClip found for BackgroundClip".into()))
         } else {
             Ok(Self(clips))
         }
@@ -191,7 +196,7 @@ impl CSSParsable for BackgroundClip {
 pub struct BackgroundImage(pub Vec<Image>);
 
 impl CSSParsable for BackgroundImage {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut images = Vec::new();
         let mut current_image = None;
@@ -201,14 +206,14 @@ impl CSSParsable for BackgroundImage {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("none") => {
                         if current_image.is_some() {
-                            return Err("Multiple image values without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple image values without a comma".into()));
                         }
 
                         current_image = Some(Image::None);
                     }
                     CssTokenKind::Url(url) => {
                         if current_image.is_some() {
-                            return Err("Multiple image values without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple image values without a comma".into()));
                         }
 
                         current_image = Some(Image::Url(url.clone()))
@@ -222,7 +227,12 @@ impl CSSParsable for BackgroundImage {
                 },
                 ComponentValue::Function(func) => match Image::try_from(func) {
                     Ok(img) => current_image = Some(img),
-                    Err(e) => return Err(format!("Failed to parse image function '{}': {}", func.name, e)),
+                    Err(e) => {
+                        return Err(CssValueError::InvalidValue(format!(
+                            "Failed to parse image function '{}': {}",
+                            func.name, e
+                        )));
+                    }
                 },
                 _ => continue,
             }
@@ -233,7 +243,7 @@ impl CSSParsable for BackgroundImage {
         }
 
         if images.is_empty() {
-            Err("No valid Image found for BackgroundImage".to_string())
+            Err(CssValueError::InvalidValue("No valid Image found for BackgroundImage".into()))
         } else {
             Ok(Self(images))
         }
@@ -250,7 +260,7 @@ impl Default for BackgroundOrigin {
 }
 
 impl CSSParsable for BackgroundOrigin {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut current_origin = None;
         let mut origins = Vec::new();
@@ -260,7 +270,7 @@ impl CSSParsable for BackgroundOrigin {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_origin.is_some() {
-                            return Err("Multiple origin keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple origin keywords without a comma".into()));
                         } else if ident.eq_ignore_ascii_case("content-box") {
                             current_origin = Some(VisualBox::Content);
                         } else if ident.eq_ignore_ascii_case("padding-box") {
@@ -286,7 +296,7 @@ impl CSSParsable for BackgroundOrigin {
         }
 
         if origins.is_empty() {
-            Err("No valid VisualBox found for BackgroundOrigin".to_string())
+            Err(CssValueError::InvalidValue("No valid VisualBox found for BackgroundOrigin".into()))
         } else {
             Ok(Self(origins))
         }
@@ -567,7 +577,7 @@ impl BackgroundPosition {
 }
 
 impl CSSParsable for BackgroundPosition {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let mut layers = Vec::new();
         let mut values = Vec::new();
 
@@ -575,7 +585,9 @@ impl CSSParsable for BackgroundPosition {
             match cv {
                 ComponentValue::Token(t) if t.kind == CssTokenKind::Comma => {
                     if values.is_empty() {
-                        return Err("Unexpected comma in background-position".into());
+                        return Err(CssValueError::InvalidValue(
+                            "Unexpected comma in background-position with no preceding values".into(),
+                        ));
                     }
                     let mut value_stream = ComponentValueStream::from(&values);
                     let pos = BgPosition::parse(&mut value_stream)?;
@@ -591,7 +603,7 @@ impl CSSParsable for BackgroundPosition {
             let pos = BgPosition::parse(&mut value_stream)?;
             layers.push(pos);
         } else if layers.is_empty() {
-            return Err("Expected at least one position in background-position".into());
+            return Err(CssValueError::InvalidValue("No valid BgPosition found for BackgroundPosition".into()));
         }
 
         Ok(BackgroundPosition(layers))
@@ -611,7 +623,7 @@ impl Default for BackgroundPositionX {
 }
 
 impl CSSParsable for BackgroundPositionX {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut positions = Vec::new();
         let mut current_position = None;
@@ -623,37 +635,44 @@ impl CSSParsable for BackgroundPositionX {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_position.is_some() {
-                            return Err("Multiple position keywords without a comma.".to_string());
+                            return Err(CssValueError::InvalidValue(
+                                "Multiple position keywords without a comma.".into(),
+                            ));
                         } else if ident.eq_ignore_ascii_case("center") {
                             current_position = Some(PositionX::Center(Center::Center, length_percentage.take()));
                         } else if let Ok(h) = ident.parse() {
                             horizontal_side = Some(h);
                         } else {
-                            return Err(format!("Invalid horizontal side keyword: '{}'", ident));
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Invalid horizontal side keyword: '{}'",
+                                ident
+                            )));
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
+                        if length_percentage.is_some() {
+                            return Err(CssValueError::InvalidValue("Duplicate length or percentage".into()));
+                        }
+
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| "Invalid length unit".to_string())?;
-                        if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
-                        }
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
                         length_percentage =
                             Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(value) => {
                         if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
+                            return Err(CssValueError::InvalidValue("Duplicate length or percentage".into()));
                         }
                         length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
                     }
                     CssTokenKind::Comma => {
                         if let Some(pos) = current_position.take() {
                             if horizontal_side.is_some() || length_percentage.is_some() {
-                                return Err(
+                                return Err(CssValueError::InvalidValue(
                                     "Cannot have a center position with additional length/percentage when multiple positions are specified"
-                                        .to_string(),
+                                        .into())
                                 );
                             }
 
@@ -669,7 +688,9 @@ impl CSSParsable for BackgroundPositionX {
 
         if let Some(pos) = current_position.take() {
             if horizontal_side.is_some() || length_percentage.is_some() {
-                return Err("Cannot have a center position with additional length/percentage".to_string());
+                return Err(CssValueError::InvalidValue(
+                    "Cannot have a center position with additional length/percentage".into(),
+                ));
             }
 
             positions.push(pos);
@@ -678,7 +699,7 @@ impl CSSParsable for BackgroundPositionX {
         }
 
         if positions.is_empty() {
-            Err("No valid PositionX found for BackgroundPositionX.".to_string())
+            Err(CssValueError::InvalidValue("No valid PositionX found for BackgroundPositionX.".into()))
         } else {
             Ok(Self(positions))
         }
@@ -698,7 +719,7 @@ impl Default for BackgroundPositionY {
 }
 
 impl CSSParsable for BackgroundPositionY {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut positions = Vec::new();
         let mut current_position = None;
@@ -710,37 +731,44 @@ impl CSSParsable for BackgroundPositionY {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_position.is_some() {
-                            return Err("Multiple position keywords without a comma.".to_string());
+                            return Err(CssValueError::InvalidValue(
+                                "Multiple position keywords without a comma.".into(),
+                            ));
                         } else if ident.eq_ignore_ascii_case("center") {
                             current_position = Some(PositionY::Center(Center::Center, length_percentage.take()));
                         } else if let Ok(v) = ident.parse() {
                             vertical_side = Some(v);
                         } else {
-                            return Err(format!("Invalid vertical side keyword: '{}'", ident));
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Invalid vertical side keyword: '{}'",
+                                ident
+                            )));
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
+                        if length_percentage.is_some() {
+                            return Err(CssValueError::InvalidValue("Duplicate length or percentage".into()));
+                        }
+
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| "Invalid length unit".to_string())?;
-                        if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
-                        }
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
                         length_percentage =
                             Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
                     }
                     CssTokenKind::Percentage(value) => {
                         if length_percentage.is_some() {
-                            return Err("Duplicate length or percentage".to_string());
+                            return Err(CssValueError::InvalidValue("Duplicate length or percentage".into()));
                         }
                         length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
                     }
                     CssTokenKind::Comma => {
                         if let Some(pos) = current_position.take() {
                             if vertical_side.is_some() || length_percentage.is_some() {
-                                return Err(
+                                return Err(CssValueError::InvalidValue(
                                     "Cannot have a center position with additional length/percentage when multiple positions are specified"
-                                        .to_string(),
+                                        .into())
                                 );
                             }
 
@@ -756,7 +784,9 @@ impl CSSParsable for BackgroundPositionY {
 
         if let Some(pos) = current_position.take() {
             if vertical_side.is_some() || length_percentage.is_some() {
-                return Err("Cannot have a center position with additional length/percentage".to_string());
+                return Err(CssValueError::InvalidValue(
+                    "Cannot have a center position with additional length/percentage".into(),
+                ));
             }
 
             positions.push(pos);
@@ -765,7 +795,7 @@ impl CSSParsable for BackgroundPositionY {
         }
 
         if positions.is_empty() {
-            Err("No valid PositionY found for BackgroundPositionY.".to_string())
+            Err(CssValueError::InvalidValue("No valid PositionY found for BackgroundPositionY.".into()))
         } else {
             Ok(Self(positions))
         }
@@ -782,7 +812,7 @@ impl Default for BackgroundRepeat {
 }
 
 impl CSSParsable for BackgroundRepeat {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut keywords = Vec::new();
         let mut current_pair = (None, None);
@@ -792,7 +822,9 @@ impl CSSParsable for BackgroundRepeat {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_pair.0.is_some() && current_pair.1.is_some() {
-                            return Err("Too many repeat style keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue(
+                                "Too many repeat style keywords without a comma".into(),
+                            ));
                         } else if ident.eq_ignore_ascii_case("repeat") {
                             if current_pair.0.is_none() {
                                 current_pair.0 = Some(RepeatStyle::Repeat);
@@ -844,7 +876,7 @@ impl CSSParsable for BackgroundRepeat {
         }
 
         if keywords.is_empty() {
-            Err("No valid RepeatStyle pairs found for BackgroundRepeat".to_string())
+            Err(CssValueError::InvalidValue("No valid repeat style pairs found for BackgroundRepeat".into()))
         } else {
             Ok(Self(keywords))
         }
@@ -861,7 +893,7 @@ impl Default for BackgroundSize {
 }
 
 impl CSSParsable for BackgroundSize {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
         let mut sizes = Vec::new();
         let mut current_size = None;
@@ -874,12 +906,12 @@ impl CSSParsable for BackgroundSize {
                 match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_size.is_some() {
-                            return Err("Multiple size keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple size keywords without a comma".into()));
                         }
 
                         if ident.eq_ignore_ascii_case("auto") {
                             if width_height_values.len() > 2 {
-                                return Err("Too many width/height values".to_string());
+                                return Err(CssValueError::InvalidValue("Too many width/height values".into()));
                             }
 
                             width_height_values.push(WidthHeightSize::Auto);
@@ -891,14 +923,14 @@ impl CSSParsable for BackgroundSize {
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         if current_size.is_some() {
-                            return Err("Multiple size keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple size keywords without a comma".into()));
                         } else if width_height_values.len() > 2 {
-                            return Err("Too many width/height values".to_string());
+                            return Err(CssValueError::InvalidValue("Too many width/height values".into()));
                         }
 
                         let len_unit = unit
                             .parse::<LengthUnit>()
-                            .map_err(|_| "Invalid length unit".to_string())?;
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         width_height_values.push(WidthHeightSize::Length(LengthPercentage::Length(Length::new(
                             value.to_f64() as f32,
                             len_unit,
@@ -906,9 +938,9 @@ impl CSSParsable for BackgroundSize {
                     }
                     CssTokenKind::Percentage(value) => {
                         if current_size.is_some() {
-                            return Err("Multiple size keywords without a comma".to_string());
+                            return Err(CssValueError::InvalidValue("Multiple size keywords without a comma".into()));
                         } else if width_height_values.len() > 2 {
-                            return Err("Too many width/height values".to_string());
+                            return Err(CssValueError::InvalidValue("Too many width/height values".into()));
                         }
 
                         width_height_values.push(WidthHeightSize::Length(LengthPercentage::Percentage(
@@ -919,7 +951,7 @@ impl CSSParsable for BackgroundSize {
                         if let Some(size) = current_size.take() {
                             sizes.push(size);
                         } else if width_height_values.len() > 2 {
-                            return Err("Too many width/height values".to_string());
+                            return Err(CssValueError::InvalidValue("Too many width/height values".into()));
                         } else if !width_height_values.is_empty() {
                             match width_height_values.len() {
                                 1 if width_height_values[0] == WidthHeightSize::Auto => {
@@ -933,7 +965,7 @@ impl CSSParsable for BackgroundSize {
                                     let values = std::mem::take(&mut width_height_values);
                                     sizes.push(Size::WidthHeight(values[0], Some(values[1])));
                                 }
-                                _ => return Err("Too many width/height values".to_string()),
+                                _ => return Err(CssValueError::InvalidValue("Too many width/height values".into())),
                             }
                         }
                     }
@@ -945,7 +977,7 @@ impl CSSParsable for BackgroundSize {
         if let Some(size) = current_size.take() {
             sizes.push(size);
         } else if width_height_values.len() > 2 {
-            return Err("Too many width/height values".to_string());
+            return Err(CssValueError::InvalidValue("Too many width/height values".into()));
         } else if !width_height_values.is_empty() {
             match width_height_values.len() {
                 1 if width_height_values[0] == WidthHeightSize::Auto => {
@@ -959,12 +991,12 @@ impl CSSParsable for BackgroundSize {
                     let values = std::mem::take(&mut width_height_values);
                     sizes.push(Size::WidthHeight(values[0], Some(values[1])));
                 }
-                _ => return Err("Too many width/height values".to_string()),
+                _ => return Err(CssValueError::InvalidValue("Too many width/height values".into())),
             }
         }
 
         if sizes.is_empty() {
-            Err(format!("No valid Size pairs found for BackgroundSize: {:?}", sizes))
+            Err(CssValueError::InvalidValue("No valid Size found for BackgroundSize".into()))
         } else {
             Ok(Self(sizes))
         }

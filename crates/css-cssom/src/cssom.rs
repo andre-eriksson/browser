@@ -2,6 +2,8 @@
 //!
 //! <https://www.w3.org/TR/css-syntax-3/#css-stylesheets>
 
+use std::fmt::Display;
+
 use css_parser::{CssParser, DeclarationOrAtRule, Stylesheet};
 use serde::{Deserialize, Serialize};
 
@@ -62,7 +64,7 @@ impl CSSStyleSheet {
         parsed
             .into_iter()
             .filter_map(|item| match item {
-                DeclarationOrAtRule::Declaration(decl) => Some(CSSDeclaration::from_parser_declaration(decl)),
+                DeclarationOrAtRule::Declaration(decl) => Some(CSSDeclaration::from(decl)),
                 DeclarationOrAtRule::AtRule(_) => None,
             })
             .collect()
@@ -105,10 +107,10 @@ impl CSSStyleSheet {
     }
 
     /// Serialize the stylesheet back to CSS text
-    pub fn to_css_string(&self) -> String {
+    fn to_css_string(&self) -> String {
         let mut result = String::new();
         for rule in &self.rules {
-            result.push_str(&rule.to_css_string());
+            result.push_str(&rule.to_string());
             result.push('\n');
         }
         result
@@ -137,6 +139,12 @@ impl CSSStyleSheet {
                 }
             }
         }
+    }
+}
+
+impl Display for CSSStyleSheet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_css_string())
     }
 }
 

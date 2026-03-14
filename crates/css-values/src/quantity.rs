@@ -1,6 +1,8 @@
 use css_cssom::{CssToken, CssTokenKind};
 use strum::EnumString;
 
+use crate::error::CssValueError;
+
 /// Length units as defined in CSS Values and Units Module Level 4
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
@@ -293,7 +295,7 @@ impl Angle {
 }
 
 impl TryFrom<&CssToken> for Angle {
-    type Error = String;
+    type Error = CssValueError;
 
     fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
@@ -308,7 +310,7 @@ impl TryFrom<&CssToken> for Angle {
                 }
             }
             CssTokenKind::Number(value) => Ok(Angle::from_degrees(value.to_f64() as f32)),
-            _ => Err(format!("Expected a dimension or number token for angle, got {:?}", token.kind)),
+            _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
     }
 }

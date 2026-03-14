@@ -11,7 +11,7 @@ use cookies::CookieJar;
 use network::{HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient};
 
 use crate::{
-    BrowserCommand, BrowserEvent, Commandable, Emitter,
+    BrowserCommand, BrowserEvent, Commandable,
     commands::{add_tab, change_active_tab, close_tab, navigate},
     navigation::{NavigationContext, ScriptExecutor},
     tab::{
@@ -22,14 +22,13 @@ use crate::{
 
 pub struct HeadlessBrowser {
     tab_manager: TabManager,
-    _emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>,
     cookie_jar: Arc<Mutex<CookieJar>>,
     http_client: Box<dyn HttpClient>,
     headers: Arc<HeaderMap>,
 }
 
 impl HeadlessBrowser {
-    pub fn new(args: &BrowserArgs, emitter: Box<dyn Emitter<BrowserEvent> + Send + Sync>) -> Self {
+    pub fn new(args: &BrowserArgs) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
 
@@ -47,7 +46,6 @@ impl HeadlessBrowser {
 
         HeadlessBrowser {
             tab_manager,
-            _emitter: emitter,
             cookie_jar,
             http_client,
             headers: Arc::new(headers),

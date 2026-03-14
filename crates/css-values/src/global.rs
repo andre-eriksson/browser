@@ -1,11 +1,11 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
 
-use crate::CSSParsable;
+use crate::{CSSParsable, error::CssValueError};
 
 /// Represents the global values that can be used in CSS properties. These values have special meanings and affect how the property is computed and inherited.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
-#[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum Global {
     /// The property takes the same specified value as the property for the element's parent, if there is one, or the initial value of the property if there is no parent.
     Inherit,
@@ -27,7 +27,7 @@ pub enum Global {
 }
 
 impl CSSParsable for Global {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(ComponentValue::Token(token)) = stream.peek()
@@ -38,7 +38,9 @@ impl CSSParsable for Global {
             return Ok(global);
         }
 
-        Err("Expected a global value (inherit, initial, revert, revert-layer, unset)".to_string())
+        Err(CssValueError::InvalidValue(
+            "Expected a global value (inherit, initial, revert, revert-layer, unset)".into(),
+        ))
     }
 }
 

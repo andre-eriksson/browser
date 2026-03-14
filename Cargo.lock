@@ -1289,6 +1289,7 @@ version = "0.1.0"
 dependencies = [
  "css-cssom",
  "strum",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -2833,6 +2834,7 @@ dependencies = [
  "kernel",
  "tracing",
  "ui",
+ "zstd",
 ]
 
 [[package]]

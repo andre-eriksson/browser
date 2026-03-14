@@ -146,7 +146,7 @@ impl RectPipeline {
         let w = rect.width;
         let h = rect.height;
 
-        let color = background.to_array();
+        let color = background.into();
 
         let quad_vertices = [
             SolidVertex {
@@ -189,7 +189,7 @@ impl RectPipeline {
             return;
         }
 
-        let color = color.to_array();
+        let color = color.into();
         let tri_vertices = [
             SolidVertex {
                 position: p0,

@@ -314,7 +314,7 @@ fn bench_to_css_string(c: &mut Criterion) {
         let stylesheet = CSSStyleSheet::from_css(css, StylesheetOrigin::Author, true);
         group.bench_with_input(BenchmarkId::from_parameter(name), &stylesheet, |b, sheet| {
             b.iter(|| {
-                let css_text = sheet.to_css_string();
+                let css_text = sheet.to_string();
                 black_box(css_text)
             })
         });

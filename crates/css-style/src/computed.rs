@@ -311,10 +311,10 @@ impl ComputedStyle {
                 .font_size
                 .resolve_with_context_owned(FontSize::px(relative_ctx.parent.font_size), FontSize::px(16.0))
                 .to_px(Some(RelativeType::FontSize), relative_ctx, absolute_ctx),
-            font_weight: specified_style.font_weight.resolve_with_context_owned(
-                FontWeight::try_from(relative_ctx.parent.font_weight).unwrap_or(FontWeight::Normal),
-                FontWeight::Normal,
-            ) as u16,
+            font_weight: specified_style
+                .font_weight
+                .resolve_with_context_owned(FontWeight::from(relative_ctx.parent.font_weight), FontWeight::Normal)
+                as u16,
             intrinsic_height: height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
             height: ComputedDimension::from(height),
             max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
@@ -382,17 +382,17 @@ impl Default for ComputedStyle {
             background_attachment: BackgroundAttachment::default(),
             background_blend_mode: BackgroundBlendMode::default(),
             background_clip: BackgroundClip::default(),
-            background_color: Color4f::new(0.0, 0.0, 0.0, 0.0),
+            background_color: Color4f::TRANSPARENT,
             background_origin: BackgroundOrigin::default(),
             background_image: ComputedBackgroundImage::none(),
             background_repeat: BackgroundRepeat::default(),
             background_position_x: BackgroundPositionX::default(),
             background_position_y: BackgroundPositionY::default(),
             background_size: ComputedBackgroundSize::default(),
-            border_top_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
-            border_right_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
-            border_bottom_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
-            border_left_color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            border_top_color: Color4f::BLACK,
+            border_right_color: Color4f::BLACK,
+            border_bottom_color: Color4f::BLACK,
+            border_left_color: Color4f::BLACK,
             border_top_style: BorderStyle::None,
             border_right_style: BorderStyle::None,
             border_bottom_style: BorderStyle::None,
@@ -401,7 +401,7 @@ impl Default for ComputedStyle {
             border_right_width: 0.0,
             border_bottom_width: 0.0,
             border_left_width: 0.0,
-            color: Color4f::new(0.0, 0.0, 0.0, 1.0),
+            color: Color4f::BLACK,
             cursor: Cursor::default(),
             display: Display::default(),
             font_family: Arc::new(FontFamily::default()),

@@ -201,7 +201,7 @@ pub(crate) fn on_navigation_success(
                     move |result| match result {
                         Ok(event) => Event::Browser(event),
                         Err(err) => {
-                            error!("Image fetch error: {}", err);
+                            error!("{}", err);
                             cache.mark_failed(src_for_err.clone());
                             Event::Ui(UiEvent::ImageLoaded(active_tab, src_for_err, String::new()))
                         }
@@ -262,6 +262,9 @@ pub(crate) fn navigate_forward(application: &mut Application) -> Task<Event> {
     )
 }
 
+/// Handles refreshing the current page by re-navigating to the current URL. It retrieves the current URL from the active tab's page
+/// information and sends a `Navigate` command to the browser with that URL. If the current URL is empty
+/// (e.g., if the tab has no page loaded), it simply returns without performing any action.
 pub(crate) fn refresh_page(application: &mut Application) -> Task<Event> {
     let browser = application.browser.clone();
     let active_tab = application.active_tab;

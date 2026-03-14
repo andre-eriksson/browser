@@ -52,6 +52,15 @@ pub struct LineBox {
     decorations: Vec<InlineDecoration>,
 }
 
+/// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
+struct InlineLayoutContext<'a> {
+    pub current_y: &'a mut f32,
+    pub start_x: f32,
+    pub available_width: f32,
+    pub nodes: &'a mut Vec<LayoutNode>,
+    pub inline_box_stack: &'a mut Vec<ActiveInlineBox>,
+}
+
 impl LineBox {
     pub fn new(x: f32, y: f32) -> Self {
         Self {
@@ -66,8 +75,8 @@ impl LineBox {
     }
 
     fn add(&mut self, mut node: LayoutNode, ascent: f32, descent: f32) {
-        node.dimensions.x = self.x + self.width + node.resolved_margin.left;
-        self.width += node.dimensions.width - node.resolved_margin.horizontal();
+        node.dimensions.x = self.x + self.width + node.margin.left;
+        self.width += node.dimensions.width - node.margin.horizontal();
 
         self.max_ascent = self.max_ascent.max(ascent);
         self.max_descent = self.max_descent.max(descent);
@@ -128,11 +137,13 @@ impl LineBox {
             let dec_x = self.x + dec.start_x + offset_x;
             let dec_y = self.y - dec.padding.top - dec.border.top;
 
-            let mut node = LayoutNode::new(dec.id);
-            node.dimensions = Rect::new(dec_x, dec_y, dec_width, dec_height);
-            node.resolved_padding = dec.padding;
-            node.resolved_border = dec.border;
-            node.colors = LayoutColors::from(&*dec.style);
+            let node = LayoutNode::builder(dec.id)
+                .dimensions(Rect::new(dec_x, dec_y, dec_width, dec_height))
+                .padding(dec.padding)
+                .border(dec.border)
+                .colors(LayoutColors::from(&*dec.style))
+                .build();
+
             final_nodes.push(node);
         }
 
@@ -411,26 +422,30 @@ impl InlineLayout {
                                     segment,
                                     style,
                                     &text_desc,
-                                    available_width,
-                                    start_x,
                                     &mut line,
-                                    &mut nodes,
-                                    &mut current_y,
-                                    &mut inline_box_stack,
+                                    &mut InlineLayoutContext {
+                                        available_width,
+                                        current_y: &mut current_y,
+                                        start_x,
+                                        inline_box_stack: &mut inline_box_stack,
+                                        nodes: &mut nodes,
+                                    },
                                 );
                             }
 
                             if seg_idx < segments.len() - 1 {
                                 Self::finish_line_with_decorations(
                                     &mut line,
-                                    &mut inline_box_stack,
-                                    available_width,
                                     &text_align,
                                     writing_mode,
-                                    &mut nodes,
-                                    &mut current_y,
                                     Some(*line_height),
-                                    start_x,
+                                    &mut InlineLayoutContext {
+                                        available_width,
+                                        current_y: &mut current_y,
+                                        start_x,
+                                        inline_box_stack: &mut inline_box_stack,
+                                        nodes: &mut nodes,
+                                    },
                                 );
                             }
                         }
@@ -441,12 +456,14 @@ impl InlineLayout {
                             text.as_str(),
                             style,
                             &text_desc,
-                            available_width,
-                            start_x,
                             &mut line,
-                            &mut nodes,
-                            &mut current_y,
-                            &mut inline_box_stack,
+                            &mut InlineLayoutContext {
+                                available_width,
+                                current_y: &mut current_y,
+                                start_x,
+                                inline_box_stack: &mut inline_box_stack,
+                                nodes: &mut nodes,
+                            },
                         );
                     }
                 }
@@ -507,20 +524,22 @@ impl InlineLayout {
                         if line.width + total_width > available_width && line.width > 0.0 {
                             Self::finish_line_with_decorations(
                                 &mut line,
-                                &mut inline_box_stack,
-                                available_width,
                                 alignment,
                                 writing_mode,
-                                &mut nodes,
-                                &mut current_y,
                                 None,
-                                start_x,
+                                &mut InlineLayoutContext {
+                                    available_width,
+                                    current_y: &mut current_y,
+                                    start_x,
+                                    inline_box_stack: &mut inline_box_stack,
+                                    nodes: &mut nodes,
+                                },
                             );
                         }
 
                         let ascent = layout_node.dimensions.height + margin.top + margin.bottom;
 
-                        layout_node.resolved_margin = margin;
+                        layout_node.margin = margin;
 
                         line.add(layout_node, ascent, 0.0);
                     }
@@ -554,29 +573,31 @@ impl InlineLayout {
                     if line.width + img_width > available_width && line.width > 0.0 {
                         Self::finish_line_with_decorations(
                             &mut line,
-                            &mut inline_box_stack,
-                            available_width,
                             alignment,
                             writing_mode,
-                            &mut nodes,
-                            &mut current_y,
                             None,
-                            start_x,
+                            &mut InlineLayoutContext {
+                                available_width,
+                                current_y: &mut current_y,
+                                start_x,
+                                inline_box_stack: &mut inline_box_stack,
+                                nodes: &mut nodes,
+                            },
                         );
                     }
 
-                    let mut node = LayoutNode::new(*id);
-                    node.dimensions = Rect::new(0.0, 0.0, img_width, img_height);
-                    node.colors = LayoutColors::from(&**style);
-                    let vary_key = image_ctx
-                        .get_meta(src)
-                        .map(|m| m.vary_key.clone())
-                        .unwrap_or_default();
-                    node.image_data = Some(ImageData {
-                        image_src: src.clone(),
-                        vary_key,
-                        image_needs_intrinsic_size: *needs_intrinsic_size && !has_intrinsic_size,
-                    });
+                    let node = LayoutNode::builder(*id)
+                        .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
+                        .colors(LayoutColors::from(&**style))
+                        .image_data(ImageData {
+                            image_src: src.clone(),
+                            vary_key: image_ctx
+                                .get_meta(src)
+                                .map(|m| m.vary_key.clone())
+                                .unwrap_or_default(),
+                            image_needs_intrinsic_size: *needs_intrinsic_size && !has_intrinsic_size,
+                        })
+                        .build();
 
                     let ascent = img_height;
                     line.add(node, ascent, 0.0);
@@ -584,14 +605,16 @@ impl InlineLayout {
                 InlineItem::Break { line_height_px } => {
                     Self::finish_line_with_decorations(
                         &mut line,
-                        &mut inline_box_stack,
-                        available_width,
                         &last_text_align,
                         &last_writing_mode,
-                        &mut nodes,
-                        &mut current_y,
                         Some(*line_height_px),
-                        start_x,
+                        &mut InlineLayoutContext {
+                            available_width,
+                            current_y: &mut current_y,
+                            start_x,
+                            inline_box_stack: &mut inline_box_stack,
+                            nodes: &mut nodes,
+                        },
                     );
                 }
             }
@@ -608,34 +631,29 @@ impl InlineLayout {
 
     /// Finishes the current line, emitting decorations for any active inline
     /// boxes, then starts a fresh line and re-opens those inline boxes on it.
-    #[allow(clippy::too_many_arguments)]
     fn finish_line_with_decorations(
         line: &mut LineBox,
-        inline_box_stack: &mut Vec<ActiveInlineBox>,
-        available_width: f32,
         text_align: &TextAlign,
         writing_mode: &WritingMode,
-        nodes: &mut Vec<LayoutNode>,
-        current_y: &mut f32,
         min_line_height: Option<f32>,
-        start_x: f32,
+        layout_ctx: &mut InlineLayoutContext,
     ) {
-        let mut continuing_boxes = std::mem::take(inline_box_stack);
+        let mut continuing_boxes = std::mem::take(layout_ctx.inline_box_stack);
 
         Self::close_active_decorations(line, &mut continuing_boxes);
 
-        let old_line = std::mem::replace(line, LineBox::new(start_x, *current_y));
-        let (line_nodes, h) = old_line.finish(available_width, text_align, writing_mode);
-        nodes.extend(line_nodes);
-        *current_y += if let Some(min_h) = min_line_height {
+        let old_line = std::mem::replace(line, LineBox::new(layout_ctx.start_x, *layout_ctx.current_y));
+        let (line_nodes, h) = old_line.finish(layout_ctx.available_width, text_align, writing_mode);
+        layout_ctx.nodes.extend(line_nodes);
+        *layout_ctx.current_y += if let Some(min_h) = min_line_height {
             h.max(min_h)
         } else {
             h
         };
-        *line = LineBox::new(start_x, *current_y);
+        *line = LineBox::new(layout_ctx.start_x, *layout_ctx.current_y);
 
         for con_box in continuing_boxes {
-            inline_box_stack.push(con_box);
+            layout_ctx.inline_box_stack.push(con_box);
         }
     }
 
@@ -718,24 +736,19 @@ impl InlineLayout {
     /// Measure a single-line text segment (no embedded newlines) and add it to
     /// the current [`LineBox`], word-wrapping across multiple lines when the
     /// text exceeds `available_width`.
-    #[allow(clippy::too_many_arguments)]
     fn layout_text_segment(
         text_ctx: &mut TextContext,
         id: NodeId,
         text: &str,
         style: &ComputedStyle,
         text_desc: &TextDescription,
-        available_width: f32,
-        start_x: f32,
         line: &mut LineBox,
-        nodes: &mut Vec<LayoutNode>,
-        current_y: &mut f32,
-        inline_box_stack: &mut Vec<ActiveInlineBox>,
+        layout_ctx: &mut InlineLayoutContext,
     ) {
         let mut remaining_text = text;
 
         while !remaining_text.is_empty() {
-            let remaining_line_space = (available_width - line.width).max(0.0);
+            let remaining_line_space = (layout_ctx.available_width - line.width).max(0.0);
 
             let (measured, rest) = text_ctx.measure_text_that_fits(remaining_text, text_desc, remaining_line_space);
 
@@ -747,19 +760,13 @@ impl InlineLayout {
                 break;
             }
 
-            let node = LayoutNode {
-                node_id: id,
-                dimensions: Rect::new(0.0, 0.0, measured.width, measured.height),
-                colors: LayoutColors::from(style),
-                cursor: style.cursor,
-                resolved_margin: SideOffset::zero(),
-                resolved_padding: SideOffset::zero(),
-                resolved_border: SideOffset::zero(),
-                text_buffer: Some(Arc::new(measured.buffer)),
-                image_data: None,
-                children: vec![],
-                is_height_auto: style.height == ComputedDimension::Auto,
-            };
+            let node = LayoutNode::builder(id)
+                .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
+                .colors(LayoutColors::from(style))
+                .cursor(style.cursor)
+                .text_buffer(Arc::new(measured.buffer))
+                .height_auto(style.height == ComputedDimension::Auto)
+                .build();
 
             let ascent = measured.height;
             let descent = 0.0;
@@ -767,17 +774,7 @@ impl InlineLayout {
             line.add(node, ascent, descent);
 
             if let Some(r) = rest {
-                Self::finish_line_with_decorations(
-                    line,
-                    inline_box_stack,
-                    available_width,
-                    &style.text_align,
-                    &style.writing_mode,
-                    nodes,
-                    current_y,
-                    None,
-                    start_x,
-                );
+                Self::finish_line_with_decorations(line, &style.text_align, &style.writing_mode, None, layout_ctx);
                 remaining_text = r;
             } else {
                 break;

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use css_parser::{ComponentValue, Property, QualifiedRule};
 use serde::{Deserialize, Serialize};
 
@@ -47,10 +49,7 @@ impl CSSStyleRule {
         }
 
         let declarations = qr.parse_declarations(collect_positions);
-        let css_declarations: Vec<CSSDeclaration> = declarations
-            .into_iter()
-            .map(CSSDeclaration::from_parser_declaration)
-            .collect();
+        let css_declarations: Vec<CSSDeclaration> = declarations.into_iter().map(CSSDeclaration::from).collect();
 
         let style_rule = CSSStyleRule {
             selector_text,
@@ -103,22 +102,28 @@ impl CSSStyleRule {
     }
 
     /// Serialize this style rule to CSS text
-    pub fn to_css_string(&self) -> String {
+    fn to_css_string(&self) -> String {
         let mut result = format!("{} {{\n", self.selector_text);
 
         for decl in &self.declarations {
             result.push_str("  ");
-            result.push_str(&decl.to_css_string());
+            result.push_str(&decl.to_string());
             result.push_str(";\n");
         }
 
         for nested in &self.nested_rules {
             result.push_str("  ");
-            result.push_str(&nested.to_css_string().replace('\n', "\n  "));
+            result.push_str(&nested.to_string().replace('\n', "\n  "));
             result.push('\n');
         }
 
         result.push('}');
         result
+    }
+}
+
+impl Display for CSSStyleRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_css_string())
     }
 }

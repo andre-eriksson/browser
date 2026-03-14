@@ -56,7 +56,7 @@ pub(crate) async fn navigate(
     page.document_url = Some(url.clone());
 
     let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
-    let mut parser = HtmlStreamParser::<_, TabCollector>::new(body.as_slice(), None, Some(TabCollector::default()));
+    let mut parser = HtmlStreamParser::new(body.as_slice(), None, Some(TabCollector::default()));
 
     loop {
         parser.step()?;
@@ -255,41 +255,13 @@ async fn resolve_navigation_request(
             })?,
         )
     } else {
-        return resolve_request_inner(url, ctx, page_url, policies, cookies, headers, client).await;
+        return resolve_request(url, ctx, page_url, policies, cookies, headers, client).await;
     };
 
     Ok((url, resp))
 }
 
-/// The safer version of `resolve_navigation_request` that can be used by other commands
-/// like image loading, which also need to resolve URLs and fetch content while respecting
-/// cookies and headers. This function performs the same URL resolution and fetching logic,
-/// but returns the resolved URL along with the response body, allowing callers to handle
-/// the content as needed.
 pub(crate) async fn resolve_request(
-    raw_url: &str,
-    ctx: &mut dyn NavigationContext,
-    page_url: &Option<Url>,
-    policies: &DocumentPolicy,
-    cookies: &[Cookie],
-    headers: &Arc<HeaderMap>,
-    client: &dyn HttpClient,
-) -> Result<(Url, Response), NavigationError> {
-    let decoder = Decoder::new(raw_url);
-    let decoded_url = decoder
-        .decode()
-        .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
-
-    let url = match page_url.as_ref() {
-        Some(u) => u.join(&decoded_url),
-        None => Url::parse(&decoded_url),
-    }
-    .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
-
-    resolve_request_inner(url, ctx, page_url, policies, cookies, headers, client).await
-}
-
-async fn resolve_request_inner(
     url: Url,
     ctx: &mut dyn NavigationContext,
     page_url: &Option<Url>,

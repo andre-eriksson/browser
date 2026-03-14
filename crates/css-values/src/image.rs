@@ -3,6 +3,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssToken, CssTokenKind, Fu
 use crate::{
     CSSParsable,
     combination::{AnglePercentage, AnglePercentageZero, LengthPercentage},
+    error::CssValueError,
     image::gradient::{
         conic::ConicGradientSyntax,
         interpolation::{ColorInterpolationMethod, HueInterpolationMethod, PolarColorSpace},
@@ -33,7 +34,7 @@ impl Gradient {
     ///
     /// This is the core dispatch that maps function names to their
     /// respective syntax parsers.
-    pub fn parse_function(func: &Function) -> Result<Self, String> {
+    pub fn parse_function(func: &Function) -> Result<Self, CssValueError> {
         if func.name.eq_ignore_ascii_case("linear-gradient") {
             Ok(Self::Linear(LinearGradientSyntax::parse(&mut func.value.as_slice().into())?))
         } else if func.name.eq_ignore_ascii_case("repeating-linear-gradient") {
@@ -47,7 +48,7 @@ impl Gradient {
         } else if func.name.eq_ignore_ascii_case("repeating-conic-gradient") {
             Ok(Self::RepeatingConic(ConicGradientSyntax::parse(&mut func.value.as_slice().into())?))
         } else {
-            Err(format!("Unknown gradient function: '{}'", func.name))
+            Err(CssValueError::InvalidValue(format!("Unknown gradient function: '{}'", func.name)))
         }
     }
 
@@ -93,13 +94,13 @@ impl Gradient {
     }
 
     /// Try to parse a single `ComponentValue` as a `LengthPercentage`.
-    pub(crate) fn try_parse_length_percentage(cv: &ComponentValue) -> Result<LengthPercentage, String> {
+    pub(crate) fn try_parse_length_percentage(cv: &ComponentValue) -> Result<LengthPercentage, CssValueError> {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Dimension { value, unit } => {
                     let len_unit = unit
                         .parse::<LengthUnit>()
-                        .map_err(|_| format!("Invalid length unit: '{}'", unit))?;
+                        .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                     Ok(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)))
                 }
                 CssTokenKind::Percentage(value) => {
@@ -108,9 +109,9 @@ impl Gradient {
                 CssTokenKind::Number(value) if value.to_f64() == 0.0 => {
                     Ok(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px)))
                 }
-                _ => Err(format!("Expected dimension or percentage, got {:?}", token.kind)),
+                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
             },
-            _ => Err("Expected a token for length/percentage".to_string()),
+            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
         }
     }
 
@@ -136,12 +137,14 @@ impl Gradient {
     ///   - `<rectangular-color-space>`
     ///   - `<polar-color-space> [<hue-interpolation-method> hue]?`
     ///   - any other single ident → `ColorInterpolationMethod::Custom`
-    pub(crate) fn try_parse_interpolation(segment: &[ComponentValue]) -> Result<ColorInterpolationMethod, String> {
+    pub(crate) fn try_parse_interpolation(
+        segment: &[ComponentValue],
+    ) -> Result<ColorInterpolationMethod, CssValueError> {
         let stripped = Self::strip_whitespace(segment);
         let idents = Self::collect_idents(stripped);
 
         if idents.is_empty() {
-            return Err("Empty interpolation segment".into());
+            return Err(CssValueError::InvalidValue("Expected a color interpolation method after 'in'".into()));
         }
 
         let first = &idents[0];
@@ -198,7 +201,7 @@ impl Gradient {
     /// the `in` keyword, `None` otherwise.
     pub(crate) fn try_consume_interpolation(
         stripped: &[ComponentValue],
-    ) -> Result<Option<ColorInterpolationMethod>, String> {
+    ) -> Result<Option<ColorInterpolationMethod>, CssValueError> {
         let idents = Self::collect_idents(stripped);
         if let Some(first) = idents.first()
             && first.eq_ignore_ascii_case("in")
@@ -211,7 +214,9 @@ impl Gradient {
     }
 
     /// Try to parse a single `ComponentValue` as an `AnglePercentageOrZero`.
-    pub(crate) fn try_parse_angle_percentage_or_zero(cv: &ComponentValue) -> Result<AnglePercentageZero, String> {
+    pub(crate) fn try_parse_angle_percentage_or_zero(
+        cv: &ComponentValue,
+    ) -> Result<AnglePercentageZero, CssValueError> {
         match cv {
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Dimension { .. } | CssTokenKind::Number(_) => {
@@ -222,9 +227,9 @@ impl Gradient {
                     let pct = Percentage::new(value.to_f64() as f32);
                     Ok(AnglePercentageZero::from(AnglePercentage::Percentage(pct)))
                 }
-                _ => Err(format!("Expected angle, percentage, or zero, got {:?}", token.kind)),
+                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
             },
-            _ => Err("Expected a token for angle/percentage".to_string()),
+            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
         }
     }
 
@@ -262,7 +267,7 @@ impl CSSParsable for Gradient {
     ///
     /// Expects the stream to contain a gradient function
     /// (`linear-gradient(…)`, `radial-gradient(…)`, etc.).
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
         if let Some(cv) = stream.peek()
@@ -273,7 +278,7 @@ impl CSSParsable for Gradient {
             return Ok(result);
         }
 
-        Err("Expected a gradient function".to_string())
+        Err(CssValueError::InvalidValue("Expected a gradient function".into()))
     }
 }
 

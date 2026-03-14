@@ -3,6 +3,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use crate::{
     CSSParsable,
     combination::AngleZero,
+    error::CssValueError,
     image::{
         Gradient,
         gradient::{interpolation::ColorInterpolationMethod, stops::ColorStopList},
@@ -30,10 +31,10 @@ impl LinearGradientSyntax {
     /// Accepted forms:
     ///   - `<angle>`                        → `LinearDirection::Angle`
     ///   - `to <side-or-corner>`            → `LinearDirection::Side`
-    fn try_parse_direction(segment: &[ComponentValue]) -> Result<LinearDirection, String> {
+    fn try_parse_direction(segment: &[ComponentValue]) -> Result<LinearDirection, CssValueError> {
         let stripped = Gradient::strip_whitespace(segment);
         if stripped.is_empty() {
-            return Err("Empty direction segment".into());
+            return Err(CssValueError::InvalidValue("Empty direction segment".into()));
         }
 
         let meaningful: Vec<&ComponentValue> = stripped
@@ -64,7 +65,7 @@ impl LinearGradientSyntax {
             return Ok(LinearDirection::Side(side_or_corner));
         }
 
-        Err("Segment is not a direction".into())
+        Err(CssValueError::InvalidValue("Invalid linear-gradient direction".into()))
     }
 
     /// Checks whether the first segment (before the first comma) constitutes a
@@ -110,11 +111,11 @@ impl CSSParsable for LinearGradientSyntax {
     /// 3. Check whether the next segment starts with `in` (color
     ///    interpolation).  If so, consume it.
     /// 4. The remaining segments form the `<color-stop-list>`.
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, String> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let segments = Gradient::split_on_commas(stream.remaining());
 
         if segments.is_empty() {
-            return Err("Empty linear-gradient arguments".into());
+            return Err(CssValueError::UnexpectedEndOfInput);
         }
 
         let mut idx = 0;
@@ -145,7 +146,7 @@ impl CSSParsable for LinearGradientSyntax {
         }
 
         if idx >= segments.len() {
-            return Err("Missing color stop list in linear-gradient".into());
+            return Err(CssValueError::UnexpectedEndOfInput);
         }
 
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);

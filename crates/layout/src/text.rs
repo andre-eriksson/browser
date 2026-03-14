@@ -71,7 +71,6 @@ impl TextContext {
 
         temp_buffer.set_size(&mut self.font_system, Some(max_width), None);
         temp_buffer.set_wrap(&mut self.font_system, wrap_mode);
-
         temp_buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
 
         temp_buffer.shape_until_scroll(&mut self.font_system, false);

@@ -36,11 +36,11 @@ impl TexturePipeline {
         let shader = std::str::from_utf8(&shader_bytes).expect("Shader is not valid UTF-8");
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some(&format!("{} Shader", label)),
+            label: Some(&format!("{label} Shader")),
             source: wgpu::ShaderSource::Wgsl(shader.into()),
         });
 
-        let globals = Globals2D::new(device, &format!("{} Pipeline", label));
+        let globals = Globals2D::new(device, &format!("{label} Pipeline"));
 
         (globals, shader_module)
     }
@@ -52,16 +52,16 @@ impl TexturePipeline {
         format: wgpu::TextureFormat,
         texture_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
-        let (globals, shader_module) = Self::start_pipeline(device, "Texture");
+        let (globals, shader_module) = Self::start_pipeline(device, "Image");
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Texture Pipeline Layout"),
+            label: Some("Image Pipeline Layout"),
             bind_group_layouts: &[&globals.layout, texture_bind_group_layout],
             push_constant_ranges: &[],
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Texture Render Pipeline"),
+            label: Some("Image Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader_module,
@@ -100,7 +100,7 @@ impl TexturePipeline {
 
         let max_vertices = Self::MAX_QUADS * 6;
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Texture Vertex Buffer"),
+            label: Some("Image Vertex Buffer"),
             size: (max_vertices * std::mem::size_of::<TextureVertex>()) as wgpu::BufferAddress,
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -212,38 +212,38 @@ impl TexturePipeline {
         let u1 = uv_rect.x + uv_rect.width;
         let v1 = uv_rect.y + uv_rect.height;
 
-        let c = color.to_array();
+        let color = color.into();
 
         let vertices = [
             TextureVertex {
                 position: [x, y],
                 uv: [u0, v0],
-                color: c,
+                color,
             },
             TextureVertex {
                 position: [x + w, y],
                 uv: [u1, v0],
-                color: c,
+                color,
             },
             TextureVertex {
                 position: [x + w, y + h],
                 uv: [u1, v1],
-                color: c,
+                color,
             },
             TextureVertex {
                 position: [x, y],
                 uv: [u0, v0],
-                color: c,
+                color,
             },
             TextureVertex {
                 position: [x + w, y + h],
                 uv: [u1, v1],
-                color: c,
+                color,
             },
             TextureVertex {
                 position: [x, y + h],
                 uv: [u0, v1],
-                color: c,
+                color,
             },
         ];
 
