@@ -11,7 +11,7 @@ use crate::{
 #[async_trait]
 pub trait ResponseHandle: Send + Sync {
     fn metadata(&self) -> &HeaderResponse;
-    async fn body(self: Box<Self>) -> Result<Response, NetworkError>;
+    async fn response(self: Box<Self>) -> Result<Response, NetworkError>;
 }
 
 /// An asynchronous HTTP client trait.

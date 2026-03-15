@@ -36,7 +36,7 @@ impl ResponseHandle for ReqwestHandle {
         &self.metadata
     }
 
-    async fn body(self: Box<Self>) -> Result<Response, NetworkError> {
+    async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
         let status_code = self.metadata.status_code;
         let headers = self.metadata.headers;
 

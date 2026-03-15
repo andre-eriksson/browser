@@ -244,21 +244,9 @@ async fn resolve_navigation_request(
     }
     .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
 
-    let resp = if url.scheme() != "http" && url.scheme() != "https" {
-        Response::from(
-            Resource::load(io::ResourceType::Absolute {
-                protocol: url.scheme(),
-                location: url.path(),
-            })
-            .map_err(|e| {
-                NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string())))
-            })?,
-        )
-    } else {
-        return resolve_request(url, ctx, page_url, policies, cookies, headers, client).await;
-    };
+    let resp = resolve_request(url, ctx, page_url, policies, cookies, headers, client).await?;
 
-    Ok((url, resp))
+    Ok(resp)
 }
 
 pub(crate) async fn resolve_request(
@@ -270,9 +258,46 @@ pub(crate) async fn resolve_request(
     headers: &Arc<HeaderMap>,
     client: &dyn HttpClient,
 ) -> Result<(Url, Response), NavigationError> {
-    let resp = Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies).await?;
+    let resp = if url.scheme() == "file" {
+        match &page_url {
+            &Some(base) => {
+                if base.scheme() == "file" {
+                    Response::from(
+                        Resource::load(io::ResourceType::Absolute {
+                            protocol: url.scheme(),
+                            location: url.path(),
+                        })
+                        .map_err(|e| {
+                            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                                e.to_string(),
+                            )))
+                        })?,
+                    )
+                } else {
+                    return Err(NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                        "Cannot resolve file URL with a non-file base URL for security reasons".to_string(),
+                    ))));
+                }
+            }
+            None => Response::from(
+                Resource::load(io::ResourceType::Absolute {
+                    protocol: url.scheme(),
+                    location: url.path(),
+                })
+                .map_err(|e| {
+                    NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string())))
+                })?,
+            ),
+        }
+    } else {
+        Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies)
+            .await?
+            .response()
+            .await
+            .map_err(RequestError::Network)?
+    };
 
-    for header in resp.metadata().headers.iter() {
+    for header in resp.headers.iter() {
         if header.0 == SET_COOKIE
             && let Ok(mut cookie_jar) = ctx.cookie_jar().lock()
         {
@@ -280,9 +305,7 @@ pub(crate) async fn resolve_request(
         }
     }
 
-    let response = resp.body().await.map_err(RequestError::Network)?;
-
-    Ok((url, response))
+    Ok((url, resp))
 }
 
 /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
@@ -346,7 +369,7 @@ fn spawn_style_fetch_and_parse(
                 }
             }
 
-            let body_bytes = match resp.body().await {
+            let body_bytes = match resp.response().await {
                 Ok(body_resp) => match body_resp.body {
                     Some(b) => b,
                     None => {
