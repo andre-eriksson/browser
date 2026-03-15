@@ -9,8 +9,9 @@ use std::sync::Arc;
 use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
-use crate::cascade::{GeneratedRule, RuleIndex};
+use crate::cascade::RuleIndex;
 use crate::properties::AbsoluteContext;
+use crate::rules::GeneratedRule;
 use crate::{ComputedStyle, RelativeContext};
 
 /// Represents a node in the style tree, which contains the computed style for a DOM node, its tag name (if it's an element),

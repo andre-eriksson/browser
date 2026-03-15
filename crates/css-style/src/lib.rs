@@ -9,6 +9,7 @@ mod computed;
 mod functions;
 mod handler;
 mod properties;
+mod rules;
 mod specified;
 mod tree;
 

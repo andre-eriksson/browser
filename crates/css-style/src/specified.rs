@@ -6,7 +6,7 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     ComputedStyle, RelativeContext,
-    cascade::{CascadedDeclaration, GeneratedRule, RuleIndex, cascade, cascade_variables},
+    cascade::{CascadedDeclaration, RuleIndex, cascade, cascade_variables},
     functions::variables::resolve_css_variables,
     handler::{
         PropertyUpdateContext, handle_background, handle_background_attachment, handle_background_blend_mode,
@@ -34,6 +34,7 @@ use crate::{
         OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty, WidthProperty,
         WritingModeProperty,
     },
+    rules::GeneratedRule,
 };
 
 /// Represents the specified style of an element after applying the cascade and resolving variables.

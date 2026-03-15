@@ -15,7 +15,7 @@ use tracing::debug;
 use crate::{
     AbsoluteContext, Color4f, ComputedDimension, ComputedMaxDimension, Display, FontFamily, Position, RelativeContext,
     RelativeType,
-    cascade::{GeneratedRule, RuleIndex},
+    cascade::RuleIndex,
     computed::{image::ComputedBackgroundImage, position::ComputedBackgroundSize},
     properties::{
         CSSProperty, PixelRepr,
@@ -24,6 +24,7 @@ use crate::{
             BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
         },
     },
+    rules::GeneratedRule,
     specified::SpecifiedStyle,
 };
 
