@@ -405,6 +405,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Co
         if stream.peek().is_none() {
             ctx.specified_style.background_attachment = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_clip = CSSProperty::Global(Global::Initial);
+            ctx.specified_style.background_color = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_image = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_origin = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_repeat = CSSProperty::Global(Global::Initial);
