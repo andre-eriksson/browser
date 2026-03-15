@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use css_cssom::{
     CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
-    CssTokenKind, SimpleBlock, StylesheetOrigin,
+    CssTokenKind, Property, SimpleBlock, StylesheetOrigin,
 };
 use css_selectors::{CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list};
 use css_values::{
@@ -11,7 +11,12 @@ use css_values::{
 };
 use preferences::ThemeCategory;
 
-use crate::{AbsoluteContext, properties::PixelRepr};
+use crate::{
+    AbsoluteContext,
+    cascade::{CascadeSpecificity, CascadedDeclaration},
+    properties::PixelRepr,
+    specified::SpecifiedStyle,
+};
 
 /// A rule that has been generated from the stylesheets, containing the selector sequences, declarations, origin, and specificity for cascade resolution.
 #[derive(Debug)]
@@ -84,7 +89,6 @@ impl<'css> GeneratedRule<'css> {
     /// Check if an at-rule is allowed based on the absolute context (e.g. media queries that don't match the current environment should be disallowed).
     fn allows_at_rule(at_rule: &CSSAtRule, absolute_ctx: &AbsoluteContext) -> bool {
         if at_rule.name().eq_ignore_ascii_case("import")
-            || at_rule.name().eq_ignore_ascii_case("supports")
             || at_rule.name().eq_ignore_ascii_case("scope")
             || at_rule.name().eq_ignore_ascii_case("font-face")
             || at_rule.name().eq_ignore_ascii_case("keyframes")
@@ -98,17 +102,17 @@ impl<'css> GeneratedRule<'css> {
         if at_rule.name().eq_ignore_ascii_case("media") {
             let stream = ComponentValueStream::new(at_rule.prelude_values());
 
-            let media_query_streams = stream.split_by(|cv| {
-                matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Comma) ||
-                    matches!(&token.kind, CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("or"))
-                )
+            return Self::eval_or_logic(stream, |and_stream| {
+                Self::eval_and_logic(and_stream, HashSet::new, |query, media_types| {
+                    Self::handle_media_query(query, absolute_ctx, media_types)
+                })
             });
+        } else if at_rule.name().eq_ignore_ascii_case("supports") {
+            let stream = ComponentValueStream::new(at_rule.prelude_values());
 
-            for media_query_stream in media_query_streams {
-                if Self::handle_media_query_and(media_query_stream, absolute_ctx) {
-                    return true;
-                }
-            }
+            return Self::eval_or_logic(stream, |and_stream| {
+                Self::eval_and_logic(and_stream, || (), |query, _| Self::handle_supports_condition(query, absolute_ctx))
+            });
         } else if at_rule.name().eq_ignore_ascii_case("layer") {
             // TODO: Handle @layer properly by respecting layer order and allowing layers to be enabled/disabled via media queries or other conditions.
             //       For now, we will simply ignore all rules inside @layer blocks to avoid complications with layer ordering and conditional enabling.
@@ -118,21 +122,31 @@ impl<'css> GeneratedRule<'css> {
         false
     }
 
-    fn handle_media_query_and(stream: ComponentValueStream, absolute_ctx: &AbsoluteContext) -> bool {
-        let mut media_types = HashSet::new();
+    fn eval_or_logic<F>(stream: ComponentValueStream, check: F) -> bool
+    where
+        F: FnMut(ComponentValueStream) -> bool,
+    {
+        stream
+            .split_by(|cv| Self::is_logic_split(cv, "or", true))
+            .any(check)
+    }
 
-        let media_queries = stream.split_by(|cv| {
-            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("and"))
-            )
-        });
+    fn eval_and_logic<S, I, F>(stream: ComponentValueStream, init_state: I, mut check: F) -> bool
+    where
+        I: FnOnce() -> S,
+        F: FnMut(ComponentValueStream, &mut S) -> bool,
+    {
+        let mut state = init_state();
+        stream
+            .split_by(|cv| Self::is_logic_split(cv, "and", false))
+            .all(|sub_query| check(sub_query, &mut state))
+    }
 
-        for media_query in media_queries {
-            if !Self::handle_media_query(media_query, absolute_ctx, &mut media_types) {
-                return false;
-            }
-        }
-
-        true
+    fn is_logic_split(cv: &ComponentValue, ident: &str, include_comma: bool) -> bool {
+        matches!(cv, ComponentValue::Token(token) if
+            (include_comma && matches!(&token.kind, CssTokenKind::Comma)) ||
+            matches!(&token.kind, CssTokenKind::Ident(i) if i.eq_ignore_ascii_case(ident))
+        )
     }
 
     fn handle_media_query(
@@ -485,6 +499,67 @@ impl<'css> GeneratedRule<'css> {
             _ => return false,
         };
         first_condition && second_condition
+    }
+
+    fn handle_supports_condition(mut stream: ComponentValueStream, absolute_ctx: &AbsoluteContext) -> bool {
+        let mut is_not = false;
+
+        while let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("not") => {
+                        is_not = true;
+                        continue;
+                    }
+                    _ => return false,
+                },
+                ComponentValue::SimpleBlock(block) => {
+                    return Self::handle_supports_block(block, absolute_ctx) ^ is_not;
+                }
+                _ => return false,
+            }
+        }
+
+        false
+    }
+
+    fn handle_supports_block(block: &SimpleBlock, absolute_ctx: &AbsoluteContext) -> bool {
+        let block_stream = ComponentValueStream::new(&block.value);
+
+        let prop_value_streams = block_stream
+            .split_by(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Colon)));
+
+        let mut property = None;
+        let mut value = None;
+
+        for mut stream in prop_value_streams {
+            if property.is_none()
+                && let Some(ComponentValue::Token(token)) = stream.next_non_whitespace()
+                && let CssTokenKind::Ident(ident) = &token.kind
+            {
+                property = Some(Property::from(ident.clone()));
+            } else if let Some(p) = std::mem::take(&mut property) {
+                stream.skip_whitespace();
+                value = Some(CSSDeclaration::from_values(p, stream.remaining().to_vec()));
+                break;
+            }
+        }
+
+        let declaration = match value {
+            Some(decl) => decl,
+            None => return false,
+        };
+
+        let decl = CascadedDeclaration {
+            important: false,
+            origin: StylesheetOrigin::Author,
+            property: &declaration.property,
+            source_order: 0,
+            specificity: CascadeSpecificity::inline(),
+            values: &declaration.original_values,
+        };
+
+        SpecifiedStyle::supports(decl, absolute_ctx)
     }
 
     /// Push a style rule into the generated rules list, extracting its selector sequences, declarations, origin, and specificity for cascade resolution.

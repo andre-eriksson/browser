@@ -57,6 +57,10 @@ impl<'css> PropertyUpdateContext<'css> {
         }
     }
 
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
     fn record_error(&mut self, property: &str, value: String, error: CssValueError) {
         self.errors.push(PropertyError {
             property: property.to_string(),

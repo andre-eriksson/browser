@@ -24,16 +24,6 @@ pub struct CSSDeclaration {
 }
 
 impl CSSDeclaration {
-    /// Create a new declaration
-    pub fn new(property: Property, value: String, important: bool) -> Self {
-        CSSDeclaration {
-            property,
-            value,
-            important,
-            original_values: Vec::new(),
-        }
-    }
-
     /// Create a declaration from component values
     pub fn from_values(property: Property, values: Vec<ComponentValue>) -> Self {
         let mut value_parts: Vec<String> = Vec::new();
