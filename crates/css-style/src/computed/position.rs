@@ -19,7 +19,7 @@ pub enum ComputedLengthPercentage {
 impl ComputedLengthPercentage {
     pub fn resolve(len_pct: LengthPercentage, relative_ctx: &RelativeContext, absolute_ctx: &AbsoluteContext) -> Self {
         match len_pct {
-            LengthPercentage::Length(len) => Self::Length(len.to_px(None, relative_ctx, absolute_ctx)),
+            LengthPercentage::Length(len) => Self::Length(len.to_px(None, Some(relative_ctx), absolute_ctx)),
             LengthPercentage::Percentage(pct) => Self::Percentage(pct.as_fraction()),
         }
     }

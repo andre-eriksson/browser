@@ -15,13 +15,24 @@ use css_values::{
 use crate::properties::{AbsoluteContext, CSSParsable, PixelRepr, RelativeContext, RelativeType};
 
 impl PixelRepr for OffsetValue {
-    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
             OffsetValue::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
             OffsetValue::Percentage(pct) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent.font_size * pct.as_fraction(),
-                Some(RelativeType::ParentHeight) => rel_ctx.parent.intrinsic_height * pct.as_fraction(),
-                Some(RelativeType::ParentWidth) => rel_ctx.parent.intrinsic_width * pct.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx
+                    .map(|ctx| ctx.font_size * pct.as_fraction())
+                    .unwrap_or(abs_ctx.root_font_size * pct.as_fraction()),
+                Some(RelativeType::ParentHeight) => rel_ctx
+                    .map(|ctx| ctx.parent.intrinsic_height * pct.as_fraction())
+                    .unwrap_or(abs_ctx.viewport_height * pct.as_fraction()),
+                Some(RelativeType::ParentWidth) => rel_ctx
+                    .map(|ctx| ctx.parent.intrinsic_width * pct.as_fraction())
+                    .unwrap_or(abs_ctx.viewport_width * pct.as_fraction()),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),

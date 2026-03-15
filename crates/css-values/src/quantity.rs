@@ -346,6 +346,7 @@ pub enum Frequency {
 
 /// The <resolution> CSS data type represents a resolution value, which can be specified in dots per inch,
 /// dots per centimeter, or dots per pixel. It is commonly used in media queries to specify the resolution of the output device.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Resolution {
     /// Dots per inch (e.g., "300dpi")
     ///

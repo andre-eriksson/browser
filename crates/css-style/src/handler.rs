@@ -1052,7 +1052,7 @@ pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut Com
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
         ctx.specified_style.computed_font_size_px =
-            font_size.to_px(Some(RelativeType::FontSize), ctx.relative_ctx, ctx.absolute_ctx);
+            font_size.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx);
     }
 }
 

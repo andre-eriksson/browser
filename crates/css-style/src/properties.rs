@@ -42,7 +42,12 @@ pub trait PixelRepr {
     /// the type of relative measurement (e.g., font size, parent width) that may be needed for the conversion.
     /// The `rel_ctx` provides access to the parent style for inheritance and percentage calculations, while
     /// the `abs_ctx` provides access to absolute context values like root font size and viewport dimensions.
-    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32;
+    fn to_px(
+        &self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32;
 }
 
 /// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.
@@ -60,6 +65,7 @@ pub enum RelativeType {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct AbsoluteContext<'page> {
     pub root_font_size: f32,
+    pub root_line_height_multiplier: f32,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub root_color: Color,
@@ -71,6 +77,7 @@ pub struct AbsoluteContext<'page> {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
     pub parent: Arc<ComputedStyle>,
+    pub font_size: f32,
 }
 
 /// A CSS property that can either be a specific value or a global value (initial, inherit, unset, revert, revert-layer).

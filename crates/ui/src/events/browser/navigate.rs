@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use css_style::{AbsoluteContext, StyleTree};
+use css_values::color::Color;
 use http::HeaderMap;
 use iced::Task;
 use io::{CacheEntry, CacheRead};
@@ -112,7 +113,8 @@ pub(crate) fn on_navigation_success(
                 .unwrap_or(600.0),
             theme_category: application.config.active_theme().category,
             document_url: page.document_url.as_ref(),
-            ..Default::default()
+            root_line_height_multiplier: 1.2,
+            root_color: Color::BLACK,
         };
 
         let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());

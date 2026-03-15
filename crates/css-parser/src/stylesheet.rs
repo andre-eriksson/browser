@@ -129,8 +129,8 @@ pub struct ComponentValueStream<'a> {
     position: usize,
 }
 
-impl ComponentValueStream<'_> {
-    pub fn new(values: &[ComponentValue]) -> ComponentValueStream<'_> {
+impl<'a> ComponentValueStream<'a> {
+    pub fn new(values: &'a [ComponentValue]) -> ComponentValueStream<'a> {
         ComponentValueStream {
             values,
             position: 0,
@@ -140,6 +140,10 @@ impl ComponentValueStream<'_> {
     /// Get the underlying slice of component values
     pub fn values(&self) -> &[ComponentValue] {
         self.values
+    }
+
+    pub fn position(&self) -> usize {
+        self.position
     }
 
     /// Peek at the next component value without consuming it
@@ -186,6 +190,18 @@ impl ComponentValueStream<'_> {
     pub fn next_non_whitespace(&mut self) -> Option<&ComponentValue> {
         self.skip_whitespace();
         self.next_cv()
+    }
+
+    pub fn split_by<F>(self, mut predicate: F) -> impl Iterator<Item = ComponentValueStream<'a>>
+    where
+        F: FnMut(&ComponentValue) -> bool,
+    {
+        self.values
+            .split(move |item| predicate(item))
+            .map(move |sub_slice| ComponentValueStream {
+                position: 0,
+                values: sub_slice,
+            })
     }
 }
 

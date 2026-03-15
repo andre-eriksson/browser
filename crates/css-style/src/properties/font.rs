@@ -15,7 +15,12 @@ use crate::{
 };
 
 impl PixelRepr for AbsoluteSize {
-    fn to_px(&self, _rel_type: Option<RelativeType>, _rel_ctx: &RelativeContext, _abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        _rel_type: Option<RelativeType>,
+        _rel_ctx: Option<&RelativeContext>,
+        _abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
             AbsoluteSize::XxSmall => 9.0,
             AbsoluteSize::XSmall => 10.0,
@@ -30,10 +35,19 @@ impl PixelRepr for AbsoluteSize {
 }
 
 impl PixelRepr for RelativeSize {
-    fn to_px(&self, _rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, _abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        _rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
-            RelativeSize::Smaller => rel_ctx.parent.font_size * 0.833,
-            RelativeSize::Larger => rel_ctx.parent.font_size * 1.2,
+            RelativeSize::Smaller => rel_ctx
+                .map(|ctx| ctx.parent.font_size * 0.833)
+                .unwrap_or(abs_ctx.root_font_size * 0.833),
+            RelativeSize::Larger => rel_ctx
+                .map(|ctx| ctx.parent.font_size * 1.2)
+                .unwrap_or(abs_ctx.root_font_size * 1.2),
         }
     }
 }
@@ -127,11 +141,21 @@ impl CSSParsable for FontFamily {
 }
 
 impl PixelRepr for FontSize {
-    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
             FontSize::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx),
             FontSize::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
-            FontSize::Percentage(pct) => pct.as_fraction() * rel_ctx.parent.font_size,
+            FontSize::Percentage(pct) => {
+                pct.as_fraction()
+                    * rel_ctx
+                        .map(|ctx| ctx.parent.font_size)
+                        .unwrap_or(abs_ctx.root_font_size)
+            }
             FontSize::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx),
             FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),
         }

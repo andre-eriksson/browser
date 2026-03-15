@@ -8,7 +8,12 @@ use crate::{
 };
 
 impl PixelRepr for Length {
-    fn to_px(&self, _rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self.unit() {
             LengthUnit::Px => self.value(),
             LengthUnit::Cm => self.value() * 96.0 / 2.54,
@@ -20,9 +25,18 @@ impl PixelRepr for Length {
             LengthUnit::Vw => abs_ctx.viewport_width * self.value() / 100.0,
             LengthUnit::Vh => abs_ctx.viewport_height * self.value() / 100.0,
 
-            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.parent.font_size * 0.5 * self.value(),
+            LengthUnit::Ch | LengthUnit::Cap => rel_ctx
+                .map(|ctx| ctx.parent.font_size * 0.5 * self.value())
+                .unwrap_or(abs_ctx.root_font_size * 0.5 * self.value()),
             LengthUnit::Rem => abs_ctx.root_font_size * self.value(),
-            LengthUnit::Em => rel_ctx.parent.font_size * self.value(),
+            LengthUnit::Em => match rel_type {
+                Some(RelativeType::FontSize) => rel_ctx
+                    .map(|ctx| ctx.parent.font_size * self.value())
+                    .unwrap_or(abs_ctx.root_font_size * self.value()),
+                _ => rel_ctx
+                    .map(|ctx| ctx.font_size * self.value())
+                    .unwrap_or(abs_ctx.root_font_size * self.value()),
+            },
             _ => self.value(), // TODO: Handle other units properly
         }
     }

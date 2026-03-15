@@ -11,6 +11,7 @@ pub struct Text {
     pub buffer: Buffer,
 }
 
+#[derive(Debug)]
 pub struct TextDescription<'a> {
     pub whitespace: &'a Whitespace,
     pub line_height: f32,

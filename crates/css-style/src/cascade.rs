@@ -2,16 +2,20 @@ use std::collections::{HashMap, HashSet};
 
 use css_cssom::{
     CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
-    CssTokenKind, HashType, Property, StylesheetOrigin,
+    CssTokenKind, HashType, Property, SimpleBlock, StylesheetOrigin,
 };
 use css_selectors::{
     ClassSet, CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list,
     matches_compound,
 };
+use css_values::{
+    media::{MediaCondition, MediaFeature, MediaType, RangeOperator},
+    quantity::{Length, LengthUnit},
+};
 use html_dom::{DocumentRoot, DomNode, Element};
 use preferences::ThemeCategory;
 
-use crate::AbsoluteContext;
+use crate::{AbsoluteContext, properties::PixelRepr};
 
 /// The key extracted from a rule's rightmost (subject) compound selector,
 /// used for fast pre-filtering of rules that cannot possibly match an element.
@@ -230,28 +234,17 @@ impl<'css> GeneratedRule<'css> {
         }
 
         if at_rule.name().eq_ignore_ascii_case("media") {
-            let mut stream = ComponentValueStream::new(at_rule.prelude_values());
+            let stream = ComponentValueStream::new(at_rule.prelude_values());
 
-            if let Some(ComponentValue::SimpleBlock(block)) = stream.next_non_whitespace() {
-                let mut block_stream = ComponentValueStream::new(&block.value);
+            let media_query_streams = stream.split_by(|cv| {
+                matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Comma) ||
+                    matches!(&token.kind, CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("or"))
+                )
+            });
 
-                if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace()
-                    && let CssTokenKind::Ident(ident) = &token.kind
-                {
-                    if ident.eq_ignore_ascii_case("print") {
-                        return false;
-                    } else if ident.eq_ignore_ascii_case("prefers-color-scheme") {
-                        block_stream.skip_whitespace();
-                        block_stream.next_cv(); // Skip ':'
-                        if let Some(ComponentValue::Token(value_token)) = block_stream.next_non_whitespace()
-                            && let CssTokenKind::Ident(value_ident) = &value_token.kind
-                        {
-                            return match absolute_ctx.theme_category {
-                                ThemeCategory::Dark => value_ident.eq_ignore_ascii_case("dark"),
-                                ThemeCategory::Light => value_ident.eq_ignore_ascii_case("light"),
-                            };
-                        }
-                    }
+            for media_query_stream in media_query_streams {
+                if Self::handle_media_query_and(media_query_stream, absolute_ctx) {
+                    return true;
                 }
             }
         } else if at_rule.name().eq_ignore_ascii_case("layer") {
@@ -261,6 +254,375 @@ impl<'css> GeneratedRule<'css> {
         }
 
         false
+    }
+
+    fn handle_media_query_and(stream: ComponentValueStream, absolute_ctx: &AbsoluteContext) -> bool {
+        let mut media_types = HashSet::new();
+
+        let media_queries = stream.split_by(|cv| {
+            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("and"))
+            )
+        });
+
+        for media_query in media_queries {
+            if !Self::handle_media_query(media_query, absolute_ctx, &mut media_types) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    fn handle_media_query(
+        mut stream: ComponentValueStream,
+        absolute_ctx: &AbsoluteContext,
+        media_types: &mut HashSet<MediaType>,
+    ) -> bool {
+        let mut is_not = false;
+
+        while let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        if ident.eq_ignore_ascii_case("not") {
+                            is_not = true;
+                            continue;
+                        }
+
+                        let media_type = match ident.parse::<MediaType>() {
+                            Ok(mt) => mt,
+                            Err(_) => return false,
+                        };
+
+                        if !matches!(media_type, MediaType::All | MediaType::Screen | MediaType::Print) {
+                            // <https://drafts.csswg.org/mediaqueries/#media-types>
+                            continue;
+                        }
+
+                        media_types.insert(media_type);
+                    }
+                    _ => continue,
+                },
+
+                ComponentValue::SimpleBlock(block) => {
+                    if media_types.contains(&MediaType::Print) && media_types.len() == 1 {
+                        // NOTE: We don't support print media queries or the print format.
+                        return false;
+                    }
+
+                    return Self::handle_media_block(block, absolute_ctx) ^ is_not;
+                }
+                _ => return false,
+            }
+        }
+
+        false
+    }
+
+    fn handle_media_block(block: &SimpleBlock, absolute_ctx: &AbsoluteContext) -> bool {
+        let mut block_stream = ComponentValueStream::new(&block.value);
+
+        if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace() {
+            match &token.kind {
+                CssTokenKind::Ident(ident) => {
+                    let bytes = ident.as_bytes();
+
+                    if bytes.len() < 4 {
+                        return false;
+                    }
+
+                    let mut buf = [0u8; 4];
+                    buf.copy_from_slice(bytes[..4].try_into().unwrap());
+                    buf.make_ascii_lowercase();
+
+                    match &buf {
+                        b"max-" => {
+                            let remaining = match str::from_utf8(&bytes[4..]) {
+                                Ok(s) => s,
+                                Err(_) => return false,
+                            };
+
+                            let media_condition = match remaining.parse::<MediaCondition>() {
+                                Ok(media_condition) => media_condition,
+                                Err(_) => return false,
+                            };
+
+                            return Self::handle_media_range_max(media_condition, &mut block_stream, absolute_ctx);
+                        }
+                        b"min-" => {
+                            let remaining = match str::from_utf8(&bytes[4..]) {
+                                Ok(s) => s,
+                                Err(_) => return false,
+                            };
+
+                            let media_condition = match remaining.parse::<MediaCondition>() {
+                                Ok(media_condition) => media_condition,
+                                Err(_) => return false,
+                            };
+
+                            return Self::handle_media_range_min(media_condition, &mut block_stream, absolute_ctx);
+                        }
+                        _ => {
+                            let media_feature = match ident.parse::<MediaFeature>() {
+                                Ok(feature) => feature,
+                                Err(_) => return false,
+                            };
+
+                            match media_feature {
+                                MediaFeature::PrefersColorScheme => {
+                                    block_stream.skip_whitespace();
+                                    block_stream.next_cv(); // Skip ':'
+                                    if let Some(ComponentValue::Token(value_token)) = block_stream.next_non_whitespace()
+                                        && let CssTokenKind::Ident(value_ident) = &value_token.kind
+                                    {
+                                        return match absolute_ctx.theme_category {
+                                            ThemeCategory::Dark => value_ident.eq_ignore_ascii_case("dark"),
+                                            ThemeCategory::Light => value_ident.eq_ignore_ascii_case("light"),
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                CssTokenKind::Dimension { value, unit } => {
+                    // Range: 100px <= width <= 500px OR 500px >= width >= 100px
+                    // Range Values (ident): aspect-ratio, color, color-index, device-aspect-ratio,
+                    //               device-height, device-width, height, resolution, width
+
+                    // TODO: Resolution
+                    let first_length_unit = match unit.parse::<LengthUnit>() {
+                        Ok(unit) => unit,
+                        Err(_) => return false,
+                    };
+                    let first_length = Length::new(value.to_f64() as f32, first_length_unit);
+
+                    let first_comparison_token = match block_stream.next_non_whitespace() {
+                        Some(ComponentValue::Token(token)) => {
+                            if let CssTokenKind::Delim(delim) = token.kind {
+                                delim
+                            } else {
+                                return false;
+                            }
+                        }
+                        _ => return false,
+                    };
+
+                    let second_comparison_token = match block_stream.peek() {
+                        Some(ComponentValue::Token(token)) => {
+                            if let CssTokenKind::Delim(delim) = token.kind {
+                                block_stream.next_cv();
+                                Some(delim)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    };
+
+                    let first_comparison = match (first_comparison_token, second_comparison_token) {
+                        ('<', Some('=')) => RangeOperator::LessThanOrEqual,
+                        ('>', Some('=')) => RangeOperator::GreaterThanOrEqual,
+                        ('<', None) => RangeOperator::LessThan,
+                        ('>', None) => RangeOperator::GreaterThan,
+                        _ => return false,
+                    };
+
+                    let value = match block_stream.next_non_whitespace() {
+                        Some(ComponentValue::Token(token)) => {
+                            if let CssTokenKind::Ident(ident) = &token.kind {
+                                match ident.parse::<MediaCondition>() {
+                                    Ok(cond) => cond,
+                                    Err(_) => return false,
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                        _ => return false,
+                    };
+
+                    let first_comparison_token = match block_stream.next_non_whitespace() {
+                        Some(ComponentValue::Token(token)) => {
+                            if let CssTokenKind::Delim(delim) = token.kind {
+                                delim
+                            } else {
+                                return false;
+                            }
+                        }
+                        _ => return false,
+                    };
+
+                    let second_comparison_token = match block_stream.peek() {
+                        Some(ComponentValue::Token(token)) => {
+                            if let CssTokenKind::Delim(delim) = token.kind {
+                                block_stream.next_cv();
+                                Some(delim)
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    };
+
+                    let second_comparison = match (first_comparison_token, second_comparison_token) {
+                        ('<', Some('=')) => RangeOperator::LessThanOrEqual,
+                        ('>', Some('=')) => RangeOperator::GreaterThanOrEqual,
+                        ('<', None) => RangeOperator::LessThan,
+                        ('>', None) => RangeOperator::GreaterThan,
+                        _ => return false,
+                    };
+
+                    let second_length = match block_stream.next_non_whitespace() {
+                        Some(ComponentValue::Token(token)) => {
+                            if let CssTokenKind::Dimension { value, unit } = &token.kind {
+                                let length_unit = match unit.parse::<LengthUnit>() {
+                                    Ok(unit) => unit,
+                                    Err(_) => return false,
+                                };
+                                Length::new(value.to_f64() as f32, length_unit)
+                            } else {
+                                return false;
+                            }
+                        }
+                        _ => return false,
+                    };
+
+                    match value {
+                        MediaCondition::Width | MediaCondition::DeviceWidth => {
+                            let viewport_width = absolute_ctx.viewport_width;
+                            return Self::resolve_range(
+                                absolute_ctx,
+                                first_length,
+                                first_comparison,
+                                second_comparison,
+                                second_length,
+                                viewport_width,
+                            );
+                        }
+                        MediaCondition::Height | MediaCondition::DeviceHeight => {
+                            let viewport_height = absolute_ctx.viewport_height;
+                            return Self::resolve_range(
+                                absolute_ctx,
+                                first_length,
+                                first_comparison,
+                                second_comparison,
+                                second_length,
+                                viewport_height,
+                            );
+                        }
+                        _ => return false,
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        false
+    }
+
+    fn handle_media_range_max(
+        media_condition: MediaCondition,
+        block_stream: &mut ComponentValueStream,
+        absolute_ctx: &AbsoluteContext,
+    ) -> bool {
+        block_stream.skip_whitespace();
+        block_stream.next_cv(); // Skip ':'
+
+        if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace() {
+            match &token.kind {
+                CssTokenKind::Dimension { value, unit } => {
+                    let length_unit = match unit.parse::<LengthUnit>() {
+                        Ok(unit) => unit,
+                        Err(_) => return false,
+                    };
+                    let length = Length::new(value.to_f64() as f32, length_unit);
+
+                    match media_condition {
+                        MediaCondition::Width | MediaCondition::DeviceWidth => {
+                            let viewport_width = absolute_ctx.viewport_width;
+                            return viewport_width <= length.to_px(None, None, absolute_ctx);
+                        }
+                        MediaCondition::Height | MediaCondition::DeviceHeight => {
+                            let viewport_height = absolute_ctx.viewport_height;
+                            return viewport_height <= length.to_px(None, None, absolute_ctx);
+                        }
+                        _ => return false,
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        false
+    }
+
+    fn handle_media_range_min(
+        media_condition: MediaCondition,
+        block_stream: &mut ComponentValueStream,
+        absolute_ctx: &AbsoluteContext,
+    ) -> bool {
+        block_stream.skip_whitespace();
+        block_stream.next_cv(); // Skip ':'
+        block_stream.skip_whitespace();
+
+        if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace() {
+            match &token.kind {
+                CssTokenKind::Dimension { value, unit } => {
+                    let length_unit = match unit.parse::<LengthUnit>() {
+                        Ok(unit) => unit,
+                        Err(_) => return false,
+                    };
+                    let length = Length::new(value.to_f64() as f32, length_unit);
+
+                    match media_condition {
+                        MediaCondition::Width | MediaCondition::DeviceWidth => {
+                            let viewport_width = absolute_ctx.viewport_width;
+                            return viewport_width >= length.to_px(None, None, absolute_ctx);
+                        }
+                        MediaCondition::Height | MediaCondition::DeviceHeight => {
+                            let viewport_height = absolute_ctx.viewport_height;
+                            return viewport_height >= length.to_px(None, None, absolute_ctx);
+                        }
+                        _ => return false,
+                    }
+                }
+                _ => return false,
+            }
+        }
+
+        false
+    }
+
+    fn resolve_range(
+        absolute_ctx: &AbsoluteContext<'_>,
+        first_length: Length,
+        first_comparison: RangeOperator,
+        second_comparison: RangeOperator,
+        second_length: Length,
+        value: f32,
+    ) -> bool {
+        if matches!(first_comparison, RangeOperator::LessThan | RangeOperator::LessThanOrEqual)
+            && matches!(second_comparison, RangeOperator::GreaterThan | RangeOperator::GreaterThanOrEqual)
+        {
+            return false;
+        }
+
+        let first_condition = match first_comparison {
+            RangeOperator::LessThan => value > first_length.to_px(None, None, absolute_ctx),
+            RangeOperator::LessThanOrEqual => value >= first_length.to_px(None, None, absolute_ctx),
+            RangeOperator::GreaterThan => value < first_length.to_px(None, None, absolute_ctx),
+            RangeOperator::GreaterThanOrEqual => value <= first_length.to_px(None, None, absolute_ctx),
+            _ => return false,
+        };
+        let second_condition = match second_comparison {
+            RangeOperator::LessThan => value < second_length.to_px(None, None, absolute_ctx),
+            RangeOperator::LessThanOrEqual => value <= second_length.to_px(None, None, absolute_ctx),
+            RangeOperator::GreaterThan => value > second_length.to_px(None, None, absolute_ctx),
+            RangeOperator::GreaterThanOrEqual => value >= second_length.to_px(None, None, absolute_ctx),
+            _ => return false,
+        };
+        first_condition && second_condition
     }
 
     /// Push a style rule into the generated rules list, extracting its selector sequences, declarations, origin, and specificity for cascade resolution.

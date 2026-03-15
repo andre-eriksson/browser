@@ -78,6 +78,8 @@ mod tests {
             let absolute_ctx = AbsoluteContext {
                 viewport_width: viewport().width,
                 viewport_height: viewport().height,
+                root_font_size: 16.0,
+                root_line_height_multiplier: 1.2,
                 ..Default::default()
             };
 

@@ -9,7 +9,7 @@ impl PixelRepr for BorderWidth {
     fn to_px(
         &self,
         rel_type: Option<super::RelativeType>,
-        rel_ctx: &RelativeContext,
+        rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {

@@ -373,6 +373,7 @@ mod tests {
         };
         RelativeContext {
             parent: Arc::new(parent),
+            font_size: 16.0,
         }
     }
 

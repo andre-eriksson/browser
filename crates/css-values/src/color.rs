@@ -146,6 +146,10 @@ pub enum Color {
     // TODO: device-cmyk()
 }
 
+impl Color {
+    pub const BLACK: Self = Self::Base(ColorBase::Named(NamedColor::Black));
+}
+
 impl Default for Color {
     fn default() -> Self {
         Color::Base(ColorBase::Named(NamedColor::Black))

@@ -157,6 +157,11 @@ impl ComputedStyle {
             MaxDimension::Length(Length::px(relative_ctx.parent.max_intrinsic_width)),
             MaxDimension::None,
         );
+        let font_size = specified_style
+            .font_size
+            .resolve_with_context_owned(FontSize::px(relative_ctx.parent.font_size), FontSize::px(16.0))
+            .to_px(Some(RelativeType::FontSize), Some(relative_ctx), absolute_ctx);
+        relative_ctx.font_size = font_size;
 
         Self {
             background_attachment: specified_style
@@ -270,25 +275,25 @@ impl ComputedStyle {
             border_top_width: specified_style
                 .border_top_width
                 .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_top_width), BorderWidth::zero())
-                .to_px(None, relative_ctx, absolute_ctx),
+                .to_px(None, Some(relative_ctx), absolute_ctx),
             border_right_width: specified_style
                 .border_right_width
                 .resolve_with_context_owned(
                     BorderWidth::px(relative_ctx.parent.border_right_width),
                     BorderWidth::zero(),
                 )
-                .to_px(None, relative_ctx, absolute_ctx),
+                .to_px(None, Some(relative_ctx), absolute_ctx),
             border_bottom_width: specified_style
                 .border_bottom_width
                 .resolve_with_context_owned(
                     BorderWidth::px(relative_ctx.parent.border_bottom_width),
                     BorderWidth::zero(),
                 )
-                .to_px(None, relative_ctx, absolute_ctx),
+                .to_px(None, Some(relative_ctx), absolute_ctx),
             border_left_width: specified_style
                 .border_left_width
                 .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_left_width), BorderWidth::zero())
-                .to_px(None, relative_ctx, absolute_ctx),
+                .to_px(None, Some(relative_ctx), absolute_ctx),
             color: Color4f::from_css_color_property(
                 &specified_style.color,
                 &CSSProperty::Value(Color::Base(ColorBase::Named(NamedColor::Black))),
@@ -307,34 +312,31 @@ impl ComputedStyle {
                 (*relative_ctx.parent.font_family).clone(),
                 FontFamily::new(&[FontFamilyName::Generic(GenericName::Serif)]),
             )),
-            font_size: specified_style
-                .font_size
-                .resolve_with_context_owned(FontSize::px(relative_ctx.parent.font_size), FontSize::px(16.0))
-                .to_px(Some(RelativeType::FontSize), relative_ctx, absolute_ctx),
+            font_size,
             font_weight: specified_style
                 .font_weight
                 .resolve_with_context_owned(FontWeight::from(relative_ctx.parent.font_weight), FontWeight::Normal)
                 as u16,
-            intrinsic_height: height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
+            intrinsic_height: height.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
             height: ComputedDimension::from(height),
-            max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx),
+            max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
             max_height: ComputedMaxDimension::from(max_height),
             line_height: specified_style
                 .line_height
                 .resolve_with_context_owned(LineHeight::px(relative_ctx.parent.line_height), LineHeight::Normal)
-                .to_px(None, relative_ctx, absolute_ctx),
-            margin_top: margin_top.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-            margin_right: margin_right.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-            margin_bottom: margin_bottom.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-            margin_left: margin_left.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+                .to_px(None, Some(relative_ctx), absolute_ctx),
+            margin_top: margin_top.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
+            margin_right: margin_right.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
+            margin_bottom: margin_bottom.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
+            margin_left: margin_left.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
             margin_top_auto: margin_top.is_auto(),
             margin_right_auto: margin_right.is_auto(),
             margin_bottom_auto: margin_bottom.is_auto(),
             margin_left_auto: margin_left.is_auto(),
-            padding_top: padding_top.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-            padding_right: padding_right.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-            padding_bottom: padding_bottom.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
-            padding_left: padding_left.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+            padding_top: padding_top.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
+            padding_right: padding_right.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
+            padding_bottom: padding_bottom.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
+            padding_left: padding_left.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
             padding_top_auto: padding_top.is_auto(),
             padding_right_auto: padding_right.is_auto(),
             padding_bottom_auto: padding_bottom.is_auto(),
@@ -348,9 +350,9 @@ impl ComputedStyle {
             whitespace: specified_style
                 .whitespace
                 .resolve_with_context_owned(relative_ctx.parent.whitespace, Whitespace::Normal),
-            intrinsic_width: width.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+            intrinsic_width: width.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
             width: ComputedDimension::from(width),
-            max_intrinsic_width: max_width.to_px(Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx),
+            max_intrinsic_width: max_width.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
             max_width: ComputedMaxDimension::from(max_width),
             writing_mode: specified_style
                 .writing_mode

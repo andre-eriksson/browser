@@ -15,11 +15,11 @@ pub mod display;
 pub mod error;
 pub mod global;
 pub mod image;
+pub mod media;
 pub mod numeric;
 pub mod position;
 pub mod quantity;
 pub mod text;
-//TODO: pub mod shape;
 
 /// Trait for CSS value types that can be parsed from a `ComponentValueStream`.
 ///

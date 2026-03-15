@@ -5,7 +5,12 @@ use css_values::dimension::{Dimension, MaxDimension};
 use crate::properties::{AbsoluteContext, PixelRepr, RelativeContext, RelativeType};
 
 impl PixelRepr for Dimension {
-    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
             Dimension::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
             Dimension::MaxContent => 0.0,
@@ -15,9 +20,15 @@ impl PixelRepr for Dimension {
             Dimension::Auto => 0.0,
             Dimension::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             Dimension::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent.font_size * p.as_fraction(),
-                Some(RelativeType::ParentHeight) => rel_ctx.parent.intrinsic_height * p.as_fraction(),
-                Some(RelativeType::ParentWidth) => rel_ctx.parent.intrinsic_width * p.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx
+                    .map(|ctx| ctx.font_size * p.as_fraction())
+                    .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),
+                Some(RelativeType::ParentHeight) => rel_ctx
+                    .map(|ctx| ctx.parent.intrinsic_height * p.as_fraction())
+                    .unwrap_or(abs_ctx.viewport_height * p.as_fraction()),
+                Some(RelativeType::ParentWidth) => rel_ctx
+                    .map(|ctx| ctx.parent.intrinsic_width * p.as_fraction())
+                    .unwrap_or(abs_ctx.viewport_width * p.as_fraction()),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
@@ -28,7 +39,12 @@ impl PixelRepr for Dimension {
 }
 
 impl PixelRepr for MaxDimension {
-    fn to_px(&self, rel_type: Option<RelativeType>, rel_ctx: &RelativeContext, abs_ctx: &AbsoluteContext) -> f32 {
+    fn to_px(
+        &self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> f32 {
         match self {
             MaxDimension::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
             MaxDimension::MaxContent => 0.0,
@@ -38,9 +54,15 @@ impl PixelRepr for MaxDimension {
             MaxDimension::None => f32::INFINITY,
             MaxDimension::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             MaxDimension::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx.parent.font_size * p.as_fraction(),
-                Some(RelativeType::ParentHeight) => rel_ctx.parent.intrinsic_height * p.as_fraction(),
-                Some(RelativeType::ParentWidth) => rel_ctx.parent.intrinsic_width * p.as_fraction(),
+                Some(RelativeType::FontSize) => rel_ctx
+                    .map(|ctx| ctx.font_size * p.as_fraction())
+                    .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),
+                Some(RelativeType::ParentHeight) => rel_ctx
+                    .map(|ctx| ctx.parent.intrinsic_height * p.as_fraction())
+                    .unwrap_or(abs_ctx.viewport_height * p.as_fraction()),
+                Some(RelativeType::ParentWidth) => rel_ctx
+                    .map(|ctx| ctx.parent.intrinsic_width * p.as_fraction())
+                    .unwrap_or(abs_ctx.viewport_width * p.as_fraction()),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
@@ -68,6 +90,7 @@ mod tests {
                 intrinsic_width: 200.0,
                 ..Default::default()
             }),
+            font_size: 16.0,
         };
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
@@ -77,6 +100,6 @@ mod tests {
         };
 
         let dim = Dimension::Percentage(Percentage::new(50.0));
-        assert_eq!(dim.to_px(Some(RelativeType::ParentWidth), &rel_ctx, &abs_ctx), 100.0);
+        assert_eq!(dim.to_px(Some(RelativeType::ParentWidth), Some(&rel_ctx), &abs_ctx), 100.0);
     }
 }
