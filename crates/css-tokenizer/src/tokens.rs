@@ -29,6 +29,7 @@ pub enum NumericValue {
 
 impl NumericValue {
     /// Get the numeric value as a f64, regardless of its original type
+    #[must_use]
     pub fn to_f64(&self) -> f64 {
         match self {
             NumericValue::Integer(i) => *i as f64,
@@ -37,6 +38,7 @@ impl NumericValue {
     }
 
     /// Attempt to convert the numeric value to an i64 if it is an integer
+    #[must_use]
     pub fn to_i64(&self) -> Option<i64> {
         match self {
             NumericValue::Integer(i) => Some(*i),
@@ -154,18 +156,18 @@ impl Display for CssTokenKind {
     ///<https://www.w3.org/TR/css-syntax-3/#serialization>
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CssTokenKind::Ident(value) => write!(f, "{}", value),
-            CssTokenKind::Function(value) => write!(f, "{}(", value),
-            CssTokenKind::AtKeyword(value) => write!(f, "@{}", value),
-            CssTokenKind::Hash { value, .. } => write!(f, "#{}", value),
-            CssTokenKind::String(value) => write!(f, "\"{}\"", value),
+            CssTokenKind::Ident(value) => write!(f, "{value}",),
+            CssTokenKind::Function(value) => write!(f, "{value}("),
+            CssTokenKind::AtKeyword(value) => write!(f, "@{value}"),
+            CssTokenKind::Hash { value, .. } => write!(f, "#{value}"),
+            CssTokenKind::String(value) => write!(f, "\"{value}\""),
             CssTokenKind::BadString => write!(f, "\""),
-            CssTokenKind::Url(value) => write!(f, "url({})", value),
+            CssTokenKind::Url(value) => write!(f, "url({value})"),
             CssTokenKind::BadUrl => write!(f, "url("),
-            CssTokenKind::Delim(c) => write!(f, "{}", c),
+            CssTokenKind::Delim(c) => write!(f, "{c}"),
             CssTokenKind::Number(num) => write!(f, "{}", num.to_f64()),
             CssTokenKind::Percentage(num) => write!(f, "{}%", num.to_f64()),
-            CssTokenKind::Dimension { value, unit } => write!(f, "{}{}", value.to_f64(), unit),
+            CssTokenKind::Dimension { value, unit } => write!(f, "{}{unit}", value.to_f64()),
             CssTokenKind::Whitespace => write!(f, " "),
             CssTokenKind::Cdo => write!(f, "<!--"),
             CssTokenKind::Cdc => write!(f, "-->"),

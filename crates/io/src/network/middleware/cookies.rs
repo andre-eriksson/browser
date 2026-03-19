@@ -82,6 +82,6 @@ impl CookieMiddleware {
 
         trace!("Storing cookie from response");
 
-        cookie_jar.add_cookie(cookie, host);
+        cookie_jar.add_cookie(cookie, &host);
     }
 }

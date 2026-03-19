@@ -86,7 +86,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Returns
     /// The `NodeId` of the newly inserted node.
-    fn insert_node(&mut self, data: NodeData) -> NodeId {
+    fn insert_node(&mut self, data: &NodeData) -> NodeId {
         let parent = self.open_elements.last().copied();
         self.dom_tree.push_node(data, parent)
     }
@@ -137,7 +137,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
 
         self.handle_auto_close(&tag);
 
-        let new_id = self.insert_node(node_data);
+        let new_id = self.insert_node(&node_data);
 
         self.collector.collect(&TagInfo {
             tag: &tag,
@@ -200,7 +200,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             let tag = &parent_elem.tag.clone();
             let attributes = &parent_elem.attributes.clone();
             let text_data = NodeData::Text(text_content);
-            let new_id = self.insert_node(text_data.clone());
+            let new_id = self.insert_node(&text_data);
 
             self.collector.collect(&TagInfo {
                 tag,

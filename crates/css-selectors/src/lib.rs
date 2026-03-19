@@ -369,13 +369,13 @@ mod tests {
         let hash_set = HashSet::new();
 
         let grandparent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        let grandparent_id = tree.push_node(grandparent_data, None);
+        let grandparent_id = tree.push_node(&grandparent_data, None);
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, Some(grandparent_id));
+        let parent_id = tree.push_node(&parent_data, Some(grandparent_id));
 
         let child_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
-        let child_id = tree.push_node(child_data, Some(parent_id));
+        let child_id = tree.push_node(&child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
@@ -402,13 +402,13 @@ mod tests {
         let hash_set = HashSet::new();
 
         let grandparent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        let grandparent_id = tree.push_node(grandparent_data, None);
+        let grandparent_id = tree.push_node(&grandparent_data, None);
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, Some(grandparent_id));
+        let parent_id = tree.push_node(&parent_data, Some(grandparent_id));
 
         let child_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
-        let child_id = tree.push_node(child_data, Some(parent_id));
+        let child_id = tree.push_node(&child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
@@ -435,10 +435,10 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let child_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
-        let child_id = tree.push_node(child_data, Some(parent_id));
+        let child_id = tree.push_node(&child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
@@ -465,10 +465,10 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let child_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
-        let child_id = tree.push_node(child_data, Some(parent_id));
+        let child_id = tree.push_node(&child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 
@@ -495,13 +495,13 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling1_data, Some(parent_id));
+        tree.push_node(&sibling1_data, Some(parent_id));
 
         let sibling2_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
-        let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
+        let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
@@ -528,13 +528,13 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling1_data, Some(parent_id));
+        tree.push_node(&sibling1_data, Some(parent_id));
 
         let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
-        let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
+        let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
@@ -561,16 +561,16 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling1_data, Some(parent_id));
+        tree.push_node(&sibling1_data, Some(parent_id));
 
         let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling2_data, Some(parent_id));
+        tree.push_node(&sibling2_data, Some(parent_id));
 
         let sibling3_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
-        let sibling3_id = tree.push_node(sibling3_data, Some(parent_id));
+        let sibling3_id = tree.push_node(&sibling3_data, Some(parent_id));
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
 
@@ -597,13 +597,13 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling1_data, Some(parent_id));
+        tree.push_node(&sibling1_data, Some(parent_id));
 
         let sibling2_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
-        let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
+        let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
@@ -630,13 +630,13 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling1_data, Some(parent_id));
+        tree.push_node(&sibling1_data, Some(parent_id));
 
         let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
-        let sibling2_id = tree.push_node(sibling2_data, Some(parent_id));
+        let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
@@ -663,16 +663,16 @@ mod tests {
         let hash_set = HashSet::new();
 
         let parent_data = generate_node_data!(HtmlTag::Section, hash_set.clone(), HashMap::default());
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let sibling1_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling1_data, Some(parent_id));
+        tree.push_node(&sibling1_data, Some(parent_id));
 
         let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
-        tree.push_node(sibling2_data, Some(parent_id));
+        tree.push_node(&sibling2_data, Some(parent_id));
 
         let sibling3_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
-        let sibling3_id = tree.push_node(sibling3_data, Some(parent_id));
+        let sibling3_id = tree.push_node(&sibling3_data, Some(parent_id));
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
 
@@ -1298,10 +1298,10 @@ mod tests {
             attrs
         };
         let parent_data = generate_node_data!(HtmlTag::Div, hash_set.clone(), parent_attributes);
-        let parent_id = tree.push_node(parent_data, None);
+        let parent_id = tree.push_node(&parent_data, None);
 
         let child_data = generate_node_data!(HtmlTag::Span, HashSet::new(), HashMap::default());
-        let child_id = tree.push_node(child_data, Some(parent_id));
+        let child_id = tree.push_node(&child_data, Some(parent_id));
 
         let child_node = tree.get_node(&child_id).unwrap();
 

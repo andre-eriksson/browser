@@ -18,14 +18,11 @@ use crate::{
 pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
     consume_comments(tokenizer);
 
-    let c = match tokenizer.stream.consume() {
-        Some(c) => c,
-        None => {
-            return CssToken {
-                kind: CssTokenKind::Eof,
-                position: CssTokenizer::collect_positions(tokenizer),
-            };
-        }
+    let Some(c) = tokenizer.stream.consume() else {
+        return CssToken {
+            kind: CssTokenKind::Eof,
+            position: CssTokenizer::collect_positions(tokenizer),
+        };
     };
 
     match c {

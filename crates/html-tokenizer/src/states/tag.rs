@@ -170,7 +170,7 @@ pub fn handle_tag_name_state(state: &mut TokenizerState, ch: char, tokens: &mut 
 /// # Behavior
 /// - Inserts the current attribute name and value into the current token's attributes.
 /// - Clears the current attribute name and value.
-/// - Transitions to the appropriate parser data state (ScriptData, StyleData or Data) based on the token's data.
+/// - Transitions to the appropriate parser data state (`ScriptData`, `StyleData` or `Data`) based on the token's data.
 /// - Emits the current token.
 pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
     if let Some(mut token) = state.current_token.take() {
@@ -186,7 +186,7 @@ pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
         } else if token.data == "style" && token.kind != TokenKind::EndTag {
             state.state = TokenState::StyleData;
         } else if token.data == "svg" && token.kind != TokenKind::EndTag {
-            state.state = TokenState::SvgData
+            state.state = TokenState::SvgData;
         } else {
             state.state = TokenState::Data;
         }

@@ -15,6 +15,14 @@ pub struct ReqwestClient {
 }
 
 impl ReqwestClient {
+    /// Creates a new instance of `ReqwestClient` with default settings.
+    ///
+    /// # Returns
+    /// A new `ReqwestClient` instance ready to send HTTP requests.
+    ///
+    /// # Panics
+    /// Panics if the reqwest client fails to build, which is unlikely under normal circumstances.
+    #[must_use]
     pub fn new() -> Self {
         ReqwestClient {
             client: reqwest::Client::builder()
@@ -67,7 +75,7 @@ impl HttpClient for ReqwestClient {
     async fn send(&self, request: Request) -> Result<Box<dyn ResponseHandle>, NetworkError> {
         let mut req = self.client.request(request.method, request.url);
 
-        for (key, value) in request.headers.iter() {
+        for (key, value) in &request.headers {
             req = req.header(key, value);
         }
 

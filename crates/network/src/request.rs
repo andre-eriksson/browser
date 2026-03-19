@@ -79,7 +79,7 @@ pub struct RequestBuilder {
     /// The mode of the request, default is CORS.
     mode: RequestMode,
 
-    /// The credentials mode of the request, default is SameOrigin.
+    /// The credentials mode of the request, default is `SameOrigin`.
     credentials: Credentials,
 
     /// The optional body of the request.
@@ -87,45 +87,50 @@ pub struct RequestBuilder {
 }
 
 impl RequestBuilder {
-    /// Creates a new RequestBuilder with the given URL.
+    /// Creates a new `RequestBuilder` with the given URL.
     ///
     /// # Arguments
     /// * `url` - The URL for the request.
     ///
     /// # Panics
     /// * Panics if the URL is invalid.
+    #[must_use]
     pub fn new(url: &str) -> Self {
         RequestBuilder::try_new(url).unwrap()
     }
 
-    /// Tries to create a new RequestBuilder with a URL relative to the current URL in the session.
+    /// Tries to create a new `RequestBuilder` with a URL relative to the current URL in the session.
     ///
     /// # Arguments
     /// * `session` - The network session containing the current URL.
     /// * `url` - The relative URL for the request.
     ///
     /// # Returns
-    /// * `Ok(RequestBuilder)` if the URL is valid.
-    /// * `Err(HttpError)` if the URL is invalid or if there is no base URL in the session.
+    /// The `RequestBuilder` initialized with the joined URL, default method GET, empty headers, mode CORS, credentials `SameOrigin`, and no body.
+    ///
+    /// # Errors
+    /// * `NetworkError::InvalidUrl` if the URL is invalid or cannot be joined with the current URL.
     pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, NetworkError> {
         let joined_url = starting_url
             .join(url)
-            .map_err(|err| NetworkError::InvalidUrl(format!("Failed to join URL '{}': {}", url, err)))?;
+            .map_err(|err| NetworkError::InvalidUrl(format!("Failed to join URL '{url}': {err}")))?;
 
         Ok(RequestBuilder::from(joined_url))
     }
 
-    /// Tries to create a new RequestBuilder with the given URL.
+    /// Tries to create a new `RequestBuilder` with the given URL.
     ///
     /// # Arguments
     /// * `url` - The URL for the request.
     ///
     /// # Returns
-    /// * `Ok(RequestBuilder)` if the URL is valid.
-    /// * `Err(HttpError)` if the URL is invalid.
+    /// The `RequestBuilder` initialized with the given URL, default method GET, empty headers, mode CORS, credentials `SameOrigin`, and no body.
+    ///
+    /// # Errors
+    /// * `NetworkError::InvalidUrl` if the URL is invalid.
     pub fn try_new(url: &str) -> Result<Self, NetworkError> {
-        let parsed_url = Url::parse(url)
-            .map_err(|err| NetworkError::InvalidUrl(format!("Failed to parse URL '{}': {}", url, err)))?;
+        let parsed_url =
+            Url::parse(url).map_err(|err| NetworkError::InvalidUrl(format!("Failed to parse URL '{url}': {err}")))?;
 
         Ok(RequestBuilder {
             method: Method::GET,
@@ -142,6 +147,7 @@ impl RequestBuilder {
     ///
     /// # Arguments
     /// * `method` - The HTTP method to set.
+    #[must_use]
     pub fn method(mut self, method: Method) -> Self {
         self.method = method;
         self
@@ -152,6 +158,7 @@ impl RequestBuilder {
     ///
     /// # Arguments
     /// * `headers` - The headers to set.
+    #[must_use]
     pub fn headers(mut self, headers: HeaderMap) -> Self {
         self.headers = headers;
         self
@@ -165,6 +172,7 @@ impl RequestBuilder {
     ///
     /// # Panics
     /// * Panics if the header value is invalid.
+    #[must_use]
     pub fn header(self, key: HeaderName, value: &str) -> Self {
         self.try_header(key, value).unwrap()
     }
@@ -178,6 +186,9 @@ impl RequestBuilder {
     /// # Returns
     /// * `Ok(Self)` if the header was added successfully.
     /// * `Err(String)` if the header value was invalid.
+    /// 
+    /// # Errors
+    /// * `NetworkError::InvalidHeader` if the header value is invalid.
     pub fn try_header(mut self, key: HeaderName, value: &str) -> Result<Self, NetworkError> {
         let header_value = HeaderValue::from_str(value);
 
@@ -186,7 +197,7 @@ impl RequestBuilder {
                 self.headers.insert(key, v);
                 Ok(self)
             }
-            Err(err) => Err(NetworkError::InvalidHeader(format!("Invalid header value: {}", err))),
+            Err(err) => Err(NetworkError::InvalidHeader(format!("Invalid header value: {err}"))),
         }
     }
 
@@ -194,6 +205,7 @@ impl RequestBuilder {
     ///
     /// # Arguments
     /// * `body` - The body to set.
+    #[must_use]
     pub fn body(mut self, body: Vec<u8>) -> Self {
         self.body = Some(body);
         self
@@ -203,6 +215,7 @@ impl RequestBuilder {
     ///
     /// # Arguments
     /// * `mode` - The request mode to set.
+    #[must_use]
     pub fn mode(mut self, mode: RequestMode) -> Self {
         self.mode = mode;
         self
@@ -212,6 +225,7 @@ impl RequestBuilder {
     ///
     /// # Arguments
     /// * `credentials` - The credentials mode to set.
+    #[must_use]
     pub fn credentials(mut self, credentials: Credentials) -> Self {
         self.credentials = credentials;
         self
@@ -221,6 +235,7 @@ impl RequestBuilder {
     ///
     /// # Panics
     /// * Panics if the request is invalid.
+    #[must_use]
     pub fn build(self) -> Request {
         self.try_build().unwrap()
     }
@@ -228,8 +243,10 @@ impl RequestBuilder {
     /// Finalizes and builds the Request object.
     ///
     /// # Returns
-    /// * `Ok(Request)` if the request is valid.
-    /// * `Err(HttpError)` if the request is invalid.
+    /// The `Request` object built from the builder.
+    ///
+    /// # Errors
+    /// * `NetworkError::InvalidRequest` if the request is invalid (e.g., GET or HEAD requests with a body).
     pub fn try_build(self) -> Result<Request, NetworkError> {
         if (self.method == Method::GET || self.method == Method::HEAD) && self.body.is_some() {
             return Err(NetworkError::InvalidRequest("GET and HEAD requests cannot have a body".to_string()));
@@ -252,13 +269,13 @@ impl RequestBuilder {
 }
 
 impl From<Url> for RequestBuilder {
-    /// Creates a RequestBuilder from a Url.
+    /// Creates a `RequestBuilder` from a Url.
     ///
     /// # Arguments
     /// * `url` - The URL for the request.
     ///
     /// # Returns
-    /// * `RequestBuilder` initialized with the given URL, default method GET, empty headers, mode CORS, credentials SameOrigin, and no body.
+    /// * `RequestBuilder` initialized with the given URL, default method GET, empty headers, mode CORS, credentials `SameOrigin`, and no body.
     fn from(url: Url) -> Self {
         RequestBuilder {
             method: Method::GET,

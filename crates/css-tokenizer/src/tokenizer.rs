@@ -126,6 +126,7 @@ impl CssTokenizer {
     ///
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
+    #[must_use]
     pub fn new(input: &str, collect_positions: bool) -> Self {
         let preprocessed_input = CssTokenizer::preprocess(input);
 

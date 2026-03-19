@@ -42,7 +42,7 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
     let mut repr = String::new();
     let mut type_flag = NumberType::Integer;
 
-    if matches!(tokenizer.stream.peek(), Some('+') | Some('-')) {
+    if matches!(tokenizer.stream.peek(), Some('+' | '-')) {
         repr.push(tokenizer.stream.consume().unwrap());
     }
 
@@ -59,11 +59,11 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
         }
     }
 
-    if matches!(tokenizer.stream.peek(), Some('e') | Some('E')) {
+    if matches!(tokenizer.stream.peek(), Some('e' | 'E')) {
         let next = tokenizer.stream.peek_at(1);
         let next2 = tokenizer.stream.peek_at(2);
 
-        let has_exponent = if matches!(next, Some('+') | Some('-')) {
+        let has_exponent = if matches!(next, Some('+' | '-')) {
             next2.is_some_and(is_digit)
         } else {
             next.is_some_and(is_digit)
@@ -73,7 +73,7 @@ fn consume_number(tokenizer: &mut CssTokenizer) -> NumericValue {
             repr.push(tokenizer.stream.consume().unwrap()); // e or E
             type_flag = NumberType::Number;
 
-            if matches!(tokenizer.stream.peek(), Some('+') | Some('-')) {
+            if matches!(tokenizer.stream.peek(), Some('+' | '-')) {
                 repr.push(tokenizer.stream.consume().unwrap());
             }
 

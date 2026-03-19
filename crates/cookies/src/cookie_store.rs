@@ -38,6 +38,7 @@ pub struct CookieJar {
 
 impl CookieJar {
     /// Loads existing cookies and returns the cookie jar
+    #[must_use]
     pub fn load() -> Self {
         let conn = CookieDatabase::open();
         if let Ok(connection) = conn {
@@ -51,21 +52,23 @@ impl CookieJar {
         }
     }
 
+    #[must_use]
     pub fn cookies(&self) -> &Vec<Cookie> {
         &self.cookies
     }
 
+    #[must_use]
     pub fn get_cookies_for_domain(&self, domain: &str) -> Vec<Cookie> {
-        let host = Host::parse(domain);
-        if host.is_err() {
+        let Ok(host) = Host::parse(domain) else {
+            debug!("Invalid domain '{}'", domain);
             return Vec::new();
-        }
+        };
 
         self.cookies
             .iter()
             .filter(|cookie| {
                 if let Some(cookie_domain) = cookie.domain() {
-                    **cookie_domain == *host.as_ref().unwrap()
+                    **cookie_domain == host
                 } else {
                     false
                 }
@@ -83,7 +86,8 @@ impl CookieJar {
     ///
     /// # Returns
     /// A vector to the matching stored cookies.
-    pub fn get_cookies(&self, domain: Host<&str>, path: &str, secure: bool) -> Vec<Cookie> {
+    #[must_use]
+    pub fn get_cookies(&self, domain: &Host<&str>, path: &str, secure: bool) -> Vec<Cookie> {
         let mut cookies = self.cookies.clone();
 
         let conn = CookieDatabase::open();
@@ -95,7 +99,7 @@ impl CookieJar {
 
         cookies
             .into_iter()
-            .filter(|cookie| Self::validate_cookie(&domain, path, secure, cookie))
+            .filter(|cookie| Self::validate_cookie(domain, path, secure, cookie))
             .collect()
     }
 
@@ -107,7 +111,7 @@ impl CookieJar {
     ///
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
-    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: Host<&str>) {
+    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: &Host<&str>) {
         if let Some(domain) = cookie.domain()
             && !request_domain
                 .to_string()
@@ -127,16 +131,9 @@ impl CookieJar {
         //                                          v
         // TODO: Scheduler should periodically save cookies
         if let Ok(connection) = CookieDatabase::open() {
-            let creation = CookieTable::create_table(&connection);
-
-            if creation.is_err() {
-                debug!("Unable to create the cookie table: {}", creation.err().unwrap());
-            } else {
-                let adding = CookieTable::insert(&connection, &cookie);
-
-                if adding.is_err() {
-                    debug!("Unable to add a cookie: {}", adding.err().unwrap());
-                }
+            match CookieTable::create_table(&connection) {
+                Ok(()) => debug!("Cookie table created successfully"),
+                Err(err) => debug!("Failed to create cookie table: {}", err),
             }
         }
 

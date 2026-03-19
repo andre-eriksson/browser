@@ -102,7 +102,7 @@ pub fn handle_comment_end_state(state: &mut TokenizerState, ch: char, tokens: &m
                 state.current_token = Some(Token {
                     kind: TokenKind::Comment,
                     attributes: HashMap::new(),
-                    data: format!("-{}", ch),
+                    data: format!("-{ch}"),
                 });
             }
             state.state = TokenState::Comment;

@@ -16,6 +16,7 @@ pub enum Tag {
 }
 
 impl Tag {
+    #[must_use]
     pub fn from_str_insensitive(s: &str) -> Self {
         if let Some(html_tag) = HtmlTag::from_str_insensitive(s) {
             Tag::Html(html_tag)
@@ -27,6 +28,7 @@ impl Tag {
     }
 
     /// Checks if the tag is a void element.
+    #[must_use]
     pub fn is_void_element(&self) -> bool {
         match self {
             Tag::Html(html_tag) => html_tag.is_void_element(),
@@ -36,14 +38,15 @@ impl Tag {
     }
 
     /// Determines if the current tag should automatically close based on the new tag being encountered.
+    #[must_use]
     pub fn should_auto_close(&self, new_tag: &Tag) -> bool {
         match self {
             Tag::Html(html_tag) => html_tag.should_auto_close(new_tag),
-            Tag::Svg(_) => false,
-            Tag::Unknown(_) => false,
+            Tag::Svg(_) | Tag::Unknown(_) => false,
         }
     }
 
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             Tag::Html(html_tag) => html_tag.as_ref(),
@@ -221,6 +224,7 @@ pub enum HtmlTag {
 }
 
 impl HtmlTag {
+    #[must_use]
     pub fn from_str_insensitive(s: &str) -> Option<Self> {
         let bytes = s.as_bytes();
         match bytes.len() {
@@ -598,6 +602,7 @@ impl HtmlTag {
     ///
     /// # Returns
     /// `true` if the tag is a void element, `false` otherwise.
+    #[must_use]
     pub fn is_void_element(&self) -> bool {
         matches!(
             self,
@@ -625,57 +630,55 @@ impl HtmlTag {
     ///
     /// # Returns
     /// A boolean indicating whether the current tag should be automatically closed when the new tag is encountered.
+    #[must_use]
     pub fn should_auto_close(&self, new_tag: &Tag) -> bool {
         if let Tag::Html(new_known) = new_tag {
-            return self.should_auto_close_known(new_known);
+            return self.should_auto_close_known(*new_known);
         }
 
         false
     }
 
     /// Determines if a known tag should automatically close based on the current and new known tags.
-    fn should_auto_close_known(&self, new: &HtmlTag) -> bool {
+    #[must_use]
+    fn should_auto_close_known(self, new: HtmlTag) -> bool {
         matches!(
             (self, new),
-            (HtmlTag::P, HtmlTag::Div)
-                | (HtmlTag::P, HtmlTag::P)
-                | (HtmlTag::P, HtmlTag::H1)
-                | (HtmlTag::P, HtmlTag::H2)
-                | (HtmlTag::P, HtmlTag::H3)
-                | (HtmlTag::P, HtmlTag::H4)
-                | (HtmlTag::P, HtmlTag::H5)
-                | (HtmlTag::P, HtmlTag::H6)
-                | (HtmlTag::P, HtmlTag::Ul)
-                | (HtmlTag::P, HtmlTag::Ol)
-                | (HtmlTag::P, HtmlTag::Li)
-                | (HtmlTag::P, HtmlTag::Dl)
-                | (HtmlTag::P, HtmlTag::Dt)
-                | (HtmlTag::P, HtmlTag::Dd)
-                | (HtmlTag::P, HtmlTag::Blockquote)
-                | (HtmlTag::P, HtmlTag::Pre)
-                | (HtmlTag::P, HtmlTag::Form)
-                | (HtmlTag::P, HtmlTag::Table)
-                | (HtmlTag::P, HtmlTag::Section)
-                | (HtmlTag::P, HtmlTag::Article)
-                | (HtmlTag::P, HtmlTag::Aside)
-                | (HtmlTag::P, HtmlTag::Header)
-                | (HtmlTag::P, HtmlTag::Footer)
-                | (HtmlTag::P, HtmlTag::Nav)
-                | (HtmlTag::P, HtmlTag::Main)
-                | (HtmlTag::P, HtmlTag::Figure)
-                | (HtmlTag::P, HtmlTag::Hr)
-                | (HtmlTag::Li, HtmlTag::Li)
+            (
+                HtmlTag::P,
+                HtmlTag::Div
+                    | HtmlTag::P
+                    | HtmlTag::H1
+                    | HtmlTag::H2
+                    | HtmlTag::H3
+                    | HtmlTag::H4
+                    | HtmlTag::H5
+                    | HtmlTag::H6
+                    | HtmlTag::Ul
+                    | HtmlTag::Ol
+                    | HtmlTag::Li
+                    | HtmlTag::Dl
+                    | HtmlTag::Dt
+                    | HtmlTag::Dd
+                    | HtmlTag::Blockquote
+                    | HtmlTag::Pre
+                    | HtmlTag::Form
+                    | HtmlTag::Table
+                    | HtmlTag::Section
+                    | HtmlTag::Article
+                    | HtmlTag::Aside
+                    | HtmlTag::Header
+                    | HtmlTag::Footer
+                    | HtmlTag::Nav
+                    | HtmlTag::Main
+                    | HtmlTag::Figure
+                    | HtmlTag::Hr
+            ) | (HtmlTag::Li, HtmlTag::Li)
                 | (HtmlTag::Dd, HtmlTag::Dd)
                 | (HtmlTag::Dt, HtmlTag::Dt)
-                | (HtmlTag::Option, HtmlTag::Option)
-                | (HtmlTag::Option, HtmlTag::Optgroup)
+                | (HtmlTag::Option, HtmlTag::Option | HtmlTag::Optgroup)
                 | (HtmlTag::Tr, HtmlTag::Tr)
-                | (HtmlTag::Td, HtmlTag::Td)
-                | (HtmlTag::Td, HtmlTag::Th)
-                | (HtmlTag::Td, HtmlTag::Tr)
-                | (HtmlTag::Th, HtmlTag::Th)
-                | (HtmlTag::Th, HtmlTag::Td)
-                | (HtmlTag::Th, HtmlTag::Tr)
+                | (HtmlTag::Td | HtmlTag::Th, HtmlTag::Td | HtmlTag::Th | HtmlTag::Tr)
                 | (HtmlTag::Head, HtmlTag::Body)
         )
     }
@@ -908,6 +911,7 @@ pub enum SvgTag {
 }
 
 impl SvgTag {
+    #[must_use]
     pub fn from_str_insensitive(s: &str) -> Option<Self> {
         let bytes = s.as_bytes();
         match bytes.len() {
@@ -1516,7 +1520,8 @@ impl SvgTag {
         }
     }
 
-    pub fn is_void_element(&self) -> bool {
+    #[must_use]
+    pub fn is_void_element(self) -> bool {
         matches!(
             self,
             SvgTag::Circle

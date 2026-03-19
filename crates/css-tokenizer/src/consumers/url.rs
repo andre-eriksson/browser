@@ -13,15 +13,12 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
     let mut value = String::new();
 
     loop {
-        let c = match tokenizer.stream.consume() {
-            Some(c) => c,
-            None => {
-                tokenizer.record_error(CssTokenizationError::EofInUrl);
-                return CssToken {
-                    kind: CssTokenKind::Url(value),
-                    position: CssTokenizer::collect_positions(tokenizer),
-                };
-            }
+        let Some(c) = tokenizer.stream.consume() else {
+            tokenizer.record_error(CssTokenizationError::EofInUrl);
+            return CssToken {
+                kind: CssTokenKind::Url(value),
+                position: CssTokenizer::collect_positions(tokenizer),
+            };
         };
 
         match c {
@@ -34,33 +31,28 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
             c if is_whitespace(c) => {
                 consume_whitespace(tokenizer);
 
-                let ch = match tokenizer.stream.peek() {
-                    Some(c) => c,
-                    None => {
-                        tokenizer.record_error(CssTokenizationError::EofInUrl);
-                        return CssToken {
-                            kind: CssTokenKind::Url(value),
-                            position: CssTokenizer::collect_positions(tokenizer),
-                        };
-                    }
+                let Some(ch) = tokenizer.stream.peek() else {
+                    tokenizer.record_error(CssTokenizationError::EofInUrl);
+                    return CssToken {
+                        kind: CssTokenKind::Url(value),
+                        position: CssTokenizer::collect_positions(tokenizer),
+                    };
                 };
 
-                match ch {
-                    ')' => {
-                        tokenizer.stream.consume();
-                        return CssToken {
-                            kind: CssTokenKind::Url(value),
-                            position: CssTokenizer::collect_positions(tokenizer),
-                        };
-                    }
-                    _ => {
-                        consume_bad_url_remnants(tokenizer);
-                        return CssToken {
-                            kind: CssTokenKind::BadUrl,
-                            position: CssTokenizer::collect_positions(tokenizer),
-                        };
-                    }
+                if ch == ')' {
+                    tokenizer.stream.consume();
+                    return CssToken {
+                        kind: CssTokenKind::Url(value),
+                        position: CssTokenizer::collect_positions(tokenizer),
+                    };
                 }
+
+                tokenizer.record_error_at_current_char(CssTokenizationError::InvalidCharacterInUrl);
+                consume_bad_url_remnants(tokenizer);
+                return CssToken {
+                    kind: CssTokenKind::BadUrl,
+                    position: CssTokenizer::collect_positions(tokenizer),
+                };
             }
             '"' | '\'' | '(' => {
                 tokenizer.record_error_at_current_char(CssTokenizationError::InvalidCharacterInUrl);
@@ -98,9 +90,8 @@ pub(crate) fn consume_url_token(tokenizer: &mut CssTokenizer) -> CssToken {
 /// Consume the remnants of a bad URL (§4.3.14)
 fn consume_bad_url_remnants(tokenizer: &mut CssTokenizer) {
     loop {
-        let c = match tokenizer.stream.consume() {
-            Some(c) => c,
-            None => return,
+        let Some(c) = tokenizer.stream.consume() else {
+            return;
         };
 
         match c {

@@ -38,6 +38,7 @@ pub trait Collector {
     ///
     /// # Returns
     /// The final collected metadata.
+    #[must_use]
     fn into_result(self) -> Self;
 }
 
@@ -64,7 +65,7 @@ impl Collector for DefaultCollector {
         if let Some(id_map) = &mut self.id_map
             && let Some(id) = tag.attributes.get("id")
         {
-            id_map.entry(id.to_string()).or_insert(tag.node_id);
+            id_map.entry(id.clone()).or_insert(tag.node_id);
         }
 
         if let Some(class_map) = &mut self.class_map
@@ -85,14 +86,14 @@ impl Collector for DefaultCollector {
                 }
 
                 external_resources
-                    .entry(href.to_string())
+                    .entry(href.clone())
                     .or_default()
                     .push(tag.node_id);
             }
 
             if let Some(src) = tag.attributes.get("src") {
                 external_resources
-                    .entry(src.to_string())
+                    .entry(src.clone())
                     .or_default()
                     .push(tag.node_id);
             }

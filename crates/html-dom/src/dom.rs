@@ -32,17 +32,24 @@ impl Default for Element {
         Element {
             attributes: HashMap::new(),
             class_set: HashSet::new(),
-            tag: Tag::Unknown("".to_string()),
+            tag: Tag::Unknown(String::new()),
         }
     }
 }
 
 impl Element {
+    /// Create a new Element with the given tag, class set, and attributes
+    ///
+    /// # Arguments
+    /// * `tag` - The tag name of the element (e.g. div, span)
+    /// * `class_set` - A set of class names for this element
+    /// * `attributes` - A map of attribute names to values for this element
+    #[must_use]
     pub fn new(tag: Tag, class_set: HashSet<String>, attributes: HashMap<String, String>) -> Self {
         Element {
-            tag,
-            class_set,
             attributes,
+            class_set,
+            tag,
         }
     }
 
@@ -50,8 +57,9 @@ impl Element {
     ///
     /// # Returns
     /// An Option containing the ID as &str, or None if not present
+    #[must_use]
     pub fn id(&self) -> Option<&str> {
-        self.attributes.get("id").map(|s| s.as_str())
+        self.attributes.get("id").map(String::as_str)
     }
 
     /// Get an iterator over the classes of this element
@@ -73,6 +81,7 @@ impl Element {
     ///
     /// # Returns
     /// bool indicating whether the attribute is present
+    #[must_use]
     pub fn has_attribute(&self, name: &str) -> bool {
         self.attributes.contains_key(name)
     }
@@ -84,14 +93,16 @@ impl Element {
     ///
     /// # Returns
     /// An Option containing the attribute value as &str, or None if not present
+    #[must_use]
     pub fn get_attribute(&self, name: &str) -> Option<&str> {
-        self.attributes.get(name).map(|s| s.as_str())
+        self.attributes.get(name).map(String::as_str)
     }
 
     /// Get the tag name of this element as a string
     ///
     /// # Returns
     /// The tag name as &str
+    #[must_use]
     pub fn tag_name(&self) -> String {
         self.tag.to_string()
     }
@@ -104,17 +115,19 @@ pub enum NodeData {
 }
 
 impl NodeData {
+    #[must_use]
     pub fn as_element(&self) -> Option<&Element> {
         match self {
             NodeData::Element(elem) => Some(elem),
-            _ => None,
+            NodeData::Text(_) => None,
         }
     }
 
+    #[must_use]
     pub fn as_text(&self) -> Option<&String> {
         match self {
             NodeData::Text(text) => Some(text),
-            _ => None,
+            NodeData::Element(_) => None,
         }
     }
 }
@@ -134,20 +147,24 @@ pub struct DocumentRoot {
 }
 
 impl DocumentRoot {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[must_use]
     pub fn get_node(&self, node_id: &NodeId) -> Option<&DomNode> {
         self.nodes.get(node_id.0)
     }
 
+    #[must_use]
     pub fn get_node_mut(&mut self, node_id: &NodeId) -> Option<&mut DomNode> {
         self.nodes.get_mut(node_id.0)
     }
 
     /// Walk up the DOM tree from the given node, returning all ancestor nodes
     /// (parent, grandparent, etc.) in order from nearest to farthest.
+    #[must_use]
     pub fn ancestors(&self, node_id: &NodeId) -> Vec<&DomNode> {
         let mut result = Vec::new();
         let mut current = self.get_node(node_id).and_then(|n| n.parent);
@@ -162,7 +179,7 @@ impl DocumentRoot {
         result
     }
 
-    pub fn push_node(&mut self, data: NodeData, parent: Option<NodeId>) -> NodeId {
+    pub fn push_node(&mut self, data: &NodeData, parent: Option<NodeId>) -> NodeId {
         let node_id = NodeId(self.nodes.len());
         let new_node = DomNode {
             id: node_id,
@@ -205,7 +222,7 @@ impl Display for DocumentRoot {
                     writeln!(f, "</{}>", elem.tag)
                 }
                 NodeData::Text(text) => {
-                    writeln!(f, "{}", text)
+                    writeln!(f, "{text}")
                 }
             }
         }

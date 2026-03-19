@@ -5,12 +5,10 @@ use crate::events::Event;
 
 #[derive(Debug, Clone)]
 pub enum WindowType {
-    /// Represents a target for a new browser window.
+    /// Represents the main browser window, which displays the web content and user interface.
     Browser,
 
-    /// Represents a target for a new Devtools window.
-    ///
-    /// This is used for debugging and inspecting the app and the HTML content.
+    /// Represents a developer tools window, which provides debugging and inspection capabilities for web developers.
     Devtools,
 }
 

@@ -66,7 +66,7 @@ pub(crate) fn input_starts_with_ident_sequence(tokenizer: &mut CssTokenizer) -> 
 /// * `third` - The third code point
 fn three_code_points_would_start_number(first: Option<char>, second: Option<char>, third: Option<char>) -> bool {
     match first {
-        Some('+') | Some('-') => second.is_some_and(is_digit) || (second == Some('.') && third.is_some_and(is_digit)),
+        Some('+' | '-') => second.is_some_and(is_digit) || (second == Some('.') && third.is_some_and(is_digit)),
         Some('.') => second.is_some_and(is_digit),
         Some(c) if is_digit(c) => true,
         _ => false,

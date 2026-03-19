@@ -20,6 +20,7 @@ impl<'a> Decoder<'a> {
     ///
     /// # Returns
     /// A new `Decoder` instance initialized with the provided input string.
+    #[must_use]
     pub fn new(input: &'a str) -> Self {
         Decoder { input }
     }
@@ -28,13 +29,13 @@ impl<'a> Decoder<'a> {
     ///
     /// # Arguments
     /// * `chars` - A `Peekable` iterator over the characters in the input string.
-    fn try_decode(&self, mut chars: Peekable<std::str::Chars<'_>>) -> Result<char, String> {
+    fn try_decode(mut chars: Peekable<std::str::Chars<'_>>) -> Result<char, String> {
         if let Some(&next) = chars.peek() {
             if next == '#' {
                 chars.next();
                 let mut num_str = String::new();
 
-                let is_hex = if let Some(&'x') | Some(&'X') = chars.peek() {
+                let is_hex = if let Some(&'x' | &'X') = chars.peek() {
                     chars.next();
                     true
                 } else {
@@ -258,7 +259,7 @@ impl<'a> Decoder<'a> {
                     "clubs" => Ok('\u{2663}'),    // Black club suit
                     "hearts" => Ok('\u{2665}'),   // Black heart suit
                     "diams" => Ok('\u{2666}'),    // Black diamond suit
-                    _ => Err(format!("Unknown entity: &{};", entity_name)),
+                    _ => Err(format!("Unknown entity: &{entity_name};")),
                 }
             }
         } else {
@@ -270,6 +271,9 @@ impl<'a> Decoder<'a> {
     ///
     /// # Returns
     /// A `Result` containing the decoded string if successful, or an error message if decoding fails.
+    ///
+    /// # Errors
+    /// * Returns an error if the input contains invalid character references or if the decoding process encounters an issue.
     pub fn decode(&self) -> Result<String, String> {
         if self.input.is_empty() {
             return Ok(String::new());
@@ -285,23 +289,20 @@ impl<'a> Decoder<'a> {
                 '&' => {
                     let checkpoint = position;
 
-                    match self.try_decode(chars.clone()) {
-                        Ok(decoded_char) => {
-                            output.push(decoded_char);
-                            while let Some(&next_char) = chars.peek() {
-                                if next_char == ';' {
-                                    chars.next();
-                                    break;
-                                } else {
-                                    chars.next();
-                                }
+                    if let Ok(decoded_char) = Self::try_decode(chars.clone()) {
+                        output.push(decoded_char);
+                        while let Some(&next_char) = chars.peek() {
+                            if next_char == ';' {
+                                chars.next();
+                                break;
                             }
+
+                            chars.next();
                         }
-                        Err(_) => {
-                            output.push('&');
-                            chars = self.input[checkpoint..].chars().peekable();
-                            position = checkpoint;
-                        }
+                    } else {
+                        output.push('&');
+                        chars = self.input[checkpoint..].chars().peekable();
+                        position = checkpoint;
                     }
                 }
                 _ => output.push(c),

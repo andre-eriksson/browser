@@ -166,8 +166,7 @@ impl Table for CookieTable {
                 max_age,
                 data.domain()
                     .as_ref()
-                    .map(|h| h.to_string())
-                    .unwrap_or_else(|| "127.0.0.1".to_string()),
+                    .map_or_else(|| "127.0.0.1".to_string(), ToString::to_string),
                 data.path(),
                 data.secure(),
                 data.http_only(),

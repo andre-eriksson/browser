@@ -44,6 +44,7 @@ impl HeaderResponse {
     /// Creates a new HTTP response.
     ///
     /// Useful for testing and constructing responses manually.
+    #[must_use]
     pub fn new(status_code: StatusCode, headers: HeaderMap) -> Self {
         HeaderResponse {
             status_code,

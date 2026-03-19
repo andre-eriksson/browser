@@ -11,15 +11,12 @@ pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -
     let mut value = String::new();
 
     loop {
-        let c = match tokenizer.stream.consume() {
-            Some(c) => c,
-            None => {
-                tokenizer.record_error(CssTokenizationError::EofInString);
-                return CssToken {
-                    kind: CssTokenKind::String(value),
-                    position: CssTokenizer::collect_positions(tokenizer),
-                };
-            }
+        let Some(c) = tokenizer.stream.consume() else {
+            tokenizer.record_error(CssTokenizationError::EofInString);
+            return CssToken {
+                kind: CssTokenKind::String(value),
+                position: CssTokenizer::collect_positions(tokenizer),
+            };
         };
 
         match c {
@@ -55,9 +52,8 @@ pub(crate) fn consume_string_token(tokenizer: &mut CssTokenizer, ending: char) -
 
 /// Consume an escaped code point (§4.3.7)
 pub(crate) fn consume_escaped_code_point(tokenizer: &mut CssTokenizer) -> char {
-    let c = match tokenizer.stream.consume() {
-        Some(c) => c,
-        None => return '\u{FFFD}',
+    let Some(c) = tokenizer.stream.consume() else {
+        return '\u{FFFD}';
     };
 
     match c {
@@ -79,7 +75,7 @@ pub(crate) fn consume_escaped_code_point(tokenizer: &mut CssTokenizer) -> char {
 
             consume_whitespace(tokenizer);
 
-            if hex_value == 0 || (0xD800..=0xDFFF).contains(&hex_value) || hex_value > 0x10FFFF {
+            if hex_value == 0 || (0xD800..=0xDFFF).contains(&hex_value) || hex_value > 0x0010_FFFF {
                 '\u{FFFD}'
             } else {
                 char::from_u32(hex_value).unwrap_or('\u{FFFD}')

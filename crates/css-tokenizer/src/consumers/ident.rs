@@ -52,9 +52,8 @@ pub(crate) fn consume_ident_sequence(tokenizer: &mut CssTokenizer) -> String {
     let mut result = String::new();
 
     loop {
-        let c = match tokenizer.stream.peek() {
-            Some(c) => c,
-            None => return result,
+        let Some(c) = tokenizer.stream.peek() else {
+            return result;
         };
 
         match c {

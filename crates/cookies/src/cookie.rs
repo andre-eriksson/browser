@@ -16,7 +16,7 @@ impl Display for Expiration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Session => write!(f, "session"),
-            Self::Date(offset) => write!(f, "{}", offset),
+            Self::Date(offset) => write!(f, "{offset}"),
         }
     }
 }
@@ -77,10 +77,23 @@ pub struct Cookie {
 }
 
 impl Cookie {
+    #[must_use]
     pub fn builder() -> CookieBuilder {
         CookieBuilder::default()
     }
 
+    /// Parses a cookie string into a Cookie struct. The `request_url` is used to determine the default path if the
+    /// Path attribute is not specified in the cookie string.
+    ///
+    /// # Arguments
+    /// * `cookie_str` - The cookie string to parse, typically from a Set-Cookie header.
+    /// * `request_url` - The URL of the request that the cookie is being set for, used to determine the default path
+    ///                   if not specified in the cookie string.
+    ///
+    /// # Errors
+    /// * `CookieParsingError::InvalidCookie` - If the cookie string is not in a valid format (e.g. missing name or value).
+    /// * `CookieParsingError::DateError` - If the Expires attribute is present but cannot be parsed into a valid date.
+    /// * `CookieParsingError::TimeError` - If the Expires attribute is present but the time portion cannot be parsed into a valid time.
     #[instrument(skip(request_url), level = "trace", fields(cookie_str = %cookie_str))]
     pub fn parse(cookie_str: &str, request_url: &Url) -> Result<Self, CookieParsingError> {
         let parts = cookie_str.split(';');
@@ -94,13 +107,9 @@ impl Cookie {
             }
 
             if cookie.name.is_empty() {
-                let pair = match part.split_once('=') {
-                    None => {
-                        return Err(CookieParsingError::InvalidCookie);
-                    }
-                    Some(pair) => pair,
+                let Some(pair) = part.split_once('=') else {
+                    return Err(CookieParsingError::InvalidCookie);
                 };
-
                 cookie.name = pair.0.trim().into();
                 cookie.value = pair.1.trim().into();
 
@@ -226,7 +235,7 @@ impl Cookie {
                     Ok(parsed) => parsed,
                 };
 
-                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
+                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC));
             } else if date_parts.len() == 5 {
                 // Sun Nov 6 08:49:37 1994
                 let date_format = format_description!("[month repr:short]-[day padding:none]-[year]");
@@ -243,7 +252,7 @@ impl Cookie {
                     Ok(parsed) => parsed,
                 };
 
-                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
+                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC));
             } else if date_parts.len() == 4 {
                 // Sunday, 06-Nov-94 08:49:37 GMT
                 let correct_date = if date_parts[1][7..].len() == 4 {
@@ -273,7 +282,7 @@ impl Cookie {
                     Ok(parsed) => parsed,
                 };
 
-                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC))
+                cookie.expires = Expiration::Date(OffsetDateTime::new_in_offset(date, time, UtcOffset::UTC));
             }
         }
 
@@ -344,42 +353,51 @@ impl Cookie {
                 SameSite::Lax
             };
 
-            cookie.same_site = same_site
+            cookie.same_site = same_site;
         }
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn value(&self) -> &str {
         &self.value
     }
 
+    #[must_use]
     pub fn expires(&self) -> &Expiration {
         &self.expires
     }
 
+    #[must_use]
     pub fn max_age(&self) -> &Option<Duration> {
         &self.max_age
     }
 
+    #[must_use]
     pub fn domain(&self) -> &Option<Box<Host>> {
         &self.domain
     }
 
+    #[must_use]
     pub fn path(&self) -> &str {
         &self.path
     }
 
+    #[must_use]
     pub fn secure(&self) -> bool {
         self.secure
     }
 
+    #[must_use]
     pub fn http_only(&self) -> bool {
         self.http_only
     }
 
+    #[must_use]
     pub fn same_site(&self) -> &SameSite {
         &self.same_site
     }
@@ -396,7 +414,7 @@ impl Display for Cookie {
             self.max_age().unwrap_or(Duration::seconds(0)),
             self.domain()
                 .as_ref()
-                .unwrap_or(&Host::Ipv4(Ipv4Addr::new(127, 0, 0, 1)).into()),
+                .unwrap_or(&Host::Ipv4(Ipv4Addr::LOCALHOST).into()),
             self.path(),
             self.secure(),
             self.http_only(),

@@ -50,17 +50,6 @@ pub fn handle_start_declaration_state(state: &mut TokenizerState, ch: char) {
 /// - For any other character, it appends it to the current XML declaration token's data.
 pub fn handle_xml_declaration_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<Token>) {
     match ch {
-        '?' => {
-            if let Some(token) = state.current_token.as_mut() {
-                token.data.push(ch);
-            } else {
-                state.current_token = Some(Token {
-                    kind: TokenKind::XmlDeclaration,
-                    attributes: HashMap::new(),
-                    data: ch.to_string(),
-                });
-            }
-        }
         '>' => {
             if let Some(token) = &state.current_token
                 && token.data.ends_with('?')
