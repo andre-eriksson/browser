@@ -4,7 +4,8 @@ use std::{
 };
 
 use crate::{
-    commands::load_image,
+    DevtoolsPage,
+    commands::{load_image, parse_devtools_html},
     errors::{BrowserError, TabError},
     header::{DefaultHeaders, HeaderType},
 };
@@ -12,7 +13,11 @@ use async_trait::async_trait;
 use cli::args::BrowserArgs;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use io::{Resource, embeded::DEFAULT_CSS, files::CACHE_USER_AGENT};
+use io::{
+    Resource,
+    embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
+    files::CACHE_USER_AGENT,
+};
 use network::{HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use tracing::instrument;
@@ -169,6 +174,39 @@ impl Commandable for Browser {
                 } else {
                     Err(BrowserError::TabError(TabError::NoHistory))
                 }
+            }
+            BrowserCommand::GetDevtoolsPage { tab_id } => {
+                let active_tab = self
+                    .tab_manager
+                    .get_tab(tab_id)
+                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+
+                let default_css = {
+                    let css_resource = Resource::load_embedded(DEFAULT_CSS);
+                    CSSStyleSheet::from_css(
+                        // SAFETY: The CSS is ASCII and embedded in the binary, so it should always be valid UTF-8.
+                        unsafe { str::from_utf8_unchecked(css_resource.as_slice()) },
+                        StylesheetOrigin::UserAgent,
+                        false,
+                    )
+                };
+                let devtools_css = {
+                    let css_resource = Resource::load_embedded(DEVTOOLS_CSS);
+                    CSSStyleSheet::from_css(
+                        // SAFETY: The CSS is ASCII and embedded in the binary, so it should always be valid UTF-8.
+                        unsafe { str::from_utf8_unchecked(css_resource.as_slice()) },
+                        StylesheetOrigin::Author,
+                        false,
+                    )
+                };
+
+                let stylesheets = vec![default_css, devtools_css];
+                let dom = parse_devtools_html(active_tab)
+                    .map_err(|e| BrowserError::TabError(TabError::DevtoolsError(e.to_string())))?;
+
+                let devtools_page = DevtoolsPage::new(dom, stylesheets);
+
+                Ok(BrowserEvent::DevtoolsPageReady(tab_id, devtools_page))
             }
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),

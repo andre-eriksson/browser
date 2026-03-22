@@ -5645,6 +5645,7 @@ dependencies = [
  "kernel",
  "layout",
  "network",
+ "postcard",
  "preferences",
  "regex",
  "renderer",

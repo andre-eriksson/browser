@@ -1,5 +1,6 @@
 use css_style::{AbsoluteContext, StyleTree};
 use iced::{Task, window::Id};
+use kernel::Commandable;
 use layout::{LayoutEngine, Rect};
 
 use crate::{
@@ -9,9 +10,30 @@ use crate::{
 
 /// Handles the creation of a new window when a `NewWindow` event is received from the UI.
 pub(crate) fn create_window(application: &mut Application, window_type: WindowType) -> Task<Event> {
-    let (_, task) = application.window_controller.new_window(window_type);
+    match window_type {
+        WindowType::Devtools => {
+            let tab_id = application.active_tab;
+            let browser = application.browser.clone();
 
-    task.discard()
+            Task::perform(
+                async move {
+                    let mut lock = browser.lock().await;
+                    lock.execute(kernel::BrowserCommand::GetDevtoolsPage { tab_id })
+                        .await
+                },
+                |result| match result {
+                    Ok(event) => Event::Browser(event),
+                    Err(e) => {
+                        panic!("Failed to get devtools page: {:?}", e);
+                    }
+                },
+            )
+        }
+        _ => {
+            let (_, task) = application.window_controller.new_window(window_type);
+            task.discard()
+        }
+    }
 }
 
 /// Handles the closure of a window when a `CloseWindow` event is received from the UI.
@@ -88,6 +110,22 @@ pub(crate) fn on_content_scrolled(application: &mut Application, x: f32, y: f32)
     {
         tab.scroll_offset.x = x;
         tab.scroll_offset.y = y;
+    }
+
+    Task::none()
+}
+
+/// Handles the scrolling of content when a `ContentScrolled` event is received from the UI,
+/// updating the scroll offset of the active tab.
+pub(crate) fn on_devtools_scrolled(application: &mut Application, x: f32, y: f32) -> Task<Event> {
+    if let Some(devtools) = application
+        .tabs
+        .iter_mut()
+        .find(|tab| tab.id == application.active_tab)
+        .and_then(|t| t.devtools_page.as_mut())
+    {
+        devtools.scroll_offset.x = x;
+        devtools.scroll_offset.y = y;
     }
 
     Task::none()

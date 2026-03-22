@@ -34,6 +34,7 @@ impl<'renderer> BrowserHtml<'renderer> {
             .copied()
             .unwrap_or((800.0, 600.0));
 
+        // NOTE: Varies depending on UI elements around the content.
         let content_viewport_height = (viewport_height - 100.0).max(100.0);
 
         let viewport_bounds = ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);

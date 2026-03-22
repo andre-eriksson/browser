@@ -79,6 +79,7 @@ pub const TEXTURE_SHADER: EmbededType = EmbededType::Shader("texture.wgsl");
 
 /// Represents the default CSS stylesheet.
 pub const DEFAULT_CSS: EmbededType = EmbededType::Browser("default.css");
+pub const DEVTOOLS_CSS: EmbededType = EmbededType::Browser("devtools.css");
 
 /// Represents the "about:blank" HTML page.
 pub const ABOUT_BLANK_HTML: EmbededType = EmbededType::Browser("about_blank.html");

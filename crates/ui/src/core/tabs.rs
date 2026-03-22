@@ -3,7 +3,8 @@ use std::{
     sync::Arc,
 };
 
-use kernel::{HistoryState, Page, TabId};
+use html_dom::DocumentRoot;
+use kernel::{DevtoolsPage, HistoryState, Page, TabId};
 use layout::{ImageContext, LayoutTree};
 
 /// Represents the scroll position of a tab's content.
@@ -21,6 +22,31 @@ pub struct KnownImageMeta {
     pub vary_key: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct UiDevtools {
+    pub page: DevtoolsPage,
+    pub layout_tree: LayoutTree,
+    pub scroll_offset: ScrollOffset,
+}
+
+impl UiDevtools {
+    pub fn new(page: DevtoolsPage, layout_tree: LayoutTree) -> Self {
+        Self {
+            page,
+            layout_tree,
+            scroll_offset: ScrollOffset::default(),
+        }
+    }
+
+    pub fn document(&self) -> &DocumentRoot {
+        self.page.document()
+    }
+
+    pub fn layout_tree(&self) -> &LayoutTree {
+        &self.layout_tree
+    }
+}
+
 /// Represents a tab in the UI.
 #[derive(Debug, Clone)]
 pub struct UiTab {
@@ -29,6 +55,7 @@ pub struct UiTab {
 
     /// The page contents.
     pub page: Arc<Page>,
+    pub devtools_page: Option<UiDevtools>,
 
     /// The layout tree of the tab's content.
     pub layout_tree: LayoutTree,
@@ -62,6 +89,7 @@ impl UiTab {
         Self {
             id,
             page: Page::blank().into(),
+            devtools_page: None,
             layout_tree: LayoutTree::default(),
             scroll_offset: ScrollOffset::default(),
             known_images: HashMap::new(),

@@ -28,6 +28,12 @@ use crate::{
 
 pub const UI_VERTICAL_OFFSET: f32 = 88.0;
 
+#[derive(Debug, Clone, Copy)]
+pub enum ScrollEventTarget {
+    BrowserContent,
+    DevtoolsContent,
+}
+
 /// The primitive that carries render data from draw() to prepare()/render()
 #[derive(Debug, Clone)]
 pub struct HtmlPrimitive {
@@ -285,6 +291,9 @@ pub struct HtmlRenderer<'a> {
 
     /// The visible viewport height used to clamp wheel scrolling
     pub viewport_height: f32,
+
+    /// Where wheel scroll events should be routed.
+    pub scroll_event_target: ScrollEventTarget,
 }
 
 impl<'html> HtmlRenderer<'html> {
@@ -298,6 +307,7 @@ impl<'html> HtmlRenderer<'html> {
             dom_tree,
             layout_tree,
             viewport_height: 0.0,
+            scroll_event_target: ScrollEventTarget::BrowserContent,
         }
     }
 
@@ -330,6 +340,10 @@ impl<'html> HtmlRenderer<'html> {
 
     pub fn set_viewport_height(&mut self, viewport_height: f32) {
         self.viewport_height = viewport_height;
+    }
+
+    pub fn set_scroll_event_target(&mut self, target: ScrollEventTarget) {
+        self.scroll_event_target = target;
     }
 
     fn get_hovered_href(&self, cursor: iced::advanced::mouse::Cursor) -> Option<String> {
@@ -536,11 +550,20 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             let new_y = (self.scroll_offset.y + delta.y).clamp(0.0, max_scroll_y);
 
             if (new_y - self.scroll_offset.y).abs() > f32::EPSILON {
-                return Some(Action::publish(Event::Ui(UiEvent::ContentScrolled(self.scroll_offset.x, new_y))));
+                let event = match self.scroll_event_target {
+                    ScrollEventTarget::BrowserContent => {
+                        Event::Ui(UiEvent::ContentScrolled(self.scroll_offset.x, new_y))
+                    }
+                    ScrollEventTarget::DevtoolsContent => {
+                        Event::Ui(UiEvent::DevtoolsScroll(self.scroll_offset.x, new_y))
+                    }
+                };
+                return Some(Action::publish(event));
             }
         }
 
-        if let Some(href) = self.get_hovered_href(cursor)
+        if matches!(self.scroll_event_target, ScrollEventTarget::BrowserContent)
+            && let Some(href) = self.get_hovered_href(cursor)
             && let iced::Event::Mouse(e) = event
             && let mouse::Event::ButtonReleased(mouse::Button::Left) = e
         {
@@ -556,6 +579,9 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
         _bounds: Rectangle,
         cursor: iced::advanced::mouse::Cursor,
     ) -> iced::advanced::mouse::Interaction {
+        if !matches!(self.scroll_event_target, ScrollEventTarget::BrowserContent) {
+            return Interaction::default();
+        }
         self.hovered_cursor(cursor).unwrap_or_default()
     }
 }

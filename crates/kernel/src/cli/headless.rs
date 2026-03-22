@@ -154,6 +154,7 @@ impl Commandable for HeadlessBrowser {
                     Err(BrowserError::TabError(TabError::NoHistory))
                 }
             }
+            BrowserCommand::GetDevtoolsPage { .. } => Err(BrowserError::UnsupportedCommand),
             BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
             BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
             BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),

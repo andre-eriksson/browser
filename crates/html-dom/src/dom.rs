@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
+    io::Write,
 };
 
 use crate::tag::Tag;
@@ -200,6 +201,89 @@ impl DocumentRoot {
 
         node_id
     }
+
+    /// Convert the DOM tree to an HTML string representation
+    /// Used for debugging and visualization purposes.
+    #[must_use]
+    pub fn to_html(&self) -> Vec<u8> {
+        fn node_to_html(mut html: &mut Vec<u8>, node: &DomNode, dom: &DocumentRoot, depth: usize) {
+            if node
+                .data
+                .as_text()
+                .as_ref()
+                .is_some_and(|t| t.trim().is_empty())
+            {
+                return; // Skip empty text nodes
+            }
+
+            write!(&mut html, "<div class='line'>").unwrap();
+            write!(&mut html, "<span style='margin-left: calc({depth} * 2rem)'></span>").unwrap();
+
+            match &node.data {
+                NodeData::Element(elem) => {
+                    write!(&mut html, "<span class='tag'>&lt;</span><span class='tag-name'>{}</span>", elem.tag)
+                        .unwrap();
+
+                    write!(
+                        &mut html,
+                        " <span class='attr-name'>data-node-id</span><span class='attr-equals'>=</span><span class='attr-value'>\"{}\"</span>",
+                        node.id,
+                    ).unwrap();
+
+                    for (attr_name, attr_value) in &elem.attributes {
+                        if attr_name.trim().is_empty() {
+                            continue;
+                        }
+
+                        write!(
+                            &mut html,
+                            " <span class='attr-name'>{attr_name}</span><span class='attr-equals'>=</span><span class='attr-value'>\"{attr_value}\"</span>",
+                        ).unwrap();
+                    }
+
+                    write!(&mut html, "<span class='tag'>&gt;</span>").unwrap();
+
+                    let has_child = !node.children.is_empty();
+
+                    for child_id in &node.children {
+                        if let Some(child_node) = dom.get_node(child_id) {
+                            node_to_html(html, child_node, dom, depth + 1);
+                        }
+                    }
+
+                    if has_child {
+                        write!(&mut html, "<span style='margin-left: calc({depth} * 2rem)'></span>").unwrap();
+                    }
+
+                    if !elem.tag.is_void_element() {
+                        write!(
+                            &mut html,
+                            "<span class='tag'>&lt;/</span><span class='tag-name'>{}</span><span class='tag'>&gt;</span>",
+                            elem.tag
+                        )
+                        .unwrap();
+                    }
+                }
+                NodeData::Text(text) => {
+                    write!(&mut html, "<span class='text'>{text}</span>").unwrap();
+                }
+            }
+
+            write!(&mut html, "</div>").unwrap();
+        }
+
+        let mut html = Vec::new();
+        writeln!(&mut html, "<html><head></head><body>").unwrap();
+
+        for root_id in &self.root_nodes {
+            if let Some(root_node) = self.get_node(root_id) {
+                node_to_html(&mut html, root_node, self, 0);
+            }
+        }
+
+        writeln!(&mut html, "</body></html>").unwrap();
+        html
+    }
 }
 
 impl Display for DocumentRoot {
@@ -210,7 +294,7 @@ impl Display for DocumentRoot {
             }
             match &node.data {
                 NodeData::Element(elem) => {
-                    writeln!(f, "<{} node_id={}>", elem.tag, node.id)?;
+                    writeln!(f, "<{} data-node_id=\"{}\">", elem.tag, node.id)?;
                     for child_id in &node.children {
                         if let Some(child_node) = doc.get_node(child_id) {
                             fmt_node(child_node, doc, f, indent + 1)?;

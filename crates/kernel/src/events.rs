@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    HistoryState,
+    DevtoolsPage, HistoryState,
     errors::{BrowserError, NavigationError},
 };
 use async_trait::async_trait;
@@ -44,6 +44,9 @@ pub enum BrowserEvent {
     /// Reload the current page in the active tab.
     Refresh,
 
+    /// The DevTools page for a tab is ready.
+    DevtoolsPageReady(TabId, DevtoolsPage),
+
     /// Navigation succeeded.
     NavigateSuccess(TabId, Arc<Page>, HistoryState),
 
@@ -68,6 +71,9 @@ pub enum BrowserCommand {
 
     /// Command to navigate forward in the history of a tab.
     NavigateForward { tab_id: TabId },
+
+    /// Get the DevTools page for a specific tab.
+    GetDevtoolsPage { tab_id: TabId },
 
     /// Command to add a new tab.
     AddTab,

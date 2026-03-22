@@ -70,3 +70,26 @@ impl Page {
         &self.images
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct DevtoolsPage {
+    document: DocumentRoot,
+    stylesheets: Vec<CSSStyleSheet>,
+}
+
+impl DevtoolsPage {
+    pub fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
+        Self {
+            document,
+            stylesheets,
+        }
+    }
+
+    pub fn document(&self) -> &DocumentRoot {
+        &self.document
+    }
+
+    pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
+        &self.stylesheets
+    }
+}

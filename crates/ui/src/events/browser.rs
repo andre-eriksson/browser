@@ -6,6 +6,7 @@ use crate::{
     events::{
         Event, EventHandler,
         browser::{
+            devtools::on_devtools_page_ready,
             navigate::{
                 navigate_back, navigate_forward, navigate_to_url, on_image_loaded, on_navigation_error,
                 on_navigation_success, refresh_page,
@@ -15,6 +16,7 @@ use crate::{
     },
 };
 
+mod devtools;
 mod navigate;
 mod tab;
 
@@ -33,6 +35,8 @@ impl EventHandler<BrowserEvent> for Application {
             BrowserEvent::Refresh => refresh_page(self),
 
             BrowserEvent::NavigateError(error) => on_navigation_error(self, error),
+
+            BrowserEvent::DevtoolsPageReady(tab_id, page) => on_devtools_page_ready(self, tab_id, page),
 
             BrowserEvent::ImageFetched(tab_id, url, bytes, headers) => {
                 on_image_loaded(self, tab_id, url, bytes, headers)

@@ -3,7 +3,7 @@ use std::cell::Cell;
 use constants::APP_NAME;
 use iced::{
     Length, Renderer, Size, Theme,
-    widget::{column, container},
+    widget::container,
     window::{self, Position, Settings},
 };
 use io::{Resource, embeded::DEVTOOLS_ICON};
@@ -12,6 +12,10 @@ use crate::{
     core::{Application, ApplicationWindow},
     events::Event,
     util::image::load_icon,
+    views::{
+        browser::components::shader::{HtmlRenderer, ScrollEventTarget, ViewportBounds},
+        devtools::html::DevtoolsHtml,
+    },
 };
 
 /// DevtoolsWindow is a window for displaying developer tools in the application.
@@ -28,32 +32,46 @@ impl ApplicationWindow<Application> for DevtoolsWindow {
         Self { id: Cell::new(id) }
     }
 
-    fn render<'window>(&'window self, _app: &'window Application) -> iced::Element<'window, Event, Theme, Renderer> {
-        //let dom_tree = match render_dom_tree(app) {
-        //    Ok(content) => content,
-        //    Err(e) => container(text(format!("Error rendering content: {}", e)))
-        //        .width(Length::Fill)
-        //        .padding(10.0)
-        //        .style(|_| container::Style {
-        //            background: Some(Background::Color(Color::from_rgb(0.95, 0.95, 0.95))),
-        //            text_color: Some(Color::BLACK),
-        //            ..Default::default()
-        //        }),
-        //};
+    fn render<'window>(
+        &'window self,
+        application: &'window Application,
+    ) -> iced::Element<'window, Event, Theme, Renderer> {
+        let tab = application
+            .tabs
+            .iter()
+            .find(|tab| tab.id == application.active_tab);
 
-        let ui = container(
-            column![
-                //scrollable::Scrollable::new(dom_tree)
-                //    .direction(Direction::Vertical(Scrollbar::new()))
-                //    .height(Length::Fill),
-            ]
-            .spacing(10.0),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(10.0);
+        let (_, viewport_height) = application
+            .viewports
+            .get(&self.id())
+            .copied()
+            .unwrap_or((800.0, 600.0));
 
-        ui.into()
+        // NOTE: Varies depending on UI elements around the content.
+        let content_viewport_height = (viewport_height + 50.0).max(100.0);
+
+        match tab.and_then(|t| t.devtools_page.as_ref()) {
+            Some(devtools) => {
+                let viewport_bounds = ViewportBounds::new(devtools.scroll_offset.y, content_viewport_height);
+                let mut renderer = HtmlRenderer::new(devtools.document(), devtools.layout_tree());
+                renderer.set_scroll_event_target(ScrollEventTarget::DevtoolsContent);
+                let html = DevtoolsHtml::new(
+                    devtools.scroll_offset,
+                    viewport_bounds,
+                    renderer,
+                    devtools.document(),
+                    devtools.layout_tree(),
+                );
+                html.render(application)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into()
+            }
+            None => container("DevTools page not available")
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into(),
+        }
     }
 
     fn settings() -> iced::window::Settings {

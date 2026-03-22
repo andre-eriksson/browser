@@ -24,6 +24,9 @@ pub enum BrowserError {
 
     #[error("Failed to fetch image: {0}")]
     ImageFetchError(String),
+
+    #[error("The current browser doesn't support this command.")]
+    UnsupportedCommand,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -39,4 +42,7 @@ pub enum TabError {
 
     #[error("Tab has no history to navigate back or forward")]
     NoHistory,
+
+    #[error("DevTools error: {0}")]
+    DevtoolsError(String),
 }

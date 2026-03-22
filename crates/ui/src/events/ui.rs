@@ -7,7 +7,10 @@ use crate::{
         ui::{
             layout::{on_image_loaded, on_relayout_complete},
             tab::{change_active_tab, close_tab, create_new_tab},
-            window::{close_window, create_window, on_content_scrolled, on_url_change, on_window_resized},
+            window::{
+                close_window, create_window, on_content_scrolled, on_devtools_scrolled, on_url_change,
+                on_window_resized,
+            },
         },
     },
 };
@@ -23,7 +26,9 @@ impl EventHandler<UiEvent> for Application {
             UiEvent::CloseWindow(window_id) => close_window(self, window_id),
             UiEvent::WindowResized(window_id, width, height) => on_window_resized(self, window_id, width, height),
             UiEvent::ChangeURL(url) => on_url_change(self, url),
+
             UiEvent::ContentScrolled(x, y) => on_content_scrolled(self, x, y),
+            UiEvent::DevtoolsScroll(x, y) => on_devtools_scrolled(self, x, y),
 
             UiEvent::NewTab => create_new_tab(self),
             UiEvent::CloseTab(tab_id) => close_tab(self, tab_id),
