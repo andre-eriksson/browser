@@ -4,11 +4,14 @@ use iced::{
     Background, Color, Length,
     widget::{Shader, container, shader},
 };
+use layout::SideOffset;
 
 use crate::{
     core::{Application, UiTab},
     events::Event,
-    views::browser::components::shader::{HtmlRenderer, ViewportBounds, collect_render_data_from_layout},
+    views::browser::components::shader::{
+        HtmlRenderer, RendererViewport, ViewportBounds, collect_render_data_from_layout,
+    },
 };
 
 pub struct BrowserHtml<'renderer> {
@@ -28,7 +31,7 @@ impl<'renderer> BrowserHtml<'renderer> {
     where
         'renderer: 'application,
     {
-        let (_, viewport_height) = app
+        let (viewport_width, viewport_height) = app
             .viewports
             .get(&app.id)
             .copied()
@@ -37,7 +40,18 @@ impl<'renderer> BrowserHtml<'renderer> {
         // NOTE: Varies depending on UI elements around the content.
         let content_viewport_height = (viewport_height - 100.0).max(100.0);
 
-        let viewport_bounds = ViewportBounds::new(active_tab.scroll_offset.y, content_viewport_height);
+        let viewport_bounds = ViewportBounds::new(
+            RendererViewport {
+                scroll_offset: active_tab.scroll_offset,
+                width: viewport_width,
+                height: content_viewport_height,
+            },
+            SideOffset {
+                top: 100.0,
+                bottom: 100.0,
+                ..SideOffset::zero()
+            },
+        );
 
         let render_data = collect_render_data_from_layout(
             active_tab.page.document(),
@@ -50,8 +64,7 @@ impl<'renderer> BrowserHtml<'renderer> {
         self.renderer.set_tris(render_data.tris);
         self.renderer.set_text_blocks(render_data.text_blocks);
         self.renderer.set_images(render_data.images);
-        self.renderer.set_scroll_offset(active_tab.scroll_offset);
-        self.renderer.set_viewport_height(content_viewport_height);
+        self.renderer.set_viewport(viewport_bounds.viewport);
 
         let shader: Shader<Event, HtmlRenderer> = shader(self.renderer)
             .width(Length::Fill)

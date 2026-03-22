@@ -125,6 +125,9 @@ pub struct LayoutTree {
 
     /// The total content height of the layout tree
     pub content_height: f32,
+
+    /// The total content width of the layout tree
+    pub content_width: f32,
 }
 
 impl LayoutTree {

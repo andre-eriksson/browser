@@ -6,13 +6,12 @@ use iced::{
 use layout::LayoutTree;
 
 use crate::{
-    core::{Application, ScrollOffset},
+    core::Application,
     events::Event,
     views::browser::components::shader::{HtmlRenderer, ViewportBounds, collect_render_data_from_layout},
 };
 
 pub struct DevtoolsHtml<'renderer> {
-    scroll: ScrollOffset,
     viewport_bounds: ViewportBounds,
     renderer: HtmlRenderer<'renderer>,
     dom: &'renderer DocumentRoot,
@@ -21,14 +20,12 @@ pub struct DevtoolsHtml<'renderer> {
 
 impl<'renderer> DevtoolsHtml<'renderer> {
     pub fn new(
-        scroll: ScrollOffset,
         viewport_bounds: ViewportBounds,
         renderer: HtmlRenderer<'renderer>,
         dom: &'renderer DocumentRoot,
         layout_tree: &'renderer LayoutTree,
     ) -> Self {
         Self {
-            scroll,
             viewport_bounds,
             renderer,
             dom,
@@ -45,16 +42,14 @@ impl<'renderer> DevtoolsHtml<'renderer> {
         self.renderer.set_tris(render_data.tris);
         self.renderer.set_text_blocks(render_data.text_blocks);
         self.renderer.set_images(render_data.images);
-        self.renderer.set_scroll_offset(self.scroll);
-        self.renderer
-            .set_viewport_height(self.viewport_bounds.viewport_height);
+        self.renderer.set_viewport(self.viewport_bounds.viewport);
 
         let shader: Shader<Event, HtmlRenderer> = shader(self.renderer)
             .width(Length::Fill)
-            .height(Length::Fixed(self.viewport_bounds.viewport_height));
+            .height(Length::Fixed(self.viewport_bounds.viewport.height));
 
         container(shader)
             .width(Length::Fill)
-            .height(Length::Fixed(self.viewport_bounds.viewport_height))
+            .height(Length::Fixed(self.viewport_bounds.viewport.height))
     }
 }

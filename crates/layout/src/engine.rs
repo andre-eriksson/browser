@@ -56,6 +56,7 @@ impl LayoutEngine {
         let img_ctx = image_ctx.cloned().unwrap_or_default();
 
         let mut total_height = 0.0;
+        let mut max_width: f32 = 0.0;
         let mut root_nodes = Vec::new();
 
         for styled_node in &style_tree.root_nodes {
@@ -74,12 +75,15 @@ impl LayoutEngine {
             node.dimensions.height += top_margin + bottom_margin;
 
             total_height += node.dimensions.height;
+            max_width = max_width.max(node.dimensions.width);
+
             root_nodes.push(node);
         }
 
         LayoutTree {
             root_nodes,
             content_height: total_height,
+            content_width: max_width,
         }
     }
 

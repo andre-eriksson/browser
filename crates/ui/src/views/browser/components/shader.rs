@@ -5,6 +5,7 @@ use html_dom::{DocumentRoot, HtmlTag, Tag};
 use iced::{
     Rectangle,
     advanced::graphics::text::cosmic_text::FontSystem,
+    keyboard::{Key, key::Named},
     mouse::{self, Cursor, Interaction},
     wgpu::{self, RenderPass},
     widget::{
@@ -13,7 +14,7 @@ use iced::{
     },
 };
 use io::{CacheEntry, CacheRead};
-use layout::{Color4f, LayoutNode, LayoutTree, Rect};
+use layout::{Color4f, LayoutNode, LayoutTree, Rect, SideOffset};
 use renderer::{
     DecodedImageData, GlyphAtlas, GpuImageCache, ImageRenderInfo, RectPipeline, RenderRect, RenderTri, TextBlockInfo,
     TexturePipeline, image::ImageCache,
@@ -264,6 +265,13 @@ impl Primitive for HtmlPrimitive {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RendererViewport {
+    pub scroll_offset: ScrollOffset,
+    pub width: f32,
+    pub height: f32,
+}
+
 /// HTML/CSS renderer using wgpu
 #[derive(Debug, Clone)]
 pub struct HtmlRenderer<'a> {
@@ -279,9 +287,6 @@ pub struct HtmlRenderer<'a> {
     /// Images to render (populated by layout engine + image cache)
     pub images: Vec<ImageRenderInfo>,
 
-    /// The scroll offset for viewport-based rendering
-    pub scroll_offset: ScrollOffset,
-
     /// The DOM tree being rendered
     pub dom_tree: &'a DocumentRoot,
 
@@ -289,7 +294,7 @@ pub struct HtmlRenderer<'a> {
     pub layout_tree: &'a LayoutTree,
 
     /// The visible viewport height used to clamp wheel scrolling
-    pub viewport_height: f32,
+    pub viewport: RendererViewport,
 
     /// Where wheel scroll events should be routed.
     pub scroll_event_target: ScrollEventTarget,
@@ -302,10 +307,13 @@ impl<'html> HtmlRenderer<'html> {
             tris: Vec::new(),
             text_blocks: Vec::new(),
             images: Vec::new(),
-            scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
+            viewport: RendererViewport {
+                scroll_offset: ScrollOffset { x: 0.0, y: 0.0 },
+                width: 0.0,
+                height: 0.0,
+            },
             dom_tree,
             layout_tree,
-            viewport_height: 0.0,
             scroll_event_target: ScrollEventTarget::BrowserContent,
         }
     }
@@ -333,12 +341,8 @@ impl<'html> HtmlRenderer<'html> {
         self.images = images;
     }
 
-    pub fn set_scroll_offset(&mut self, scroll_offset: ScrollOffset) {
-        self.scroll_offset = scroll_offset;
-    }
-
-    pub fn set_viewport_height(&mut self, viewport_height: f32) {
-        self.viewport_height = viewport_height;
+    pub fn set_viewport(&mut self, viewport: RendererViewport) {
+        self.viewport = viewport;
     }
 
     pub fn set_scroll_event_target(&mut self, target: ScrollEventTarget) {
@@ -347,8 +351,8 @@ impl<'html> HtmlRenderer<'html> {
 
     fn get_hovered_href(&self, cursor: iced::advanced::mouse::Cursor) -> Option<String> {
         let position = cursor.position()?;
-        let x = position.x + self.scroll_offset.x;
-        let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+        let x = position.x + self.viewport.scroll_offset.x;
+        let y = position.y + self.viewport.scroll_offset.y - UI_VERTICAL_OFFSET;
 
         let nodes = self.layout_tree.resolve(x, y);
 
@@ -380,8 +384,8 @@ impl<'html> HtmlRenderer<'html> {
     /// Determine the mouse cursor interaction based on the layout nodes under the cursor position.
     fn hovered_cursor(&self, cursor: iced::advanced::mouse::Cursor) -> Option<Interaction> {
         let position = cursor.position()?;
-        let x = position.x + self.scroll_offset.x;
-        let y = position.y + self.scroll_offset.y - UI_VERTICAL_OFFSET;
+        let x = position.x + self.viewport.scroll_offset.x;
+        let y = position.y + self.viewport.scroll_offset.y - UI_VERTICAL_OFFSET;
 
         let nodes = self.layout_tree.resolve(x, y);
 
@@ -501,15 +505,17 @@ impl<'html> HtmlRenderer<'html> {
 }
 
 /// State for the shader widget
-#[derive(Default)]
-pub struct HtmlProgram;
+#[derive(Debug, Default)]
+pub struct HtmlProgram {
+    pub holding_shift: bool,
+}
 
 impl<'a> Program<Event> for HtmlRenderer<'a> {
     type Primitive = HtmlPrimitive;
     type State = HtmlProgram;
 
     fn draw(&self, _state: &Self::State, _cursor: Cursor, bounds: Rectangle) -> Self::Primitive {
-        let mut primitive = HtmlPrimitive::new(bounds.width, bounds.height, self.scroll_offset);
+        let mut primitive = HtmlPrimitive::new(bounds.width, bounds.height, self.viewport.scroll_offset);
 
         for tri in &self.tris {
             primitive.push_triangle(tri.p0, tri.p1, tri.p2, tri.color);
@@ -532,32 +538,68 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
 
     fn update(
         &self,
-        _state: &mut Self::State,
+        state: &mut Self::State,
         event: &iced::Event,
         _bounds: Rectangle,
         cursor: iced::advanced::mouse::Cursor,
     ) -> Option<iced::widget::Action<Event>> {
+        if let iced::Event::Keyboard(ke) = event {
+            if let iced::keyboard::Event::KeyPressed { key, .. } = ke
+                && key == &Key::Named(Named::Shift)
+            {
+                state.holding_shift = true;
+            } else if let iced::keyboard::Event::KeyReleased { key, .. } = ke
+                && key == &Key::Named(Named::Shift)
+            {
+                state.holding_shift = false;
+            }
+        }
+
         if let iced::Event::Mouse(e) = event
             && let mouse::Event::WheelScrolled { delta } = e
         {
-            let delta = match *delta {
-                mouse::ScrollDelta::Lines { x, y } => -iced::Vector::new(x, y) * 60.0,
-                mouse::ScrollDelta::Pixels { x, y } => -iced::Vector::new(x, y),
-            };
-
-            let max_scroll_y = (self.layout_tree.content_height - self.viewport_height).max(0.0);
-            let new_y = (self.scroll_offset.y + delta.y).clamp(0.0, max_scroll_y);
-
-            if (new_y - self.scroll_offset.y).abs() > f32::EPSILON {
-                let event = match self.scroll_event_target {
-                    ScrollEventTarget::BrowserContent => {
-                        Event::Browser(BrowserEvent::Scroll(self.scroll_offset.x, new_y))
-                    }
-                    ScrollEventTarget::DevtoolsContent => {
-                        Event::Devtools(DevtoolEvent::Scroll(self.scroll_offset.x, new_y))
-                    }
+            if state.holding_shift {
+                let delta = match *delta {
+                    mouse::ScrollDelta::Lines { y, .. } => -iced::Vector::new(y, 0.0) * 60.0,
+                    mouse::ScrollDelta::Pixels { y, .. } => -iced::Vector::new(y, 0.0),
                 };
-                return Some(Action::publish(event));
+
+                let max_scroll_x = (self.layout_tree.content_width - self.viewport.width).max(0.0);
+                let new_x = (self.viewport.scroll_offset.x + delta.x).clamp(0.0, max_scroll_x);
+
+                if (new_x - self.viewport.scroll_offset.x).abs() > f32::EPSILON {
+                    let event = match self.scroll_event_target {
+                        ScrollEventTarget::BrowserContent => {
+                            Event::Browser(BrowserEvent::Scroll(new_x, self.viewport.scroll_offset.y))
+                        }
+                        ScrollEventTarget::DevtoolsContent => {
+                            Event::Devtools(DevtoolEvent::Scroll(new_x, self.viewport.scroll_offset.y))
+                        }
+                    };
+
+                    return Some(Action::publish(event));
+                }
+            } else {
+                let delta = match *delta {
+                    mouse::ScrollDelta::Lines { y, .. } => -iced::Vector::new(0.0, y) * 60.0,
+                    mouse::ScrollDelta::Pixels { y, .. } => -iced::Vector::new(0.0, y),
+                };
+
+                let max_scroll_y = (self.layout_tree.content_height - self.viewport.height).max(0.0);
+                let new_y = (self.viewport.scroll_offset.y + delta.y).clamp(0.0, max_scroll_y);
+
+                if (new_y - self.viewport.scroll_offset.y).abs() > f32::EPSILON {
+                    let event = match self.scroll_event_target {
+                        ScrollEventTarget::BrowserContent => {
+                            Event::Browser(BrowserEvent::Scroll(self.viewport.scroll_offset.x, new_y))
+                        }
+                        ScrollEventTarget::DevtoolsContent => {
+                            Event::Devtools(DevtoolEvent::Scroll(self.viewport.scroll_offset.x, new_y))
+                        }
+                    };
+
+                    return Some(Action::publish(event));
+                }
             }
         }
 
@@ -588,27 +630,29 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
 /// Viewport bounds for culling off-screen content
 #[derive(Debug, Clone, Copy)]
 pub struct ViewportBounds {
-    pub scroll_y: f32,
-    pub viewport_height: f32,
-    pub margin: f32,
+    pub viewport: RendererViewport,
+    pub margin: SideOffset,
 }
 
 impl ViewportBounds {
-    pub fn new(scroll_y: f32, viewport_height: f32) -> Self {
-        Self {
-            scroll_y,
-            viewport_height,
-            margin: 200.0,
-        }
+    pub fn new(viewport: RendererViewport, margin: SideOffset) -> Self {
+        Self { viewport, margin }
     }
 
     /// Check if a node is visible within the viewport (with margin)
-    fn is_visible(&self, node_y: f32, node_height: f32) -> bool {
-        let viewport_top = self.scroll_y - self.margin;
-        let viewport_bottom = self.scroll_y + self.viewport_height + self.margin;
-        let node_bottom = node_y + node_height;
+    fn is_visible(&self, dimensions: Rect) -> bool {
+        let viewport_top = self.viewport.scroll_offset.y - self.margin.vertical();
+        let viewport_bottom = self.viewport.scroll_offset.y + self.viewport.height + self.margin.vertical();
+        let viewport_left = self.viewport.scroll_offset.x - self.margin.horizontal();
+        let viewport_right = self.viewport.scroll_offset.x + self.viewport.width + self.margin.horizontal();
 
-        node_bottom >= viewport_top && node_y <= viewport_bottom
+        let node_bottom = dimensions.y + dimensions.height;
+        let node_right = dimensions.x + dimensions.width;
+
+        node_bottom >= viewport_top
+            && dimensions.y <= viewport_bottom
+            && node_right >= viewport_left
+            && dimensions.x <= viewport_right
     }
 }
 
@@ -628,7 +672,7 @@ pub fn collect_render_data_from_layout<'html>(
         image_cache: Option<&ImageCache>,
     ) {
         if let Some(vp) = viewport
-            && !vp.is_visible(node.dimensions.y, node.dimensions.height)
+            && !vp.is_visible(node.dimensions)
         {
             return;
         }

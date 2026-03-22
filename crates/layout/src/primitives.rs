@@ -33,6 +33,15 @@ pub struct SideOffset {
 }
 
 impl SideOffset {
+    pub fn all(value: f32) -> Self {
+        Self {
+            top: value,
+            right: value,
+            bottom: value,
+            left: value,
+        }
+    }
+
     pub fn horizontal(&self) -> f32 {
         self.left + self.right
     }
