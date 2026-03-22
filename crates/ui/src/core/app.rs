@@ -7,14 +7,16 @@ use iced::keyboard::key;
 use iced::theme::{Custom, Palette};
 use iced::{Color, Subscription, event, keyboard};
 use iced::{Renderer, Task, Theme, window};
-use kernel::{Browser, BrowserEvent, TabId};
+use kernel::{Browser, TabId};
 use layout::TextContext;
 use preferences::BrowserConfig;
 use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 
 use crate::core::{ApplicationWindow, UiTab, WindowType};
-use crate::events::{Event, EventHandler, UiEvent};
+use crate::events::kernel::KernelRequest;
+use crate::events::window::WindowEvent;
+use crate::events::{Event, EventHandler};
 use crate::manager::WindowController;
 use crate::util::fonts::load_fallback_fonts;
 use crate::views::browser::window::BrowserWindow;
@@ -101,8 +103,11 @@ impl Application {
     /// * `message` - The message containing the action to perform.
     pub fn update(&mut self, event: Event) -> Task<Event> {
         match event {
-            Event::Ui(ui_event) => self.handle(ui_event),
+            Event::Window(window_event) => self.handle(window_event),
+            Event::KernelResponse(kernel_response) => self.handle(kernel_response),
+            Event::KernelRequest(kernel_request) => self.handle(kernel_request),
             Event::Browser(browser_event) => self.handle(browser_event),
+            Event::Devtools(devtools_event) => self.handle(devtools_event),
         }
     }
 
@@ -113,17 +118,17 @@ impl Application {
     /// collected from each open window via [`WindowController::subscriptions`].
     pub fn subscriptions(&self) -> iced::Subscription<Event> {
         Subscription::batch([
-            window::close_events().map(|window_id| Event::Ui(UiEvent::CloseWindow(window_id))),
+            window::close_events().map(|window_id| Event::Window(WindowEvent::CloseWindow(window_id))),
             event::listen_with(|event, _status, _window| match event {
                 iced::Event::Keyboard(keyboard::Event::KeyPressed {
                     key: keyboard::Key::Named(key::Named::F5),
                     ..
-                }) => Some(Event::Browser(BrowserEvent::Refresh)),
+                }) => Some(Event::KernelRequest(KernelRequest::Refresh)),
                 iced::Event::Keyboard(keyboard::Event::KeyPressed {
                     key: keyboard::Key::Character(ref c),
                     modifiers,
                     ..
-                }) if c.as_str() == "r" && modifiers.control() => Some(Event::Browser(BrowserEvent::Refresh)),
+                }) if c.as_str() == "r" && modifiers.control() => Some(Event::KernelRequest(KernelRequest::Refresh)),
                 _ => None,
             }),
             self.window_controller.subscriptions(),

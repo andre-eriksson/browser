@@ -7,11 +7,10 @@ use iced::{
     window::{self, Position, Settings},
 };
 use io::{Resource, embeded::WINDOW_ICON};
-use kernel::BrowserEvent;
 
 use crate::{
     core::{Application, ApplicationWindow},
-    events::{Event, UiEvent},
+    events::{Event, kernel::KernelRequest, window::WindowEvent},
     util::image::load_icon,
     views::browser::components::{
         footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml, shader::HtmlRenderer,
@@ -94,7 +93,7 @@ impl ApplicationWindow<Application> for BrowserWindow {
             .with(self.id())
             .filter_map(|(id, (window_id, size))| {
                 if id == window_id {
-                    Some(Event::Ui(UiEvent::WindowResized(window_id, size.width, size.height)))
+                    Some(Event::Window(WindowEvent::WindowResized(window_id, size.width, size.height)))
                 } else {
                     None
                 }
@@ -102,10 +101,10 @@ impl ApplicationWindow<Application> for BrowserWindow {
 
         let mouse_nav = event::listen_with(|event, _status, _window| match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Back)) => {
-                Some(Event::Browser(BrowserEvent::NavigateBack))
+                Some(Event::KernelRequest(KernelRequest::NavigateBack))
             }
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Forward)) => {
-                Some(Event::Browser(BrowserEvent::NavigateForward))
+                Some(Event::KernelRequest(KernelRequest::NavigateForward))
             }
             _ => None,
         })

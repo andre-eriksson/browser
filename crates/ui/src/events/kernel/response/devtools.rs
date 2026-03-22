@@ -9,6 +9,7 @@ use crate::{
     events::Event,
 };
 
+/// Handles the event when a devtools page is ready, building the style and layout trees for the page and associating it with the corresponding tab in the application.
 pub(crate) fn on_devtools_page_ready(application: &mut Application, tab_id: TabId, page: DevtoolsPage) -> Task<Event> {
     let current_tab = application.tabs.iter_mut().find(|tab| tab.id == tab_id);
 

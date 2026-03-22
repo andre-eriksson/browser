@@ -15,11 +15,10 @@ use io::{
     Resource,
     embeded::{LEFT_CHEVRON_ICON, PLUS_ICON, REFRESH_ICON, RIGHT_CHEVRON_ICON},
 };
-use kernel::BrowserEvent;
 
 use crate::{
     core::Application,
-    events::{Event, UiEvent},
+    events::{Event, browser::BrowserEvent, kernel::KernelRequest},
 };
 
 pub struct BrowserHeader;
@@ -44,7 +43,7 @@ impl BrowserHeader {
 
                 mouse_area(
                     button(text(tab.page.title().trim()))
-                        .on_press(Event::Ui(UiEvent::ChangeActiveTab(tab.id)))
+                        .on_press(Event::Browser(BrowserEvent::ChangeActiveTab(tab.id)))
                         .style(move |t: &Theme, _| {
                             if tab.id == active_tab_id {
                                 button::Style {
@@ -63,7 +62,7 @@ impl BrowserHeader {
                             }
                         }),
                 )
-                .on_right_press(Event::Ui(UiEvent::CloseTab(tab.id)))
+                .on_right_press(Event::Browser(BrowserEvent::CloseTab(tab.id)))
                 .into()
             })
             .chain(std::iter::once(
@@ -72,7 +71,7 @@ impl BrowserHeader {
                         .width(Length::Fixed(21.0))
                         .height(Length::Fixed(21.0)),
                 )
-                .on_press(Event::Ui(UiEvent::NewTab))
+                .on_press(Event::Browser(BrowserEvent::NewTab))
                 .style(|_, _| button::Style {
                     background: Some(Background::Color(
                         Color::from_str(theme.tertiary.as_str())
@@ -92,7 +91,7 @@ impl BrowserHeader {
                 .height(Length::Fixed(18.0)),
         )
         .on_press_maybe(if current_tab.is_some_and(|tab| tab.history_state.can_go_back) {
-            Some(Event::Browser(BrowserEvent::NavigateBack))
+            Some(Event::KernelRequest(KernelRequest::NavigateBack))
         } else {
             None
         });
@@ -103,7 +102,7 @@ impl BrowserHeader {
                 .height(Length::Fixed(18.0)),
         )
         .on_press_maybe(if current_tab.is_some_and(|tab| tab.history_state.can_go_forward) {
-            Some(Event::Browser(BrowserEvent::NavigateForward))
+            Some(Event::KernelRequest(KernelRequest::NavigateForward))
         } else {
             None
         });
@@ -113,15 +112,15 @@ impl BrowserHeader {
                 .width(Length::Fixed(18.0))
                 .height(Length::Fixed(18.0)),
         )
-        .on_press(Event::Browser(BrowserEvent::Refresh));
+        .on_press(Event::KernelRequest(KernelRequest::Refresh));
 
         let tabs = scrollable::Scrollable::new(all_tabs)
             .direction(Direction::Horizontal(Scrollbar::new()))
             .width(Length::FillPortion(2));
 
         let search_bar = text_input("Search", &app.current_url)
-            .on_input(|text| Event::Ui(UiEvent::ChangeURL(text)))
-            .on_submit(Event::Browser(BrowserEvent::NavigateTo(app.current_url.clone())));
+            .on_input(|text| Event::Browser(BrowserEvent::ChangeURL(text)))
+            .on_submit(Event::KernelRequest(KernelRequest::NavigateTo(app.current_url.clone())));
 
         let search_field = row![
             back_navigation,

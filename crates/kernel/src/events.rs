@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     DevtoolsPage, HistoryState,
-    errors::{BrowserError, NavigationError},
+    errors::{KernelError, NavigationError},
 };
 use async_trait::async_trait;
 use network::HeaderMap;
@@ -11,7 +11,7 @@ use crate::tab::{page::Page, tabs::TabId};
 
 #[async_trait]
 pub trait Commandable {
-    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError>;
+    async fn execute(&mut self, command: KernelCommand) -> Result<KernelResponse, KernelError>;
 }
 
 /// A trait representing an event emitter that can emit events of type `T`.
@@ -22,7 +22,7 @@ pub trait Emitter<T>: Send + Sync {
 
 /// Represents various events that can occur within the browser.
 #[derive(Debug, Clone)]
-pub enum BrowserEvent {
+pub enum KernelResponse {
     /// A new tab has been added.
     TabAdded(TabId),
 
@@ -31,18 +31,6 @@ pub enum BrowserEvent {
 
     /// The active tab has changed.
     ActiveTabChanged(TabId),
-
-    /// Navigate to the specified URL.
-    NavigateTo(String),
-
-    /// Navigate back in the history of the current tab.
-    NavigateBack,
-
-    /// Navigate forward in the history of the current tab.
-    NavigateForward,
-
-    /// Reload the current page in the active tab.
-    Refresh,
 
     /// The DevTools page for a tab is ready.
     DevtoolsPageReady(TabId, DevtoolsPage),
@@ -57,12 +45,12 @@ pub enum BrowserEvent {
     ImageFetched(TabId, String, Vec<u8>, HeaderMap),
 
     /// A general browser error occurred (for errors that don't fit other categories).
-    Error(BrowserError),
+    Error(KernelError),
 }
 
 /// Represents commands that can be issued to the browser.
 #[derive(Debug)]
-pub enum BrowserCommand {
+pub enum KernelCommand {
     /// Command to navigate a tab to a specified URL.
     Navigate { tab_id: TabId, url: String },
 
@@ -88,7 +76,7 @@ pub enum BrowserCommand {
     FetchImage { tab_id: TabId, url: String },
 }
 
-impl BrowserCommand {
+impl KernelCommand {
     pub fn parse_navigate(value: &str) -> Option<Self> {
         let parts: Vec<&str> = value.splitn(2, ' ').collect();
         if parts.len() != 2 {
@@ -97,7 +85,7 @@ impl BrowserCommand {
         let tab_id = parts[0].parse::<usize>().ok()?;
         let url = parts[1].to_string();
 
-        Some(BrowserCommand::Navigate {
+        Some(KernelCommand::Navigate {
             tab_id: TabId(tab_id),
             url,
         })

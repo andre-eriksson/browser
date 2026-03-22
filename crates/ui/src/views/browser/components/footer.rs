@@ -7,7 +7,7 @@ use iced::{
 
 use crate::{
     core::{Application, WindowType},
-    events::{Event, UiEvent},
+    events::{Event, window::WindowEvent},
 };
 
 pub struct BrowserFooter;
@@ -19,7 +19,7 @@ impl BrowserFooter {
     pub fn render(app: &Application) -> container::Container<'_, Event> {
         container(
             button("Open DevTools")
-                .on_press(Event::Ui(UiEvent::NewWindow(WindowType::Devtools)))
+                .on_press(Event::Window(WindowEvent::NewWindow(WindowType::Devtools)))
                 .padding(10),
         )
         .style(|_| {

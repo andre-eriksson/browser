@@ -2,7 +2,7 @@ use cli::args::BrowserArgs;
 use std::io::{self, Write};
 use tracing::{error, info};
 
-use crate::{BrowserCommand, Commandable, HeadlessBrowser, TabId};
+use crate::{Commandable, HeadlessBrowser, TabId, events::KernelCommand};
 
 pub struct HeadlessEngine {
     browser: HeadlessBrowser,
@@ -32,7 +32,7 @@ impl HeadlessEngine {
 
                 let navigation_result = self
                     .browser
-                    .execute(BrowserCommand::Navigate {
+                    .execute(KernelCommand::Navigate {
                         tab_id: TabId(tab_id),
                         url,
                     })
@@ -72,7 +72,7 @@ impl HeadlessEngine {
         if args.url.is_some() {
             let navigation_result = self
                 .browser
-                .execute(BrowserCommand::Navigate {
+                .execute(KernelCommand::Navigate {
                     tab_id: TabId(0),
                     url: args.url.clone().unwrap(),
                 })

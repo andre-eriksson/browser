@@ -15,7 +15,7 @@ pub enum NavigationError {
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum BrowserError {
+pub enum KernelError {
     #[error("Tab error: {0}")]
     TabError(#[from] TabError),
 

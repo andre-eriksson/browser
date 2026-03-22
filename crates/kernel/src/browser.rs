@@ -6,7 +6,7 @@ use std::{
 use crate::{
     DevtoolsPage,
     commands::{load_image, parse_devtools_html},
-    errors::{BrowserError, TabError},
+    errors::{KernelError, TabError},
     header::{DefaultHeaders, HeaderType},
 };
 use async_trait::async_trait;
@@ -24,7 +24,7 @@ use tracing::instrument;
 
 use crate::{
     commands::{add_tab, change_active_tab, close_tab, navigate},
-    events::{BrowserCommand, BrowserEvent, Commandable},
+    events::{Commandable, KernelCommand, KernelResponse},
     navigation::{NavigationContext, ScriptExecutor},
     tab::{
         manager::TabManager,
@@ -131,9 +131,9 @@ impl NavigationContext for Browser {
 #[async_trait]
 impl Commandable for Browser {
     #[instrument(skip(self))]
-    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError> {
+    async fn execute(&mut self, command: KernelCommand) -> Result<KernelResponse, KernelError> {
         match command {
-            BrowserCommand::Navigate { tab_id, url } => {
+            KernelCommand::Navigate { tab_id, url } => {
                 let stylesheets = if let Some(default) = &self.default_stylesheet {
                     vec![default.clone()]
                 } else {
@@ -145,41 +145,41 @@ impl Commandable for Browser {
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 tab.navigate_to(Arc::clone(&page));
 
-                Ok(BrowserEvent::NavigateSuccess(tab_id, page, tab.history_state()))
+                Ok(KernelResponse::NavigateSuccess(tab_id, page, tab.history_state()))
             }
-            BrowserCommand::NavigateBack { tab_id } => {
+            KernelCommand::NavigateBack { tab_id } => {
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 if tab.navigate_back() {
-                    Ok(BrowserEvent::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
+                    Ok(KernelResponse::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
                 } else {
-                    Err(BrowserError::TabError(TabError::NoHistory))
+                    Err(KernelError::TabError(TabError::NoHistory))
                 }
             }
-            BrowserCommand::NavigateForward { tab_id } => {
+            KernelCommand::NavigateForward { tab_id } => {
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 if tab.navigate_forward() {
-                    Ok(BrowserEvent::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
+                    Ok(KernelResponse::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
                 } else {
-                    Err(BrowserError::TabError(TabError::NoHistory))
+                    Err(KernelError::TabError(TabError::NoHistory))
                 }
             }
-            BrowserCommand::GetDevtoolsPage { tab_id } => {
+            KernelCommand::GetDevtoolsPage { tab_id } => {
                 let active_tab = self
                     .tab_manager
                     .get_tab(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 let default_css = {
                     let css_resource = Resource::load_embedded(DEFAULT_CSS);
@@ -202,16 +202,16 @@ impl Commandable for Browser {
 
                 let stylesheets = vec![default_css, devtools_css];
                 let dom = parse_devtools_html(active_tab)
-                    .map_err(|e| BrowserError::TabError(TabError::DevtoolsError(e.to_string())))?;
+                    .map_err(|e| KernelError::TabError(TabError::DevtoolsError(e.to_string())))?;
 
                 let devtools_page = DevtoolsPage::new(dom, stylesheets);
 
-                Ok(BrowserEvent::DevtoolsPageReady(tab_id, devtools_page))
+                Ok(KernelResponse::DevtoolsPageReady(tab_id, devtools_page))
             }
-            BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
-            BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
+            KernelCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
+            KernelCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
+            KernelCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
+            KernelCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
         }
     }
 }

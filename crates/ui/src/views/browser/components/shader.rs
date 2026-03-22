@@ -13,7 +13,6 @@ use iced::{
     },
 };
 use io::{CacheEntry, CacheRead};
-use kernel::BrowserEvent;
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
 use renderer::{
     DecodedImageData, GlyphAtlas, GpuImageCache, ImageRenderInfo, RectPipeline, RenderRect, RenderTri, TextBlockInfo,
@@ -22,7 +21,7 @@ use renderer::{
 
 use crate::{
     core::ScrollOffset,
-    events::{Event, UiEvent},
+    events::{Event, browser::BrowserEvent, devtools::DevtoolEvent, kernel::KernelRequest},
     util::fonts::load_fallback_fonts,
 };
 
@@ -552,10 +551,10 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             if (new_y - self.scroll_offset.y).abs() > f32::EPSILON {
                 let event = match self.scroll_event_target {
                     ScrollEventTarget::BrowserContent => {
-                        Event::Ui(UiEvent::ContentScrolled(self.scroll_offset.x, new_y))
+                        Event::Browser(BrowserEvent::Scroll(self.scroll_offset.x, new_y))
                     }
                     ScrollEventTarget::DevtoolsContent => {
-                        Event::Ui(UiEvent::DevtoolsScroll(self.scroll_offset.x, new_y))
+                        Event::Devtools(DevtoolEvent::Scroll(self.scroll_offset.x, new_y))
                     }
                 };
                 return Some(Action::publish(event));
@@ -567,7 +566,7 @@ impl<'a> Program<Event> for HtmlRenderer<'a> {
             && let iced::Event::Mouse(e) = event
             && let mouse::Event::ButtonReleased(mouse::Button::Left) = e
         {
-            return Some(Action::publish(Event::Browser(BrowserEvent::NavigateTo(href))));
+            return Some(Action::publish(Event::KernelRequest(KernelRequest::NavigateTo(href))));
         }
 
         None

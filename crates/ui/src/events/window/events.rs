@@ -1,6 +1,6 @@
 use css_style::{AbsoluteContext, StyleTree};
 use iced::{Task, window::Id};
-use kernel::Commandable;
+use kernel::{Commandable, KernelCommand};
 use layout::{LayoutEngine, Rect};
 
 use crate::{
@@ -18,11 +18,11 @@ pub(crate) fn create_window(application: &mut Application, window_type: WindowTy
             Task::perform(
                 async move {
                     let mut lock = browser.lock().await;
-                    lock.execute(kernel::BrowserCommand::GetDevtoolsPage { tab_id })
+                    lock.execute(KernelCommand::GetDevtoolsPage { tab_id })
                         .await
                 },
                 |result| match result {
-                    Ok(event) => Event::Browser(event),
+                    Ok(event) => Event::KernelResponse(event),
                     Err(e) => {
                         panic!("Failed to get devtools page: {:?}", e);
                     }
@@ -89,43 +89,6 @@ pub(crate) fn on_window_resized(application: &mut Application, window_id: Id, wi
         drop(tc);
 
         tab.layout_tree = layout_tree;
-    }
-
-    Task::none()
-}
-
-/// Handles the change of the current URL when a `UrlChanged` event is received from the UI.
-pub(crate) fn on_url_change(application: &mut Application, url: String) -> Task<Event> {
-    application.current_url = url;
-    Task::none()
-}
-
-/// Handles the scrolling of content when a `ContentScrolled` event is received from the UI,
-/// updating the scroll offset of the active tab.
-pub(crate) fn on_content_scrolled(application: &mut Application, x: f32, y: f32) -> Task<Event> {
-    if let Some(tab) = application
-        .tabs
-        .iter_mut()
-        .find(|tab| tab.id == application.active_tab)
-    {
-        tab.scroll_offset.x = x;
-        tab.scroll_offset.y = y;
-    }
-
-    Task::none()
-}
-
-/// Handles the scrolling of content when a `ContentScrolled` event is received from the UI,
-/// updating the scroll offset of the active tab.
-pub(crate) fn on_devtools_scrolled(application: &mut Application, x: f32, y: f32) -> Task<Event> {
-    if let Some(devtools) = application
-        .tabs
-        .iter_mut()
-        .find(|tab| tab.id == application.active_tab)
-        .and_then(|t| t.devtools_page.as_mut())
-    {
-        devtools.scroll_offset.x = x;
-        devtools.scroll_offset.y = y;
     }
 
     Task::none()

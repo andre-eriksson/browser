@@ -10,7 +10,7 @@ mod tab;
 
 pub use browser::Browser;
 pub use cli::headless::HeadlessBrowser;
-pub use events::{BrowserCommand, BrowserEvent, Commandable, Emitter};
+pub use events::{Commandable, Emitter, KernelCommand, KernelResponse};
 pub use headless::HeadlessEngine;
 pub use tab::collector::TabCollector;
 pub use tab::page::{DevtoolsPage, Page};

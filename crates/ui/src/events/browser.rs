@@ -1,50 +1,69 @@
+use ::layout::LayoutTree;
 use iced::Task;
-use kernel::BrowserEvent;
+use kernel::TabId;
 
 use crate::{
     core::Application,
     events::{
         Event, EventHandler,
         browser::{
-            devtools::on_devtools_page_ready,
-            navigate::{
-                navigate_back, navigate_forward, navigate_to_url, on_image_loaded, on_navigation_error,
-                on_navigation_success, refresh_page,
-            },
-            tab::{on_close_tab, on_new_tab, on_switch_tab},
+            post::{on_image_loaded, on_relayout_complete},
+            tab::{change_active_tab, close_tab, create_new_tab},
+            window::{on_scrolled, on_url_change},
         },
     },
 };
 
-mod devtools;
-mod navigate;
+mod post;
 mod tab;
+mod window;
+
+/// Represents the different types of Browser-related events that can occur in the application.
+///
+/// These events are specific to browser interactions and are handled by the main application logic when they are
+/// triggered from the browser UI or internal browser processes.
+#[derive(Debug, Clone)]
+pub enum BrowserEvent {
+    /// Create a new tab.
+    NewTab,
+
+    /// Close the tab with the specified ID.
+    CloseTab(TabId),
+
+    /// Change the active tab to the tab with the specified ID.
+    ChangeActiveTab(TabId),
+
+    /// Change the URL in the address bar to the specified URL.
+    ChangeURL(String),
+
+    /// Handle content scroll event with new scroll offset.
+    Scroll(f32, f32),
+
+    /// An image has finished loading (or failed). The first String is the source URL,
+    /// the second is the pre-resolved Vary string for exact disk cache lookups.
+    ImageLoaded(TabId, String, String),
+
+    /// A background relayout has completed.  Carries the tab id, the layout
+    /// generation the work was started with, and the resulting layout tree.
+    /// If the generation no longer matches the tab's current generation the
+    /// result is stale (e.g. the user navigated away) and should be discarded.
+    RelayoutComplete(TabId, u64, LayoutTree),
+}
 
 impl EventHandler<BrowserEvent> for Application {
     fn handle(&mut self, event: BrowserEvent) -> Task<Event> {
         match event {
-            BrowserEvent::TabAdded(new_tab_id) => on_new_tab(self, new_tab_id),
-            BrowserEvent::TabClosed(tab_id, next_tab_id) => on_close_tab(self, tab_id, next_tab_id),
-            BrowserEvent::ActiveTabChanged(tab_id) => on_switch_tab(self, tab_id),
+            BrowserEvent::ChangeURL(url) => on_url_change(self, url),
 
-            BrowserEvent::NavigateTo(new_url) => navigate_to_url(self, new_url),
-            BrowserEvent::NavigateSuccess(tab_id, page, history) => on_navigation_success(self, tab_id, page, history),
+            BrowserEvent::Scroll(x, y) => on_scrolled(self, x, y),
 
-            BrowserEvent::NavigateBack => navigate_back(self),
-            BrowserEvent::NavigateForward => navigate_forward(self),
-            BrowserEvent::Refresh => refresh_page(self),
+            BrowserEvent::NewTab => create_new_tab(self),
+            BrowserEvent::CloseTab(tab_id) => close_tab(self, tab_id),
+            BrowserEvent::ChangeActiveTab(tab_id) => change_active_tab(self, tab_id),
 
-            BrowserEvent::NavigateError(error) => on_navigation_error(self, error),
-
-            BrowserEvent::DevtoolsPageReady(tab_id, page) => on_devtools_page_ready(self, tab_id, page),
-
-            BrowserEvent::ImageFetched(tab_id, url, bytes, headers) => {
-                on_image_loaded(self, tab_id, url, bytes, headers)
-            }
-
-            BrowserEvent::Error(error) => {
-                tracing::error!("Browser error: {:?}", error);
-                Task::none()
+            BrowserEvent::ImageLoaded(tab_id, ref url, ref vary_key) => on_image_loaded(self, tab_id, url, vary_key),
+            BrowserEvent::RelayoutComplete(tab_id, generation, layout_tree) => {
+                on_relayout_complete(self, tab_id, generation, layout_tree)
             }
         }
     }

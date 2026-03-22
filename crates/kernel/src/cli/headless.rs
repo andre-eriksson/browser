@@ -1,8 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
+    KernelCommand,
     commands::load_image,
-    errors::{BrowserError, TabError},
+    errors::{KernelError, TabError},
     header::{DefaultHeaders, HeaderType},
 };
 use async_trait::async_trait;
@@ -11,7 +12,7 @@ use cookies::CookieJar;
 use network::{HeaderMap, HeaderName, HeaderValue, client::HttpClient, clients::reqwest::ReqwestClient};
 
 use crate::{
-    BrowserCommand, BrowserEvent, Commandable,
+    Commandable, KernelResponse,
     commands::{add_tab, change_active_tab, close_tab, navigate},
     navigation::{NavigationContext, ScriptExecutor},
     tab::{
@@ -114,9 +115,9 @@ impl NavigationContext for HeadlessBrowser {
 
 #[async_trait]
 impl Commandable for HeadlessBrowser {
-    async fn execute(&mut self, command: BrowserCommand) -> Result<BrowserEvent, BrowserError> {
+    async fn execute(&mut self, command: KernelCommand) -> Result<KernelResponse, KernelError> {
         match command {
-            BrowserCommand::Navigate { tab_id, url } => {
+            KernelCommand::Navigate { tab_id, url } => {
                 let stylesheets = Vec::new();
 
                 let page = Arc::new(navigate(self, tab_id, &url, stylesheets).await?);
@@ -124,41 +125,41 @@ impl Commandable for HeadlessBrowser {
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 tab.navigate_to(Arc::clone(&page));
 
-                Ok(BrowserEvent::NavigateSuccess(tab_id, page, tab.history_state()))
+                Ok(KernelResponse::NavigateSuccess(tab_id, page, tab.history_state()))
             }
-            BrowserCommand::NavigateBack { tab_id } => {
+            KernelCommand::NavigateBack { tab_id } => {
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 if tab.navigate_back() {
-                    Ok(BrowserEvent::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
+                    Ok(KernelResponse::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
                 } else {
-                    Err(BrowserError::TabError(TabError::NoHistory))
+                    Err(KernelError::TabError(TabError::NoHistory))
                 }
             }
-            BrowserCommand::NavigateForward { tab_id } => {
+            KernelCommand::NavigateForward { tab_id } => {
                 let tab = self
                     .tab_manager
                     .get_tab_mut(tab_id)
-                    .ok_or_else(|| BrowserError::TabError(TabError::TabNotFound(tab_id.0)))?;
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
 
                 if tab.navigate_forward() {
-                    Ok(BrowserEvent::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
+                    Ok(KernelResponse::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
                 } else {
-                    Err(BrowserError::TabError(TabError::NoHistory))
+                    Err(KernelError::TabError(TabError::NoHistory))
                 }
             }
-            BrowserCommand::GetDevtoolsPage { .. } => Err(BrowserError::UnsupportedCommand),
-            BrowserCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
-            BrowserCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
-            BrowserCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
+            KernelCommand::GetDevtoolsPage { .. } => Err(KernelError::UnsupportedCommand),
+            KernelCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
+            KernelCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
+            KernelCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
+            KernelCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
         }
     }
 }

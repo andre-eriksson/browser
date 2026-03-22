@@ -9,7 +9,7 @@ use tracing::debug;
 
 use crate::{
     core::Application,
-    events::{Event, UiEvent},
+    events::{Event, browser::BrowserEvent},
 };
 
 /// Handles the completion of image loading, updating the tab's state and triggering a targeted
@@ -103,7 +103,7 @@ pub(crate) fn on_image_loaded(
             .await
             .unwrap()
         },
-        move |layout_tree| Event::Ui(UiEvent::RelayoutComplete(tab_id, generation, layout_tree)),
+        move |layout_tree| Event::Browser(BrowserEvent::RelayoutComplete(tab_id, generation, layout_tree)),
     )
 }
 
