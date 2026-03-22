@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
 use kernel::{DevtoolsPage, HistoryState, Page, TabId};
 use layout::{ImageContext, LayoutTree};
@@ -40,6 +41,10 @@ impl UiDevtools {
 
     pub fn document(&self) -> &DocumentRoot {
         self.page.document()
+    }
+
+    pub fn stylesheets(&self) -> &[CSSStyleSheet] {
+        self.page.stylesheets()
     }
 
     pub fn layout_tree(&self) -> &LayoutTree {

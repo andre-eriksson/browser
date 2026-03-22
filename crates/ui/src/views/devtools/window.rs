@@ -10,7 +10,7 @@ use io::{Resource, embeded::DEVTOOLS_ICON};
 
 use crate::{
     core::{Application, ApplicationWindow},
-    events::Event,
+    events::{Event, devtools::DevtoolEvent},
     util::image::load_icon,
     views::{
         browser::components::shader::{HtmlRenderer, ScrollEventTarget, ViewportBounds},
@@ -93,5 +93,17 @@ impl ApplicationWindow<Application> for DevtoolsWindow {
 
     fn id(&self) -> window::Id {
         self.id.get()
+    }
+
+    fn subscription(&self) -> iced::Subscription<Event> {
+        window::resize_events()
+            .with(self.id())
+            .filter_map(|(id, (window_id, size))| {
+                if id == window_id {
+                    Some(Event::Devtools(DevtoolEvent::Resize(window_id, size.width, size.height)))
+                } else {
+                    None
+                }
+            })
     }
 }

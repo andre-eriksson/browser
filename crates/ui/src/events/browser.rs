@@ -1,5 +1,5 @@
 use ::layout::LayoutTree;
-use iced::Task;
+use iced::{Task, window::Id};
 use kernel::TabId;
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
         browser::{
             post::{on_image_loaded, on_relayout_complete},
             tab::{change_active_tab, close_tab, create_new_tab},
-            window::{on_scrolled, on_url_change},
+            window::{on_resized, on_scrolled, on_url_change},
         },
     },
 };
@@ -39,6 +39,9 @@ pub enum BrowserEvent {
     /// Handle content scroll event with new scroll offset.
     Scroll(f32, f32),
 
+    /// Handle browser resize event with new width and height.
+    Resize(Id, f32, f32),
+
     /// An image has finished loading (or failed). The first String is the source URL,
     /// the second is the pre-resolved Vary string for exact disk cache lookups.
     ImageLoaded(TabId, String, String),
@@ -56,6 +59,7 @@ impl EventHandler<BrowserEvent> for Application {
             BrowserEvent::ChangeURL(url) => on_url_change(self, url),
 
             BrowserEvent::Scroll(x, y) => on_scrolled(self, x, y),
+            BrowserEvent::Resize(window_id, width, height) => on_resized(self, window_id, width, height),
 
             BrowserEvent::NewTab => create_new_tab(self),
             BrowserEvent::CloseTab(tab_id) => close_tab(self, tab_id),

@@ -4,7 +4,7 @@ use crate::{
     core::{Application, WindowType},
     events::{
         Event, EventHandler,
-        window::events::{close_window, create_window, on_window_resized},
+        window::events::{close_window, create_window},
     },
 };
 
@@ -18,9 +18,6 @@ pub enum WindowEvent {
 
     /// Close the window with the specified ID.
     CloseWindow(Id),
-
-    /// Handle window resize event with new width and height.
-    WindowResized(Id, f32, f32),
 }
 
 mod events;
@@ -30,7 +27,6 @@ impl EventHandler<WindowEvent> for Application {
         match event {
             WindowEvent::NewWindow(window_type) => create_window(self, window_type),
             WindowEvent::CloseWindow(window_id) => close_window(self, window_id),
-            WindowEvent::WindowResized(window_id, width, height) => on_window_resized(self, window_id, width, height),
         }
     }
 }

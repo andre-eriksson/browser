@@ -10,7 +10,7 @@ use io::{Resource, embeded::WINDOW_ICON};
 
 use crate::{
     core::{Application, ApplicationWindow},
-    events::{Event, kernel::KernelRequest, window::WindowEvent},
+    events::{Event, browser::BrowserEvent, kernel::KernelRequest},
     util::image::load_icon,
     views::browser::components::{
         footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml, shader::HtmlRenderer,
@@ -93,7 +93,7 @@ impl ApplicationWindow<Application> for BrowserWindow {
             .with(self.id())
             .filter_map(|(id, (window_id, size))| {
                 if id == window_id {
-                    Some(Event::Window(WindowEvent::WindowResized(window_id, size.width, size.height)))
+                    Some(Event::Browser(BrowserEvent::Resize(window_id, size.width, size.height)))
                 } else {
                     None
                 }
