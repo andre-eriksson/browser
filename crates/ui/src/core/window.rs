@@ -3,7 +3,7 @@ use window::Id;
 
 use crate::events::Event;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WindowType {
     /// Represents the main browser window, which displays the web content and user interface.
     Browser,

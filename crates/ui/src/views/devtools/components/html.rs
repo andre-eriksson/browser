@@ -1,7 +1,5 @@
-use std::str::FromStr;
-
 use iced::{
-    Background, Color, Length,
+    Length,
     widget::{Shader, container, shader},
 };
 use layout::{LayoutTree, Rect};
@@ -12,14 +10,14 @@ use crate::{
     renderer::{program::HtmlRenderer, viewport::collect_render_data_from_layout},
 };
 
-pub struct BrowserHtml<'renderer> {
+pub struct DevtoolsHtml<'renderer> {
     renderer: HtmlRenderer<'renderer>,
     layout_tree: &'renderer LayoutTree,
     initial_bounds: Rect,
     scroll_offset: ScrollOffset,
 }
 
-impl<'renderer> BrowserHtml<'renderer> {
+impl<'renderer> DevtoolsHtml<'renderer> {
     pub fn new(
         renderer: HtmlRenderer<'renderer>,
         layout_tree: &'renderer LayoutTree,
@@ -34,11 +32,14 @@ impl<'renderer> BrowserHtml<'renderer> {
         }
     }
 
-    pub fn render(mut self, app: &'renderer Application) -> container::Container<'renderer, Event> {
+    pub fn render<'application>(mut self, _app: &'application Application) -> container::Container<'application, Event>
+    where
+        'renderer: 'application,
+    {
         collect_render_data_from_layout(
             &mut self.renderer,
             self.layout_tree,
-            app.image_cache.as_ref(),
+            None,
             self.initial_bounds,
             self.scroll_offset,
         );
@@ -47,15 +48,6 @@ impl<'renderer> BrowserHtml<'renderer> {
             .width(Length::Fill)
             .height(Length::Fill);
 
-        container(shader)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(Background::Color(
-                    Color::from_str(app.config.active_theme().background.as_str())
-                        .unwrap_or(Color::from_str(&preferences::Theme::default().background).unwrap()),
-                )),
-                ..Default::default()
-            })
+        container(shader).width(Length::Fill).height(Length::Fill)
     }
 }

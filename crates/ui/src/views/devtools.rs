@@ -1,4 +1,4 @@
 //! This module contains the views for the browser devtools UI.
 
-mod html;
+mod components;
 pub mod window;

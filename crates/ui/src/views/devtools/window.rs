@@ -7,16 +7,14 @@ use iced::{
     window::{self, Position, Settings},
 };
 use io::{Resource, embeded::DEVTOOLS_ICON};
-use layout::SideOffset;
+use layout::Rect;
 
 use crate::{
-    core::{Application, ApplicationWindow},
+    core::{Application, ApplicationWindow, WindowType},
     events::{Event, devtools::DevtoolEvent},
+    renderer::program::HtmlRenderer,
     util::image::load_icon,
-    views::{
-        browser::components::shader::{HtmlRenderer, RendererViewport, ScrollEventTarget, ViewportBounds},
-        devtools::html::DevtoolsHtml,
-    },
+    views::devtools::components::html::DevtoolsHtml,
 };
 
 /// DevtoolsWindow is a window for displaying developer tools in the application.
@@ -53,17 +51,18 @@ impl ApplicationWindow<Application> for DevtoolsWindow {
 
         match tab.and_then(|t| t.devtools_page.as_ref()) {
             Some(devtools) => {
-                let viewport_bounds = ViewportBounds::new(
-                    RendererViewport {
-                        scroll_offset: devtools.scroll_offset,
-                        width: viewport_width,
-                        height: content_viewport_height,
-                    },
-                    SideOffset::all(10.0),
+                let renderer = HtmlRenderer::new(
+                    devtools.document(),
+                    devtools.layout_tree(),
+                    devtools.scroll_offset,
+                    WindowType::Devtools,
                 );
-                let mut renderer = HtmlRenderer::new(devtools.document(), devtools.layout_tree());
-                renderer.set_scroll_event_target(ScrollEventTarget::DevtoolsContent);
-                let html = DevtoolsHtml::new(viewport_bounds, renderer, devtools.document(), devtools.layout_tree());
+                let html = DevtoolsHtml::new(
+                    renderer,
+                    devtools.layout_tree(),
+                    Rect::new(0.0, 0.0, viewport_width, content_viewport_height),
+                    devtools.scroll_offset,
+                );
                 html.render(application)
                     .width(Length::Fill)
                     .height(Length::Fill)

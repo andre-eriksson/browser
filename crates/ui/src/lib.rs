@@ -18,6 +18,8 @@ mod util;
 /// UI views and components.
 mod views;
 
+mod renderer;
+
 pub mod errors;
 
 pub use runtime::Ui;

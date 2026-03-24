@@ -7,15 +7,17 @@ use iced::{
     window::{self, Position, Settings},
 };
 use io::{Resource, embeded::WINDOW_ICON};
+use layout::Rect;
 
 use crate::{
-    core::{Application, ApplicationWindow},
+    core::{Application, ApplicationWindow, WindowType},
     events::{Event, browser::BrowserEvent, kernel::KernelRequest},
+    renderer::program::HtmlRenderer,
     util::image::load_icon,
-    views::browser::components::{
-        footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml, shader::HtmlRenderer,
-    },
+    views::browser::components::{footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml},
 };
+
+pub const TOP_UI_OFFSET: f32 = 87.0;
 
 /// BrowserWindow is the "main" application window for the browser UI.
 #[derive(Debug)]
@@ -35,31 +37,34 @@ impl ApplicationWindow<Application> for BrowserWindow {
         let header = BrowserHeader::render(app);
         let footer = BrowserFooter::render(app);
 
-        let (dom, layout) = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
-            Some(tab) => (&tab.page.document(), &tab.layout_tree),
-            None => {
-                return container(column![header, footer].spacing(10.0))
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .into();
-            }
-        };
+        let active_tab = app
+            .tabs
+            .iter()
+            .find(|tab| tab.id == app.active_tab)
+            .expect("Active tab should always be present when rendering the browser window");
 
-        let mut renderer = HtmlRenderer::new(dom, layout);
+        let (viewport_width, viewport_height) = app
+            .viewports
+            .get(&self.id())
+            .copied()
+            .unwrap_or((800.0, 600.0));
 
-        let active_tab = match app.tabs.iter().find(|tab| tab.id == app.active_tab) {
-            Some(tab) => tab,
-            None => {
-                renderer.clear();
-                return container(column![header, footer].spacing(10.0))
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .into();
-            }
-        };
+        // NOTE: Varies depending on UI elements around the content.
+        let content_viewport_height = (viewport_height - 100.0).max(100.0);
 
-        let html = BrowserHtml::new(renderer);
-        let html_content = html.render(app, active_tab);
+        let renderer = HtmlRenderer::new(
+            active_tab.page.document(),
+            &active_tab.layout_tree,
+            active_tab.scroll_offset,
+            WindowType::Browser,
+        );
+        let html = BrowserHtml::new(
+            renderer,
+            &active_tab.layout_tree,
+            Rect::new(0.0, TOP_UI_OFFSET, viewport_width, content_viewport_height),
+            active_tab.scroll_offset,
+        );
+        let html_content = html.render(app);
 
         container(column![header, html_content, footer])
             .width(Length::Fill)
