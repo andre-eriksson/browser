@@ -5,10 +5,9 @@ use css_values::{
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
-    dimension::{Dimension, MaxDimension, OffsetValue},
+    dimension::{MaxDimension, OffsetValue},
     display::{Clear, Float},
-    quantity::Length,
-    text::{FontFamilyName, FontSize, FontWeight, GenericName, LineHeight, TextAlign, Whitespace, WritingMode},
+    text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};
 
@@ -16,12 +15,14 @@ use crate::{
     AbsoluteContext, Color4f, ComputedDimension, ComputedMaxDimension, Display, FontFamily, Position, RelativeContext,
     RelativeType,
     cascade::RuleIndex,
+    clone_compute, compute, compute_parent_px, compute_px,
     computed::{image::ComputedBackgroundImage, position::ComputedBackgroundSize},
+    into_compute,
     properties::{
         CSSProperty, PixelRepr,
         background::{
-            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundImage, BackgroundOrigin,
-            BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
+            BackgroundAttachment, BackgroundBlendMode, BackgroundClip, BackgroundOrigin, BackgroundPositionX,
+            BackgroundPositionY, BackgroundRepeat,
         },
     },
     rules::GeneratedRule,
@@ -30,6 +31,7 @@ use crate::{
 
 pub mod color;
 pub mod dimension;
+mod handler;
 pub mod image;
 pub mod position;
 
@@ -111,124 +113,59 @@ impl ComputedStyle {
         rule_index: &RuleIndex,
         parent_style: Option<&ComputedStyle>,
     ) -> Self {
+        let parent = &relative_ctx.parent;
+
         let specified_style =
             SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, rule_index, parent_style);
 
-        let margin_top = specified_style.margin_top.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.margin_top)),
-            OffsetValue::zero(),
-        );
-        let margin_right = specified_style.margin_right.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.margin_right)),
-            OffsetValue::zero(),
-        );
-        let margin_bottom = specified_style.margin_bottom.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.margin_bottom)),
-            OffsetValue::zero(),
-        );
-        let margin_left = specified_style.margin_left.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.margin_left)),
-            OffsetValue::zero(),
-        );
-        let padding_top = specified_style.padding_top.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.padding_top)),
-            OffsetValue::zero(),
-        );
-        let padding_right = specified_style.padding_right.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.padding_right)),
-            OffsetValue::zero(),
-        );
-        let padding_bottom = specified_style.padding_bottom.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.padding_bottom)),
-            OffsetValue::zero(),
-        );
-        let padding_left = specified_style.padding_left.resolve_with_context_owned(
-            OffsetValue::Length(Length::px(relative_ctx.parent.padding_left)),
-            OffsetValue::zero(),
-        );
-        let height = specified_style
-            .height
-            .resolve_with_context_owned(relative_ctx.parent.height.into(), Dimension::Auto);
-        let max_height = specified_style.max_height.resolve_with_context_owned(
-            MaxDimension::Length(Length::px(relative_ctx.parent.max_intrinsic_height)),
-            MaxDimension::None,
-        );
-        let width = specified_style
-            .width
-            .resolve_with_context_owned(relative_ctx.parent.width.into(), Dimension::Auto);
-        let max_width = specified_style.max_width.resolve_with_context_owned(
-            MaxDimension::Length(Length::px(relative_ctx.parent.max_intrinsic_width)),
-            MaxDimension::None,
-        );
+        let margin_top = compute_px!(specified_style, parent, margin_top, OffsetValue);
+        let margin_right = compute_px!(specified_style, parent, margin_right, OffsetValue);
+        let margin_bottom = compute_px!(specified_style, parent, margin_bottom, OffsetValue);
+        let margin_left = compute_px!(specified_style, parent, margin_left, OffsetValue);
+        let padding_top = compute_px!(specified_style, parent, padding_top, OffsetValue);
+        let padding_right = compute_px!(specified_style, parent, padding_right, OffsetValue);
+        let padding_bottom = compute_px!(specified_style, parent, padding_bottom, OffsetValue);
+        let padding_left = compute_px!(specified_style, parent, padding_left, OffsetValue);
+        let height = into_compute!(specified_style, parent, height);
+        let max_height = compute_parent_px!(specified_style, parent, max_height, max_intrinsic_height, MaxDimension);
+        let width = into_compute!(specified_style, parent, width);
+        let max_width = compute_parent_px!(specified_style, parent, max_width, max_intrinsic_width, MaxDimension);
         let font_size = specified_style
             .font_size
-            .resolve_with_context_owned(FontSize::px(relative_ctx.parent.font_size), FontSize::px(16.0))
+            .compute(FontSize::px(parent.font_size))
             .to_px(Some(RelativeType::FontSize), Some(relative_ctx), absolute_ctx);
-
-        let float = specified_style
-            .float
-            .resolve_with_context_owned(relative_ctx.parent.float, Float::default());
+        let float = compute!(specified_style, parent, float);
 
         relative_ctx.font_size = font_size;
 
         Self {
-            background_attachment: specified_style
-                .background_attachment
-                .resolve_with_context_owned(
-                    relative_ctx.parent.background_attachment.clone(),
-                    BackgroundAttachment::default(),
-                ),
-            background_blend_mode: specified_style
-                .background_blend_mode
-                .resolve_with_context_owned(
-                    relative_ctx.parent.background_blend_mode.clone(),
-                    BackgroundBlendMode::default(),
-                ),
-            background_clip: specified_style
-                .background_clip
-                .resolve_with_context_owned(relative_ctx.parent.background_clip.clone(), BackgroundClip::default()),
+            background_attachment: clone_compute!(specified_style, parent, background_attachment),
+            background_blend_mode: clone_compute!(specified_style, parent, background_blend_mode),
+            background_clip: clone_compute!(specified_style, parent, background_clip),
             background_color: Color4f::from_css_color_property(
                 &specified_style.background_color,
                 &specified_style.color,
                 &Color::Base(ColorBase::Transparent),
-                parent_style.map(|s| Color::from(s.background_color)),
+                parent_style.map(|s| s.background_color.into()),
                 relative_ctx,
                 absolute_ctx,
             ),
-            background_origin: specified_style
-                .background_origin
-                .resolve_with_context_owned(relative_ctx.parent.background_origin.clone(), BackgroundOrigin::default()),
+            background_origin: clone_compute!(specified_style, parent, background_origin),
             background_image: ComputedBackgroundImage::resolve(
                 specified_style
                     .background_image
-                    .resolve_with_context_owned(
-                        BackgroundImage::from(relative_ctx.parent.background_image.clone()),
-                        BackgroundImage::default(),
-                    )
+                    .compute(parent.background_image.clone().into())
                     .0,
                 absolute_ctx,
             )
-            .unwrap_or(ComputedBackgroundImage(vec![])),
-            background_position_x: specified_style
-                .background_position_x
-                .resolve_with_context_owned(
-                    relative_ctx.parent.background_position_x.clone(),
-                    BackgroundPositionX::default(),
-                ),
-            background_position_y: specified_style
-                .background_position_y
-                .resolve_with_context_owned(
-                    relative_ctx.parent.background_position_y.clone(),
-                    BackgroundPositionY::default(),
-                ),
-            background_repeat: specified_style
-                .background_repeat
-                .resolve_with_context_owned(relative_ctx.parent.background_repeat.clone(), BackgroundRepeat::default()),
+            .unwrap_or_default(),
+            background_position_x: clone_compute!(specified_style, parent, background_position_x),
+            background_position_y: clone_compute!(specified_style, parent, background_position_y),
+            background_repeat: clone_compute!(specified_style, parent, background_repeat),
             background_size: ComputedBackgroundSize::resolve(
-                specified_style.background_size.resolve_with_context_owned(
-                    BackgroundSize::from(relative_ctx.parent.background_size.clone()),
-                    BackgroundSize::default(),
-                ),
+                specified_style
+                    .background_size
+                    .compute(parent.background_size.clone().into()),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -236,7 +173,7 @@ impl ComputedStyle {
                 &specified_style.border_top_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| Color::from(s.border_top_color)),
+                parent_style.map(|s| s.border_top_color.into()),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -244,7 +181,7 @@ impl ComputedStyle {
                 &specified_style.border_right_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| Color::from(s.border_right_color)),
+                parent_style.map(|s| s.border_right_color.into()),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -252,7 +189,7 @@ impl ComputedStyle {
                 &specified_style.border_bottom_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| Color::from(s.border_bottom_color)),
+                parent_style.map(|s| s.border_bottom_color.into()),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -260,80 +197,64 @@ impl ComputedStyle {
                 &specified_style.border_left_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| Color::from(s.border_left_color)),
+                parent_style.map(|s| s.border_left_color.into()),
                 relative_ctx,
                 absolute_ctx,
             ),
-            border_top_style: specified_style
-                .border_top_style
-                .resolve_with_context_owned(relative_ctx.parent.border_top_style, BorderStyle::None),
-            border_right_style: specified_style
-                .border_right_style
-                .resolve_with_context_owned(relative_ctx.parent.border_right_style, BorderStyle::None),
-            border_bottom_style: specified_style
-                .border_bottom_style
-                .resolve_with_context_owned(relative_ctx.parent.border_bottom_style, BorderStyle::None),
-            border_left_style: specified_style
-                .border_left_style
-                .resolve_with_context_owned(relative_ctx.parent.border_left_style, BorderStyle::None),
-            border_top_width: specified_style
-                .border_top_width
-                .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_top_width), BorderWidth::zero())
-                .to_px(None, Some(relative_ctx), absolute_ctx),
-            border_right_width: specified_style
-                .border_right_width
-                .resolve_with_context_owned(
-                    BorderWidth::px(relative_ctx.parent.border_right_width),
-                    BorderWidth::zero(),
-                )
-                .to_px(None, Some(relative_ctx), absolute_ctx),
-            border_bottom_width: specified_style
-                .border_bottom_width
-                .resolve_with_context_owned(
-                    BorderWidth::px(relative_ctx.parent.border_bottom_width),
-                    BorderWidth::zero(),
-                )
-                .to_px(None, Some(relative_ctx), absolute_ctx),
-            border_left_width: specified_style
-                .border_left_width
-                .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_left_width), BorderWidth::zero())
-                .to_px(None, Some(relative_ctx), absolute_ctx),
-            clear: specified_style
-                .clear
-                .resolve_with_context_owned(relative_ctx.parent.clear, Clear::default()),
+            border_top_style: compute!(specified_style, parent, border_top_style),
+            border_right_style: compute!(specified_style, parent, border_right_style),
+            border_bottom_style: compute!(specified_style, parent, border_bottom_style),
+            border_left_style: compute!(specified_style, parent, border_left_style),
+            border_top_width: compute_px!(specified_style, parent, border_top_width, BorderWidth).to_px(
+                None,
+                Some(relative_ctx),
+                absolute_ctx,
+            ),
+            border_right_width: compute_px!(specified_style, parent, border_right_width, BorderWidth).to_px(
+                None,
+                Some(relative_ctx),
+                absolute_ctx,
+            ),
+            border_bottom_width: compute_px!(specified_style, parent, border_bottom_width, BorderWidth).to_px(
+                None,
+                Some(relative_ctx),
+                absolute_ctx,
+            ),
+            border_left_width: compute_px!(specified_style, parent, border_left_width, BorderWidth).to_px(
+                None,
+                Some(relative_ctx),
+                absolute_ctx,
+            ),
+            clear: compute!(specified_style, parent, clear),
             color: Color4f::from_css_color_property(
                 &specified_style.color,
-                &CSSProperty::Value(Color::Base(ColorBase::Named(NamedColor::Black))),
+                &CSSProperty::Value(Color::BLACK),
                 &Color::Base(ColorBase::Named(NamedColor::Black)),
-                parent_style.map(|s| Color::from(s.color)),
+                parent_style.map(|s| s.color.into()),
                 relative_ctx,
                 absolute_ctx,
             ),
-            cursor: specified_style
-                .cursor
-                .resolve_with_context_owned(relative_ctx.parent.cursor, Cursor::Default),
-            display: specified_style
-                .display
-                .resolve_with_context_owned(relative_ctx.parent.display, Display::default())
-                .adjust_float(float),
+            cursor: compute!(specified_style, parent, cursor),
+            display: compute!(specified_style, parent, display).adjust_float(float),
             float,
-            font_family: Arc::new(specified_style.font_family.resolve_with_context_owned(
-                (*relative_ctx.parent.font_family).clone(),
-                FontFamily::new(&[FontFamilyName::Generic(GenericName::Serif)]),
-            )),
+            font_family: Arc::new(
+                specified_style
+                    .font_family
+                    .compute((*parent.font_family).clone()),
+            ),
             font_size,
             font_weight: specified_style
                 .font_weight
-                .resolve_with_context_owned(FontWeight::from(relative_ctx.parent.font_weight), FontWeight::Normal)
-                as u16,
+                .compute(parent.font_weight.into()) as u16,
             intrinsic_height: height.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
-            height: ComputedDimension::from(height),
+            height: height.into(),
             max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
-            max_height: ComputedMaxDimension::from(max_height),
-            line_height: specified_style
-                .line_height
-                .resolve_with_context_owned(LineHeight::px(relative_ctx.parent.line_height), LineHeight::Normal)
-                .to_px(None, Some(relative_ctx), absolute_ctx),
+            max_height: max_height.into(),
+            line_height: compute_px!(specified_style, parent, line_height, LineHeight).to_px(
+                None,
+                Some(relative_ctx),
+                absolute_ctx,
+            ),
             margin_top: margin_top.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
             margin_right: margin_right.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
             margin_bottom: margin_bottom.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
@@ -350,23 +271,15 @@ impl ComputedStyle {
             padding_right_auto: padding_right.is_auto(),
             padding_bottom_auto: padding_bottom.is_auto(),
             padding_left_auto: padding_left.is_auto(),
-            position: specified_style
-                .position
-                .resolve_with_context_owned(relative_ctx.parent.position, Position::Static),
-            text_align: specified_style
-                .text_align
-                .resolve_with_context_owned(relative_ctx.parent.text_align, TextAlign::Start),
-            whitespace: specified_style
-                .whitespace
-                .resolve_with_context_owned(relative_ctx.parent.whitespace, Whitespace::Normal),
+            position: compute!(specified_style, parent, position),
+            text_align: compute!(specified_style, parent, text_align),
+            whitespace: compute!(specified_style, parent, whitespace),
             intrinsic_width: width.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            width: ComputedDimension::from(width),
+            width: width.into(),
             max_intrinsic_width: max_width.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            max_width: ComputedMaxDimension::from(max_width),
-            writing_mode: specified_style
-                .writing_mode
-                .resolve_with_context_owned(relative_ctx.parent.writing_mode, WritingMode::HorizontalTb),
-            variables: specified_style.variables.clone(),
+            max_width: max_width.into(),
+            writing_mode: compute!(specified_style, parent, writing_mode),
+            variables: Arc::clone(&specified_style.variables),
         }
     }
 

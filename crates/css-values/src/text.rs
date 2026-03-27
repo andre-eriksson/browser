@@ -307,13 +307,13 @@ pub enum RelativeSize {
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive, parse_err_ty = String, parse_err_fn = String::from)]
 pub enum TextAlign {
     /// The same as `left` if direction is left-to-right and `right` if direction is right-to-left.
+    #[default]
     Start,
 
     /// The same as `right` if direction is left-to-right and `left` if direction is right-to-left.
     End,
 
     /// The inline contents are aligned to the left edge of the line box.
-    #[default]
     Left,
 
     /// The inline contents are aligned to the right edge of the line box.

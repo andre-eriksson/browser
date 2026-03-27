@@ -99,7 +99,7 @@ impl BorderWidth {
 
 impl Default for BorderWidth {
     fn default() -> Self {
-        BorderWidth::Length(Length::px(0.0))
+        Self::zero()
     }
 }
 

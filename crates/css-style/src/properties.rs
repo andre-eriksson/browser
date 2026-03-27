@@ -118,14 +118,16 @@ impl<T: CSSParsable> CSSProperty<T> {
         }
     }
 
-    /// Similar to `resolve_with_context`, but takes ownership of the property and returns an owned value. This is useful when the property needs to be moved or when the context values are owned.
-    pub(crate) fn resolve_with_context_owned(self, parent: T, initial: T) -> T {
+    pub(crate) fn compute(self, parent: T) -> T
+    where
+        T: Default,
+    {
         match self {
             CSSProperty::Global(global) => match global {
-                Global::Initial => initial,
+                Global::Initial => T::default(),
                 Global::Inherit => parent,
                 Global::Unset => parent,
-                Global::Revert | Global::RevertLayer => initial,
+                Global::Revert | Global::RevertLayer => T::default(),
             },
             CSSProperty::Value(val) => val,
         }
@@ -157,6 +159,8 @@ impl<T> From<T> for CSSProperty<T> {
         CSSProperty::Value(value)
     }
 }
+
+
 
 // Background
 pub type BackgroundAttachmentProperty = CSSProperty<BackgroundAttachment>;

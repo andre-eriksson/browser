@@ -96,6 +96,13 @@ pub enum MaxDimension {
     Stretch,
 }
 
+impl MaxDimension {
+    /// Create a MaxDimension from a pixel value.
+    pub fn px(value: f32) -> Self {
+        Self::Length(Length::px(value))
+    }
+}
+
 impl CSSParsable for MaxDimension {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
@@ -165,6 +172,12 @@ impl OffsetValue {
 
     pub fn is_auto(&self) -> bool {
         matches!(self, OffsetValue::Auto)
+    }
+}
+
+impl Default for OffsetValue {
+    fn default() -> Self {
+        Self::zero()
     }
 }
 

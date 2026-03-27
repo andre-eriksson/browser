@@ -69,13 +69,6 @@ impl Default for FontFamily {
 }
 
 impl FontFamily {
-    /// Create a new FontFamily with a list of font family names. The list should be ordered by preference, with the most preferred font first.
-    pub(crate) fn new(names: &[FontFamilyName]) -> Self {
-        Self {
-            names: names.to_vec(),
-        }
-    }
-
     /// Get the list of font family names in this FontFamily. The list is ordered by preference, with the most preferred font first.
     pub fn names(&self) -> &Vec<FontFamilyName> {
         &self.names

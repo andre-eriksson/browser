@@ -35,7 +35,7 @@ impl ComputedImage {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ComputedBackgroundImage(pub Vec<ComputedImage>);
 
 impl From<ComputedBackgroundImage> for BackgroundImage {

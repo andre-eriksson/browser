@@ -87,7 +87,7 @@ impl<'css> PropertyUpdateContext<'css> {
             CSSProperty::Global(_) => self
                 .specified_style
                 .writing_mode
-                .resolve_with_context_owned(self.relative_ctx.parent.writing_mode, WritingMode::HorizontalTb),
+                .compute(self.relative_ctx.parent.writing_mode),
         }
     }
 
