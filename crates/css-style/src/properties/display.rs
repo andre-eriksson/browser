@@ -6,7 +6,7 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use css_values::{
     CSSParsable,
-    display::{BoxDisplay, InsideDisplay, InternalDisplay, ListItemDisplay, OutsideDisplay},
+    display::{BoxDisplay, Float, InsideDisplay, InternalDisplay, ListItemDisplay, OutsideDisplay},
     error::CssValueError,
 };
 
@@ -45,6 +45,48 @@ impl Display {
     /// Returns the box display type, if set.
     pub fn box_display(&self) -> Option<BoxDisplay> {
         self.box_display
+    }
+
+    pub fn adjust_float(self, float: Float) -> Self {
+        if matches!(float, Float::None) {
+            self
+        } else if matches!(
+            self.internal,
+            Some(
+                InternalDisplay::TableRowGroup
+                    | InternalDisplay::TableHeaderGroup
+                    | InternalDisplay::TableFooterGroup
+                    | InternalDisplay::TableCell
+                    | InternalDisplay::TableColumnGroup
+                    | InternalDisplay::TableColumn
+                    | InternalDisplay::TableCaption
+            )
+        ) {
+            Display::from(InsideDisplay::Table)
+        } else if matches!(self.outside, Some(OutsideDisplay::Inline)) {
+            match self.inside {
+                Some(InsideDisplay::FlowRoot | InsideDisplay::Flow) => Display {
+                    outside: Some(OutsideDisplay::Block),
+                    inside: Some(InsideDisplay::Flow),
+                    ..Default::default()
+                },
+                Some(InsideDisplay::Table) => Display {
+                    inside: Some(InsideDisplay::Table),
+                    ..Default::default()
+                },
+                Some(InsideDisplay::Flex) => Display {
+                    inside: Some(InsideDisplay::Flex),
+                    ..Default::default()
+                },
+                Some(InsideDisplay::Grid) => Display {
+                    inside: Some(InsideDisplay::Grid),
+                    ..Default::default()
+                },
+                _ => self,
+            }
+        } else {
+            self
+        }
     }
 }
 

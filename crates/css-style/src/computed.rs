@@ -6,11 +6,11 @@ use css_values::{
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
     dimension::{Dimension, MaxDimension, OffsetValue},
+    display::{Clear, Float},
     quantity::Length,
     text::{FontFamilyName, FontSize, FontWeight, GenericName, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};
-use tracing::debug;
 
 use crate::{
     AbsoluteContext, Color4f, ComputedDimension, ComputedMaxDimension, Display, FontFamily, Position, RelativeContext,
@@ -60,9 +60,11 @@ pub struct ComputedStyle {
     pub border_right_width: f32,
     pub border_bottom_width: f32,
     pub border_left_width: f32,
+    pub clear: Clear,
     pub color: Color4f,
     pub cursor: Cursor,
     pub display: Display,
+    pub float: Float,
     pub font_family: Arc<FontFamily>,
     pub font_size: f32,
     pub font_weight: u16,
@@ -162,6 +164,11 @@ impl ComputedStyle {
             .font_size
             .resolve_with_context_owned(FontSize::px(relative_ctx.parent.font_size), FontSize::px(16.0))
             .to_px(Some(RelativeType::FontSize), Some(relative_ctx), absolute_ctx);
+
+        let float = specified_style
+            .float
+            .resolve_with_context_owned(relative_ctx.parent.float, Float::default());
+
         relative_ctx.font_size = font_size;
 
         Self {
@@ -201,11 +208,7 @@ impl ComputedStyle {
                     .0,
                 absolute_ctx,
             )
-            .unwrap_or_else(|e| {
-                debug!("Failed to resolve background image URL: {}", e);
-
-                ComputedBackgroundImage(vec![])
-            }),
+            .unwrap_or(ComputedBackgroundImage(vec![])),
             background_position_x: specified_style
                 .background_position_x
                 .resolve_with_context_owned(
@@ -295,6 +298,9 @@ impl ComputedStyle {
                 .border_left_width
                 .resolve_with_context_owned(BorderWidth::px(relative_ctx.parent.border_left_width), BorderWidth::zero())
                 .to_px(None, Some(relative_ctx), absolute_ctx),
+            clear: specified_style
+                .clear
+                .resolve_with_context_owned(relative_ctx.parent.clear, Clear::default()),
             color: Color4f::from_css_color_property(
                 &specified_style.color,
                 &CSSProperty::Value(Color::Base(ColorBase::Named(NamedColor::Black))),
@@ -308,7 +314,9 @@ impl ComputedStyle {
                 .resolve_with_context_owned(relative_ctx.parent.cursor, Cursor::Default),
             display: specified_style
                 .display
-                .resolve_with_context_owned(relative_ctx.parent.display, Display::default()),
+                .resolve_with_context_owned(relative_ctx.parent.display, Display::default())
+                .adjust_float(float),
+            float,
             font_family: Arc::new(specified_style.font_family.resolve_with_context_owned(
                 (*relative_ctx.parent.font_family).clone(),
                 FontFamily::new(&[FontFamilyName::Generic(GenericName::Serif)]),
@@ -404,9 +412,11 @@ impl Default for ComputedStyle {
             border_right_width: 0.0,
             border_bottom_width: 0.0,
             border_left_width: 0.0,
+            clear: Clear::default(),
             color: Color4f::BLACK,
             cursor: Cursor::default(),
             display: Display::default(),
+            float: Float::default(),
             font_family: Arc::new(FontFamily::default()),
             font_size: 16.0,
             font_weight: 500,

@@ -7,6 +7,7 @@ use css_values::{
     color::Color,
     cursor::Cursor,
     dimension::{Dimension, MaxDimension, OffsetValue},
+    display::{Clear, Float},
     error::CssValueError,
     global::Global,
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
@@ -182,7 +183,9 @@ pub type WidthProperty = CSSProperty<Dimension>;
 pub type MaxWidthProperty = CSSProperty<MaxDimension>;
 
 // Display
+pub type ClearProperty = CSSProperty<Clear>;
 pub type DisplayProperty = CSSProperty<Display>;
+pub type FloatProperty = CSSProperty<Float>;
 
 // Font
 pub type FontWeightProperty = CSSProperty<FontWeight>;

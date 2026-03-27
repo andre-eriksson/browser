@@ -8,7 +8,10 @@
 //!
 //! <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/display>
 
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use strum::EnumString;
+
+use crate::{CSSParsable, error::CssValueError};
 
 /// These keywords specify the element's outer display type, which is essentially its role in flow layout:
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -116,4 +119,86 @@ pub enum BoxDisplay {
     /// All descendant elements also have their display turned off. To have an element take up the space that it would normally take, but without
     /// actually rendering anything, use the visibility property instead.
     None,
+}
+
+/// The float property specifies that an element should be placed along the left or right side of its container, allowing text and inline elements to wrap around it.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/float>
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+pub enum Float {
+    #[default]
+    None,
+    Left,
+    Right,
+    InlineStart,
+    InlineEnd,
+}
+
+impl CSSParsable for Float {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        let mut float = None;
+
+        if let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        float = Some(
+                            ident
+                                .parse::<Float>()
+                                .map_err(|_| CssValueError::InvalidToken(token.kind.clone()))?,
+                        );
+                    }
+                    _ => return Err(CssValueError::InvalidToken(token.kind.clone())),
+                },
+                _ => return Err(CssValueError::InvalidComponentValue(cv.clone())),
+            }
+        }
+
+        if !stream.remaining().is_empty() {
+            return Err(CssValueError::UnexpectedRemainingInput);
+        }
+
+        float.ok_or(CssValueError::UnexpectedEndOfInput)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
+pub enum Clear {
+    #[default]
+    None,
+    Left,
+    Right,
+    Both,
+    InlineStart,
+    InlineEnd,
+}
+
+impl CSSParsable for Clear {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        let mut clear = None;
+
+        if let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(ident) => {
+                        clear = Some(
+                            ident
+                                .parse::<Clear>()
+                                .map_err(|_| CssValueError::InvalidToken(token.kind.clone()))?,
+                        );
+                    }
+                    _ => return Err(CssValueError::InvalidToken(token.kind.clone())),
+                },
+                _ => return Err(CssValueError::InvalidComponentValue(cv.clone())),
+            }
+        }
+
+        if !stream.remaining().is_empty() {
+            return Err(CssValueError::UnexpectedRemainingInput);
+        }
+
+        clear.ok_or(CssValueError::UnexpectedEndOfInput)
+    }
 }
