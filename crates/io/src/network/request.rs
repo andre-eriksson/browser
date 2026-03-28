@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use constants::keys::STATUS_CODE;
 use cookies::Cookie;
 use network::{
@@ -29,11 +27,11 @@ pub enum RequestResult<T> {
 pub struct NetworkService<'a> {
     client: &'a dyn HttpClient,
     cookies: &'a [Cookie],
-    browser_headers: &'a Arc<HeaderMap>,
+    browser_headers: &'a HeaderMap,
 }
 
 impl<'a> NetworkService<'a> {
-    pub fn new(client: &'a dyn HttpClient, cookies: &'a [Cookie], browser_headers: &'a Arc<HeaderMap>) -> Self {
+    pub fn new(client: &'a dyn HttpClient, cookies: &'a [Cookie], browser_headers: &'a HeaderMap) -> Self {
         NetworkService {
             client,
             cookies,
@@ -69,9 +67,7 @@ impl<'a> NetworkService<'a> {
     ) -> RequestResult<Box<dyn ResponseHandle>> {
         let mut request = request;
         let user_headers = request.headers.clone();
-        request
-            .headers
-            .extend(self.browser_headers.as_ref().clone());
+        request.headers.extend(self.browser_headers.clone());
 
         // First request to set document URL
         if page_url.is_none() {

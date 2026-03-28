@@ -2,7 +2,11 @@
 resolver = "3"
 members = [
     "crates/bootstrap",
-    "crates/cli",
+    "crates/browser-config",
+    "crates/browser-core",
+    "crates/browser-headless",
+    "crates/browser-preferences",
+    "crates/browser-ui",
     "crates/constants",
     "crates/cookies",
     "crates/css-cssom",
@@ -16,13 +20,10 @@ members = [
     "crates/html-parser",
     "crates/html-tokenizer",
     "crates/io",
-    "crates/kernel",
     "crates/layout",
     "crates/network",
-    "crates/preferences",
     "crates/renderer",
     "crates/storage",
-    "crates/ui",
 ]
 
 [workspace.package]
@@ -30,28 +31,28 @@ edition      = "2024"
 license      = "MIT"
 
 [workspace.dependencies]
-cli            = { path = "crates/cli" }
-constants      = { path = "crates/constants" }
-cookies        = { path = "crates/cookies" }
-css-cssom      = { path = "crates/css-cssom" }
-css-parser     = { path = "crates/css-parser" }
-css-selectors  = { path = "crates/css-selectors" }
-css-style      = { path = "crates/css-style" }
-css-tokenizer  = { path = "crates/css-tokenizer" }
-css-values     = { path = "crates/css-values" }
-database       = { path = "crates/database" }
-html-dom       = { path = "crates/html-dom" }
-html-parser    = { path = "crates/html-parser" }
-html-tokenizer = { path = "crates/html-tokenizer" }
-io             = { path = "crates/io" }
-kernel         = { path = "crates/kernel" }
-layout         = { path = "crates/layout" }
-network        = { path = "crates/network" }
-preferences    = { path = "crates/preferences" }
-renderer       = { path = "crates/renderer" }
-storage        = { path = "crates/storage" }
-ui             = { path = "crates/ui" }
-
+browser-config      = { path = "crates/browser-config" }
+browser-core        = { path = "crates/browser-core" }
+browser-headless    = { path = "crates/browser-headless" }
+browser-preferences = { path = "crates/browser-preferences" }
+browser-ui          = { path = "crates/browser-ui" }
+constants           = { path = "crates/constants" }
+cookies             = { path = "crates/cookies" }
+css-cssom           = { path = "crates/css-cssom" }
+css-parser          = { path = "crates/css-parser" }
+css-selectors       = { path = "crates/css-selectors" }
+css-style           = { path = "crates/css-style" }
+css-tokenizer       = { path = "crates/css-tokenizer" }
+css-values          = { path = "crates/css-values" }
+database            = { path = "crates/database" }
+html-dom            = { path = "crates/html-dom" }
+html-parser         = { path = "crates/html-parser" }
+html-tokenizer      = { path = "crates/html-tokenizer" }
+io                  = { path = "crates/io" }
+layout              = { path = "crates/layout" }
+network             = { path = "crates/network" }
+renderer            = { path = "crates/renderer" }
+storage             = { path = "crates/storage" }
 
 # External dependencies
 async-trait = "0.1.89"

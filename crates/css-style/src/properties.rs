@@ -1,5 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
+use browser_preferences::ThemeCategory;
 use css_cssom::ComponentValueStream;
 use css_values::{
     CSSParsable,
@@ -12,7 +13,6 @@ use css_values::{
     global::Global,
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
 };
-use preferences::ThemeCategory;
 use url::Url;
 
 use crate::{
@@ -159,8 +159,6 @@ impl<T> From<T> for CSSProperty<T> {
         CSSProperty::Value(value)
     }
 }
-
-
 
 // Background
 pub type BackgroundAttachmentProperty = CSSProperty<BackgroundAttachment>;

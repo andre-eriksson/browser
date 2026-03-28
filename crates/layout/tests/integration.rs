@@ -5,13 +5,13 @@ mod tests {
         io::{BufReader, Cursor, Read},
     };
 
+    use browser_ui::load_fallback_fonts;
     use cosmic_text::FontSystem;
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
     use css_style::{AbsoluteContext, StyleTree};
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::{Resource, embeded::DEFAULT_CSS};
     use layout::{ImageContext, LayoutEngine, Rect, TextContext};
-    use ui::load_fallback_fonts;
 
     fn load_fixture(html: &str) -> String {
         let file = File::open(format!("tests/fixtures/{}", html)).expect("failed to open fixture");

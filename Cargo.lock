@@ -598,14 +598,14 @@ dependencies = [
 name = "bootstrap"
 version = "0.1.0"
 dependencies = [
- "cli",
- "kernel",
- "preferences",
+ "browser-config",
+ "browser-core",
+ "browser-headless",
+ "browser-ui",
  "thiserror 2.0.17",
  "tokio",
  "tracing",
  "tracing-subscriber",
- "ui",
 ]
 
 [[package]]
@@ -627,6 +627,90 @@ checksum = "874bb8112abecc98cbd6d81ea4fa7e94fb9449648c93cc89aa40c81c24d7de03"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
+]
+
+[[package]]
+name = "browser-config"
+version = "0.1.0"
+dependencies = [
+ "browser-preferences",
+ "clap",
+ "constants",
+ "network",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "browser-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "browser-config",
+ "constants",
+ "cookies",
+ "css-cssom",
+ "css-style",
+ "html-dom",
+ "html-parser",
+ "io",
+ "network",
+ "postcard",
+ "serde",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "browser-headless"
+version = "0.1.0"
+dependencies = [
+ "browser-config",
+ "browser-core",
+ "tracing",
+]
+
+[[package]]
+name = "browser-preferences"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "io",
+ "serde",
+ "toml",
+ "tracing",
+]
+
+[[package]]
+name = "browser-ui"
+version = "0.1.0"
+dependencies = [
+ "browser-config",
+ "browser-core",
+ "browser-preferences",
+ "constants",
+ "cookies",
+ "css-cssom",
+ "css-style",
+ "css-values",
+ "html-dom",
+ "html-parser",
+ "http",
+ "iced",
+ "image",
+ "io",
+ "layout",
+ "network",
+ "postcard",
+ "regex",
+ "renderer",
+ "serde",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -862,17 +946,6 @@ name = "clap_lex"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
-
-[[package]]
-name = "cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "constants",
- "preferences",
- "tokio",
- "tracing",
-]
 
 [[package]]
 name = "clipboard-win"
@@ -1239,11 +1312,11 @@ dependencies = [
 name = "css-style"
 version = "0.1.0"
 dependencies = [
+ "browser-preferences",
  "css-cssom",
  "css-selectors",
  "css-values",
  "html-dom",
- "preferences",
  "strum",
  "tracing",
  "url",
@@ -2731,28 +2804,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kernel"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "cli",
- "constants",
- "cookies",
- "css-cssom",
- "css-style",
- "html-dom",
- "html-parser",
- "io",
- "network",
- "postcard",
- "serde",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
 name = "khronos-egl"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2794,6 +2845,8 @@ dependencies = [
 name = "layout"
 version = "0.1.0"
 dependencies = [
+ "browser-core",
+ "browser-ui",
  "cosmic-text",
  "css-cssom",
  "css-style",
@@ -2801,9 +2854,7 @@ dependencies = [
  "html-dom",
  "html-parser",
  "io",
- "kernel",
  "tracing",
- "ui",
  "zstd",
 ]
 
@@ -3944,17 +3995,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
-]
-
-[[package]]
-name = "preferences"
-version = "0.1.0"
-dependencies = [
- "clap",
- "io",
- "serde",
- "toml",
- "tracing",
 ]
 
 [[package]]
@@ -5624,36 +5664,6 @@ dependencies = [
  "memoffset",
  "tempfile",
  "winapi",
-]
-
-[[package]]
-name = "ui"
-version = "0.1.0"
-dependencies = [
- "cli",
- "constants",
- "cookies",
- "css-cssom",
- "css-style",
- "css-values",
- "html-dom",
- "html-parser",
- "http",
- "iced",
- "image",
- "io",
- "kernel",
- "layout",
- "network",
- "postcard",
- "preferences",
- "regex",
- "renderer",
- "serde",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "url",
 ]
 
 [[package]]

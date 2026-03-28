@@ -1,0 +1,170 @@
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::{Arc, Mutex as StdMutex};
+
+use browser_config::BrowserConfig;
+use browser_core::{Browser, TabId};
+use iced::advanced::graphics::text::cosmic_text::FontSystem;
+use iced::keyboard::key;
+use iced::theme::{Custom, Palette};
+use iced::{Color, Subscription, event, keyboard};
+use iced::{Renderer, Task, Theme, window};
+use layout::TextContext;
+use renderer::image::ImageCache;
+use tokio::sync::Mutex;
+
+use crate::core::{ApplicationWindow, UiTab, WindowType};
+use crate::events::kernel::EngineRequest;
+use crate::events::window::WindowEvent;
+use crate::events::{Event, EventHandler};
+use crate::manager::WindowController;
+use crate::util::fonts::load_fallback_fonts;
+use crate::views::browser::window::BrowserWindow;
+
+/// Represents the main application state, including the current window, tabs, and client.
+pub struct Application {
+    /// The application config.
+    pub config: &'static BrowserConfig,
+
+    /// The unique identifier for the application window.
+    pub id: window::Id,
+
+    /// The list of tabs currently open in the application.
+    pub tabs: Vec<UiTab>,
+
+    /// The identifier of the currently active tab.
+    pub active_tab: TabId,
+
+    /// The current URL displayed in the address bar.
+    pub current_url: String,
+
+    /// The viewport rectangle defining the visible area of the window.
+    pub viewports: HashMap<window::Id, (f32, f32)>,
+
+    /// The window controller managing multiple windows.
+    pub window_controller: WindowController,
+
+    /// The shared browser instance.
+    pub browser: Arc<Mutex<Browser>>,
+
+    /// The shared text context for text rendering.
+    pub text_context: Arc<StdMutex<TextContext>>,
+
+    /// Shared image cache for loaded images.
+    pub image_cache: Option<ImageCache>,
+}
+
+impl Application {
+    /// Creates a new instance of the `Application` with an initial window and a default tab.
+    pub fn new(browser: Arc<Mutex<Browser>>, config: &'static BrowserConfig) -> (Self, Task<Event>) {
+        let first_tab = UiTab::new(TabId(0));
+
+        let mut window_controller = WindowController::new();
+        let (main_window_id, browser_task) = window_controller.new_window(WindowType::Browser);
+
+        let tasks = vec![browser_task.discard()];
+
+        let mut viewports = HashMap::new();
+
+        let settings = BrowserWindow::settings();
+
+        let width = settings.size.width;
+        let height = settings.size.height;
+
+        viewports.insert(main_window_id, (width, height));
+
+        let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
+
+        let text_context = Arc::new(StdMutex::new(TextContext::new(font_system)));
+
+        let app = Application {
+            id: main_window_id,
+            tabs: vec![first_tab],
+            active_tab: TabId(0),
+            current_url: config
+                .args()
+                .url
+                .clone()
+                .unwrap_or("https://www.google.com".to_string()),
+            window_controller,
+            browser,
+            viewports,
+            text_context,
+            config,
+            image_cache: None,
+        };
+
+        (app, Task::batch(tasks))
+    }
+
+    /// Updates the application state based on the received message.
+    ///
+    /// # Arguments
+    /// * `message` - The message containing the action to perform.
+    pub fn update(&mut self, event: Event) -> Task<Event> {
+        match event {
+            Event::Window(window_event) => self.handle(window_event),
+            Event::EngineResponse(kernel_response) => self.handle(kernel_response),
+            Event::EngineRequest(kernel_request) => self.handle(kernel_request),
+            Event::Browser(browser_event) => self.handle(browser_event),
+            Event::Devtools(devtools_event) => self.handle(devtools_event),
+        }
+    }
+
+    /// Returns the current subscriptions for the application.
+    ///
+    /// Global subscriptions (e.g. close events) are declared here. Per-window
+    /// subscriptions (e.g. resize events scoped to a specific window type) are
+    /// collected from each open window via [`WindowController::subscriptions`].
+    pub fn subscriptions(&self) -> iced::Subscription<Event> {
+        Subscription::batch([
+            window::close_events().map(|window_id| Event::Window(WindowEvent::CloseWindow(window_id))),
+            event::listen_with(|event, _status, _window| match event {
+                iced::Event::Keyboard(keyboard::Event::KeyPressed {
+                    key: keyboard::Key::Named(key::Named::F5),
+                    ..
+                }) => Some(Event::EngineRequest(EngineRequest::Refresh)),
+                iced::Event::Keyboard(keyboard::Event::KeyPressed {
+                    key: keyboard::Key::Character(ref c),
+                    modifiers,
+                    ..
+                }) if c.as_str() == "r" && modifiers.control() => Some(Event::EngineRequest(EngineRequest::Refresh)),
+                _ => None,
+            }),
+            self.window_controller.subscriptions(),
+        ])
+    }
+
+    /// Renders the application UI for a specific window.
+    pub fn view(&self, window_id: window::Id) -> iced::Element<'_, Event, Theme, Renderer> {
+        self.window_controller.render(self, window_id)
+    }
+
+    /// Returns the title of the application window.
+    pub fn title(&self, window_id: window::Id) -> String {
+        self.window_controller.title(window_id)
+    }
+
+    /// Returns the theme for the application window.
+    pub fn theme(&self, _window_id: window::Id) -> Theme {
+        let app_theme = self.config.preferences().active_theme();
+
+        let palette = Palette {
+            background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),
+            text: Color::from_str(app_theme.text.as_str())
+                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().text).unwrap()),
+            primary: Color::from_str(app_theme.primary.as_str())
+                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().primary).unwrap()),
+            success: Color::from_str(app_theme.success.as_str())
+                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().success).unwrap()),
+            warning: Color::from_str(app_theme.warning.as_str())
+                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().warning).unwrap()),
+            danger: Color::from_str(app_theme.danger.as_str())
+                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().danger).unwrap()),
+        };
+
+        let custom = Custom::new(String::from("Settings"), palette);
+
+        Theme::Custom(Arc::new(custom))
+    }
+}

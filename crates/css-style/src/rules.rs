@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use browser_preferences::ThemeCategory;
 use css_cssom::{
     CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
     CssTokenKind, Property, SimpleBlock, StylesheetOrigin,
@@ -9,7 +10,6 @@ use css_values::{
     media::{MediaCondition, MediaFeature, MediaType, RangeOperator},
     quantity::{Length, LengthUnit},
 };
-use preferences::ThemeCategory;
 
 use crate::{
     AbsoluteContext,

@@ -45,8 +45,10 @@ The browser is composed of 7 subsystems, each responsible for a specific aspect 
   - [**Selector Generation**](./crates/css-selectors): Converts CSSOM to selectors that can be applied to the DOM.
   - [**Styletree Builder**](./crates/css-style): Combines CSS selectors, and DOM to create the style tree.
 - [**Rendering Engine**](./crates/renderer): Renders the layout tree to the screen using GPU acceleration.
-- [**Kernel (Browser Core)**](./crates/kernel): Manages the overall browser state, including tabs, navigation, and communication between subsystems.
-- [**UI Layer**](./crates/ui): Manages the user interface elements like tabs, address bar, etc.
+- [**Browser Core**](./crates/browser-core): Manages the overall browser state, including tabs, navigation, and communication between subsystems.
+- **Interface Layer**: The browser currently has two interfaces, a graphical user interface and a headless mode, these are built on top of the browser core.
+  - [**UI**](./crates/browser-ui): Provides a graphical user interface for the browser, built using Iced, a Rust GUI library.
+  - [**Headless**](./crates/browser-headless): Provides a headless (terminal) mode for the browser, allowing it to run without a graphical interface.
 
 ## Planned Features
 

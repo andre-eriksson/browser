@@ -1,3 +1,4 @@
+use browser_preferences::ThemeCategory;
 use css_values::color::{
     Color, ColorValue, Fraction, Hue,
     base::{ColorBase, HexColor},
@@ -5,7 +6,6 @@ use css_values::color::{
     named::NamedColor,
     system::SystemColor,
 };
-use preferences::ThemeCategory;
 
 use crate::{AbsoluteContext, RelativeContext, properties::CSSProperty};
 

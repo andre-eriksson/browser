@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use constants::{
     events::{EVENT_ASSET_LOADED, EVENT_LOAD_ASSET},
     keys::EVENT,
@@ -75,7 +73,7 @@ impl Resource {
         url: &'a str,
         client: &'a dyn HttpClient,
         cookies: &'a [Cookie],
-        browser_headers: &'a Arc<HeaderMap>,
+        browser_headers: &'a HeaderMap,
         page_url: &'a Option<Url>,
         policies: &'a DocumentPolicy,
     ) -> Result<Box<dyn ResponseHandle>, RequestError> {
