@@ -24,6 +24,14 @@ mod tests {
         s
     }
 
+    #[allow(
+        dead_code,
+        reason = "Some tests may want to load uncompressed HTML for easier debugging."
+    )]
+    fn load_fixture_raw(html: &str) -> String {
+        std::fs::read_to_string(format!("tests/fixtures/{}", html)).expect("failed to read fixture")
+    }
+
     fn viewport() -> Rect {
         Rect::new(0.0, 0.0, 800.0, 600.0)
     }
@@ -104,6 +112,73 @@ mod tests {
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr) => {{
             let (_, style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
+            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, None)
+        }};
+    }
+
+    /// Same as process_html_raw but for uncompressed HTML files.
+    #[allow(
+        unused_macros,
+        reason = "Some tests may want to load uncompressed HTML for easier debugging."
+    )]
+    macro_rules! process_html_uncompressed {
+        ($path:literal, $user_agent_css:expr) => {{
+            let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
+            let html = load_fixture_raw($path);
+
+            let mut stylesheets = if $user_agent_css {
+                vec![CSSStyleSheet::from_css(
+                    std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+                    StylesheetOrigin::UserAgent,
+                    true,
+                )]
+            } else {
+                vec![]
+            };
+
+            let cursor = Cursor::new(html);
+            let reader = BufReader::new(cursor);
+
+            let mut parser = HtmlStreamParser::simple(reader);
+
+            loop {
+                match parser.step() {
+                    Ok(_) => match parser.get_state() {
+                        ParserState::Running => continue,
+                        ParserState::Blocked(reason) => match reason {
+                            BlockedReason::WaitingForStyle(_attributes) => {
+                                if let Ok(css) = parser.extract_style_content() {
+                                    let stylesheet = CSSStyleSheet::from_css(&css, StylesheetOrigin::Author, true);
+                                    stylesheets.push(stylesheet);
+                                }
+
+                                parser.resume().unwrap();
+                            }
+                            _ => {
+                                panic!("Test files will only block on styles.");
+                            }
+                        },
+                        ParserState::Completed => {
+                            break;
+                        }
+                    },
+                    Err(e) => panic!("Parser error: {:?}", e),
+                }
+            }
+
+            let absolute_ctx = AbsoluteContext {
+                viewport_width: viewport().width,
+                viewport_height: viewport().height,
+                root_font_size: 16.0,
+                root_line_height_multiplier: 1.2,
+                ..Default::default()
+            };
+
+            let result = parser.finalize();
+            let document = result.dom_tree;
+            let style_tree = StyleTree::build(&absolute_ctx, &document, &stylesheets);
+            let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
+            let mut text_context = TextContext::new(font_system);
             LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, None)
         }};
     }
@@ -430,5 +505,87 @@ mod tests {
         assert_eq!(img_a.dimensions.height, img_b.dimensions.height);
         assert_eq!(img_a.dimensions.x, img_b.dimensions.x);
         assert_eq!(img_a.dimensions.y, img_b.dimensions.y);
+    }
+
+    #[test]
+    fn test_float_basic() {
+        let (_, style_tree, mut text_context) = process_html_raw!("float_basic.html.zst", true);
+        let layout = layout_from!(style_tree, &mut text_context);
+
+        let root = &layout.root_nodes[0];
+        let body = &root.children[0];
+        assert_eq!(body.children.len(), 3);
+
+        let float_left = &body.children[0];
+        assert_eq!(float_left.dimensions.x, 0.0);
+        assert_eq!(float_left.dimensions.y, 0.0);
+        assert_eq!(float_left.dimensions.width, 100.0);
+        assert_eq!(float_left.dimensions.height, 100.0);
+
+        let float_right = &body.children[1];
+        assert_eq!(float_right.dimensions.x, 700.0);
+        assert_eq!(float_right.dimensions.y, 0.0);
+        assert_eq!(float_right.dimensions.width, 100.0);
+        assert_eq!(float_right.dimensions.height, 100.0);
+
+        let block = &body.children[2];
+        assert_eq!(block.dimensions.x, 0.0);
+        assert_eq!(block.dimensions.y, 0.0);
+        assert_eq!(block.dimensions.height, 50.0);
+    }
+
+    #[test]
+    fn test_float_clear_left() {
+        let (_, style_tree, mut text_context) = process_html_raw!("float_clear.html.zst", true);
+        let layout = layout_from!(style_tree, &mut text_context);
+
+        let root = &layout.root_nodes[0];
+        let body = &root.children[0];
+        assert_eq!(body.children.len(), 4);
+
+        let float1 = &body.children[0];
+        assert_eq!(float1.dimensions.x, 0.0);
+        assert_eq!(float1.dimensions.y, 0.0);
+        assert_eq!(float1.dimensions.height, 100.0);
+
+        let clear_left = &body.children[1];
+        assert_eq!(clear_left.dimensions.x, 0.0);
+        assert_eq!(clear_left.dimensions.y, 100.0);
+        assert_eq!(clear_left.dimensions.height, 50.0);
+
+        let float2 = &body.children[2];
+        assert_eq!(float2.dimensions.x, 0.0);
+        assert_eq!(float2.dimensions.y, 150.0);
+        assert_eq!(float2.dimensions.height, 100.0);
+
+        let clear_both = &body.children[3];
+        assert_eq!(clear_both.dimensions.x, 0.0);
+        assert_eq!(clear_both.dimensions.y, 250.0);
+        assert_eq!(clear_both.dimensions.height, 50.0);
+    }
+
+    #[test]
+    fn test_float_clear_right() {
+        let (_, style_tree, mut text_context) = process_html_raw!("float_clear_right.html.zst", true);
+        let layout = layout_from!(style_tree, &mut text_context);
+
+        let root = &layout.root_nodes[0];
+        let body = &root.children[0];
+        assert_eq!(body.children.len(), 3);
+
+        let float_right = &body.children[0];
+        assert_eq!(float_right.dimensions.x, 700.0);
+        assert_eq!(float_right.dimensions.y, 0.0);
+        assert_eq!(float_right.dimensions.height, 80.0);
+
+        let block = &body.children[1];
+        assert_eq!(block.dimensions.x, 0.0);
+        assert_eq!(block.dimensions.y, 0.0);
+        assert_eq!(block.dimensions.height, 30.0);
+
+        let clear_right = &body.children[2];
+        assert_eq!(clear_right.dimensions.x, 0.0);
+        assert_eq!(clear_right.dimensions.y, 80.0);
+        assert_eq!(clear_right.dimensions.height, 40.0);
     }
 }

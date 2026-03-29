@@ -1,25 +1,34 @@
 use std::sync::Arc;
 
-use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle, StyledNode};
-use css_values::{
-    display::{InsideDisplay, OutsideDisplay},
-    text::{TextAlign, Whitespace, WritingMode},
-};
-use html_dom::{HtmlTag, NodeId, Tag};
+use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use html_dom::NodeId;
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
+    LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
     context::ImageContext,
-    layout::{ImageData, LayoutContext},
+    float::FloatContext,
+    layout::LayoutContext,
+    mode::inline::{
+        collection::{InlineItem, collect},
+        image::layout_image,
+        line::LineBoxBuilder,
+        text::layout_text,
+        whitespace::canonicalize_whitespace,
+    },
     resolver::PropertyResolver,
-    text::TextDescription,
 };
+
+mod collection;
+mod image;
+mod line;
+mod text;
+mod whitespace;
 
 /// Tracks an inline box decoration (background, border, padding) that needs to
 /// be emitted as a `LayoutNode` once the line is finished and final positions
 /// are known.
 #[derive(Debug, Clone)]
-struct InlineDecoration {
+pub(crate) struct InlineDecoration {
     id: NodeId,
     start_x: f32,
     end_x: f32,
@@ -30,7 +39,7 @@ struct InlineDecoration {
 
 /// State for an inline box that has been opened but not yet closed.
 #[derive(Debug, Clone)]
-struct ActiveInlineBox {
+pub(crate) struct ActiveInlineBox {
     id: NodeId,
     style: Arc<ComputedStyle>,
     start_x: f32,
@@ -39,172 +48,14 @@ struct ActiveInlineBox {
     border: SideOffset,
 }
 
-/// A single line of inline layout, accumulating positioned `LayoutNode`s and
-/// tracking the maximum ascent/descent for vertical alignment and any active
-/// inline box decorations.
-pub struct LineBox {
-    items: Vec<LayoutNode>,
-    width: f32,
-    max_ascent: f32,
-    max_descent: f32,
-    x: f32,
-    y: f32,
-    decorations: Vec<InlineDecoration>,
-}
-
 /// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
-struct InlineLayoutContext<'a> {
+pub(crate) struct InlineLayoutContext<'a> {
     pub current_y: &'a mut f32,
     pub start_x: f32,
     pub available_width: f32,
+    pub float_context: &'a FloatContext,
     pub nodes: &'a mut Vec<LayoutNode>,
     pub inline_box_stack: &'a mut Vec<ActiveInlineBox>,
-}
-
-impl LineBox {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self {
-            items: Vec::new(),
-            width: 0.0,
-            max_ascent: 0.0,
-            max_descent: 0.0,
-            x,
-            y,
-            decorations: Vec::new(),
-        }
-    }
-
-    fn add(&mut self, mut node: LayoutNode, ascent: f32, descent: f32) {
-        node.dimensions.x = self.x + self.width + node.margin.left;
-        self.width += node.dimensions.width - node.margin.horizontal();
-
-        self.max_ascent = self.max_ascent.max(ascent);
-        self.max_descent = self.max_descent.max(descent);
-        self.items.push(node);
-    }
-
-    /// Advance the line width by a fixed amount (e.g. for inline box
-    /// padding/border contributions) without adding a layout node.
-    fn advance(&mut self, amount: f32) {
-        self.width += amount;
-    }
-
-    /// Finalise the line, emitting positioned `LayoutNode`s for any active
-    /// inline box decorations and returning the nodes along with the total line height.
-    fn finish(
-        self,
-        available_width: f32,
-        text_align: &TextAlign,
-        writing_mode: &WritingMode,
-    ) -> (Vec<LayoutNode>, f32) {
-        let line_height = self.max_ascent + self.max_descent;
-        let mut final_nodes = Vec::new();
-
-        let offset_x = match text_align {
-            TextAlign::Left => 0.0,
-            TextAlign::Center => (available_width - self.width) / 2.0,
-            TextAlign::Right => available_width - self.width,
-            TextAlign::Start => match writing_mode {
-                WritingMode::HorizontalTb => 0.0,
-                WritingMode::VerticalRl => available_width - self.width,
-                WritingMode::VerticalLr => 0.0,
-                WritingMode::SidewaysRl => 0.0,
-                WritingMode::SidewaysLr => 0.0,
-            },
-            TextAlign::End => match writing_mode {
-                WritingMode::HorizontalTb => available_width - self.width,
-                WritingMode::VerticalRl => 0.0,
-                WritingMode::VerticalLr => available_width - self.width,
-                WritingMode::SidewaysRl => available_width - self.width,
-                WritingMode::SidewaysLr => available_width - self.width,
-            },
-            TextAlign::Justify => 0.0, // TODO: implement justify by distributing extra space between words
-            TextAlign::MatchParent => 0.0, // TODO: implement match-parent by inheriting text-align from parent
-        };
-
-        for dec in &self.decorations {
-            let has_border =
-                dec.border.top > 0.0 || dec.border.right > 0.0 || dec.border.bottom > 0.0 || dec.border.left > 0.0;
-            let has_background = dec.style.background_color.a > 0.0;
-
-            if !has_border && !has_background {
-                continue;
-            }
-
-            let dec_width = (dec.end_x - dec.start_x).max(0.0);
-            let dec_height = line_height + dec.padding.vertical() + dec.border.vertical();
-
-            let dec_x = self.x + dec.start_x + offset_x;
-            let dec_y = self.y - dec.padding.top - dec.border.top;
-
-            let node = LayoutNode::builder(dec.id)
-                .dimensions(Rect::new(dec_x, dec_y, dec_width, dec_height))
-                .padding(dec.padding)
-                .border(dec.border)
-                .colors(LayoutColors::from(&*dec.style))
-                .build();
-
-            final_nodes.push(node);
-        }
-
-        for mut node in self.items {
-            node.dimensions.x += offset_x;
-
-            // TODO: vertical-align support.
-            let baseline_y = self.y + self.max_ascent;
-
-            node.dimensions.y = baseline_y - node.dimensions.height;
-
-            final_nodes.push(node);
-        }
-
-        (final_nodes, line_height)
-    }
-}
-
-/// An item in the intermediate representation of an inline layout, representing
-/// either a run of text with a single style or the start/end of an inline box.
-#[derive(Debug, Clone)]
-pub enum InlineItem {
-    /// A run of text with the same style
-    TextRun {
-        id: NodeId,
-        text: String,
-        style: Arc<ComputedStyle>,
-    },
-
-    /// Marks the opening edge of an inline element (e.g. `<span>`).
-    /// Contributes left border + left padding to the line and begins tracking
-    /// a decoration region.
-    InlineBoxStart {
-        id: NodeId,
-        style: Arc<ComputedStyle>,
-    },
-
-    /// Marks the closing edge of an inline element.
-    /// Contributes right border + right padding and finalises the decoration.
-    InlineBoxEnd { id: NodeId },
-
-    /// inline-block or inline flow-root
-    InlineFlowRoot {
-        node: Box<StyledNode>,
-        style: Arc<ComputedStyle>,
-    },
-
-    /// An `<img>` element with an optional source URL and explicit dimensions.
-    Image {
-        id: NodeId,
-        src: String,
-        width: f32,
-        height: f32,
-        has_explicit_width: bool,
-        has_explicit_height: bool,
-        needs_intrinsic_size: bool,
-        style: Arc<ComputedStyle>,
-    },
-
-    /// A line break, <br>
-    Break { line_height_px: f32 },
 }
 
 pub struct InlineLayout;
@@ -222,142 +73,14 @@ impl InlineLayout {
         let mut raw_items = Vec::new();
 
         for node in nodes {
-            let result = Self::collect(parent_style, node, &mut raw_items, image_ctx);
+            let result = collect(parent_style, node, &mut raw_items, image_ctx);
 
             if result.is_err() {
                 break;
             }
         }
 
-        Self::canonicalize_whitespace(raw_items)
-    }
-
-    /// Recursively collects inline items from the given styled node and its children,
-    /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
-    fn collect(
-        style: &ComputedStyle,
-        inline_node: &StyledNode,
-        items: &mut Vec<InlineItem>,
-        image_ctx: &ImageContext,
-    ) -> Result<(), ()> {
-        if let Some(text) = inline_node.text_content.as_ref() {
-            items.push(InlineItem::TextRun {
-                id: inline_node.node_id,
-                text: text.clone(),
-                style: Arc::new(style.inherited_subset()),
-            });
-        }
-
-        if let Some(tag) = inline_node.tag.as_ref() {
-            match tag {
-                Tag::Html(HtmlTag::Br) => {
-                    items.push(InlineItem::Break {
-                        line_height_px: inline_node.style.line_height,
-                    });
-                }
-                Tag::Html(HtmlTag::Img) => {
-                    let src = inline_node
-                        .attributes
-                        .get("src")
-                        .cloned()
-                        .unwrap_or_default();
-
-                    const DEFAULT_IMAGE_WIDTH: f32 = 300.0;
-                    const DEFAULT_IMAGE_HEIGHT: f32 = 150.0;
-
-                    let known = image_ctx.get(&src);
-
-                    let attr_width = inline_node
-                        .attributes
-                        .get("width")
-                        .and_then(|v| v.parse::<f32>().ok());
-
-                    let attr_height = inline_node
-                        .attributes
-                        .get("height")
-                        .and_then(|v| v.parse::<f32>().ok());
-
-                    let css_width = !matches!(inline_node.style.width, ComputedDimension::Auto);
-                    let css_height = !matches!(inline_node.style.height, ComputedDimension::Auto);
-                    let has_explicit_width = css_width || attr_width.is_some();
-                    let has_explicit_height = css_height || attr_height.is_some();
-
-                    let (width, height, needs_intrinsic_size) = {
-                        let w = if css_width {
-                            inline_node.style.intrinsic_width
-                        } else if let Some(attr_w) = attr_width {
-                            attr_w
-                        } else {
-                            known.map(|m| m.0).unwrap_or(DEFAULT_IMAGE_WIDTH)
-                        };
-
-                        let h = if css_height {
-                            inline_node.style.intrinsic_height
-                        } else if let Some(attr_h) = attr_height {
-                            attr_h
-                        } else {
-                            known.map(|m| m.1).unwrap_or(DEFAULT_IMAGE_HEIGHT)
-                        };
-
-                        (
-                            if inline_node.style.max_intrinsic_width > 0.0 {
-                                w.min(inline_node.style.max_intrinsic_width)
-                            } else {
-                                w
-                            },
-                            if inline_node.style.max_intrinsic_height > 0.0 {
-                                h.min(inline_node.style.max_intrinsic_height)
-                            } else {
-                                h
-                            },
-                            attr_width.is_none() && attr_height.is_none() && !css_width && !css_height,
-                        )
-                    };
-
-                    items.push(InlineItem::Image {
-                        id: inline_node.node_id,
-                        src,
-                        width,
-                        height,
-                        has_explicit_width,
-                        has_explicit_height,
-                        needs_intrinsic_size,
-                        style: Arc::new(inline_node.style.clone()),
-                    });
-                }
-                _ => {
-                    let display = inline_node.style.display;
-
-                    if display.outside() == Some(OutsideDisplay::Inline)
-                        && display.inside() == Some(InsideDisplay::FlowRoot)
-                    {
-                        items.push(InlineItem::InlineFlowRoot {
-                            node: inline_node.clone().into(),
-                            style: Arc::new(inline_node.style.clone()),
-                        });
-
-                        return Ok(());
-                    } else if display.outside() != Some(OutsideDisplay::Inline) {
-                        return Err(());
-                    }
-
-                    items.push(InlineItem::InlineBoxStart {
-                        id: inline_node.node_id,
-                        style: Arc::new(inline_node.style.clone()),
-                    });
-
-                    for child in &inline_node.children {
-                        Self::collect(&inline_node.style, child, items, image_ctx)?;
-                    }
-
-                    items.push(InlineItem::InlineBoxEnd {
-                        id: inline_node.node_id,
-                    });
-                }
-            }
-        }
-
-        Ok(())
+        canonicalize_whitespace(raw_items)
     }
 
     /// The main entry point for inline layout: given a list of styled nodes that
@@ -368,6 +91,7 @@ impl InlineLayout {
     pub fn layout(
         items: &[InlineItem],
         text_ctx: &mut TextContext,
+        float_ctx: &FloatContext,
         available_width: f32,
         start_x: f32,
         start_y: f32,
@@ -375,132 +99,32 @@ impl InlineLayout {
     ) -> (Vec<LayoutNode>, f32) {
         let mut nodes = Vec::new();
         let mut current_y = start_y;
-        let mut line = LineBox::new(start_x, start_y);
-
-        let mut last_text_align = TextAlign::Left;
-        let mut last_writing_mode = WritingMode::HorizontalTb;
+        let mut line = LineBoxBuilder::new(start_x, start_y);
 
         let mut inline_box_stack: Vec<ActiveInlineBox> = Vec::new();
 
         for item in items {
             match item {
-                InlineItem::TextRun { id, text, style } => {
-                    if text.is_empty() {
-                        continue;
-                    }
-
-                    let font_size = style.font_size;
-                    let whitespace = style.whitespace;
-                    let text_align = style.text_align;
-                    let line_height = &style.line_height;
-                    let font_family = &style.font_family;
-                    let font_weight = style.font_weight;
-                    let writing_mode = &style.writing_mode;
-
-                    last_text_align = text_align;
-                    last_writing_mode = *writing_mode;
-
-                    let preserves_newlines =
-                        matches!(whitespace, Whitespace::Pre | Whitespace::PreWrap | Whitespace::PreLine);
-
-                    let text_desc = TextDescription {
-                        whitespace: &whitespace,
-                        line_height: *line_height,
-                        font_family,
-                        font_weight,
-                        font_size_px: font_size,
-                    };
-
-                    if preserves_newlines && text.contains('\n') {
-                        let segments: Vec<&str> = text.split('\n').collect();
-
-                        for (seg_idx, segment) in segments.iter().enumerate() {
-                            if !segment.is_empty() {
-                                Self::layout_text_segment(
-                                    text_ctx,
-                                    *id,
-                                    segment,
-                                    style,
-                                    &text_desc,
-                                    &mut line,
-                                    &mut InlineLayoutContext {
-                                        available_width,
-                                        current_y: &mut current_y,
-                                        start_x,
-                                        inline_box_stack: &mut inline_box_stack,
-                                        nodes: &mut nodes,
-                                    },
-                                );
-                            }
-
-                            if seg_idx < segments.len() - 1 {
-                                Self::finish_line_with_decorations(
-                                    &mut line,
-                                    &text_align,
-                                    writing_mode,
-                                    Some(*line_height),
-                                    &mut InlineLayoutContext {
-                                        available_width,
-                                        current_y: &mut current_y,
-                                        start_x,
-                                        inline_box_stack: &mut inline_box_stack,
-                                        nodes: &mut nodes,
-                                    },
-                                );
-                            }
-                        }
-                    } else {
-                        Self::layout_text_segment(
-                            text_ctx,
-                            *id,
-                            text.as_str(),
-                            style,
-                            &text_desc,
-                            &mut line,
-                            &mut InlineLayoutContext {
-                                available_width,
-                                current_y: &mut current_y,
-                                start_x,
-                                inline_box_stack: &mut inline_box_stack,
-                                nodes: &mut nodes,
-                            },
-                        );
-                    }
+                InlineItem::TextRun(text) => {
+                    layout_text(
+                        InlineLayoutContext {
+                            available_width,
+                            float_context: float_ctx,
+                            current_y: &mut current_y,
+                            start_x,
+                            nodes: &mut nodes,
+                            inline_box_stack: &mut inline_box_stack,
+                        },
+                        text_ctx,
+                        &mut line,
+                        text,
+                    );
                 }
                 InlineItem::InlineBoxStart { id, style } => {
-                    let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
-
-                    let left_edge = margin.left + border.left + padding.left;
-                    line.advance(left_edge);
-
-                    inline_box_stack.push(ActiveInlineBox {
-                        id: *id,
-                        style: Arc::clone(style),
-                        start_x: line.width - left_edge + margin.left,
-                        margin,
-                        padding,
-                        border,
-                    });
-
-                    last_text_align = style.text_align;
-                    last_writing_mode = style.writing_mode;
+                    line.open_inline_box(&mut inline_box_stack, text_ctx, *id, style);
                 }
                 InlineItem::InlineBoxEnd { id } => {
-                    if let Some(pos) = inline_box_stack.iter().rposition(|b| b.id == *id) {
-                        let active = inline_box_stack.remove(pos);
-
-                        let right_edge = active.padding.right + active.border.right + active.margin.right;
-                        line.advance(right_edge);
-
-                        line.decorations.push(InlineDecoration {
-                            id: active.id,
-                            start_x: active.start_x,
-                            end_x: line.width - active.margin.right,
-                            style: active.style,
-                            padding: active.padding,
-                            border: active.border,
-                        });
-                    }
+                    line.close_inline_box(&mut inline_box_stack, *id);
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
@@ -518,22 +142,21 @@ impl InlineLayout {
 
                         let alignment = &style.text_align;
                         let writing_mode = &style.writing_mode;
-                        last_text_align = *alignment;
-                        last_writing_mode = *writing_mode;
+                        text_ctx.last_text_align = *alignment;
+                        text_ctx.last_writing_mode = *writing_mode;
 
-                        if line.width + total_width > available_width && line.width > 0.0 {
-                            Self::finish_line_with_decorations(
-                                &mut line,
-                                alignment,
-                                writing_mode,
-                                None,
+                        if line.line_box.width + total_width > available_width && line.line_box.width > 0.0 {
+                            line.finish_line_with_decorations(
                                 &mut InlineLayoutContext {
                                     available_width,
+                                    float_context: float_ctx,
                                     current_y: &mut current_y,
                                     start_x,
                                     inline_box_stack: &mut inline_box_stack,
                                     nodes: &mut nodes,
                                 },
+                                text_ctx,
+                                None,
                             );
                         }
 
@@ -541,367 +164,54 @@ impl InlineLayout {
 
                         layout_node.margin = margin;
 
-                        line.add(layout_node, ascent, 0.0);
+                        line.line_box.add(layout_node, ascent, 0.0);
                     }
                 }
-                InlineItem::Image {
-                    id,
-                    src,
-                    width,
-                    height,
-                    has_explicit_width,
-                    has_explicit_height,
-                    needs_intrinsic_size,
-                    style,
-                } => {
-                    let alignment = &style.text_align;
-                    let writing_mode = &style.writing_mode;
-                    last_text_align = *alignment;
-                    last_writing_mode = *writing_mode;
-                    let has_intrinsic_size = image_ctx.get(src).is_some_and(|(w, h)| w > 0.0 && h > 0.0);
-
-                    let (img_width, img_height) = Self::resolve_image_size(
-                        *width,
-                        *height,
-                        *has_explicit_width,
-                        *has_explicit_height,
-                        style,
-                        available_width,
-                        image_ctx.get(src),
-                    );
-
-                    if line.width + img_width > available_width && line.width > 0.0 {
-                        Self::finish_line_with_decorations(
-                            &mut line,
-                            alignment,
-                            writing_mode,
-                            None,
-                            &mut InlineLayoutContext {
-                                available_width,
-                                current_y: &mut current_y,
-                                start_x,
-                                inline_box_stack: &mut inline_box_stack,
-                                nodes: &mut nodes,
-                            },
-                        );
-                    }
-
-                    let node = LayoutNode::builder(*id)
-                        .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
-                        .colors(LayoutColors::from(&**style))
-                        .image_data(ImageData {
-                            image_src: src.clone(),
-                            vary_key: image_ctx
-                                .get_meta(src)
-                                .map(|m| m.vary_key.clone())
-                                .unwrap_or_default(),
-                            image_needs_intrinsic_size: *needs_intrinsic_size && !has_intrinsic_size,
-                        })
-                        .build();
-
-                    let ascent = img_height;
-                    line.add(node, ascent, 0.0);
-                }
-                InlineItem::Break { line_height_px } => {
-                    Self::finish_line_with_decorations(
-                        &mut line,
-                        &last_text_align,
-                        &last_writing_mode,
-                        Some(*line_height_px),
-                        &mut InlineLayoutContext {
+                InlineItem::Image(img) => {
+                    layout_image(
+                        InlineLayoutContext {
                             available_width,
+                            float_context: float_ctx,
                             current_y: &mut current_y,
                             start_x,
                             inline_box_stack: &mut inline_box_stack,
                             nodes: &mut nodes,
                         },
+                        img,
+                        text_ctx,
+                        &mut line,
+                        image_ctx,
+                    );
+                }
+                InlineItem::Break { line_height_px } => {
+                    line.finish_line_with_decorations(
+                        &mut InlineLayoutContext {
+                            available_width,
+                            float_context: float_ctx,
+                            current_y: &mut current_y,
+                            start_x,
+                            inline_box_stack: &mut inline_box_stack,
+                            nodes: &mut nodes,
+                        },
+                        text_ctx,
+                        Some(*line_height_px),
                     );
                 }
             }
         }
 
-        Self::close_active_decorations(&mut line, &mut inline_box_stack);
+        line.close_active_decorations(&mut inline_box_stack);
 
-        let (line_nodes, h) = line.finish(available_width, &last_text_align, &last_writing_mode);
+        let (line_nodes, h) = line.line_box.finish(
+            float_ctx,
+            start_x,
+            available_width,
+            &text_ctx.last_text_align,
+            &text_ctx.last_writing_mode,
+        );
         nodes.extend(line_nodes);
         let total_height = current_y + h - start_y;
 
         (nodes, total_height)
-    }
-
-    /// Finishes the current line, emitting decorations for any active inline
-    /// boxes, then starts a fresh line and re-opens those inline boxes on it.
-    fn finish_line_with_decorations(
-        line: &mut LineBox,
-        text_align: &TextAlign,
-        writing_mode: &WritingMode,
-        min_line_height: Option<f32>,
-        layout_ctx: &mut InlineLayoutContext,
-    ) {
-        let mut continuing_boxes = std::mem::take(layout_ctx.inline_box_stack);
-
-        Self::close_active_decorations(line, &mut continuing_boxes);
-
-        let old_line = std::mem::replace(line, LineBox::new(layout_ctx.start_x, *layout_ctx.current_y));
-        let (line_nodes, h) = old_line.finish(layout_ctx.available_width, text_align, writing_mode);
-        layout_ctx.nodes.extend(line_nodes);
-        *layout_ctx.current_y += if let Some(min_h) = min_line_height {
-            h.max(min_h)
-        } else {
-            h
-        };
-        *line = LineBox::new(layout_ctx.start_x, *layout_ctx.current_y);
-
-        for con_box in continuing_boxes {
-            layout_ctx.inline_box_stack.push(con_box);
-        }
-    }
-
-    fn resolve_image_size(
-        width: f32,
-        height: f32,
-        has_explicit_width: bool,
-        has_explicit_height: bool,
-        style: &ComputedStyle,
-        available_width: f32,
-        intrinsic_size: Option<(f32, f32)>,
-    ) -> (f32, f32) {
-        let max_width = match style.max_width {
-            ComputedMaxDimension::Percentage(f) => (available_width * f).max(0.0),
-            _ => style.max_intrinsic_width,
-        };
-        let mut used_width = match style.width {
-            ComputedDimension::Percentage(f) => (available_width * f).max(0.0),
-            _ => width.max(0.0),
-        };
-        let mut used_height = height.max(0.0);
-
-        if let Some((intrinsic_width, intrinsic_height)) = intrinsic_size.filter(|(w, h)| *w > 0.0 && *h > 0.0) {
-            if has_explicit_width && !has_explicit_height {
-                used_height = used_width * intrinsic_height / intrinsic_width;
-            } else if has_explicit_height && !has_explicit_width {
-                used_width = used_height * intrinsic_width / intrinsic_height;
-            } else if !has_explicit_width && !has_explicit_height {
-                used_width = intrinsic_width;
-                used_height = intrinsic_height;
-            }
-
-            if has_explicit_width && has_explicit_height {
-                used_width = used_width.min(max_width);
-                used_height = used_height.min(style.max_intrinsic_height);
-            } else {
-                let width_scale = if used_width > max_width {
-                    max_width / used_width
-                } else {
-                    1.0
-                };
-                let height_scale = if used_height > style.max_intrinsic_height {
-                    style.max_intrinsic_height / used_height
-                } else {
-                    1.0
-                };
-                let scale = width_scale.min(height_scale);
-
-                if scale < 1.0 {
-                    used_width *= scale;
-                    used_height *= scale;
-                }
-            }
-        } else {
-            used_width = used_width.min(max_width);
-            used_height = used_height.min(style.max_intrinsic_height);
-        }
-
-        (used_width.max(0.0), used_height.max(0.0))
-    }
-
-    /// Close all active inline boxes, recording their decorations on the
-    /// current line box and clearing the stack.
-    fn close_active_decorations(line: &mut LineBox, inline_box_stack: &mut Vec<ActiveInlineBox>) {
-        while let Some(active) = inline_box_stack.pop() {
-            let right_edge = active.padding.right + active.border.right + active.margin.right;
-            line.advance(right_edge);
-
-            line.decorations.push(InlineDecoration {
-                id: active.id,
-                start_x: active.start_x,
-                end_x: line.width - active.margin.right,
-                style: active.style,
-                padding: active.padding,
-                border: active.border,
-            });
-        }
-    }
-
-    /// Measure a single-line text segment (no embedded newlines) and add it to
-    /// the current [`LineBox`], word-wrapping across multiple lines when the
-    /// text exceeds `available_width`.
-    fn layout_text_segment(
-        text_ctx: &mut TextContext,
-        id: NodeId,
-        text: &str,
-        style: &ComputedStyle,
-        text_desc: &TextDescription,
-        line: &mut LineBox,
-        layout_ctx: &mut InlineLayoutContext,
-    ) {
-        let mut remaining_text = text;
-
-        while !remaining_text.is_empty() {
-            let remaining_line_space = (layout_ctx.available_width - line.width).max(0.0);
-
-            let (measured, rest) = text_ctx.measure_text_that_fits(remaining_text, text_desc, remaining_line_space);
-
-            if measured.width == 0.0 && measured.height == 0.0 {
-                if let Some(r) = rest {
-                    remaining_text = r;
-                    continue;
-                }
-                break;
-            }
-
-            let node = LayoutNode::builder(id)
-                .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
-                .colors(LayoutColors::from(style))
-                .cursor(style.cursor)
-                .text_buffer(Arc::new(measured.buffer))
-                .height_auto(style.height == ComputedDimension::Auto)
-                .build();
-
-            let ascent = measured.height;
-            let descent = 0.0;
-
-            line.add(node, ascent, descent);
-
-            if let Some(r) = rest {
-                Self::finish_line_with_decorations(line, &style.text_align, &style.writing_mode, None, layout_ctx);
-                remaining_text = r;
-            } else {
-                break;
-            }
-        }
-    }
-
-    /// Canonicalise whitespace in the collected inline items according to the CSS
-    /// `white-space` property of each text run, collapsing runs of whitespace into a single
-    /// space where appropriate and stripping leading/trailing whitespace from lines.
-    fn canonicalize_whitespace(items: Vec<InlineItem>) -> Vec<InlineItem> {
-        let mut result = Vec::new();
-        let mut last_was_space = false;
-
-        for item in items {
-            match item {
-                InlineItem::TextRun { id, text, style } => {
-                    let whitespace_prop = &style.whitespace;
-
-                    if matches!(whitespace_prop, Whitespace::Pre | Whitespace::PreWrap) {
-                        result.push(InlineItem::TextRun { id, text, style });
-                        last_was_space = false;
-                    } else {
-                        let mut new_text = String::with_capacity(text.len());
-
-                        for c in text.chars() {
-                            if c.is_whitespace() {
-                                if matches!(whitespace_prop, Whitespace::PreLine) && c == '\n' {
-                                    new_text.push('\n');
-                                    last_was_space = false;
-                                } else if !last_was_space {
-                                    new_text.push(' ');
-                                    last_was_space = true;
-                                }
-                            } else {
-                                new_text.push(c);
-                                last_was_space = false;
-                            }
-                        }
-
-                        if !new_text.is_empty() {
-                            result.push(InlineItem::TextRun {
-                                id,
-                                text: new_text,
-                                style,
-                            });
-                        }
-                    }
-                }
-                other => {
-                    result.push(other);
-                    last_was_space = false;
-                }
-            }
-        }
-
-        Self::strip_edge_whitespace(&mut result);
-
-        result
-    }
-
-    /// Returns true if the given style's `white-space` property preserves
-    /// spaces (i.e. is `pre` or `pre-wrap`).
-    fn preserves_spaces(style: &ComputedStyle) -> bool {
-        matches!(style.whitespace, Whitespace::Pre | Whitespace::PreWrap)
-    }
-
-    /// Strips leading and trailing whitespace from the line, removing text runs that are entirely
-    /// whitespace and trimming text runs at the edges. Stops stripping once it encounters a
-    /// text run with a style that preserves spaces.
-    fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
-        let mut start_idx = 0;
-        let mut end_idx = items.len();
-
-        while start_idx < end_idx {
-            match &items[start_idx] {
-                InlineItem::TextRun { text, style, .. } => {
-                    if Self::preserves_spaces(style) {
-                        break;
-                    }
-                    let trimmed = text.trim_start();
-                    if trimmed.is_empty() {
-                        start_idx += 1;
-                    } else {
-                        let t = trimmed.to_string();
-                        if let InlineItem::TextRun { text, .. } = &mut items[start_idx] {
-                            *text = t;
-                        }
-                        break;
-                    }
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-
-        while end_idx > start_idx {
-            match &items[end_idx - 1] {
-                InlineItem::TextRun { text, style, .. } => {
-                    if Self::preserves_spaces(style) {
-                        break;
-                    }
-                    let trimmed = text.trim_end();
-                    if trimmed.is_empty() {
-                        end_idx -= 1;
-                    } else {
-                        let t = trimmed.to_string();
-                        if let InlineItem::TextRun { text, .. } = &mut items[end_idx - 1] {
-                            *text = t;
-                        }
-                        break;
-                    }
-                }
-                _ => {
-                    break;
-                }
-            }
-        }
-
-        if start_idx > 0 {
-            items.drain(0..start_idx);
-            end_idx -= start_idx;
-        }
-
-        if end_idx < items.len() {
-            items.drain(end_idx..);
-        }
     }
 }

@@ -246,6 +246,7 @@ simple_property_handler!(handle_border_top_width, border_top_width, "border-top-
 simple_property_handler!(handle_border_right_width, border_right_width, "border-right-width");
 simple_property_handler!(handle_border_bottom_width, border_bottom_width, "border-bottom-width");
 simple_property_handler!(handle_border_left_width, border_left_width, "border-left-width");
+simple_property_handler!(handle_clear, clear, "clear");
 simple_property_handler!(handle_color, color, "color");
 simple_property_handler!(handle_cursor, cursor, "cursor");
 simple_property_handler!(handle_display, display, "display");

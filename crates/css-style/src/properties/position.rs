@@ -34,6 +34,16 @@ pub enum Position {
     Sticky,
 }
 
+impl Position {
+    pub fn is_out_of_flow(&self) -> bool {
+        matches!(self, Position::Absolute | Position::Fixed)
+    }
+
+    pub fn affects_normal_flow(&self) -> bool {
+        matches!(self, Position::Sticky | Position::Relative | Position::Static)
+    }
+}
+
 impl CSSParsable for Position {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();

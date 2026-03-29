@@ -1,5 +1,5 @@
-use css_style::{ComputedDimension, StyledNode};
-use css_values::display::OutsideDisplay;
+use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use css_values::display::{Clear, Float, OutsideDisplay};
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, context::ImageContext,
@@ -26,16 +26,20 @@ pub struct BlockFlow {
 }
 
 impl BlockFlow {
-    pub fn new(padding_top: f32, border_top: f32) -> Self {
+    pub fn new(style: &ComputedStyle) -> Self {
         Self {
             current_y: 0.0,
             previous_margin_bottom: 0.0,
-            parent_has_top_fence: padding_top > 0.0 || border_top > 0.0,
+            parent_has_top_fence: PropertyResolver::has_top_fence(style),
             is_first_child: true,
         }
     }
 
-    fn advance(&mut self, child_margin_top: f32, child_height: f32, child_margin_bottom: f32) -> f32 {
+    fn advance(&mut self, child_margin_top: f32, child_height: f32, child_margin_bottom: f32, is_float: bool) -> f32 {
+        if is_float {
+            return self.current_y;
+        }
+
         let clearance;
 
         if self.is_first_child {
@@ -50,12 +54,22 @@ impl BlockFlow {
         }
 
         let child_y = self.current_y + clearance;
-
         self.current_y = child_y + child_height;
-
         self.previous_margin_bottom = child_margin_bottom;
 
         child_y
+    }
+
+    /// Advance the flow to account for a child positioned at `child_y_offset` with given height.
+    /// This is used when clearance or other factors have already determined the child's y position.
+    fn advance_to(&mut self, child_y_offset: f32, child_height: f32, child_margin_bottom: f32, is_float: bool) {
+        if is_float {
+            return;
+        }
+
+        self.is_first_child = false;
+        self.current_y = child_y_offset + child_height;
+        self.previous_margin_bottom = child_margin_bottom;
     }
 
     fn collapse_margins(a: f32, b: f32) -> f32 {
@@ -78,6 +92,14 @@ impl BlockLayout {
         text_ctx: &mut TextContext,
         image_ctx: &ImageContext,
     ) -> LayoutNode {
+        // if styled_node.style.position.is_out_of_flow() {
+        //     ctx.position_manager
+        //         .defer(styled_node.node_id, styled_node.clone(), ctx.containing_block());
+
+        //     // TODO: Placeholder
+        //     return LayoutNode::builder(styled_node.node_id).build();
+        // }
+
         let container_width = ctx.containing_block().width;
 
         let (margin, padding, border) = PropertyResolver::resolve_box_model(&styled_node.style);
@@ -93,7 +115,7 @@ impl BlockLayout {
         let y = ctx.containing_block().y + ctx.block_cursor.y;
 
         let mut children = Vec::new();
-        let mut flow = BlockFlow::new(padding.top, border.top);
+        let mut flow = BlockFlow::new(&styled_node.style);
         let child_containing_height = match styled_node.style.height {
             ComputedDimension::Auto => 0.0,
             _ => PropertyResolver::calculate_height(styled_node, 0.0).max(0.0),
@@ -123,8 +145,15 @@ impl BlockLayout {
                     let inline_y = y + padding.top + border.top + flow.current_y;
                     let inline_width = content_width;
 
-                    let (inline_layout_nodes, inline_height) =
-                        InlineLayout::layout(&inline_items, text_ctx, inline_width, inline_x, inline_y, image_ctx);
+                    let (inline_layout_nodes, inline_height) = InlineLayout::layout(
+                        &inline_items,
+                        text_ctx,
+                        &ctx.float_context,
+                        inline_width,
+                        inline_x,
+                        inline_y,
+                        image_ctx,
+                    );
 
                     if !inline_layout_nodes.is_empty() || inline_height > 0.0 {
                         for inline_node in inline_layout_nodes {
@@ -152,7 +181,24 @@ impl BlockLayout {
                 BlockFlow::collapse_margins(flow.previous_margin_bottom, child_margin.top)
             };
 
-            let child_y_offset = flow.current_y + temp_clearance;
+            let mut child_y_offset = flow.current_y + temp_clearance;
+
+            let clear = child_style_node.style.clear;
+            let has_clearance = if clear != Clear::None {
+                let absolute_y = y + padding.top + border.top + child_y_offset;
+                let cleared_y = ctx
+                    .float_context
+                    .clear_y(clear, child_style_node.style.writing_mode, absolute_y);
+                let relative_cleared_y = cleared_y - (y + padding.top + border.top);
+                if relative_cleared_y > child_y_offset {
+                    child_y_offset = relative_cleared_y;
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
 
             let mut child_ctx = LayoutContext::new(Rect::new(
                 x + padding.left + border.left,
@@ -160,18 +206,47 @@ impl BlockLayout {
                 content_width,
                 child_containing_height,
             ));
+            child_ctx.float_context = ctx.float_context.clone();
 
             child_ctx.block_cursor.y = child_y_offset;
 
             if let Some(child_node) = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx) {
-                flow.advance(child_node.margin.top, child_node.dimensions.height, child_node.margin.bottom);
+                if has_clearance {
+                    flow.advance_to(
+                        child_y_offset,
+                        child_node.dimensions.height,
+                        child_node.margin.bottom,
+                        child_style_node.style.float != Float::None,
+                    );
+                } else {
+                    flow.advance(
+                        child_node.margin.top,
+                        child_node.dimensions.height,
+                        child_node.margin.bottom,
+                        child_style_node.style.float != Float::None,
+                    );
+                }
+
+                if child_style_node.style.float != Float::None {
+                    ctx.float_context.add_float(
+                        Rect::new(
+                            child_node.dimensions.x,
+                            y + padding.top + border.top + child_y_offset,
+                            child_node.dimensions.width,
+                            child_node.dimensions.height,
+                        ),
+                        child_style_node.style.writing_mode,
+                        child_style_node.style.float,
+                    );
+                }
+
                 children.push(child_node);
             }
 
             child_idx += 1;
         }
 
-        let has_bottom_fence = padding.bottom > 0.0 || border.bottom > 0.0;
+        let has_bottom_fence = PropertyResolver::has_bottom_fence(&styled_node.style);
 
         let content_height_from_children = if !has_bottom_fence && !children.is_empty() {
             flow.current_y
@@ -224,7 +299,11 @@ impl BlockLayout {
         let container_width = ctx.containing_block().width;
         let total_width = content_width + padding.horizontal() + border.horizontal();
 
-        if styled_node.style.margin_left_auto && styled_node.style.margin_right_auto {
+        if styled_node.style.float == Float::Left {
+            ctx.containing_block().x + margin.left
+        } else if styled_node.style.float == Float::Right {
+            ctx.containing_block().x + container_width - margin.right - total_width
+        } else if styled_node.style.margin_left_auto && styled_node.style.margin_right_auto {
             ctx.containing_block().x + (container_width - total_width) / 2.0
         } else if styled_node.style.margin_left_auto {
             ctx.containing_block().x + container_width - margin.right - total_width
@@ -257,17 +336,17 @@ mod tests {
 
     #[test]
     fn test_advance_flow() {
-        let mut flow = BlockFlow::new(0.0, 0.0);
+        let mut flow = BlockFlow::new(&ComputedStyle::default());
 
-        let y1 = flow.advance(10.0, 50.0, 15.0);
+        let y1 = flow.advance(10.0, 50.0, 15.0, false);
         assert_eq!(y1, 0.0);
         assert_eq!(flow.current_y, 50.0);
 
-        let y2 = flow.advance(20.0, 30.0, 10.0);
+        let y2 = flow.advance(20.0, 30.0, 10.0, false);
         assert_eq!(y2, 70.0);
         assert_eq!(flow.current_y, 100.0);
 
-        let y3 = flow.advance(5.0, 40.0, 20.0);
+        let y3 = flow.advance(5.0, 40.0, 20.0, false);
         assert_eq!(y3, 110.0);
         assert_eq!(flow.current_y, 150.0);
     }

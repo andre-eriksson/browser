@@ -1,6 +1,6 @@
 use cosmic_text::{Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap};
 use css_style::FontFamily;
-use css_values::text::{FontFamilyName, GenericName, Whitespace};
+use css_values::text::{FontFamilyName, GenericName, TextAlign, Whitespace, WritingMode};
 
 #[derive(Debug)]
 pub struct Text {
@@ -25,19 +25,27 @@ pub struct TextDescription<'a> {
 pub struct TextContext {
     /// The font system used for text rendering.
     font_system: FontSystem,
+    pub last_text_align: TextAlign,
+    pub last_writing_mode: WritingMode,
 }
 
 impl Default for TextContext {
     fn default() -> Self {
         Self {
             font_system: FontSystem::new(),
+            last_text_align: TextAlign::default(),
+            last_writing_mode: WritingMode::default(),
         }
     }
 }
 
 impl TextContext {
     pub fn new(font_system: FontSystem) -> Self {
-        Self { font_system }
+        Self {
+            font_system,
+            last_text_align: TextAlign::default(),
+            last_writing_mode: WritingMode::default(),
+        }
     }
 
     /// Get a mutable reference to the font system for glyph rasterization

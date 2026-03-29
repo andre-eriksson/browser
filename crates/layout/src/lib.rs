@@ -7,8 +7,10 @@
 mod builder;
 mod context;
 pub mod engine;
+mod float;
 mod layout;
 mod mode;
+mod position;
 mod primitives;
 mod resolver;
 mod text;
