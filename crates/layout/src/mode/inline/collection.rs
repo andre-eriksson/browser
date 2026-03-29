@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use css_style::{ComputedDimension, ComputedStyle, StyledNode};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{HtmlTag, NodeId, Tag};
@@ -7,14 +5,14 @@ use html_dom::{HtmlTag, NodeId, Tag};
 use crate::ImageContext;
 
 #[derive(Debug, Clone)]
-pub struct TextRun {
+pub struct TextRun<'node> {
     pub id: NodeId,
     pub content: String,
-    pub style: Arc<ComputedStyle>,
+    pub style: &'node ComputedStyle,
 }
 
 #[derive(Debug, Clone)]
-pub struct ImageItem {
+pub struct ImageItem<'node> {
     pub id: NodeId,
     pub src: String,
     pub width: f32,
@@ -22,22 +20,22 @@ pub struct ImageItem {
     pub has_explicit_width: bool,
     pub has_explicit_height: bool,
     pub needs_intrinsic_size: bool,
-    pub style: Arc<ComputedStyle>,
+    pub style: &'node ComputedStyle,
 }
 
 /// An item in the intermediate representation of an inline layout, representing
 /// either a run of text with a single style or the start/end of an inline box.
 #[derive(Debug, Clone)]
-pub enum InlineItem {
+pub enum InlineItem<'node> {
     /// A run of text with the same style
-    TextRun(TextRun),
+    TextRun(TextRun<'node>),
 
     /// Marks the opening edge of an inline element (e.g. `<span>`).
     /// Contributes left border + left padding to the line and begins tracking
     /// a decoration region.
     InlineBoxStart {
         id: NodeId,
-        style: Arc<ComputedStyle>,
+        style: &'node ComputedStyle,
     },
 
     /// Marks the closing edge of an inline element.
@@ -46,12 +44,12 @@ pub enum InlineItem {
 
     /// inline-block or inline flow-root
     InlineFlowRoot {
-        node: Box<StyledNode>,
-        style: Arc<ComputedStyle>,
+        node: &'node StyledNode,
+        style: &'node ComputedStyle,
     },
 
     /// An `<img>` element with an optional source URL and explicit dimensions.
-    Image(ImageItem),
+    Image(ImageItem<'node>),
 
     /// A line break, <br>
     Break { line_height_px: f32 },
@@ -59,17 +57,17 @@ pub enum InlineItem {
 
 /// Recursively collects inline items from the given styled node and its children,
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
-pub(crate) fn collect(
-    style: &ComputedStyle,
-    inline_node: &StyledNode,
-    items: &mut Vec<InlineItem>,
+pub(crate) fn collect<'node>(
+    style: &'node ComputedStyle,
+    inline_node: &'node StyledNode,
+    items: &mut Vec<InlineItem<'node>>,
     image_ctx: &ImageContext,
 ) -> Result<(), ()> {
     if let Some(text) = inline_node.text_content.as_ref() {
         items.push(InlineItem::TextRun(TextRun {
             id: inline_node.node_id,
             content: text.clone(),
-            style: Arc::new(style.inherited_subset()),
+            style,
         }));
     }
 
@@ -147,7 +145,7 @@ pub(crate) fn collect(
                     has_explicit_width,
                     has_explicit_height,
                     needs_intrinsic_size,
-                    style: Arc::new(inline_node.style.clone()),
+                    style: &inline_node.style,
                 }));
             }
             _ => {
@@ -157,8 +155,8 @@ pub(crate) fn collect(
                     && display.inside() == Some(InsideDisplay::FlowRoot)
                 {
                     items.push(InlineItem::InlineFlowRoot {
-                        node: inline_node.clone().into(),
-                        style: Arc::new(inline_node.style.clone()),
+                        node: inline_node,
+                        style: &inline_node.style,
                     });
 
                     return Ok(());
@@ -168,7 +166,7 @@ pub(crate) fn collect(
 
                 items.push(InlineItem::InlineBoxStart {
                     id: inline_node.node_id,
-                    style: Arc::new(inline_node.style.clone()),
+                    style: &inline_node.style,
                 });
 
                 for child in &inline_node.children {

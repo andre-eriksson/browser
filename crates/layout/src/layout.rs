@@ -55,6 +55,18 @@ impl Default for LayoutColors {
     }
 }
 
+impl LayoutColors {
+    /// Creates colors for a text node using only the inherited foreground color.
+    /// Background and border are transparent since those come from InlineDecoration.
+    pub fn text_only(color: Color4f) -> Self {
+        Self {
+            background_color: Color4f::TRANSPARENT,
+            color,
+            border_color: BorderColor::default(),
+        }
+    }
+}
+
 impl From<&ComputedStyle> for LayoutColors {
     fn from(style: &ComputedStyle) -> Self {
         Self {

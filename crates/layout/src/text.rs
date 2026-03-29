@@ -76,68 +76,45 @@ impl TextContext {
             _ => Wrap::Word,
         };
 
-        let mut temp_buffer = Buffer::new(&mut self.font_system, metrics);
+        let mut buffer = Buffer::new(&mut self.font_system, metrics);
+        buffer.set_size(&mut self.font_system, Some(max_width), None);
+        buffer.set_wrap(&mut self.font_system, wrap_mode);
+        buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
+        buffer.shape_until_scroll(&mut self.font_system, false);
 
-        temp_buffer.set_size(&mut self.font_system, Some(max_width), None);
-        temp_buffer.set_wrap(&mut self.font_system, wrap_mode);
-        temp_buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
-
-        temp_buffer.shape_until_scroll(&mut self.font_system, false);
-
-        let runs: Vec<_> = temp_buffer.layout_runs().collect();
-
-        if runs.is_empty() {
-            return (self.measure_text(text, text_description, max_width, wrap_mode), None);
+        let mut run_count = 0;
+        let mut first_run_end = text.len();
+        for run in buffer.layout_runs() {
+            if run_count == 0 {
+                first_run_end = run.glyphs.last().map(|g| g.end).unwrap_or(text.len());
+            }
+            run_count += 1;
+            if run_count > 1 {
+                break;
+            }
         }
 
-        if runs.len() > 1 {
-            let first_run = &runs[0];
-
-            let split_index = first_run.glyphs.last().map(|g| g.end).unwrap_or(text.len());
-
-            let split_index = split_index.min(text.len());
-
+        if run_count > 1 {
+            let split_index = first_run_end.min(text.len());
             let fitted_text = &text[..split_index];
             let remaining_text = &text[split_index..];
 
-            return (self.measure_text(fitted_text, text_description, max_width, wrap_mode), Some(remaining_text));
+            buffer.set_text(&mut self.font_system, fitted_text, &attrs, Shaping::Advanced, Some(Align::Left));
+            buffer.shape_until_scroll(&mut self.font_system, false);
+
+            let measured = self.extract_text_metrics(&buffer, text_description, fitted_text);
+            return (Text { buffer, ..measured }, Some(remaining_text));
         }
 
-        (self.measure_text(text, text_description, max_width, wrap_mode), None)
+        let measured = self.extract_text_metrics(&buffer, text_description, text);
+        (Text { buffer, ..measured }, None)
     }
 
-    /// Measures the rendered size of the given text with specified styles and constraints.
-    fn measure_text(
-        &mut self,
-        text: &str,
-        text_description: &TextDescription,
-        available_width: f32,
-        wrap_mode: Wrap,
-    ) -> Text {
-        // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
+    /// Extract text metrics from an already-shaped buffer.
+    fn extract_text_metrics(&self, buffer: &Buffer, text_description: &TextDescription, text: &str) -> Text {
         let line_height_px = text_description.line_height.max(1.0);
-
-        let metrics = Metrics::new(text_description.font_size_px, line_height_px);
-        let mut buffer = Buffer::new(&mut self.font_system, metrics);
-
-        buffer.set_wrap(&mut self.font_system, wrap_mode);
-        buffer.set_size(&mut self.font_system, Some(available_width), None);
-
-        let family = Self::resolve_font_family(text_description.font_family);
-        let weight = Self::resolve_font_weight(text_description.font_weight);
-
-        let attrs = Attrs::new()
-            .family(family)
-            .weight(weight)
-            .stretch(Stretch::Normal);
-
         let preserve_whitespace = matches!(text_description.whitespace, Whitespace::Pre | Whitespace::PreWrap);
-
         let is_whitespace_only = text.trim().is_empty() && !preserve_whitespace;
-
-        buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
-
-        buffer.shape_until_scroll(&mut self.font_system, false);
 
         let mut max_width: f32 = 0.0;
         let mut last_line_width: f32 = 0.0;
@@ -175,7 +152,7 @@ impl TextContext {
             last_line_width,
             height: total_height,
             total_width: max_width,
-            buffer,
+            buffer: Buffer::new_empty(Metrics::new(text_description.font_size_px, line_height_px)),
         }
     }
 

@@ -1,22 +1,30 @@
 use css_style::ComputedStyle;
 use css_values::text::Whitespace;
 
-use crate::mode::inline::collection::{InlineItem, TextRun};
+use crate::mode::inline::collection::InlineItem;
 
 /// Canonicalise whitespace in the collected inline items according to the CSS
 /// `white-space` property of each text run, collapsing runs of whitespace into a single
 /// space where appropriate and stripping leading/trailing whitespace from lines.
-pub(crate) fn canonicalize_whitespace(items: Vec<InlineItem>) -> Vec<InlineItem> {
-    let mut result = Vec::new();
+pub(crate) fn canonicalize_whitespace(items: &mut Vec<InlineItem>) {
     let mut last_was_space = false;
+    let mut write_idx = 0;
 
-    for item in items {
+    for read_idx in 0..items.len() {
+        let item = std::mem::replace(
+            &mut items[read_idx],
+            InlineItem::Break {
+                line_height_px: 0.0,
+            },
+        );
+
         match item {
-            InlineItem::TextRun(text) => {
+            InlineItem::TextRun(mut text) => {
                 let whitespace_prop = &text.style.whitespace;
 
                 if matches!(whitespace_prop, Whitespace::Pre | Whitespace::PreWrap) {
-                    result.push(InlineItem::TextRun(text));
+                    items[write_idx] = InlineItem::TextRun(text);
+                    write_idx += 1;
                     last_was_space = false;
                 } else {
                     let mut new_text = String::with_capacity(text.content.len());
@@ -37,24 +45,22 @@ pub(crate) fn canonicalize_whitespace(items: Vec<InlineItem>) -> Vec<InlineItem>
                     }
 
                     if !new_text.is_empty() {
-                        result.push(InlineItem::TextRun(TextRun {
-                            id: text.id,
-                            content: new_text,
-                            style: text.style,
-                        }));
+                        text.content = new_text;
+                        items[write_idx] = InlineItem::TextRun(text);
+                        write_idx += 1;
                     }
                 }
             }
             other => {
-                result.push(other);
+                items[write_idx] = other;
+                write_idx += 1;
                 last_was_space = false;
             }
         }
     }
 
-    strip_edge_whitespace(&mut result);
-
-    result
+    items.truncate(write_idx);
+    strip_edge_whitespace(items);
 }
 
 /// Returns true if the given style's `white-space` property preserves
@@ -73,7 +79,7 @@ fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
     while start_idx < end_idx {
         match &items[start_idx] {
             InlineItem::TextRun(text) => {
-                if preserves_spaces(&text.style) {
+                if preserves_spaces(text.style) {
                     break;
                 }
                 let trimmed = text.content.trim_start();
@@ -96,7 +102,7 @@ fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
     while end_idx > start_idx {
         match &items[end_idx - 1] {
             InlineItem::TextRun(text) => {
-                if preserves_spaces(&text.style) {
+                if preserves_spaces(text.style) {
                     break;
                 }
                 let trimmed = text.content.trim_end();

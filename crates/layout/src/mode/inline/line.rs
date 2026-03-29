@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use css_style::ComputedStyle;
 use css_values::text::{TextAlign, WritingMode};
 use html_dom::NodeId;
@@ -14,26 +12,26 @@ use crate::{
 /// A single line of inline layout, accumulating positioned `LayoutNode`s and
 /// tracking the maximum ascent/descent for vertical alignment and any active
 /// inline box decorations.
-pub struct LineBox {
+pub struct LineBox<'node> {
     pub items: Vec<LayoutNode>,
     pub width: f32,
     pub max_ascent: f32,
     pub max_descent: f32,
     pub x: f32,
     pub y: f32,
-    pub decorations: Vec<InlineDecoration>,
+    pub decorations: Vec<InlineDecoration<'node>>,
 }
 
-impl LineBox {
+impl<'node> LineBox<'node> {
     pub fn new(x: f32, y: f32) -> Self {
         Self {
-            items: Vec::new(),
+            items: Vec::with_capacity(8),
             width: 0.0,
             max_ascent: 0.0,
             max_descent: 0.0,
             x,
             y,
-            decorations: Vec::new(),
+            decorations: Vec::with_capacity(4),
         }
     }
 
@@ -69,7 +67,7 @@ impl LineBox {
         writing_mode: &WritingMode,
     ) -> (Vec<LayoutNode>, f32) {
         let line_height = self.max_ascent + self.max_descent;
-        let mut final_nodes = Vec::new();
+        let mut final_nodes = Vec::with_capacity(self.decorations.len() + self.items.len());
 
         let (left_edge, right_edge) = float_ctx.available_width_at(self.y, container_width);
         let available_width = (right_edge - left_edge).max(0.0);
@@ -116,7 +114,7 @@ impl LineBox {
                 .dimensions(Rect::new(dec_x, dec_y, dec_width, dec_height))
                 .padding(dec.padding)
                 .border(dec.border)
-                .colors(LayoutColors::from(&*dec.style))
+                .colors(LayoutColors::from(dec.style))
                 .build();
 
             final_nodes.push(node);
@@ -135,11 +133,11 @@ impl LineBox {
     }
 }
 
-pub struct LineBoxBuilder {
-    pub line_box: LineBox,
+pub struct LineBoxBuilder<'node> {
+    pub line_box: LineBox<'node>,
 }
 
-impl LineBoxBuilder {
+impl<'node> LineBoxBuilder<'node> {
     pub fn new(start_x: f32, start_y: f32) -> Self {
         Self {
             line_box: LineBox::new(start_x, start_y),
@@ -148,10 +146,10 @@ impl LineBoxBuilder {
 
     pub(crate) fn open_inline_box(
         &mut self,
-        inline_box_stack: &mut Vec<ActiveInlineBox>,
+        inline_box_stack: &mut Vec<ActiveInlineBox<'node>>,
         text_ctx: &mut TextContext,
         id: NodeId,
-        style: &Arc<ComputedStyle>,
+        style: &'node ComputedStyle,
     ) {
         let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
 
@@ -160,7 +158,7 @@ impl LineBoxBuilder {
 
         inline_box_stack.push(ActiveInlineBox {
             id,
-            style: Arc::clone(style),
+            style,
             start_x: self.line_box.width - left_edge + margin.left,
             margin,
             padding,
@@ -171,7 +169,7 @@ impl LineBoxBuilder {
         text_ctx.last_writing_mode = style.writing_mode;
     }
 
-    pub(crate) fn close_inline_box(&mut self, inline_box_stack: &mut Vec<ActiveInlineBox>, id: NodeId) {
+    pub(crate) fn close_inline_box(&mut self, inline_box_stack: &mut Vec<ActiveInlineBox<'node>>, id: NodeId) {
         if let Some(pos) = inline_box_stack.iter().rposition(|b| b.id == id) {
             let active = inline_box_stack.remove(pos);
 
@@ -193,7 +191,7 @@ impl LineBoxBuilder {
     /// boxes, then starts a fresh line and re-opens those inline boxes on it.
     pub(crate) fn finish_line_with_decorations(
         &mut self,
-        ctx: &mut InlineLayoutContext,
+        ctx: &mut InlineLayoutContext<'_, 'node>,
         text_ctx: &mut TextContext,
         min_line_height: Option<f32>,
     ) {
@@ -224,7 +222,7 @@ impl LineBoxBuilder {
 
     /// Close all active inline boxes, recording their decorations on the
     /// current line box and clearing the stack.
-    pub(crate) fn close_active_decorations(&mut self, inline_box_stack: &mut Vec<ActiveInlineBox>) {
+    pub(crate) fn close_active_decorations(&mut self, inline_box_stack: &mut Vec<ActiveInlineBox<'node>>) {
         while let Some(active) = inline_box_stack.pop() {
             let right_edge = active.padding.right + active.border.right + active.margin.right;
             self.line_box.advance(right_edge);

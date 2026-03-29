@@ -114,7 +114,7 @@ impl BlockLayout {
         let x = Self::calculate_x(styled_node, ctx, &margin, &padding, &border, content_width);
         let y = ctx.containing_block().y + ctx.block_cursor.y;
 
-        let mut children = Vec::new();
+        let mut children = Vec::with_capacity(styled_node.children.len());
         let mut flow = BlockFlow::new(&styled_node.style);
         let child_containing_height = match styled_node.style.height {
             ComputedDimension::Auto => 0.0,
@@ -156,9 +156,7 @@ impl BlockLayout {
                     );
 
                     if !inline_layout_nodes.is_empty() || inline_height > 0.0 {
-                        for inline_node in inline_layout_nodes {
-                            children.push(inline_node);
-                        }
+                        children.extend(inline_layout_nodes);
 
                         flow.current_y += inline_height;
                         flow.previous_margin_bottom = 0.0;

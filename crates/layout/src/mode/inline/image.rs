@@ -5,11 +5,11 @@ use crate::{
     mode::inline::{InlineLayoutContext, collection::ImageItem, line::LineBoxBuilder},
 };
 
-pub fn layout_image(
-    mut ctx: InlineLayoutContext,
+pub fn layout_image<'node>(
+    mut ctx: InlineLayoutContext<'_, 'node>,
     img: &ImageItem,
     text_ctx: &mut TextContext,
-    line: &mut LineBoxBuilder,
+    line: &mut LineBoxBuilder<'node>,
     image_ctx: &ImageContext,
 ) {
     let alignment = &img.style.text_align;
@@ -25,7 +25,7 @@ pub fn layout_image(
         img.height,
         img.has_explicit_width,
         img.has_explicit_height,
-        &img.style,
+        img.style,
         ctx.available_width,
         image_ctx.get(&img.src),
     );
@@ -36,7 +36,7 @@ pub fn layout_image(
 
     let node = LayoutNode::builder(img.id)
         .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
-        .colors(LayoutColors::from(&*img.style))
+        .colors(LayoutColors::from(img.style))
         .image_data(ImageData {
             image_src: img.src.clone(),
             vary_key: image_ctx

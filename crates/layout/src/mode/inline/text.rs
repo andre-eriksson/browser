@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use css_style::ComputedDimension;
+use css_style::ComputedStyle;
 use css_values::text::Whitespace;
 
 use crate::{
@@ -9,20 +9,20 @@ use crate::{
     text::TextDescription,
 };
 
-pub fn layout_text(
-    mut ctx: InlineLayoutContext,
+pub fn layout_text<'node>(
+    mut ctx: InlineLayoutContext<'_, 'node>,
     text_ctx: &mut TextContext,
-    line: &mut LineBoxBuilder,
+    line: &mut LineBoxBuilder<'node>,
     text: &TextRun,
 ) {
     if text.content.is_empty() {
         return;
     }
 
-    let font_size = text.style.font_size;
-    let whitespace = text.style.whitespace;
+    let font_size_px = text.style.font_size;
+    let whitespace = &text.style.whitespace;
     let text_align = text.style.text_align;
-    let line_height = &text.style.line_height;
+    let line_height = text.style.line_height;
     let font_family = &text.style.font_family;
     let font_weight = text.style.font_weight;
     let writing_mode = &text.style.writing_mode;
@@ -33,11 +33,11 @@ pub fn layout_text(
     let preserves_newlines = matches!(whitespace, Whitespace::Pre | Whitespace::PreWrap | Whitespace::PreLine);
 
     let text_desc = TextDescription {
-        whitespace: &whitespace,
-        line_height: *line_height,
+        whitespace,
+        line_height,
         font_family,
         font_weight,
-        font_size_px: font_size,
+        font_size_px,
     };
 
     if preserves_newlines && text.content.contains('\n') {
@@ -45,49 +45,31 @@ pub fn layout_text(
 
         for (seg_idx, segment) in segments.iter().enumerate() {
             if !segment.is_empty() {
-                layout_text_segment(
-                    &mut ctx,
-                    text_ctx,
-                    TextRun {
-                        id: text.id,
-                        content: segment.to_string(),
-                        style: text.style.clone(),
-                    },
-                    &text_desc,
-                    line,
-                );
+                layout_text_segment(&mut ctx, text_ctx, text.id, segment, text.style, &text_desc, line);
             }
 
             if seg_idx < segments.len() - 1 {
-                line.finish_line_with_decorations(&mut ctx, text_ctx, Some(*line_height));
+                line.finish_line_with_decorations(&mut ctx, text_ctx, Some(line_height));
             }
         }
     } else {
-        layout_text_segment(
-            &mut ctx,
-            text_ctx,
-            TextRun {
-                id: text.id,
-                content: text.content.clone(),
-                style: text.style.clone(),
-            },
-            &text_desc,
-            line,
-        );
+        layout_text_segment(&mut ctx, text_ctx, text.id, &text.content, text.style, &text_desc, line);
     }
 }
 
 /// Measure a single-line text segment (no embedded newlines) and add it to
 /// the current [`LineBox`], word-wrapping across multiple lines when the
 /// text exceeds `available_width`.
-fn layout_text_segment(
-    ctx: &mut InlineLayoutContext,
+fn layout_text_segment<'node>(
+    ctx: &mut InlineLayoutContext<'_, 'node>,
     text_ctx: &mut TextContext,
-    text: TextRun,
+    id: html_dom::NodeId,
+    text_content: &str,
+    style: &ComputedStyle,
     text_desc: &TextDescription,
-    line: &mut LineBoxBuilder,
+    line: &mut LineBoxBuilder<'node>,
 ) {
-    let mut remaining_text = text.content.as_str();
+    let mut remaining_text = text_content;
 
     while !remaining_text.is_empty() {
         let available_width = line
@@ -110,12 +92,12 @@ fn layout_text_segment(
             break;
         }
 
-        let node = LayoutNode::builder(text.id)
+        let node = LayoutNode::builder(id)
             .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
-            .colors(LayoutColors::from(&*text.style))
-            .cursor(text.style.cursor)
+            .colors(LayoutColors::text_only(style.color))
+            .cursor(style.cursor)
             .text_buffer(Arc::new(measured.buffer))
-            .height_auto(text.style.height == ComputedDimension::Auto)
+            .height_auto(true)
             .build();
 
         let ascent = measured.height;

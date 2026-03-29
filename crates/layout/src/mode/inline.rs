@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use css_style::{ComputedDimension, ComputedStyle, StyledNode};
 use html_dom::NodeId;
 
@@ -28,20 +26,20 @@ mod whitespace;
 /// be emitted as a `LayoutNode` once the line is finished and final positions
 /// are known.
 #[derive(Debug, Clone)]
-pub(crate) struct InlineDecoration {
+pub(crate) struct InlineDecoration<'node> {
     id: NodeId,
     start_x: f32,
     end_x: f32,
-    style: Arc<ComputedStyle>,
+    style: &'node ComputedStyle,
     padding: SideOffset,
     border: SideOffset,
 }
 
 /// State for an inline box that has been opened but not yet closed.
 #[derive(Debug, Clone)]
-pub(crate) struct ActiveInlineBox {
+pub(crate) struct ActiveInlineBox<'node> {
     id: NodeId,
-    style: Arc<ComputedStyle>,
+    style: &'node ComputedStyle,
     start_x: f32,
     margin: SideOffset,
     padding: SideOffset,
@@ -49,13 +47,13 @@ pub(crate) struct ActiveInlineBox {
 }
 
 /// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
-pub(crate) struct InlineLayoutContext<'a> {
+pub(crate) struct InlineLayoutContext<'a, 'node> {
     pub current_y: &'a mut f32,
     pub start_x: f32,
     pub available_width: f32,
     pub float_context: &'a FloatContext,
     pub nodes: &'a mut Vec<LayoutNode>,
-    pub inline_box_stack: &'a mut Vec<ActiveInlineBox>,
+    pub inline_box_stack: &'a mut Vec<ActiveInlineBox<'node>>,
 }
 
 pub struct InlineLayout;
@@ -65,12 +63,12 @@ impl InlineLayout {
     /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
     /// The resulting flat list of inline items is then canonicalised by collapsing whitespace
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
-    pub fn collect_inline_items_from_nodes(
-        parent_style: &ComputedStyle,
-        nodes: &[StyledNode],
+    pub fn collect_inline_items_from_nodes<'node>(
+        parent_style: &'node ComputedStyle,
+        nodes: &'node [StyledNode],
         image_ctx: &ImageContext,
-    ) -> Vec<InlineItem> {
-        let mut raw_items = Vec::new();
+    ) -> Vec<InlineItem<'node>> {
+        let mut raw_items = Vec::with_capacity(nodes.len() * 2);
 
         for node in nodes {
             let result = collect(parent_style, node, &mut raw_items, image_ctx);
@@ -80,7 +78,8 @@ impl InlineLayout {
             }
         }
 
-        canonicalize_whitespace(raw_items)
+        canonicalize_whitespace(&mut raw_items);
+        raw_items
     }
 
     /// The main entry point for inline layout: given a list of styled nodes that
