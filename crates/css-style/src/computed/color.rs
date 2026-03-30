@@ -92,7 +92,7 @@ impl Color4f {
         color: &CSSProperty<Color>,
         text_color: &CSSProperty<Color>,
         initial: &Color,
-        parent: Option<Color>,
+        parent: &Color,
         relative_ctx: &RelativeContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
@@ -100,7 +100,7 @@ impl Color4f {
             Color::Current => Self::resolve_current_color(text_color, absolute_ctx).unwrap_or(initial),
             _ => initial,
         };
-        let resolved_color = color.resolve_with_context(parent.as_ref(), initial);
+        let resolved_color = color.resolve_with_context(parent, initial);
 
         Self::from_css_color(resolved_color, text_color, relative_ctx, absolute_ctx)
     }
@@ -388,7 +388,7 @@ mod tests {
             &CSSProperty::Value(Color::Current),
             &text_color,
             &Color::Current,
-            None,
+            &Color::Current,
             &relative_ctx,
             &absolute_ctx,
         );
@@ -414,7 +414,7 @@ mod tests {
             &CSSProperty::Value(Color::Current),
             &text_color,
             &Color::Current,
-            None,
+            &Color::Current,
             &relative_ctx,
             &absolute_ctx,
         );
@@ -439,7 +439,7 @@ mod tests {
             &CSSProperty::Value(Color::Current),
             &text_color,
             &Color::Current,
-            None,
+            &Color::Current,
             &relative_ctx,
             &absolute_ctx,
         );

@@ -3,9 +3,10 @@ use std::{collections::HashMap, sync::Arc};
 use css_cssom::{CSSStyleSheet, ComponentValue, ComponentValueStream, KnownProperty, Property};
 use css_values::global::Global;
 use html_dom::{DocumentRoot, NodeId};
+use tracing::debug;
 
 use crate::{
-    ComputedStyle, RelativeContext,
+    RelativeContext,
     cascade::{CascadedDeclaration, RuleIndex, cascade, cascade_variables},
     functions::variables::resolve_css_variables,
     handler::{
@@ -36,6 +37,7 @@ use crate::{
         WritingModeProperty,
     },
     rules::GeneratedRule,
+    tree::PropertyRegistry,
 };
 
 /// Represents the specified style of an element after applying the cascade and resolving variables.
@@ -103,14 +105,11 @@ impl SpecifiedStyle {
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
         rule_index: &RuleIndex,
-        parent_style: Option<&ComputedStyle>,
+        property_registry: &mut PropertyRegistry,
     ) -> Self {
         let mut specified_style = SpecifiedStyle::default();
 
-        let parent_variables = parent_style
-            .as_ref()
-            .map(|p| Arc::clone(&p.variables))
-            .unwrap_or_default();
+        let parent_variables = Arc::clone(&relative_ctx.parent.variables);
 
         let node = match dom.get_node(node_id) {
             Some(n) => n,
@@ -153,7 +152,7 @@ impl SpecifiedStyle {
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
 
         for (property, value) in properties {
-            if !Self::resolve_property(property, value, &mut ctx) {
+            if !Self::resolve_property(property, value, property_registry, &mut ctx) {
                 continue;
             }
         }
@@ -164,7 +163,11 @@ impl SpecifiedStyle {
     }
 
     /// Checks if a given declaration is supported by the specified style system.
-    pub fn supports(declaration: CascadedDeclaration, absolute_ctx: &AbsoluteContext) -> bool {
+    pub fn supports(
+        declaration: CascadedDeclaration,
+        property_registry: &mut PropertyRegistry,
+        absolute_ctx: &AbsoluteContext,
+    ) -> bool {
         let mut declarations = vec![declaration];
 
         let mut default_style = SpecifiedStyle::default();
@@ -175,7 +178,7 @@ impl SpecifiedStyle {
         let properties = cascade(&mut declarations);
 
         for (property, value) in properties {
-            if Self::resolve_property(property, value, &mut ctx) && !ctx.has_errors() {
+            if Self::resolve_property(property, value, property_registry, &mut ctx) && !ctx.has_errors() {
                 return true;
             }
         }
@@ -183,11 +186,16 @@ impl SpecifiedStyle {
         false
     }
 
-    fn resolve_property(property: &Property, value: &Vec<ComponentValue>, ctx: &mut PropertyUpdateContext<'_>) -> bool {
-        let val = match resolve_css_variables(&ctx.specified_style.variables, value.as_slice()) {
+    fn resolve_property(
+        property: &Property,
+        value: &Vec<ComponentValue>,
+        property_registry: &mut PropertyRegistry,
+        ctx: &mut PropertyUpdateContext<'_>,
+    ) -> bool {
+        let val = match resolve_css_variables(&ctx.specified_style.variables, property_registry, value.as_slice()) {
             Some(v) => v,
             None => {
-                eprintln!(
+                debug!(
                     "Failed to resolve variables for property {:?} with value {}",
                     property,
                     value

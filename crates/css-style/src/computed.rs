@@ -27,6 +27,7 @@ use crate::{
     },
     rules::GeneratedRule,
     specified::SpecifiedStyle,
+    tree::PropertyRegistry,
 };
 
 pub mod color;
@@ -111,12 +112,12 @@ impl ComputedStyle {
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
         rule_index: &RuleIndex,
-        parent_style: Option<&ComputedStyle>,
+        property_registry: &mut PropertyRegistry,
     ) -> Self {
         let parent = &relative_ctx.parent;
 
         let specified_style =
-            SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, rule_index, parent_style);
+            SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, rule_index, property_registry);
 
         let margin_top = compute_px!(specified_style, parent, margin_top, OffsetValue);
         let margin_right = compute_px!(specified_style, parent, margin_right, OffsetValue);
@@ -146,7 +147,7 @@ impl ComputedStyle {
                 &specified_style.background_color,
                 &specified_style.color,
                 &Color::Base(ColorBase::Transparent),
-                parent_style.map(|s| s.background_color.into()),
+                &relative_ctx.parent.background_color.into(),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -173,7 +174,7 @@ impl ComputedStyle {
                 &specified_style.border_top_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| s.border_top_color.into()),
+                &relative_ctx.parent.border_top_color.into(),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -181,7 +182,7 @@ impl ComputedStyle {
                 &specified_style.border_right_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| s.border_right_color.into()),
+                &relative_ctx.parent.border_right_color.into(),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -189,7 +190,7 @@ impl ComputedStyle {
                 &specified_style.border_bottom_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| s.border_bottom_color.into()),
+                &relative_ctx.parent.border_bottom_color.into(),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -197,7 +198,7 @@ impl ComputedStyle {
                 &specified_style.border_left_color,
                 &specified_style.color,
                 &Color::Current,
-                parent_style.map(|s| s.border_left_color.into()),
+                &relative_ctx.parent.border_left_color.into(),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -230,7 +231,7 @@ impl ComputedStyle {
                 &specified_style.color,
                 &CSSProperty::Value(Color::BLACK),
                 &Color::Base(ColorBase::Named(NamedColor::Black)),
-                parent_style.map(|s| s.color.into()),
+                &relative_ctx.parent.color.into(),
                 relative_ctx,
                 absolute_ctx,
             ),

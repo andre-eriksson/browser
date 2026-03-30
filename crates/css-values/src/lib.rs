@@ -18,6 +18,7 @@ pub mod image;
 pub mod media;
 pub mod numeric;
 pub mod position;
+pub mod property;
 pub mod quantity;
 pub mod text;
 

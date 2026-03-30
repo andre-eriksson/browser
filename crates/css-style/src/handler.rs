@@ -13,6 +13,7 @@ use css_values::{
     quantity::{Length, LengthUnit},
     text::{FontWeight, WritingMode},
 };
+use tracing::trace;
 
 use crate::{
     AbsoluteContext, RelativeContext, RelativeType,
@@ -93,10 +94,10 @@ impl<'css> PropertyUpdateContext<'css> {
 
     pub fn log_errors(&self) {
         if !self.errors.is_empty() {
-            eprintln!("Property update errors:");
+            trace!("Property update errors:");
 
             for err in &self.errors {
-                eprintln!("  {}: '{}' - {}", err.property, err.value, err.error);
+                trace!("  {}: '{}' - {}", err.property, err.value, err.error);
             }
         }
     }

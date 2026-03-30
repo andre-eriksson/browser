@@ -24,6 +24,14 @@ impl Property {
     pub fn is_custom(&self) -> bool {
         matches!(self, Property::Custom(_))
     }
+
+    pub fn as_custom(&self) -> Option<&str> {
+        if let Property::Custom(name) = self {
+            Some(name)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<String> for Property {

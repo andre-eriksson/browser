@@ -7,12 +7,18 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use css_cssom::CSSStyleSheet;
+use css_values::property::PropertyDescriptor;
 use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
 
 use crate::cascade::RuleIndex;
 use crate::properties::AbsoluteContext;
 use crate::rules::GeneratedRule;
 use crate::{ComputedStyle, RelativeContext};
+
+#[derive(Debug, Default, Clone)]
+pub struct PropertyRegistry {
+    pub descriptors: HashMap<String, PropertyDescriptor>,
+}
 
 /// Represents a node in the style tree, which contains the computed style for a DOM node, its tag name (if it's an element),
 /// its children, any text content (if it's a text node), and its attributes (if it's an element).
@@ -46,13 +52,17 @@ impl StyledNode {
 pub struct StyleTree {
     /// The root nodes of the style tree.
     pub root_nodes: Vec<StyledNode>,
+
+    /// A registry of CSS properties, which contains the descriptors for all known CSS properties. This is used to validate and compute styles for each node in the style tree.
+    pub property_registry: PropertyRegistry,
 }
 
 impl StyleTree {
     /// Builds the style tree from the given absolute context, DOM tree, and stylesheets. This function computes the styles for each node in the
     /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
     pub fn build(absolute_ctx: &AbsoluteContext, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
-        let rules = GeneratedRule::build(stylesheets, absolute_ctx);
+        let mut property_registry = PropertyRegistry::default();
+        let rules = GeneratedRule::build(stylesheets, &mut property_registry, absolute_ctx);
         let rule_index = RuleIndex::build(&rules);
         let mut relative_ctx = RelativeContext::default();
 
@@ -63,10 +73,10 @@ impl StyleTree {
             dom: &DocumentRoot,
             rules: &[GeneratedRule],
             rule_index: &RuleIndex,
-            parent_style: Option<&ComputedStyle>,
+            property_registry: &mut PropertyRegistry,
         ) -> StyledNode {
             let computed_style =
-                ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, rule_index, parent_style);
+                ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, rule_index, property_registry);
 
             rel_ctx.parent = Arc::new(computed_style.clone());
 
@@ -84,7 +94,7 @@ impl StyleTree {
                 .iter()
                 .map(|&child_id| {
                     rel_ctx.parent = Arc::clone(&saved_parent);
-                    build_styled_node(absolute_ctx, rel_ctx, child_id, dom, rules, rule_index, Some(&computed_style))
+                    build_styled_node(absolute_ctx, rel_ctx, child_id, dom, rules, rule_index, property_registry)
                 })
                 .collect();
 
@@ -108,10 +118,23 @@ impl StyleTree {
         let root_nodes = dom
             .root_nodes
             .iter()
-            .map(|&root_id| build_styled_node(absolute_ctx, &mut relative_ctx, root_id, dom, &rules, &rule_index, None))
+            .map(|&root_id| {
+                build_styled_node(
+                    absolute_ctx,
+                    &mut relative_ctx,
+                    root_id,
+                    dom,
+                    &rules,
+                    &rule_index,
+                    &mut property_registry,
+                )
+            })
             .collect();
 
-        StyleTree { root_nodes }
+        StyleTree {
+            root_nodes,
+            property_registry,
+        }
     }
 
     /// Finds a `StyledNode` in the style tree by its `NodeId`. This function performs a depth-first search through the style tree
@@ -143,6 +166,7 @@ impl From<StyledNode> for StyleTree {
     fn from(value: StyledNode) -> Self {
         Self {
             root_nodes: vec![value],
+            property_registry: PropertyRegistry::default(),
         }
     }
 }

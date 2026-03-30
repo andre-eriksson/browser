@@ -55,6 +55,16 @@ impl NumericValue {
             }
         }
     }
+
+    #[must_use]
+    pub fn is_integer(&self) -> bool {
+        matches!(self, NumericValue::Integer(_))
+    }
+
+    #[must_use]
+    pub fn is_number(&self) -> bool {
+        matches!(self, NumericValue::Number(_))
+    }
 }
 
 impl From<f64> for NumericValue {

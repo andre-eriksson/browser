@@ -318,3 +318,25 @@ impl TryFrom<&Function> for Image {
         }
     }
 }
+
+impl CSSParsable for Image {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        stream.skip_whitespace();
+
+        if let Some(cv) = stream.peek() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none") => {
+                        stream.next_cv();
+                        Ok(Image::None)
+                    }
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+                },
+                ComponentValue::Function(func) => Image::try_from(func).map_err(CssValueError::InvalidValue),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
+    }
+}

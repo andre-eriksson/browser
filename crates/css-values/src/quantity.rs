@@ -1,7 +1,7 @@
 use css_cssom::{CssToken, CssTokenKind};
 use strum::EnumString;
 
-use crate::error::CssValueError;
+use crate::{CSSParsable, error::CssValueError};
 
 /// Length units as defined in CSS Values and Units Module Level 4
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -228,6 +228,35 @@ impl Length {
     }
 }
 
+impl TryFrom<&CssToken> for Length {
+    type Error = CssValueError;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
+        match &token.kind {
+            CssTokenKind::Dimension { value, unit } => {
+                let unit = LengthUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
+                Ok(Length::new(value.to_f64() as f32, unit))
+            }
+            _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+        }
+    }
+}
+
+impl CSSParsable for Length {
+    fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            if let Some(token) = cv.as_token() {
+                Length::try_from(token)
+            } else {
+                Err(CssValueError::InvalidComponentValue(cv.clone()))
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
+    }
+}
+
 /// Angle representation for CSS properties that accept angles, such as hue in HSL colors or rotation in transforms
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Angle {
@@ -315,6 +344,20 @@ impl TryFrom<&CssToken> for Angle {
     }
 }
 
+impl CSSParsable for Angle {
+    fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            if let Some(token) = cv.as_token() {
+                Angle::try_from(token)
+            } else {
+                Err(CssValueError::InvalidComponentValue(cv.clone()))
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
+    }
+}
+
 /// The <time> CSS data type represents a time value, which can be specified in seconds or milliseconds. It is commonly used in properties like `animation-duration` and `transition-delay`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Time {
@@ -327,6 +370,39 @@ pub enum Time {
     ///
     /// Note: The value is normalized to a non-negative number, so "-500ms" would be treated as "0ms".
     Milliseconds(f32),
+}
+
+impl TryFrom<&CssToken> for Time {
+    type Error = CssValueError;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
+        match &token.kind {
+            CssTokenKind::Dimension { value, unit } => {
+                if unit.eq_ignore_ascii_case("s") {
+                    Ok(Time::Seconds(value.to_f64() as f32))
+                } else if unit.eq_ignore_ascii_case("ms") {
+                    Ok(Time::Milliseconds(value.to_f64() as f32))
+                } else {
+                    Err(CssValueError::InvalidUnit(unit.clone()))
+                }
+            }
+            _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+        }
+    }
+}
+
+impl CSSParsable for Time {
+    fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            if let Some(token) = cv.as_token() {
+                Time::try_from(token)
+            } else {
+                Err(CssValueError::InvalidComponentValue(cv.clone()))
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
+    }
 }
 
 /// The <frequency> CSS data type represents a frequency value, which can be specified in hertz or kilohertz.
@@ -342,6 +418,39 @@ pub enum Frequency {
     ///
     /// Note: The value is normalized to a non-negative number, so "-1.5kHz" would be treated as "0kHz".
     KHz(f32),
+}
+
+impl TryFrom<&CssToken> for Frequency {
+    type Error = CssValueError;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
+        match &token.kind {
+            CssTokenKind::Dimension { value, unit } => {
+                if unit.eq_ignore_ascii_case("hz") {
+                    Ok(Frequency::Hz(value.to_f64() as f32))
+                } else if unit.eq_ignore_ascii_case("khz") {
+                    Ok(Frequency::KHz(value.to_f64() as f32))
+                } else {
+                    Err(CssValueError::InvalidUnit(unit.clone()))
+                }
+            }
+            _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+        }
+    }
+}
+
+impl CSSParsable for Frequency {
+    fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            if let Some(token) = cv.as_token() {
+                Frequency::try_from(token)
+            } else {
+                Err(CssValueError::InvalidComponentValue(cv.clone()))
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
+    }
 }
 
 /// The <resolution> CSS data type represents a resolution value, which can be specified in dots per inch,
@@ -362,6 +471,41 @@ pub enum Resolution {
     ///
     /// Note: The value is normalized to a non-negative number, so "-2dppx" would be treated as "0dppx".
     Dppx(f32),
+}
+
+impl TryFrom<&CssToken> for Resolution {
+    type Error = CssValueError;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
+        match &token.kind {
+            CssTokenKind::Dimension { value, unit } => {
+                if unit.eq_ignore_ascii_case("dpi") {
+                    Ok(Resolution::Dpi(value.to_f64() as f32))
+                } else if unit.eq_ignore_ascii_case("dpcm") {
+                    Ok(Resolution::Dpcm(value.to_f64() as f32))
+                } else if unit.eq_ignore_ascii_case("dppx") {
+                    Ok(Resolution::Dppx(value.to_f64() as f32))
+                } else {
+                    Err(CssValueError::InvalidUnit(unit.clone()))
+                }
+            }
+            _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+        }
+    }
+}
+
+impl CSSParsable for Resolution {
+    fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            if let Some(token) = cv.as_token() {
+                Resolution::try_from(token)
+            } else {
+                Err(CssValueError::InvalidComponentValue(cv.clone()))
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
+    }
 }
 
 #[cfg(test)]

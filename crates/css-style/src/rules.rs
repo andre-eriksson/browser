@@ -8,6 +8,7 @@ use css_cssom::{
 use css_selectors::{CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list};
 use css_values::{
     media::{MediaCondition, MediaFeature, MediaType, RangeOperator},
+    property::{PropertyDescriptor, PropertySyntax, SyntaxComponent},
     quantity::{Length, LengthUnit},
 };
 
@@ -16,6 +17,7 @@ use crate::{
     cascade::{CascadeSpecificity, CascadedDeclaration},
     properties::PixelRepr,
     specified::SpecifiedStyle,
+    tree::PropertyRegistry,
 };
 
 /// A rule that has been generated from the stylesheets, containing the selector sequences, declarations, origin, and specificity for cascade resolution.
@@ -30,7 +32,11 @@ pub struct GeneratedRule<'css> {
 impl<'css> GeneratedRule<'css> {
     /// Build a list of generated rules from the provided stylesheets, filtering out any rules that are not
     /// applicable based on the absolute context (e.g. media queries that don't match the current environment).
-    pub fn build(stylesheets: &'css [CSSStyleSheet], absolute_ctx: &AbsoluteContext) -> Vec<GeneratedRule<'css>> {
+    pub fn build(
+        stylesheets: &'css [CSSStyleSheet],
+        property_registry: &mut PropertyRegistry,
+        absolute_ctx: &AbsoluteContext,
+    ) -> Vec<GeneratedRule<'css>> {
         let mut generated_rules = Vec::new();
 
         for stylesheet in stylesheets {
@@ -40,7 +46,7 @@ impl<'css> GeneratedRule<'css> {
                         Self::push_rule(&mut generated_rules, stylesheet, style);
                     }
                     CSSRule::AtRule(at_rule) => {
-                        if !Self::allows_at_rule(at_rule, absolute_ctx) {
+                        if !Self::allows_at_rule(at_rule, property_registry, absolute_ctx) {
                             continue;
                         }
 
@@ -52,6 +58,7 @@ impl<'css> GeneratedRule<'css> {
                                         &mut generated_rules,
                                         stylesheet,
                                         nested_at_rule,
+                                        property_registry,
                                         absolute_ctx,
                                     );
                                 }
@@ -70,24 +77,33 @@ impl<'css> GeneratedRule<'css> {
         generated_rules: &mut Vec<GeneratedRule<'css>>,
         stylesheet: &CSSStyleSheet,
         at_rule: &'css CSSAtRule,
+        property_registry: &mut PropertyRegistry,
         absolute_ctx: &AbsoluteContext,
     ) {
-        if !at_rule.can_be_nested() || !Self::allows_at_rule(at_rule, absolute_ctx) {
+        if !at_rule.can_be_nested() || !Self::allows_at_rule(at_rule, property_registry, absolute_ctx) {
             return;
         }
 
         for rule in &at_rule.rules {
             match rule {
                 CSSRule::Style(style) => Self::push_rule(generated_rules, stylesheet, style),
-                CSSRule::AtRule(nested_at_rule) => {
-                    Self::handle_nested_at_rule(generated_rules, stylesheet, nested_at_rule, absolute_ctx)
-                }
+                CSSRule::AtRule(nested_at_rule) => Self::handle_nested_at_rule(
+                    generated_rules,
+                    stylesheet,
+                    nested_at_rule,
+                    property_registry,
+                    absolute_ctx,
+                ),
             }
         }
     }
 
     /// Check if an at-rule is allowed based on the absolute context (e.g. media queries that don't match the current environment should be disallowed).
-    fn allows_at_rule(at_rule: &CSSAtRule, absolute_ctx: &AbsoluteContext) -> bool {
+    fn allows_at_rule(
+        at_rule: &CSSAtRule,
+        property_registry: &mut PropertyRegistry,
+        absolute_ctx: &AbsoluteContext,
+    ) -> bool {
         if at_rule.name().eq_ignore_ascii_case("import")
             || at_rule.name().eq_ignore_ascii_case("scope")
             || at_rule.name().eq_ignore_ascii_case("font-face")
@@ -102,24 +118,141 @@ impl<'css> GeneratedRule<'css> {
         if at_rule.name().eq_ignore_ascii_case("media") {
             let stream = ComponentValueStream::new(at_rule.prelude_values());
 
-            return Self::eval_or_logic(stream, |and_stream| {
+            Self::eval_or_logic(stream, |and_stream| {
                 Self::eval_and_logic(and_stream, HashSet::new, |query, media_types| {
                     Self::handle_media_query(query, absolute_ctx, media_types)
                 })
-            });
+            })
         } else if at_rule.name().eq_ignore_ascii_case("supports") {
             let stream = ComponentValueStream::new(at_rule.prelude_values());
 
-            return Self::eval_or_logic(stream, |and_stream| {
-                Self::eval_and_logic(and_stream, || (), |query, _| Self::handle_supports_condition(query, absolute_ctx))
-            });
+            Self::eval_or_logic(stream, |and_stream| {
+                Self::eval_and_logic(
+                    and_stream,
+                    || (),
+                    |query, _| Self::handle_supports_condition(query, property_registry, absolute_ctx),
+                )
+            })
         } else if at_rule.name().eq_ignore_ascii_case("layer") {
             // TODO: Handle @layer properly by respecting layer order and allowing layers to be enabled/disabled via media queries or other conditions.
             //       For now, we will simply ignore all rules inside @layer blocks to avoid complications with layer ordering and conditional enabling.
-            return true;
+            true
+        } else if at_rule.name().eq_ignore_ascii_case("property") {
+            let mut name_stream = ComponentValueStream::new(at_rule.prelude_values());
+            let mut syntax = None;
+            let mut inherits = false;
+            let mut initial_value = None;
+
+            let name = match name_stream.next_non_whitespace() {
+                Some(ComponentValue::Token(token)) => {
+                    if let CssTokenKind::Ident(ident) = &token.kind {
+                        ident.clone()
+                    } else {
+                        return false;
+                    }
+                }
+                _ => return false,
+            };
+
+            for decl in at_rule.declarations() {
+                if let Some(custom) = decl.property().as_custom() {
+                    if custom.eq_ignore_ascii_case("syntax") {
+                        let mut value_stream = ComponentValueStream::new(decl.original_values.as_slice());
+
+                        if let Some(ComponentValue::Token(token)) = value_stream.next_non_whitespace() {
+                            if let CssTokenKind::String(syntax_str) = &token.kind {
+                                syntax = Some(Self::parse_syntax_string(syntax_str));
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    } else if custom.eq_ignore_ascii_case("inherits") {
+                        let mut value_stream = ComponentValueStream::new(decl.original_values.as_slice());
+                        if let Some(ComponentValue::Token(token)) = value_stream.next_non_whitespace()
+                            && let CssTokenKind::Ident(ident) = &token.kind
+                        {
+                            if ident.eq_ignore_ascii_case("true") {
+                                inherits = true;
+                            } else if ident.eq_ignore_ascii_case("false") {
+                                inherits = false;
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    } else if custom.eq_ignore_ascii_case("initial-value") {
+                        if let Some(syntax) = &syntax
+                            && !syntax.validate(&decl.original_values)
+                        {
+                            return false;
+                        }
+
+                        initial_value = Some(decl.original_values.clone());
+                    }
+                }
+            }
+
+            if !name.starts_with("--") {
+                return false;
+            }
+
+            let syntax = match syntax {
+                Some(s) => s,
+                None => return false,
+            };
+
+            if initial_value.is_none() && syntax != PropertySyntax::Universal {
+                return false;
+            }
+
+            let descriptor = PropertyDescriptor {
+                name: name.clone(),
+                syntax,
+                inherits,
+                initial_value,
+            };
+
+            property_registry.descriptors.insert(name, descriptor);
+
+            false
+        } else {
+            false
+        }
+    }
+
+    /// Parses a syntax string from @property (e.g., "<length>", "<color> | <length>", "*")
+    fn parse_syntax_string(syntax_str: &str) -> PropertySyntax {
+        let trimmed = syntax_str.trim();
+
+        if trimmed == "*" {
+            return PropertySyntax::Universal;
         }
 
-        false
+        let mut components = Vec::new();
+
+        for part in trimmed.split('|') {
+            let part = part.trim();
+
+            // Handle angle-bracket syntax like "<length>" or "<color>"
+            if part.starts_with('<') && part.ends_with('>') {
+                let type_name = &part[1..part.len() - 1];
+                if let Ok(component) = type_name.parse::<SyntaxComponent>() {
+                    components.push(component);
+                }
+            } else if !part.is_empty() {
+                // Handle literal idents
+                components.push(SyntaxComponent::Ident(part.to_string()));
+            }
+        }
+
+        if components.is_empty() {
+            PropertySyntax::Universal
+        } else {
+            PropertySyntax::Typed(components)
+        }
     }
 
     fn eval_or_logic<F>(stream: ComponentValueStream, check: F) -> bool
@@ -501,7 +634,11 @@ impl<'css> GeneratedRule<'css> {
         first_condition && second_condition
     }
 
-    fn handle_supports_condition(mut stream: ComponentValueStream, absolute_ctx: &AbsoluteContext) -> bool {
+    fn handle_supports_condition(
+        mut stream: ComponentValueStream,
+        property_registry: &mut PropertyRegistry,
+        absolute_ctx: &AbsoluteContext,
+    ) -> bool {
         let mut is_not = false;
 
         while let Some(cv) = stream.next_non_whitespace() {
@@ -514,7 +651,7 @@ impl<'css> GeneratedRule<'css> {
                     _ => return false,
                 },
                 ComponentValue::SimpleBlock(block) => {
-                    return Self::handle_supports_block(block, absolute_ctx) ^ is_not;
+                    return Self::handle_supports_block(block, property_registry, absolute_ctx) ^ is_not;
                 }
                 _ => return false,
             }
@@ -523,7 +660,11 @@ impl<'css> GeneratedRule<'css> {
         false
     }
 
-    fn handle_supports_block(block: &SimpleBlock, absolute_ctx: &AbsoluteContext) -> bool {
+    fn handle_supports_block(
+        block: &SimpleBlock,
+        property_registry: &mut PropertyRegistry,
+        absolute_ctx: &AbsoluteContext,
+    ) -> bool {
         let block_stream = ComponentValueStream::new(&block.value);
 
         let prop_value_streams = block_stream
@@ -559,7 +700,7 @@ impl<'css> GeneratedRule<'css> {
             values: &declaration.original_values,
         };
 
-        SpecifiedStyle::supports(decl, absolute_ctx)
+        SpecifiedStyle::supports(decl, property_registry, absolute_ctx)
     }
 
     /// Push a style rule into the generated rules list, extracting its selector sequences, declarations, origin, and specificity for cascade resolution.

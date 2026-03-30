@@ -1,9 +1,10 @@
-use css_cssom::CssToken;
+use css_cssom::{ComponentValue, ComponentValueStream, CssToken, CssTokenKind};
 
 use crate::{
+    CSSParsable,
     error::CssValueError,
     numeric::Percentage,
-    quantity::{Angle, Frequency, Length, Time},
+    quantity::{Angle, Frequency, Length, LengthUnit, Time},
 };
 
 /// Represents the <length-percentage> type, which can be either a
@@ -25,6 +26,33 @@ impl From<Length> for LengthPercentage {
 impl From<Percentage> for LengthPercentage {
     fn from(percentage: Percentage) -> Self {
         LengthPercentage::Percentage(percentage)
+    }
+}
+
+impl CSSParsable for LengthPercentage {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Dimension { value, unit } => {
+                        let unit = LengthUnit::try_from(unit.as_str())
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
+                        Ok(LengthPercentage::Length(Length::new(value.to_f64() as f32, unit)))
+                    }
+                    CssTokenKind::Percentage(numeric) => {
+                        Ok(LengthPercentage::Percentage(Percentage::new(numeric.to_f64() as f32)))
+                    }
+                    CssTokenKind::Number(numeric) => {
+                        Ok(LengthPercentage::Percentage(Percentage::from_fraction(numeric.to_f64() as f32 / 100.0)))
+                    }
+                    kind => Err(CssValueError::InvalidToken(kind.clone())),
+                },
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
+        }
     }
 }
 

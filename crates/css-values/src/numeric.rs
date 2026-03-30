@@ -1,4 +1,9 @@
-use crate::color::ColorValue;
+use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
+
+use crate::{CSSParsable, color::ColorValue, error::CssValueError};
+
+
+
 
 /// Percentage representation for CSS properties that accept percentage values, such as width, height, opacity, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -34,6 +39,23 @@ impl From<ColorValue> for Percentage {
         match value {
             ColorValue::Percentage(pct) => pct,
             ColorValue::Number(num) => Self::from_fraction(num / 100.0),
+        }
+    }
+}
+
+impl CSSParsable for Percentage {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Percentage(numeric) => Ok(Self::new(numeric.to_f64() as f32)),
+                    CssTokenKind::Number(numeric) => Ok(Self::from_fraction(numeric.to_f64() as f32 / 100.0)),
+                    kind => Err(CssValueError::InvalidToken(kind.clone())),
+                },
+                _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
+            }
+        } else {
+            Err(CssValueError::UnexpectedEndOfInput)
         }
     }
 }

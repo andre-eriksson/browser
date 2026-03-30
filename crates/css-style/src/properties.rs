@@ -106,12 +106,12 @@ impl<T: CSSParsable> CSSProperty<T> {
     }
 
     /// Resolves the property to its specific value if it is set, or computes the value based on the global value and the provided context (parent and initial values).
-    pub(crate) fn resolve_with_context<'css>(&'css self, parent: Option<&'css T>, initial: &'css T) -> &'css T {
+    pub(crate) fn resolve_with_context<'css>(&'css self, parent: &'css T, initial: &'css T) -> &'css T {
         match self {
             CSSProperty::Global(global) => match global {
                 Global::Initial => initial,
-                Global::Inherit => parent.unwrap_or(initial),
-                Global::Unset => parent.unwrap_or(initial),
+                Global::Inherit => parent,
+                Global::Unset => parent,
                 Global::Revert | Global::RevertLayer => initial,
             },
             CSSProperty::Value(val) => val,
