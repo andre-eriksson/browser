@@ -35,6 +35,10 @@ pub(crate) fn on_resized(application: &mut Application, window_id: Id, width: f3
         .iter_mut()
         .find(|tab| tab.id == application.active_tab)
     {
+        if tab.page.document().root_nodes.is_empty() {
+            return Task::none();
+        }
+
         let ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: application
