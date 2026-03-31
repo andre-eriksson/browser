@@ -13,6 +13,7 @@ use crate::{
         text::layout_text,
         whitespace::canonicalize_whitespace,
     },
+    position::PositionContext,
     resolver::PropertyResolver,
 };
 
@@ -134,9 +135,17 @@ impl InlineLayout {
                     };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
+                    let mut position_ctx = PositionContext::new();
+                    let mut f_ctx = float_ctx.clone();
 
-                    if let Some(mut layout_node) = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx, image_ctx)
-                    {
+                    if let Some(mut layout_node) = LayoutEngine::layout_node(
+                        node,
+                        &mut block_ctx,
+                        &mut position_ctx,
+                        &mut f_ctx,
+                        text_ctx,
+                        image_ctx,
+                    ) {
                         let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
 
                         let alignment = &style.text_align;

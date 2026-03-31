@@ -90,11 +90,11 @@ impl PropertyResolver {
         }
     }
 
-    pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f32) -> f32 {
+    pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f32, containing_height: f32) -> f32 {
         match &styled_node.style.height {
             ComputedDimension::Auto => children_height.max(styled_node.style.intrinsic_height),
             ComputedDimension::Fixed => styled_node.style.intrinsic_height,
-            ComputedDimension::Percentage(f) => (children_height * f).max(0.0),
+            ComputedDimension::Percentage(f) => (containing_height * f).max(0.0),
             ComputedDimension::MaxContent
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)

@@ -7,9 +7,7 @@ use html_dom::NodeId;
 
 use crate::{
     builder::NodeBuilder,
-    float::FloatContext,
     mode::block::BlockCursor,
-    position::PositionManager,
     primitives::{Rect, SideOffset},
 };
 
@@ -251,10 +249,8 @@ impl LayoutTree {
 #[derive(Debug, Clone, Default)]
 pub struct LayoutContext {
     containing_block: Rect,
+    pub bypass: bool,
     pub block_cursor: BlockCursor,
-    pub float_context: FloatContext,
-    #[allow(dead_code, reason = "TODO: Support positions")]
-    pub position_manager: PositionManager,
 }
 
 impl LayoutContext {
@@ -262,9 +258,8 @@ impl LayoutContext {
     pub fn new(containing_block: Rect) -> Self {
         Self {
             containing_block,
+            bypass: false,
             block_cursor: BlockCursor::from(containing_block.y),
-            float_context: FloatContext::new(),
-            position_manager: PositionManager::new(),
         }
     }
 

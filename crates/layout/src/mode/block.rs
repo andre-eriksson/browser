@@ -1,9 +1,9 @@
-use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use css_style::{ComputedDimension, ComputedStyle, Position, StyledNode};
 use css_values::display::{Clear, Float, OutsideDisplay};
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, context::ImageContext,
-    layout::LayoutContext, mode::inline::InlineLayout, resolver::PropertyResolver,
+    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, context::ImageContext, float::FloatContext,
+    layout::LayoutContext, mode::inline::InlineLayout, position::PositionContext, resolver::PropertyResolver,
 };
 
 #[derive(Debug, Clone, Default, Copy)]
@@ -89,16 +89,16 @@ impl BlockLayout {
     pub fn layout(
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
+        position_ctx: &mut PositionContext,
+        float_ctx: &mut FloatContext,
         text_ctx: &mut TextContext,
         image_ctx: &ImageContext,
-    ) -> LayoutNode {
-        // if styled_node.style.position.is_out_of_flow() {
-        //     ctx.position_manager
-        //         .defer(styled_node.node_id, styled_node.clone(), ctx.containing_block());
+    ) -> Option<LayoutNode> {
+        if styled_node.style.position.is_out_of_flow() && !ctx.bypass {
+            position_ctx.defer(styled_node.clone());
 
-        //     // TODO: Placeholder
-        //     return LayoutNode::builder(styled_node.node_id).build();
-        // }
+            return None;
+        }
 
         let container_width = ctx.containing_block().width;
 
@@ -118,8 +118,17 @@ impl BlockLayout {
         let mut flow = BlockFlow::new(&styled_node.style);
         let child_containing_height = match styled_node.style.height {
             ComputedDimension::Auto => 0.0,
-            _ => PropertyResolver::calculate_height(styled_node, 0.0).max(0.0),
+            _ => PropertyResolver::calculate_height(styled_node, 0.0, ctx.containing_block().height).max(0.0),
         };
+
+        if styled_node.style.position != Position::Static {
+            position_ctx.push_position(Rect::new(
+                x,
+                y,
+                box_width,
+                child_containing_height + padding.vertical() + border.vertical(),
+            ));
+        }
 
         let child_len = styled_node.children.len();
         let mut child_idx = 0;
@@ -148,7 +157,7 @@ impl BlockLayout {
                     let (inline_layout_nodes, inline_height) = InlineLayout::layout(
                         &inline_items,
                         text_ctx,
-                        &ctx.float_context,
+                        float_ctx,
                         inline_width,
                         inline_x,
                         inline_y,
@@ -184,9 +193,7 @@ impl BlockLayout {
             let clear = child_style_node.style.clear;
             let has_clearance = if clear != Clear::None {
                 let absolute_y = y + padding.top + border.top + child_y_offset;
-                let cleared_y = ctx
-                    .float_context
-                    .clear_y(clear, child_style_node.style.writing_mode, absolute_y);
+                let cleared_y = float_ctx.clear_y(clear, child_style_node.style.writing_mode, absolute_y);
                 let relative_cleared_y = cleared_y - (y + padding.top + border.top);
                 if relative_cleared_y > child_y_offset {
                     child_y_offset = relative_cleared_y;
@@ -204,11 +211,17 @@ impl BlockLayout {
                 content_width,
                 child_containing_height,
             ));
-            child_ctx.float_context = ctx.float_context.clone();
 
             child_ctx.block_cursor.y = child_y_offset;
 
-            if let Some(child_node) = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx, image_ctx) {
+            if let Some(child_node) = LayoutEngine::layout_node(
+                child_style_node,
+                &mut child_ctx,
+                position_ctx,
+                float_ctx,
+                text_ctx,
+                image_ctx,
+            ) {
                 if has_clearance {
                     flow.advance_to(
                         child_y_offset,
@@ -226,7 +239,7 @@ impl BlockLayout {
                 }
 
                 if child_style_node.style.float != Float::None {
-                    ctx.float_context.add_float(
+                    float_ctx.add_float(
                         Rect::new(
                             child_node.dimensions.x,
                             y + padding.top + border.top + child_y_offset,
@@ -252,7 +265,11 @@ impl BlockLayout {
             flow.current_y + flow.previous_margin_bottom
         };
 
-        let calculated_height = PropertyResolver::calculate_height(styled_node, content_height_from_children);
+        let calculated_height = PropertyResolver::calculate_height(
+            styled_node,
+            content_height_from_children,
+            ctx.containing_block().height,
+        );
 
         let final_height = if styled_node.style.height == ComputedDimension::Auto {
             content_height_from_children + padding.vertical() + border.vertical()
@@ -270,16 +287,18 @@ impl BlockLayout {
 
         let colors = LayoutColors::from(styled_node);
 
-        LayoutNode::builder(styled_node.node_id)
-            .margin(margin)
-            .padding(padding)
-            .border(border)
-            .colors(colors)
-            .cursor(styled_node.style.cursor)
-            .children(children)
-            .height_auto(styled_node.style.height == ComputedDimension::Auto)
-            .dimensions(Rect::new(x, y, content_width + padding.horizontal() + border.horizontal(), final_height))
-            .build()
+        Some(
+            LayoutNode::builder(styled_node.node_id)
+                .margin(margin)
+                .padding(padding)
+                .border(border)
+                .colors(colors)
+                .cursor(styled_node.style.cursor)
+                .children(children)
+                .height_auto(styled_node.style.height == ComputedDimension::Auto)
+                .dimensions(Rect::new(x, y, content_width + padding.horizontal() + border.horizontal(), final_height))
+                .build(),
+        )
     }
 
     fn is_inline(node: &StyledNode) -> bool {
