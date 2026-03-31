@@ -225,6 +225,8 @@ macro_rules! logical_edge_handler {
     };
 }
 
+offset_shorthand_handler!(handle_margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
+offset_shorthand_handler!(handle_padding, "padding", padding_top, padding_right, padding_bottom, padding_left);
 simple_property_handler!(handle_background_attachment, background_attachment, "background-attachment");
 simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
@@ -235,18 +237,19 @@ simple_property_handler!(handle_background_position_x, background_position_x, "b
 simple_property_handler!(handle_background_position_y, background_position_y, "background-position-y");
 simple_property_handler!(handle_background_repeat, background_repeat, "background-repeat");
 simple_property_handler!(handle_background_size, background_size, "background-size");
-simple_property_handler!(handle_border_top_color, border_top_color, "border-top-color");
-simple_property_handler!(handle_border_right_color, border_right_color, "border-right-color");
 simple_property_handler!(handle_border_bottom_color, border_bottom_color, "border-bottom-color");
-simple_property_handler!(handle_border_left_color, border_left_color, "border-left-color");
-simple_property_handler!(handle_border_top_style, border_top_style, "border-top-style");
-simple_property_handler!(handle_border_right_style, border_right_style, "border-right-style");
 simple_property_handler!(handle_border_bottom_style, border_bottom_style, "border-bottom-style");
-simple_property_handler!(handle_border_left_style, border_left_style, "border-left-style");
-simple_property_handler!(handle_border_top_width, border_top_width, "border-top-width");
-simple_property_handler!(handle_border_right_width, border_right_width, "border-right-width");
 simple_property_handler!(handle_border_bottom_width, border_bottom_width, "border-bottom-width");
+simple_property_handler!(handle_border_left_color, border_left_color, "border-left-color");
+simple_property_handler!(handle_border_left_style, border_left_style, "border-left-style");
 simple_property_handler!(handle_border_left_width, border_left_width, "border-left-width");
+simple_property_handler!(handle_border_right_color, border_right_color, "border-right-color");
+simple_property_handler!(handle_border_right_style, border_right_style, "border-right-style");
+simple_property_handler!(handle_border_right_width, border_right_width, "border-right-width");
+simple_property_handler!(handle_border_top_color, border_top_color, "border-top-color");
+simple_property_handler!(handle_border_top_style, border_top_style, "border-top-style");
+simple_property_handler!(handle_border_top_width, border_top_width, "border-top-width");
+simple_property_handler!(handle_bottom, bottom, "bottom");
 simple_property_handler!(handle_clear, clear, "clear");
 simple_property_handler!(handle_color, color, "color");
 simple_property_handler!(handle_cursor, cursor, "cursor");
@@ -254,24 +257,25 @@ simple_property_handler!(handle_display, display, "display");
 simple_property_handler!(handle_float, float, "float");
 simple_property_handler!(handle_font_family, font_family, "font-family");
 simple_property_handler!(handle_height, height, "height");
-simple_property_handler!(handle_max_height, max_height, "max-height");
+simple_property_handler!(handle_left, left, "left");
 simple_property_handler!(handle_line_height, line_height, "line-height");
-simple_property_handler!(handle_margin_top, margin_top, "margin-top");
 simple_property_handler!(handle_margin_bottom, margin_bottom, "margin-bottom");
 simple_property_handler!(handle_margin_left, margin_left, "margin-left");
 simple_property_handler!(handle_margin_right, margin_right, "margin-right");
-simple_property_handler!(handle_padding_top, padding_top, "padding-top");
+simple_property_handler!(handle_margin_top, margin_top, "margin-top");
+simple_property_handler!(handle_max_height, max_height, "max-height");
+simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_padding_bottom, padding_bottom, "padding-bottom");
 simple_property_handler!(handle_padding_left, padding_left, "padding-left");
 simple_property_handler!(handle_padding_right, padding_right, "padding-right");
+simple_property_handler!(handle_padding_top, padding_top, "padding-top");
 simple_property_handler!(handle_position, position, "position");
+simple_property_handler!(handle_right, right, "right");
 simple_property_handler!(handle_text_align, text_align, "text-align");
+simple_property_handler!(handle_top, top, "top");
 simple_property_handler!(handle_whitespace, whitespace, "white-space");
 simple_property_handler!(handle_width, width, "width");
-simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
-offset_shorthand_handler!(handle_margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
-offset_shorthand_handler!(handle_padding, "padding", padding_top, padding_right, padding_bottom, padding_left);
 logical_pair_handler!(
     handle_margin_block,
     "margin-block",

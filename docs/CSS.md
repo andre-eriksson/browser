@@ -120,7 +120,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 
 ## B - C
 
-- [ ] bottom
+- [x] bottom
 - [ ] box-align
 - [ ] box-decoration-break
 - [ ] box-direction
@@ -295,7 +295,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] justify-content
 - [ ] justify-items
 - [ ] justify-self
-- [ ] left
+- [x] left
 - [ ] letter-spacing
 - [ ] lighting-color
 - [ ] line-break
@@ -424,7 +424,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] reading-flow
 - [ ] reading-order
 - [ ] resize
-- [ ] right
+- [x] right
 - [ ] rotate
 - [ ] row-gap
 - [ ] ruby-align
@@ -522,7 +522,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] text-wrap-style
 - [ ] text-wrap (shorthand)
 - [ ] timeline-scope
-- [ ] top
+- [x] top
 - [ ] touch-action
 - [ ] transform-box
 - [ ] transform-origin
