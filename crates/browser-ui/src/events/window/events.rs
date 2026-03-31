@@ -1,4 +1,4 @@
-use browser_core::{EngineCommand, Commandable};
+use browser_core::{Commandable, EngineCommand};
 use iced::{Task, window::Id};
 
 use crate::{
@@ -16,7 +16,8 @@ pub(crate) fn create_window(application: &mut Application, window_type: WindowTy
             Task::perform(
                 async move {
                     let mut lock = browser.lock().await;
-                    lock.execute(EngineCommand::GetDevtoolsPage { tab_id }).await
+                    lock.execute(EngineCommand::GetDevtoolsPage { tab_id })
+                        .await
                 },
                 |result| match result {
                     Ok(event) => Event::EngineResponse(event),

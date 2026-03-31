@@ -1,4 +1,4 @@
-use browser_core::{EngineCommand, Commandable, EngineResponse, errors::KernelError};
+use browser_core::{Commandable, EngineCommand, EngineResponse, errors::KernelError};
 use iced::Task;
 use regex::Regex;
 use url::Url;

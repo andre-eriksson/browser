@@ -186,7 +186,7 @@ impl RequestBuilder {
     /// # Returns
     /// * `Ok(Self)` if the header was added successfully.
     /// * `Err(String)` if the header value was invalid.
-    /// 
+    ///
     /// # Errors
     /// * `NetworkError::InvalidHeader` if the header value is invalid.
     pub fn try_header(mut self, key: HeaderName, value: &str) -> Result<Self, NetworkError> {

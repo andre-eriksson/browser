@@ -236,14 +236,12 @@ impl<'css> GeneratedRule<'css> {
         for part in trimmed.split('|') {
             let part = part.trim();
 
-            // Handle angle-bracket syntax like "<length>" or "<color>"
             if part.starts_with('<') && part.ends_with('>') {
                 let type_name = &part[1..part.len() - 1];
                 if let Ok(component) = type_name.parse::<SyntaxComponent>() {
                     components.push(component);
                 }
             } else if !part.is_empty() {
-                // Handle literal idents
                 components.push(SyntaxComponent::Ident(part.to_string()));
             }
         }

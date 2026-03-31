@@ -1,4 +1,4 @@
-use browser_core::{EngineCommand, Commandable, EngineResponse, TabId};
+use browser_core::{Commandable, EngineCommand, EngineResponse, TabId};
 use iced::Task;
 
 use crate::{core::Application, events::Event};
@@ -42,7 +42,8 @@ pub(crate) fn change_active_tab(application: &mut Application, tab_id: TabId) ->
     Task::perform(
         async move {
             let mut lock = browser.lock().await;
-            lock.execute(EngineCommand::ChangeActiveTab { tab_id }).await
+            lock.execute(EngineCommand::ChangeActiveTab { tab_id })
+                .await
         },
         |result| match result {
             Ok(event) => Event::EngineResponse(event),

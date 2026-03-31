@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use browser_core::{EngineCommand, Commandable, HistoryState, Page, TabId, errors::NavigationError};
+use browser_core::{Commandable, EngineCommand, HistoryState, Page, TabId, errors::NavigationError};
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use http::HeaderMap;

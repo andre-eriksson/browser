@@ -2,9 +2,6 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{CSSParsable, color::ColorValue, error::CssValueError};
 
-
-
-
 /// Percentage representation for CSS properties that accept percentage values, such as width, height, opacity, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Percentage(
