@@ -1311,6 +1311,43 @@ mod tests {
     }
 
     #[test]
+    fn match_child_combinator_with_surrounding_whitespace() {
+        let components = generate_compound_token!(
+            CssTokenKind::Ident("div".to_string()),
+            CssTokenKind::Whitespace,
+            CssTokenKind::Delim('>'),
+            CssTokenKind::Whitespace,
+            CssTokenKind::Delim('.'),
+            CssTokenKind::Ident("absolute".to_string())
+        );
+
+        let sequences = generate_compound_sequences(&components);
+        assert_eq!(sequences.len(), 2);
+        assert_eq!(sequences[0].specificity(), SelectorSpecificity::new(0, 0, 1));
+        assert_eq!(sequences[1].specificity(), SelectorSpecificity::new(0, 1, 0));
+
+        let mut tree = DocumentRoot::new();
+
+        let outer_data = generate_node_data!(HtmlTag::Div, HashSet::new(), HashMap::default());
+        let outer_id = tree.push_node(&outer_data, None);
+
+        let middle_data = generate_node_data!(HtmlTag::Div, HashSet::new(), HashMap::default());
+        let middle_id = tree.push_node(&middle_data, Some(outer_id));
+
+        let mut absolute_classes = HashSet::new();
+        absolute_classes.insert("absolute".to_string());
+        let mut absolute_attributes = HashMap::new();
+        absolute_attributes.insert("class".to_string(), "absolute".to_string());
+        let absolute_data = generate_node_data!(HtmlTag::Div, absolute_classes.clone(), absolute_attributes);
+        let absolute_id = tree.push_node(&absolute_data, Some(middle_id));
+
+        let absolute_node = tree.get_node(&absolute_id).unwrap();
+        let absolute_class_set = ClassSet::new(&absolute_classes);
+
+        assert!(matches_compound(&sequences, &tree, absolute_node, &absolute_class_set));
+    }
+
+    #[test]
     fn match_very_specific_selector() {
         let components = generate_compound_token!(
             CssTokenKind::Ident("a".to_string()),

@@ -118,6 +118,22 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
                 }
                 CssTokenKind::Whitespace => {
                     if !current_sequence.compound_selectors.is_empty() {
+                        let next_non_whitespace = trimmed_components[idx + 1..]
+                            .iter()
+                            .find_map(|cv| match cv {
+                                ComponentValue::Token(token) if !matches!(token.kind, CssTokenKind::Whitespace) => {
+                                    Some(&token.kind)
+                                }
+                                _ => None,
+                            });
+
+                        if matches!(
+                            next_non_whitespace,
+                            Some(CssTokenKind::Delim('>') | CssTokenKind::Delim('+') | CssTokenKind::Delim('~'))
+                        ) {
+                            continue;
+                        }
+
                         current_sequence.combinator = Some(Combinator::Descendant);
                         flush_sequence(&mut current_sequence, &mut sequences);
                     }
