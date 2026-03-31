@@ -7,4 +7,14 @@ license.workspace = true
 [dependencies]
 browser-config.workspace = true
 browser-core.workspace = true
+browser-preferences.workspace = true
+clap.workspace = true
+css-cssom.workspace = true
+css-selectors.workspace = true
+css-style.workspace = true
+css-tokenizer.workspace = true
+css-values.workspace = true
+html-dom.workspace = true
+layout.workspace = true
+shell-words.workspace = true
 tracing.workspace = true
