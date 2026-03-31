@@ -289,24 +289,48 @@ impl DocumentRoot {
 impl Display for DocumentRoot {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         fn fmt_node(node: &DomNode, doc: &DocumentRoot, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
-            for _ in 0..indent {
-                write!(f, "  ")?;
-            }
             match &node.data {
                 NodeData::Element(elem) => {
-                    writeln!(f, "<{} data-node_id=\"{}\">", elem.tag, node.id)?;
+                    for _ in 0..indent {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "<{} data-node-id=\"{}\"", elem.tag_name(), node.id)?;
+                    for attr in &elem.attributes {
+                        if attr.0.trim().is_empty() {
+                            continue;
+                        }
+
+                        write!(f, " {}=\"{}\"", attr.0, attr.1)?;
+                    }
+                    writeln!(f, ">")?;
+
+                    if elem.tag.is_void_element() {
+                        return Ok(());
+                    }
+
                     for child_id in &node.children {
                         if let Some(child_node) = doc.get_node(child_id) {
                             fmt_node(child_node, doc, f, indent + 1)?;
                         }
                     }
+
                     for _ in 0..indent {
-                        write!(f, "  ")?;
+                        write!(f, " ")?;
                     }
-                    writeln!(f, "</{}>", elem.tag)
+
+                    writeln!(f, "</{}>", elem.tag_name())?;
+
+                    Ok(())
                 }
                 NodeData::Text(text) => {
-                    writeln!(f, "{text}")
+                    if !text.trim().is_empty() {
+                        for _ in 0..indent {
+                            write!(f, " ")?;
+                        }
+                        writeln!(f, "{}", text.trim())?;
+                    }
+
+                    Ok(())
                 }
             }
         }
