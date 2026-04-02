@@ -51,6 +51,7 @@ pub fn generate_selector_list(components: &[ComponentValue]) -> Vec<Vec<Compound
     components
         .split(|cv| matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Comma)))
         .map(generate_compound_sequences)
+        .filter(|sequences| !sequences.is_empty())
         .collect()
 }
 
@@ -170,6 +171,9 @@ pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<
             ComponentValue::Function(function) => {
                 if function.name.eq_ignore_ascii_case("is") {
                     let selector_lists = generate_selector_list(&function.value);
+                    if selector_lists.is_empty() {
+                        continue;
+                    }
 
                     let compound_selector = current_sequence.compound_selectors.last_mut();
                     if let Some(cs) = compound_selector {

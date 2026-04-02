@@ -1394,6 +1394,54 @@ mod tests {
     }
 
     #[test]
+    fn empty_is_argument_does_not_generate_matchable_selector() {
+        let components = vec![
+            ComponentValue::Token(CssToken {
+                kind: CssTokenKind::Colon,
+                position: None,
+            }),
+            ComponentValue::Function(css_cssom::Function {
+                name: "is".to_string(),
+                value: vec![],
+            }),
+        ];
+
+        let sequences = generate_compound_sequences(&components);
+
+        assert!(sequences.is_empty());
+    }
+
+    #[test]
+    fn descendant_chain_requires_all_steps() {
+        let components = generate_compound_token!(
+            CssTokenKind::Ident("main".to_string()),
+            CssTokenKind::Whitespace,
+            CssTokenKind::Ident("section".to_string()),
+            CssTokenKind::Whitespace,
+            CssTokenKind::Ident("div".to_string())
+        );
+
+        let sequences = generate_compound_sequences(&components);
+
+        let mut tree = DocumentRoot::new();
+
+        let root_data = generate_node_data!(HtmlTag::Main, HashSet::new(), HashMap::default());
+        let root_id = tree.push_node(&root_data, None);
+
+        let middle_data = generate_node_data!(HtmlTag::Article, HashSet::new(), HashMap::default());
+        let _middle_id = tree.push_node(&middle_data, Some(root_id));
+
+        let target_data = generate_node_data!(HtmlTag::Div, HashSet::new(), HashMap::default());
+        let target_id = tree.push_node(&target_data, Some(root_id));
+
+        let target_node = tree.get_node(&target_id).unwrap();
+        let classes = HashSet::new();
+        let class_set = ClassSet::new(&classes);
+
+        assert!(!matches_compound(&sequences, &tree, target_node, &class_set));
+    }
+
+    #[test]
     fn no_match_very_specific_selector() {
         let components = generate_compound_token!(
             CssTokenKind::Ident("a".to_string()),

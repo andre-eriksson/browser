@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use css_cssom::{CssToken, CssTokenKind, HashType};
-use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeId, Tag};
+use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, Tag};
 
 use crate::{
     parser::CaseSensitivity,
@@ -353,160 +353,119 @@ pub fn matches_compound(
     node: &DomNode,
     class_set: &ClassSet,
 ) -> bool {
-    let element = match node.data.as_element() {
-        Some(elem) => elem,
-        None => return false,
-    };
-
-    for sequence in sequence.iter().rev() {
-        if sequence.combinator.is_none() {
-            let matched = matches_compound_selectors(&sequence.compound_selectors, element, class_set, tree, node);
-            if !matched {
-                return false;
-            } else {
-                continue;
-            }
+    fn matches_from_index(
+        sequences: &[CompoundSelectorSequence],
+        index: usize,
+        tree: &DocumentRoot,
+        node: &DomNode,
+        class_set: &ClassSet,
+    ) -> bool {
+        if sequences.is_empty() {
+            return false;
         }
 
-        let parent = match node.parent {
-            Some(parent_id) => parent_id,
-            None => return false,
-        };
-
-        let mut parent_node = match tree.get_node(&parent) {
-            Some(node) => node,
-            None => return false,
-        };
-
-        let parent_element = match parent_node.data.as_element() {
+        let element = match node.data.as_element() {
             Some(elem) => elem,
             None => return false,
         };
 
-        let parent_class_set = ClassSet::from(parent_element);
+        let current = &sequences[index];
+        if !matches_compound_selectors(&current.compound_selectors, element, class_set, tree, node) {
+            return false;
+        }
 
-        match &sequence.combinator {
-            Some(Combinator::Child) => {
-                return matches_compound_selectors(
-                    &sequence.compound_selectors,
-                    parent_element,
-                    &parent_class_set,
-                    tree,
-                    parent_node,
-                );
+        if index == 0 {
+            return true;
+        }
+
+        let relation = match &sequences[index - 1].combinator {
+            Some(rel) => rel,
+            None => return false,
+        };
+
+        let parent_id = match node.parent {
+            Some(parent_id) => parent_id,
+            None => return false,
+        };
+
+        let parent_node = match tree.get_node(&parent_id) {
+            Some(node) => node,
+            None => return false,
+        };
+
+        match relation {
+            Combinator::Child => {
+                let parent_element = match parent_node.data.as_element() {
+                    Some(elem) => elem,
+                    None => return false,
+                };
+                let parent_class_set = ClassSet::from(parent_element);
+                matches_from_index(sequences, index - 1, tree, parent_node, &parent_class_set)
             }
-            Some(Combinator::Descendant) => {
-                if matches_compound_selectors(
-                    &sequence.compound_selectors,
-                    parent_element,
-                    &parent_class_set,
-                    tree,
-                    parent_node,
-                ) {
-                    return true;
-                }
+            Combinator::Descendant => {
+                let mut ancestor = Some(parent_node);
 
-                while let Some(grandparent_id) = parent_node.parent {
-                    let grandparent_node = match tree.get_node(&grandparent_id) {
-                        Some(node) => node,
-                        None => break,
-                    };
-
-                    let grandparent_element = match grandparent_node.data.as_element() {
-                        Some(elem) => elem,
-                        None => break,
-                    };
-
-                    let grandparent_class_set = ClassSet::from(grandparent_element);
-
-                    if matches_compound_selectors(
-                        &sequence.compound_selectors,
-                        grandparent_element,
-                        &grandparent_class_set,
-                        tree,
-                        grandparent_node,
-                    ) {
-                        return true;
+                while let Some(candidate) = ancestor {
+                    if let Some(candidate_element) = candidate.data.as_element() {
+                        let candidate_class_set = ClassSet::from(candidate_element);
+                        if matches_from_index(sequences, index - 1, tree, candidate, &candidate_class_set) {
+                            return true;
+                        }
                     }
 
-                    parent_node = grandparent_node;
+                    ancestor = candidate.parent.and_then(|id| tree.get_node(&id));
                 }
 
-                return false;
+                false
             }
-            Some(Combinator::AdjacentSibling) => {
+            Combinator::AdjacentSibling => {
                 let siblings = &parent_node.children;
+                let node_idx = match siblings.iter().position(|id| *id == node.id) {
+                    Some(idx) => idx,
+                    None => return false,
+                };
+                if node_idx == 0 {
+                    return false;
+                }
 
-                let mut found_current = false;
-                let mut previous_sibling_id: Option<NodeId> = None;
-                for &sibling_id in siblings {
-                    if sibling_id == node.id {
-                        found_current = true;
-                    }
+                let previous_sibling_node = match tree.get_node(&siblings[node_idx - 1]) {
+                    Some(node) => node,
+                    None => return false,
+                };
 
-                    if !found_current {
-                        previous_sibling_id = Some(sibling_id);
+                let sibling_element = match previous_sibling_node.data.as_element() {
+                    Some(elem) => elem,
+                    None => return false,
+                };
+                let sibling_class_set = ClassSet::from(sibling_element);
+                matches_from_index(sequences, index - 1, tree, previous_sibling_node, &sibling_class_set)
+            }
+            Combinator::GeneralSibling => {
+                let siblings = &parent_node.children;
+                let node_idx = match siblings.iter().position(|id| *id == node.id) {
+                    Some(idx) => idx,
+                    None => return false,
+                };
+
+                for sibling_id in &siblings[..node_idx] {
+                    let sibling_node = match tree.get_node(sibling_id) {
+                        Some(node) => node,
+                        None => continue,
+                    };
+
+                    let Some(sibling_element) = sibling_node.data.as_element() else {
                         continue;
-                    }
-
-                    if previous_sibling_id.is_none() {
-                        break;
-                    }
-
-                    let previous_sibling_node = match tree.get_node(&previous_sibling_id.unwrap()) {
-                        Some(node) => node,
-                        None => continue,
                     };
-
-                    let previous_sibling_element = match previous_sibling_node.data.as_element() {
-                        Some(elem) => elem,
-                        None => continue,
-                    };
-                    let sibling_class_set = ClassSet::from(previous_sibling_element);
-
-                    return matches_compound_selectors(
-                        &sequence.compound_selectors,
-                        previous_sibling_element,
-                        &sibling_class_set,
-                        tree,
-                        previous_sibling_node,
-                    );
-                }
-            }
-            Some(Combinator::GeneralSibling) => {
-                let siblings = &parent_node.children;
-
-                for &sibling_id in siblings {
-                    if sibling_id == node.id {
-                        break;
-                    }
-
-                    let sibling_node = match tree.get_node(&sibling_id) {
-                        Some(node) => node,
-                        None => continue,
-                    };
-
-                    let sibling_element = match sibling_node.data.as_element() {
-                        Some(elem) => elem,
-                        None => continue,
-                    };
-
                     let sibling_class_set = ClassSet::from(sibling_element);
-
-                    if matches_compound_selectors(
-                        &sequence.compound_selectors,
-                        sibling_element,
-                        &sibling_class_set,
-                        tree,
-                        sibling_node,
-                    ) {
+                    if matches_from_index(sequences, index - 1, tree, sibling_node, &sibling_class_set) {
                         return true;
                     }
                 }
+
+                false
             }
-            None => {}
         }
     }
 
-    true
+    matches_from_index(sequence, sequence.len() - 1, tree, node, class_set)
 }
