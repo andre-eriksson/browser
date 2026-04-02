@@ -57,6 +57,13 @@ pub(crate) struct InlineLayoutContext<'a, 'node> {
     pub inline_box_stack: &'a mut Vec<ActiveInlineBox<'node>>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct InlineContext {
+    pub start_x: f32,
+    pub start_y: f32,
+    pub available_width: f32,
+}
+
 pub struct InlineLayout;
 
 impl InlineLayout {
@@ -91,15 +98,14 @@ impl InlineLayout {
     pub fn layout(
         items: &[InlineItem],
         text_ctx: &mut TextContext,
+        position_ctx: &mut PositionContext,
         float_ctx: &FloatContext,
-        available_width: f32,
-        start_x: f32,
-        start_y: f32,
         image_ctx: &ImageContext,
+        inline_ctx: InlineContext,
     ) -> (Vec<LayoutNode>, f32) {
         let mut nodes = Vec::new();
-        let mut current_y = start_y;
-        let mut line = LineBoxBuilder::new(start_x, start_y);
+        let mut current_y = inline_ctx.start_y;
+        let mut line = LineBoxBuilder::new(inline_ctx.start_x, inline_ctx.start_y);
 
         let mut inline_box_stack: Vec<ActiveInlineBox> = Vec::new();
 
@@ -108,10 +114,10 @@ impl InlineLayout {
                 InlineItem::TextRun(text) => {
                     layout_text(
                         InlineLayoutContext {
-                            available_width,
+                            available_width: inline_ctx.available_width,
                             float_context: float_ctx,
                             current_y: &mut current_y,
-                            start_x,
+                            start_x: inline_ctx.start_x,
                             nodes: &mut nodes,
                             inline_box_stack: &mut inline_box_stack,
                         },
@@ -130,22 +136,16 @@ impl InlineLayout {
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
 
                     let desired_width = match style.width {
-                        ComputedDimension::Percentage(f) => available_width * f,
+                        ComputedDimension::Percentage(f) => inline_ctx.available_width * f,
                         _ => style.intrinsic_width,
                     };
 
                     let mut block_ctx = LayoutContext::new(Rect::new(0.0, 0.0, desired_width, 0.0));
-                    let mut position_ctx = PositionContext::new();
                     let mut f_ctx = float_ctx.clone();
 
-                    if let Some(mut layout_node) = LayoutEngine::layout_node(
-                        node,
-                        &mut block_ctx,
-                        &mut position_ctx,
-                        &mut f_ctx,
-                        text_ctx,
-                        image_ctx,
-                    ) {
+                    if let Some(mut layout_node) =
+                        LayoutEngine::layout_node(node, &mut block_ctx, position_ctx, &mut f_ctx, text_ctx, image_ctx)
+                    {
                         let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
 
                         let alignment = &style.text_align;
@@ -153,13 +153,13 @@ impl InlineLayout {
                         text_ctx.last_text_align = *alignment;
                         text_ctx.last_writing_mode = *writing_mode;
 
-                        if line.line_box.width + total_width > available_width && line.line_box.width > 0.0 {
+                        if line.line_box.width + total_width > inline_ctx.available_width && line.line_box.width > 0.0 {
                             line.finish_line_with_decorations(
                                 &mut InlineLayoutContext {
-                                    available_width,
+                                    available_width: inline_ctx.available_width,
                                     float_context: float_ctx,
                                     current_y: &mut current_y,
-                                    start_x,
+                                    start_x: inline_ctx.start_x,
                                     inline_box_stack: &mut inline_box_stack,
                                     nodes: &mut nodes,
                                 },
@@ -178,10 +178,10 @@ impl InlineLayout {
                 InlineItem::Image(img) => {
                     layout_image(
                         InlineLayoutContext {
-                            available_width,
+                            available_width: inline_ctx.available_width,
                             float_context: float_ctx,
                             current_y: &mut current_y,
-                            start_x,
+                            start_x: inline_ctx.start_x,
                             inline_box_stack: &mut inline_box_stack,
                             nodes: &mut nodes,
                         },
@@ -194,10 +194,10 @@ impl InlineLayout {
                 InlineItem::Break { line_height_px } => {
                     line.finish_line_with_decorations(
                         &mut InlineLayoutContext {
-                            available_width,
+                            available_width: inline_ctx.available_width,
                             float_context: float_ctx,
                             current_y: &mut current_y,
-                            start_x,
+                            start_x: inline_ctx.start_x,
                             inline_box_stack: &mut inline_box_stack,
                             nodes: &mut nodes,
                         },
@@ -212,13 +212,13 @@ impl InlineLayout {
 
         let (line_nodes, h) = line.line_box.finish(
             float_ctx,
-            start_x,
-            available_width,
+            inline_ctx.start_x,
+            inline_ctx.available_width,
             &text_ctx.last_text_align,
             &text_ctx.last_writing_mode,
         );
         nodes.extend(line_nodes);
-        let total_height = current_y + h - start_y;
+        let total_height = current_y + h - inline_ctx.start_y;
 
         (nodes, total_height)
     }

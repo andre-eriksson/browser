@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
-use css_style::{Color4f, ComputedStyle, StyledNode};
+use css_style::{Color4f, ComputedStyle, Position, StyledNode};
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
@@ -120,6 +120,7 @@ pub struct LayoutNode {
     pub is_height_auto: bool,
     pub margin: SideOffset,
     pub padding: SideOffset,
+    pub position: Position,
     pub text_buffer: Option<Arc<Buffer>>,
 }
 
@@ -249,6 +250,7 @@ impl LayoutTree {
 #[derive(Debug, Clone, Default)]
 pub struct LayoutContext {
     containing_block: Rect,
+    positioned_containing_block: Rect,
     pub bypass: bool,
     pub block_cursor: BlockCursor,
 }
@@ -258,6 +260,7 @@ impl LayoutContext {
     pub fn new(containing_block: Rect) -> Self {
         Self {
             containing_block,
+            positioned_containing_block: containing_block,
             bypass: false,
             block_cursor: BlockCursor::from(containing_block.y),
         }
@@ -266,5 +269,15 @@ impl LayoutContext {
     /// Returns the containing block rect
     pub fn containing_block(&self) -> Rect {
         self.containing_block
+    }
+
+    /// Returns the nearest positioned ancestor containing block used by absolute positioning.
+    pub fn positioned_containing_block(&self) -> Rect {
+        self.positioned_containing_block
+    }
+
+    /// Sets the nearest positioned ancestor containing block used by absolute positioning.
+    pub fn set_positioned_containing_block(&mut self, rect: Rect) {
+        self.positioned_containing_block = rect;
     }
 }

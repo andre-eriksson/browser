@@ -2,8 +2,13 @@ use css_style::{ComputedDimension, ComputedStyle, Position, StyledNode};
 use css_values::display::{Clear, Float, OutsideDisplay};
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, context::ImageContext, float::FloatContext,
-    layout::LayoutContext, mode::inline::InlineLayout, position::PositionContext, resolver::PropertyResolver,
+    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
+    context::ImageContext,
+    float::FloatContext,
+    layout::LayoutContext,
+    mode::inline::{InlineContext, InlineLayout},
+    position::PositionContext,
+    resolver::PropertyResolver,
 };
 
 #[derive(Debug, Clone, Default, Copy)]
@@ -95,7 +100,12 @@ impl BlockLayout {
         image_ctx: &ImageContext,
     ) -> Option<LayoutNode> {
         if styled_node.style.position.is_out_of_flow() && !ctx.bypass {
-            position_ctx.defer(styled_node.clone());
+            let containing_block = if styled_node.style.position == Position::Fixed {
+                ctx.containing_block()
+            } else {
+                ctx.positioned_containing_block()
+            };
+            position_ctx.defer(styled_node.clone(), containing_block);
 
             return None;
         }
@@ -103,29 +113,33 @@ impl BlockLayout {
         let container_width = ctx.containing_block().width;
 
         let (margin, padding, border) = PropertyResolver::resolve_box_model(&styled_node.style);
-        let box_width = PropertyResolver::calculate_width(styled_node, container_width);
 
-        let content_width = if styled_node.style.width == ComputedDimension::Auto {
-            (box_width - padding.horizontal() - border.horizontal()).max(0.0)
-        } else {
-            box_width
-        };
-
-        let x = Self::calculate_x(styled_node, ctx, &margin, &padding, &border, content_width);
-        let y = ctx.containing_block().y + ctx.block_cursor.y;
+        let width = Self::calculate_width(styled_node, container_width, &padding, &border);
+        let x = Self::calculate_x(styled_node, ctx, &margin, &padding, &border, width);
+        let y = Self::calculate_y(styled_node, ctx);
 
         let mut children = Vec::with_capacity(styled_node.children.len());
         let mut flow = BlockFlow::new(&styled_node.style);
-        let child_containing_height = match styled_node.style.height {
-            ComputedDimension::Auto => 0.0,
-            _ => PropertyResolver::calculate_height(styled_node, 0.0, ctx.containing_block().height).max(0.0),
-        };
+        let child_containing_height = Self::calculate_height(styled_node, ctx.containing_block().height);
+
+        let parent_positioned_cb = ctx.positioned_containing_block();
 
         if styled_node.style.position != Position::Static {
             position_ctx.push_position(Rect::new(
                 x,
                 y,
-                box_width,
+                width,
+                child_containing_height + padding.vertical() + border.vertical(),
+            ));
+        }
+
+        if styled_node.style.position == Position::Static {
+            ctx.set_positioned_containing_block(parent_positioned_cb);
+        } else {
+            ctx.set_positioned_containing_block(Rect::new(
+                x,
+                y,
+                width,
                 child_containing_height + padding.vertical() + border.vertical(),
             ));
         }
@@ -150,19 +164,14 @@ impl BlockLayout {
                 );
 
                 if !inline_items.is_empty() {
-                    let inline_x = x + padding.left + border.left;
-                    let inline_y = y + padding.top + border.top + flow.current_y;
-                    let inline_width = content_width;
+                    let inline_ctx = InlineContext {
+                        start_x: x + padding.left + border.left,
+                        start_y: y + padding.top + border.top + flow.current_y,
+                        available_width: width,
+                    };
 
-                    let (inline_layout_nodes, inline_height) = InlineLayout::layout(
-                        &inline_items,
-                        text_ctx,
-                        float_ctx,
-                        inline_width,
-                        inline_x,
-                        inline_y,
-                        image_ctx,
-                    );
+                    let (inline_layout_nodes, inline_height) =
+                        InlineLayout::layout(&inline_items, text_ctx, position_ctx, float_ctx, image_ctx, inline_ctx);
 
                     if !inline_layout_nodes.is_empty() || inline_height > 0.0 {
                         children.extend(inline_layout_nodes);
@@ -208,9 +217,10 @@ impl BlockLayout {
             let mut child_ctx = LayoutContext::new(Rect::new(
                 x + padding.left + border.left,
                 y + padding.top + border.top,
-                content_width,
+                width,
                 child_containing_height,
             ));
+            child_ctx.set_positioned_containing_block(ctx.positioned_containing_block());
 
             child_ctx.block_cursor.y = child_y_offset;
 
@@ -274,7 +284,11 @@ impl BlockLayout {
         let final_height = if styled_node.style.height == ComputedDimension::Auto {
             content_height_from_children + padding.vertical() + border.vertical()
         } else {
-            calculated_height + padding.vertical() + border.vertical()
+            if child_containing_height > calculated_height {
+                child_containing_height + padding.vertical() + border.vertical()
+            } else {
+                calculated_height + padding.vertical() + border.vertical()
+            }
         };
 
         let mut margin = margin;
@@ -287,22 +301,48 @@ impl BlockLayout {
 
         let colors = LayoutColors::from(styled_node);
 
-        Some(
-            LayoutNode::builder(styled_node.node_id)
-                .margin(margin)
-                .padding(padding)
-                .border(border)
-                .colors(colors)
-                .cursor(styled_node.style.cursor)
-                .children(children)
-                .height_auto(styled_node.style.height == ComputedDimension::Auto)
-                .dimensions(Rect::new(x, y, content_width + padding.horizontal() + border.horizontal(), final_height))
-                .build(),
-        )
+        let node = LayoutNode::builder(styled_node.node_id)
+            .margin(margin)
+            .padding(padding)
+            .border(border)
+            .colors(colors)
+            .cursor(styled_node.style.cursor)
+            .children(children)
+            .height_auto(styled_node.style.height == ComputedDimension::Auto)
+            .position(styled_node.style.position)
+            .dimensions(Rect::new(x, y, width + padding.horizontal() + border.horizontal(), final_height))
+            .build();
+
+        Some(node)
     }
 
     fn is_inline(node: &StyledNode) -> bool {
         node.style.display.outside() == Some(OutsideDisplay::Inline)
+    }
+
+    fn calculate_width(
+        styled_node: &StyledNode,
+        container_width: f32,
+        padding: &SideOffset,
+        border: &SideOffset,
+    ) -> f32 {
+        let style = &styled_node.style;
+        if style.position.is_out_of_flow() {
+            let has_left = !style.left_auto;
+            let has_right = !style.right_auto;
+            let width_is_auto = style.width == ComputedDimension::Auto;
+
+            if has_left && has_right && width_is_auto {
+                return container_width - style.left - style.right;
+            }
+        }
+
+        let specified_width = PropertyResolver::calculate_width(styled_node, container_width);
+        if styled_node.style.width == ComputedDimension::Auto {
+            (specified_width - padding.horizontal() - border.horizontal()).max(0.0)
+        } else {
+            specified_width
+        }
     }
 
     fn calculate_x(
@@ -313,10 +353,13 @@ impl BlockLayout {
         border: &SideOffset,
         content_width: f32,
     ) -> f32 {
+        let style = &styled_node.style;
         let container_width = ctx.containing_block().width;
-        let total_width = content_width + padding.horizontal() + border.horizontal();
+        let has_left = !style.left_auto;
+        let has_right = !style.right_auto;
 
-        if styled_node.style.float == Float::Left {
+        let total_width = content_width + padding.horizontal() + border.horizontal();
+        let normal_x = if styled_node.style.float == Float::Left {
             ctx.containing_block().x + margin.left
         } else if styled_node.style.float == Float::Right {
             ctx.containing_block().x + container_width - margin.right - total_width
@@ -326,6 +369,58 @@ impl BlockLayout {
             ctx.containing_block().x + container_width - margin.right - total_width
         } else {
             ctx.containing_block().x + margin.left
+        };
+
+        if style.position.is_out_of_flow() {
+            if has_left {
+                return ctx.containing_block().x + style.left;
+            } else if has_right {
+                return ctx.containing_block().x + container_width - style.right - total_width;
+            }
+        } else if style.position == Position::Relative {
+            if has_left {
+                return normal_x + style.left;
+            } else if has_right {
+                return normal_x - style.right;
+            }
+        }
+
+        normal_x
+    }
+
+    fn calculate_y(styled_node: &StyledNode, ctx: &LayoutContext) -> f32 {
+        let style = &styled_node.style;
+        let has_top = !style.top_auto;
+        let has_bottom = !style.bottom_auto;
+        let normal_y = ctx.containing_block().y + ctx.block_cursor.y;
+
+        if style.position.is_out_of_flow() && has_top {
+            return ctx.containing_block().y + style.top + style.margin_top;
+        } else if style.position == Position::Relative {
+            if has_top {
+                return normal_y + style.top;
+            } else if has_bottom {
+                return normal_y - style.bottom;
+            }
+        }
+
+        normal_y
+    }
+
+    fn calculate_height(styled_node: &StyledNode, containing_block_height: f32) -> f32 {
+        let style = &styled_node.style;
+        let height_is_unconstrained =
+            style.height == ComputedDimension::Auto || style.height == ComputedDimension::Percentage(100.0);
+        let has_top = !style.top_auto;
+        let has_bottom = !style.bottom_auto;
+
+        if style.position.is_out_of_flow() && has_top && has_bottom && height_is_unconstrained {
+            (containing_block_height - style.top - style.bottom).max(0.0)
+        } else {
+            match styled_node.style.height {
+                ComputedDimension::Auto => 0.0,
+                _ => PropertyResolver::calculate_height(styled_node, 0.0, containing_block_height).max(0.0),
+            }
         }
     }
 }
@@ -369,7 +464,7 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_x() {
+    fn test_calculate_x_static() {
         let style = ComputedStyle {
             margin_left_auto: true,
             margin_right_auto: true,
@@ -383,28 +478,311 @@ mod tests {
 
         let ctx = LayoutContext::new(viewport());
 
-        let margin = SideOffset {
-            top: 0.0,
-            right: 0.0,
-            bottom: 0.0,
-            left: 0.0,
-        };
-        let padding = SideOffset {
-            top: 0.0,
-            right: 0.0,
-            bottom: 0.0,
-            left: 0.0,
-        };
-        let border = SideOffset {
-            top: 0.0,
-            right: 0.0,
-            bottom: 0.0,
-            left: 0.0,
-        };
+        let margin = SideOffset::zero();
+        let padding = SideOffset::zero();
+        let border = SideOffset::zero();
         let content_width = 400.0;
 
         let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &padding, &border, content_width);
 
         assert_eq!(x, 200.0);
+    }
+
+    #[test]
+    fn test_calculate_x_float_left() {
+        let style = ComputedStyle {
+            float: Float::Left,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+
+        let margin = SideOffset::zero();
+        let padding = SideOffset::zero();
+        let border = SideOffset::zero();
+        let content_width = 200.0;
+
+        let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &padding, &border, content_width);
+
+        assert_eq!(x, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_x_float_right() {
+        let style = ComputedStyle {
+            float: Float::Right,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+
+        let margin = SideOffset::zero();
+        let padding = SideOffset::zero();
+        let border = SideOffset::zero();
+        let content_width = 200.0;
+
+        let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &padding, &border, content_width);
+
+        assert_eq!(x, 600.0);
+    }
+
+    #[test]
+    fn test_calculate_x_absolute_left_precedence_over_right() {
+        let style = ComputedStyle {
+            position: Position::Absolute,
+            left: 50.0,
+            left_auto: false,
+            right: 30.0,
+            right_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+        let x = BlockLayout::calculate_x(
+            &styled_node,
+            &ctx,
+            &SideOffset::zero(),
+            &SideOffset::zero(),
+            &SideOffset::zero(),
+            200.0,
+        );
+
+        assert_eq!(x, 50.0);
+    }
+
+    #[test]
+    fn test_calculate_x_fixed_right_when_left_auto() {
+        let style = ComputedStyle {
+            position: Position::Fixed,
+            right: 30.0,
+            right_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+        let x = BlockLayout::calculate_x(
+            &styled_node,
+            &ctx,
+            &SideOffset::zero(),
+            &SideOffset::zero(),
+            &SideOffset::zero(),
+            200.0,
+        );
+
+        assert_eq!(x, 570.0);
+    }
+
+    #[test]
+    fn test_calculate_x_relative_left_offsets_from_normal_position() {
+        let style = ComputedStyle {
+            position: Position::Relative,
+            left: 25.0,
+            left_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+        let margin = SideOffset {
+            left: 40.0,
+            ..SideOffset::zero()
+        };
+        let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &SideOffset::zero(), &SideOffset::zero(), 200.0);
+
+        assert_eq!(x, 65.0);
+    }
+
+    #[test]
+    fn test_calculate_x_relative_right_offsets_from_normal_position() {
+        let style = ComputedStyle {
+            position: Position::Relative,
+            right: 30.0,
+            right_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+        let margin = SideOffset {
+            left: 40.0,
+            ..SideOffset::zero()
+        };
+        let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &SideOffset::zero(), &SideOffset::zero(), 200.0);
+
+        assert_eq!(x, 10.0);
+    }
+
+    #[test]
+    fn test_calculate_y_absolute_top_uses_containing_block() {
+        let style = ComputedStyle {
+            position: Position::Absolute,
+            top: 20.0,
+            top_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let mut ctx = LayoutContext::new(viewport());
+        ctx.block_cursor.y = 120.0;
+
+        let y = BlockLayout::calculate_y(&styled_node, &ctx);
+        assert_eq!(y, 20.0);
+    }
+
+    #[test]
+    fn test_calculate_y_absolute_top_includes_margin_top() {
+        let style = ComputedStyle {
+            position: Position::Absolute,
+            top: 20.0,
+            top_auto: false,
+            margin_top: 12.0,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let ctx = LayoutContext::new(viewport());
+        let y = BlockLayout::calculate_y(&styled_node, &ctx);
+        assert_eq!(y, 32.0);
+    }
+
+    #[test]
+    fn test_calculate_y_relative_top_offsets_from_flow_position() {
+        let style = ComputedStyle {
+            position: Position::Relative,
+            top: 15.0,
+            top_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let mut ctx = LayoutContext::new(viewport());
+        ctx.block_cursor.y = 120.0;
+
+        let y = BlockLayout::calculate_y(&styled_node, &ctx);
+        assert_eq!(y, 135.0);
+    }
+
+    #[test]
+    fn test_calculate_y_relative_bottom_offsets_up_from_flow_position() {
+        let style = ComputedStyle {
+            position: Position::Relative,
+            bottom: 18.0,
+            bottom_auto: false,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let mut ctx = LayoutContext::new(viewport());
+        ctx.block_cursor.y = 120.0;
+
+        let y = BlockLayout::calculate_y(&styled_node, &ctx);
+        assert_eq!(y, 102.0);
+    }
+
+    #[test]
+    fn test_calculate_height_absolute_auto_with_top_and_bottom() {
+        let style = ComputedStyle {
+            position: Position::Absolute,
+            top: 20.0,
+            top_auto: false,
+            bottom: 30.0,
+            bottom_auto: false,
+            height: ComputedDimension::Auto,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let height = BlockLayout::calculate_height(&styled_node, 600.0);
+        assert_eq!(height, 550.0);
+    }
+
+    #[test]
+    fn test_calculate_height_fixed_100_percent_with_top_and_bottom() {
+        let style = ComputedStyle {
+            position: Position::Fixed,
+            top: 10.0,
+            top_auto: false,
+            bottom: 40.0,
+            bottom_auto: false,
+            height: ComputedDimension::Percentage(100.0),
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let height = BlockLayout::calculate_height(&styled_node, 600.0);
+        assert_eq!(height, 550.0);
+    }
+
+    #[test]
+    fn test_calculate_height_relative_auto_ignores_top_and_bottom() {
+        let style = ComputedStyle {
+            position: Position::Relative,
+            top: 30.0,
+            top_auto: false,
+            bottom: 20.0,
+            bottom_auto: false,
+            height: ComputedDimension::Auto,
+            ..Default::default()
+        };
+
+        let styled_node = StyledNode {
+            style,
+            ..StyledNode::new(NodeId(0))
+        };
+
+        let height = BlockLayout::calculate_height(&styled_node, 600.0);
+        assert_eq!(height, 0.0);
     }
 }

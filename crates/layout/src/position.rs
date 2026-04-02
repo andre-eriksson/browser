@@ -1,30 +1,30 @@
-use std::collections::VecDeque;
-
 use css_style::StyledNode;
-
 use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, float::FloatContext, layout::LayoutContext};
 
 #[derive(Debug, Clone)]
 struct PendingPosition {
     styled_node: Box<StyledNode>,
+    containing_block: Rect,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct PositionContext {
     pending: Vec<PendingPosition>,
-    positioned: VecDeque<Rect>,
+    viewport: Rect,
+    positioned: Vec<Rect>,
 }
 
 impl PositionContext {
-    pub fn new() -> Self {
+    pub fn new(viewport: Rect) -> Self {
         Self {
             pending: Vec::new(),
-            positioned: VecDeque::new(),
+            viewport,
+            positioned: vec![viewport],
         }
     }
 
     pub fn push_position(&mut self, rect: Rect) {
-        self.positioned.push_back(rect);
+        self.positioned.push(rect);
     }
 
     /// Returns the current number of positioned rects, for use with `offset_positions_since`.
@@ -40,9 +40,10 @@ impl PositionContext {
         }
     }
 
-    pub fn defer(&mut self, styled_node: StyledNode) {
+    pub fn defer(&mut self, styled_node: StyledNode, containing_block: Rect) {
         self.pending.push(PendingPosition {
             styled_node: Box::new(styled_node),
+            containing_block,
         });
     }
 
@@ -55,19 +56,21 @@ impl PositionContext {
         self.pending
             .drain(..)
             .filter_map(|pending| {
-                let containing_block = self.positioned.pop_front().unwrap_or_default();
-                let mut ctx = LayoutContext::new(containing_block);
+                let mut ctx = LayoutContext::new(pending.containing_block);
                 ctx.bypass = true;
                 ctx.block_cursor.y = 0.0;
+                ctx.set_positioned_containing_block(self.viewport);
 
-                LayoutEngine::layout_node(
+                let node = LayoutEngine::layout_node(
                     &pending.styled_node,
                     &mut ctx,
-                    &mut PositionContext::new(),
+                    &mut PositionContext::new(self.viewport),
                     float_ctx,
                     text_ctx,
                     image_ctx,
-                )
+                )?;
+
+                Some(node)
             })
             .collect()
     }

@@ -4,7 +4,7 @@ use browser_core::TabId;
 use css_style::{AbsoluteContext, StyleTree};
 use iced::Task;
 use io::{CacheEntry, CacheRead};
-use layout::LayoutEngine;
+use layout::{LayoutEngine, Rect};
 use tracing::debug;
 
 use crate::{
@@ -90,6 +90,7 @@ pub(crate) fn on_image_loaded(
                 for node_id in image_node_ids {
                     LayoutEngine::relayout_node(
                         node_id,
+                        Rect::new(0.0, 0.0, vw, vh),
                         &mut layout_tree,
                         &style_tree,
                         dom_tree,

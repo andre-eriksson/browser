@@ -55,7 +55,7 @@ impl LayoutEngine {
         image_ctx: Option<&ImageContext>,
     ) -> LayoutTree {
         let mut ctx = LayoutContext::new(viewport);
-        let mut position_ctx = PositionContext::new();
+        let mut position_ctx = PositionContext::new(viewport);
         let mut float_ctx = FloatContext::new();
         let img_ctx = image_ctx.cloned().unwrap_or_default();
 
@@ -130,6 +130,7 @@ impl LayoutEngine {
     /// Relayout a single node and its ancestors, updating the layout tree in place.
     pub fn relayout_node(
         node_id: NodeId,
+        viewport: Rect,
         layout_tree: &mut LayoutTree,
         style_tree: &StyleTree,
         dom_tree: &DocumentRoot,
@@ -164,7 +165,7 @@ impl LayoutEngine {
         let mut new_node = match Self::layout_node(
             styled_node,
             &mut ctx,
-            &mut PositionContext::new(),
+            &mut PositionContext::new(viewport),
             &mut FloatContext::new(),
             text_ctx,
             &img_ctx,
@@ -301,7 +302,7 @@ mod tests {
         ctx.block_cursor = cursor;
         let mut text_ctx = TextContext::default();
         let image_ctx = ImageContext::new();
-        let mut position_ctx = PositionContext::new();
+        let mut position_ctx = PositionContext::new(viewport());
         let mut float_ctx = FloatContext::new();
 
         let layout_node =

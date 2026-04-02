@@ -386,6 +386,7 @@ mod tests {
 
         LayoutEngine::relayout_node(
             img_node.node_id,
+            Rect::default(),
             &mut layout,
             &style_tree,
             &dom,
@@ -455,6 +456,7 @@ mod tests {
 
         LayoutEngine::relayout_node(
             img_node.node_id,
+            Rect::default(),
             &mut layout,
             &style_tree,
             &dom,

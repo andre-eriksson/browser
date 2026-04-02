@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
+use css_style::Position;
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
@@ -23,6 +24,7 @@ impl NodeBuilder {
                 margin: SideOffset::default(),
                 padding: SideOffset::default(),
                 border: SideOffset::default(),
+                position: Position::Static,
                 text_buffer: None,
                 image_data: None,
                 children: Vec::new(),
@@ -73,6 +75,11 @@ impl NodeBuilder {
 
     pub fn padding(mut self, padding: SideOffset) -> Self {
         self.layout_node.padding = padding;
+        self
+    }
+
+    pub fn position(mut self, position: Position) -> Self {
+        self.layout_node.position = position;
         self
     }
 
