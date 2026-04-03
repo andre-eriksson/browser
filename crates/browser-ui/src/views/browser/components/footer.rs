@@ -3,6 +3,7 @@ use std::str::FromStr;
 use iced::{
     Background, Color, Length,
     widget::{button, container},
+    window::Id,
 };
 
 use crate::{
@@ -16,10 +17,26 @@ impl BrowserFooter {
     /// Renders the footer of the browser window.
     ///
     /// Contains a button to open the devtools!
-    pub fn render(app: &Application) -> container::Container<'_, Event> {
+    pub fn render(app: &Application, window_id: Id) -> container::Container<'_, Event> {
+        let ctx = app
+            .browser_windows
+            .get(&window_id)
+            .expect("Browser context should exist for the window");
+
+        let active_tab = ctx
+            .tabs
+            .iter()
+            .find(|tab| tab.id == ctx.active_tab_id)
+            .expect("Active tab should always be present when rendering the browser window");
+
+        let toggle_devtools_event = match &active_tab.devtools {
+            Some(devtools) => Event::Window(WindowEvent::CloseWindow(devtools.window_id)),
+            None => Event::Window(WindowEvent::NewWindow(window_id, WindowType::Devtools)),
+        };
+
         container(
             button("Open DevTools")
-                .on_press(Event::Window(WindowEvent::NewWindow(WindowType::Devtools)))
+                .on_press(toggle_devtools_event)
                 .padding(10),
         )
         .style(|_| {

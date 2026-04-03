@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use constants::APP_NAME;
+use constants::BROWSER_NAME;
 use network::{
     ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue, USER_AGENT,
 };
@@ -22,8 +22,8 @@ impl Headers {
         let os_info = "Macintosh; Intel Mac OS X 10_15_7";
 
         let mut user_agent = match browser_type {
-            HeaderType::Browser => format!("Mozilla/5.0 ({os_info}) MyRenderer/0.1 {APP_NAME}/0.1"),
-            HeaderType::HeadlessBrowser => format!("Mozilla/5.0 ({os_info}) MyRendererHeadless/0.1 {APP_NAME}/0.1"),
+            HeaderType::Browser => format!("Mozilla/5.0 ({os_info}) MyRenderer/0.1 {BROWSER_NAME}/0.1"),
+            HeaderType::HeadlessBrowser => format!("Mozilla/5.0 ({os_info}) MyRendererHeadless/0.1 {BROWSER_NAME}/0.1"),
         };
 
         #[cfg(debug_assertions)]

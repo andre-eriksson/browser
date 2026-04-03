@@ -1,15 +1,15 @@
 use std::path::PathBuf;
 
-use constants::APP_NAME;
+use constants::BROWSER_NAME;
 
 #[must_use]
 pub fn get_cache_path() -> Option<PathBuf> {
-    dirs::cache_dir().map(|p| p.join(APP_NAME))
+    dirs::cache_dir().map(|p| p.join(BROWSER_NAME))
 }
 
 #[must_use]
 pub fn get_config_path() -> Option<PathBuf> {
-    let base_dir = dirs::config_dir()?.join(APP_NAME);
+    let base_dir = dirs::config_dir()?.join(BROWSER_NAME);
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
@@ -24,7 +24,7 @@ pub fn get_config_path() -> Option<PathBuf> {
 
 #[must_use]
 pub fn get_data_path() -> Option<PathBuf> {
-    let base_dir = dirs::data_dir()?.join(APP_NAME);
+    let base_dir = dirs::data_dir()?.join(BROWSER_NAME);
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {

@@ -1,5 +1,5 @@
 use ::browser_core::EngineResponse;
-use iced::Task;
+use iced::{Task, window::Id};
 
 use crate::events::{browser::BrowserEvent, devtools::DevtoolEvent, kernel::EngineRequest, window::WindowEvent};
 
@@ -11,7 +11,7 @@ pub mod window;
 /// Represents the different types of events that can occur in the application.
 #[derive(Debug, Clone)]
 pub enum Event {
-    EngineResponse(EngineResponse),
+    EngineResponse(Id, EngineResponse),
     EngineRequest(EngineRequest),
     Window(WindowEvent),
     Browser(BrowserEvent),

@@ -18,7 +18,7 @@ impl TabManager {
         }
     }
 
-    pub(crate) fn active_tab_id(&self) -> TabId {
+    pub fn active_tab_id(&self) -> TabId {
         self.active_tab
     }
 

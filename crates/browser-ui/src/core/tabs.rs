@@ -6,7 +6,10 @@ use std::{
 use browser_core::{DevtoolsPage, HistoryState, Page, TabId};
 use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
+use iced::window::Id;
 use layout::{ImageContext, LayoutTree};
+
+use crate::views::devtools::window::DevtoolsContext;
 
 /// Represents the scroll position of a tab's content.
 #[derive(Debug, Clone, Copy, Default)]
@@ -52,6 +55,12 @@ impl UiDevtools {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Devtools {
+    pub window_id: Id,
+    pub context: DevtoolsContext,
+}
+
 /// Represents a tab in the UI.
 #[derive(Debug, Clone)]
 pub struct UiTab {
@@ -60,7 +69,9 @@ pub struct UiTab {
 
     /// The page contents.
     pub page: Arc<Page>,
-    pub devtools_page: Option<UiDevtools>,
+
+    /// The devtools page, if the devtools are open for this tab.
+    pub devtools: Option<Devtools>,
 
     /// The layout tree of the tab's content.
     pub layout_tree: LayoutTree,
@@ -94,7 +105,7 @@ impl UiTab {
         Self {
             id,
             page: Page::blank().into(),
-            devtools_page: None,
+            devtools: None,
             layout_tree: LayoutTree::default(),
             scroll_offset: ScrollOffset::default(),
             known_images: HashMap::new(),

@@ -1,6 +1,6 @@
-use ::layout::LayoutTree;
 use browser_core::TabId;
-use iced::{Task, window::Id};
+use iced::{Size, Task, window::Id};
+use layout::LayoutTree;
 
 use crate::{
     core::Application,
@@ -25,49 +25,51 @@ mod window;
 #[derive(Debug, Clone)]
 pub enum BrowserEvent {
     /// Create a new tab.
-    NewTab,
+    NewTab(Id),
 
     /// Close the tab with the specified ID.
-    CloseTab(TabId),
+    CloseTab(Id, TabId),
 
     /// Change the active tab to the tab with the specified ID.
-    ChangeActiveTab(TabId),
+    ChangeActiveTab(Id, TabId),
 
     /// Change the URL in the address bar to the specified URL.
-    ChangeURL(String),
+    ChangeURL(Id, String),
 
     /// Handle content scroll event with new scroll offset.
-    Scroll(f32, f32),
+    Scroll(Id, f32, f32),
 
     /// Handle browser resize event with new width and height.
-    Resize(Id, f32, f32),
+    Resize(Id, Size),
 
     /// An image has finished loading (or failed). The first String is the source URL,
     /// the second is the pre-resolved Vary string for exact disk cache lookups.
-    ImageLoaded(TabId, String, String),
+    ImageLoaded(Id, TabId, String, String),
 
     /// A background relayout has completed.  Carries the tab id, the layout
     /// generation the work was started with, and the resulting layout tree.
     /// If the generation no longer matches the tab's current generation the
     /// result is stale (e.g. the user navigated away) and should be discarded.
-    RelayoutComplete(TabId, u64, LayoutTree),
+    RelayoutComplete(Id, TabId, u64, LayoutTree),
 }
 
 impl EventHandler<BrowserEvent> for Application {
     fn handle(&mut self, event: BrowserEvent) -> Task<Event> {
         match event {
-            BrowserEvent::ChangeURL(url) => on_url_change(self, url),
+            BrowserEvent::NewTab(window_id) => create_new_tab(self, window_id),
+            BrowserEvent::CloseTab(window_id, tab_id) => close_tab(self, window_id, tab_id),
+            BrowserEvent::ChangeActiveTab(window_id, tab_id) => change_active_tab(self, window_id, tab_id),
 
-            BrowserEvent::Scroll(x, y) => on_scrolled(self, x, y),
-            BrowserEvent::Resize(window_id, width, height) => on_resized(self, window_id, width, height),
+            BrowserEvent::ChangeURL(window_id, url) => on_url_change(self, window_id, url),
 
-            BrowserEvent::NewTab => create_new_tab(self),
-            BrowserEvent::CloseTab(tab_id) => close_tab(self, tab_id),
-            BrowserEvent::ChangeActiveTab(tab_id) => change_active_tab(self, tab_id),
+            BrowserEvent::Scroll(window_id, x, y) => on_scrolled(self, window_id, x, y),
+            BrowserEvent::Resize(window_id, new_viewport) => on_resized(self, window_id, new_viewport),
 
-            BrowserEvent::ImageLoaded(tab_id, ref url, ref vary_key) => on_image_loaded(self, tab_id, url, vary_key),
-            BrowserEvent::RelayoutComplete(tab_id, generation, layout_tree) => {
-                on_relayout_complete(self, tab_id, generation, layout_tree)
+            BrowserEvent::ImageLoaded(window_id, tab_id, ref url, ref vary_key) => {
+                on_image_loaded(self, window_id, tab_id, url, vary_key)
+            }
+            BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree) => {
+                on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
             }
         }
     }

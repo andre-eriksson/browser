@@ -176,6 +176,36 @@ impl Commandable for Browser {
                     Err(KernelError::TabError(TabError::NoHistory))
                 }
             }
+            EngineCommand::Refresh => {
+                let active_tab_id = self.tab_manager.active_tab_id();
+                let active_tab = self
+                    .tab_manager
+                    .get_tab_mut(active_tab_id)
+                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(active_tab_id.0)))?;
+
+                if let Some(current_url) = active_tab.page().document_url() {
+                    let url = current_url.clone();
+
+                    let stylesheets = if let Some(default) = &self.default_stylesheet {
+                        vec![default.clone()]
+                    } else {
+                        vec![]
+                    };
+
+                    let page = Arc::new(navigate(self, active_tab_id, url.as_str(), stylesheets).await?);
+
+                    let active_tab = self
+                        .tab_manager
+                        .get_tab_mut(active_tab_id)
+                        .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(active_tab_id.0)))?;
+
+                    active_tab.navigate_to(Arc::clone(&page));
+
+                    Ok(EngineResponse::NavigateSuccess(active_tab_id, page, active_tab.history_state()))
+                } else {
+                    Err(KernelError::TabError(TabError::NoUrl))
+                }
+            }
             EngineCommand::GetDevtoolsPage { tab_id } => {
                 let active_tab = self
                     .tab_manager

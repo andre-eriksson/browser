@@ -5,6 +5,7 @@ use iced::{
     keyboard::{Key, key::Named},
     mouse::{self, Cursor, Interaction},
     widget::{Action, shader::Program},
+    window::Id,
 };
 use layout::LayoutTree;
 use renderer::{ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo};
@@ -24,6 +25,9 @@ pub struct HtmlState {
 /// HTML/CSS renderer using wgpu
 #[derive(Debug, Clone)]
 pub struct HtmlRenderer<'a> {
+    /// The ID of the window being rendered (used for event routing)
+    pub window_id: Id,
+
     /// Rectangles to render (populated by layout engine)
     pub rects: Vec<RenderRect>,
 
@@ -51,12 +55,14 @@ pub struct HtmlRenderer<'a> {
 
 impl<'html> HtmlRenderer<'html> {
     pub fn new(
+        window_id: Id,
         dom_tree: &'html DocumentRoot,
         layout_tree: &'html LayoutTree,
         scroll_offset: ScrollOffset,
         window_type: WindowType,
     ) -> Self {
         Self {
+            window_id,
             rects: Vec::with_capacity(1000),
             tris: Vec::with_capacity(1000),
             text_blocks: Vec::with_capacity(1000),
@@ -283,8 +289,12 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
 
                 if (new_x - self.scroll_offset.x).abs() > f32::EPSILON {
                     let event = match self.window_type {
-                        WindowType::Browser => Event::Browser(BrowserEvent::Scroll(new_x, self.scroll_offset.y)),
-                        WindowType::Devtools => Event::Devtools(DevtoolEvent::Scroll(new_x, self.scroll_offset.y)),
+                        WindowType::Browser => {
+                            Event::Browser(BrowserEvent::Scroll(self.window_id, new_x, self.scroll_offset.y))
+                        }
+                        WindowType::Devtools => {
+                            Event::Devtools(DevtoolEvent::Scroll(self.window_id, new_x, self.scroll_offset.y))
+                        }
                     };
 
                     return Some(Action::publish(event));
@@ -300,8 +310,12 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
 
                 if (new_y - self.scroll_offset.y).abs() > f32::EPSILON {
                     let event = match self.window_type {
-                        WindowType::Browser => Event::Browser(BrowserEvent::Scroll(self.scroll_offset.x, new_y)),
-                        WindowType::Devtools => Event::Devtools(DevtoolEvent::Scroll(self.scroll_offset.x, new_y)),
+                        WindowType::Browser => {
+                            Event::Browser(BrowserEvent::Scroll(self.window_id, self.scroll_offset.x, new_y))
+                        }
+                        WindowType::Devtools => {
+                            Event::Devtools(DevtoolEvent::Scroll(self.window_id, self.scroll_offset.x, new_y))
+                        }
                     };
 
                     return Some(Action::publish(event));
@@ -314,7 +328,7 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
             && let iced::Event::Mouse(e) = event
             && let mouse::Event::ButtonReleased(mouse::Button::Left) = e
         {
-            return Some(Action::publish(Event::EngineRequest(EngineRequest::NavigateTo(href))));
+            return Some(Action::publish(Event::EngineRequest(EngineRequest::NavigateTo(self.window_id, href))));
         }
 
         None

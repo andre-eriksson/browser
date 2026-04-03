@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use browser_core::TabId;
 use css_style::{AbsoluteContext, StyleTree};
-use iced::Task;
+use iced::{Task, window::Id};
 use io::{CacheEntry, CacheRead};
 use layout::{LayoutEngine, Rect};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
     core::Application,
@@ -24,23 +24,31 @@ use crate::{
 /// scrolling and other interactions remain responsive while the work is in progress.
 pub(crate) fn on_image_loaded(
     application: &mut Application,
+    window_id: Id,
     tab_id: TabId,
     url: &String,
     vary_key: &str,
 ) -> Task<Event> {
+    let ctx = if let Some(ctx) = application.browser_windows.get_mut(&window_id) {
+        ctx
+    } else {
+        error!("Browser context not found for window ID: {}", window_id);
+        return Task::none();
+    };
+
     if let Some(ref cache) = application.image_cache
         && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(url, vary_key)
         && let CacheRead::Hit(decoded) = (*decoded).clone()
     {
         let intrinsic_w = decoded.width as f32;
         let intrinsic_h = decoded.height as f32;
-        if let Some(tab) = application.tabs.iter_mut().find(|t| t.id == tab_id) {
+        if let Some(tab) = ctx.tabs.iter_mut().find(|t| t.id == tab_id) {
             tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
             tab.set_image_vary_key(url, vary_key.to_string());
         }
     }
 
-    let Some(tab) = application.tabs.iter_mut().find(|t| t.id == tab_id) else {
+    let Some(tab) = ctx.tabs.iter_mut().find(|t| t.id == tab_id) else {
         return Task::none();
     };
 
@@ -58,17 +66,13 @@ pub(crate) fn on_image_loaded(
         return Task::none();
     }
 
-    let (vw, vh) = application
-        .viewports
-        .get(&application.id)
-        .copied()
-        .unwrap_or((800.0, 600.0));
+    let viewport = ctx.viewport;
 
     let theme_category = application.config.preferences().active_theme().category;
     let page = Arc::clone(&tab.page);
     let image_ctx = tab.image_context();
     let layout_tree = tab.layout_tree.clone();
-    let text_ctx = application.text_context.clone();
+    let text_ctx = ctx.text_context.clone();
     let generation = tab.layout_generation;
 
     Task::perform(
@@ -76,8 +80,8 @@ pub(crate) fn on_image_loaded(
             tokio::task::spawn_blocking(move || {
                 let ctx = AbsoluteContext {
                     root_font_size: 16.0,
-                    viewport_width: vw,
-                    viewport_height: vh,
+                    viewport_width: viewport.width,
+                    viewport_height: viewport.height,
                     theme_category,
                     document_url: page.document_url.as_ref(),
                     ..Default::default()
@@ -90,7 +94,7 @@ pub(crate) fn on_image_loaded(
                 for node_id in image_node_ids {
                     LayoutEngine::relayout_node(
                         node_id,
-                        Rect::new(0.0, 0.0, vw, vh),
+                        Rect::new(0.0, 0.0, viewport.width, viewport.height),
                         &mut layout_tree,
                         &style_tree,
                         dom_tree,
@@ -104,7 +108,7 @@ pub(crate) fn on_image_loaded(
             .await
             .unwrap()
         },
-        move |layout_tree| Event::Browser(BrowserEvent::RelayoutComplete(tab_id, generation, layout_tree)),
+        move |layout_tree| Event::Browser(BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree)),
     )
 }
 
@@ -112,11 +116,19 @@ pub(crate) fn on_image_loaded(
 /// generation matches.
 pub(crate) fn on_relayout_complete(
     application: &mut Application,
+    window_id: Id,
     tab_id: TabId,
     generation: u64,
     layout_tree: layout::LayoutTree,
 ) -> Task<Event> {
-    if let Some(tab) = application.tabs.iter_mut().find(|t| t.id == tab_id) {
+    let ctx = if let Some(ctx) = application.browser_windows.get_mut(&window_id) {
+        ctx
+    } else {
+        error!("Browser context not found for window ID: {}", window_id);
+        return Task::none();
+    };
+
+    if let Some(tab) = ctx.tabs.iter_mut().find(|t| t.id == tab_id) {
         if tab.layout_generation == generation {
             tab.layout_tree = layout_tree;
         } else {

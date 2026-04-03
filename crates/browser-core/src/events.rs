@@ -54,6 +54,9 @@ pub enum EngineCommand {
     /// Command to navigate forward in the history of a tab.
     NavigateForward { tab_id: TabId },
 
+    /// Command to reload the current page in the current tab.
+    Refresh,
+
     /// Get the DevTools page for a specific tab.
     GetDevtoolsPage { tab_id: TabId },
 

@@ -10,6 +10,7 @@ use iced::{
         svg::Handle,
         text, text_input,
     },
+    window::Id,
 };
 use io::{
     Resource,
@@ -25,25 +26,30 @@ pub struct BrowserHeader;
 
 impl BrowserHeader {
     /// Renders the header for the browser window, including tabs and a search bar.
-    pub fn render(app: &Application) -> container::Container<'_, Event> {
+    pub fn render(app: &Application, window_id: Id) -> container::Container<'_, Event> {
         let plus_icon = Resource::load_embedded(PLUS_ICON);
         let left_chevron_icon = Resource::load_embedded(LEFT_CHEVRON_ICON);
         let right_chevron_icon = Resource::load_embedded(RIGHT_CHEVRON_ICON);
         let refresh_icon = Resource::load_embedded(REFRESH_ICON);
 
-        let current_tab = app.tabs.iter().find(|tab| tab.id == app.active_tab);
+        let ctx = app
+            .browser_windows
+            .get(&window_id)
+            .expect("Browser context should exist for the window");
+
+        let current_tab = ctx.tabs.iter().find(|tab| tab.id == ctx.active_tab_id);
 
         let theme = app.config.preferences().active_theme();
 
-        let all_tabs = row(app
+        let all_tabs = row(ctx
             .tabs
             .iter()
             .map(|tab| {
-                let active_tab_id = app.active_tab;
+                let active_tab_id = ctx.active_tab_id;
 
                 mouse_area(
                     button(text(tab.page.title().trim()))
-                        .on_press(Event::Browser(BrowserEvent::ChangeActiveTab(tab.id)))
+                        .on_press(Event::Browser(BrowserEvent::ChangeActiveTab(window_id, tab.id)))
                         .style(move |t: &Theme, _| {
                             if tab.id == active_tab_id {
                                 button::Style {
@@ -62,7 +68,7 @@ impl BrowserHeader {
                             }
                         }),
                 )
-                .on_right_press(Event::Browser(BrowserEvent::CloseTab(tab.id)))
+                .on_right_press(Event::Browser(BrowserEvent::CloseTab(window_id, tab.id)))
                 .into()
             })
             .chain(std::iter::once(
@@ -71,7 +77,7 @@ impl BrowserHeader {
                         .width(Length::Fixed(21.0))
                         .height(Length::Fixed(21.0)),
                 )
-                .on_press(Event::Browser(BrowserEvent::NewTab))
+                .on_press(Event::Browser(BrowserEvent::NewTab(window_id)))
                 .style(|_, _| button::Style {
                     background: Some(Background::Color(
                         Color::from_str(theme.tertiary.as_str())
@@ -91,7 +97,7 @@ impl BrowserHeader {
                 .height(Length::Fixed(18.0)),
         )
         .on_press_maybe(if current_tab.is_some_and(|tab| tab.history_state.can_go_back) {
-            Some(Event::EngineRequest(EngineRequest::NavigateBack))
+            Some(Event::EngineRequest(EngineRequest::NavigateBack(window_id)))
         } else {
             None
         });
@@ -102,7 +108,7 @@ impl BrowserHeader {
                 .height(Length::Fixed(18.0)),
         )
         .on_press_maybe(if current_tab.is_some_and(|tab| tab.history_state.can_go_forward) {
-            Some(Event::EngineRequest(EngineRequest::NavigateForward))
+            Some(Event::EngineRequest(EngineRequest::NavigateForward(window_id)))
         } else {
             None
         });
@@ -112,15 +118,15 @@ impl BrowserHeader {
                 .width(Length::Fixed(18.0))
                 .height(Length::Fixed(18.0)),
         )
-        .on_press(Event::EngineRequest(EngineRequest::Refresh));
+        .on_press(Event::EngineRequest(EngineRequest::Refresh(window_id)));
 
         let tabs = scrollable::Scrollable::new(all_tabs)
             .direction(Direction::Horizontal(Scrollbar::new()))
             .width(Length::FillPortion(2));
 
-        let search_bar = text_input("Search", &app.current_url)
-            .on_input(|text| Event::Browser(BrowserEvent::ChangeURL(text)))
-            .on_submit(Event::EngineRequest(EngineRequest::NavigateTo(app.current_url.clone())));
+        let search_bar = text_input("Search", &ctx.current_url)
+            .on_input(move |text| Event::Browser(BrowserEvent::ChangeURL(window_id, text)))
+            .on_submit(Event::EngineRequest(EngineRequest::NavigateTo(window_id, ctx.current_url.clone())));
 
         let search_field = row![
             back_navigation,

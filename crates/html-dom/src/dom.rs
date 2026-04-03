@@ -202,6 +202,11 @@ impl DocumentRoot {
         node_id
     }
 
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
     /// Convert the DOM tree to an HTML string representation
     /// Used for debugging and visualization purposes.
     #[must_use]

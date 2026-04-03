@@ -16,7 +16,7 @@ use crate::{
 /// # Fields
 /// * `open_windows` - A map of currently open windows, keyed by their unique ID.
 pub struct WindowController {
-    pub open_windows: HashMap<window::Id, Box<dyn ApplicationWindow<Application>>>,
+    pub open_windows: HashMap<Id, Box<dyn ApplicationWindow>>,
 }
 
 impl WindowController {
@@ -30,11 +30,8 @@ impl WindowController {
     ///
     /// # Arguments
     /// * `id` - The ID of the window to retrieve.
-    pub fn get_window(&self, id: Id) -> &dyn ApplicationWindow<Application> {
-        self.open_windows
-            .get(&id)
-            .expect("Window not found")
-            .as_ref()
+    pub fn get_window(&self, id: Id) -> Option<&dyn ApplicationWindow> {
+        self.open_windows.get(&id).map(|window| window.as_ref())
     }
 
     /// Renders the content of the window with the specified ID.
@@ -46,16 +43,16 @@ impl WindowController {
         &'window self,
         app: &'window Application,
         id: Id,
-    ) -> iced::Element<'window, Event, Theme, Renderer> {
-        self.get_window(id).render(app)
+    ) -> Option<iced::Element<'window, Event, Theme, Renderer>> {
+        self.get_window(id).map(|window| window.render(app))
     }
 
     /// Returns the title of the window with the specified ID.
     ///
     /// # Arguments
     /// * `id` - The ID of the window whose title is requested.
-    pub fn title(&self, id: Id) -> String {
-        self.get_window(id).title()
+    pub fn title(&self, id: Id) -> Option<String> {
+        self.get_window(id).map(|window| window.title())
     }
 
     /// Opens a new window of the given type, constructs its instance with the
@@ -63,15 +60,15 @@ impl WindowController {
     ///
     /// # Arguments
     /// * `window_type` - The type of window to open.
-    pub fn new_window(&mut self, window_type: WindowType) -> (Id, Task<Id>) {
-        let (id, task, window): (Id, Task<Id>, Box<dyn ApplicationWindow<Application>>) = match window_type {
+    pub fn new_window(&mut self, parent_id: Option<Id>, window_type: WindowType) -> (Id, Task<Id>) {
+        let (id, task, window): (Id, Task<Id>, Box<dyn ApplicationWindow>) = match window_type {
             WindowType::Browser => {
                 let (id, task) = window::open(BrowserWindow::settings());
-                (id, task, Box::new(BrowserWindow::new(id)))
+                (id, task, Box::new(BrowserWindow::new(parent_id, id)))
             }
             WindowType::Devtools => {
                 let (id, task) = window::open(DevtoolsWindow::settings());
-                (id, task, Box::new(DevtoolsWindow::new(id)))
+                (id, task, Box::new(DevtoolsWindow::new(parent_id, id)))
             }
         };
 
