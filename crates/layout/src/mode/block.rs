@@ -99,7 +99,7 @@ impl BlockLayout {
         text_ctx: &mut TextContext,
         image_ctx: &ImageContext,
     ) -> Option<LayoutNode> {
-        if styled_node.style.position.is_out_of_flow() && !ctx.bypass {
+        if styled_node.style.position.is_out_of_flow() && ctx.deferred {
             let containing_block = if styled_node.style.position == Position::Fixed {
                 ctx.containing_block()
             } else {

@@ -251,7 +251,7 @@ impl LayoutTree {
 pub struct LayoutContext {
     containing_block: Rect,
     positioned_containing_block: Rect,
-    pub bypass: bool,
+    pub deferred: bool,
     pub block_cursor: BlockCursor,
 }
 
@@ -261,7 +261,7 @@ impl LayoutContext {
         Self {
             containing_block,
             positioned_containing_block: containing_block,
-            bypass: false,
+            deferred: true,
             block_cursor: BlockCursor::from(containing_block.y),
         }
     }

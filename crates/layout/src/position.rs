@@ -1,5 +1,5 @@
-use css_style::StyledNode;
 use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, float::FloatContext, layout::LayoutContext};
+use css_style::StyledNode;
 
 #[derive(Debug, Clone)]
 struct PendingPosition {
@@ -57,7 +57,7 @@ impl PositionContext {
             .drain(..)
             .filter_map(|pending| {
                 let mut ctx = LayoutContext::new(pending.containing_block);
-                ctx.bypass = true;
+                ctx.deferred = false;
                 ctx.block_cursor.y = 0.0;
                 ctx.set_positioned_containing_block(self.viewport);
 
