@@ -58,7 +58,7 @@ impl PositionContext {
             .filter_map(|pending| {
                 let mut ctx = LayoutContext::new(pending.containing_block);
                 ctx.deferred = false;
-                ctx.block_cursor.y = 0.0;
+
                 ctx.set_positioned_containing_block(self.viewport);
 
                 let node = LayoutEngine::layout_node(

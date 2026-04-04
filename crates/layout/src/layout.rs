@@ -262,7 +262,7 @@ impl LayoutContext {
             containing_block,
             positioned_containing_block: containing_block,
             deferred: true,
-            block_cursor: BlockCursor::from(containing_block.y),
+            block_cursor: BlockCursor { y: 0.0 },
         }
     }
 

@@ -160,7 +160,6 @@ impl LayoutEngine {
         };
 
         let mut ctx = LayoutContext::new(old_layout.dimensions);
-        ctx.block_cursor.y = 0.0;
 
         let mut new_node = match Self::layout_node(
             styled_node,
@@ -227,8 +226,6 @@ mod tests {
     use css_style::{ComputedStyle, Display};
     use css_values::display::OutsideDisplay;
     use html_dom::NodeId;
-
-    use crate::mode::block::BlockCursor;
 
     use super::*;
 
@@ -297,9 +294,7 @@ mod tests {
         };
 
         let mut ctx = LayoutContext::new(viewport());
-        let cursor = BlockCursor { y: 0.0 };
 
-        ctx.block_cursor = cursor;
         let mut text_ctx = TextContext::default();
         let image_ctx = ImageContext::new();
         let mut position_ctx = PositionContext::new(viewport());

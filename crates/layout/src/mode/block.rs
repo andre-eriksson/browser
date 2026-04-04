@@ -165,9 +165,12 @@ impl BlockLayout {
 
                 if !inline_items.is_empty() {
                     let inline_ctx = InlineContext {
-                        start_x: x + padding.left + border.left,
-                        start_y: y + padding.top + border.top + flow.current_y,
-                        available_width: width,
+                        containing_block: Rect::new(
+                            x + padding.left + border.left,
+                            y + padding.top + border.top + flow.current_y,
+                            width,
+                            child_containing_height - flow.current_y,
+                        ),
                     };
 
                     let (inline_layout_nodes, inline_height) =
