@@ -1,3 +1,5 @@
+use std::f32;
+
 use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle, Position, StyledNode};
 use css_values::display::{Float, InsideDisplay};
 
@@ -79,7 +81,7 @@ impl PropertyResolver {
             },
         );
 
-        match &styled_node.style.width {
+        let width = match &styled_node.style.width {
             ComputedDimension::Auto => available_width.max(0.0),
             ComputedDimension::Fixed => styled_node.style.intrinsic_width,
             ComputedDimension::Percentage(f) => (width * f).max(0.0),
@@ -87,11 +89,13 @@ impl PropertyResolver {
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)
             | ComputedDimension::Stretch => styled_node.style.intrinsic_width,
-        }
+        };
+
+        width.min(available_width)
     }
 
     pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f32, containing_height: f32) -> f32 {
-        match &styled_node.style.height {
+        let height = match &styled_node.style.height {
             ComputedDimension::Auto => children_height.max(styled_node.style.intrinsic_height),
             ComputedDimension::Fixed => styled_node.style.intrinsic_height,
             ComputedDimension::Percentage(f) => (containing_height * f).max(0.0),
@@ -99,6 +103,27 @@ impl PropertyResolver {
             | ComputedDimension::MinContent
             | ComputedDimension::FitContent(_)
             | ComputedDimension::Stretch => children_height.max(styled_node.style.intrinsic_height),
+        };
+
+        if styled_node.style.max_height != ComputedMaxDimension::None {
+            let max_height = match &styled_node.style.max_height {
+                ComputedMaxDimension::Fixed => styled_node.style.max_intrinsic_height,
+                ComputedMaxDimension::Percentage(f) => (containing_height * f).max(0.0),
+                _ => f32::INFINITY,
+            };
+
+            let available_height = f32::min(
+                containing_height - (styled_node.style.margin_top + styled_node.style.margin_bottom),
+                if max_height == 0.0 && styled_node.style.height == ComputedDimension::Auto {
+                    f32::INFINITY
+                } else {
+                    max_height
+                },
+            );
+
+            height.min(available_height)
+        } else {
+            height
         }
     }
 }
