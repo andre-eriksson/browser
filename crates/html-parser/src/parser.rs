@@ -1,7 +1,7 @@
 use std::io::BufRead;
 use std::mem;
 
-use crate::errors::HtmlParsingError;
+use crate::{errors::HtmlParsingError, state::ResourceMetadata};
 use html_dom::{
     BuildResult, Collector, DefaultCollector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
 };
@@ -304,15 +304,46 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                         if let Some(last_token) = tokens.last()
                             && last_token.data.eq_ignore_ascii_case("link")
                             && let Some(rel_value) = last_token.attributes.get("rel")
-                            && rel_value
-                                .split_whitespace()
-                                .any(|rel| rel.eq_ignore_ascii_case("stylesheet"))
                         {
-                            last_token.attributes.get("href").map(|href| {
-                                trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
+                            if rel_value.trim().eq_ignore_ascii_case("stylesheet") {
+                                last_token.attributes.get("href").map(|href| {
+                                    trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
 
-                                BlockedReason::WaitingForResource(ResourceType::Style, href.to_string())
-                            })
+                                    BlockedReason::WaitingForResource(
+                                        ResourceType::Style,
+                                        href.to_string(),
+                                        ResourceMetadata::default(),
+                                    )
+                                })
+                            } else if rel_value.trim().eq_ignore_ascii_case("icon")
+                                || rel_value.trim().eq_ignore_ascii_case("shortcut icon")
+                            {
+                                last_token.attributes.get("href").map(|href| {
+                                    trace!("Blocking parser for favicon resource at token: {:?}", last_token);
+
+                                    let content_type = last_token.attributes.get("type").cloned();
+                                    let sizes = last_token.attributes.get("sizes").and_then(|s| {
+                                        let parts: Vec<&str> = s.split('x').collect();
+                                        if parts.len() == 2
+                                            && let (Ok(width), Ok(height)) = (parts[0].parse(), parts[1].parse())
+                                        {
+                                            return Some((width, height));
+                                        }
+                                        None
+                                    });
+
+                                    BlockedReason::WaitingForResource(
+                                        ResourceType::Favicon,
+                                        href.to_string(),
+                                        ResourceMetadata {
+                                            content_type,
+                                            sizes,
+                                        },
+                                    )
+                                })
+                            } else {
+                                None
+                            }
                         } else {
                             None
                         }

@@ -4,11 +4,9 @@ use iced::{
     Background, Color, Length, Theme,
     alignment::Vertical,
     widget::{
-        button, column, container, mouse_area, row,
+        Row, button, column, container, image, mouse_area, row,
         scrollable::{self, Direction, Scrollbar},
-        svg,
-        svg::Handle,
-        text, text_input,
+        svg, text, text_input,
     },
     window::Id,
 };
@@ -46,9 +44,38 @@ impl BrowserHeader {
             .iter()
             .map(|tab| {
                 let active_tab_id = ctx.active_tab_id;
+                let tab_title = text(tab.page.title().trim())
+                    .width(Length::Shrink)
+                    .height(Length::Shrink);
+
+                let mut tab_title_row = Row::new();
+
+                if let Some(favicon) = &tab.page.favicon {
+                    match favicon.content_type.as_deref() {
+                        Some("image/svg+xml") => {
+                            tab_title_row = tab_title_row.push(
+                                svg(iced::widget::svg::Handle::from_memory(favicon.data.clone()))
+                                    .width(Length::Fixed(16.0))
+                                    .height(Length::Fixed(16.0)),
+                            );
+                        }
+                        _ => {
+                            tab_title_row = tab_title_row.push(
+                                image(iced::widget::image::Handle::from_bytes(favicon.data.clone()))
+                                    .width(Length::Fixed(16.0))
+                                    .height(Length::Fixed(16.0)),
+                            );
+                        }
+                    }
+                }
+
+                tab_title_row = tab_title_row
+                    .push(tab_title)
+                    .align_y(Vertical::Center)
+                    .spacing(5.0);
 
                 mouse_area(
-                    button(text(tab.page.title().trim()))
+                    button(tab_title_row)
                         .on_press(Event::Browser(BrowserEvent::ChangeActiveTab(window_id, tab.id)))
                         .style(move |t: &Theme, _| {
                             if tab.id == active_tab_id {
@@ -71,7 +98,7 @@ impl BrowserHeader {
             })
             .chain(std::iter::once(
                 button(
-                    svg(Handle::from_memory(plus_icon))
+                    svg(iced::widget::svg::Handle::from_memory(plus_icon))
                         .width(Length::Fixed(21.0))
                         .height(Length::Fixed(21.0)),
                 )
@@ -87,7 +114,7 @@ impl BrowserHeader {
         .spacing(10.0);
 
         let back_navigation = button(
-            svg(Handle::from_memory(left_chevron_icon))
+            svg(iced::widget::svg::Handle::from_memory(left_chevron_icon))
                 .width(Length::Fixed(18.0))
                 .height(Length::Fixed(18.0)),
         )
@@ -98,7 +125,7 @@ impl BrowserHeader {
         });
 
         let forward_navigation = button(
-            svg(Handle::from_memory(right_chevron_icon))
+            svg(iced::widget::svg::Handle::from_memory(right_chevron_icon))
                 .width(Length::Fixed(18.0))
                 .height(Length::Fixed(18.0)),
         )
@@ -109,7 +136,7 @@ impl BrowserHeader {
         });
 
         let refresh_navigation = button(
-            svg(Handle::from_memory(refresh_icon))
+            svg(iced::widget::svg::Handle::from_memory(refresh_icon))
                 .width(Length::Fixed(18.0))
                 .height(Length::Fixed(18.0)),
         )

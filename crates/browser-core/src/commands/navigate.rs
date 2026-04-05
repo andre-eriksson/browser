@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::errors::NavigationError;
+use crate::{errors::NavigationError, tab::page::Favicon};
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_dom::Decoder;
@@ -55,7 +55,10 @@ pub(crate) async fn navigate(
 
     page.document_url = Some(url.clone());
 
+    let mut favicon = Favicon::default();
+
     let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
+    let mut favicon_handle: Option<JoinHandle<Option<Vec<u8>>>> = None;
     let mut parser = HtmlStreamParser::new(body.as_slice(), None, Some(TabCollector::default()));
 
     loop {
@@ -128,7 +131,7 @@ pub(crate) async fn navigate(
 
                     parser.resume()?;
                 }
-                BlockedReason::WaitingForResource(resource_type, href) => match resource_type {
+                BlockedReason::WaitingForResource(resource_type, href, metadata) => match resource_type {
                     ResourceType::Style => {
                         let relative_url = url.join(href).map_err(|e| {
                             NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
@@ -145,6 +148,64 @@ pub(crate) async fn navigate(
                             Arc::clone(&cookie_jar),
                         );
                         style_handles.push(handle);
+
+                        parser.resume()?;
+                    }
+                    ResourceType::Favicon => {
+                        let relative_url = url.join(href).map_err(|e| {
+                            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                                e.to_string(),
+                            )))
+                        })?;
+
+                        favicon.content_type = metadata.content_type.clone();
+                        favicon.size = metadata.sizes;
+
+                        let page_url = page.document_url.clone();
+                        let policies = *page.policies();
+                        let client_clone = client.box_clone();
+                        let headers_clone = Arc::clone(&headers);
+                        let cookies_clone = cookies.clone();
+
+                        let handle = tokio::task::spawn(async move {
+                            if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
+                                match Resource::load(io::ResourceType::Absolute {
+                                    protocol: relative_url.scheme(),
+                                    location: relative_url.path(),
+                                }) {
+                                    Ok(b) => Some(b),
+                                    Err(e) => {
+                                        debug!("Failed to load favicon {}: {}", relative_url, e);
+                                        None
+                                    }
+                                }
+                            } else {
+                                match Resource::from_remote(
+                                    relative_url.as_str(),
+                                    client_clone.as_ref(),
+                                    &cookies_clone,
+                                    &headers_clone,
+                                    &page_url,
+                                    &policies,
+                                )
+                                .await
+                                {
+                                    Ok(r) => match r.response().await {
+                                        Ok(body_resp) => body_resp.body,
+                                        Err(e) => {
+                                            debug!("Failed to read body for favicon {}: {}", relative_url, e);
+                                            None
+                                        }
+                                    },
+                                    Err(e) => {
+                                        debug!("Failed to fetch favicon {}: {}", relative_url, e);
+                                        None
+                                    }
+                                }
+                            }
+                        });
+
+                        favicon_handle = Some(handle);
 
                         parser.resume()?;
                     }
@@ -173,6 +234,20 @@ pub(crate) async fn navigate(
             Ok(None) => {}
             Err(e) => {
                 warn!("Style fetch+parse task panicked: {}", e);
+            }
+        }
+    }
+
+    if let Some(favicon_handle) = favicon_handle {
+        match favicon_handle.await {
+            Ok(Some(favicon_bytes)) => {
+                favicon.data = favicon_bytes;
+
+                page.favicon = Some(favicon);
+            }
+            Ok(None) => {}
+            Err(e) => {
+                warn!("Favicon fetch task panicked: {}", e);
             }
         }
     }

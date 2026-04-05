@@ -3,6 +3,14 @@ use html_dom::DocumentRoot;
 use io::DocumentPolicy;
 use url::Url;
 
+/// Represents the favicon of a web page, including its size, content type, and binary data.
+#[derive(Debug, Clone, Default)]
+pub struct Favicon {
+    pub size: Option<(u32, u32)>,
+    pub content_type: Option<String>,
+    pub data: Vec<u8>,
+}
+
 /// Represents a web page loaded in a tab.
 #[derive(Debug, Clone)]
 pub struct Page {
@@ -12,6 +20,7 @@ pub struct Page {
     stylesheets: Vec<CSSStyleSheet>,
     policies: DocumentPolicy,
     images: Vec<String>,
+    pub favicon: Option<Favicon>,
 }
 
 impl Page {
@@ -24,6 +33,7 @@ impl Page {
             document_url: None,
             policies: DocumentPolicy::default(),
             images: Vec::new(),
+            favicon: None,
         }
     }
 

@@ -1,8 +1,17 @@
 use std::collections::HashMap;
 
+/// Represents the type of resource that the parser is waiting for.
 #[derive(Debug, Clone)]
 pub enum ResourceType {
     Style,
+    Favicon,
+}
+
+/// Metadata about a resource that the parser is waiting for.
+#[derive(Debug, Clone, Default)]
+pub struct ResourceMetadata {
+    pub content_type: Option<String>,
+    pub sizes: Option<(u32, u32)>,
 }
 
 /// Represents the reason why the HTML parser is blocked.
@@ -16,9 +25,8 @@ pub enum BlockedReason {
     /// The associated `HashMap` contains attributes of the style element.
     WaitingForStyle(HashMap<String, String>),
 
-    /// The parser is waiting for a generic resource to load.
-    /// The associated `String` represents the URL of the resource.
-    WaitingForResource(ResourceType, String),
+    /// The parser is waiting for a generic resource to load, from <link> tags.
+    WaitingForResource(ResourceType, String, ResourceMetadata),
 
     /// The parser is waiting for SVG parsing to complete.
     SVGContent,
