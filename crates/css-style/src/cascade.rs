@@ -277,24 +277,20 @@ impl CascadedDeclaration<'_> {
 
     fn origin_priority(origin: StylesheetOrigin, important: bool) -> u8 {
         match (origin, important) {
-            (StylesheetOrigin::UserAgent, false) => 1,
-            (StylesheetOrigin::User, false) => 2,
-            (StylesheetOrigin::Author, false) => 3,
-            (StylesheetOrigin::Author, true) => 4,
-            (StylesheetOrigin::User, true) => 5,
-            (StylesheetOrigin::UserAgent, true) => 6,
+            (StylesheetOrigin::UserAgent, true) => 1,
+            (StylesheetOrigin::User, true) => 2,
+            (StylesheetOrigin::Author, true) => 3,
+            (StylesheetOrigin::Author, false) => 4,
+            (StylesheetOrigin::User, false) => 5,
+            (StylesheetOrigin::UserAgent, false) => 6,
         }
     }
 
-    /// Sort the declarations according to the CSS cascade rules: !important declarations first, then by origin (user agent, user, author),
-    /// then by specificity, and finally by source order.
+    /// Sort the declarations according to the CSS cascade rules.
     fn sort_declarations(declarations: &mut [CascadedDeclaration]) {
         declarations.sort_by(|a, b| {
-            b.important
-                .cmp(&a.important)
-                .then_with(|| {
-                    Self::origin_priority(b.origin, b.important).cmp(&Self::origin_priority(a.origin, a.important))
-                })
+            Self::origin_priority(a.origin, a.important)
+                .cmp(&Self::origin_priority(b.origin, b.important))
                 .then_with(|| b.specificity.cmp(&a.specificity))
                 .then_with(|| b.source_order.cmp(&a.source_order))
         });
