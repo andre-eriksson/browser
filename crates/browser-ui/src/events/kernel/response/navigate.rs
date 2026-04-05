@@ -51,7 +51,7 @@ pub(crate) fn on_navigation_success(
             root_font_size: 16.0,
             viewport_width: viewport.width,
             viewport_height: viewport.height,
-            theme_category: application.config.preferences().active_theme().category,
+            theme_category: application.config.preferences().theme().category,
             document_url: page.document_url.as_ref(),
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,

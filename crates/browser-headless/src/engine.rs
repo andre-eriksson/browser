@@ -1,6 +1,6 @@
 use browser_config::BrowserConfig;
 use browser_core::{Browser, TabId};
-use browser_preferences::ThemeCategory;
+use browser_preferences::theme::ThemeCategory;
 use css_style::{AbsoluteContext, StyleTree};
 use layout::{LayoutEngine, LayoutTree, Rect, TextContext};
 use std::io::{self, Write};

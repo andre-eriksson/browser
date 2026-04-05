@@ -1,67 +1,26 @@
 use std::collections::HashMap;
 
-use io::{Resource, files::PREFERENCES};
-use serde::{Deserialize, Serialize};
+use io::{Entry, Resource, files::PREFERENCES};
+use serde::Deserialize;
 use tracing::warn;
 
-#[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ThemeCategory {
-    #[default]
-    Light,
-    Dark,
-}
+use crate::theme::Theme;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Theme {
-    pub category: ThemeCategory,
-    pub background: String,
-    pub foreground: String,
-    pub text: String,
-    pub primary: String,
-    pub secondary: String,
-    pub tertiary: String,
-    pub success: String,
-    pub warning: String,
-    pub danger: String,
-}
+pub mod theme;
 
-impl Default for Theme {
-    fn default() -> Self {
-        Self {
-            category: ThemeCategory::Light,
-            background: "#FFFFFF".to_string(),
-            foreground: "#F6F8FB".to_string(),
-            text: "#1A1A1A".to_string(),
-            primary: "#5BC0EB".to_string(),
-            secondary: "#9BD7F5".to_string(),
-            tertiary: "#3A86FF".to_string(),
-            success: "#8AC926".to_string(),
-            warning: "#FFB703".to_string(),
-            danger: "#EF476F".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ThemeCollection {
-    #[serde(default)]
-    light: Theme,
-    #[serde(flatten)]
-    extras: HashMap<String, Theme>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
 pub struct BrowserPreferences {
-    theme: ThemeCollection,
-    active_theme: String,
+    #[serde(skip)]
+    themes: HashMap<String, Theme>,
+    theme: String,
 }
 
 impl Default for BrowserPreferences {
     fn default() -> Self {
         Self {
-            theme: ThemeCollection::default(),
-            active_theme: "light".to_string(),
+            themes: Self::load_themes(),
+            theme: "light".to_string(),
         }
     }
 }
@@ -69,62 +28,86 @@ impl Default for BrowserPreferences {
 impl BrowserPreferences {
     pub fn new(active_theme: String) -> Self {
         Self {
-            theme: ThemeCollection::default(),
-            active_theme,
+            themes: Self::load_themes(),
+            theme: active_theme,
         }
     }
 
     pub fn load() -> Self {
         match Resource::load(PREFERENCES) {
-            Err(_) => {
-                let serialized = toml::to_string(&Self::default());
-
-                if serialized.is_err() {
-                    warn!("Unable to serialize config file");
-                    return Self::default();
-                }
-
-                let res = Resource::write(PREFERENCES, serialized.unwrap());
-
-                if res.is_err() {
-                    warn!("Unable to create settings file")
-                }
-
-                Self::default()
-            }
             Ok(data) => {
-                let val = str::from_utf8(&data);
-
-                if val.is_err() {
+                let Ok(data) = std::str::from_utf8(&data) else {
+                    warn!("Failed to parse preferences file as UTF-8, using default settings");
                     return Self::default();
-                }
+                };
 
-                let out = toml::from_str(val.unwrap());
-
-                if out.is_err() {
+                let Ok(mut config) = toml::from_str::<BrowserPreferences>(data) else {
                     return Self::default();
-                }
+                };
 
-                let config: BrowserPreferences = out.unwrap();
+                config.themes = Self::load_themes();
 
-                if config.active_theme.is_empty() {
-                    warn!("Active theme is empty, defaulting to 'light'");
-                    return Self::default();
+                if config.theme.is_empty() || !config.themes.contains_key(&config.theme) {
+                    warn!("Active theme is invalid, defaulting to 'light'");
+                    config.theme = "light".to_string();
                 }
 
                 config
             }
+            Err(_) => {
+                warn!("Failed to load preferences, using default settings");
+
+                Self::default()
+            }
         }
     }
 
-    pub fn set_active_theme(&mut self, theme: String) {
-        self.active_theme = theme;
+    pub fn theme_name(&self) -> &str {
+        &self.theme
     }
 
-    pub fn active_theme(&self) -> &Theme {
-        self.theme
-            .extras
-            .get(&self.active_theme)
-            .unwrap_or(&self.theme.light)
+    pub fn theme(&self) -> &Theme {
+        let theme = self.themes.get(&self.theme);
+
+        match theme {
+            Some(theme) => theme,
+            None => {
+                warn!("Selected theme '{}' not found, defaulting to 'light'", self.theme);
+                self.themes.get("light").unwrap()
+            }
+        }
+    }
+
+    fn load_themes() -> HashMap<String, Theme> {
+        let mut themes = HashMap::from([
+            ("light".to_string(), Theme::light()),
+            ("dark".to_string(), Theme::dark()),
+        ]);
+
+        let theme_files = Resource::load_dir(Entry::config("themes/")).unwrap();
+
+        for file in theme_files {
+            if let Ok(content) = std::str::from_utf8(&file)
+                && let Ok(theme) = toml::from_str::<Theme>(content)
+            {
+                if theme.name.is_empty() {
+                    warn!("Theme with empty name will be skipped");
+                    continue;
+                }
+
+                if theme.name.eq_ignore_ascii_case("light") || theme.name.eq_ignore_ascii_case("dark") {
+                    warn!("Theme '{}' has a reserved name and will be skipped", theme.name);
+                    continue;
+                }
+
+                if themes.contains_key(&theme.name) {
+                    warn!("Theme '{}' already exists and will be overwritten", theme.name);
+                }
+
+                themes.insert(theme.name.clone(), theme);
+            }
+        }
+
+        themes
     }
 }

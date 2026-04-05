@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use browser_config::BrowserArgs;
+use browser_config::BrowserConfig;
 use browser_core::TabId;
 use constants::{BROWSER_ID, BROWSER_NAME};
 use iced::{
@@ -35,13 +35,13 @@ pub struct BrowserContext {
 }
 
 impl BrowserContext {
-    pub fn new(args: &BrowserArgs) -> Self {
+    pub fn new(config: &BrowserConfig) -> Self {
         let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
         let text_context = Arc::new(Mutex::new(TextContext::new(font_system)));
 
         Self {
             viewport: BrowserWindow::DEFAULT_VIEWPORT_SIZE,
-            current_url: args.url.clone().unwrap_or(DEFAULT_URL.to_string()),
+            current_url: config.args().url.clone().unwrap_or(DEFAULT_URL.to_string()),
             tabs: vec![UiTab::new(TabId(0))],
             active_tab_id: TabId(0),
             text_context,

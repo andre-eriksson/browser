@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use constants::{
     events::{EVENT_ASSET_LOADED, EVENT_LOAD_ASSET},
     keys::EVENT,
@@ -10,6 +12,7 @@ use network::{
     errors::{NetworkError, RequestError},
     request::RequestBuilder,
 };
+use storage::paths::{get_cache_path, get_config_path, get_data_path};
 use tracing::{instrument, trace, warn};
 #[cfg(feature = "network")]
 use url::Url;
@@ -23,6 +26,82 @@ use crate::{
     loader::{Loader, Writer},
 };
 
+#[derive(Debug)]
+pub enum FilePath {
+    Cache,
+    Config,
+    UserData,
+    Absolute,
+}
+
+#[derive(Debug)]
+pub struct Entry<'a> {
+    pub path: &'a str,
+    pub file_path: FilePath,
+}
+
+impl<'a> Entry<'a> {
+    pub const fn cache(path: &'a str) -> Self {
+        Self {
+            path,
+            file_path: FilePath::Cache,
+        }
+    }
+
+    pub const fn config(path: &'a str) -> Self {
+        Self {
+            path,
+            file_path: FilePath::Config,
+        }
+    }
+
+    pub const fn user_data(path: &'a str) -> Self {
+        Self {
+            path,
+            file_path: FilePath::UserData,
+        }
+    }
+
+    pub fn path(&self) -> Option<PathBuf> {
+        match self.file_path {
+            FilePath::Cache => {
+                let cache_path = get_cache_path();
+
+                match cache_path {
+                    Some(path) => Some(path.join(self.path)),
+                    None => {
+                        warn!("Cache directory is unavailable");
+                        None
+                    }
+                }
+            }
+            FilePath::Config => {
+                let config_path = get_config_path();
+
+                match config_path {
+                    Some(path) => Some(path.join(self.path)),
+                    None => {
+                        warn!("Config directory is unavailable");
+                        None
+                    }
+                }
+            }
+            FilePath::UserData => {
+                let user_data_path = get_data_path();
+
+                match user_data_path {
+                    Some(path) => Some(path.join(self.path)),
+                    None => {
+                        warn!("User data directory is unavailable");
+                        None
+                    }
+                }
+            }
+            FilePath::Absolute => Some(PathBuf::from(self.path)),
+        }
+    }
+}
+
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
 #[derive(Debug)]
@@ -30,17 +109,8 @@ pub enum ResourceType<'a> {
     /// Represents resources that are embedded within the application, such as icons, fonts, images, shaders, browser assets, and root assets.
     Embeded(EmbededType<'a>),
 
-    /// Represents resources that are stored in a cache, such as "$HOME/.cache/<app>/app_cache" on Unix-like systems.
-    Cache(&'a str),
-
-    /// Represents configuration files or settings, such as "$HOME/.config/<app>/app_config.json" on Unix-like systems.
-    Config(&'a str),
-
-    /// Represents user-generated data or preferences, such as "$HOME/.local/share/<app>/user_data.json" on Unix-like systems.
-    UserData(&'a str),
-
     /// Any resource that can be accessed via a file path, such as "assets/image.png" or "/usr/local/data/file.txt".
-    FileSystem(&'a str),
+    Path(Entry<'a>),
 
     /// Load any resource from an absolute path, given a protocol such as "file://", "http://", or "https://".
     /// The location field specifies the path or URL to the resource.
@@ -54,10 +124,9 @@ impl ResourceType<'_> {
     pub fn key(&self) -> String {
         match self {
             ResourceType::Embeded(embeded) => embeded.path(),
-            ResourceType::Cache(path) => path.to_string(),
-            ResourceType::Config(path) => path.to_string(),
-            ResourceType::UserData(path) => path.to_string(),
-            ResourceType::FileSystem(path) => path.to_string(),
+            ResourceType::Path(file) => file
+                .path()
+                .map_or_else(|| file.path.to_string(), |p| p.to_string_lossy().to_string()),
             ResourceType::Absolute { location, .. } => location.to_string(),
         }
     }
@@ -105,6 +174,28 @@ impl Resource {
         }
 
         Err(AssetError::NotFound(path))
+    }
+
+    pub fn load_dir(dir: Entry) -> Result<Vec<Vec<u8>>, AssetError> {
+        if let Some(path) = dir.path() {
+            let mut result = Vec::new();
+            for entry in
+                std::fs::read_dir(path).map_err(|_| AssetError::NotFound("Directory doesn't exist".to_string()))?
+            {
+                let entry = entry.map_err(|_| AssetError::NotFound("Entry doesn't exist".to_string()))?;
+                let path = entry.path();
+
+                if path.is_file()
+                    && let Ok(data) = std::fs::read(&path)
+                {
+                    result.push(data);
+                }
+            }
+
+            Ok(result)
+        } else {
+            Err(AssetError::NotFound("D".to_string()))
+        }
     }
 
     /// Writes data to a specified resource, such as cache or config files.

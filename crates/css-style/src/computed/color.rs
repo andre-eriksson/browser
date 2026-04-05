@@ -1,4 +1,4 @@
-use browser_preferences::ThemeCategory;
+use browser_preferences::theme::ThemeCategory;
 use css_values::color::{
     Color, ColorValue, Fraction, Hue,
     base::{ColorBase, HexColor},

@@ -362,7 +362,7 @@ impl Default for ComputedStyle {
             intrinsic_width: 0.0,
             left: 0.0,
             left_auto: true,
-            line_height: 16.0 * 1.2,
+            line_height: 1.5,
             margin_bottom: 0.0,
             margin_bottom_auto: false,
             margin_left: 0.0,

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use browser_preferences::ThemeCategory;
+use browser_preferences::theme::ThemeCategory;
 use css_cssom::{
     CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
     CssTokenKind, Property, SimpleBlock, StylesheetOrigin,

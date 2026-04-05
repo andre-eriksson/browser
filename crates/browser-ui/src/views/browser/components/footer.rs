@@ -41,8 +41,7 @@ impl BrowserFooter {
         )
         .style(|_| {
             container::background(Background::Color(
-                Color::from_str(app.config.preferences().active_theme().foreground.as_str())
-                    .unwrap_or(Color::from_str(&browser_preferences::Theme::default().foreground).unwrap()),
+                Color::from_str(app.config.preferences().theme().colors.foreground.as_str()).unwrap(),
             ))
         })
         .padding(10.0)

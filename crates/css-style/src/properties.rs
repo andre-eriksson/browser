@@ -1,6 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
-use browser_preferences::ThemeCategory;
+use browser_preferences::theme::ThemeCategory;
 use css_cssom::ComponentValueStream;
 use css_values::{
     CSSParsable,

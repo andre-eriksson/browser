@@ -23,19 +23,11 @@ input[type=hidden i] { display: none !important; }
   noscript { display: none !important; }
 }
 
-html {
-    background-color: light-dark(white, transparent);
-}
-
 html, body {
     display: block;
 }
 
 body {
-    color: light-dark(black, white);
-    font-family: sans-serif;
-    font-size: 16px;
-    line-height: 1.5;
     margin: 8px;
 }
 
@@ -119,7 +111,7 @@ sub, sup { line-height: normal; font-size: smaller; }
 ruby { display: ruby; }
 rt { display: ruby-text; }
 
-:link { color: light-dark(#00E, #00B6F9); }
+:link { color: #00E; }
 :visited { color: #551A8B; }
 :link, :visited { text-decoration: underline; cursor: pointer; }
 

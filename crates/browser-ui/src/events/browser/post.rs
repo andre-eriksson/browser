@@ -68,7 +68,7 @@ pub(crate) fn on_image_loaded(
 
     let viewport = ctx.viewport;
 
-    let theme_category = application.config.preferences().active_theme().category;
+    let theme_category = application.config.preferences().theme().category;
     let page = Arc::clone(&tab.page);
     let image_ctx = tab.image_context();
     let layout_tree = tab.layout_tree.clone();

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use browser_config::BrowserConfig;
 use browser_core::Browser;
+use constants::BROWSER_NAME;
 use iced::keyboard::key;
 use iced::theme::{Custom, Palette};
 use iced::widget::text;
@@ -47,7 +48,7 @@ impl Application {
         let tasks = vec![browser_task.discard()];
 
         let app = Application {
-            browser_windows: HashMap::from([(main_window_id, BrowserContext::new(config.args()))]),
+            browser_windows: HashMap::from([(main_window_id, BrowserContext::new(config))]),
             window_controller,
             browser,
             config,
@@ -106,28 +107,29 @@ impl Application {
     pub fn title(&self, window_id: window::Id) -> String {
         self.window_controller
             .title(window_id)
-            .unwrap_or_else(|| "Browser".to_string())
+            .unwrap_or_else(|| BROWSER_NAME.to_string())
     }
 
     /// Returns the theme for the application window.
     pub fn theme(&self, _window_id: window::Id) -> Theme {
-        let app_theme = self.config.preferences().active_theme();
+        let app_theme = self.config.preferences().theme();
+
+        macro_rules! color_or_default {
+            ($color:ident) => {
+                Color::from_str(app_theme.colors.$color.as_str()).unwrap()
+            };
+        }
 
         let palette = Palette {
-            background: Color::from_str(app_theme.background.as_str()).unwrap_or(Color::WHITE),
-            text: Color::from_str(app_theme.text.as_str())
-                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().text).unwrap()),
-            primary: Color::from_str(app_theme.primary.as_str())
-                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().primary).unwrap()),
-            success: Color::from_str(app_theme.success.as_str())
-                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().success).unwrap()),
-            warning: Color::from_str(app_theme.warning.as_str())
-                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().warning).unwrap()),
-            danger: Color::from_str(app_theme.danger.as_str())
-                .unwrap_or(Color::from_str(&browser_preferences::Theme::default().danger).unwrap()),
+            background: color_or_default!(background),
+            text: color_or_default!(text),
+            primary: color_or_default!(primary),
+            success: color_or_default!(success),
+            warning: color_or_default!(warning),
+            danger: color_or_default!(danger),
         };
 
-        let custom = Custom::new(String::from("Settings"), palette);
+        let custom = Custom::new(format!("usr/{}", self.config.preferences().theme_name()), palette);
 
         Theme::Custom(Arc::new(custom))
     }

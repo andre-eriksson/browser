@@ -35,7 +35,7 @@ pub(crate) fn create_window(application: &mut Application, window_id: Id, window
 
             application
                 .browser_windows
-                .insert(id, BrowserContext::new(application.config.args()));
+                .insert(id, BrowserContext::new(application.config));
 
             task.discard()
         }

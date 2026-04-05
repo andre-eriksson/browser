@@ -55,7 +55,7 @@ pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewp
                 root_font_size: 16.0,
                 viewport_width: new_viewport.width,
                 viewport_height: new_viewport.height,
-                theme_category: application.config.preferences().active_theme().category,
+                theme_category: application.config.preferences().theme().category,
                 ..Default::default()
             };
             let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());

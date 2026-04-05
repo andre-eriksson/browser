@@ -2,7 +2,7 @@ use std::{borrow::Cow, sync::Arc};
 
 use browser_config::BrowserConfig;
 use browser_core::Browser;
-use iced::{Font, Settings};
+use iced::{Font, Pixels, Settings};
 use io::{
     Resource,
     embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
@@ -18,13 +18,15 @@ impl Ui {
     pub fn run(browser: Arc<Mutex<Browser>>, config: &'static BrowserConfig) -> Result<(), UiError> {
         let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);
         let monospace_font = Resource::load_embedded(ROBOTO_MONO_REGULAR);
+        let theme = config.preferences().theme();
 
         let result =
             iced::daemon(move || Application::new(browser.clone(), config), Application::update, Application::view)
                 .subscription(Application::subscriptions)
                 .settings(Settings {
                     fonts: vec![Cow::Owned(default_font), Cow::Owned(monospace_font)],
-                    default_font: Font::with_name("Open Sans"),
+                    default_font: Font::with_name(&theme.typography.ui.name),
+                    default_text_size: Pixels(theme.typography.ui.size),
                     ..Default::default()
                 })
                 .theme(Application::theme)

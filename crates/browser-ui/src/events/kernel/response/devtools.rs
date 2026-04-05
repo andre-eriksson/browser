@@ -32,7 +32,7 @@ pub(crate) fn on_devtools_page_ready(
             root_font_size: 16.0,
             viewport_width: devtools_ctx.viewport.width,
             viewport_height: devtools_ctx.viewport.height,
-            theme_category: application.config.preferences().active_theme().category,
+            theme_category: application.config.preferences().theme().category,
             document_url: None,
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,

@@ -1,0 +1,31 @@
+# The default dark theme configuration for the browser.
+
+# The name of the theme.
+# Can't be left empty.
+# Should be unique across all themes, will be overriden if a theme with the same name already exists.
+name = "dark"
+
+# The category of the theme, which can be "light" or "dark".
+# Defaults to "light" if not specified or if an invalid value is provided.
+category = "dark"
+
+# The colors used in the theme.
+[colors]
+background = "#1A1A1A"
+foreground = "#343434"
+text       = "#FFFFFF"
+primary    = "#5BC0EB"
+secondary  = "#9BD7F5"
+tertiary   = "#3A86FF"
+success    = "#8AC926"
+warning    = "#FFB703"
+danger     = "#EF476F"
+
+# The typography settings for the UI.
+[typography.ui]
+
+# The font name can be any system font or a custom font that you have installed.
+name = "Open Sans"
+
+# The font size in pixels.
+size = 16.0

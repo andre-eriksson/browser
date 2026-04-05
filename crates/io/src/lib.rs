@@ -13,4 +13,4 @@ pub use network::{middleware::cookies::CookieMiddleware, policy::DocumentPolicy,
 
 pub use cache::errors::CacheRead;
 pub use cache::memory::{CacheEntry, MemoryCache};
-pub use manager::{Resource, ResourceType};
+pub use manager::{Entry, Resource, ResourceType};

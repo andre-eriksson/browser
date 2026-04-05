@@ -39,7 +39,7 @@ impl BrowserHeader {
 
         let current_tab = ctx.tabs.iter().find(|tab| tab.id == ctx.active_tab_id);
 
-        let theme = app.config.preferences().active_theme();
+        let theme = app.config.preferences().theme();
 
         let all_tabs = row(ctx
             .tabs
@@ -59,9 +59,7 @@ impl BrowserHeader {
                             } else {
                                 button::Style {
                                     background: Some(Background::Color(
-                                        Color::from_str(theme.secondary.as_str()).unwrap_or(
-                                            Color::from_str(&browser_preferences::Theme::default().secondary).unwrap(),
-                                        ),
+                                        Color::from_str(theme.colors.secondary.as_str()).unwrap(),
                                     )),
                                     ..Default::default()
                                 }
@@ -79,10 +77,7 @@ impl BrowserHeader {
                 )
                 .on_press(Event::Browser(BrowserEvent::NewTab(window_id)))
                 .style(|_, _| button::Style {
-                    background: Some(Background::Color(
-                        Color::from_str(theme.tertiary.as_str())
-                            .unwrap_or(Color::from_str(&browser_preferences::Theme::default().tertiary).unwrap()),
-                    )),
+                    background: Some(Background::Color(Color::from_str(theme.colors.tertiary.as_str()).unwrap())),
                     ..Default::default()
                 })
                 .into(),
@@ -141,10 +136,7 @@ impl BrowserHeader {
             .width(Length::Fill)
             .padding(10.0)
             .style(|_| container::Style {
-                background: Some(Background::Color(
-                    Color::from_str(theme.foreground.as_str())
-                        .unwrap_or(Color::from_str(&browser_preferences::Theme::default().foreground).unwrap()),
-                )),
+                background: Some(Background::Color(Color::from_str(theme.colors.foreground.as_str()).unwrap())),
                 ..Default::default()
             })
     }
