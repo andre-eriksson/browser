@@ -29,3 +29,7 @@ name = "Open Sans"
 
 # The font size in pixels.
 size = 16.0
+
+[style]
+# The border radius for UI elements in pixels.
+border_radius = 5.0

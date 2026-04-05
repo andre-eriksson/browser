@@ -19,7 +19,7 @@ use crate::{
     load_fallback_fonts,
     renderer::program::HtmlRenderer,
     util::image::load_icon,
-    views::browser::components::{footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml},
+    views::browser::ui::{footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml},
 };
 
 pub const TOP_UI_OFFSET: f32 = 87.0;
