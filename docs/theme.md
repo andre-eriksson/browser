@@ -23,3 +23,7 @@ The browser comes with two default themes: `light` and `dark`. You can use these
 
 - Names must be unique and can't be the same as the default themes (light, dark).
 - You can use any system avaliable font in the theme configuration.
+
+## See also
+
+- [User Preferences](./preferences.md)

@@ -23,3 +23,7 @@ The `theme` value specifies the theme to use for the browser. The default value 
 ```toml
 theme = "dark"
 ```
+
+## See also
+
+- [Themes](./theme.md)
