@@ -4,7 +4,6 @@ pub mod content;
 pub mod dom;
 pub mod layout;
 pub mod navigation;
-pub mod tabs;
 
 /// Headless browser command parser
 #[derive(Parser, Debug)]
@@ -45,24 +44,6 @@ pub enum HeadlessCommand {
 
     /// Reload the current page
     Reload,
-
-    /// List all open tabs
-    Tabs,
-
-    /// Switch to a specific tab
-    Tab {
-        /// Tab ID to switch to
-        id: usize,
-    },
-
-    /// Create a new tab
-    NewTab,
-
-    /// Close a tab (active tab if no ID specified)
-    CloseTab {
-        /// Optional tab ID to close
-        id: Option<usize>,
-    },
 
     /// Print the current page title
     Title,
@@ -138,16 +119,10 @@ impl HeadlessCommand {
         help.push_str("  exit, quit            Exit the headless browser\n");
         help.push('\n');
         help.push_str("Navigation:\n");
-        help.push_str("  navigate <url>        Navigate active tab to URL\n");
+        help.push_str("  navigate <url>        Navigate to URL\n");
         help.push_str("  back                  Navigate back in history\n");
         help.push_str("  forward               Navigate forward in history\n");
         help.push_str("  reload                Reload the current page\n");
-        help.push('\n');
-        help.push_str("Tabs:\n");
-        help.push_str("  tabs                  List all open tabs\n");
-        help.push_str("  tab <id>              Switch to tab by ID\n");
-        help.push_str("  new-tab               Create a new tab\n");
-        help.push_str("  close-tab [id]        Close tab (active if no ID)\n");
         help.push('\n');
         help.push_str("Page Content:\n");
         help.push_str("  title                 Print page title\n");
@@ -231,33 +206,6 @@ mod tests {
                 assert!((height - 1080.0).abs() < f32::EPSILON);
             }
             _ => panic!("Expected Resize command"),
-        }
-    }
-
-    #[test]
-    fn test_parse_tab() {
-        let cmd = HeadlessCommand::parse("tab 2").unwrap();
-        match cmd {
-            HeadlessCommand::Tab { id } => assert_eq!(id, 2),
-            _ => panic!("Expected Tab command"),
-        }
-    }
-
-    #[test]
-    fn test_parse_close_tab_no_id() {
-        let cmd = HeadlessCommand::parse("close-tab").unwrap();
-        match cmd {
-            HeadlessCommand::CloseTab { id } => assert!(id.is_none()),
-            _ => panic!("Expected CloseTab command"),
-        }
-    }
-
-    #[test]
-    fn test_parse_close_tab_with_id() {
-        let cmd = HeadlessCommand::parse("close-tab 3").unwrap();
-        match cmd {
-            HeadlessCommand::CloseTab { id } => assert_eq!(id, Some(3)),
-            _ => panic!("Expected CloseTab command"),
         }
     }
 

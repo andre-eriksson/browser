@@ -63,7 +63,8 @@ impl ApplicationWindow for DevtoolsWindow {
                 .into();
         };
 
-        let tab = ctx.tabs.iter().find(|tab| tab.id == ctx.active_tab_id);
+        let tab = ctx.tab_manager.active_tab();
+
         let viewport = tab
             .and_then(|t| t.devtools.as_ref())
             .map(|d| d.context.viewport)

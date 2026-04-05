@@ -1,11 +1,11 @@
-use browser_core::{DevtoolsPage, TabId};
+use browser_core::DevtoolsPage;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::{Task, window::Id};
 use layout::{LayoutEngine, Rect};
 
 use crate::{
-    core::{Application, Devtools, UiDevtools, WindowType},
+    core::{Application, Devtools, TabId, UiDevtools, WindowType},
     events::Event,
     views::devtools::window::{DevtoolsContext, DevtoolsWindow},
 };
@@ -27,7 +27,7 @@ pub(crate) fn on_devtools_page_ready(
         page: None,
     };
 
-    if let Some(tab) = ctx.tabs.iter_mut().find(|tab| tab.id == tab_id) {
+    if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: devtools_ctx.viewport.width,

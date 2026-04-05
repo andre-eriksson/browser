@@ -1,71 +1,64 @@
-use browser_core::{Commandable, EngineCommand};
+use std::sync::Arc;
+
+use browser_core::{Commandable, EngineCommand, EngineResponse};
 use tracing::info;
 
 use crate::HeadlessEngine;
 
 pub(crate) async fn cmd_navigate(engine: &mut HeadlessEngine, url: &str) -> Result<(), String> {
-    let tab_id = engine.active_tab_id()?;
-
     let result = engine
         .browser
         .execute(EngineCommand::Navigate {
-            tab_id,
             url: url.to_string(),
         })
         .await;
 
     match result {
-        Ok(_) => {
-            engine.recompute_layout();
-            info!("Navigated to: {}", url);
-            Ok(())
-        }
+        Ok(res) => match res {
+            EngineResponse::NavigateSuccess(page) => {
+                engine.history.push(Arc::clone(&engine.page));
+                engine.page = page;
+                engine.recompute_layout();
+                info!("Navigated to: {}", url);
+                Ok(())
+            }
+            EngineResponse::NavigateError(err) => Err(format!("Navigation error: {}", err)),
+            _ => Err("Unexpected response from navigation command".to_string()),
+        },
         Err(e) => Err(format!("Navigation error: {}", e)),
     }
 }
 
 pub(crate) async fn cmd_back(engine: &mut HeadlessEngine) -> Result<(), String> {
-    let tab_id = engine.active_tab_id()?;
-
-    match engine
-        .browser
-        .execute(EngineCommand::NavigateBack { tab_id })
-        .await
-    {
-        Ok(_) => {
+    match engine.history.go_back(Arc::clone(&engine.page)) {
+        Some(page) => {
+            engine.page = page;
             engine.recompute_layout();
             info!("Navigated back");
             Ok(())
         }
-        Err(e) => Err(format!("Cannot go back: {}", e)),
+        None => Err("Cannot go back".to_string()),
     }
 }
 
 pub(crate) async fn cmd_forward(engine: &mut HeadlessEngine) -> Result<(), String> {
-    let tab_id = engine.active_tab_id()?;
-
-    match engine
-        .browser
-        .execute(EngineCommand::NavigateForward { tab_id })
-        .await
-    {
-        Ok(_) => {
+    match engine.history.go_forward(Arc::clone(&engine.page)) {
+        Some(page) => {
+            engine.page = page;
             engine.recompute_layout();
             info!("Navigated forward");
             Ok(())
         }
-        Err(e) => Err(format!("Cannot go forward: {}", e)),
+        None => Err("Cannot go forward".to_string()),
     }
 }
 
 pub(crate) async fn cmd_reload(engine: &mut HeadlessEngine) -> Result<(), String> {
-    let url = {
-        let tab = engine.browser.tab_manager().active_tab();
-        match tab.and_then(|t| t.page().document_url().map(|u| u.to_string())) {
-            Some(url) => url,
-            None => return Err("No URL to reload".to_string()),
-        }
-    };
+    let url = engine
+        .page
+        .document_url()
+        .ok_or_else(|| "No page to reload".to_string())?
+        .clone();
 
-    cmd_navigate(engine, &url).await
+    cmd_navigate(engine, url.as_str()).await
 }

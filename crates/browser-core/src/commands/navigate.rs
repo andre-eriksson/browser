@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{errors::NavigationError, tab::page::Favicon};
+use crate::{context::page::Favicon, errors::NavigationError};
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_dom::Decoder;
@@ -17,16 +17,14 @@ use tracing::{debug, warn};
 use url::Url;
 
 use crate::{
-    TabId,
+    context::{collector::TabCollector, page::Page},
     navigation::NavigationContext,
-    tab::{collector::TabCollector, page::Page},
 };
 
 /// Navigates the specified tab to the given URL, fetching and parsing the content.
 /// Executes any scripts and processes stylesheets found during parsing.
 pub(crate) async fn navigate(
     ctx: &mut dyn NavigationContext,
-    tab_id: TabId,
     url: &str,
     mut stylesheets: Vec<CSSStyleSheet>,
 ) -> Result<Page, NavigationError> {
@@ -252,17 +250,12 @@ pub(crate) async fn navigate(
         }
     }
 
-    let policies = match ctx.tab_manager().get_tab_mut(tab_id) {
-        Some(tab) => *tab.policies(),
-        None => DocumentPolicy::default(),
-    };
-
     Ok(page.load(
         result.metadata.title.unwrap_or(url.to_string()),
         Some(url.clone()),
         result.dom_tree,
         stylesheets,
-        policies,
+        DocumentPolicy::default(),
         result.metadata.images,
     ))
 }

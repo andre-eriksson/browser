@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use browser_core::TabId;
 use iced::{
     Background, Border, Color, Length, Theme,
     alignment::Vertical,
@@ -11,7 +10,7 @@ use iced::{
 use io::{Resource, embeded::PLUS_ICON};
 
 use crate::{
-    core::UiTab,
+    core::{TabId, UiTab},
     events::{Event, browser::BrowserEvent},
 };
 

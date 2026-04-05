@@ -1,9 +1,12 @@
 use browser_config::BrowserConfig;
-use browser_core::{Browser, TabId};
+use browser_core::{Browser, History, Page};
 use browser_preferences::theme::ThemeCategory;
 use css_style::{AbsoluteContext, StyleTree};
 use layout::{LayoutEngine, LayoutTree, Rect, TextContext};
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    sync::Arc,
+};
 use tracing::{error, info};
 
 use crate::commands::{
@@ -12,7 +15,6 @@ use crate::commands::{
     dom::cmd_dom,
     layout::{cmd_layout, cmd_node, cmd_resize},
     navigation::{cmd_back, cmd_forward, cmd_navigate, cmd_reload},
-    tabs::{cmd_close_tab, cmd_new_tab, cmd_switch_tab, cmd_tabs},
 };
 
 const DEFAULT_VIEWPORT_WIDTH: f32 = 1280.0;
@@ -20,6 +22,8 @@ const DEFAULT_VIEWPORT_HEIGHT: f32 = 800.0;
 
 pub struct HeadlessEngine {
     pub browser: Browser,
+    pub page: Arc<Page>,
+    pub history: History,
     pub viewport_width: f32,
     pub viewport_height: f32,
     pub layout_tree: Option<LayoutTree>,
@@ -31,6 +35,8 @@ impl HeadlessEngine {
     pub fn new(browser: Browser) -> Self {
         HeadlessEngine {
             browser,
+            page: Arc::new(Page::blank()),
+            history: History::new(),
             viewport_width: DEFAULT_VIEWPORT_WIDTH,
             viewport_height: DEFAULT_VIEWPORT_HEIGHT,
             layout_tree: None,
@@ -60,10 +66,6 @@ impl HeadlessEngine {
             HeadlessCommand::Back => cmd_back(self).await,
             HeadlessCommand::Forward => cmd_forward(self).await,
             HeadlessCommand::Reload => cmd_reload(self).await,
-            HeadlessCommand::Tabs => cmd_tabs(self),
-            HeadlessCommand::Tab { id } => cmd_switch_tab(self, id).await,
-            HeadlessCommand::NewTab => cmd_new_tab(self).await,
-            HeadlessCommand::CloseTab { id } => cmd_close_tab(self, id).await,
             HeadlessCommand::Title => cmd_title(self),
             HeadlessCommand::Url => cmd_url(self),
             HeadlessCommand::Headers => cmd_headers(self),
@@ -89,15 +91,8 @@ impl HeadlessEngine {
     }
 
     pub(crate) fn recompute_layout(&mut self) {
-        let Some(tab) = self.browser.tab_manager().active_tab() else {
-            self.layout_tree = None;
-            self.style_tree = None;
-            return;
-        };
-
-        let page = tab.page();
-        let document = page.document();
-        let stylesheets = page.stylesheets();
+        let document = self.page.document();
+        let stylesheets = self.page.stylesheets();
 
         let ctx = AbsoluteContext {
             root_font_size: 16.0,
@@ -106,7 +101,7 @@ impl HeadlessEngine {
             viewport_height: self.viewport_height,
             root_color: css_values::color::Color::BLACK,
             theme_category: ThemeCategory::Light,
-            document_url: page.document_url(),
+            document_url: self.page.document_url(),
         };
 
         let style_tree = StyleTree::build(&ctx, document, stylesheets);
@@ -116,14 +111,6 @@ impl HeadlessEngine {
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);
-    }
-
-    pub(crate) fn active_tab_id(&mut self) -> Result<TabId, String> {
-        self.browser
-            .tab_manager()
-            .active_tab()
-            .map(|t| t.id)
-            .ok_or_else(|| "No active tab".to_string())
     }
 
     /// Main loop to process commands

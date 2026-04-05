@@ -15,7 +15,7 @@ use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 
 use crate::core::WindowType;
-use crate::events::kernel::EngineRequest;
+use crate::events::browser::BrowserEvent;
 use crate::events::window::WindowEvent;
 use crate::events::{Event, EventHandler};
 use crate::manager::WindowController;
@@ -65,7 +65,9 @@ impl Application {
     pub fn update(&mut self, event: Event) -> Task<Event> {
         match event {
             Event::Window(window_event) => self.handle(window_event),
-            Event::EngineResponse(window_id, engine_response) => self.handle((window_id, engine_response)),
+            Event::EngineResponse(window_id, tab_id, engine_response) => {
+                self.handle((window_id, tab_id, engine_response))
+            }
             Event::EngineRequest(engine_request) => self.handle(engine_request),
             Event::Browser(browser_event) => self.handle(browser_event),
             Event::Devtools(devtools_event) => self.handle(devtools_event),
@@ -84,12 +86,12 @@ impl Application {
                 iced::Event::Keyboard(keyboard::Event::KeyPressed {
                     key: keyboard::Key::Named(key::Named::F5),
                     ..
-                }) => Some(Event::EngineRequest(EngineRequest::Refresh(window_id))),
+                }) => Some(Event::Browser(BrowserEvent::Refresh(window_id))),
                 iced::Event::Keyboard(keyboard::Event::KeyPressed {
                     physical_key: key::Physical::Code(key::Code::KeyR),
                     modifiers,
                     ..
-                }) if modifiers.control() => Some(Event::EngineRequest(EngineRequest::Refresh(window_id))),
+                }) if modifiers.control() => Some(Event::Browser(BrowserEvent::Refresh(window_id))),
                 _ => None,
             }),
             self.window_controller.subscriptions(),

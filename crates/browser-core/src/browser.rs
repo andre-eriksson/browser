@@ -6,7 +6,7 @@ use std::{
 use crate::{
     DevtoolsPage,
     commands::{load_image, parse_devtools_html},
-    errors::{KernelError, TabError},
+    errors::KernelError,
 };
 use async_trait::async_trait;
 use browser_config::BrowserConfig;
@@ -22,17 +22,12 @@ use postcard::{from_bytes, to_stdvec};
 use tracing::instrument;
 
 use crate::{
-    commands::{add_tab, change_active_tab, close_tab, navigate},
+    commands::navigate,
     events::{Commandable, EngineCommand, EngineResponse},
     navigation::{NavigationContext, ScriptExecutor},
-    tab::{
-        manager::TabManager,
-        tabs::{Tab, TabId},
-    },
 };
 
 pub struct Browser {
-    tab_manager: TabManager,
     default_stylesheet: Option<CSSStyleSheet>,
     cookie_jar: Arc<Mutex<CookieJar>>,
     http_client: Box<dyn HttpClient>,
@@ -77,10 +72,7 @@ impl Browser {
             None
         };
 
-        let tab_manager = TabManager::new(Tab::new(TabId(0)));
-
         Browser {
-            tab_manager,
             default_stylesheet: stylesheet,
             cookie_jar,
             http_client,
@@ -90,10 +82,6 @@ impl Browser {
 
     pub fn headers(&self) -> &HeaderMap {
         self.headers
-    }
-
-    pub fn tab_manager(&mut self) -> &mut TabManager {
-        &mut self.tab_manager
     }
 
     pub fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
@@ -123,10 +111,6 @@ impl NavigationContext for Browser {
     fn http_client(&self) -> &dyn HttpClient {
         self.http_client.as_ref()
     }
-
-    fn tab_manager(&mut self) -> &mut TabManager {
-        &mut self.tab_manager
-    }
 }
 
 #[async_trait]
@@ -134,84 +118,18 @@ impl Commandable for Browser {
     #[instrument(skip(self))]
     async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, KernelError> {
         match command {
-            EngineCommand::Navigate { tab_id, url } => {
+            EngineCommand::Navigate { url } => {
                 let stylesheets = if let Some(default) = &self.default_stylesheet {
                     vec![default.clone()]
                 } else {
                     vec![]
                 };
 
-                let page = Arc::new(navigate(self, tab_id, &url, stylesheets).await?);
+                let page = Arc::new(navigate(self, &url, stylesheets).await?);
 
-                let tab = self
-                    .tab_manager
-                    .get_tab_mut(tab_id)
-                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
-
-                tab.navigate_to(Arc::clone(&page));
-
-                Ok(EngineResponse::NavigateSuccess(tab_id, page, tab.history_state()))
+                Ok(EngineResponse::NavigateSuccess(page))
             }
-            EngineCommand::NavigateBack { tab_id } => {
-                let tab = self
-                    .tab_manager
-                    .get_tab_mut(tab_id)
-                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
-
-                if tab.navigate_back() {
-                    Ok(EngineResponse::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
-                } else {
-                    Err(KernelError::TabError(TabError::NoHistory))
-                }
-            }
-            EngineCommand::NavigateForward { tab_id } => {
-                let tab = self
-                    .tab_manager
-                    .get_tab_mut(tab_id)
-                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
-
-                if tab.navigate_forward() {
-                    Ok(EngineResponse::NavigateSuccess(tab_id, Arc::clone(tab.page()), tab.history_state()))
-                } else {
-                    Err(KernelError::TabError(TabError::NoHistory))
-                }
-            }
-            EngineCommand::Refresh => {
-                let active_tab_id = self.tab_manager.active_tab_id();
-                let active_tab = self
-                    .tab_manager
-                    .get_tab_mut(active_tab_id)
-                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(active_tab_id.0)))?;
-
-                if let Some(current_url) = active_tab.page().document_url() {
-                    let url = current_url.clone();
-
-                    let stylesheets = if let Some(default) = &self.default_stylesheet {
-                        vec![default.clone()]
-                    } else {
-                        vec![]
-                    };
-
-                    let page = Arc::new(navigate(self, active_tab_id, url.as_str(), stylesheets).await?);
-
-                    let active_tab = self
-                        .tab_manager
-                        .get_tab_mut(active_tab_id)
-                        .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(active_tab_id.0)))?;
-
-                    active_tab.navigate_to(Arc::clone(&page));
-
-                    Ok(EngineResponse::NavigateSuccess(active_tab_id, page, active_tab.history_state()))
-                } else {
-                    Err(KernelError::TabError(TabError::NoUrl))
-                }
-            }
-            EngineCommand::GetDevtoolsPage { tab_id } => {
-                let active_tab = self
-                    .tab_manager
-                    .get_tab(tab_id)
-                    .ok_or_else(|| KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
-
+            EngineCommand::GetDevtoolsPage { document } => {
                 let default_css = {
                     let css_resource = Resource::load_embedded(DEFAULT_CSS);
                     CSSStyleSheet::from_css(
@@ -232,17 +150,18 @@ impl Commandable for Browser {
                 };
 
                 let stylesheets = vec![default_css, devtools_css];
-                let dom = parse_devtools_html(active_tab)
-                    .map_err(|e| KernelError::TabError(TabError::DevtoolsError(e.to_string())))?;
+                let dom =
+                    parse_devtools_html(&document).map_err(|e| KernelError::DevtoolsGenerationError(e.to_string()))?;
 
                 let devtools_page = DevtoolsPage::new(dom, stylesheets);
 
-                Ok(EngineResponse::DevtoolsPageReady(tab_id, devtools_page))
+                Ok(EngineResponse::DevtoolsPageReady(devtools_page))
             }
-            EngineCommand::AddTab => Ok(add_tab(&mut self.tab_manager)),
-            EngineCommand::CloseTab { tab_id } => close_tab(&mut self.tab_manager, tab_id),
-            EngineCommand::ChangeActiveTab { tab_id } => change_active_tab(&mut self.tab_manager, tab_id),
-            EngineCommand::FetchImage { tab_id, url } => load_image(self, tab_id, &url).await,
+            EngineCommand::FetchImage {
+                request_url,
+                request_policies,
+                image_url,
+            } => load_image(self, request_url, request_policies, &image_url).await,
         }
     }
 }

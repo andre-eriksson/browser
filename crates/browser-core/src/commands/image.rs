@@ -1,19 +1,21 @@
 use html_dom::Decoder;
+use io::DocumentPolicy;
 use network::errors::{NetworkError, RequestError};
 use url::Url;
 
 use crate::{
-    EngineResponse, TabId,
+    EngineResponse,
     commands::navigate::resolve_request,
-    errors::{KernelError, NavigationError, TabError},
+    errors::{KernelError, NavigationError},
     navigation::NavigationContext,
 };
 
 /// Loads an image from the specified URL using the browser's HTTP client, headers, and cookies.
 pub(crate) async fn load_image(
     ctx: &mut dyn NavigationContext,
-    tab_id: TabId,
-    url: &str,
+    url: Url,
+    policies: DocumentPolicy,
+    image_url: &str,
 ) -> Result<EngineResponse, KernelError> {
     let client = ctx.http_client().box_clone();
     let headers = ctx.headers().clone();
@@ -24,31 +26,21 @@ pub(crate) async fn load_image(
         .cookies()
         .clone();
 
-    let tab = ctx
-        .tab_manager()
-        .get_tab(tab_id)
-        .ok_or(KernelError::TabError(TabError::TabNotFound(tab_id.0)))?;
-    let page = tab.page();
-    let document_url = page.document_url.clone();
-    let policies = *page.policies();
-
-    let decoder = Decoder::new(url);
+    let decoder = Decoder::new(image_url);
     let decoded_url = decoder
         .decode()
         .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
 
-    let absolute_url = match document_url.as_ref() {
-        Some(u) => u.join(&decoded_url),
-        None => Url::parse(&decoded_url),
-    }
-    .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
+    let absolute_url = url
+        .join(&decoded_url)
+        .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
 
     if absolute_url.path().ends_with(".svg") {
         return Err(KernelError::ImageFetchError("SVG images are not supported yet".to_string()));
     }
 
     let (_resolved_url, response) =
-        resolve_request(absolute_url, ctx, &document_url, &policies, &cookies, &headers, client.as_ref()).await?;
+        resolve_request(absolute_url, ctx, &Some(url), &policies, &cookies, &headers, client.as_ref()).await?;
 
     let body = match response.body {
         Some(body) => body,
@@ -57,5 +49,5 @@ pub(crate) async fn load_image(
         }
     };
 
-    Ok(EngineResponse::ImageFetched(tab_id, url.to_string(), body, response.headers))
+    Ok(EngineResponse::ImageFetched(image_url.to_string(), body, response.headers))
 }

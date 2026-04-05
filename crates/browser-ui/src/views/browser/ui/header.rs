@@ -30,13 +30,14 @@ impl BrowserHeader {
             .get(&window_id)
             .expect("Browser context should exist for the window");
 
-        let current_tab = ctx.tabs.iter().find(|tab| tab.id == ctx.active_tab_id);
+        let current_tab = ctx.tab_manager.active_tab();
         let theme = app.config.preferences().theme();
 
         let all_tabs = row(ctx
-            .tabs
+            .tab_manager
+            .tabs()
             .iter()
-            .map(|tab| TabButton::render(window_id, theme, tab, ctx.active_tab_id).into())
+            .map(|tab| TabButton::render(window_id, theme, tab, ctx.tab_manager.active_tab_id()).into())
             .chain(std::iter::once(NewTabButton::render(window_id, theme).into()))
             .collect::<Vec<_>>())
         .width(Length::Shrink)

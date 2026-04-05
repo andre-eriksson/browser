@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use browser_core::{Commandable, EngineCommand};
 use iced::{Task, window, window::Id};
 
@@ -11,19 +13,26 @@ use crate::{
 pub(crate) fn create_window(application: &mut Application, window_id: Id, window_type: WindowType) -> Task<Event> {
     match window_type {
         WindowType::Devtools => {
-            // TODO: Devtools should be a child of the browser window.
+            let tab = application
+                .browser_windows
+                .get_mut(&window_id)
+                .expect("No browser context found for window ID")
+                .tab_manager
+                .active_tab_mut()
+                .expect("There should always be an active tab in the browser");
 
-            let browser = application.browser.clone();
+            let tab_id = tab.id;
+            let browser = Arc::clone(&application.browser);
+            let document = tab.page.document().clone();
 
             Task::perform(
                 async move {
                     let mut lock = browser.lock().await;
-                    let active_tab = lock.tab_manager().active_tab_id();
-                    lock.execute(EngineCommand::GetDevtoolsPage { tab_id: active_tab })
+                    lock.execute(EngineCommand::GetDevtoolsPage { document })
                         .await
                 },
                 move |result| match result {
-                    Ok(event) => Event::EngineResponse(window_id, event),
+                    Ok(event) => Event::EngineResponse(window_id, tab_id, event),
                     Err(e) => {
                         panic!("Failed to get devtools page: {:?}", e);
                     }
@@ -48,13 +57,14 @@ pub(crate) fn close_window(application: &mut Application, window_id: Id) -> Task
 
     if let Some(ctx) = application.browser_windows.remove(&window_id) {
         windows_to_close.extend(
-            ctx.tabs
-                .into_iter()
-                .filter_map(|tab| tab.devtools.map(|devtools| devtools.window_id)),
+            ctx.tab_manager
+                .tabs()
+                .iter()
+                .filter_map(|tab| tab.devtools.as_ref().map(|devtools| devtools.window_id)),
         );
     } else {
         for ctx in application.browser_windows.values_mut() {
-            for tab in &mut ctx.tabs {
+            for tab in &mut ctx.tab_manager.tabs_mut().iter_mut() {
                 if tab
                     .devtools
                     .as_ref()

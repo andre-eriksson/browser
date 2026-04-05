@@ -1,4 +1,3 @@
 pub mod collector;
-pub mod manager;
+pub mod history;
 pub mod page;
-pub mod tabs;

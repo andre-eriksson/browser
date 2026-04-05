@@ -1,12 +1,14 @@
-use browser_core::TabId;
 use iced::{Size, Task, window::Id};
 use layout::LayoutTree;
+use tracing::error;
 
 use crate::{
-    core::Application,
+    core::{Application, TabId},
+    errors::BrowserError,
     events::{
         Event, EventHandler,
         browser::{
+            navigate::{navigate_back, navigate_forward, refresh_page},
             post::{on_image_loaded, on_relayout_complete},
             tab::{change_active_tab, close_tab, create_new_tab},
             window::{on_resized, on_scrolled, on_url_change},
@@ -14,6 +16,7 @@ use crate::{
     },
 };
 
+mod navigate;
 mod post;
 mod tab;
 mod window;
@@ -33,6 +36,15 @@ pub enum BrowserEvent {
     /// Change the active tab to the tab with the specified ID.
     ChangeActiveTab(Id, TabId),
 
+    /// Navigate back in the history of the current tab.
+    NavigateBack(Id),
+
+    /// Navigate forward in the history of the current tab.
+    NavigateForward(Id),
+
+    /// Reload the current page in the active tab.
+    Refresh(Id),
+
     /// Change the URL in the address bar to the specified URL.
     ChangeURL(Id, String),
 
@@ -51,6 +63,9 @@ pub enum BrowserEvent {
     /// If the generation no longer matches the tab's current generation the
     /// result is stale (e.g. the user navigated away) and should be discarded.
     RelayoutComplete(Id, TabId, u64, LayoutTree),
+
+    /// An error occurred during a browser operation, with the provided error message.
+    Error(BrowserError),
 }
 
 impl EventHandler<BrowserEvent> for Application {
@@ -59,6 +74,9 @@ impl EventHandler<BrowserEvent> for Application {
             BrowserEvent::NewTab(window_id) => create_new_tab(self, window_id),
             BrowserEvent::CloseTab(window_id, tab_id) => close_tab(self, window_id, tab_id),
             BrowserEvent::ChangeActiveTab(window_id, tab_id) => change_active_tab(self, window_id, tab_id),
+            BrowserEvent::NavigateBack(window_id) => navigate_back(self, window_id),
+            BrowserEvent::NavigateForward(window_id) => navigate_forward(self, window_id),
+            BrowserEvent::Refresh(window_id) => refresh_page(self, window_id),
 
             BrowserEvent::ChangeURL(window_id, url) => on_url_change(self, window_id, url),
 
@@ -70,6 +88,11 @@ impl EventHandler<BrowserEvent> for Application {
             }
             BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree) => {
                 on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
+            }
+
+            BrowserEvent::Error(msg) => {
+                error!("Browser error: {}", msg);
+                Task::none()
             }
         }
     }

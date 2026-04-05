@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use browser_core::TabId;
 use css_style::{AbsoluteContext, StyleTree};
 use iced::{Task, window::Id};
 use io::{CacheEntry, CacheRead};
@@ -8,7 +7,7 @@ use layout::{LayoutEngine, Rect};
 use tracing::{debug, error};
 
 use crate::{
-    core::Application,
+    core::{Application, TabId},
     events::{Event, browser::BrowserEvent},
 };
 
@@ -42,13 +41,13 @@ pub(crate) fn on_image_loaded(
     {
         let intrinsic_w = decoded.width as f32;
         let intrinsic_h = decoded.height as f32;
-        if let Some(tab) = ctx.tabs.iter_mut().find(|t| t.id == tab_id) {
+        if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
             tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
             tab.set_image_vary_key(url, vary_key.to_string());
         }
     }
 
-    let Some(tab) = ctx.tabs.iter_mut().find(|t| t.id == tab_id) else {
+    let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) else {
         return Task::none();
     };
 
@@ -128,7 +127,7 @@ pub(crate) fn on_relayout_complete(
         return Task::none();
     };
 
-    if let Some(tab) = ctx.tabs.iter_mut().find(|t| t.id == tab_id) {
+    if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
         if tab.layout_generation == generation {
             tab.layout_tree = layout_tree;
         } else {

@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
-use browser_core::{Commandable, EngineCommand, EngineResponse, HistoryState, Page, TabId, errors::NavigationError};
+use browser_core::{Commandable, EngineCommand, EngineResponse, Page, errors::NavigationError};
+
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use http::HeaderMap;
 use iced::{Task, window::Id};
-use io::{CacheEntry, CacheRead};
+use io::{CacheEntry, CacheRead, DocumentPolicy, ReferrerPolicy};
 use layout::{LayoutEngine, Rect};
 use renderer::image::ImageCache;
 use tracing::{debug, error};
 
 use crate::{
-    core::Application,
+    core::{Application, TabId},
     events::{Event, browser::BrowserEvent},
     util::image::decode_image_bytes,
 };
@@ -23,13 +24,12 @@ pub(crate) fn on_navigation_success(
     window_id: Id,
     tab_id: TabId,
     page: Arc<Page>,
-    history_state: HistoryState,
 ) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
-        && let Some(tab) = ctx.tabs.iter_mut().find(|tab| tab.id == tab_id)
+        && let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id)
     {
         tab.prepare_for_navigation();
-        tab.history_state = history_state;
+        tab.history.push(Arc::clone(&tab.page));
 
         if ctx.current_url
             != page
@@ -71,6 +71,11 @@ pub(crate) fn on_navigation_success(
         drop(tc);
 
         let image_srcs = page.images().clone();
+        let request_url = page
+            .document_url
+            .clone()
+            .expect("Page should have a document URL when fetching images");
+
         tab.page = page;
         tab.layout_tree = layout_tree;
 
@@ -121,23 +126,27 @@ pub(crate) fn on_navigation_success(
             .map(|src| {
                 let browser = application.browser.clone();
                 let cache = image_cache.clone();
+                let request_url = request_url.clone();
                 let src_for_err = src.clone();
+
                 Task::perform(
                     async move {
                         let mut lock = browser.lock().await;
-                        let active_tab = lock.tab_manager().active_tab_id();
 
                         lock.execute(EngineCommand::FetchImage {
-                            tab_id: active_tab,
-                            url: src,
+                            request_url,
+                            request_policies: DocumentPolicy {
+                                referrer: ReferrerPolicy::SameOrigin,
+                            },
+                            image_url: src,
                         })
                         .await
                     },
                     move |result| match result {
-                        Ok(event) => Event::EngineResponse(window_id, event),
+                        Ok(event) => Event::EngineResponse(window_id, tab_id, event),
                         Err(err) => {
                             cache.mark_failed(src_for_err.clone());
-                            Event::EngineResponse(window_id, EngineResponse::Error(err))
+                            Event::EngineResponse(window_id, tab_id, EngineResponse::Error(err))
                             //Event::Browser(BrowserEvent::ImageLoaded(active_tab, src_for_err, String::new()))
                         }
                     },

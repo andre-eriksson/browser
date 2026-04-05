@@ -16,9 +16,6 @@ pub enum NavigationError {
 
 #[derive(Error, Debug, Clone)]
 pub enum KernelError {
-    #[error("Tab error: {0}")]
-    TabError(#[from] TabError),
-
     #[error("Navigation error: {0}")]
     NavigationError(#[from] NavigationError),
 
@@ -27,25 +24,7 @@ pub enum KernelError {
 
     #[error("The current browser doesn't support this command.")]
     UnsupportedCommand,
-}
 
-#[derive(Error, Debug, Clone)]
-pub enum TabError {
-    #[error("Tab with ID {0:?} not found")]
-    TabNotFound(usize),
-
-    #[error("No tabs available")]
-    NoTabsAvailable,
-
-    #[error("No active tab available")]
-    NoActiveTab,
-
-    #[error("Tab has no URL to navigate to")]
-    NoUrl,
-
-    #[error("Tab has no history to navigate back or forward")]
-    NoHistory,
-
-    #[error("DevTools error: {0}")]
-    DevtoolsError(String),
+    #[error("Failed to generate devtools HTML: {0}")]
+    DevtoolsGenerationError(String),
 }

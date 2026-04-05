@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use browser_config::BrowserConfig;
-use browser_core::TabId;
 use constants::{BROWSER_ID, BROWSER_NAME};
 use iced::{
     Length, Renderer, Size, Subscription, Theme,
@@ -14,8 +13,8 @@ use io::{Resource, embeded::WINDOW_ICON};
 use layout::{Rect, TextContext};
 
 use crate::{
-    core::{Application, ApplicationWindow, UiTab, WindowType},
-    events::{Event, browser::BrowserEvent, kernel::EngineRequest},
+    core::{Application, ApplicationWindow, TabManager, WindowType},
+    events::{Event, browser::BrowserEvent},
     load_fallback_fonts,
     renderer::program::HtmlRenderer,
     util::image::load_icon,
@@ -29,8 +28,7 @@ pub const DEFAULT_URL: &str = "https://www.google.com";
 pub struct BrowserContext {
     pub viewport: Size,
     pub current_url: String,
-    pub tabs: Vec<UiTab>,
-    pub active_tab_id: TabId,
+    pub tab_manager: TabManager,
     pub text_context: Arc<Mutex<TextContext>>,
 }
 
@@ -42,8 +40,7 @@ impl BrowserContext {
         Self {
             viewport: BrowserWindow::DEFAULT_VIEWPORT_SIZE,
             current_url: config.args().url.clone().unwrap_or(DEFAULT_URL.to_string()),
-            tabs: vec![UiTab::new(TabId(0))],
-            active_tab_id: TabId(0),
+            tab_manager: TabManager::new(),
             text_context,
         }
     }
@@ -77,10 +74,9 @@ impl ApplicationWindow for BrowserWindow {
             .expect("Browser context should exist for the window");
 
         let active_tab = ctx
-            .tabs
-            .iter()
-            .find(|tab| tab.id == ctx.active_tab_id)
-            .expect("Active tab should always be present when rendering the browser window");
+            .tab_manager
+            .active_tab()
+            .expect("There should always be an active tab in the browser");
 
         let viewport = ctx.viewport;
 
@@ -146,10 +142,10 @@ impl ApplicationWindow for BrowserWindow {
 
         let mouse_nav = event::listen_with(|event, _status, window_id| match event {
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Back)) => {
-                Some(Event::EngineRequest(EngineRequest::NavigateBack(window_id)))
+                Some(Event::Browser(BrowserEvent::NavigateBack(window_id)))
             }
             iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Forward)) => {
-                Some(Event::EngineRequest(EngineRequest::NavigateForward(window_id)))
+                Some(Event::Browser(BrowserEvent::NavigateForward(window_id)))
             }
             _ => None,
         })

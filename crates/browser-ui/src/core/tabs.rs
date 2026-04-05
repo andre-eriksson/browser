@@ -1,15 +1,18 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Display,
     sync::Arc,
 };
 
-use browser_core::{DevtoolsPage, HistoryState, Page, TabId};
+use browser_core::{DevtoolsPage, History, Page};
 use css_cssom::CSSStyleSheet;
 use html_dom::DocumentRoot;
 use iced::window::Id;
 use layout::{ImageContext, LayoutTree};
 
 use crate::views::devtools::window::DevtoolsContext;
+
+pub mod manager;
 
 /// Represents the scroll position of a tab's content.
 #[derive(Debug, Clone, Copy, Default)]
@@ -61,6 +64,21 @@ pub struct Devtools {
     pub context: DevtoolsContext,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TabId(usize);
+
+impl TabId {
+    pub fn new(id: usize) -> Self {
+        Self(id)
+    }
+}
+
+impl Display for TabId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// Represents a tab in the UI.
 #[derive(Debug, Clone)]
 pub struct UiTab {
@@ -97,7 +115,7 @@ pub struct UiTab {
     pub layout_generation: u64,
 
     /// Whether the tab can navigate back in history.
-    pub history_state: HistoryState,
+    pub history: History,
 }
 
 impl UiTab {
@@ -111,7 +129,7 @@ impl UiTab {
             known_images: HashMap::new(),
             pending_image_urls: HashSet::new(),
             layout_generation: 0,
-            history_state: HistoryState::default(),
+            history: History::new(),
         }
     }
 

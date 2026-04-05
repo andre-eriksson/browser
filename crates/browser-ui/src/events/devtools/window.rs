@@ -17,9 +17,8 @@ pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, 
             .parent_id()
             .expect("The Devtools should have a parent browser window"),
     ) && let Some(devtools) = ctx
-        .tabs
-        .iter_mut()
-        .find(|tab| tab.id == ctx.active_tab_id)
+        .tab_manager
+        .active_tab_mut()
         .and_then(|t| t.devtools.as_mut())
         .and_then(|d| d.context.page.as_mut())
     {
@@ -43,9 +42,8 @@ pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewp
             .parent_id()
             .expect("The Devtools should have a parent browser window"),
     ) && let Some(devtools) = ctx
-        .tabs
-        .iter_mut()
-        .find(|tab| tab.id == ctx.active_tab_id)
+        .tab_manager
+        .active_tab_mut()
         .and_then(|t| t.devtools.as_mut())
     {
         devtools.context.viewport = new_viewport;

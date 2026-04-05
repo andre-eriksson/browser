@@ -27,9 +27,8 @@ impl BrowserFooter {
             .expect("Browser context should exist for the window");
 
         let active_tab = ctx
-            .tabs
-            .iter()
-            .find(|tab| tab.id == ctx.active_tab_id)
+            .tab_manager
+            .active_tab()
             .expect("Active tab should always be present when rendering the browser window");
 
         let toggle_devtools_event = match &active_tab.devtools {

@@ -13,7 +13,7 @@ use io::{
 
 use crate::{
     core::UiTab,
-    events::{Event, kernel::EngineRequest},
+    events::{Event, browser::BrowserEvent},
 };
 
 pub struct BackButton;
@@ -32,7 +32,7 @@ impl BackButton {
                 .height(Length::Fixed(16.0)),
         )
         .style(move |_, status| button::Style {
-            background: if current_tab.is_some_and(|tab| tab.history_state.can_go_back) {
+            background: if current_tab.is_some_and(|tab| tab.history.can_go_back()) {
                 match status {
                     button::Status::Hovered => {
                         Some(Background::Color(Color::from_str(&theme.colors.primary).unwrap()).scale_alpha(0.8))
@@ -48,8 +48,8 @@ impl BackButton {
             },
             ..Default::default()
         })
-        .on_press_maybe(if current_tab.is_some_and(|tab| tab.history_state.can_go_back) {
-            Some(Event::EngineRequest(EngineRequest::NavigateBack(window_id)))
+        .on_press_maybe(if current_tab.is_some_and(|tab| tab.history.can_go_back()) {
+            Some(Event::Browser(BrowserEvent::NavigateBack(window_id)))
         } else {
             None
         })
@@ -72,7 +72,7 @@ impl ForwardButton {
                 .height(Length::Fixed(16.0)),
         )
         .style(move |_, status| button::Style {
-            background: if current_tab.is_some_and(|tab| tab.history_state.can_go_forward) {
+            background: if current_tab.is_some_and(|tab| tab.history.can_go_forward()) {
                 match status {
                     button::Status::Hovered => {
                         Some(Background::Color(Color::from_str(&theme.colors.primary).unwrap()).scale_alpha(0.8))
@@ -88,8 +88,8 @@ impl ForwardButton {
             },
             ..Default::default()
         })
-        .on_press_maybe(if current_tab.is_some_and(|tab| tab.history_state.can_go_forward) {
-            Some(Event::EngineRequest(EngineRequest::NavigateForward(window_id)))
+        .on_press_maybe(if current_tab.is_some_and(|tab| tab.history.can_go_forward()) {
+            Some(Event::Browser(BrowserEvent::NavigateForward(window_id)))
         } else {
             None
         })
@@ -120,6 +120,6 @@ impl RefreshButton {
             },
             ..Default::default()
         })
-        .on_press(Event::EngineRequest(EngineRequest::Refresh(window_id)))
+        .on_press(Event::Browser(BrowserEvent::Refresh(window_id)))
     }
 }

@@ -1,23 +1,16 @@
 use crate::HeadlessEngine;
 
 pub(crate) fn cmd_title(engine: &mut HeadlessEngine) -> Result<(), String> {
-    if let Some(tab) = engine.browser.tab_manager().active_tab() {
-        println!("{}", tab.page().title());
-    } else {
-        println!("No active tab");
-    }
+    println!("{}", engine.page.title());
+
     Ok(())
 }
 
 pub(crate) fn cmd_url(engine: &mut HeadlessEngine) -> Result<(), String> {
-    if let Some(tab) = engine.browser.tab_manager().active_tab() {
-        if let Some(url) = tab.page().document_url() {
-            println!("{}", url);
-        } else {
-            println!("about:blank");
-        }
+    if let Some(url) = engine.page.document_url() {
+        println!("{}", url);
     } else {
-        println!("No active tab");
+        println!("about:blank");
     }
     Ok(())
 }
@@ -30,11 +23,7 @@ pub(crate) fn cmd_headers(engine: &mut HeadlessEngine) -> Result<(), String> {
 }
 
 pub(crate) fn cmd_body(engine: &mut HeadlessEngine) -> Result<(), String> {
-    if let Some(active_tab) = engine.browser.tab_manager().active_tab() {
-        println!("{}", active_tab.page().document());
-    } else {
-        println!("No active tab.");
-    }
+    println!("{}", engine.page.document());
     Ok(())
 }
 
@@ -57,25 +46,22 @@ pub(crate) fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) -> 
 }
 
 pub(crate) fn cmd_info(engine: &mut HeadlessEngine) -> Result<(), String> {
-    if let Some(tab) = engine.browser.tab_manager().active_tab() {
-        let page = tab.page();
-        println!("Title: {}", page.title());
-        println!(
-            "URL: {}",
-            page.document_url()
-                .map(|u| u.as_str())
-                .unwrap_or("about:blank")
-        );
-        println!("Viewport: {}x{}", engine.viewport_width, engine.viewport_height);
+    println!("Title: {}", engine.page.title());
+    println!(
+        "URL: {}",
+        engine
+            .page
+            .document_url()
+            .map(|u| u.as_str())
+            .unwrap_or("about:blank")
+    );
+    println!("Viewport: {}x{}", engine.viewport_width, engine.viewport_height);
 
-        if let Some(ref layout) = engine.layout_tree {
-            println!("Content size: {}x{}", layout.content_width, layout.content_height);
-            println!("Root nodes: {}", layout.root_nodes.len());
-        } else {
-            println!("Layout: not computed");
-        }
+    if let Some(ref layout) = engine.layout_tree {
+        println!("Content size: {}x{}", layout.content_width, layout.content_height);
+        println!("Root nodes: {}", layout.root_nodes.len());
     } else {
-        println!("No active tab");
+        println!("Layout: not computed");
     }
     Ok(())
 }

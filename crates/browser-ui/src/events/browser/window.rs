@@ -17,7 +17,7 @@ pub(crate) fn on_url_change(application: &mut Application, window_id: Id, url: S
 /// updating the scroll offset of the active tab.
 pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, y: f32) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
-        && let Some(tab) = ctx.tabs.iter_mut().find(|tab| tab.id == ctx.active_tab_id)
+        && let Some(tab) = ctx.tab_manager.active_tab_mut()
     {
         tab.scroll_offset.x = x;
         tab.scroll_offset.y = y;
@@ -30,7 +30,7 @@ pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, 
 /// updating the viewport size and recomputing the layout tree for the active tab's page.
 pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
-        && let Some(tab) = ctx.tabs.iter_mut().find(|tab| tab.id == ctx.active_tab_id)
+        && let Some(tab) = ctx.tab_manager.active_tab_mut()
     {
         ctx.viewport = new_viewport;
         if tab.page.document().root_nodes.is_empty() {

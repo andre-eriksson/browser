@@ -6,11 +6,7 @@ use html_dom::{NodeData, NodeId};
 use crate::HeadlessEngine;
 
 pub(crate) fn cmd_dom(engine: &mut HeadlessEngine, selector: &str) -> Result<(), String> {
-    let Some(tab) = engine.browser.tab_manager().active_tab() else {
-        return Err("No active tab".to_string());
-    };
-
-    let document = tab.page().document();
+    let document = engine.page.document();
 
     let tokens: Vec<_> = CssTokenizer::new(selector, false).collect();
     let component_values: Vec<ComponentValue> = tokens.into_iter().map(ComponentValue::Token).collect();

@@ -1,12 +1,12 @@
 mod browser;
 mod commands;
+mod context;
 pub mod errors;
 mod events;
 mod navigation;
-mod tab;
 
 pub use browser::Browser;
+pub use context::collector::TabCollector;
+pub use context::history::History;
+pub use context::page::{DevtoolsPage, Page};
 pub use events::{Commandable, EngineCommand, EngineResponse};
-pub use tab::collector::TabCollector;
-pub use tab::page::{DevtoolsPage, Page};
-pub use tab::tabs::{HistoryState, Tab, TabId};
