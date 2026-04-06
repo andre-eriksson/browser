@@ -58,4 +58,8 @@ pub fn print_layout_node(node: &LayoutNode, depth: usize) {
         "{}[{}] x={:.1} y={:.1} w={:.1} h={:.1}",
         indent, node.node_id.0, rect.x, rect.y, rect.width, rect.height
     );
+
+    for child in &node.children {
+        print_layout_node(child, depth + 1);
+    }
 }
