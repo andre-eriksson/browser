@@ -55,7 +55,7 @@ pub enum FontFamilyName {
 
 impl Default for FontFamilyName {
     fn default() -> Self {
-        FontFamilyName::Generic(GenericName::Serif)
+        FontFamilyName::Generic(GenericName::SansSerif)
     }
 }
 
