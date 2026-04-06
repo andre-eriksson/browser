@@ -34,7 +34,11 @@ pub struct BrowserContext {
 
 impl BrowserContext {
     pub fn new(config: &BrowserConfig) -> Self {
-        let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
+        let mut font_system = FontSystem::new_with_fonts(load_fallback_fonts());
+        font_system.db_mut().set_serif_family("Roboto Serif");
+        font_system.db_mut().set_sans_serif_family("Open Sans");
+        font_system.db_mut().set_monospace_family("Roboto Mono");
+
         let text_context = Arc::new(Mutex::new(TextContext::new(font_system)));
 
         Self {

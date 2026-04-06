@@ -52,20 +52,30 @@ pub const REFRESH_ICON: EmbededType = EmbededType::Icon("rotate-cw.svg");
 
 // === Font Assets ===
 
+pub const OPEN_SANS_BOLD: EmbededType = EmbededType::Font("OpenSans-Bold.ttf");
+pub const OPEN_SANS_EXTRA_BOLD: EmbededType = EmbededType::Font("OpenSans-ExtraBold.ttf");
 pub const OPEN_SANS_LIGHT: EmbededType = EmbededType::Font("OpenSans-Light.ttf");
 pub const OPEN_SANS_MEDIUM: EmbededType = EmbededType::Font("OpenSans-Medium.ttf");
 pub const OPEN_SANS_REGULAR: EmbededType = EmbededType::Font("OpenSans-Regular.ttf");
 pub const OPEN_SANS_SEMI_BOLD: EmbededType = EmbededType::Font("OpenSans-SemiBold.ttf");
-pub const OPEN_SANS_BOLD: EmbededType = EmbededType::Font("OpenSans-Bold.ttf");
-pub const OPEN_SANS_EXTRA_BOLD: EmbededType = EmbededType::Font("OpenSans-ExtraBold.ttf");
 
-pub const ROBOTO_MONO_THIN: EmbededType = EmbededType::Font("RobotoMono-Thin.ttf");
+pub const ROBOTO_MONO_BOLD: EmbededType = EmbededType::Font("RobotoMono-Bold.ttf");
 pub const ROBOTO_MONO_EXTRA_LIGHT: EmbededType = EmbededType::Font("RobotoMono-ExtraLight.ttf");
 pub const ROBOTO_MONO_LIGHT: EmbededType = EmbededType::Font("RobotoMono-Light.ttf");
 pub const ROBOTO_MONO_MEDIUM: EmbededType = EmbededType::Font("RobotoMono-Medium.ttf");
 pub const ROBOTO_MONO_REGULAR: EmbededType = EmbededType::Font("RobotoMono-Regular.ttf");
 pub const ROBOTO_MONO_SEMI_BOLD: EmbededType = EmbededType::Font("RobotoMono-SemiBold.ttf");
-pub const ROBOTO_MONO_BOLD: EmbededType = EmbededType::Font("RobotoMono-Bold.ttf");
+pub const ROBOTO_MONO_THIN: EmbededType = EmbededType::Font("RobotoMono-Thin.ttf");
+
+pub const ROBOTO_SERIF_BLACK: EmbededType = EmbededType::Font("RobotoSerif-Black.ttf");
+pub const ROBOTO_SERIF_BOLD: EmbededType = EmbededType::Font("RobotoSerif-Bold.ttf");
+pub const ROBOTO_SERIF_EXTRA_BOLD: EmbededType = EmbededType::Font("RobotoSerif-ExtraBold.ttf");
+pub const ROBOTO_SERIF_EXTRA_LIGHT: EmbededType = EmbededType::Font("RobotoSerif-ExtraLight.ttf");
+pub const ROBOTO_SERIF_LIGHT: EmbededType = EmbededType::Font("RobotoSerif-Light.ttf");
+pub const ROBOTO_SERIF_MEDIUM: EmbededType = EmbededType::Font("RobotoSerif-Medium.ttf");
+pub const ROBOTO_SERIF_REGULAR: EmbededType = EmbededType::Font("RobotoSerif-Regular.ttf");
+pub const ROBOTO_SERIF_SEMI_BOLD: EmbededType = EmbededType::Font("RobotoSerif-SemiBold.ttf");
+pub const ROBOTO_SERIF_THIN: EmbededType = EmbededType::Font("RobotoSerif-Thin.ttf");
 
 // === Shader Assets ===
 
