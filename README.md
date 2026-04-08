@@ -20,15 +20,9 @@ It currently supports a subset of HTML and CSS when rendering, and does **not su
 
 Supported CSS properties can be found: [./docs/CSS.md](./docs/CSS.md).
 
-## Screenshots
+## Screenshot
 
-https://docs.rs/dioxus/0.7.3/dioxus/
-
-<img src="./docs/code.png" alt="A screenshot of the Dioxus crate on docs.rs" width="800"/>
-
-https://en.wikipedia.org/wiki/Sweden
-
-<img src="./docs/wikipedia.png" alt="A screenshot of the app rendering the Wikipedia page for Sweden" width="800"/>
+<img src="./docs/ui.png" alt="A screenshot of the browser with three tabs open with favicons and rendering the 'Artemis II' Wikipedia page with images" width="800"/>
 
 ## Architecture
 
@@ -147,6 +141,7 @@ Currently included fonts:
 
 - OpenSans (SIL Open Font License)
 - Roboto Mono (SIL Open Font License)
+- Roboto Serif (SIL Open Font License)
 
 ### Icons
 

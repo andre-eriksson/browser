@@ -27,8 +27,8 @@ members = [
 ]
 
 [workspace.package]
-edition      = "2024"
-license      = "MIT"
+edition = "2024"
+license = "MIT"
 
 [workspace.dependencies]
 browser-config      = { path = "crates/browser-config" }
