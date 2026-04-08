@@ -8,5 +8,5 @@ mod navigation;
 pub use browser::Browser;
 pub use context::collector::TabCollector;
 pub use context::history::History;
-pub use context::page::{DevtoolsPage, Page};
-pub use events::{Commandable, EngineCommand, EngineResponse};
+pub use context::page::{Page, PageMetadata};
+pub use events::{Commandable, EngineCommand, EngineResponse, NavigationType};

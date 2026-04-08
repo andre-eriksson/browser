@@ -14,7 +14,7 @@ pub mod window;
 /// Represents the different types of events that can occur in the application.
 #[derive(Debug, Clone)]
 pub enum Event {
-    EngineResponse(Id, TabId, EngineResponse),
+    EngineResponse(Id, TabId, Box<EngineResponse>),
     EngineRequest(EngineRequest),
     Window(WindowEvent),
     Browser(BrowserEvent),

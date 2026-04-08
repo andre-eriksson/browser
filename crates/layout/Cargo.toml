@@ -15,8 +15,10 @@ tracing.workspace = true
 
 [dev-dependencies]
 browser-core.workspace = true
+browser-preferences.workspace = true
 browser-ui.workspace = true
 html-parser.workspace = true
 css-cssom.workspace = true
+url.workspace = true
 io.workspace = true
 zstd.workspace = true

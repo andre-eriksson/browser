@@ -1,14 +1,21 @@
 use crate::HeadlessEngine;
 
 pub(crate) fn cmd_title(engine: &mut HeadlessEngine) -> Result<(), String> {
-    println!("{}", engine.page.title());
+    println!(
+        "{}",
+        engine
+            .metadata
+            .as_ref()
+            .map(|m| m.title.trim())
+            .unwrap_or("Untitled")
+    );
 
     Ok(())
 }
 
 pub(crate) fn cmd_url(engine: &mut HeadlessEngine) -> Result<(), String> {
-    if let Some(url) = engine.page.document_url() {
-        println!("{}", url);
+    if let Some(metadata) = &engine.metadata {
+        println!("{}", metadata.url);
     } else {
         println!("about:blank");
     }
@@ -23,7 +30,14 @@ pub(crate) fn cmd_headers(engine: &mut HeadlessEngine) -> Result<(), String> {
 }
 
 pub(crate) fn cmd_body(engine: &mut HeadlessEngine) -> Result<(), String> {
-    println!("{}", engine.page.document());
+    println!(
+        "{}",
+        engine
+            .page
+            .as_ref()
+            .map(|p| p.document().to_string())
+            .unwrap_or("No page loaded".to_string())
+    );
     Ok(())
 }
 
@@ -46,15 +60,13 @@ pub(crate) fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) -> 
 }
 
 pub(crate) fn cmd_info(engine: &mut HeadlessEngine) -> Result<(), String> {
-    println!("Title: {}", engine.page.title());
-    println!(
-        "URL: {}",
-        engine
-            .page
-            .document_url()
-            .map(|u| u.as_str())
-            .unwrap_or("about:blank")
-    );
+    let Some(metadata) = &engine.metadata else {
+        println!("No metadata available");
+        return Ok(());
+    };
+
+    println!("Title: {}", metadata.title);
+    println!("URL: {}", metadata.url.as_str());
     println!("Viewport: {}x{}", engine.viewport_width, engine.viewport_height);
 
     if let Some(ref layout) = engine.layout_tree {

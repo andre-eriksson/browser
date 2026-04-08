@@ -11,61 +11,46 @@ pub struct Favicon {
     pub data: Vec<u8>,
 }
 
+#[derive(Debug, Clone)]
+pub struct PageMetadata {
+    pub url: Url,
+    pub title: String,
+    pub favicon: Option<Favicon>,
+    pub policies: DocumentPolicy,
+}
+
 /// Represents a web page loaded in a tab.
 #[derive(Debug, Clone)]
 pub struct Page {
-    pub document_url: Option<Url>,
-    title: String,
     document: DocumentRoot,
-    stylesheets: Vec<CSSStyleSheet>,
-    policies: DocumentPolicy,
     images: Vec<String>,
-    pub favicon: Option<Favicon>,
+    stylesheets: Vec<CSSStyleSheet>,
 }
 
 impl Page {
+    pub fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
+        Self {
+            document,
+            images: Vec::new(),
+            stylesheets,
+        }
+    }
+
     /// Creates a new blank page with default settings.
     pub fn blank() -> Self {
         Self {
-            title: "New Tab".to_string(),
             document: DocumentRoot::new(),
-            stylesheets: Vec::new(),
-            document_url: None,
-            policies: DocumentPolicy::default(),
             images: Vec::new(),
-            favicon: None,
+            stylesheets: Vec::new(),
         }
     }
 
     /// Loads the page with the given title, document URL, document root, stylesheets, and policies.
-    pub fn load(
-        mut self,
-        title: String,
-        document_url: Option<Url>,
-        document: DocumentRoot,
-        stylesheets: Vec<CSSStyleSheet>,
-        policies: DocumentPolicy,
-        images: Vec<String>,
-    ) -> Self {
-        self.title = title;
-        self.document_url = document_url;
+    pub fn load(mut self, document: DocumentRoot, images: Vec<String>, stylesheets: Vec<CSSStyleSheet>) -> Self {
         self.document = document;
-        self.stylesheets = stylesheets;
-        self.policies = policies;
         self.images = images;
+        self.stylesheets = stylesheets;
         self
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn document_url(&self) -> Option<&Url> {
-        self.document_url.as_ref()
-    }
-
-    pub fn policies(&self) -> &DocumentPolicy {
-        &self.policies
     }
 
     pub fn document(&self) -> &DocumentRoot {
@@ -78,28 +63,5 @@ impl Page {
 
     pub fn images(&self) -> &Vec<String> {
         &self.images
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DevtoolsPage {
-    document: DocumentRoot,
-    stylesheets: Vec<CSSStyleSheet>,
-}
-
-impl DevtoolsPage {
-    pub fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
-        Self {
-            document,
-            stylesheets,
-        }
-    }
-
-    pub fn document(&self) -> &DocumentRoot {
-        &self.document
-    }
-
-    pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
-        &self.stylesheets
     }
 }

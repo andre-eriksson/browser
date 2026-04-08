@@ -1102,14 +1102,23 @@ pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut C
 
 #[cfg(test)]
 mod tests {
+    use std::net::Ipv4Addr;
+
     use super::*;
 
     use css_cssom::CSSStyleSheet;
     use css_values::position::{PositionX, PositionY};
+    use url::Url;
+
+    fn absoulte_ctx() -> AbsoluteContext<'static> {
+        let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
+
+        AbsoluteContext::default_url(url)
+    }
 
     #[test]
     fn test_border_extra_tokens() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle {
             border_top_style: CSSProperty::Value(BorderStyle::Solid),
@@ -1134,7 +1143,7 @@ mod tests {
 
     #[test]
     fn test_border_any_order() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 
@@ -1153,7 +1162,7 @@ mod tests {
 
     #[test]
     fn test_border_some_missing() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 
@@ -1173,7 +1182,7 @@ mod tests {
 
     #[test]
     fn test_border_global_keyword() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 
@@ -1192,7 +1201,7 @@ mod tests {
 
     #[test]
     fn test_background_multiple_layers_with_size_and_color() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 
@@ -1285,7 +1294,7 @@ mod tests {
 
     #[test]
     fn test_background_repeat_two_values() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 
@@ -1317,7 +1326,7 @@ mod tests {
 
     #[test]
     fn test_background_origin_clip_chain_padding_border() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 
@@ -1349,7 +1358,7 @@ mod tests {
 
     #[test]
     fn test_background_zero_zero() {
-        let abs = AbsoluteContext::default();
+        let abs = absoulte_ctx();
         let rel = RelativeContext::default();
         let mut specified = SpecifiedStyle::default();
 

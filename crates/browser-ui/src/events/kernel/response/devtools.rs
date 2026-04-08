@@ -1,8 +1,11 @@
-use browser_core::DevtoolsPage;
+use std::net::Ipv4Addr;
+
+use browser_core::Page;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::{Task, window::Id};
 use layout::{LayoutEngine, Rect};
+use url::Url;
 
 use crate::{
     core::{Application, Devtools, TabId, UiDevtools, WindowType},
@@ -15,7 +18,7 @@ pub(crate) fn on_devtools_page_ready(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
-    page: DevtoolsPage,
+    page: Page,
 ) -> Task<Event> {
     let Some(ctx) = application.browser_windows.get_mut(&window_id) else {
         tracing::warn!("Devtools page ready for unknown window id: {}", window_id);
@@ -28,12 +31,13 @@ pub(crate) fn on_devtools_page_ready(
     };
 
     if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
+        let localhost = Url::parse(Ipv4Addr::LOCALHOST.to_string().as_str()).unwrap();
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: devtools_ctx.viewport.width,
             viewport_height: devtools_ctx.viewport.height,
             theme_category: application.config.preferences().theme().category,
-            document_url: None,
+            document_url: &localhost,
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,
         };

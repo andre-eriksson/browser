@@ -18,3 +18,4 @@ html-dom.workspace = true
 layout.workspace = true
 shell-words.workspace = true
 tracing.workspace = true
+url.workspace = true

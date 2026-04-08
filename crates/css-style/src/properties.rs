@@ -62,8 +62,16 @@ pub enum RelativeType {
     ViewportHeight,
 }
 
-/// Context for resolving absolute CSS properties, such as 'px' units or named colors. It provides access to the root font size, viewport dimensions, and root color for calculations.
 #[derive(Debug, Clone, Default, PartialEq)]
+pub struct DocumentContext {
+    pub root_font_size: f32,
+    pub root_line_height_multiplier: f32,
+    pub root_color: Color,
+    pub theme_category: ThemeCategory,
+}
+
+/// Context for resolving absolute CSS properties.
+#[derive(Debug, Clone, PartialEq)]
 pub struct AbsoluteContext<'page> {
     pub root_font_size: f32,
     pub root_line_height_multiplier: f32,
@@ -71,7 +79,38 @@ pub struct AbsoluteContext<'page> {
     pub viewport_height: f32,
     pub root_color: Color,
     pub theme_category: ThemeCategory,
-    pub document_url: Option<&'page Url>,
+    pub document_url: &'page Url,
+}
+
+impl<'page> AbsoluteContext<'page> {
+    pub fn new(
+        document_ctx: DocumentContext,
+        viewport_width: f32,
+        viewport_height: f32,
+        document_url: &'page Url,
+    ) -> Self {
+        Self {
+            root_font_size: document_ctx.root_font_size,
+            root_line_height_multiplier: document_ctx.root_line_height_multiplier,
+            root_color: document_ctx.root_color,
+            theme_category: document_ctx.theme_category,
+            viewport_width,
+            viewport_height,
+            document_url,
+        }
+    }
+
+    pub fn default_url(document_url: &'page Url) -> Self {
+        Self {
+            root_font_size: 16.0,
+            root_line_height_multiplier: 1.2,
+            root_color: Color::BLACK,
+            theme_category: ThemeCategory::Light,
+            viewport_width: 800.0,
+            viewport_height: 600.0,
+            document_url,
+        }
+    }
 }
 
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.

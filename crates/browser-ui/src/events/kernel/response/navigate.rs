@@ -1,9 +1,7 @@
-use std::sync::Arc;
+use browser_core::{
+    Commandable, EngineCommand, EngineResponse, NavigationType, Page, PageMetadata, errors::NavigationError,
+};
 
-use browser_core::{Commandable, EngineCommand, EngineResponse, Page, errors::NavigationError};
-
-use css_style::{AbsoluteContext, StyleTree};
-use css_values::color::Color;
 use http::HeaderMap;
 use iced::{Task, window::Id};
 use io::{CacheEntry, CacheRead, DocumentPolicy, ReferrerPolicy};
@@ -23,61 +21,35 @@ pub(crate) fn on_navigation_success(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
-    page: Arc<Page>,
+    page: Page,
+    metadata: PageMetadata,
+    _navigation_type: NavigationType,
 ) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
         && let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id)
     {
         tab.prepare_for_navigation();
-        tab.history.push(Arc::clone(&tab.page));
 
-        if ctx.current_url
-            != page
-                .document_url
-                .as_ref()
-                .map(|url| url.to_string())
-                .unwrap_or_default()
-        {
-            ctx.current_url = page
-                .document_url
-                .as_ref()
-                .map(|url| url.to_string())
-                .unwrap_or_default();
-        }
+        // TODO: Store in permanent history.
+        //if matches!(navigation_type, NavigationType::Normal) {
+        //
+        //}
 
         let viewport = ctx.viewport;
-
-        let abs_ctx = AbsoluteContext {
-            root_font_size: 16.0,
-            viewport_width: viewport.width,
-            viewport_height: viewport.height,
-            theme_category: application.config.preferences().theme().category,
-            document_url: page.document_url.as_ref(),
-            root_line_height_multiplier: 1.2,
-            root_color: Color::BLACK,
-        };
-
-        let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());
-
-        let image_ctx = tab.image_context();
-
-        let mut tc = ctx.text_context.lock().unwrap();
-        let layout_tree = LayoutEngine::compute_layout(
-            &style_tree,
-            Rect::new(0.0, 0.0, viewport.width, viewport.height),
-            &mut tc,
-            Some(&image_ctx),
-        );
-        drop(tc);
-
         let image_srcs = page.images().clone();
-        let request_url = page
-            .document_url
-            .clone()
-            .expect("Page should have a document URL when fetching images");
 
-        tab.page = page;
-        tab.layout_tree = layout_tree;
+        ctx.current_url = metadata.url.to_string();
+
+        let mut text_context = ctx.text_context.lock().unwrap();
+        tab.resolve_page(
+            viewport,
+            &mut text_context,
+            page,
+            metadata,
+            application.config.preferences().theme().category,
+            None,
+        );
+        drop(text_context);
 
         let image_cache = ImageCache::new();
         application.image_cache = Some(image_cache.clone());
@@ -106,17 +78,17 @@ pub(crate) fn on_navigation_success(
             }
         }
 
-        if cache_hit {
+        if cache_hit && let Some(style_tree) = tab.style_tree.as_ref() {
             let image_ctx = tab.image_context();
             let mut tc = ctx.text_context.lock().unwrap();
             let layout_tree = LayoutEngine::compute_layout(
-                &style_tree,
+                style_tree,
                 Rect::new(0.0, 0.0, viewport.width, viewport.height),
                 &mut tc,
                 Some(&image_ctx),
             );
             drop(tc);
-            tab.layout_tree = layout_tree;
+            tab.layout_tree = Some(layout_tree);
         }
 
         tab.pending_image_urls = fetch_srcs.iter().cloned().collect();
@@ -126,7 +98,7 @@ pub(crate) fn on_navigation_success(
             .map(|src| {
                 let browser = application.browser.clone();
                 let cache = image_cache.clone();
-                let request_url = request_url.clone();
+                let request_url = tab.page_ctx.as_ref().unwrap().metadata.url.clone();
                 let src_for_err = src.clone();
 
                 Task::perform(
@@ -143,11 +115,10 @@ pub(crate) fn on_navigation_success(
                         .await
                     },
                     move |result| match result {
-                        Ok(event) => Event::EngineResponse(window_id, tab_id, event),
+                        Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
                         Err(err) => {
                             cache.mark_failed(src_for_err.clone());
-                            Event::EngineResponse(window_id, tab_id, EngineResponse::Error(err))
-                            //Event::Browser(BrowserEvent::ImageLoaded(active_tab, src_for_err, String::new()))
+                            Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::Error(err)))
                         }
                     },
                 )

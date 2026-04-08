@@ -1,6 +1,10 @@
+use std::net::Ipv4Addr;
+
 use css_style::{AbsoluteContext, StyleTree};
+use css_values::color::Color;
 use iced::{Size, Task, window::Id};
 use layout::{LayoutEngine, Rect};
+use url::Url;
 
 use crate::{core::Application, events::Event};
 
@@ -49,12 +53,16 @@ pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewp
         devtools.context.viewport = new_viewport;
 
         if let Some(page) = devtools.context.page.as_mut() {
+            let localhost = Url::parse(Ipv4Addr::LOCALHOST.to_string().as_str()).unwrap();
+
             let abs_ctx = AbsoluteContext {
                 root_font_size: 16.0,
                 viewport_width: new_viewport.width,
                 viewport_height: new_viewport.height,
                 theme_category: application.config.preferences().theme().category,
-                ..Default::default()
+                document_url: &localhost,
+                root_color: Color::BLACK,
+                root_line_height_multiplier: 1.2,
             };
             let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());
 

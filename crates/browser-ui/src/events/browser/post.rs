@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use css_style::{AbsoluteContext, StyleTree};
+use css_values::color::Color;
 use iced::{Task, window::Id};
 use io::{CacheEntry, CacheRead};
 use layout::{LayoutEngine, Rect};
@@ -8,6 +7,7 @@ use tracing::{debug, error};
 
 use crate::{
     core::{Application, TabId},
+    errors::BrowserError,
     events::{Event, browser::BrowserEvent},
 };
 
@@ -25,7 +25,7 @@ pub(crate) fn on_image_loaded(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
-    url: &String,
+    url: &str,
     vary_key: &str,
 ) -> Task<Event> {
     let ctx = if let Some(ctx) = application.browser_windows.get_mut(&window_id) {
@@ -35,15 +35,17 @@ pub(crate) fn on_image_loaded(
         return Task::none();
     };
 
+    let url = url.to_string();
+
     if let Some(ref cache) = application.image_cache
-        && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(url, vary_key)
+        && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(&url, vary_key)
         && let CacheRead::Hit(decoded) = (*decoded).clone()
     {
         let intrinsic_w = decoded.width as f32;
         let intrinsic_h = decoded.height as f32;
         if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
-            tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
-            tab.set_image_vary_key(url, vary_key.to_string());
+            tab.set_image_dimensions(url.to_string(), intrinsic_w, intrinsic_h);
+            tab.set_image_vary_key(&url, vary_key.to_string());
         }
     }
 
@@ -51,14 +53,17 @@ pub(crate) fn on_image_loaded(
         return Task::none();
     };
 
-    if !tab.resolve_pending_image(url) {
+    if !tab.resolve_pending_image(&url) {
         return Task::none();
     }
 
     let image_node_ids: Vec<_> = tab
         .known_images
         .keys()
-        .flat_map(|src| tab.layout_tree.find_image_nodes_by_src(src))
+        .flat_map(|src| match &tab.layout_tree {
+            Some(lt) => lt.find_image_nodes_by_src(&src.to_string()),
+            None => Vec::new(),
+        })
         .collect();
 
     if image_node_ids.is_empty() {
@@ -68,7 +73,9 @@ pub(crate) fn on_image_loaded(
     let viewport = ctx.viewport;
 
     let theme_category = application.config.preferences().theme().category;
-    let page = Arc::clone(&tab.page);
+    let Some(page_ctx) = tab.page_ctx.clone() else {
+        return Task::none();
+    };
     let image_ctx = tab.image_context();
     let layout_tree = tab.layout_tree.clone();
     let text_ctx = ctx.text_context.clone();
@@ -82,13 +89,14 @@ pub(crate) fn on_image_loaded(
                     viewport_width: viewport.width,
                     viewport_height: viewport.height,
                     theme_category,
-                    document_url: page.document_url.as_ref(),
-                    ..Default::default()
+                    document_url: &page_ctx.metadata.url,
+                    root_color: Color::BLACK,
+                    root_line_height_multiplier: 1.2,
                 };
-                let style_tree = StyleTree::build(&ctx, page.document(), page.stylesheets());
-                let dom_tree = page.document();
+                let dom_tree = page_ctx.page.document();
+                let style_tree = StyleTree::build(&ctx, dom_tree, page_ctx.page.stylesheets());
                 let mut tc = text_ctx.lock().unwrap();
-                let mut layout_tree = layout_tree;
+                let mut layout_tree = layout_tree?;
 
                 for node_id in image_node_ids {
                     LayoutEngine::relayout_node(
@@ -102,12 +110,17 @@ pub(crate) fn on_image_loaded(
                     );
                 }
 
-                layout_tree
+                Some(layout_tree)
             })
             .await
             .unwrap()
         },
-        move |layout_tree| Event::Browser(BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree)),
+        move |layout_tree| match layout_tree {
+            Some(layout_tree) => {
+                Event::Browser(BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree))
+            }
+            None => Event::Browser(BrowserEvent::Error(BrowserError::ImageLoadError(url.clone()))),
+        },
     )
 }
 
@@ -129,7 +142,7 @@ pub(crate) fn on_relayout_complete(
 
     if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
         if tab.layout_generation == generation {
-            tab.layout_tree = layout_tree;
+            tab.layout_tree = Some(layout_tree);
         } else {
             debug!("Discarding stale relayout for tab {} (gen {} vs {})", tab_id, generation, tab.layout_generation);
         }

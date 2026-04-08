@@ -5,10 +5,15 @@ mod tests {
         io::{BufReader, Cursor, Read},
     };
 
+    use std::net::Ipv4Addr;
+    use url::Url;
+
+    use browser_preferences::theme::ThemeCategory;
     use browser_ui::load_fallback_fonts;
     use cosmic_text::FontSystem;
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
     use css_style::{AbsoluteContext, StyleTree};
+    use css_values::color::Color;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::{Resource, embeded::DEFAULT_CSS};
     use layout::{ImageContext, LayoutEngine, Rect, TextContext};
@@ -83,12 +88,16 @@ mod tests {
                 }
             }
 
+            let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
+
             let absolute_ctx = AbsoluteContext {
                 viewport_width: viewport().width,
                 viewport_height: viewport().height,
                 root_font_size: 16.0,
                 root_line_height_multiplier: 1.2,
-                ..Default::default()
+                document_url: &url,
+                theme_category: ThemeCategory::Light,
+                root_color: Color::BLACK,
             };
 
             let result = parser.finalize();

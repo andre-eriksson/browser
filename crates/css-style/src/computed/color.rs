@@ -361,7 +361,9 @@ impl From<ColorFunction> for Color4f {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{net::Ipv4Addr, sync::Arc};
+
+    use url::Url;
 
     use super::*;
     use crate::ComputedStyle;
@@ -379,9 +381,10 @@ mod tests {
 
     #[test]
     fn current_color_self_reference_falls_back_to_parent_color() {
+        let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let parent_color = [0.2, 0.3, 0.4, 1.0].into();
         let relative_ctx = relative_ctx_with_parent_color(parent_color);
-        let absolute_ctx = AbsoluteContext::default();
+        let absolute_ctx = AbsoluteContext::default_url(url);
 
         let text_color = CSSProperty::Value(Color::Current);
         let color = Color4f::from_css_color_property(
@@ -398,11 +401,12 @@ mod tests {
 
     #[test]
     fn light_dark_current_in_light_theme_falls_back_to_parent_color() {
+        let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let parent_color = [0.1, 0.2, 0.3, 1.0].into();
         let relative_ctx = relative_ctx_with_parent_color(parent_color);
         let absolute_ctx = AbsoluteContext {
             theme_category: ThemeCategory::Light,
-            ..Default::default()
+            ..AbsoluteContext::default_url(url)
         };
 
         let text_color = CSSProperty::Value(Color::LightDark(
@@ -424,10 +428,11 @@ mod tests {
 
     #[test]
     fn light_dark_current_in_dark_theme_uses_dark_branch() {
+        let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let relative_ctx = relative_ctx_with_parent_color([0.1, 0.2, 0.3, 1.0].into());
         let absolute_ctx = AbsoluteContext {
             theme_category: ThemeCategory::Dark,
-            ..Default::default()
+            ..AbsoluteContext::default_url(url)
         };
 
         let text_color = CSSProperty::Value(Color::LightDark(

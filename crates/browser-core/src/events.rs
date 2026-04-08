@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
 use crate::{
-    DevtoolsPage,
+    context::page::PageMetadata,
     errors::{KernelError, NavigationError},
 };
 use async_trait::async_trait;
@@ -17,14 +15,22 @@ pub trait Commandable {
     async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, KernelError>;
 }
 
+#[derive(Debug, Clone)]
+pub enum NavigationType {
+    Normal,
+    Reload,
+    Back,
+    Forward,
+}
+
 /// Represents various events that can occur within the browser.
 #[derive(Debug, Clone)]
 pub enum EngineResponse {
     /// The DevTools page for a tab is ready.
-    DevtoolsPageReady(DevtoolsPage),
+    DevtoolsPageReady(Page),
 
     /// Navigation succeeded.
-    NavigateSuccess(Arc<Page>),
+    NavigateSuccess(Page, PageMetadata, NavigationType),
 
     /// Navigation failed with a network error.
     NavigateError(NavigationError),
@@ -40,7 +46,10 @@ pub enum EngineResponse {
 #[derive(Debug)]
 pub enum EngineCommand {
     /// Command to navigate a tab to a specified URL.
-    Navigate { url: String },
+    Navigate {
+        url: String,
+        navigation_type: NavigationType,
+    },
 
     /// Get the DevTools page for a specific tab.
     GetDevtoolsPage { document: DocumentRoot },

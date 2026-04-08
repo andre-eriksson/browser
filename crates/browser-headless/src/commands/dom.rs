@@ -6,7 +6,11 @@ use html_dom::{NodeData, NodeId};
 use crate::HeadlessEngine;
 
 pub(crate) fn cmd_dom(engine: &mut HeadlessEngine, selector: &str) -> Result<(), String> {
-    let document = engine.page.document();
+    let Some(page) = &engine.page else {
+        return Err("No page loaded. Please navigate to a URL first.".to_string());
+    };
+
+    let document = page.document();
 
     let tokens: Vec<_> = CssTokenizer::new(selector, false).collect();
     let component_values: Vec<ComponentValue> = tokens.into_iter().map(ComponentValue::Token).collect();

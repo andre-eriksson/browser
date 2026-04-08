@@ -23,12 +23,12 @@ impl From<ComputedImage> for Image {
 impl ComputedImage {
     pub fn resolve(image: Image, absolute_ctx: &AbsoluteContext) -> Result<Self, String> {
         match image {
-            Image::Url(url) => Ok(ComputedImage::Url(match absolute_ctx.document_url {
-                Some(base) => base
+            Image::Url(url) => Ok(ComputedImage::Url(
+                absolute_ctx
+                    .document_url
                     .join(&url)
                     .map_err(|e| format!("Failed to resolve URL: {}", e))?,
-                None => Url::parse(&url).map_err(|e| format!("Failed to parse URL: {}", e))?,
-            })),
+            )),
             Image::Gradient(gradient) => Ok(ComputedImage::Gradient(gradient)),
             Image::None => Ok(ComputedImage::None),
         }

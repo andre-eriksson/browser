@@ -1,14 +1,17 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
-    sync::Arc,
+    sync::MutexGuard,
 };
 
-use browser_core::{DevtoolsPage, History, Page};
+use browser_config::ThemeCategory;
+use browser_core::{History, Page, PageMetadata};
 use css_cssom::CSSStyleSheet;
+use css_style::{AbsoluteContext, StyleTree};
+use css_values::color::Color;
 use html_dom::DocumentRoot;
-use iced::window::Id;
-use layout::{ImageContext, LayoutTree};
+use iced::{Size, window::Id};
+use layout::{ImageContext, LayoutEngine, LayoutTree, Rect, TextContext};
 
 use crate::views::devtools::window::DevtoolsContext;
 
@@ -31,13 +34,13 @@ pub struct KnownImageMeta {
 
 #[derive(Debug, Clone)]
 pub struct UiDevtools {
-    pub page: DevtoolsPage,
+    pub page: Page,
     pub layout_tree: LayoutTree,
     pub scroll_offset: ScrollOffset,
 }
 
 impl UiDevtools {
-    pub fn new(page: DevtoolsPage, layout_tree: LayoutTree) -> Self {
+    pub fn new(page: Page, layout_tree: LayoutTree) -> Self {
         Self {
             page,
             layout_tree,
@@ -79,42 +82,29 @@ impl Display for TabId {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct PageContext {
+    pub page: Page,
+    pub metadata: PageMetadata,
+}
+
 /// Represents a tab in the UI.
 #[derive(Debug, Clone)]
 pub struct UiTab {
-    /// The unique identifier for the tab.
     pub id: TabId,
 
-    /// The page contents.
-    pub page: Arc<Page>,
-
-    /// The devtools page, if the devtools are open for this tab.
+    pub page_ctx: Option<PageContext>,
     pub devtools: Option<Devtools>,
 
-    /// The layout tree of the tab's content.
-    pub layout_tree: LayoutTree,
-
-    /// The current scroll offset of the tab's content.
-    pub scroll_offset: ScrollOffset,
-
-    /// Known intrinsic image metadata from previously decoded images, keyed by
-    /// source URL.  Persisted across relayouts (e.g. window resize) so that
-    /// images that have already been fetched keep their real dimensions and
-    /// vary keys.
-    pub known_images: HashMap<String, KnownImageMeta>,
-
-    /// Set of image source URLs that are still being fetched / decoded.
-    /// A relayout is only triggered once this set becomes empty, so that all
-    /// pending images are batched into a single layout pass instead of
-    /// relaying out after every individual image.
-    pub pending_image_urls: HashSet<String>,
-
-    /// Generation counter, incremented on every navigation. Background relayout
-    /// results carry the generation they were started with; if it no longer
-    /// matches the tab's current generation the result is stale and gets discarded.
+    pub style_tree: Option<StyleTree>,
+    pub layout_tree: Option<LayoutTree>,
     pub layout_generation: u64,
 
-    /// Whether the tab can navigate back in history.
+    pub scroll_offset: ScrollOffset,
+
+    pub known_images: HashMap<String, KnownImageMeta>,
+    pub pending_image_urls: HashSet<String>,
+
     pub history: History,
 }
 
@@ -122,15 +112,85 @@ impl UiTab {
     pub fn new(id: TabId) -> Self {
         Self {
             id,
-            page: Page::blank().into(),
+            page_ctx: None,
             devtools: None,
-            layout_tree: LayoutTree::default(),
+            style_tree: None,
+            layout_tree: None,
+            layout_generation: 0,
             scroll_offset: ScrollOffset::default(),
             known_images: HashMap::new(),
             pending_image_urls: HashSet::new(),
-            layout_generation: 0,
             history: History::new(),
         }
+    }
+
+    pub fn resize_current_page(
+        &mut self,
+        viewport: Size,
+        text_context: &mut MutexGuard<'_, TextContext>,
+        theme_category: ThemeCategory,
+    ) {
+        let Some(page) = self.page_ctx.as_ref().map(|ctx| &ctx.page) else {
+            return;
+        };
+
+        let Some(metadata) = self.page_ctx.as_ref().map(|ctx| &ctx.metadata) else {
+            return;
+        };
+
+        let absolute_ctx = AbsoluteContext {
+            root_font_size: 16.0,
+            viewport_width: viewport.width,
+            viewport_height: viewport.height,
+            theme_category,
+            document_url: &metadata.url,
+            root_line_height_multiplier: 1.2,
+            root_color: Color::BLACK,
+        };
+
+        let style_tree = StyleTree::build(&absolute_ctx, page.document(), page.stylesheets());
+        let layout_tree = LayoutEngine::compute_layout(
+            &style_tree,
+            Rect::new(0.0, 0.0, viewport.width, viewport.height),
+            text_context,
+            Some(&self.image_context()),
+        );
+
+        self.style_tree = Some(style_tree);
+        self.layout_tree = Some(layout_tree);
+    }
+
+    pub fn resolve_page(
+        &mut self,
+        viewport: Size,
+        text_context: &mut MutexGuard<'_, TextContext>,
+        page: Page,
+        metadata: PageMetadata,
+        theme_category: ThemeCategory,
+        scroll_offset: Option<ScrollOffset>,
+    ) {
+        let absolute_ctx = AbsoluteContext {
+            root_font_size: 16.0,
+            viewport_width: viewport.width,
+            viewport_height: viewport.height,
+            theme_category,
+            document_url: &metadata.url,
+            root_line_height_multiplier: 1.2,
+            root_color: Color::BLACK,
+        };
+
+        let style_tree = StyleTree::build(&absolute_ctx, page.document(), page.stylesheets());
+        let layout_tree = LayoutEngine::compute_layout(
+            &style_tree,
+            Rect::new(0.0, 0.0, viewport.width, viewport.height),
+            text_context,
+            Some(&self.image_context()),
+        );
+
+        self.style_tree = Some(style_tree);
+        self.layout_tree = Some(layout_tree);
+        self.page_ctx = Some(PageContext { page, metadata });
+        self.scroll_offset = scroll_offset.unwrap_or_default();
     }
 
     /// Prepare the tab for a brand-new navigation.  Clears stale image

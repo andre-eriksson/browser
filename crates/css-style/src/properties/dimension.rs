@@ -74,9 +74,10 @@ impl PixelRepr for MaxDimension {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{net::Ipv4Addr, sync::Arc};
 
     use css_values::numeric::Percentage;
+    use url::Url;
 
     use crate::ComputedStyle;
 
@@ -84,6 +85,7 @@ mod tests {
 
     #[test]
     fn test_dimension_to_px() {
+        let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let rel_ctx = RelativeContext {
             parent: Arc::new(ComputedStyle {
                 font_size: 16.0,
@@ -96,7 +98,7 @@ mod tests {
             root_font_size: 16.0,
             viewport_width: 800.0,
             viewport_height: 600.0,
-            ..Default::default()
+            ..AbsoluteContext::default_url(url)
         };
 
         let dim = Dimension::Percentage(Percentage::new(50.0));

@@ -1,4 +1,4 @@
-use browser_core::{Commandable, EngineCommand, EngineResponse, errors::KernelError};
+use browser_core::{Commandable, EngineCommand, EngineResponse, NavigationType, errors::KernelError};
 use iced::{Task, window::Id};
 use regex::Regex;
 use url::Url;
@@ -17,6 +17,12 @@ pub(crate) fn navigate_to_url(application: &mut Application, window_id: Id, new_
         .ok()
         .and_then(|base| base.join(&new_url).ok())
         .map(|url| url.to_string());
+
+    if let Some(tab) = ctx.tab_manager.active_tab_mut()
+        && let Some(page_ctx) = std::mem::take(&mut tab.page_ctx)
+    {
+        tab.history.add_back(page_ctx.page, page_ctx.metadata);
+    }
 
     let url = if let Some(rel_url) = relative {
         if rel_url.contains("://") || rel_url.starts_with("about:") {
@@ -47,15 +53,19 @@ pub(crate) fn navigate_to_url(application: &mut Application, window_id: Id, new_
     Task::perform(
         async move {
             let mut lock = browser.lock().await;
-            lock.execute(EngineCommand::Navigate { url }).await
+            lock.execute(EngineCommand::Navigate {
+                url,
+                navigation_type: NavigationType::Normal,
+            })
+            .await
         },
         move |result| match result {
-            Ok(event) => Event::EngineResponse(window_id, tab_id, event),
+            Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
             Err(err) => match err {
                 KernelError::NavigationError(nav_err) => {
-                    Event::EngineResponse(window_id, tab_id, EngineResponse::NavigateError(nav_err))
+                    Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::NavigateError(nav_err)))
                 }
-                _ => Event::EngineResponse(window_id, tab_id, EngineResponse::Error(err)),
+                _ => Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::Error(err))),
             },
         },
     )

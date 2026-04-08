@@ -23,13 +23,22 @@ impl TabButton {
         tab: &'a UiTab,
         active_tab_id: TabId,
     ) -> MouseArea<'a, Event> {
-        let tab_title = text(tab.page.title().trim())
-            .width(Length::Shrink)
-            .height(Length::Shrink);
+        let tab_title = text(
+            tab.page_ctx
+                .as_ref()
+                .map(|ctx| ctx.metadata.title.trim())
+                .unwrap_or("about:blank"),
+        )
+        .width(Length::Shrink)
+        .height(Length::Shrink);
 
         let mut tab_title_row = Row::new();
 
-        if let Some(favicon) = &tab.page.favicon {
+        if let Some(favicon) = &tab
+            .page_ctx
+            .as_ref()
+            .and_then(|ctx| ctx.metadata.favicon.as_ref())
+        {
             match favicon.content_type.as_deref() {
                 Some("image/svg+xml") => {
                     tab_title_row = tab_title_row.push(

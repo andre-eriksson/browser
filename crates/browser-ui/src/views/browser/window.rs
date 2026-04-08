@@ -6,7 +6,7 @@ use iced::{
     Length, Renderer, Size, Subscription, Theme,
     advanced::graphics::text::cosmic_text::FontSystem,
     event, mouse,
-    widget::{column, container},
+    widget::{Column, container},
     window::{self, Id, Position, Settings, settings::PlatformSpecific},
 };
 use io::{Resource, embeded::WINDOW_ICON};
@@ -87,22 +87,33 @@ impl ApplicationWindow for BrowserWindow {
         // NOTE: Varies depending on UI elements around the content.
         let content_viewport_height = (viewport.height - 100.0).max(100.0);
 
-        let renderer = HtmlRenderer::new(
-            self.id,
-            active_tab.page.document(),
-            &active_tab.layout_tree,
-            active_tab.scroll_offset,
-            WindowType::Browser,
-        );
-        let html = BrowserHtml::new(
-            renderer,
-            &active_tab.layout_tree,
-            Rect::new(0.0, TOP_UI_OFFSET, viewport.width, content_viewport_height),
-            active_tab.scroll_offset,
-        );
-        let html_content = html.render(app);
+        let mut column = Column::new();
+        column = column.push(header);
 
-        container(column![header, html_content, footer])
+        if let Some(page_ctx) = &active_tab.page_ctx
+            && let Some(layout_tree) = &active_tab.layout_tree
+        {
+            let renderer = HtmlRenderer::new(
+                self.id,
+                page_ctx.page.document(),
+                layout_tree,
+                active_tab.scroll_offset,
+                WindowType::Browser,
+            );
+            let html = BrowserHtml::new(
+                renderer,
+                layout_tree,
+                Rect::new(0.0, TOP_UI_OFFSET, viewport.width, content_viewport_height),
+                active_tab.scroll_offset,
+            );
+            let html_content = html.render(app);
+            column = column.push(html_content);
+        } else {
+            let blank_page = container("").width(Length::Fill).height(Length::Fill);
+            column = column.push(blank_page);
+        }
+
+        container(column.push(footer))
             .width(Length::Fill)
             .height(Length::Fill)
             .into()

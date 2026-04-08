@@ -63,7 +63,7 @@ pub(crate) fn change_active_tab(application: &mut Application, window_id: Id, ta
             if let Some(url) = window
                 .tab_manager
                 .active_tab()
-                .and_then(|tab| tab.page.document_url().cloned())
+                .and_then(|tab| tab.page_ctx.as_ref().map(|ctx| &ctx.metadata.url))
             {
                 window.current_url = url.to_string();
             } else {

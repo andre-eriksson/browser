@@ -48,7 +48,7 @@ impl StyledNode {
 
 /// Represents the style tree, which is a hierarchical structure of styled nodes corresponding to the DOM tree. Each node in the style tree
 /// contains the computed style for the corresponding DOM node, as well as its tag name (if it's an element), its children, and any text content (if it's a text node).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StyleTree {
     /// The root nodes of the style tree.
     pub root_nodes: Vec<StyledNode>,

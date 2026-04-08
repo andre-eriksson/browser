@@ -1,13 +1,14 @@
 use browser_config::BrowserConfig;
-use browser_core::{Browser, History, Page};
+use browser_core::{Browser, History, NavigationType, Page, PageMetadata};
 use browser_preferences::theme::ThemeCategory;
 use css_style::{AbsoluteContext, StyleTree};
 use layout::{LayoutEngine, LayoutTree, Rect, TextContext};
 use std::{
     io::{self, Write},
-    sync::Arc,
+    net::Ipv4Addr,
 };
 use tracing::{error, info};
+use url::Url;
 
 use crate::commands::{
     HeadlessCommand,
@@ -22,7 +23,8 @@ const DEFAULT_VIEWPORT_HEIGHT: f32 = 800.0;
 
 pub struct HeadlessEngine {
     pub browser: Browser,
-    pub page: Arc<Page>,
+    pub page: Option<Page>,
+    pub metadata: Option<PageMetadata>,
     pub history: History,
     pub viewport_width: f32,
     pub viewport_height: f32,
@@ -35,7 +37,8 @@ impl HeadlessEngine {
     pub fn new(browser: Browser) -> Self {
         HeadlessEngine {
             browser,
-            page: Arc::new(Page::blank()),
+            page: None,
+            metadata: None,
             history: History::new(),
             viewport_width: DEFAULT_VIEWPORT_WIDTH,
             viewport_height: DEFAULT_VIEWPORT_HEIGHT,
@@ -62,7 +65,7 @@ impl HeadlessEngine {
                 info!("Exiting headless engine.");
                 std::process::exit(0);
             }
-            HeadlessCommand::Navigate { url } => cmd_navigate(self, &url).await,
+            HeadlessCommand::Navigate { url } => cmd_navigate(self, &url, NavigationType::Normal).await,
             HeadlessCommand::Back => cmd_back(self).await,
             HeadlessCommand::Forward => cmd_forward(self).await,
             HeadlessCommand::Reload => cmd_reload(self).await,
@@ -91,8 +94,14 @@ impl HeadlessEngine {
     }
 
     pub(crate) fn recompute_layout(&mut self) {
-        let document = self.page.document();
-        let stylesheets = self.page.stylesheets();
+        let Some(page) = self.page.as_ref() else {
+            return;
+        };
+
+        let document = page.document();
+        let stylesheets = page.stylesheets();
+
+        let localhost = Url::parse(Ipv4Addr::LOCALHOST.to_string().as_str()).unwrap();
 
         let ctx = AbsoluteContext {
             root_font_size: 16.0,
@@ -101,7 +110,11 @@ impl HeadlessEngine {
             viewport_height: self.viewport_height,
             root_color: css_values::color::Color::BLACK,
             theme_category: ThemeCategory::Light,
-            document_url: self.page.document_url(),
+            document_url: self
+                .metadata
+                .as_ref()
+                .map(|m| &m.url)
+                .unwrap_or_else(|| &localhost),
         };
 
         let style_tree = StyleTree::build(&ctx, document, stylesheets);
@@ -116,7 +129,7 @@ impl HeadlessEngine {
     /// Main loop to process commands
     pub async fn run(&mut self, config: &BrowserConfig) {
         if let Some(ref url) = config.args().url
-            && let Err(e) = cmd_navigate(self, url).await
+            && let Err(e) = cmd_navigate(self, url, NavigationType::Normal).await
         {
             error!("{}", e);
         }

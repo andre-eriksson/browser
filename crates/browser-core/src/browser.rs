@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    DevtoolsPage,
+    Page,
     commands::{load_image, parse_devtools_html},
     errors::KernelError,
 };
@@ -118,16 +118,19 @@ impl Commandable for Browser {
     #[instrument(skip(self))]
     async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, KernelError> {
         match command {
-            EngineCommand::Navigate { url } => {
+            EngineCommand::Navigate {
+                url,
+                navigation_type,
+            } => {
                 let stylesheets = if let Some(default) = &self.default_stylesheet {
                     vec![default.clone()]
                 } else {
                     vec![]
                 };
 
-                let page = Arc::new(navigate(self, &url, stylesheets).await?);
+                let (page, metadata) = navigate(self, &url, stylesheets).await?;
 
-                Ok(EngineResponse::NavigateSuccess(page))
+                Ok(EngineResponse::NavigateSuccess(page, metadata, navigation_type))
             }
             EngineCommand::GetDevtoolsPage { document } => {
                 let default_css = {
@@ -153,7 +156,7 @@ impl Commandable for Browser {
                 let dom =
                     parse_devtools_html(&document).map_err(|e| KernelError::DevtoolsGenerationError(e.to_string()))?;
 
-                let devtools_page = DevtoolsPage::new(dom, stylesheets);
+                let devtools_page = Page::new(dom, stylesheets);
 
                 Ok(EngineResponse::DevtoolsPageReady(devtools_page))
             }

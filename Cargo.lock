@@ -680,6 +680,7 @@ dependencies = [
  "layout",
  "shell-words",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -2856,6 +2857,7 @@ name = "layout"
 version = "0.1.0"
 dependencies = [
  "browser-core",
+ "browser-preferences",
  "browser-ui",
  "cosmic-text",
  "css-cssom",
@@ -2865,6 +2867,7 @@ dependencies = [
  "html-parser",
  "io",
  "tracing",
+ "url",
  "zstd",
 ]
 

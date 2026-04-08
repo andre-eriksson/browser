@@ -23,7 +23,9 @@ pub(crate) fn create_window(application: &mut Application, window_id: Id, window
 
             let tab_id = tab.id;
             let browser = Arc::clone(&application.browser);
-            let document = tab.page.document().clone();
+            let Some(document) = tab.page_ctx.as_ref().map(|ctx| ctx.page.document().clone()) else {
+                panic!("Root element not found in the page document");
+            };
 
             Task::perform(
                 async move {
@@ -32,7 +34,7 @@ pub(crate) fn create_window(application: &mut Application, window_id: Id, window
                         .await
                 },
                 move |result| match result {
-                    Ok(event) => Event::EngineResponse(window_id, tab_id, event),
+                    Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
                     Err(e) => {
                         panic!("Failed to get devtools page: {:?}", e);
                     }

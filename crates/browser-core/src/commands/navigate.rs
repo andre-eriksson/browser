@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{context::page::Favicon, errors::NavigationError};
+use crate::{
+    context::page::{Favicon, PageMetadata},
+    errors::NavigationError,
+};
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_dom::Decoder;
@@ -27,8 +30,8 @@ pub(crate) async fn navigate(
     ctx: &mut dyn NavigationContext,
     url: &str,
     mut stylesheets: Vec<CSSStyleSheet>,
-) -> Result<Page, NavigationError> {
-    let mut page = Page::blank();
+) -> Result<(Page, PageMetadata), NavigationError> {
+    let page = Page::blank();
 
     let client = ctx.http_client().box_clone();
     let headers = Arc::new(ctx.headers().clone());
@@ -41,7 +44,7 @@ pub(crate) async fn navigate(
     let cookie_jar = Arc::clone(ctx.cookie_jar());
 
     let (url, response) =
-        resolve_navigation_request(url, ctx, &page.document_url, page.policies(), &cookies, &headers, client.as_ref())
+        resolve_navigation_request(url, ctx, &None, &DocumentPolicy::default(), &cookies, &headers, client.as_ref())
             .await?;
 
     let body = match response.body {
@@ -50,8 +53,6 @@ pub(crate) async fn navigate(
             return Err(NavigationError::RequestError(RequestError::EmptyBody));
         }
     };
-
-    page.document_url = Some(url.clone());
 
     let mut favicon = Favicon::default();
 
@@ -139,7 +140,7 @@ pub(crate) async fn navigate(
 
                         let handle = spawn_style_fetch_and_parse(
                             relative_url,
-                            &page,
+                            &url,
                             client.box_clone(),
                             Arc::clone(&headers),
                             cookies.clone(),
@@ -159,8 +160,8 @@ pub(crate) async fn navigate(
                         favicon.content_type = metadata.content_type.clone();
                         favicon.size = metadata.sizes;
 
-                        let page_url = page.document_url.clone();
-                        let policies = *page.policies();
+                        let page_url = url.clone();
+                        let policies = DocumentPolicy::default();
                         let client_clone = client.box_clone();
                         let headers_clone = Arc::clone(&headers);
                         let cookies_clone = cookies.clone();
@@ -183,7 +184,7 @@ pub(crate) async fn navigate(
                                     client_clone.as_ref(),
                                     &cookies_clone,
                                     &headers_clone,
-                                    &page_url,
+                                    &Some(page_url),
                                     &policies,
                                 )
                                 .await
@@ -236,12 +237,23 @@ pub(crate) async fn navigate(
         }
     }
 
+    let mut metadata = PageMetadata {
+        url,
+        title: result
+            .metadata
+            .title
+            .clone()
+            .unwrap_or_else(|| "Untitled".to_string()),
+        favicon: None,
+        policies: DocumentPolicy::default(),
+    };
+
     if let Some(favicon_handle) = favicon_handle {
         match favicon_handle.await {
             Ok(Some(favicon_bytes)) => {
                 favicon.data = favicon_bytes;
 
-                page.favicon = Some(favicon);
+                metadata.favicon = Some(favicon);
             }
             Ok(None) => {}
             Err(e) => {
@@ -250,14 +262,7 @@ pub(crate) async fn navigate(
         }
     }
 
-    Ok(page.load(
-        result.metadata.title.unwrap_or(url.to_string()),
-        Some(url.clone()),
-        result.dom_tree,
-        stylesheets,
-        DocumentPolicy::default(),
-        result.metadata.images,
-    ))
+    Ok((page.load(result.dom_tree, result.metadata.images, stylesheets), metadata))
 }
 
 /// Resolves the body of the document to be navigated to, handling both "about:" URLs and regular HTTP/HTTPS URLs.
@@ -379,32 +384,32 @@ pub(crate) async fn resolve_request(
 /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
 /// The task will handle cookies and headers appropriately, and will return `None` if fetching or parsing fails.
 fn spawn_style_fetch_and_parse(
-    url: Url,
-    page: &Page,
+    style_url: Url,
+    page_url: &Url,
     client: Box<dyn HttpClient>,
     headers: Arc<HeaderMap>,
     cookies: Vec<Cookie>,
     cookie_jar: Arc<Mutex<CookieJar>>,
 ) -> JoinHandle<Option<CSSStyleSheet>> {
-    let page_url = page.document_url.clone();
-    let policies = *page.policies();
+    let page_url = page_url.clone();
+    let policies = DocumentPolicy::default();
 
     tokio::spawn(async move {
-        if url.scheme() != "http" && url.scheme() != "https" {
+        if style_url.scheme() != "http" && style_url.scheme() != "https" {
             let res = Resource::load(io::ResourceType::Absolute {
-                protocol: url.scheme(),
-                location: url.path(),
+                protocol: style_url.scheme(),
+                location: style_url.path(),
             });
 
             let body = match res {
                 Ok(b) => b,
                 Err(e) => {
-                    debug!("Failed to load stylesheet {}: {}", url, e);
+                    debug!("Failed to load stylesheet {}: {}", style_url, e);
                     return None;
                 }
             };
 
-            let stylesheet_url = url.clone();
+            let stylesheet_url = style_url.clone();
             match tokio::task::spawn_blocking(move || {
                 let css_str = String::from_utf8_lossy(&body);
                 CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
@@ -418,22 +423,28 @@ fn spawn_style_fetch_and_parse(
                 }
             }
         } else {
-            let resp =
-                match Resource::from_remote(url.as_str(), client.as_ref(), &cookies, &headers, &page_url, &policies)
-                    .await
-                {
-                    Ok(r) => r,
-                    Err(e) => {
-                        debug!("Failed to fetch stylesheet {}: {}", url, e);
-                        return None;
-                    }
-                };
+            let resp = match Resource::from_remote(
+                style_url.as_str(),
+                client.as_ref(),
+                &cookies,
+                &headers,
+                &Some(page_url),
+                &policies,
+            )
+            .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    debug!("Failed to fetch stylesheet {}: {}", style_url, e);
+                    return None;
+                }
+            };
 
             for header in resp.metadata().headers.iter() {
                 if header.0 == SET_COOKIE
                     && let Ok(mut cookie_jar) = cookie_jar.lock()
                 {
-                    CookieMiddleware::handle_response_cookie(&mut cookie_jar, &url, header.1);
+                    CookieMiddleware::handle_response_cookie(&mut cookie_jar, &style_url, header.1);
                 }
             }
 
@@ -441,17 +452,17 @@ fn spawn_style_fetch_and_parse(
                 Ok(body_resp) => match body_resp.body {
                     Some(b) => b,
                     None => {
-                        debug!("Empty body for stylesheet {}", url);
+                        debug!("Empty body for stylesheet {}", style_url);
                         return None;
                     }
                 },
                 Err(e) => {
-                    debug!("Failed to read body for stylesheet {}: {}", url, e);
+                    debug!("Failed to read body for stylesheet {}: {}", style_url, e);
                     return None;
                 }
             };
 
-            let stylesheet_url = url.clone();
+            let stylesheet_url = style_url.clone();
             match tokio::task::spawn_blocking(move || {
                 let css_str = String::from_utf8_lossy(&body_bytes);
                 CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)

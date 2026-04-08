@@ -33,16 +33,18 @@ impl EventHandler<EngineRequest> for Application {
     }
 }
 
-impl EventHandler<(Id, TabId, EngineResponse)> for Application {
-    fn handle(&mut self, event: (Id, TabId, EngineResponse)) -> Task<Event> {
+impl EventHandler<(Id, TabId, Box<EngineResponse>)> for Application {
+    fn handle(&mut self, event: (Id, TabId, Box<EngineResponse>)) -> Task<Event> {
         let window_id = event.0;
         let tab_id = event.1;
         let response = event.2;
 
-        match response {
+        match *response {
             EngineResponse::DevtoolsPageReady(page) => on_devtools_page_ready(self, window_id, tab_id, page),
 
-            EngineResponse::NavigateSuccess(page) => on_navigation_success(self, window_id, tab_id, page),
+            EngineResponse::NavigateSuccess(page, metadata, navigation_type) => {
+                on_navigation_success(self, window_id, tab_id, page, metadata, navigation_type)
+            }
             EngineResponse::NavigateError(error) => on_navigation_error(self, error),
 
             EngineResponse::ImageFetched(url, bytes, headers) => {

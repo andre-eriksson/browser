@@ -9,13 +9,16 @@ pub enum UiError {
 
 #[derive(Error, Debug, Clone)]
 pub enum BrowserError {
-    #[error("Browser error: {0}")]
+    #[error("Tab | {0}")]
     TabError(TabError),
+
+    #[error("Unable to load image: {0}")]
+    ImageLoadError(String),
 }
 
 #[derive(Error, Debug, Clone)]
 pub enum TabError {
-    #[error("Tab with ID {0:?} not found")]
+    #[error("ID {0:?} not found")]
     TabNotFound(usize),
 
     #[error("No tabs available")]

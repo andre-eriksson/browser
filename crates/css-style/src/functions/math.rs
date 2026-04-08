@@ -109,14 +109,18 @@ impl PixelRepr for CalcExpression {
 
 #[cfg(test)]
 mod tests {
+    use std::net::Ipv4Addr;
+
     use crate::ComputedStyle;
 
     use super::*;
     use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, NumericValue};
     use css_values::error::CssValueError;
+    use url::Url;
 
     /// Helper function to create test contexts
     fn create_test_contexts() -> (RelativeContext, AbsoluteContext<'static>) {
+        let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let rel_ctx = RelativeContext {
             parent: ComputedStyle {
                 font_size: 16.0,
@@ -131,7 +135,7 @@ mod tests {
             root_font_size: 16.0,
             viewport_width: 1024.0,
             viewport_height: 768.0,
-            ..Default::default()
+            ..AbsoluteContext::default_url(url)
         };
         (rel_ctx, abs_ctx)
     }

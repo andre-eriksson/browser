@@ -1,6 +1,4 @@
-use css_style::{AbsoluteContext, StyleTree};
 use iced::{Size, Task, window::Id};
-use layout::{LayoutEngine, Rect};
 
 use crate::{core::Application, events::Event};
 
@@ -31,32 +29,16 @@ pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, 
 pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
         && let Some(tab) = ctx.tab_manager.active_tab_mut()
+        && let Some(page_ctx) = tab.page_ctx.as_ref()
     {
         ctx.viewport = new_viewport;
-        if tab.page.document().root_nodes.is_empty() {
+        if page_ctx.page.document().root_nodes.is_empty() {
             return Task::none();
         }
 
-        let abs_ctx = AbsoluteContext {
-            root_font_size: 16.0,
-            viewport_width: new_viewport.width,
-            viewport_height: new_viewport.height,
-            theme_category: application.config.preferences().theme().category,
-            ..Default::default()
-        };
-        let style_tree = StyleTree::build(&abs_ctx, tab.page.document(), tab.page.stylesheets());
-        let image_ctx = tab.image_context();
-
         let mut tc = ctx.text_context.lock().unwrap();
-        let layout_tree = LayoutEngine::compute_layout(
-            &style_tree,
-            Rect::new(0.0, 0.0, new_viewport.width, new_viewport.height),
-            &mut tc,
-            Some(&image_ctx),
-        );
-        drop(tc);
 
-        tab.layout_tree = layout_tree;
+        tab.resize_current_page(new_viewport, &mut tc, application.config.preferences().theme().category);
     }
 
     Task::none()
