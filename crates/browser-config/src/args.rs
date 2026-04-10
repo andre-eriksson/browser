@@ -1,9 +1,9 @@
 use clap::{ArgAction, Parser};
-use constants::BROWSER_NAME;
+use constants::APP_NAME;
 
 #[derive(Parser, Debug, Clone)]
 #[command(
-    name = BROWSER_NAME,
+    name = APP_NAME,
     version,
     about = "A web browser implemented in Rust."
 )]

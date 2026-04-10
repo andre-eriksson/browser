@@ -19,11 +19,11 @@ use crate::{
 pub struct BackButton;
 
 impl BackButton {
-    pub fn render<'a>(
+    pub fn render<'app>(
         window_id: Id,
-        theme: &'a browser_config::Theme,
-        current_tab: Option<&'a UiTab>,
-    ) -> Button<'a, Event> {
+        theme: &'app browser_config::Theme,
+        current_tab: Option<&'app UiTab>,
+    ) -> Button<'app, Event> {
         let left_chevron_icon = Resource::load_embedded(LEFT_CHEVRON_ICON);
 
         button(
@@ -59,11 +59,11 @@ impl BackButton {
 pub struct ForwardButton;
 
 impl ForwardButton {
-    pub fn render<'a>(
+    pub fn render<'app>(
         window_id: Id,
-        theme: &'a browser_config::Theme,
-        current_tab: Option<&'a UiTab>,
-    ) -> Button<'a, Event> {
+        theme: &'app browser_config::Theme,
+        current_tab: Option<&'app UiTab>,
+    ) -> Button<'app, Event> {
         let right_chevron_icon = Resource::load_embedded(RIGHT_CHEVRON_ICON);
 
         button(
@@ -99,7 +99,7 @@ impl ForwardButton {
 pub struct RefreshButton;
 
 impl RefreshButton {
-    pub fn render<'a>(window_id: Id, theme: &'a browser_config::Theme) -> Button<'a, Event> {
+    pub fn render<'app>(window_id: Id, theme: &'app browser_config::Theme) -> Button<'app, Event> {
         let refresh_icon = Resource::load_embedded(REFRESH_ICON);
 
         button(

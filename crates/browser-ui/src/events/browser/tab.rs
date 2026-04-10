@@ -1,10 +1,10 @@
 use iced::{Task, window::Id};
-use tracing::debug;
+use tracing::{debug, error};
 
 use crate::{
     core::{Application, TabId, UiTab},
     events::Event,
-    views::browser::window::DEFAULT_URL,
+    views::browser::window::BrowserContext,
 };
 
 /// Handles the creation of a new tab when a `NewTab` event is received from the UI.
@@ -17,7 +17,7 @@ pub(crate) fn create_new_tab(application: &mut Application, window_id: Id) -> Ta
                 .add_tab(UiTab::new(TabId::new(new_tab_id)));
         }
         None => {
-            tracing::error!("No browser context found for window ID: {:?}", window_id);
+            error!("No browser context found for window ID: {:?}", window_id);
         }
     };
 
@@ -45,7 +45,7 @@ pub(crate) fn close_tab(application: &mut Application, window_id: Id, tab_id: Ta
             }
         }
         None => {
-            tracing::error!("No browser context found for window ID: {:?}", window_id);
+            error!("No browser context found for window ID: {:?}", window_id);
         }
     };
 
@@ -67,11 +67,11 @@ pub(crate) fn change_active_tab(application: &mut Application, window_id: Id, ta
             {
                 window.current_url = url.to_string();
             } else {
-                window.current_url = DEFAULT_URL.to_string();
+                window.current_url = BrowserContext::DEFAULT_URL.to_string();
             }
         }
         None => {
-            tracing::error!("No browser context found for window ID: {:?}", window_id);
+            error!("No browser context found for window ID: {:?}", window_id);
         }
     };
 

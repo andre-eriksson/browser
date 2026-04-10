@@ -5,6 +5,7 @@ use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::{Task, window::Id};
 use layout::{LayoutEngine, Rect};
+use tracing::warn;
 use url::Url;
 
 use crate::{
@@ -21,7 +22,7 @@ pub(crate) fn on_devtools_page_ready(
     page: Page,
 ) -> Task<Event> {
     let Some(ctx) = application.browser_windows.get_mut(&window_id) else {
-        tracing::warn!("Devtools page ready for unknown window id: {}", window_id);
+        warn!("Devtools page ready for unknown window id: {}", window_id);
         return Task::none();
     };
 
@@ -65,7 +66,7 @@ pub(crate) fn on_devtools_page_ready(
 
         task.discard()
     } else {
-        tracing::warn!("Devtools page ready for unknown tab id: {}", tab_id);
+        warn!("Devtools page ready for unknown tab id: {}", tab_id);
         Task::none()
     }
 }

@@ -32,9 +32,9 @@ impl<'renderer> DevtoolsHtml<'renderer> {
         }
     }
 
-    pub fn render<'application>(mut self, _app: &'application Application) -> container::Container<'application, Event>
+    pub fn render<'app>(mut self, _app: &'app Application) -> container::Container<'app, Event>
     where
-        'renderer: 'application,
+        'renderer: 'app,
     {
         collect_render_data_from_layout(
             &mut self.renderer,

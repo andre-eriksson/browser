@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use io::{Resource, embeded::SOLID_SHADER};
 use layout::{Color4f, Rect};
+use tracing::debug;
 use wgpu::{Device, Queue, RenderPipeline, TextureFormat};
 
 use crate::{globals::Globals2D, vertex::VertexBuffer};
@@ -133,7 +134,7 @@ impl RectPipeline {
     /// Pushes a solid-colored rectangle to be rendered
     pub fn push_quad(&mut self, rect: Rect, background: Color4f) {
         if self.vertices.len() + 6 > self.max_vertices {
-            eprintln!("RectPipeline: max vertex capacity reached, skipping quad");
+            debug!("RectPipeline: max vertex capacity reached, skipping quad");
             return;
         }
 
@@ -181,7 +182,7 @@ impl RectPipeline {
     /// Pushes a solid-colored triangle to be rendered
     pub fn push_triangle(&mut self, p0: [f32; 2], p1: [f32; 2], p2: [f32; 2], color: Color4f) {
         if self.vertices.len() + 3 > self.max_vertices {
-            eprintln!("RectPipeline: max vertex capacity reached, skipping triangle");
+            debug!("RectPipeline: max vertex capacity reached, skipping triangle");
             return;
         }
 

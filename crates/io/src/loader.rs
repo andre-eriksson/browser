@@ -5,7 +5,7 @@ use storage::paths::create_paths;
 use crate::{
     embeded::{EmbededResource, EmbededType},
     errors::AssetError,
-    manager::{Entry, FilePath, ResourceType},
+    manager::{Entry, ResourceType},
 };
 
 pub trait Loader {
@@ -16,28 +16,25 @@ pub trait Writer {
     fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError>;
 }
 
-impl<'a> Loader for ResourceType<'a> {
+impl<'path> Loader for ResourceType<'path> {
     fn load_asset(self) -> Result<Vec<u8>, AssetError> {
         match self {
             ResourceType::Path(entry) => {
                 let dir = entry
                     .path()
-                    .ok_or_else(|| AssetError::InvalidPath(entry.path.to_string()))?;
+                    .ok_or_else(|| AssetError::InvalidPath(entry.location().to_string()))?;
 
                 if !dir.is_file() {
-                    return Err(AssetError::NotFound(entry.path.to_string()));
+                    return Err(AssetError::NotFound(entry.location().to_string()));
                 }
 
-                std::fs::read(dir).map_err(|_| AssetError::NotFound(entry.path.to_string()))
+                std::fs::read(dir).map_err(|_| AssetError::NotFound(entry.location().to_string()))
             }
             ResourceType::Embeded(asset) => EmbededResource::get(&asset.path())
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| AssetError::NotFound(asset.path())),
             ResourceType::Absolute { protocol, location } => match protocol {
-                "file" => Self::load_asset(ResourceType::Path(Entry {
-                    file_path: FilePath::Absolute,
-                    path: location,
-                })),
+                "file" => Self::load_asset(ResourceType::Path(Entry::absolute(location))),
                 "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location))),
                 "about" => {
                     let adjusted_location = location.trim_start_matches("about:");
@@ -49,7 +46,7 @@ impl<'a> Loader for ResourceType<'a> {
     }
 }
 
-impl<'a> Writer for ResourceType<'a> {
+impl<'path> Writer for ResourceType<'path> {
     fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError> {
         match self {
             ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(AssetError::UnsupportedOperation(
@@ -58,15 +55,15 @@ impl<'a> Writer for ResourceType<'a> {
             ResourceType::Path(file) => {
                 let path = file
                     .path()
-                    .ok_or_else(|| AssetError::InvalidPath(file.path.to_string()))?;
+                    .ok_or_else(|| AssetError::InvalidPath(file.location().to_string()))?;
 
-                if !is_relative_path(file.path) {
-                    return Err(AssetError::InvalidPath(file.path.to_string()));
+                if !is_relative_path(file.location()) {
+                    return Err(AssetError::InvalidPath(file.location().to_string()));
                 }
 
                 create_paths(&path.parent().unwrap().to_path_buf())
-                    .map_err(|_| AssetError::WriteFailed(file.path.to_string()))?;
-                std::fs::write(path, data).map_err(|_| AssetError::WriteFailed(file.path.to_string()))
+                    .map_err(|_| AssetError::WriteFailed(file.location().to_string()))?;
+                std::fs::write(path, data).map_err(|_| AssetError::WriteFailed(file.location().to_string()))
             }
         }
     }

@@ -110,11 +110,7 @@ impl HeadlessEngine {
             viewport_height: self.viewport_height,
             root_color: css_values::color::Color::BLACK,
             theme_category: ThemeCategory::Light,
-            document_url: self
-                .metadata
-                .as_ref()
-                .map(|m| &m.url)
-                .unwrap_or_else(|| &localhost),
+            document_url: self.metadata.as_ref().map(|m| &m.url).unwrap_or(&localhost),
         };
 
         let style_tree = StyleTree::build(&ctx, document, stylesheets);

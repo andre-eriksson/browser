@@ -141,7 +141,7 @@ impl StyleTree {
     /// to find the node with the specified `NodeId`. If the node is found, it returns a reference to the `StyledNode`; otherwise,
     /// it returns `None`.
     pub fn find_node(&self, node_id: &NodeId) -> Option<&StyledNode> {
-        fn find_in_node<'a>(node: &'a StyledNode, node_id: &NodeId) -> Option<&'a StyledNode> {
+        fn find_in_node<'node>(node: &'node StyledNode, node_id: &NodeId) -> Option<&'node StyledNode> {
             if &node.node_id == node_id {
                 return Some(node);
             }

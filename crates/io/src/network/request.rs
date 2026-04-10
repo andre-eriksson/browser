@@ -24,14 +24,18 @@ pub enum RequestResult<T> {
     Failed(RequestError),
 }
 
-pub struct NetworkService<'a> {
-    client: &'a dyn HttpClient,
-    cookies: &'a [Cookie],
-    browser_headers: &'a HeaderMap,
+pub struct NetworkService<'client> {
+    client: &'client dyn HttpClient,
+    cookies: &'client [Cookie],
+    browser_headers: &'client HeaderMap,
 }
 
-impl<'a> NetworkService<'a> {
-    pub fn new(client: &'a dyn HttpClient, cookies: &'a [Cookie], browser_headers: &'a HeaderMap) -> Self {
+impl<'client> NetworkService<'client> {
+    pub fn new(
+        client: &'client dyn HttpClient,
+        cookies: &'client [Cookie],
+        browser_headers: &'client HeaderMap,
+    ) -> Self {
         NetworkService {
             client,
             cookies,

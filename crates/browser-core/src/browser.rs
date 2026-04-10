@@ -19,7 +19,7 @@ use io::{
 };
 use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
-use tracing::instrument;
+use tracing::{instrument, trace, warn};
 
 use crate::{
     commands::navigate,
@@ -44,17 +44,19 @@ impl Browser {
         let stylesheet = if config.args().enable_ua_css {
             match Resource::load(CACHE_USER_AGENT) {
                 Ok(data) => {
-                    let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
-                        CSSStyleSheet::from_css(
-                            std::str::from_utf8(&user_agent_css).unwrap_or_default(),
-                            StylesheetOrigin::UserAgent,
-                            false,
-                        )
-                    });
+                    trace!("Loaded user agent stylesheet from cache");
+
+                    let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or(CSSStyleSheet::from_css(
+                        std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+                        StylesheetOrigin::UserAgent,
+                        false,
+                    ));
 
                     Some(out)
                 }
-                Err(_) => {
+                Err(err) => {
+                    trace!("Failed to load user agent stylesheet from cache: {}, parsing embedded CSS", err);
+
                     let parsed = CSSStyleSheet::from_css(
                         std::str::from_utf8(&user_agent_css).unwrap_or_default(),
                         StylesheetOrigin::UserAgent,
@@ -63,7 +65,9 @@ impl Browser {
 
                     let serialized = to_stdvec(&parsed).unwrap();
 
-                    Resource::write(CACHE_USER_AGENT, serialized.as_slice()).ok();
+                    if Resource::write(CACHE_USER_AGENT, serialized.as_slice()).is_err() {
+                        warn!("Failed to write user agent stylesheet to cache");
+                    }
 
                     Some(parsed)
                 }

@@ -48,13 +48,13 @@ pub(crate) struct ActiveInlineBox<'node> {
 }
 
 /// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
-pub(crate) struct InlineLayoutContext<'a, 'node> {
-    pub current_y: &'a mut f32,
+pub(crate) struct InlineLayoutContext<'layout, 'node> {
+    pub current_y: &'layout mut f32,
     pub start_x: f32,
     pub available_width: f32,
-    pub float_context: &'a FloatContext,
-    pub nodes: &'a mut Vec<LayoutNode>,
-    pub inline_box_stack: &'a mut Vec<ActiveInlineBox<'node>>,
+    pub float_context: &'layout FloatContext,
+    pub nodes: &'layout mut Vec<LayoutNode>,
+    pub inline_box_stack: &'layout mut Vec<ActiveInlineBox<'node>>,
 }
 
 #[derive(Debug, Clone, Copy)]

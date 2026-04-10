@@ -14,13 +14,13 @@ pub(crate) struct EmbededResource;
 
 /// Represents different types of embedded resources in the application.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EmbededType<'a> {
-    Icon(&'a str),
-    Font(&'a str),
-    Image(&'a str),
-    Shader(&'a str),
-    Browser(&'a str),
-    Root(&'a str),
+pub enum EmbededType<'path> {
+    Icon(&'path str),
+    Font(&'path str),
+    Image(&'path str),
+    Shader(&'path str),
+    Browser(&'path str),
+    Root(&'path str),
 }
 
 impl EmbededType<'_> {

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use browser_config::BrowserConfig;
-use constants::{BROWSER_ID, BROWSER_NAME};
+use constants::{APP_ID, APP_NAME};
 use iced::{
     Length, Renderer, Size, Subscription, Theme,
     advanced::graphics::text::cosmic_text::FontSystem,
@@ -21,9 +21,6 @@ use crate::{
     views::browser::ui::{footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml},
 };
 
-pub const TOP_UI_OFFSET: f32 = 87.0;
-pub const DEFAULT_URL: &str = "https://www.google.com";
-
 #[derive(Debug, Clone)]
 pub struct BrowserContext {
     pub viewport: Size,
@@ -33,6 +30,8 @@ pub struct BrowserContext {
 }
 
 impl BrowserContext {
+    pub const DEFAULT_URL: &str = "https://www.google.com";
+
     pub fn new(config: &BrowserConfig) -> Self {
         let mut font_system = FontSystem::new_with_fonts(load_fallback_fonts());
         font_system.db_mut().set_serif_family("Roboto Serif");
@@ -43,7 +42,11 @@ impl BrowserContext {
 
         Self {
             viewport: BrowserWindow::DEFAULT_VIEWPORT_SIZE,
-            current_url: config.args().url.clone().unwrap_or(DEFAULT_URL.to_string()),
+            current_url: config
+                .args()
+                .url
+                .clone()
+                .unwrap_or(Self::DEFAULT_URL.to_string()),
             tab_manager: TabManager::new(),
             text_context,
         }
@@ -103,7 +106,7 @@ impl ApplicationWindow for BrowserWindow {
             let html = BrowserHtml::new(
                 renderer,
                 layout_tree,
-                Rect::new(0.0, TOP_UI_OFFSET, viewport.width, content_viewport_height),
+                Rect::new(0.0, 87.0, viewport.width, content_viewport_height),
                 active_tab.scroll_offset,
             );
             let html_content = html.render(app);
@@ -129,7 +132,7 @@ impl ApplicationWindow for BrowserWindow {
             position: Position::Centered,
             icon: Some(browser_icon),
             platform_specific: PlatformSpecific {
-                application_id: BROWSER_ID.to_string(),
+                application_id: APP_ID.to_string(),
                 ..Default::default()
             },
             ..Default::default()
@@ -137,7 +140,7 @@ impl ApplicationWindow for BrowserWindow {
     }
 
     fn title(&self) -> String {
-        BROWSER_NAME.to_string()
+        APP_NAME.to_string()
     }
 
     fn parent_id(&self) -> Option<Id> {

@@ -169,7 +169,7 @@ impl CalcExpression {
     }
 
     /// Peeks at the current token kind without consuming it.
-    fn peek_token_kind<'a>(stream: &'a ComponentValueStream) -> Option<&'a CssTokenKind> {
+    fn peek_token_kind<'css>(stream: &'css ComponentValueStream) -> Option<&'css CssTokenKind> {
         if let Some(ComponentValue::Token(token)) = stream.peek() {
             Some(&token.kind)
         } else {

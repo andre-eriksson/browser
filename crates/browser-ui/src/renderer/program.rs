@@ -24,7 +24,7 @@ pub struct HtmlState {
 
 /// HTML/CSS renderer using wgpu
 #[derive(Debug, Clone)]
-pub struct HtmlRenderer<'a> {
+pub struct HtmlRenderer<'html> {
     /// The ID of the window being rendered (used for event routing)
     pub window_id: Id,
 
@@ -41,10 +41,10 @@ pub struct HtmlRenderer<'a> {
     pub images: Vec<ImageRenderInfo>,
 
     /// The DOM tree being rendered
-    dom_tree: &'a DocumentRoot,
+    dom_tree: &'html DocumentRoot,
 
     /// The layout tree being rendered
-    layout_tree: &'a LayoutTree,
+    layout_tree: &'html LayoutTree,
 
     /// Current scroll offset for rendering and hit testing
     scroll_offset: ScrollOffset,

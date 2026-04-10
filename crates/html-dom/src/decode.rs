@@ -12,7 +12,7 @@ pub struct Decoder<'input> {
     input: &'input str,
 }
 
-impl<'a> Decoder<'a> {
+impl<'input> Decoder<'input> {
     /// Creates a new `Decoder` instance with the given input string.
     ///
     /// # Arguments
@@ -21,7 +21,7 @@ impl<'a> Decoder<'a> {
     /// # Returns
     /// A new `Decoder` instance initialized with the provided input string.
     #[must_use]
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input: &'input str) -> Self {
         Decoder { input }
     }
 

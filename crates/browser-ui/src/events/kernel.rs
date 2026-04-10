@@ -1,5 +1,6 @@
 use browser_core::EngineResponse;
 use iced::{Task, window::Id};
+use tracing::error;
 
 use crate::{
     core::{Application, TabId},
@@ -52,7 +53,7 @@ impl EventHandler<(Id, TabId, Box<EngineResponse>)> for Application {
             }
 
             EngineResponse::Error(error) => {
-                tracing::error!("Browser error: {:?}", error);
+                error!("Browser error: {:?}", error);
                 Task::none()
             }
         }

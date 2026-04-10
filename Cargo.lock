@@ -4368,6 +4368,7 @@ dependencies = [
  "io",
  "layout",
  "serde",
+ "tracing",
  "wgpu",
 ]
 

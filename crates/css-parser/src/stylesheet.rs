@@ -124,13 +124,13 @@ impl Display for ComponentValue {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComponentValueStream<'a> {
-    values: &'a [ComponentValue],
+pub struct ComponentValueStream<'css> {
+    values: &'css [ComponentValue],
     position: usize,
 }
 
-impl<'a> ComponentValueStream<'a> {
-    pub fn new(values: &'a [ComponentValue]) -> ComponentValueStream<'a> {
+impl<'css> ComponentValueStream<'css> {
+    pub fn new(values: &'css [ComponentValue]) -> ComponentValueStream<'css> {
         ComponentValueStream {
             values,
             position: 0,
@@ -192,7 +192,7 @@ impl<'a> ComponentValueStream<'a> {
         self.next_cv()
     }
 
-    pub fn split_by<F>(self, mut predicate: F) -> impl Iterator<Item = ComponentValueStream<'a>>
+    pub fn split_by<F>(self, mut predicate: F) -> impl Iterator<Item = ComponentValueStream<'css>>
     where
         F: FnMut(&ComponentValue) -> bool,
     {
@@ -205,14 +205,14 @@ impl<'a> ComponentValueStream<'a> {
     }
 }
 
-impl<'a> From<&'a [ComponentValue]> for ComponentValueStream<'a> {
-    fn from(values: &'a [ComponentValue]) -> Self {
+impl<'css> From<&'css [ComponentValue]> for ComponentValueStream<'css> {
+    fn from(values: &'css [ComponentValue]) -> Self {
         ComponentValueStream::new(values)
     }
 }
 
-impl<'a> From<&'a Vec<ComponentValue>> for ComponentValueStream<'a> {
-    fn from(values: &'a Vec<ComponentValue>) -> Self {
+impl<'css> From<&'css Vec<ComponentValue>> for ComponentValueStream<'css> {
+    fn from(values: &'css Vec<ComponentValue>) -> Self {
         ComponentValueStream::new(values)
     }
 }

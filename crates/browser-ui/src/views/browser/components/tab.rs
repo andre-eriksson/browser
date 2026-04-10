@@ -17,12 +17,12 @@ use crate::{
 pub struct TabButton;
 
 impl TabButton {
-    pub fn render<'a>(
+    pub fn render<'app>(
         window_id: Id,
-        theme: &'a browser_config::Theme,
-        tab: &'a UiTab,
+        theme: &'app browser_config::Theme,
+        tab: &'app UiTab,
         active_tab_id: TabId,
-    ) -> MouseArea<'a, Event> {
+    ) -> MouseArea<'app, Event> {
         let tab_title = text(
             tab.page_ctx
                 .as_ref()
@@ -120,7 +120,7 @@ impl TabButton {
 pub struct NewTabButton;
 
 impl NewTabButton {
-    pub fn render<'a>(window_id: Id, theme: &'a browser_config::Theme) -> Button<'a, Event> {
+    pub fn render<'app>(window_id: Id, theme: &'app browser_config::Theme) -> Button<'app, Event> {
         let plus_icon = Resource::load_embedded(PLUS_ICON);
 
         button(

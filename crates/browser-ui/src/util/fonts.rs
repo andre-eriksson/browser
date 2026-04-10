@@ -14,53 +14,31 @@ use io::{
 
 /// Load the default fonts used by the UI
 pub fn load_fallback_fonts() -> [Source; 22] {
-    let open_sans_bold = Resource::load_embedded(OPEN_SANS_BOLD);
-    let open_sans_extra_bold = Resource::load_embedded(OPEN_SANS_EXTRA_BOLD);
-    let open_sans_light = Resource::load_embedded(OPEN_SANS_LIGHT);
-    let open_sans_medium = Resource::load_embedded(OPEN_SANS_MEDIUM);
-    let open_sans_regular = Resource::load_embedded(OPEN_SANS_REGULAR);
-    let open_sans_semi_bold = Resource::load_embedded(OPEN_SANS_SEMI_BOLD);
-
-    let roboto_mono_bold = Resource::load_embedded(ROBOTO_MONO_BOLD);
-    let roboto_mono_extra_light = Resource::load_embedded(ROBOTO_MONO_EXTRA_LIGHT);
-    let roboto_mono_light = Resource::load_embedded(ROBOTO_MONO_LIGHT);
-    let roboto_mono_medium = Resource::load_embedded(ROBOTO_MONO_MEDIUM);
-    let roboto_mono_regular = Resource::load_embedded(ROBOTO_MONO_REGULAR);
-    let roboto_mono_semi_bold = Resource::load_embedded(ROBOTO_MONO_SEMI_BOLD);
-    let roboto_mono_thin = Resource::load_embedded(ROBOTO_MONO_THIN);
-
-    let roboto_serif_black = Resource::load_embedded(ROBOTO_SERIF_BLACK);
-    let roboto_serif_bold = Resource::load_embedded(ROBOTO_SERIF_BOLD);
-    let roboto_serif_extra_bold = Resource::load_embedded(ROBOTO_SERIF_EXTRA_BOLD);
-    let roboto_serif_extra_light = Resource::load_embedded(ROBOTO_SERIF_EXTRA_LIGHT);
-    let roboto_serif_light = Resource::load_embedded(ROBOTO_SERIF_LIGHT);
-    let roboto_serif_medium = Resource::load_embedded(ROBOTO_SERIF_MEDIUM);
-    let roboto_serif_regular = Resource::load_embedded(ROBOTO_SERIF_REGULAR);
-    let roboto_serif_semi_bold = Resource::load_embedded(ROBOTO_SERIF_SEMI_BOLD);
-    let roboto_serif_thin = Resource::load_embedded(ROBOTO_SERIF_THIN);
-
     [
-        Source::Binary(Arc::new(open_sans_bold)),
-        Source::Binary(Arc::new(open_sans_extra_bold)),
-        Source::Binary(Arc::new(open_sans_light)),
-        Source::Binary(Arc::new(open_sans_medium)),
-        Source::Binary(Arc::new(open_sans_regular)),
-        Source::Binary(Arc::new(open_sans_semi_bold)),
-        Source::Binary(Arc::new(roboto_mono_bold)),
-        Source::Binary(Arc::new(roboto_mono_extra_light)),
-        Source::Binary(Arc::new(roboto_mono_light)),
-        Source::Binary(Arc::new(roboto_mono_medium)),
-        Source::Binary(Arc::new(roboto_mono_regular)),
-        Source::Binary(Arc::new(roboto_mono_semi_bold)),
-        Source::Binary(Arc::new(roboto_mono_thin)),
-        Source::Binary(Arc::new(roboto_serif_black)),
-        Source::Binary(Arc::new(roboto_serif_bold)),
-        Source::Binary(Arc::new(roboto_serif_extra_bold)),
-        Source::Binary(Arc::new(roboto_serif_extra_light)),
-        Source::Binary(Arc::new(roboto_serif_light)),
-        Source::Binary(Arc::new(roboto_serif_medium)),
-        Source::Binary(Arc::new(roboto_serif_regular)),
-        Source::Binary(Arc::new(roboto_serif_semi_bold)),
-        Source::Binary(Arc::new(roboto_serif_thin)),
+        // Sans-serif
+        Source::Binary(Arc::new(Resource::load_embedded(OPEN_SANS_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(OPEN_SANS_EXTRA_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(OPEN_SANS_LIGHT))),
+        Source::Binary(Arc::new(Resource::load_embedded(OPEN_SANS_MEDIUM))),
+        Source::Binary(Arc::new(Resource::load_embedded(OPEN_SANS_REGULAR))),
+        Source::Binary(Arc::new(Resource::load_embedded(OPEN_SANS_SEMI_BOLD))),
+        // Monospace
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_EXTRA_LIGHT))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_LIGHT))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_MEDIUM))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_REGULAR))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_SEMI_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_MONO_THIN))),
+        // Serif
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_BLACK))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_EXTRA_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_EXTRA_LIGHT))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_LIGHT))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_MEDIUM))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_REGULAR))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_SEMI_BOLD))),
+        Source::Binary(Arc::new(Resource::load_embedded(ROBOTO_SERIF_THIN))),
     ]
 }

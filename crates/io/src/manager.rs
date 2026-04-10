@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use constants::{
-    events::{EVENT_ASSET_LOADED, EVENT_LOAD_ASSET},
+    events::{EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET},
     keys::EVENT,
 };
 use cookies::Cookie;
@@ -35,30 +35,41 @@ pub enum FilePath {
 }
 
 #[derive(Debug)]
-pub struct Entry<'a> {
-    pub path: &'a str,
-    pub file_path: FilePath,
+pub struct Entry<'path> {
+    location: &'path str,
+    file_path: FilePath,
 }
 
-impl<'a> Entry<'a> {
-    pub const fn cache(path: &'a str) -> Self {
+impl<'path> Entry<'path> {
+    pub fn location(&self) -> &'path str {
+        self.location
+    }
+
+    pub const fn cache(path: &'path str) -> Self {
         Self {
-            path,
+            location: path,
             file_path: FilePath::Cache,
         }
     }
 
-    pub const fn config(path: &'a str) -> Self {
+    pub const fn config(path: &'path str) -> Self {
         Self {
-            path,
+            location: path,
             file_path: FilePath::Config,
         }
     }
 
-    pub const fn user_data(path: &'a str) -> Self {
+    pub const fn user_data(path: &'path str) -> Self {
         Self {
-            path,
+            location: path,
             file_path: FilePath::UserData,
+        }
+    }
+
+    pub fn absolute(path: &'path str) -> Self {
+        Self {
+            location: path,
+            file_path: FilePath::Absolute,
         }
     }
 
@@ -68,7 +79,7 @@ impl<'a> Entry<'a> {
                 let cache_path = get_cache_path();
 
                 match cache_path {
-                    Some(path) => Some(path.join(self.path)),
+                    Some(path) => Some(path.join(self.location)),
                     None => {
                         warn!("Cache directory is unavailable");
                         None
@@ -79,7 +90,7 @@ impl<'a> Entry<'a> {
                 let config_path = get_config_path();
 
                 match config_path {
-                    Some(path) => Some(path.join(self.path)),
+                    Some(path) => Some(path.join(self.location)),
                     None => {
                         warn!("Config directory is unavailable");
                         None
@@ -90,14 +101,14 @@ impl<'a> Entry<'a> {
                 let user_data_path = get_data_path();
 
                 match user_data_path {
-                    Some(path) => Some(path.join(self.path)),
+                    Some(path) => Some(path.join(self.location)),
                     None => {
                         warn!("User data directory is unavailable");
                         None
                     }
                 }
             }
-            FilePath::Absolute => Some(PathBuf::from(self.path)),
+            FilePath::Absolute => Some(PathBuf::from(self.location)),
         }
     }
 }
@@ -105,18 +116,18 @@ impl<'a> Entry<'a> {
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
 #[derive(Debug)]
-pub enum ResourceType<'a> {
+pub enum ResourceType<'resource> {
     /// Represents resources that are embedded within the application, such as icons, fonts, images, shaders, browser assets, and root assets.
-    Embeded(EmbededType<'a>),
+    Embeded(EmbededType<'resource>),
 
     /// Any resource that can be accessed via a file path, such as "assets/image.png" or "/usr/local/data/file.txt".
-    Path(Entry<'a>),
+    Path(Entry<'resource>),
 
     /// Load any resource from an absolute path, given a protocol such as "file://", "http://", or "https://".
     /// The location field specifies the path or URL to the resource.
     Absolute {
-        protocol: &'a str,
-        location: &'a str,
+        protocol: &'resource str,
+        location: &'resource str,
     },
 }
 
@@ -126,7 +137,7 @@ impl ResourceType<'_> {
             ResourceType::Embeded(embeded) => embeded.path(),
             ResourceType::Path(file) => file
                 .path()
-                .map_or_else(|| file.path.to_string(), |p| p.to_string_lossy().to_string()),
+                .map_or_else(|| file.location.to_string(), |p| p.to_string_lossy().to_string()),
             ResourceType::Absolute { location, .. } => location.to_string(),
         }
     }
@@ -138,13 +149,13 @@ pub struct Resource;
 impl Resource {
     /// Fetches a resource from a remote URL, applying the necessary policies and handling cookies and headers.
     #[cfg(feature = "network")]
-    pub async fn from_remote<'a>(
-        url: &'a str,
-        client: &'a dyn HttpClient,
-        cookies: &'a [Cookie],
-        browser_headers: &'a HeaderMap,
-        page_url: &'a Option<Url>,
-        policies: &'a DocumentPolicy,
+    pub async fn from_remote<'app>(
+        url: &'app str,
+        client: &'app dyn HttpClient,
+        cookies: &'app [Cookie],
+        browser_headers: &'app HeaderMap,
+        page_url: Option<Url>,
+        policies: &'app DocumentPolicy,
     ) -> Result<Box<dyn ResponseHandle>, RequestError> {
         let url = match page_url.as_ref() {
             Some(u) => u.join(url),
@@ -173,6 +184,7 @@ impl Resource {
             return Ok(data);
         }
 
+        trace!({ EVENT } = EVENT_ASSET_NOT_FOUND);
         Err(AssetError::NotFound(path))
     }
 
@@ -194,7 +206,7 @@ impl Resource {
 
             Ok(result)
         } else {
-            Err(AssetError::NotFound("D".to_string()))
+            Err(AssetError::NotFound("Directory path is unavailable".to_string()))
         }
     }
 
@@ -207,7 +219,11 @@ impl Resource {
         resource.write(data)
     }
 
-    /// Loads an embedded asset directly, bypassing the need for a ResourceType wrapper.
+    /// Loads an embedded asset directly, which is useful for resources that are compiled into the application binary,
+    /// such as icons, fonts, and shaders.
+    ///
+    /// # Panics
+    /// If the embedded asset cannot be found, which should not happen if the asset is correctly included in the build.
     #[instrument(fields(embeded_asset = ?embeded_asset))]
     pub fn load_embedded(embeded_asset: EmbededType) -> Vec<u8> {
         let path = &embeded_asset.path();

@@ -8,15 +8,15 @@ use crate::{
 /// Represents basic metadata about an HTML tag, including its name, attributes, and associated DOM node.
 ///
 /// This struct is used to pass information about HTML tags to collectors during the parsing process.
-pub struct TagInfo<'a> {
+pub struct TagInfo<'tag> {
     /// The name of the HTML tag (e.g., `"div"`, `"span"`).
-    pub tag: &'a Tag,
+    pub tag: &'tag Tag,
     /// A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
-    pub attributes: &'a HashMap<String, String>,
+    pub attributes: &'tag HashMap<String, String>,
     /// A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
     pub node_id: NodeId,
     /// Optional text data associated with the tag, only applicable for text nodes.
-    pub data: Option<&'a String>,
+    pub data: Option<&'tag String>,
 }
 
 /// A trait that defines a collector for metadata extracted from HTML tags during parsing.

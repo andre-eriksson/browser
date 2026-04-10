@@ -53,8 +53,8 @@ pub enum Combinator {
 }
 
 /// A set of classes for efficient lookup
-pub struct ClassSet<'a> {
-    classes: &'a HashSet<String>,
+pub struct ClassSet<'css> {
+    classes: &'css HashSet<String>,
 }
 
 impl ClassSet<'_> {
@@ -74,8 +74,8 @@ impl ClassSet<'_> {
     }
 }
 
-impl<'a> From<&'a Element> for ClassSet<'a> {
-    fn from(element: &'a Element) -> Self {
+impl<'css> From<&'css Element> for ClassSet<'css> {
+    fn from(element: &'css Element) -> Self {
         ClassSet {
             classes: &element.class_set,
         }

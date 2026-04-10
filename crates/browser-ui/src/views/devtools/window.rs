@@ -38,7 +38,7 @@ pub struct DevtoolsWindow {
 }
 
 impl DevtoolsWindow {
-    pub const DEFAULT_VIEWPORT_SIZE: Size = Size::new(800.0, 600.0);
+    pub(crate) const DEFAULT_VIEWPORT_SIZE: Size = Size::new(800.0, 600.0);
 }
 
 impl ApplicationWindow for DevtoolsWindow {
@@ -109,7 +109,7 @@ impl ApplicationWindow for DevtoolsWindow {
         let devtools_icon = load_icon(icon);
 
         Settings {
-            size: DevtoolsWindow::DEFAULT_VIEWPORT_SIZE,
+            size: Self::DEFAULT_VIEWPORT_SIZE,
             position: Position::Centered,
             icon: Some(devtools_icon),
             platform_specific: PlatformSpecific {

@@ -212,12 +212,7 @@ impl DocumentRoot {
     #[must_use]
     pub fn to_html(&self) -> Vec<u8> {
         fn node_to_html(mut html: &mut Vec<u8>, node: &DomNode, dom: &DocumentRoot, depth: usize) {
-            if node
-                .data
-                .as_text()
-                .as_ref()
-                .is_some_and(|t| t.trim().is_empty())
-            {
+            if node.data.as_text().is_some_and(|t| t.trim().is_empty()) {
                 return; // Skip empty text nodes
             }
 

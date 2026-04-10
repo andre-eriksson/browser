@@ -125,7 +125,7 @@ impl CSSStyleSheet {
         style_rules
     }
 
-    fn collect_style_rules<'a>(rule: &'a CSSRule, collection: &mut Vec<&'a CSSStyleRule>) {
+    fn collect_style_rules<'css>(rule: &'css CSSRule, collection: &mut Vec<&'css CSSStyleRule>) {
         match rule {
             CSSRule::Style(style_rule) => {
                 collection.push(style_rule);

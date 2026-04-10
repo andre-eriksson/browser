@@ -12,7 +12,11 @@ use crate::events::{Event, browser::BrowserEvent, kernel::EngineRequest};
 pub struct SearchInput;
 
 impl SearchInput {
-    pub fn render<'a>(window_id: Id, theme: &'a browser_config::Theme, current_url: &str) -> TextInput<'a, Event> {
+    pub fn render<'app>(
+        window_id: Id,
+        theme: &'app browser_config::Theme,
+        current_url: &str,
+    ) -> TextInput<'app, Event> {
         text_input("Search", current_url)
             .style(|t: &Theme, _| text_input::Style {
                 border: Border {

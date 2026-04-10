@@ -8,7 +8,7 @@ use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_dom::Decoder;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
-use io::{CookieMiddleware, DocumentPolicy, Resource, files::ALLOWED_ABOUT_URLS};
+use io::{CookieMiddleware, DocumentPolicy, Resource};
 use network::{
     HeaderMap, SET_COOKIE,
     client::HttpClient,
@@ -23,6 +23,12 @@ use crate::{
     context::{collector::TabCollector, page::Page},
     navigation::NavigationContext,
 };
+
+/// A list of allowed "about:" URLs that the browser can load.
+/// This is a security measure to prevent loading potentially harmful or
+/// unintended content through "about:" URLs. Only the URLs specified in
+/// this list will be allowed to be loaded by the browser.
+const ALLOWED_ABOUT_URLS: &[&str] = &["blank"];
 
 /// Navigates the specified tab to the given URL, fetching and parsing the content.
 /// Executes any scripts and processes stylesheets found during parsing.
@@ -44,7 +50,7 @@ pub(crate) async fn navigate(
     let cookie_jar = Arc::clone(ctx.cookie_jar());
 
     let (url, response) =
-        resolve_navigation_request(url, ctx, &None, &DocumentPolicy::default(), &cookies, &headers, client.as_ref())
+        resolve_navigation_request(url, ctx, None, &DocumentPolicy::default(), &cookies, &headers, client.as_ref())
             .await?;
 
     let body = match response.body {
@@ -184,7 +190,7 @@ pub(crate) async fn navigate(
                                     client_clone.as_ref(),
                                     &cookies_clone,
                                     &headers_clone,
-                                    &Some(page_url),
+                                    Some(page_url),
                                     &policies,
                                 )
                                 .await
@@ -243,7 +249,7 @@ pub(crate) async fn navigate(
             .metadata
             .title
             .clone()
-            .unwrap_or_else(|| "Untitled".to_string()),
+            .unwrap_or("Untitled".to_string()),
         favicon: None,
         policies: DocumentPolicy::default(),
     };
@@ -274,7 +280,7 @@ pub(crate) async fn navigate(
 async fn resolve_navigation_request(
     raw_url: &str,
     ctx: &mut dyn NavigationContext,
-    page_url: &Option<Url>,
+    page_url: Option<Url>,
     policies: &DocumentPolicy,
     cookies: &[Cookie],
     headers: &HeaderMap,
@@ -301,7 +307,7 @@ async fn resolve_navigation_request(
             })?,
         );
 
-        let url = Url::parse(&format!("about:{}", location)).unwrap_or_else(|_| Url::parse("about:blank").unwrap());
+        let url = Url::parse(&format!("about:{}", location)).unwrap_or(Url::parse("about:blank").unwrap());
 
         return Ok((url, resp));
     }
@@ -325,15 +331,15 @@ async fn resolve_navigation_request(
 pub(crate) async fn resolve_request(
     url: Url,
     ctx: &mut dyn NavigationContext,
-    page_url: &Option<Url>,
+    page_url: Option<Url>,
     policies: &DocumentPolicy,
     cookies: &[Cookie],
     headers: &HeaderMap,
     client: &dyn HttpClient,
 ) -> Result<(Url, Response), NavigationError> {
     let resp = if url.scheme() == "file" {
-        match &page_url {
-            &Some(base) => {
+        match page_url {
+            Some(base) => {
                 if base.scheme() == "file" {
                     Response::from(
                         Resource::load(io::ResourceType::Absolute {
@@ -428,7 +434,7 @@ fn spawn_style_fetch_and_parse(
                 client.as_ref(),
                 &cookies,
                 &headers,
-                &Some(page_url),
+                Some(page_url),
                 &policies,
             )
             .await

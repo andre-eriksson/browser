@@ -12,10 +12,10 @@ pub struct Text {
 }
 
 #[derive(Debug)]
-pub struct TextDescription<'a> {
-    pub whitespace: &'a Whitespace,
+pub struct TextDescription<'text> {
+    pub whitespace: &'text Whitespace,
     pub line_height: f32,
-    pub font_family: &'a FontFamily,
+    pub font_family: &'text FontFamily,
     pub font_weight: u16,
     pub font_size_px: f32,
 }
@@ -53,12 +53,12 @@ impl TextContext {
         &mut self.font_system
     }
 
-    pub fn measure_text_that_fits<'a>(
+    pub fn measure_text_that_fits<'text>(
         &mut self,
-        text: &'a str,
+        text: &'text str,
         text_description: &TextDescription,
         max_width: f32,
-    ) -> (Text, Option<&'a str>) {
+    ) -> (Text, Option<&'text str>) {
         // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
         let line_height_px = text_description.line_height.max(1.0);
 

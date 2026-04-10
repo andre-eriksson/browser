@@ -40,7 +40,7 @@ pub(crate) async fn load_image(
     }
 
     let (_resolved_url, response) =
-        resolve_request(absolute_url, ctx, &Some(url), &policies, &cookies, &headers, client.as_ref()).await?;
+        resolve_request(absolute_url, ctx, Some(url), &policies, &cookies, &headers, client.as_ref()).await?;
 
     let body = match response.body {
         Some(body) => body,

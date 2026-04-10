@@ -1,6 +1,7 @@
 use iced::window::{Icon, icon::from_rgba};
 use image::GenericImageView;
 use renderer::DecodedImageData;
+use tracing::error;
 
 /// Loads an icon from a byte vector and converts it to an Iced window icon.
 ///
@@ -18,7 +19,7 @@ pub fn load_icon(data: Vec<u8>) -> Icon {
     let window_icon = from_rgba(image.into_raw(), width, height);
 
     if let Err(ref e) = window_icon {
-        eprintln!("Failed to create window icon: {}", e);
+        error!("Failed to create window icon: {}", e);
     }
     window_icon.unwrap()
 }
