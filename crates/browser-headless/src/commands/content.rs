@@ -1,6 +1,6 @@
 use crate::HeadlessEngine;
 
-pub(crate) fn cmd_title(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub fn cmd_title(engine: &HeadlessEngine) -> Result<(), String> {
     println!(
         "{}",
         engine
@@ -13,7 +13,7 @@ pub(crate) fn cmd_title(engine: &mut HeadlessEngine) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn cmd_url(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub fn cmd_url(engine: &HeadlessEngine) -> Result<(), String> {
     if let Some(metadata) = &engine.metadata {
         println!("{}", metadata.url);
     } else {
@@ -22,26 +22,26 @@ pub(crate) fn cmd_url(engine: &mut HeadlessEngine) -> Result<(), String> {
     Ok(())
 }
 
-pub(crate) fn cmd_headers(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub fn cmd_headers(engine: &HeadlessEngine) -> Result<(), String> {
     for header in engine.browser.headers().iter() {
         println!("{}: {}", header.0, header.1.to_str().unwrap_or(""));
     }
     Ok(())
 }
 
-pub(crate) fn cmd_body(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub fn cmd_body(engine: &HeadlessEngine) -> Result<(), String> {
     println!(
         "{}",
         engine
             .page
             .as_ref()
             .map(|p| p.document().to_string())
-            .unwrap_or("No page loaded".to_string())
+            .unwrap_or_else(|| "No page loaded".to_string())
     );
     Ok(())
 }
 
-pub(crate) fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) -> Result<(), String> {
+pub fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) -> Result<(), String> {
     let jar = engine.browser.cookie_jar().lock().unwrap();
 
     match domain {
@@ -59,7 +59,7 @@ pub(crate) fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) -> 
     Ok(())
 }
 
-pub(crate) fn cmd_info(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub fn cmd_info(engine: &HeadlessEngine) -> Result<(), String> {
     let Some(metadata) = &engine.metadata else {
         println!("No metadata available");
         return Ok(());

@@ -86,7 +86,7 @@ impl CSSDeclaration {
 
         let value = value_parts.join("").trim().to_string();
 
-        CSSDeclaration {
+        Self {
             property,
             value,
             important,
@@ -95,7 +95,7 @@ impl CSSDeclaration {
     }
 
     /// Get the property name
-    pub fn property(&self) -> &Property {
+    pub const fn property(&self) -> &Property {
         &self.property
     }
 
@@ -105,12 +105,12 @@ impl CSSDeclaration {
     }
 
     /// Check if this declaration is !important
-    pub fn is_important(&self) -> bool {
+    pub const fn is_important(&self) -> bool {
         self.important
     }
 
     /// Set the important flag
-    pub fn set_important(&mut self, important: bool) {
+    pub const fn set_important(&mut self, important: bool) {
         self.important = important;
     }
 
@@ -140,7 +140,7 @@ impl From<Declaration> for CSSDeclaration {
 
         let value = value_parts.join("").trim().to_string();
 
-        CSSDeclaration {
+        Self {
             property: declaration.property,
             value,
             important: declaration.important,

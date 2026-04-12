@@ -48,7 +48,7 @@ impl UiDevtools {
         }
     }
 
-    pub fn document(&self) -> &DocumentRoot {
+    pub const fn document(&self) -> &DocumentRoot {
         self.page.document()
     }
 
@@ -56,7 +56,7 @@ impl UiDevtools {
         self.page.stylesheets()
     }
 
-    pub fn layout_tree(&self) -> &LayoutTree {
+    pub const fn layout_tree(&self) -> &LayoutTree {
         &self.layout_tree
     }
 }
@@ -71,7 +71,7 @@ pub struct Devtools {
 pub struct TabId(usize);
 
 impl TabId {
-    pub fn new(id: usize) -> Self {
+    pub const fn new(id: usize) -> Self {
         Self(id)
     }
 }

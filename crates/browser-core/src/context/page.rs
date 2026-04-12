@@ -28,7 +28,7 @@ pub struct Page {
 }
 
 impl Page {
-    pub fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
+    pub const fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
         Self {
             document,
             images: Vec::new(),
@@ -53,15 +53,15 @@ impl Page {
         self
     }
 
-    pub fn document(&self) -> &DocumentRoot {
+    pub const fn document(&self) -> &DocumentRoot {
         &self.document
     }
 
-    pub fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
+    pub const fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
         &self.stylesheets
     }
 
-    pub fn images(&self) -> &Vec<String> {
+    pub const fn images(&self) -> &Vec<String> {
         &self.images
     }
 }

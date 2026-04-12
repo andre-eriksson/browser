@@ -5,15 +5,16 @@ use html_dom::{NodeData, NodeId};
 
 use crate::HeadlessEngine;
 
-pub(crate) fn cmd_dom(engine: &mut HeadlessEngine, selector: &str) -> Result<(), String> {
+pub fn cmd_dom(engine: &HeadlessEngine, selector: &str) -> Result<(), String> {
     let Some(page) = &engine.page else {
         return Err("No page loaded. Please navigate to a URL first.".to_string());
     };
 
     let document = page.document();
 
-    let tokens: Vec<_> = CssTokenizer::new(selector, false).collect();
-    let component_values: Vec<ComponentValue> = tokens.into_iter().map(ComponentValue::Token).collect();
+    let component_values: Vec<ComponentValue> = CssTokenizer::new(selector, false)
+        .map(ComponentValue::Token)
+        .collect();
     let selector_lists = generate_selector_list(&component_values);
 
     if selector_lists.is_empty() {

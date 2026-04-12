@@ -49,7 +49,7 @@ impl TextContext {
     }
 
     /// Get a mutable reference to the font system for glyph rasterization
-    pub fn font_system_mut(&mut self) -> &mut FontSystem {
+    pub const fn font_system_mut(&mut self) -> &mut FontSystem {
         &mut self.font_system
     }
 
@@ -175,7 +175,7 @@ impl TextContext {
         }
     }
 
-    fn resolve_font_weight(font_weight: u16) -> Weight {
+    const fn resolve_font_weight(font_weight: u16) -> Weight {
         match font_weight {
             100 => Weight::THIN,
             200 => Weight::EXTRA_LIGHT,

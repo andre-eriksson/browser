@@ -10,6 +10,8 @@ mod colors;
 mod style;
 mod typography;
 
+/// The theme category, affects how colors are adjusted.
+///
 /// Represents the category of a theme, either Light or Dark, this will impact the CSS functions that need the colors to be
 /// adjusted for light or dark themes, e.g. using `light-dark()` to adjust the colors for light and dark themes.
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq, Deserialize)]

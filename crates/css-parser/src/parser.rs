@@ -32,7 +32,7 @@ pub struct CssParser {
 impl CssParser {
     /// Create a new CSS parser with an optional list of tokens
     pub fn new(tokens: Option<Vec<CssToken>>) -> Self {
-        CssParser {
+        Self {
             tokens: tokens.unwrap_or_default(),
             pos: 0,
             errors: Vec::new(),
@@ -57,7 +57,7 @@ impl CssParser {
         Stylesheet { rules }
     }
 
-    fn get_error_pos(error: &CssParsingError) -> SourcePosition {
+    const fn get_error_pos(error: &CssParsingError) -> SourcePosition {
         match error {
             CssParsingError::EofInAtRule(pos) => *pos,
             CssParsingError::EofInFunction(pos) => *pos,
@@ -159,7 +159,7 @@ impl CssParser {
     }
 
     /// Check if we've reached the end of the token stream
-    pub(crate) fn is_eof(&self) -> bool {
+    pub(crate) const fn is_eof(&self) -> bool {
         self.pos >= self.tokens.len()
     }
 

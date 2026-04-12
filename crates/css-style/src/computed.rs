@@ -36,7 +36,9 @@ mod handler;
 pub mod image;
 pub mod position;
 
-/// The ComputedStyle struct represents the computed style for a DOM node after applying all CSS rules, resolving inheritance,
+/// The final style resolution for a DOM node.
+///
+/// Represents the style for a DOM node after applying all CSS rules, resolving inheritance,
 /// and applying the cascade. It contains all the properties that affect the layout and rendering of the node,
 /// with all values resolved to their final forms (e.g., colors as RGBA, lengths in pixels, etc.).
 #[derive(Debug, Clone, PartialEq)]
@@ -307,7 +309,7 @@ impl ComputedStyle {
 
     /// Returns a subset of the ComputedStyle containing only inherited properties.
     pub fn inherited_subset(&self) -> Self {
-        ComputedStyle {
+        Self {
             color: self.color,
             cursor: self.cursor,
             font_family: Arc::clone(&self.font_family),
@@ -317,7 +319,7 @@ impl ComputedStyle {
             font_weight: self.font_weight,
             whitespace: self.whitespace,
             writing_mode: self.writing_mode,
-            ..ComputedStyle::default()
+            ..Self::default()
         }
     }
 }

@@ -43,6 +43,7 @@ pub trait Collector {
 }
 
 /// A default implementation of the `Collector` trait that collects metadata about HTML tags.
+///
 /// This implementation gathers information about IDs, classes, and external resources (like `href` and `src` attributes) from the parsed HTML tags.
 #[derive(Default)]
 pub struct DefaultCollector {
@@ -101,10 +102,6 @@ impl Collector for DefaultCollector {
     }
 
     fn into_result(self) -> Self {
-        Self {
-            id_map: self.id_map,
-            class_map: self.class_map,
-            external_resources: self.external_resources,
-        }
+        self
     }
 }

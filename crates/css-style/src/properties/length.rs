@@ -27,15 +27,15 @@ impl PixelRepr for Length {
 
             LengthUnit::Ch | LengthUnit::Cap => rel_ctx
                 .map(|ctx| ctx.parent.font_size * 0.5 * self.value())
-                .unwrap_or(abs_ctx.root_font_size * 0.5 * self.value()),
+                .unwrap_or_else(|| abs_ctx.root_font_size * 0.5 * self.value()),
             LengthUnit::Rem => abs_ctx.root_font_size * self.value(),
             LengthUnit::Em => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx
                     .map(|ctx| ctx.parent.font_size * self.value())
-                    .unwrap_or(abs_ctx.root_font_size * self.value()),
+                    .unwrap_or_else(|| abs_ctx.root_font_size * self.value()),
                 _ => rel_ctx
                     .map(|ctx| ctx.font_size * self.value())
-                    .unwrap_or(abs_ctx.root_font_size * self.value()),
+                    .unwrap_or_else(|| abs_ctx.root_font_size * self.value()),
             },
             _ => self.value(), // TODO: Handle other units properly
         }

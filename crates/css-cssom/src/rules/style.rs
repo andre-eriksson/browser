@@ -28,8 +28,8 @@ pub struct CSSStyleRule {
 
 impl CSSStyleRule {
     /// Create a new style rule with the given selector
-    pub fn new(selector_text: String) -> Self {
-        CSSStyleRule {
+    pub const fn new(selector_text: String) -> Self {
+        Self {
             selector_text,
             prelude: Vec::new(),
             declarations: Vec::new(),
@@ -51,7 +51,7 @@ impl CSSStyleRule {
         let declarations = qr.parse_declarations(collect_positions);
         let css_declarations: Vec<CSSDeclaration> = declarations.into_iter().map(CSSDeclaration::from).collect();
 
-        let style_rule = CSSStyleRule {
+        let style_rule = Self {
             selector_text,
             prelude: qr.prelude,
             declarations: css_declarations,

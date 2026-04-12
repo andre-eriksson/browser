@@ -33,7 +33,7 @@ impl NodeBuilder {
         }
     }
 
-    pub fn border(mut self, border: SideOffset) -> Self {
+    pub const fn border(mut self, border: SideOffset) -> Self {
         self.layout_node.border = border;
         self
     }
@@ -43,17 +43,17 @@ impl NodeBuilder {
         self
     }
 
-    pub fn colors(mut self, colors: LayoutColors) -> Self {
+    pub const fn colors(mut self, colors: LayoutColors) -> Self {
         self.layout_node.colors = colors;
         self
     }
 
-    pub fn cursor(mut self, cursor: Cursor) -> Self {
+    pub const fn cursor(mut self, cursor: Cursor) -> Self {
         self.layout_node.cursor = cursor;
         self
     }
 
-    pub fn dimensions(mut self, rect: Rect) -> Self {
+    pub const fn dimensions(mut self, rect: Rect) -> Self {
         self.layout_node.dimensions = rect;
         self
     }
@@ -63,22 +63,22 @@ impl NodeBuilder {
         self
     }
 
-    pub fn height_auto(mut self, is_height_auto: bool) -> Self {
+    pub const fn height_auto(mut self, is_height_auto: bool) -> Self {
         self.layout_node.is_height_auto = is_height_auto;
         self
     }
 
-    pub fn margin(mut self, margin: SideOffset) -> Self {
+    pub const fn margin(mut self, margin: SideOffset) -> Self {
         self.layout_node.margin = margin;
         self
     }
 
-    pub fn padding(mut self, padding: SideOffset) -> Self {
+    pub const fn padding(mut self, padding: SideOffset) -> Self {
         self.layout_node.padding = padding;
         self
     }
 
-    pub fn position(mut self, position: Position) -> Self {
+    pub const fn position(mut self, position: Position) -> Self {
         self.layout_node.position = position;
         self
     }

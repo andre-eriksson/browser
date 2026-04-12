@@ -10,11 +10,11 @@ impl PixelRepr for CalcValue {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            CalcValue::Number(n) => *n,
-            CalcValue::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
-            CalcValue::Keyword(k) => k.to_f32(),
-            CalcValue::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
-            CalcValue::Percentage(p) => match rel_type {
+            Self::Number(n) => *n,
+            Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Keyword(k) => k.to_f32(),
+            Self::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Percentage(p) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx
                     .map(|ctx| ctx.parent.font_size * p.as_fraction())
                     .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),
@@ -29,15 +29,15 @@ impl PixelRepr for CalcValue {
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
                 None => 0.0,
             },
-            CalcValue::Min(args) => args
+            Self::Min(args) => args
                 .iter()
                 .map(|sum| sum.to_px(rel_type, rel_ctx, abs_ctx))
                 .fold(f32::INFINITY, f32::min),
-            CalcValue::Max(args) => args
+            Self::Max(args) => args
                 .iter()
                 .map(|sum| sum.to_px(rel_type, rel_ctx, abs_ctx))
                 .fold(f32::NEG_INFINITY, f32::max),
-            CalcValue::Clamp(args) => {
+            Self::Clamp(args) => {
                 let min_val = args
                     .min
                     .as_ref()
@@ -61,11 +61,11 @@ impl PixelRepr for CalcProduct {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            CalcProduct::Value(v) => v.to_px(rel_type, rel_ctx, abs_ctx),
-            CalcProduct::Multiply(left, right) => {
+            Self::Value(v) => v.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Multiply(left, right) => {
                 left.to_px(rel_type, rel_ctx, abs_ctx) * right.to_px(rel_type, rel_ctx, abs_ctx)
             }
-            CalcProduct::Divide(left, right) => {
+            Self::Divide(left, right) => {
                 let divisor = right.to_px(rel_type, rel_ctx, abs_ctx);
                 if divisor == 0.0 {
                     f32::NAN
@@ -85,11 +85,11 @@ impl PixelRepr for CalcSum {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            CalcSum::Product(p) => p.to_px(rel_type, rel_ctx, abs_ctx),
-            CalcSum::Add(left, right) => {
+            Self::Product(p) => p.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Add(left, right) => {
                 left.to_px(rel_type, rel_ctx, abs_ctx) + right.to_px(rel_type, rel_ctx, abs_ctx)
             }
-            CalcSum::Subtract(left, right) => {
+            Self::Subtract(left, right) => {
                 left.to_px(rel_type, rel_ctx, abs_ctx) - right.to_px(rel_type, rel_ctx, abs_ctx)
             }
         }

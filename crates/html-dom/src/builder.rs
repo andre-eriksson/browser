@@ -40,7 +40,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Returns
     /// A new instance of `DomTreeBuilder` initialized with an empty DOM tree and no open elements.
     pub fn new(collector: Option<C>) -> Self {
-        DomTreeBuilder {
+        Self {
             collector: collector.unwrap_or_default(),
             dom_tree: DocumentRoot::new(),
             open_elements: Vec::with_capacity(16),
@@ -97,15 +97,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `new_tag` - A reference to the `HtmlTag` representing the new tag being processed.
     fn handle_auto_close(&mut self, new_tag: &Tag) {
         let should_pop = if let Some(last_id) = self.open_elements.last() {
-            if let Some(node) = self.dom_tree.get_node(last_id) {
+            self.dom_tree.get_node(last_id).is_some_and(|node| {
                 if let NodeData::Element(elem) = &node.data {
                     elem.tag.should_auto_close(new_tag)
                 } else {
                     false
                 }
-            } else {
-                false
-            }
+            })
         } else {
             false
         };
@@ -159,15 +157,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         let target_tag = Tag::from_str_insensitive(&token.data);
 
         let should_close = if let Some(last) = self.open_elements.last() {
-            if let Some(node) = self.dom_tree.get_node(last) {
+            self.dom_tree.get_node(last).is_some_and(|node| {
                 if let NodeData::Element(elem) = &node.data {
                     elem.tag == target_tag
                 } else {
                     false
                 }
-            } else {
-                false
-            }
+            })
         } else {
             false
         };

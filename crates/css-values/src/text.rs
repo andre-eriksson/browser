@@ -1,4 +1,5 @@
 //! This module defines font primitives, including absolute and relative font sizes, as well as generic font family names.
+//!
 //! The absolute font sizes are mapped to specific pixel values, while the relative font sizes adjust based on the parent element's font size.
 //! The generic font family names represent common categories of fonts that can be used in CSS.
 
@@ -14,6 +15,7 @@ use crate::{
 };
 
 /// CSS defines several keywords for font sizes, which are mapped to specific pixel values.
+///
 /// These keywords are used to specify the size of text in a way that is relative to the user's preferred font size (medium) or to other font sizes.
 /// The absolute size keywords are mapped to specific pixel values, while the relative size keywords adjust the font size based on the parent element's font size.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
@@ -55,12 +57,14 @@ pub enum FontFamilyName {
 
 impl Default for FontFamilyName {
     fn default() -> Self {
-        FontFamilyName::Generic(GenericName::SansSerif)
+        Self::Generic(GenericName::SansSerif)
     }
 }
 
-/// Represents the font-size property, which can be specified using absolute-size keywords (e.g., small, medium),
-/// relative-size keywords (e.g., larger, smaller), length units (e.g., 16px, 1.5em), percentage, or a calc() expression.
+/// Represents the font-size property,
+///
+/// Can be specified using absolute-size keywords (e.g., small, medium), relative-size keywords (e.g., larger, smaller),
+/// length units (e.g., 16px, 1.5em), percentage, or a calc() expression.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-size>
 #[derive(Debug, Clone, PartialEq)]
@@ -74,14 +78,14 @@ pub enum FontSize {
 
 impl FontSize {
     /// Create a FontSize from a length value in pixels.
-    pub fn px(value: f32) -> Self {
+    pub const fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
 }
 
 impl Default for FontSize {
     fn default() -> Self {
-        FontSize::Absolute(AbsoluteSize::Medium)
+        Self::Absolute(AbsoluteSize::Medium)
     }
 }
 
@@ -99,15 +103,15 @@ impl CSSParsable for FontSize {
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if let Ok(abs_size) = ident.parse() {
-                            Ok(Self::Absolute(abs_size))
-                        } else if let Ok(rel_size) = ident.parse() {
-                            Ok(Self::Relative(rel_size))
-                        } else {
-                            Err(CssValueError::InvalidValue(format!("Invalid font size keyword: {}", ident)))
-                        }
-                    }
+                    CssTokenKind::Ident(ident) => ident.parse().map_or_else(
+                        |_| {
+                            ident.parse().map_or_else(
+                                |_| Err(CssValueError::InvalidValue(format!("Invalid font size keyword: {}", ident))),
+                                |rel_size| Ok(Self::Relative(rel_size)),
+                            )
+                        },
+                        |abs_size| Ok(Self::Absolute(abs_size)),
+                    ),
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
@@ -148,15 +152,15 @@ pub enum FontWeight {
 impl From<u16> for FontWeight {
     fn from(value: u16) -> Self {
         match value {
-            100 => FontWeight::Thin,
-            200 => FontWeight::ExtraLight,
-            300 => FontWeight::Light,
-            400 => FontWeight::Normal,
-            500 => FontWeight::Medium,
-            600 => FontWeight::SemiBold,
-            700 => FontWeight::Bold,
-            800 => FontWeight::ExtraBold,
-            900 => FontWeight::Black,
+            100 => Self::Thin,
+            200 => Self::ExtraLight,
+            300 => Self::Light,
+            400 => Self::Normal,
+            500 => Self::Medium,
+            600 => Self::SemiBold,
+            700 => Self::Bold,
+            800 => Self::ExtraBold,
+            900 => Self::Black,
             // TODO: Once we support variable font weights, we need to clamp between 1 and 1000 and drop the rounding logic.
             _ => Self::from(((value.saturating_add(50)) / 100 * 100).clamp(100, 900)),
         }
@@ -165,10 +169,9 @@ impl From<u16> for FontWeight {
 
 impl CSSParsable for FontWeight {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::ExpectedComponentValue), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("normal") {
@@ -183,16 +186,14 @@ impl CSSParsable for FontWeight {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-            }
-        } else {
-            Err(CssValueError::ExpectedComponentValue)
-        }
+            })
     }
 }
 
-/// Defines the generic font family names that can be used in CSS to specify a general category of font. These names are not specific font families,
-/// but rather represent a group of fonts that share certain characteristics. When a generic font family is specified, the browser will use the
-/// best available font that matches the specified category.
+/// Defines the generic font family names that can be used in CSS.
+///
+/// These names are not specific font families, but rather represent a group of fonts that share certain characteristics.
+/// When a generic font family is specified, the browser will use the best available font that matches the specified category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum GenericName {
@@ -255,8 +256,8 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub fn px(value: f32) -> Self {
-        LineHeight::Length(Length::px(value))
+    pub const fn px(value: f32) -> Self {
+        Self::Length(Length::px(value))
     }
 }
 
@@ -267,18 +268,18 @@ impl CSSParsable for LineHeight {
         if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    Ok(LineHeight::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                    Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
                 }
                 ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => Ok(LineHeight::Normal),
-                    CssTokenKind::Number(num) => Ok(LineHeight::Number(num.to_f64() as f32)),
+                    CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => Ok(Self::Normal),
+                    CssTokenKind::Number(num) => Ok(Self::Number(num.to_f64() as f32)),
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        Ok(LineHeight::Length(Length::new(value.to_f64() as f32, len_unit)))
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Percentage(pct) => Ok(LineHeight::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
@@ -331,10 +332,9 @@ pub enum TextAlign {
 
 impl CSSParsable for TextAlign {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::ExpectedComponentValue), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
@@ -342,14 +342,13 @@ impl CSSParsable for TextAlign {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-            }
-        } else {
-            Err(CssValueError::ExpectedComponentValue)
-        }
+            })
     }
 }
 
-/// The `white-space` property describes how whitespace inside an element is handled. It can be used to control whether and how whitespace is collapsed,
+/// The `white-space` property
+///
+/// Describes how whitespace inside an element is handled. It can be used to control whether and how whitespace is collapsed,
 /// and whether lines are broken at newline characters in the source code or at soft wrap opportunities.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/white-space>
@@ -382,10 +381,9 @@ pub enum Whitespace {
 
 impl CSSParsable for Whitespace {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::ExpectedComponentValue), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
@@ -393,14 +391,12 @@ impl CSSParsable for Whitespace {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-            }
-        } else {
-            Err(CssValueError::ExpectedComponentValue)
-        }
+            })
     }
 }
 
 /// The `writing-mode` property defines whether lines of text are laid out horizontally or vertically, and the direction in which blocks progress.
+///
 /// It also affects the orientation of certain characters and the behavior of text alignment and justification.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/writing-mode>
@@ -431,10 +427,9 @@ pub enum WritingMode {
 
 impl CSSParsable for WritingMode {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::ExpectedComponentValue), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
@@ -442,10 +437,7 @@ impl CSSParsable for WritingMode {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-            }
-        } else {
-            Err(CssValueError::ExpectedComponentValue)
-        }
+            })
     }
 }
 

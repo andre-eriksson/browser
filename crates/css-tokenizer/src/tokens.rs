@@ -30,10 +30,10 @@ pub enum NumericValue {
 impl NumericValue {
     /// Get the numeric value as a f64, regardless of its original type
     #[must_use]
-    pub fn to_f64(&self) -> f64 {
+    pub const fn to_f64(&self) -> f64 {
         match self {
-            NumericValue::Integer(i) => *i as f64,
-            NumericValue::Number(n) => *n,
+            Self::Integer(i) => *i as f64,
+            Self::Number(n) => *n,
         }
     }
 
@@ -41,8 +41,8 @@ impl NumericValue {
     #[must_use]
     pub fn to_i64(&self) -> Option<i64> {
         match self {
-            NumericValue::Integer(i) => Some(*i),
-            NumericValue::Number(n) => {
+            Self::Integer(i) => Some(*i),
+            Self::Number(n) => {
                 if !n.is_finite() {
                     return None;
                 }
@@ -57,25 +57,25 @@ impl NumericValue {
     }
 
     #[must_use]
-    pub fn is_integer(&self) -> bool {
-        matches!(self, NumericValue::Integer(_))
+    pub const fn is_integer(&self) -> bool {
+        matches!(self, Self::Integer(_))
     }
 
     #[must_use]
-    pub fn is_number(&self) -> bool {
-        matches!(self, NumericValue::Number(_))
+    pub const fn is_number(&self) -> bool {
+        matches!(self, Self::Number(_))
     }
 }
 
 impl From<f64> for NumericValue {
     fn from(value: f64) -> Self {
-        NumericValue::Number(value)
+        Self::Number(value)
     }
 }
 
 impl From<i64> for NumericValue {
     fn from(value: i64) -> Self {
-        NumericValue::Integer(value)
+        Self::Integer(value)
     }
 }
 
@@ -166,31 +166,31 @@ impl Display for CssTokenKind {
     ///<https://www.w3.org/TR/css-syntax-3/#serialization>
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CssTokenKind::Ident(value) => write!(f, "{value}",),
-            CssTokenKind::Function(value) => write!(f, "{value}("),
-            CssTokenKind::AtKeyword(value) => write!(f, "@{value}"),
-            CssTokenKind::Hash { value, .. } => write!(f, "#{value}"),
-            CssTokenKind::String(value) => write!(f, "\"{value}\""),
-            CssTokenKind::BadString => write!(f, "\""),
-            CssTokenKind::Url(value) => write!(f, "url({value})"),
-            CssTokenKind::BadUrl => write!(f, "url("),
-            CssTokenKind::Delim(c) => write!(f, "{c}"),
-            CssTokenKind::Number(num) => write!(f, "{}", num.to_f64()),
-            CssTokenKind::Percentage(num) => write!(f, "{}%", num.to_f64()),
-            CssTokenKind::Dimension { value, unit } => write!(f, "{}{unit}", value.to_f64()),
-            CssTokenKind::Whitespace => write!(f, " "),
-            CssTokenKind::Cdo => write!(f, "<!--"),
-            CssTokenKind::Cdc => write!(f, "-->"),
-            CssTokenKind::Colon => write!(f, ":"),
-            CssTokenKind::Semicolon => write!(f, ";"),
-            CssTokenKind::Comma => write!(f, ","),
-            CssTokenKind::OpenSquare => write!(f, "["),
-            CssTokenKind::CloseSquare => write!(f, "]"),
-            CssTokenKind::OpenParen => write!(f, "("),
-            CssTokenKind::CloseParen => write!(f, ")"),
-            CssTokenKind::OpenCurly => write!(f, "{{"),
-            CssTokenKind::CloseCurly => write!(f, "}}"),
-            CssTokenKind::Eof => Ok(()),
+            Self::Ident(value) => write!(f, "{value}",),
+            Self::Function(value) => write!(f, "{value}("),
+            Self::AtKeyword(value) => write!(f, "@{value}"),
+            Self::Hash { value, .. } => write!(f, "#{value}"),
+            Self::String(value) => write!(f, "\"{value}\""),
+            Self::BadString => write!(f, "\""),
+            Self::Url(value) => write!(f, "url({value})"),
+            Self::BadUrl => write!(f, "url("),
+            Self::Delim(c) => write!(f, "{c}"),
+            Self::Number(num) => write!(f, "{}", num.to_f64()),
+            Self::Percentage(num) => write!(f, "{}%", num.to_f64()),
+            Self::Dimension { value, unit } => write!(f, "{}{unit}", value.to_f64()),
+            Self::Whitespace => write!(f, " "),
+            Self::Cdo => write!(f, "<!--"),
+            Self::Cdc => write!(f, "-->"),
+            Self::Colon => write!(f, ":"),
+            Self::Semicolon => write!(f, ";"),
+            Self::Comma => write!(f, ","),
+            Self::OpenSquare => write!(f, "["),
+            Self::CloseSquare => write!(f, "]"),
+            Self::OpenParen => write!(f, "("),
+            Self::CloseParen => write!(f, ")"),
+            Self::OpenCurly => write!(f, "{{"),
+            Self::CloseCurly => write!(f, "}}"),
+            Self::Eof => Ok(()),
         }
     }
 }
@@ -203,7 +203,7 @@ pub struct CssToken {
 
 impl From<CssTokenKind> for CssToken {
     fn from(kind: CssTokenKind) -> Self {
-        CssToken {
+        Self {
             kind,
             position: None,
         }

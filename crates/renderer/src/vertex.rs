@@ -12,7 +12,7 @@ impl VertexBuffer for SolidVertex {
         ];
 
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<SolidVertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &ATTRIBUTES,
         }
@@ -28,7 +28,7 @@ impl VertexBuffer for TextureVertex {
         ];
 
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<TextureVertex>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &ATTRIBUTES,
         }

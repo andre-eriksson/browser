@@ -6,7 +6,7 @@ use url::Url;
 use crate::{core::Application, events::Event};
 
 /// Handles navigation to a new URL, including resolving relative URLs and applying heuristics for missing schemes.
-pub(crate) fn navigate_to_url(application: &mut Application, window_id: Id, new_url: String) -> Task<Event> {
+pub fn navigate_to_url(application: &mut Application, window_id: Id, new_url: String) -> Task<Event> {
     let ctx = application
         .browser_windows
         .get_mut(&window_id)
@@ -24,24 +24,27 @@ pub(crate) fn navigate_to_url(application: &mut Application, window_id: Id, new_
         tab.history.add_back(page_ctx.page, page_ctx.metadata);
     }
 
-    let url = if let Some(rel_url) = relative {
-        if rel_url.contains("://") || rel_url.starts_with("about:") {
-            rel_url
-        } else {
-            format!("http://{}", rel_url)
-        }
-    } else {
-        let local_regex =
-            Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
+    let url = relative.map_or_else(
+        || {
+            let local_regex =
+                Regex::new(r"^(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)").unwrap();
 
-        if new_url.starts_with("http://") || new_url.starts_with("https://") {
-            new_url
-        } else if local_regex.is_match(new_url.as_str()) {
-            format!("http://{}", new_url)
-        } else {
-            format!("https://{}", new_url)
-        }
-    };
+            if new_url.starts_with("http://") || new_url.starts_with("https://") {
+                new_url
+            } else if local_regex.is_match(new_url.as_str()) {
+                format!("http://{}", new_url)
+            } else {
+                format!("https://{}", new_url)
+            }
+        },
+        |rel_url| {
+            if rel_url.contains("://") || rel_url.starts_with("about:") {
+                rel_url
+            } else {
+                format!("http://{}", rel_url)
+            }
+        },
+    );
 
     let tab_id = ctx
         .tab_manager

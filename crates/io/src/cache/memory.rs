@@ -166,11 +166,10 @@ where
 
     /// Evicts a cache entry for a given key, removing it from both memory and disk.
     pub fn evict(&self, key: &K, headers: &HeaderMap) -> Result<bool, CacheError> {
-        let mut removed_mem = false;
-
-        if let Ok(mut entries) = self.entries.write() {
-            removed_mem = entries.remove(key).is_some();
-        }
+        let removed_mem = self
+            .entries
+            .write()
+            .is_ok_and(|mut entries| entries.remove(key).is_some());
 
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);

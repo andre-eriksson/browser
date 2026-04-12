@@ -48,7 +48,7 @@ impl BackButton {
             },
             ..Default::default()
         })
-        .on_press_maybe(if current_tab.is_some_and(|tab| !tab.history.can_go_back()) {
+        .on_press_maybe(if current_tab.is_some_and(|tab| tab.history.can_go_back()) {
             Some(Event::Browser(BrowserEvent::NavigateBack(window_id)))
         } else {
             None

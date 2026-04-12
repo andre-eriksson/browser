@@ -30,7 +30,7 @@ impl Database for CookieDatabase {
 }
 
 /// A simple in-memory cookie jar (for now).
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CookieJar {
     /// The list of stored cookies.
     cookies: Vec<Cookie>,
@@ -47,13 +47,13 @@ impl CookieJar {
             return Self { cookies };
         }
 
-        CookieJar {
+        Self {
             cookies: Vec::with_capacity(32),
         }
     }
 
     #[must_use]
-    pub fn cookies(&self) -> &Vec<Cookie> {
+    pub const fn cookies(&self) -> &Vec<Cookie> {
         &self.cookies
     }
 
@@ -67,11 +67,10 @@ impl CookieJar {
         self.cookies
             .iter()
             .filter(|cookie| {
-                if let Some(cookie_domain) = cookie.domain() {
-                    **cookie_domain == host
-                } else {
-                    false
-                }
+                cookie
+                    .domain()
+                    .as_ref()
+                    .is_some_and(|cookie_domain| **cookie_domain == host)
             })
             .cloned()
             .collect()

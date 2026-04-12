@@ -27,12 +27,12 @@ pub struct Alpha(f32);
 
 impl Alpha {
     /// Create a new Alpha value from a floating-point number, which is clamped to the range [0.0, 1.0].
-    pub fn new(value: f32) -> Self {
-        Alpha(value.clamp(0.0, 1.0))
+    pub const fn new(value: f32) -> Self {
+        Self(value.clamp(0.0, 1.0))
     }
 
     /// Get the alpha value as a floating-point number in the range [0.0, 1.0].
-    pub fn value(&self) -> f32 {
+    pub const fn value(&self) -> f32 {
         self.0.clamp(0.0, 1.0)
     }
 }
@@ -59,8 +59,8 @@ impl Hue {
 impl From<ColorValue> for Hue {
     fn from(value: ColorValue) -> Self {
         match value {
-            ColorValue::Number(n) => Hue(n),
-            ColorValue::Percentage(p) => Hue(p.as_fraction() * 360.0),
+            ColorValue::Number(n) => Self(n),
+            ColorValue::Percentage(p) => Self(p.as_fraction() * 360.0),
         }
     }
 }
@@ -103,8 +103,8 @@ impl ColorValue {
     /// ```
     pub fn value(&self, range: RangeInclusive<f32>, fraction: Fraction) -> f32 {
         match self {
-            ColorValue::Number(n) => n.clamp(*range.start(), *range.end()),
-            ColorValue::Percentage(p) => match fraction {
+            Self::Number(n) => n.clamp(*range.start(), *range.end()),
+            Self::Percentage(p) => match fraction {
                 Fraction::Unsigned => Self::lerp(p.as_fraction(), range),
                 Fraction::Signed => Self::signed_lerp(p.as_fraction(), range),
             },
@@ -127,12 +127,14 @@ impl ColorValue {
 
 impl From<f32> for ColorValue {
     fn from(value: f32) -> Self {
-        ColorValue::Number(value)
+        Self::Number(value)
     }
 }
 
-/// Represents the <color> data type in CSS, which can be specified using various formats such as named colors,
-/// hexadecimal colors, functional notations (e.g., rgb(), hsl()), system colors, and the currentColor keyword.
+/// Represents the <color> data type in CSS
+///
+/// Which can be specified using various formats such as named colors, hexadecimal colors,
+/// functional notations (e.g., rgb(), hsl()), system colors, and the currentColor keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Color {
     Base(ColorBase),
@@ -152,7 +154,7 @@ impl Color {
 
 impl Default for Color {
     fn default() -> Self {
-        Color::Base(ColorBase::Named(NamedColor::Black))
+        Self::Base(ColorBase::Named(NamedColor::Black))
     }
 }
 
@@ -200,8 +202,8 @@ impl CSSParsable for Color {
                             let (light_values, dark_values) = function.value.split_at(pos);
                             let dark_values = &dark_values[1..];
 
-                            let light_color = Color::parse(&mut light_values.into())?;
-                            let dark_color = Color::parse(&mut dark_values.into())?;
+                            let light_color = Self::parse(&mut light_values.into())?;
+                            let dark_color = Self::parse(&mut dark_values.into())?;
 
                             Ok(Self::LightDark(Box::new(light_color), Box::new(dark_color)))
                         } else {

@@ -59,7 +59,7 @@ impl CSSParsable for LinearColorHint {
         }
 
         let lp = Gradient::try_parse_length_percentage(meaningful[0])?;
-        Ok(LinearColorHint(lp))
+        Ok(Self(lp))
     }
 }
 
@@ -96,7 +96,7 @@ impl CSSParsable for LinearColorStop {
             }
         };
 
-        Ok(LinearColorStop { color, length })
+        Ok(Self { color, length })
     }
 }
 
@@ -146,7 +146,7 @@ impl CSSParsable for ColorStopList {
             return Err(CssValueError::InvalidValue("Color stop list must have at least 2 color stops".into()));
         }
 
-        Ok(ColorStopList(first, rest))
+        Ok(Self(first, rest))
     }
 }
 
@@ -168,14 +168,14 @@ impl CSSParsable for AngularColorHint {
         let cv = meaningful[0];
         match cv {
             ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Number(n) if n.to_f64() == 0.0 => Ok(AngularColorHint::Zero),
+                CssTokenKind::Number(n) if n.to_f64() == 0.0 => Ok(Self::Zero),
                 CssTokenKind::Dimension { .. } | CssTokenKind::Number(_) => {
                     let angle = Angle::try_from(token)?;
-                    Ok(AngularColorHint::AnglePercentage(AnglePercentage::Angle(angle)))
+                    Ok(Self::AnglePercentage(AnglePercentage::Angle(angle)))
                 }
                 CssTokenKind::Percentage(value) => {
                     let pct = Percentage::new(value.to_f64() as f32);
-                    Ok(AngularColorHint::AnglePercentage(AnglePercentage::Percentage(pct)))
+                    Ok(Self::AnglePercentage(AnglePercentage::Percentage(pct)))
                 }
                 _ => Err(CssValueError::InvalidToken(token.kind.clone())),
             },
@@ -217,7 +217,7 @@ impl CSSParsable for AngularColorStop {
             }
         };
 
-        Ok(AngularColorStop { color, angle })
+        Ok(Self { color, angle })
     }
 }
 
@@ -268,6 +268,6 @@ impl CSSParsable for AngularColorStopList {
             return Err(CssValueError::InvalidValue("Angular color stop list must have at least 2 color stops".into()));
         }
 
-        Ok(AngularColorStopList(first, rest))
+        Ok(Self(first, rest))
     }
 }

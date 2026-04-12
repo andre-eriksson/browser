@@ -14,14 +14,14 @@ impl TabManager {
     pub fn new() -> Self {
         let initial_tab = UiTab::new(TabId(0));
 
-        TabManager {
+        Self {
             active_tab: initial_tab.id,
             tabs: vec![initial_tab],
             next_tab_id: 1,
         }
     }
 
-    pub fn active_tab_id(&self) -> TabId {
+    pub const fn active_tab_id(&self) -> TabId {
         self.active_tab
     }
 
@@ -41,7 +41,7 @@ impl TabManager {
         self.tabs.iter_mut().find(|t| t.id == tab_id)
     }
 
-    pub(crate) fn next_tab_id(&self) -> usize {
+    pub(crate) const fn next_tab_id(&self) -> usize {
         self.next_tab_id
     }
 

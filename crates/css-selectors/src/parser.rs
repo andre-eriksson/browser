@@ -2,7 +2,7 @@ use css_cssom::{ComponentValue, CssToken, CssTokenKind};
 
 use crate::{matching::AttributeOperator, selector::AttributeSelector};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum CaseSensitivity {
     /// 's' or 'S' flag (default)
     #[default]
@@ -12,7 +12,7 @@ pub enum CaseSensitivity {
     CaseInsensitive,
 }
 
-pub(crate) fn parse_attribute_selectors_components(components: &[ComponentValue]) -> Option<AttributeSelector> {
+pub fn parse_attribute_selectors_components(components: &[ComponentValue]) -> Option<AttributeSelector> {
     let mut tokens: Vec<CssToken> = Vec::with_capacity(6);
 
     for cv in components {
@@ -33,7 +33,7 @@ pub(crate) fn parse_attribute_selectors_components(components: &[ComponentValue]
 ///
 /// # Returns
 /// * `Option<AttributeSelector>` - An optional AttributeSelector if parsing was successful
-pub(crate) fn parse_attribute_selector(tokens: &[CssToken]) -> Option<AttributeSelector> {
+pub fn parse_attribute_selector(tokens: &[CssToken]) -> Option<AttributeSelector> {
     let mut attribute_selector = AttributeSelector::default();
     let mut temp_buffer_ch = '0';
 

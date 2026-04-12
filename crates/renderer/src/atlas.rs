@@ -46,7 +46,7 @@ struct AtlasPacker {
 }
 
 impl AtlasPacker {
-    fn new(width: u32, height: u32) -> Self {
+    const fn new(width: u32, height: u32) -> Self {
         Self {
             cursor_x: 0,
             cursor_y: 0,
@@ -204,17 +204,17 @@ impl GlyphAtlas {
     }
 
     /// Get the bind group layout for pipeline creation
-    pub fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+    pub const fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.bind_group_layout
     }
 
     /// Get the bind group for rendering
-    pub fn bind_group(&self) -> &wgpu::BindGroup {
+    pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 
     /// Get atlas dimensions
-    pub fn size(&self) -> (u32, u32) {
+    pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 

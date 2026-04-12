@@ -6,7 +6,7 @@ use crate::mode::inline::collection::InlineItem;
 /// Canonicalise whitespace in the collected inline items according to the CSS
 /// `white-space` property of each text run, collapsing runs of whitespace into a single
 /// space where appropriate and stripping leading/trailing whitespace from lines.
-pub(crate) fn canonicalize_whitespace(items: &mut Vec<InlineItem>) {
+pub fn canonicalize_whitespace(items: &mut Vec<InlineItem>) {
     let mut last_was_space = false;
     let mut write_idx = 0;
 
@@ -65,7 +65,7 @@ pub(crate) fn canonicalize_whitespace(items: &mut Vec<InlineItem>) {
 
 /// Returns true if the given style's `white-space` property preserves
 /// spaces (i.e. is `pre` or `pre-wrap`).
-fn preserves_spaces(style: &ComputedStyle) -> bool {
+const fn preserves_spaces(style: &ComputedStyle) -> bool {
     matches!(style.whitespace, Whitespace::Pre | Whitespace::PreWrap)
 }
 

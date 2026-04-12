@@ -20,14 +20,16 @@ pub struct PropertyRegistry {
     pub descriptors: HashMap<String, PropertyDescriptor>,
 }
 
-/// Represents a node in the style tree, which contains the computed style for a DOM node, its tag name (if it's an element),
+/// Represents a node in the style tree,
+///
+/// Contains the computed style for a DOM node, its tag name (if it's an element),
 /// its children, any text content (if it's a text node), and its attributes (if it's an element).
 #[derive(Debug, Clone)]
 pub struct StyledNode {
     pub node_id: NodeId,
     pub tag: Option<Tag>,
     pub style: ComputedStyle,
-    pub children: Vec<StyledNode>,
+    pub children: Vec<Self>,
     pub text_content: Option<String>,
     pub attributes: HashMap<String, String>,
 }
@@ -46,8 +48,11 @@ impl StyledNode {
     }
 }
 
-/// Represents the style tree, which is a hierarchical structure of styled nodes corresponding to the DOM tree. Each node in the style tree
-/// contains the computed style for the corresponding DOM node, as well as its tag name (if it's an element), its children, and any text content (if it's a text node).
+/// Represents the style tree,
+///
+/// It is a hierarchical structure of styled nodes corresponding to the DOM tree. Each node in the style tree
+/// contains the computed style for the corresponding DOM node, as well as its tag name (if it's an element),
+/// its children, and any text content (if it's a text node).
 #[derive(Debug, Clone, Default)]
 pub struct StyleTree {
     /// The root nodes of the style tree.
@@ -131,7 +136,7 @@ impl StyleTree {
             })
             .collect();
 
-        StyleTree {
+        Self {
             root_nodes,
             property_registry,
         }

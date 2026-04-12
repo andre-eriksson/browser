@@ -8,7 +8,7 @@ use crate::{
 /// # Arguments
 /// * `first` - The first code point
 /// * `second` - The second code point
-pub(crate) fn two_code_points_are_valid_escape(first: Option<char>, second: Option<char>) -> bool {
+pub const fn two_code_points_are_valid_escape(first: Option<char>, second: Option<char>) -> bool {
     match (first, second) {
         (Some('\\'), Some('\n')) => false,
         (Some('\\'), _) => true,
@@ -20,7 +20,7 @@ pub(crate) fn two_code_points_are_valid_escape(first: Option<char>, second: Opti
 ///
 /// # Arguments
 /// * `tokenizer` - The CSS tokenizer
-pub(crate) fn starts_with_valid_escape(tokenizer: &mut CssTokenizer) -> bool {
+pub fn starts_with_valid_escape(tokenizer: &CssTokenizer) -> bool {
     two_code_points_are_valid_escape(tokenizer.stream.current, tokenizer.stream.peek())
 }
 
@@ -30,7 +30,7 @@ pub(crate) fn starts_with_valid_escape(tokenizer: &mut CssTokenizer) -> bool {
 /// * `first` - The first code point
 /// * `second` - The second code point
 /// * `third` - The third code point
-pub(crate) fn three_code_points_would_start_ident(
+pub const fn three_code_points_would_start_ident(
     first: Option<char>,
     second: Option<char>,
     third: Option<char>,
@@ -50,7 +50,7 @@ pub(crate) fn three_code_points_would_start_ident(
 ///
 /// # Arguments
 /// * `tokenizer` - The CSS tokenizer
-pub(crate) fn input_starts_with_ident_sequence(tokenizer: &mut CssTokenizer) -> bool {
+pub fn input_starts_with_ident_sequence(tokenizer: &CssTokenizer) -> bool {
     three_code_points_would_start_ident(
         tokenizer.stream.peek(),
         tokenizer.stream.peek_at(1),
@@ -77,6 +77,6 @@ fn three_code_points_would_start_number(first: Option<char>, second: Option<char
 ///
 /// # Arguments
 /// * `tokenizer` - The CSS tokenizer
-pub(crate) fn input_starts_with_number(tokenizer: &mut CssTokenizer) -> bool {
+pub fn input_starts_with_number(tokenizer: &CssTokenizer) -> bool {
     three_code_points_would_start_number(tokenizer.stream.current, tokenizer.stream.peek(), tokenizer.stream.peek_at(1))
 }

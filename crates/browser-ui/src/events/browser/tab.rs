@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// Handles the creation of a new tab when a `NewTab` event is received from the UI.
-pub(crate) fn create_new_tab(application: &mut Application, window_id: Id) -> Task<Event> {
+pub fn create_new_tab(application: &mut Application, window_id: Id) -> Task<Event> {
     match application.browser_windows.get_mut(&window_id) {
         Some(window) => {
             let new_tab_id = window.tab_manager.next_tab_id();
@@ -25,7 +25,7 @@ pub(crate) fn create_new_tab(application: &mut Application, window_id: Id) -> Ta
 }
 
 /// Handles the closure of a tab when a `CloseTab` event is received from the UI.
-pub(crate) fn close_tab(application: &mut Application, window_id: Id, tab_id: TabId) -> Task<Event> {
+pub fn close_tab(application: &mut Application, window_id: Id, tab_id: TabId) -> Task<Event> {
     match application.browser_windows.get_mut(&window_id) {
         Some(window) => {
             if window.tab_manager.tabs().len() == 1 {
@@ -53,7 +53,7 @@ pub(crate) fn close_tab(application: &mut Application, window_id: Id, tab_id: Ta
 }
 
 /// Handles the switching of the active tab when a `ChangeActiveTab` event is received from the UI.
-pub(crate) fn change_active_tab(application: &mut Application, window_id: Id, tab_id: TabId) -> Task<Event> {
+pub fn change_active_tab(application: &mut Application, window_id: Id, tab_id: TabId) -> Task<Event> {
     match application.browser_windows.get_mut(&window_id) {
         Some(window) => {
             if window.tab_manager.change_active_tab(tab_id).is_err() {

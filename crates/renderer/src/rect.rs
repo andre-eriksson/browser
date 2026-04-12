@@ -221,27 +221,27 @@ impl RectPipeline {
     }
 
     /// Returns true if there are vertices to draw
-    pub fn has_content(&self) -> bool {
+    pub const fn has_content(&self) -> bool {
         self.vertex_count > 0
     }
 
     /// Returns a reference to the render pipeline
-    pub fn pipeline(&self) -> &RenderPipeline {
+    pub const fn pipeline(&self) -> &RenderPipeline {
         &self.pipeline
     }
 
     /// Returns a reference to the globals bind group
-    pub fn bind_group(&self) -> &wgpu::BindGroup {
+    pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.globals.bind_group
     }
 
     /// Returns the vertex buffer
-    pub fn vertex_buffer(&self) -> &wgpu::Buffer {
+    pub const fn vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
 
     /// Returns the number of vertices to draw
-    pub fn vertex_count(&self) -> u32 {
+    pub const fn vertex_count(&self) -> u32 {
         self.vertex_count
     }
 }

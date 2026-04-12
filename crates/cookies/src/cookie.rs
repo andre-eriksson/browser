@@ -32,11 +32,11 @@ pub enum SameSite {
 impl From<&str> for SameSite {
     fn from(value: &str) -> Self {
         if value.eq_ignore_ascii_case("strict") {
-            SameSite::Strict
+            Self::Strict
         } else if value.eq_ignore_ascii_case("none") {
-            SameSite::None
+            Self::None
         } else {
-            SameSite::Lax
+            Self::Lax
         }
     }
 }
@@ -44,11 +44,11 @@ impl From<&str> for SameSite {
 impl From<String> for SameSite {
     fn from(value: String) -> Self {
         if value.eq_ignore_ascii_case("strict") {
-            SameSite::Strict
+            Self::Strict
         } else if value.eq_ignore_ascii_case("none") {
-            SameSite::None
+            Self::None
         } else {
-            SameSite::Lax
+            Self::Lax
         }
     }
 }
@@ -56,9 +56,9 @@ impl From<String> for SameSite {
 impl Display for SameSite {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SameSite::Lax => write!(f, "lax"),
-            SameSite::Strict => write!(f, "strict"),
-            SameSite::None => write!(f, "none"),
+            Self::Lax => write!(f, "lax"),
+            Self::Strict => write!(f, "strict"),
+            Self::None => write!(f, "none"),
         }
     }
 }
@@ -97,7 +97,7 @@ impl Cookie {
     #[instrument(skip(request_url), level = "trace", fields(cookie_str = %cookie_str))]
     pub fn parse(cookie_str: &str, request_url: &Url) -> Result<Self, ParsingError> {
         let parts = cookie_str.split(';');
-        let mut cookie = Cookie::default();
+        let mut cookie = Self::default();
 
         for part in parts {
             let trimmed = part.trim();
@@ -147,7 +147,7 @@ impl Cookie {
         Ok(cookie)
     }
 
-    pub(crate) fn validate_cookie_prefix(cookie: &Cookie) -> Result<(), ParsingError> {
+    pub(crate) fn validate_cookie_prefix(cookie: &Self) -> Result<(), ParsingError> {
         if cookie.name().starts_with("__Host-Http-") {
             if !cookie.secure() {
                 return Err(ParsingError::PrefixMismatch {
@@ -215,7 +215,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_expires(cookie: &mut Cookie, value: Option<&str>) -> Result<(), ParsingError> {
+    fn parse_expires(cookie: &mut Self, value: Option<&str>) -> Result<(), ParsingError> {
         if let Some(expires) = value {
             let date_parts: Vec<&str> = expires.split_ascii_whitespace().collect();
 
@@ -289,7 +289,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_max_age(cookie: &mut Cookie, value: Option<&str>) -> Result<(), ParsingError> {
+    fn parse_max_age(cookie: &mut Self, value: Option<&str>) -> Result<(), ParsingError> {
         if let Some(max_age) = value {
             let value = if max_age.starts_with('-') {
                 "0"
@@ -312,7 +312,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_domain(cookie: &mut Cookie, value: Option<&str>) -> Result<(), ParsingError> {
+    fn parse_domain(cookie: &mut Self, value: Option<&str>) -> Result<(), ParsingError> {
         if let Some(domain) = value {
             let mut domain_mut = domain;
 
@@ -333,7 +333,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_path(cookie: &mut Cookie, value: Option<&str>, request_url: &Url) {
+    fn parse_path(cookie: &mut Self, value: Option<&str>, request_url: &Url) {
         if let Some(path) = value
             && (path.starts_with('/') || !path.is_empty())
         {
@@ -343,7 +343,7 @@ impl Cookie {
         }
     }
 
-    fn parse_same_site(cookie: &mut Cookie, value: Option<&str>) {
+    const fn parse_same_site(cookie: &mut Self, value: Option<&str>) {
         if let Some(same_site) = value {
             let same_site = if same_site.eq_ignore_ascii_case("strict") {
                 SameSite::Strict
@@ -368,17 +368,17 @@ impl Cookie {
     }
 
     #[must_use]
-    pub fn expires(&self) -> &Expiration {
+    pub const fn expires(&self) -> &Expiration {
         &self.expires
     }
 
     #[must_use]
-    pub fn max_age(&self) -> &Option<Duration> {
+    pub const fn max_age(&self) -> &Option<Duration> {
         &self.max_age
     }
 
     #[must_use]
-    pub fn domain(&self) -> &Option<Box<Host>> {
+    pub const fn domain(&self) -> &Option<Box<Host>> {
         &self.domain
     }
 
@@ -388,17 +388,17 @@ impl Cookie {
     }
 
     #[must_use]
-    pub fn secure(&self) -> bool {
+    pub const fn secure(&self) -> bool {
         self.secure
     }
 
     #[must_use]
-    pub fn http_only(&self) -> bool {
+    pub const fn http_only(&self) -> bool {
         self.http_only
     }
 
     #[must_use]
-    pub fn same_site(&self) -> &SameSite {
+    pub const fn same_site(&self) -> &SameSite {
         &self.same_site
     }
 }
@@ -414,7 +414,7 @@ impl Display for Cookie {
             self.max_age().unwrap_or(Duration::seconds(0)),
             self.domain()
                 .as_ref()
-                .unwrap_or(&Host::Ipv4(Ipv4Addr::LOCALHOST).into()),
+                .unwrap_or_else(|| Box::leak(Box::new(Host::Ipv4(Ipv4Addr::LOCALHOST).into()))),
             self.path(),
             self.secure(),
             self.http_only(),
@@ -447,12 +447,12 @@ impl CookieBuilder {
         self
     }
 
-    pub fn expires(mut self, expiration: Expiration) -> Self {
+    pub const fn expires(mut self, expiration: Expiration) -> Self {
         self.expires = expiration;
         self
     }
 
-    pub fn max_age(mut self, max_age: Duration) -> Self {
+    pub const fn max_age(mut self, max_age: Duration) -> Self {
         self.max_age = Some(max_age);
         self
     }
@@ -467,17 +467,17 @@ impl CookieBuilder {
         self
     }
 
-    pub fn secure(mut self, secure: bool) -> Self {
+    pub const fn secure(mut self, secure: bool) -> Self {
         self.secure = secure;
         self
     }
 
-    pub fn http_only(mut self, http_only: bool) -> Self {
+    pub const fn http_only(mut self, http_only: bool) -> Self {
         self.http_only = http_only;
         self
     }
 
-    pub fn same_site(mut self, same_site: SameSite) -> Self {
+    pub const fn same_site(mut self, same_site: SameSite) -> Self {
         self.same_site = same_site;
         self
     }

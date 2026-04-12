@@ -19,7 +19,7 @@ pub struct HtmlPrimitive {
 }
 
 impl HtmlPrimitive {
-    pub fn new(scroll_offset: ScrollOffset) -> Self {
+    pub const fn new(scroll_offset: ScrollOffset) -> Self {
         Self {
             rects: Vec::new(),
             tris: Vec::new(),

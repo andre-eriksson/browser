@@ -15,9 +15,9 @@ pub enum Rule {
 
 impl Rule {
     /// Get the qualified rule if this is a qualified rule, otherwise return None
-    pub fn as_qualified_rule(&self) -> Option<&QualifiedRule> {
+    pub const fn as_qualified_rule(&self) -> Option<&QualifiedRule> {
         match self {
-            Rule::QualifiedRule(qr) => Some(qr),
+            Self::QualifiedRule(qr) => Some(qr),
             _ => None,
         }
     }
@@ -38,8 +38,8 @@ pub struct QualifiedRule {
 
 impl QualifiedRule {
     /// Create a new qualified rule
-    pub fn new() -> Self {
-        QualifiedRule {
+    pub const fn new() -> Self {
+        Self {
             prelude: Vec::new(),
             block: SimpleBlock::new(AssociatedToken::CurlyBracket),
         }
@@ -129,8 +129,8 @@ pub struct AtRule {
 
 impl AtRule {
     /// Create a new at-rule with the given name
-    pub fn new(name: String) -> Self {
-        AtRule {
+    pub const fn new(name: String) -> Self {
+        Self {
             name,
             prelude: Vec::new(),
             block: None,

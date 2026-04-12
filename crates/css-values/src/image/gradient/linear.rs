@@ -128,11 +128,10 @@ impl CSSParsable for LinearGradientSyntax {
 
             if let Ok(Some(method)) = Gradient::try_consume_interpolation(stripped) {
                 interpolation = Some(method);
-                idx += 1;
             } else {
                 direction = Some(Self::try_parse_direction(seg)?);
-                idx += 1;
             }
+            idx += 1;
         }
 
         if interpolation.is_none() && idx < segments.len() {
@@ -152,7 +151,7 @@ impl CSSParsable for LinearGradientSyntax {
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);
         let stops = ColorStopList::parse(&mut stop_cvs.as_slice().into())?;
 
-        Ok(LinearGradientSyntax {
+        Ok(Self {
             direction,
             interpolation,
             stops,

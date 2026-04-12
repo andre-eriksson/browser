@@ -52,7 +52,7 @@ pub trait PixelRepr {
 }
 
 /// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RelativeType {
     FontSize,
     ParentWidth,
@@ -100,7 +100,7 @@ impl<'page> AbsoluteContext<'page> {
         }
     }
 
-    pub fn default_url(document_url: &'page Url) -> Self {
+    pub const fn default_url(document_url: &'page Url) -> Self {
         Self {
             root_font_size: 16.0,
             root_line_height_multiplier: 1.2,
@@ -121,39 +121,39 @@ pub struct RelativeContext {
 }
 
 /// A CSS property that can either be a specific value or a global value (initial, inherit, unset, revert, revert-layer).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum CSSProperty<T> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CSSProperty<T> {
     Value(T),
     Global(Global),
 }
 
 impl<T: CSSParsable> CSSProperty<T> {
     /// Returns the specific value of the property if it is set, or None if it is a global value.
-    pub(crate) fn as_value(&self) -> Option<&T> {
+    pub(crate) const fn as_value(&self) -> Option<&T> {
         match self {
-            CSSProperty::Value(val) => Some(val),
-            CSSProperty::Global(_) => None,
+            Self::Value(val) => Some(val),
+            Self::Global(_) => None,
         }
     }
 
     /// Resolves the property to its specific value if it is set, or returns an error if it is a global value.
-    pub(crate) fn resolve(property: &CSSProperty<T>) -> Result<&T, String> {
+    pub(crate) fn resolve(property: &Self) -> Result<&T, String> {
         match property {
-            CSSProperty::Value(val) => Ok(val),
-            CSSProperty::Global(global) => Err(format!("Cannot resolve global property: {:?}", global)),
+            Self::Value(val) => Ok(val),
+            Self::Global(global) => Err(format!("Cannot resolve global property: {:?}", global)),
         }
     }
 
     /// Resolves the property to its specific value if it is set, or computes the value based on the global value and the provided context (parent and initial values).
-    pub(crate) fn resolve_with_context<'css>(&'css self, parent: &'css T, initial: &'css T) -> &'css T {
+    pub(crate) const fn resolve_with_context<'css>(&'css self, parent: &'css T, initial: &'css T) -> &'css T {
         match self {
-            CSSProperty::Global(global) => match global {
+            Self::Global(global) => match global {
                 Global::Initial => initial,
                 Global::Inherit => parent,
                 Global::Unset => parent,
                 Global::Revert | Global::RevertLayer => initial,
             },
-            CSSProperty::Value(val) => val,
+            Self::Value(val) => val,
         }
     }
 
@@ -162,13 +162,13 @@ impl<T: CSSParsable> CSSProperty<T> {
         T: Default,
     {
         match self {
-            CSSProperty::Global(global) => match global {
+            Self::Global(global) => match global {
                 Global::Initial => T::default(),
                 Global::Inherit => parent,
                 Global::Unset => parent,
                 Global::Revert | Global::RevertLayer => T::default(),
             },
-            CSSProperty::Value(val) => val,
+            Self::Value(val) => val,
         }
     }
 
@@ -177,25 +177,25 @@ impl<T: CSSParsable> CSSProperty<T> {
     /// If not, it tries to parse the stream into the specific type T and updates
     /// the property with the parsed value.
     pub(crate) fn update_property(
-        property: &mut CSSProperty<T>,
+        property: &mut Self,
         stream: &mut ComponentValueStream,
     ) -> Result<(), CssValueError> {
         let checkpoint = stream.checkpoint();
 
         if let Ok(global) = Global::parse(stream) {
-            *property = CSSProperty::Global(global);
+            *property = Self::Global(global);
             return Ok(());
         }
 
         stream.restore(checkpoint);
-        *property = CSSProperty::from(T::parse(stream)?);
+        *property = Self::from(T::parse(stream)?);
         Ok(())
     }
 }
 
 impl<T> From<T> for CSSProperty<T> {
     fn from(value: T) -> Self {
-        CSSProperty::Value(value)
+        Self::Value(value)
     }
 }
 

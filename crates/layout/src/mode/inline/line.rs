@@ -192,7 +192,7 @@ impl<'node> LineBoxBuilder<'node> {
     pub(crate) fn finish_line_with_decorations(
         &mut self,
         ctx: &mut InlineLayoutContext<'_, 'node>,
-        text_ctx: &mut TextContext,
+        text_ctx: &TextContext,
         min_line_height: Option<f32>,
     ) {
         let mut continuing_boxes = std::mem::take(ctx.inline_box_stack);
@@ -208,11 +208,7 @@ impl<'node> LineBoxBuilder<'node> {
             &text_ctx.last_writing_mode,
         );
         ctx.nodes.extend(line_nodes);
-        *ctx.current_y += if let Some(min_h) = min_line_height {
-            h.max(min_h)
-        } else {
-            h
-        };
+        *ctx.current_y += min_line_height.map_or(h, |min_h| h.max(min_h));
         self.line_box = LineBox::new(ctx.start_x, *ctx.current_y);
 
         for con_box in continuing_boxes {

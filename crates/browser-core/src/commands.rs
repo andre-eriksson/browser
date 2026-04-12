@@ -4,6 +4,6 @@ mod html;
 mod image;
 mod navigate;
 
-pub(crate) use html::parse_devtools_html;
-pub(crate) use image::load_image;
-pub(crate) use navigate::navigate;
+pub use html::parse_devtools_html;
+pub use image::load_image;
+pub use navigate::navigate;

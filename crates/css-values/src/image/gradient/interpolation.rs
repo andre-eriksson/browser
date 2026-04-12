@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use strum::EnumString;
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum XyzSpace {
     Xyz,
@@ -10,7 +10,7 @@ pub enum XyzSpace {
     XyzD65,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RectangularColorSpace {
     Srgb,
     SrgbLinear,
@@ -28,33 +28,36 @@ impl FromStr for RectangularColorSpace {
     type Err = strum::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(xyz) = s.parse::<XyzSpace>() {
-            Ok(Self::Xyz(xyz))
-        } else if s.eq_ignore_ascii_case("srgb") {
-            Ok(Self::Srgb)
-        } else if s.eq_ignore_ascii_case("srgb-linear") {
-            Ok(Self::SrgbLinear)
-        } else if s.eq_ignore_ascii_case("display-p3") {
-            Ok(Self::DisplayP3)
-        } else if s.eq_ignore_ascii_case("display-p3-linear") {
-            Ok(Self::DisplayP3Linear)
-        } else if s.eq_ignore_ascii_case("a98-rgb") {
-            Ok(Self::A98Rgb)
-        } else if s.eq_ignore_ascii_case("prophoto-rgb") {
-            Ok(Self::ProphotoRgb)
-        } else if s.eq_ignore_ascii_case("rec2020") {
-            Ok(Self::Rec2020)
-        } else if s.eq_ignore_ascii_case("lab") {
-            Ok(Self::Lab)
-        } else if s.eq_ignore_ascii_case("oklab") {
-            Ok(Self::Oklab)
-        } else {
-            Err(strum::ParseError::VariantNotFound)
-        }
+        s.parse::<XyzSpace>().map_or_else(
+            |_| {
+                if s.eq_ignore_ascii_case("srgb") {
+                    Ok(Self::Srgb)
+                } else if s.eq_ignore_ascii_case("srgb-linear") {
+                    Ok(Self::SrgbLinear)
+                } else if s.eq_ignore_ascii_case("display-p3") {
+                    Ok(Self::DisplayP3)
+                } else if s.eq_ignore_ascii_case("display-p3-linear") {
+                    Ok(Self::DisplayP3Linear)
+                } else if s.eq_ignore_ascii_case("a98-rgb") {
+                    Ok(Self::A98Rgb)
+                } else if s.eq_ignore_ascii_case("prophoto-rgb") {
+                    Ok(Self::ProphotoRgb)
+                } else if s.eq_ignore_ascii_case("rec2020") {
+                    Ok(Self::Rec2020)
+                } else if s.eq_ignore_ascii_case("lab") {
+                    Ok(Self::Lab)
+                } else if s.eq_ignore_ascii_case("oklab") {
+                    Ok(Self::Oklab)
+                } else {
+                    Err(strum::ParseError::VariantNotFound)
+                }
+            },
+            |xyz| Ok(Self::Xyz(xyz)),
+        )
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum PolarColorSpace {
     Hsl,
@@ -63,7 +66,7 @@ pub enum PolarColorSpace {
     Oklch,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum HueInterpolationMethod {
     Shorter,
@@ -72,7 +75,7 @@ pub enum HueInterpolationMethod {
     Decreasing,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ColorInterpolationMethod {
     Rectangular(RectangularColorSpace),
     Polar(PolarColorSpace, Option<HueInterpolationMethod>),

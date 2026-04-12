@@ -5,7 +5,7 @@ use tracing::info;
 
 use crate::HeadlessEngine;
 
-pub(crate) async fn cmd_navigate(
+pub async fn cmd_navigate(
     engine: &mut HeadlessEngine,
     url: &str,
     navigation_type: NavigationType,
@@ -45,7 +45,7 @@ pub(crate) async fn cmd_navigate(
     }
 }
 
-pub(crate) async fn cmd_back(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub async fn cmd_back(engine: &mut HeadlessEngine) -> Result<(), String> {
     let Some(page) = take(&mut engine.page) else {
         return Err("No current page to navigate back from".to_string());
     };
@@ -66,7 +66,7 @@ pub(crate) async fn cmd_back(engine: &mut HeadlessEngine) -> Result<(), String> 
     }
 }
 
-pub(crate) async fn cmd_forward(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub async fn cmd_forward(engine: &mut HeadlessEngine) -> Result<(), String> {
     let Some(page) = std::mem::take(&mut engine.page) else {
         return Err("No current page to navigate forward from".to_string());
     };
@@ -87,7 +87,7 @@ pub(crate) async fn cmd_forward(engine: &mut HeadlessEngine) -> Result<(), Strin
     }
 }
 
-pub(crate) async fn cmd_reload(engine: &mut HeadlessEngine) -> Result<(), String> {
+pub async fn cmd_reload(engine: &mut HeadlessEngine) -> Result<(), String> {
     let url = engine
         .metadata
         .as_ref()

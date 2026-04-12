@@ -62,7 +62,7 @@ pub fn generate_selector_list(components: &[ComponentValue]) -> Vec<Vec<Compound
 ///
 /// # Returns
 /// * `Vec<CompoundSelectorSequence>` - A vector of compound selector sequences
-pub(crate) fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<CompoundSelectorSequence> {
+pub fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<CompoundSelectorSequence> {
     let mut sequences: Vec<CompoundSelectorSequence> = Vec::with_capacity(components.len() / 2 + 1);
     let mut current_sequence = CompoundSelectorSequence {
         compound_selectors: Vec::new(),

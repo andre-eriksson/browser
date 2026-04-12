@@ -24,7 +24,7 @@ pub struct History {
 impl History {
     /// Creates a new `History` instance with empty caches and metadata lists.
     pub fn new() -> Self {
-        History {
+        Self {
             f_cache: Vec::with_capacity(MAX_BFCACHE_SIZE),
             b_cache: Vec::with_capacity(MAX_BFCACHE_SIZE),
 
@@ -67,12 +67,12 @@ impl History {
     }
 
     /// Checks if there are entries available in the backward history, indicating that the user can navigate back to a previous page.
-    pub fn can_go_back(&self) -> bool {
+    pub const fn can_go_back(&self) -> bool {
         !self.backward.is_empty()
     }
 
     /// Checks if there are entries available in the forward history, indicating that the user can navigate forward to a previously visited page.
-    pub fn can_go_forward(&self) -> bool {
+    pub const fn can_go_forward(&self) -> bool {
         !self.forward.is_empty()
     }
 

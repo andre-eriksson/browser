@@ -197,22 +197,22 @@ pub struct Length {
 
 impl Length {
     /// Creates a new Length with the given value and unit.
-    pub fn new(value: f32, unit: LengthUnit) -> Self {
+    pub const fn new(value: f32, unit: LengthUnit) -> Self {
         Self { value, unit }
     }
 
     /// Returns the numeric value of the length.
-    pub fn value(&self) -> f32 {
+    pub const fn value(&self) -> f32 {
         self.value
     }
 
     /// Returns the unit of the length.
-    pub fn unit(&self) -> LengthUnit {
+    pub const fn unit(&self) -> LengthUnit {
         self.unit
     }
 
     /// Constructs a Length of zero, for convenience.
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self {
             value: 0.0,
             unit: LengthUnit::Px,
@@ -220,7 +220,7 @@ impl Length {
     }
 
     /// Constructs a Length in pixels, for convenience.
-    pub fn px(value: f32) -> Self {
+    pub const fn px(value: f32) -> Self {
         Self {
             value,
             unit: LengthUnit::Px,
@@ -236,7 +236,7 @@ impl TryFrom<&CssToken> for Length {
             CssTokenKind::Dimension { value, unit } => {
                 let unit = LengthUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
 
-                Ok(Length::new(value.to_f64() as f32, unit))
+                Ok(Self::new(value.to_f64() as f32, unit))
             }
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
@@ -245,15 +245,12 @@ impl TryFrom<&CssToken> for Length {
 
 impl CSSParsable for Length {
     fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            if let Some(token) = cv.as_token() {
-                Length::try_from(token)
-            } else {
-                Err(CssValueError::InvalidComponentValue(cv.clone()))
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| {
+                cv.as_token()
+                    .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
+            })
     }
 }
 
@@ -285,41 +282,41 @@ impl Angle {
     /// Convert the angle to degrees
     pub fn to_degrees(self) -> f32 {
         match self {
-            Angle::Deg(v) => v,
-            Angle::Rad(v) => v.to_degrees(),
-            Angle::Grad(v) => v * 0.9,
-            Angle::Turn(v) => v * 360.0,
+            Self::Deg(v) => v,
+            Self::Rad(v) => v.to_degrees(),
+            Self::Grad(v) => v * 0.9,
+            Self::Turn(v) => v * 360.0,
         }
     }
 
     /// Convert the angle to radians
     pub fn to_radians(self) -> f32 {
         match self {
-            Angle::Deg(v) => v.to_radians(),
-            Angle::Rad(v) => v,
-            Angle::Grad(v) => v * 0.9 * std::f32::consts::PI / 180.0,
-            Angle::Turn(v) => v * 2.0 * std::f32::consts::PI,
+            Self::Deg(v) => v.to_radians(),
+            Self::Rad(v) => v,
+            Self::Grad(v) => (v * 0.9).to_radians(),
+            Self::Turn(v) => v * 2.0 * std::f32::consts::PI,
         }
     }
 
     /// Convert f32 degrees to an Angle, normalizing it to the [0, 360) range
     pub fn from_degrees(deg: f32) -> Self {
-        Angle::Deg((deg / 360.0).fract() * 360.0)
+        Self::Deg((deg / 360.0).fract() * 360.0)
     }
 
     /// Convert f32 radians to an Angle, normalizing it to the [0, 2π) range
     pub fn from_radians(rad: f32) -> Self {
-        Angle::Rad((rad / (2.0 * std::f32::consts::PI)).fract() * (2.0 * std::f32::consts::PI))
+        Self::Rad((rad / (2.0 * std::f32::consts::PI)).fract() * (2.0 * std::f32::consts::PI))
     }
 
     /// Convert f32 gradians to an Angle, normalizing it to the [0, 400) range
     pub fn from_gradians(grad: f32) -> Self {
-        Angle::Grad((grad / 400.0).fract() * 400.0)
+        Self::Grad((grad / 400.0).fract() * 400.0)
     }
 
     /// Convert f32 turns to an Angle, normalizing it to the [0, 1) range
-    pub fn from_turns(turn: f32) -> Self {
-        Angle::Turn((turn).fract())
+    pub const fn from_turns(turn: f32) -> Self {
+        Self::Turn((turn).fract())
     }
 }
 
@@ -331,14 +328,14 @@ impl TryFrom<&CssToken> for Angle {
             CssTokenKind::Dimension { value, unit } => {
                 let unit_str = unit.to_ascii_lowercase();
                 match unit_str.as_str() {
-                    "deg" => Ok(Angle::from_degrees(value.to_f64() as f32)),
-                    "rad" => Ok(Angle::from_radians(value.to_f64() as f32)),
-                    "grad" => Ok(Angle::from_gradians(value.to_f64() as f32)),
-                    "turn" => Ok(Angle::from_turns(value.to_f64() as f32)),
-                    _ => Ok(Angle::from_degrees(value.to_f64() as f32)),
+                    "deg" => Ok(Self::from_degrees(value.to_f64() as f32)),
+                    "rad" => Ok(Self::from_radians(value.to_f64() as f32)),
+                    "grad" => Ok(Self::from_gradians(value.to_f64() as f32)),
+                    "turn" => Ok(Self::from_turns(value.to_f64() as f32)),
+                    _ => Ok(Self::from_degrees(value.to_f64() as f32)),
                 }
             }
-            CssTokenKind::Number(value) => Ok(Angle::from_degrees(value.to_f64() as f32)),
+            CssTokenKind::Number(value) => Ok(Self::from_degrees(value.to_f64() as f32)),
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
     }
@@ -346,15 +343,12 @@ impl TryFrom<&CssToken> for Angle {
 
 impl CSSParsable for Angle {
     fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            if let Some(token) = cv.as_token() {
-                Angle::try_from(token)
-            } else {
-                Err(CssValueError::InvalidComponentValue(cv.clone()))
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| {
+                cv.as_token()
+                    .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
+            })
     }
 }
 
@@ -379,9 +373,9 @@ impl TryFrom<&CssToken> for Time {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 if unit.eq_ignore_ascii_case("s") {
-                    Ok(Time::Seconds(value.to_f64() as f32))
+                    Ok(Self::Seconds(value.to_f64() as f32))
                 } else if unit.eq_ignore_ascii_case("ms") {
-                    Ok(Time::Milliseconds(value.to_f64() as f32))
+                    Ok(Self::Milliseconds(value.to_f64() as f32))
                 } else {
                     Err(CssValueError::InvalidUnit(unit.clone()))
                 }
@@ -393,15 +387,12 @@ impl TryFrom<&CssToken> for Time {
 
 impl CSSParsable for Time {
     fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            if let Some(token) = cv.as_token() {
-                Time::try_from(token)
-            } else {
-                Err(CssValueError::InvalidComponentValue(cv.clone()))
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| {
+                cv.as_token()
+                    .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
+            })
     }
 }
 
@@ -427,9 +418,9 @@ impl TryFrom<&CssToken> for Frequency {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 if unit.eq_ignore_ascii_case("hz") {
-                    Ok(Frequency::Hz(value.to_f64() as f32))
+                    Ok(Self::Hz(value.to_f64() as f32))
                 } else if unit.eq_ignore_ascii_case("khz") {
-                    Ok(Frequency::KHz(value.to_f64() as f32))
+                    Ok(Self::KHz(value.to_f64() as f32))
                 } else {
                     Err(CssValueError::InvalidUnit(unit.clone()))
                 }
@@ -441,20 +432,19 @@ impl TryFrom<&CssToken> for Frequency {
 
 impl CSSParsable for Frequency {
     fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            if let Some(token) = cv.as_token() {
-                Frequency::try_from(token)
-            } else {
-                Err(CssValueError::InvalidComponentValue(cv.clone()))
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| {
+                cv.as_token()
+                    .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
+            })
     }
 }
 
-/// The <resolution> CSS data type represents a resolution value, which can be specified in dots per inch,
-/// dots per centimeter, or dots per pixel. It is commonly used in media queries to specify the resolution of the output device.
+/// The <resolution> CSS data type
+///
+/// Represents a resolution value, which can be specified in dots per inch, dots per centimeter, or dots per pixel.
+/// It is commonly used in media queries to specify the resolution of the output device.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Resolution {
     /// Dots per inch (e.g., "300dpi")
@@ -480,11 +470,11 @@ impl TryFrom<&CssToken> for Resolution {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 if unit.eq_ignore_ascii_case("dpi") {
-                    Ok(Resolution::Dpi(value.to_f64() as f32))
+                    Ok(Self::Dpi(value.to_f64() as f32))
                 } else if unit.eq_ignore_ascii_case("dpcm") {
-                    Ok(Resolution::Dpcm(value.to_f64() as f32))
+                    Ok(Self::Dpcm(value.to_f64() as f32))
                 } else if unit.eq_ignore_ascii_case("dppx") {
-                    Ok(Resolution::Dppx(value.to_f64() as f32))
+                    Ok(Self::Dppx(value.to_f64() as f32))
                 } else {
                     Err(CssValueError::InvalidUnit(unit.clone()))
                 }
@@ -496,15 +486,12 @@ impl TryFrom<&CssToken> for Resolution {
 
 impl CSSParsable for Resolution {
     fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            if let Some(token) = cv.as_token() {
-                Resolution::try_from(token)
-            } else {
-                Err(CssValueError::InvalidComponentValue(cv.clone()))
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| {
+                cv.as_token()
+                    .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
+            })
     }
 }
 

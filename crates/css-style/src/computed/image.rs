@@ -13,9 +13,9 @@ pub enum ComputedImage {
 impl From<ComputedImage> for Image {
     fn from(computed: ComputedImage) -> Self {
         match computed {
-            ComputedImage::None => Image::None,
-            ComputedImage::Url(url) => Image::Url(url.to_string()),
-            ComputedImage::Gradient(gradient) => Image::Gradient(gradient),
+            ComputedImage::None => Self::None,
+            ComputedImage::Url(url) => Self::Url(url.to_string()),
+            ComputedImage::Gradient(gradient) => Self::Gradient(gradient),
         }
     }
 }
@@ -23,14 +23,14 @@ impl From<ComputedImage> for Image {
 impl ComputedImage {
     pub fn resolve(image: Image, absolute_ctx: &AbsoluteContext) -> Result<Self, String> {
         match image {
-            Image::Url(url) => Ok(ComputedImage::Url(
+            Image::Url(url) => Ok(Self::Url(
                 absolute_ctx
                     .document_url
                     .join(&url)
                     .map_err(|e| format!("Failed to resolve URL: {}", e))?,
             )),
-            Image::Gradient(gradient) => Ok(ComputedImage::Gradient(gradient)),
-            Image::None => Ok(ComputedImage::None),
+            Image::Gradient(gradient) => Ok(Self::Gradient(gradient)),
+            Image::None => Ok(Self::None),
         }
     }
 }
@@ -40,13 +40,13 @@ pub struct ComputedBackgroundImage(pub Vec<ComputedImage>);
 
 impl From<ComputedBackgroundImage> for BackgroundImage {
     fn from(computed: ComputedBackgroundImage) -> Self {
-        BackgroundImage(computed.0.into_iter().map(ComputedImage::into).collect())
+        Self(computed.0.into_iter().map(ComputedImage::into).collect())
     }
 }
 
 impl ComputedBackgroundImage {
-    pub fn none() -> Self {
-        ComputedBackgroundImage(vec![])
+    pub const fn none() -> Self {
+        Self(vec![])
     }
 
     pub fn resolve(images: Vec<Image>, absolute_ctx: &AbsoluteContext) -> Result<Self, String> {

@@ -69,13 +69,10 @@ impl Color4f {
             Color::Base(ColorBase::Hex(hex)) => Self::from(*hex),
             Color::Base(ColorBase::Function(func)) => Self::from(func.clone()),
             Color::Base(ColorBase::Transparent) => Self::TRANSPARENT,
-            Color::Current => {
-                if let Some(resolved) = Self::resolve_current_color(text_color, absolute_ctx) {
-                    Self::from_css_color(resolved, text_color, relative_ctx, absolute_ctx)
-                } else {
-                    relative_ctx.parent.color
-                }
-            }
+            Color::Current => Self::resolve_current_color(text_color, absolute_ctx).map_or_else(
+                || relative_ctx.parent.color,
+                |resolved| Self::from_css_color(resolved, text_color, relative_ctx, absolute_ctx),
+            ),
             Color::System(system) => Self::from(*system),
             Color::LightDark(light, dark) => {
                 let branch = match absolute_ctx.theme_category {
@@ -125,7 +122,7 @@ impl Color4f {
         if c <= 0.0031308 {
             12.92 * c
         } else {
-            1.055 * c.powf(1.0 / 2.4) - 0.055
+            1.055f32.mul_add(c.powf(1.0 / 2.4), -0.055)
         }
     }
 
@@ -216,7 +213,7 @@ impl From<ColorFunction> for Color4f {
 
                 let h_deg = ((h_deg % 360.0) + 360.0) % 360.0;
 
-                let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+                let c = (1.0 - 2.0f32.mul_add(l, -1.0).abs()) * s;
                 let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
                 let m = l - c / 2.0;
 
@@ -268,9 +265,9 @@ impl From<ColorFunction> for Color4f {
 
                 let scale = 1.0 - w_frac - b_frac;
                 Self::rgba(
-                    (r1 * scale + w_frac).clamp(0.0, 1.0),
-                    (g1 * scale + w_frac).clamp(0.0, 1.0),
-                    (b1 * scale + w_frac).clamp(0.0, 1.0),
+                    r1.mul_add(scale, w_frac).clamp(0.0, 1.0),
+                    g1.mul_add(scale, w_frac).clamp(0.0, 1.0),
+                    b1.mul_add(scale, w_frac).clamp(0.0, 1.0),
                     alpha.value(),
                 )
             }
@@ -290,7 +287,7 @@ impl From<ColorFunction> for Color4f {
                 let x_ref = if fx.powi(3) > delta_cu {
                     fx.powi(3)
                 } else {
-                    (116.0 * fx - 16.0) / 903.3
+                    116.0f32.mul_add(fx, -16.0) / 903.3
                 };
                 let y_ref = if l_val > (delta_cu * 903.3) {
                     fy.powi(3)
@@ -300,7 +297,7 @@ impl From<ColorFunction> for Color4f {
                 let z_ref = if fz.powi(3) > delta_cu {
                     fz.powi(3)
                 } else {
-                    (116.0 * fz - 16.0) / 903.3
+                    116.0f32.mul_add(fz, -16.0) / 903.3
                 };
 
                 // D65 white point
@@ -330,17 +327,17 @@ impl From<ColorFunction> for Color4f {
                 let a_val = a.value(-0.4..=0.4, Fraction::Signed);
                 let b_val = b.value(-0.4..=0.4, Fraction::Signed);
 
-                let l_ = l_val + 0.396_337_78 * a_val + 0.215_803_76 * b_val;
-                let m_ = l_val - 0.105_561_346 * a_val - 0.063_854_17 * b_val;
-                let s_ = l_val - 0.089_484_18 * a_val - 1.291_485_5 * b_val;
+                let l_ = 0.215_803_76f32.mul_add(b_val, 0.396_337_78f32.mul_add(a_val, l_val));
+                let m_ = 0.063_854_17f32.mul_add(-b_val, 0.105_561_346f32.mul_add(-a_val, l_val));
+                let s_ = 1.291_485_5f32.mul_add(-b_val, 0.089_484_18f32.mul_add(-a_val, l_val));
 
                 let l_lin = l_ * l_ * l_;
                 let m_lin = m_ * m_ * m_;
                 let s_lin = s_ * s_ * s_;
 
-                let r_lin = 4.076_741_7 * l_lin - 3.307_711_6 * m_lin + 0.230_969_94 * s_lin;
-                let g_lin = -1.268_438 * l_lin + 2.609_757_4 * m_lin - 0.341_319_38 * s_lin;
-                let b_lin = -0.0041960863 * l_lin - 0.703_419 * m_lin + 1.707_614_7 * s_lin;
+                let r_lin = 0.230_969_94f32.mul_add(s_lin, 4.076_741_7f32.mul_add(l_lin, -(3.307_711_6 * m_lin)));
+                let g_lin = 0.341_319_38f32.mul_add(-s_lin, (-1.268_438f32).mul_add(l_lin, 2.609_757_4 * m_lin));
+                let b_lin = 1.707_614_7f32.mul_add(s_lin, (-0.0041960863f32).mul_add(l_lin, -(0.703_419 * m_lin)));
 
                 Self::rgba(
                     Self::linear_component_to_srgb(r_lin).clamp(0.0, 1.0),

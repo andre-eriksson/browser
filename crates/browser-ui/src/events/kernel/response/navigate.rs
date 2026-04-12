@@ -17,7 +17,7 @@ use crate::{
 
 /// Handles successful navigation by updating the tab's document, stylesheets, layout tree, and initiating image
 /// fetches for any images found on the page.
-pub(crate) fn on_navigation_success(
+pub fn on_navigation_success(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
@@ -133,7 +133,7 @@ pub(crate) fn on_navigation_success(
     Task::none()
 }
 
-pub(crate) fn on_navigation_error(_application: &mut Application, error: NavigationError) -> Task<Event> {
+pub fn on_navigation_error(_application: &mut Application, error: NavigationError) -> Task<Event> {
     error!(%error, "Navigation failed");
     Task::none()
 }
@@ -142,8 +142,8 @@ pub(crate) fn on_navigation_error(_application: &mut Application, error: Navigat
 /// corresponding image elements in the tab's layout tree. If the image fails to decode, it marks the cache
 /// entry as failed and triggers a UI update to reflect the failed image load
 /// (e.g., showing a broken image icon).
-pub(crate) fn on_image_loaded(
-    application: &mut Application,
+pub fn on_image_loaded(
+    application: &Application,
     window_id: Id,
     tab_id: TabId,
     url: String,

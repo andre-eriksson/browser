@@ -1,5 +1,6 @@
 //! This module defines the `EmbededResource` struct and the `EmbededType` enum,
-//! which represent embedded resources in the application. The `rust_embed` crate
+//!
+//! Botg represent embedded resources in the application. The `rust_embed` crate
 //! is used to include files from the specified folder, allowing for easy access
 //! to assets such as icons, fonts, shaders, and browser-related files.
 

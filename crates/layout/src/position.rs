@@ -28,7 +28,7 @@ impl PositionContext {
     }
 
     /// Returns the current number of positioned rects, for use with `offset_positions_since`.
-    pub fn position_count(&self) -> usize {
+    pub const fn position_count(&self) -> usize {
         self.positioned.len()
     }
 
@@ -64,7 +64,7 @@ impl PositionContext {
                 let node = LayoutEngine::layout_node(
                     &pending.styled_node,
                     &mut ctx,
-                    &mut PositionContext::new(self.viewport),
+                    &mut Self::new(self.viewport),
                     float_ctx,
                     text_ctx,
                     image_ctx,

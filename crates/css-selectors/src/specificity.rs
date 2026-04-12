@@ -24,14 +24,14 @@ pub struct SelectorSpecificity(
 );
 
 impl SelectorSpecificity {
-    pub fn new(a: u32, b: u32, c: u32) -> Self {
-        SelectorSpecificity(a, b, c)
+    pub const fn new(a: u32, b: u32, c: u32) -> Self {
+        Self(a, b, c)
     }
 }
 
 impl From<(u32, u32, u32)> for SelectorSpecificity {
     fn from(value: (u32, u32, u32)) -> Self {
-        SelectorSpecificity(value.0, value.1, value.2)
+        Self(value.0, value.1, value.2)
     }
 }
 

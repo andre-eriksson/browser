@@ -7,10 +7,11 @@ use crate::{
     quantity::{Angle, Frequency, Length, LengthUnit, Time},
 };
 
-/// Represents the <length-percentage> type, which can be either a
-/// Length or a Percentage value. This is used for CSS properties
-/// that accept both length and percentage values, such as width,
-/// height, margin, padding, etc.
+/// Represents the <length-percentage> type
+///
+/// Can be either a Length or a Percentage value. This is used for CSS properties
+/// that accept both length and percentage values, such as width, height, margin,
+/// padding, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LengthPercentage {
     Length(Length),
@@ -19,13 +20,13 @@ pub enum LengthPercentage {
 
 impl From<Length> for LengthPercentage {
     fn from(length: Length) -> Self {
-        LengthPercentage::Length(length)
+        Self::Length(length)
     }
 }
 
 impl From<Percentage> for LengthPercentage {
     fn from(percentage: Percentage) -> Self {
-        LengthPercentage::Percentage(percentage)
+        Self::Percentage(percentage)
     }
 }
 
@@ -38,13 +39,11 @@ impl CSSParsable for LengthPercentage {
                         let unit = LengthUnit::try_from(unit.as_str())
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
 
-                        Ok(LengthPercentage::Length(Length::new(value.to_f64() as f32, unit)))
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, unit)))
                     }
-                    CssTokenKind::Percentage(numeric) => {
-                        Ok(LengthPercentage::Percentage(Percentage::new(numeric.to_f64() as f32)))
-                    }
+                    CssTokenKind::Percentage(numeric) => Ok(Self::Percentage(Percentage::new(numeric.to_f64() as f32))),
                     CssTokenKind::Number(numeric) => {
-                        Ok(LengthPercentage::Percentage(Percentage::from_fraction(numeric.to_f64() as f32 / 100.0)))
+                        Ok(Self::Percentage(Percentage::from_fraction(numeric.to_f64() as f32 / 100.0)))
                     }
                     kind => Err(CssValueError::InvalidToken(kind.clone())),
                 },
@@ -56,10 +55,11 @@ impl CSSParsable for LengthPercentage {
     }
 }
 
-/// Represents the <frequency-percentage> type, which can be either a
-/// Frequency or a Percentage value. This is used for CSS properties
-/// that accept both frequency and percentage values, such as audio
-/// properties.
+/// Represents the <frequency-percentage> type
+///
+/// Can be either a Frequency or a Percentage value. This is used
+/// for CSS properties that accept both frequency and percentage values,
+/// such as audio properties.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FrequencyPercentage {
     Frequency(Frequency),
@@ -68,20 +68,21 @@ pub enum FrequencyPercentage {
 
 impl From<Frequency> for FrequencyPercentage {
     fn from(frequency: Frequency) -> Self {
-        FrequencyPercentage::Frequency(frequency)
+        Self::Frequency(frequency)
     }
 }
 
 impl From<Percentage> for FrequencyPercentage {
     fn from(percentage: Percentage) -> Self {
-        FrequencyPercentage::Percentage(percentage)
+        Self::Percentage(percentage)
     }
 }
 
-/// Represents the <angle-percentage> type, which can be either an
-/// Angle or a Percentage value. This is used for CSS properties
-/// that accept both angle and percentage values, such as hue in HSL
-/// colors or rotation in transforms.
+/// Represents the <angle-percentage> type
+///
+/// Can be either an Angle or a Percentage value. This is used for CSS properties
+/// that accept both angle and percentage values, such as hue in HSL colors or
+/// rotation in transforms.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AnglePercentage {
     Angle(Angle),
@@ -90,20 +91,20 @@ pub enum AnglePercentage {
 
 impl From<Angle> for AnglePercentage {
     fn from(angle: Angle) -> Self {
-        AnglePercentage::Angle(angle)
+        Self::Angle(angle)
     }
 }
 
 impl From<Percentage> for AnglePercentage {
     fn from(percentage: Percentage) -> Self {
-        AnglePercentage::Percentage(percentage)
+        Self::Percentage(percentage)
     }
 }
 
-/// Represents the <time-percentage> type, which can be either a
-/// Time or a Percentage value. This is used for CSS properties
-/// that accept both time and percentage values, such as animation
-/// duration or delay.
+/// Represents the <time-percentage> type
+///
+/// Can be either a Time or a Percentage value. This is used for CSS properties
+/// that accept both time and percentage values, such as animation duration or delay.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TimePercentage {
     Time(Time),
@@ -112,13 +113,13 @@ pub enum TimePercentage {
 
 impl From<Time> for TimePercentage {
     fn from(time: Time) -> Self {
-        TimePercentage::Time(time)
+        Self::Time(time)
     }
 }
 
 impl From<Percentage> for TimePercentage {
     fn from(percentage: Percentage) -> Self {
-        TimePercentage::Percentage(percentage)
+        Self::Percentage(percentage)
     }
 }
 
@@ -134,17 +135,16 @@ impl TryFrom<&CssToken> for AngleZero {
     type Error = CssValueError;
 
     fn try_from(value: &CssToken) -> Result<Self, Self::Error> {
-        if let Ok(angle) = Angle::try_from(value) {
-            Ok(AngleZero::Angle(angle))
-        } else {
-            Err(CssValueError::InvalidValue("Expected an angle, <zero> is unsupported.".into()))
-        }
+        Angle::try_from(value).map_or_else(
+            |_| Err(CssValueError::InvalidValue("Expected an angle, <zero> is unsupported.".into())),
+            |angle| Ok(Self::Angle(angle)),
+        )
     }
 }
 
 impl From<Angle> for AngleZero {
     fn from(angle: Angle) -> Self {
-        AngleZero::Angle(angle)
+        Self::Angle(angle)
     }
 }
 
@@ -158,6 +158,6 @@ pub enum AnglePercentageZero {
 
 impl From<AnglePercentage> for AnglePercentageZero {
     fn from(angle_percentage: AnglePercentage) -> Self {
-        AnglePercentageZero::AnglePercentage(angle_percentage)
+        Self::AnglePercentage(angle_percentage)
     }
 }

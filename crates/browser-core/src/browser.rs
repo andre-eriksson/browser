@@ -46,11 +46,13 @@ impl Browser {
                 Ok(data) => {
                     trace!("Loaded user agent stylesheet from cache");
 
-                    let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or(CSSStyleSheet::from_css(
-                        std::str::from_utf8(&user_agent_css).unwrap_or_default(),
-                        StylesheetOrigin::UserAgent,
-                        false,
-                    ));
+                    let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
+                        CSSStyleSheet::from_css(
+                            std::str::from_utf8(&user_agent_css).unwrap_or_default(),
+                            StylesheetOrigin::UserAgent,
+                            false,
+                        )
+                    });
 
                     Some(out)
                 }
@@ -76,7 +78,7 @@ impl Browser {
             None
         };
 
-        Browser {
+        Self {
             default_stylesheet: stylesheet,
             cookie_jar,
             http_client,
@@ -84,11 +86,11 @@ impl Browser {
         }
     }
 
-    pub fn headers(&self) -> &HeaderMap {
+    pub const fn headers(&self) -> &HeaderMap {
         self.headers
     }
 
-    pub fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
+    pub const fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
         &mut self.cookie_jar
     }
 }
@@ -128,11 +130,10 @@ impl Commandable for Browser {
             } => {
                 let span = tracing::debug_span!("Browser::Navigate");
 
-                let stylesheets = if let Some(default) = &self.default_stylesheet {
-                    vec![default.clone()]
-                } else {
-                    vec![]
-                };
+                let stylesheets = self
+                    .default_stylesheet
+                    .as_ref()
+                    .map_or_else(Vec::new, |default| vec![default.clone()]);
 
                 let (page, metadata) = navigate(self, &url, stylesheets).instrument(span).await?;
 

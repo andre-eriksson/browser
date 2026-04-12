@@ -46,7 +46,7 @@ impl BrowserContext {
                 .args()
                 .url
                 .clone()
-                .unwrap_or(Self::DEFAULT_URL.to_string()),
+                .unwrap_or_else(|| Self::DEFAULT_URL.to_string()),
             tab_manager: TabManager::new(),
             text_context,
         }
@@ -128,7 +128,7 @@ impl ApplicationWindow for BrowserWindow {
         let browser_icon = load_icon(icon);
 
         Settings {
-            size: BrowserWindow::DEFAULT_VIEWPORT_SIZE,
+            size: Self::DEFAULT_VIEWPORT_SIZE,
             position: Position::Centered,
             icon: Some(browser_icon),
             platform_specific: PlatformSpecific {

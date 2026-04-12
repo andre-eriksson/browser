@@ -8,13 +8,10 @@ use crate::{
 /// Consume a component value
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-component-value>
-pub(crate) fn consume_component_value(css_parser: &mut CssParser) -> ComponentValue {
+pub fn consume_component_value(css_parser: &mut CssParser) -> ComponentValue {
     let next_token = css_parser.peek();
 
-    let token_kind = match next_token {
-        Some(token) => &token.kind,
-        None => &CssTokenKind::Eof,
-    };
+    let token_kind = next_token.map_or(&CssTokenKind::Eof, |token| &token.kind);
 
     match token_kind {
         CssTokenKind::OpenCurly | CssTokenKind::OpenSquare | CssTokenKind::OpenParen => {
@@ -28,16 +25,15 @@ pub(crate) fn consume_component_value(css_parser: &mut CssParser) -> ComponentVa
         _ => {
             let consumed_token = css_parser.consume();
 
-            match consumed_token {
-                Some(token) => ComponentValue::Token(CssToken {
-                    kind: token.kind,
-                    position: token.position,
-                }),
-                None => ComponentValue::Token(css_parser.consume().unwrap_or(CssToken {
-                    kind: CssTokenKind::Eof,
-                    position: None,
-                })),
-            }
+            consumed_token.map_or_else(
+                || {
+                    ComponentValue::Token(css_parser.consume().unwrap_or(CssToken {
+                        kind: CssTokenKind::Eof,
+                        position: None,
+                    }))
+                },
+                ComponentValue::Token,
+            )
         }
     }
 }

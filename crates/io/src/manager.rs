@@ -68,14 +68,13 @@ impl Resource {
         page_url: Option<Url>,
         policies: &'app DocumentPolicy,
     ) -> Result<Box<dyn ResponseHandle>, RequestError> {
-        let url = match page_url.as_ref() {
-            Some(u) => u.join(url),
-            None => Url::parse(url),
-        }
-        .map_err(|error| RequestError::Network(NetworkError::InvalidUrl(error)))?;
+        let url = page_url
+            .as_ref()
+            .map_or_else(|| Url::parse(url), |u| u.join(url))
+            .map_err(|error| RequestError::Network(NetworkError::InvalidUrl(error)))?;
 
         let request = RequestBuilder::from(url).build();
-        let mut service = NetworkService::new(client, cookies, browser_headers);
+        let service = NetworkService::new(client, cookies, browser_headers);
         let header_response = match service.fetch(page_url.clone(), policies, request).await {
             RequestResult::Failed(err) => return Err(err),
             RequestResult::ClientError(resp) | RequestResult::ServerError(resp) | RequestResult::Success(resp) => resp,

@@ -57,7 +57,7 @@ pub enum InlineItem<'node> {
 
 /// Recursively collects inline items from the given styled node and its children,
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
-pub(crate) fn collect<'node>(
+pub fn collect<'node>(
     style: &'node ComputedStyle,
     inline_node: &'node StyledNode,
     items: &mut Vec<InlineItem<'node>>,

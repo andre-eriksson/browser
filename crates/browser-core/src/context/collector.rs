@@ -50,11 +50,6 @@ impl Collector for TabCollector {
     }
 
     fn into_result(self) -> Self {
-        Self {
-            in_head: self.in_head,
-            in_title: self.in_title,
-            title: self.title,
-            images: self.images,
-        }
+        self
     }
 }

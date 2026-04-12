@@ -33,45 +33,45 @@ impl FromStr for SystemColor {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("accentcolor") {
-            Ok(SystemColor::AccentColor)
+            Ok(Self::AccentColor)
         } else if s.eq_ignore_ascii_case("accentcolortext") {
-            Ok(SystemColor::AccentColorText)
+            Ok(Self::AccentColorText)
         } else if s.eq_ignore_ascii_case("activetext") {
-            Ok(SystemColor::ActiveText)
+            Ok(Self::ActiveText)
         } else if s.eq_ignore_ascii_case("buttonborder") {
-            Ok(SystemColor::ButtonBorder)
+            Ok(Self::ButtonBorder)
         } else if s.eq_ignore_ascii_case("buttonface") {
-            Ok(SystemColor::ButtonFace)
+            Ok(Self::ButtonFace)
         } else if s.eq_ignore_ascii_case("buttontext") {
-            Ok(SystemColor::ButtonText)
+            Ok(Self::ButtonText)
         } else if s.eq_ignore_ascii_case("canvas") {
-            Ok(SystemColor::Canvas)
+            Ok(Self::Canvas)
         } else if s.eq_ignore_ascii_case("canvastext") {
-            Ok(SystemColor::CanvasText)
+            Ok(Self::CanvasText)
         } else if s.eq_ignore_ascii_case("field") {
-            Ok(SystemColor::Field)
+            Ok(Self::Field)
         } else if s.eq_ignore_ascii_case("fieldtext") {
-            Ok(SystemColor::FieldText)
+            Ok(Self::FieldText)
         } else if s.eq_ignore_ascii_case("graytext") {
-            Ok(SystemColor::GrayText)
+            Ok(Self::GrayText)
         } else if s.eq_ignore_ascii_case("highlight") {
-            Ok(SystemColor::Highlight)
+            Ok(Self::Highlight)
         } else if s.eq_ignore_ascii_case("highlighttext") {
-            Ok(SystemColor::HighlightText)
+            Ok(Self::HighlightText)
         } else if s.eq_ignore_ascii_case("linktext") {
-            Ok(SystemColor::LinkText)
+            Ok(Self::LinkText)
         } else if s.eq_ignore_ascii_case("mark") {
-            Ok(SystemColor::Mark)
+            Ok(Self::Mark)
         } else if s.eq_ignore_ascii_case("marktext") {
-            Ok(SystemColor::MarkText)
+            Ok(Self::MarkText)
         } else if s.eq_ignore_ascii_case("selecteditem") {
-            Ok(SystemColor::SelectedItem)
+            Ok(Self::SelectedItem)
         } else if s.eq_ignore_ascii_case("selecteditemtext") {
-            Ok(SystemColor::SelectedItemText)
+            Ok(Self::SelectedItemText)
         } else if s.eq_ignore_ascii_case("visitedtext") {
-            Ok(SystemColor::VisitedText)
+            Ok(Self::VisitedText)
         } else if let Ok(deprecated) = DeprecatedColor::from_str(s) {
-            Ok(SystemColor::Deprecated(deprecated))
+            Ok(Self::Deprecated(deprecated))
         } else {
             Err(format!("Unknown system color: {}", s))
         }
@@ -80,28 +80,28 @@ impl FromStr for SystemColor {
 
 impl SystemColor {
     /// Converts the SystemColor to its hexadecimal string representation, or returns None if the color is not recognized.
-    pub fn to_hex(self) -> Option<&'static str> {
+    pub const fn to_hex(self) -> Option<&'static str> {
         match self {
-            SystemColor::AccentColor => Some("#0078D7"),
-            SystemColor::AccentColorText => Some("#FFFFFF"),
-            SystemColor::ActiveText => Some("#0000FF"),
-            SystemColor::ButtonBorder => Some("#A9A9A9"),
-            SystemColor::ButtonFace => Some("#F0F0F0"),
-            SystemColor::ButtonText => Some("#000000"),
-            SystemColor::Canvas => Some("#FFFFFF"),
-            SystemColor::CanvasText => Some("#000000"),
-            SystemColor::Field => Some("#FFFFFF"),
-            SystemColor::FieldText => Some("#000000"),
-            SystemColor::GrayText => Some("#A9A9A9"),
-            SystemColor::Highlight => Some("#3399FF"),
-            SystemColor::HighlightText => Some("#FFFFFF"),
-            SystemColor::LinkText => Some("#0000FF"),
-            SystemColor::Mark => Some("#FFFF00"),
-            SystemColor::MarkText => Some("#000000"),
-            SystemColor::SelectedItem => Some("#3399FF"),
-            SystemColor::SelectedItemText => Some("#FFFFFF"),
-            SystemColor::VisitedText => Some("#800080"),
-            SystemColor::Deprecated(deprecated) => deprecated.to_hex(),
+            Self::AccentColor => Some("#0078D7"),
+            Self::AccentColorText => Some("#FFFFFF"),
+            Self::ActiveText => Some("#0000FF"),
+            Self::ButtonBorder => Some("#A9A9A9"),
+            Self::ButtonFace => Some("#F0F0F0"),
+            Self::ButtonText => Some("#000000"),
+            Self::Canvas => Some("#FFFFFF"),
+            Self::CanvasText => Some("#000000"),
+            Self::Field => Some("#FFFFFF"),
+            Self::FieldText => Some("#000000"),
+            Self::GrayText => Some("#A9A9A9"),
+            Self::Highlight => Some("#3399FF"),
+            Self::HighlightText => Some("#FFFFFF"),
+            Self::LinkText => Some("#0000FF"),
+            Self::Mark => Some("#FFFF00"),
+            Self::MarkText => Some("#000000"),
+            Self::SelectedItem => Some("#3399FF"),
+            Self::SelectedItemText => Some("#FFFFFF"),
+            Self::VisitedText => Some("#800080"),
+            Self::Deprecated(deprecated) => deprecated.to_hex(),
         }
     }
 }
@@ -136,31 +136,31 @@ pub enum DeprecatedColor {
 
 impl DeprecatedColor {
     /// Converts the DeprecatedColor to its hexadecimal string representation, or returns None if the color is not recognized.
-    pub fn to_hex(self) -> Option<&'static str> {
+    pub const fn to_hex(self) -> Option<&'static str> {
         match self {
-            DeprecatedColor::ActiveBorder => Some("#A9A9A9"),
-            DeprecatedColor::ActiveCaption => Some("#000080"),
-            DeprecatedColor::AppWorkspace => Some("#ABABAB"),
-            DeprecatedColor::Background => Some("#FFFFFF"),
-            DeprecatedColor::ButtonHighlight => Some("#FFFFFF"),
-            DeprecatedColor::ButtonShadow => Some("#A9A9A9"),
-            DeprecatedColor::CaptionText => Some("#FFFFFF"),
-            DeprecatedColor::InactiveBorder => Some("#A9A9A9"),
-            DeprecatedColor::InactiveCaption => Some("#808080"),
-            DeprecatedColor::InactiveCaptionText => Some("#C0C0C0"),
-            DeprecatedColor::InfoBackground => Some("#FFFFE1"),
-            DeprecatedColor::InfoText => Some("#000000"),
-            DeprecatedColor::Menu => Some("#F0F0F0"),
-            DeprecatedColor::MenuText => Some("#000000"),
-            DeprecatedColor::Scrollbar => Some("#C0C0C0"),
-            DeprecatedColor::ThreeDDarkShadow => Some("#696969"),
-            DeprecatedColor::ThreeDFace => Some("#F0F0F0"),
-            DeprecatedColor::ThreeDHighlight => Some("#FFFFFF"),
-            DeprecatedColor::ThreeDLightShadow => Some("#D3D3D3"),
-            DeprecatedColor::ThreeDShadow => Some("#A9A9A9"),
-            DeprecatedColor::Window => Some("#FFFFFF"),
-            DeprecatedColor::WindowFrame => Some("#000000"),
-            DeprecatedColor::WindowText => Some("#000000"),
+            Self::ActiveBorder => Some("#A9A9A9"),
+            Self::ActiveCaption => Some("#000080"),
+            Self::AppWorkspace => Some("#ABABAB"),
+            Self::Background => Some("#FFFFFF"),
+            Self::ButtonHighlight => Some("#FFFFFF"),
+            Self::ButtonShadow => Some("#A9A9A9"),
+            Self::CaptionText => Some("#FFFFFF"),
+            Self::InactiveBorder => Some("#A9A9A9"),
+            Self::InactiveCaption => Some("#808080"),
+            Self::InactiveCaptionText => Some("#C0C0C0"),
+            Self::InfoBackground => Some("#FFFFE1"),
+            Self::InfoText => Some("#000000"),
+            Self::Menu => Some("#F0F0F0"),
+            Self::MenuText => Some("#000000"),
+            Self::Scrollbar => Some("#C0C0C0"),
+            Self::ThreeDDarkShadow => Some("#696969"),
+            Self::ThreeDFace => Some("#F0F0F0"),
+            Self::ThreeDHighlight => Some("#FFFFFF"),
+            Self::ThreeDLightShadow => Some("#D3D3D3"),
+            Self::ThreeDShadow => Some("#A9A9A9"),
+            Self::Window => Some("#FFFFFF"),
+            Self::WindowFrame => Some("#000000"),
+            Self::WindowText => Some("#000000"),
         }
     }
 }
@@ -170,51 +170,51 @@ impl FromStr for DeprecatedColor {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("activeborder") {
-            Ok(DeprecatedColor::ActiveBorder)
+            Ok(Self::ActiveBorder)
         } else if s.eq_ignore_ascii_case("activecaption") {
-            Ok(DeprecatedColor::ActiveCaption)
+            Ok(Self::ActiveCaption)
         } else if s.eq_ignore_ascii_case("appworkspace") {
-            Ok(DeprecatedColor::AppWorkspace)
+            Ok(Self::AppWorkspace)
         } else if s.eq_ignore_ascii_case("background") {
-            Ok(DeprecatedColor::Background)
+            Ok(Self::Background)
         } else if s.eq_ignore_ascii_case("buttonhighlight") {
-            Ok(DeprecatedColor::ButtonHighlight)
+            Ok(Self::ButtonHighlight)
         } else if s.eq_ignore_ascii_case("buttonshadow") {
-            Ok(DeprecatedColor::ButtonShadow)
+            Ok(Self::ButtonShadow)
         } else if s.eq_ignore_ascii_case("captiontext") {
-            Ok(DeprecatedColor::CaptionText)
+            Ok(Self::CaptionText)
         } else if s.eq_ignore_ascii_case("inactiveborder") {
-            Ok(DeprecatedColor::InactiveBorder)
+            Ok(Self::InactiveBorder)
         } else if s.eq_ignore_ascii_case("inactivecaption") {
-            Ok(DeprecatedColor::InactiveCaption)
+            Ok(Self::InactiveCaption)
         } else if s.eq_ignore_ascii_case("inactivecaptiontext") {
-            Ok(DeprecatedColor::InactiveCaptionText)
+            Ok(Self::InactiveCaptionText)
         } else if s.eq_ignore_ascii_case("infobackground") {
-            Ok(DeprecatedColor::InfoBackground)
+            Ok(Self::InfoBackground)
         } else if s.eq_ignore_ascii_case("infotext") {
-            Ok(DeprecatedColor::InfoText)
+            Ok(Self::InfoText)
         } else if s.eq_ignore_ascii_case("menu") {
-            Ok(DeprecatedColor::Menu)
+            Ok(Self::Menu)
         } else if s.eq_ignore_ascii_case("menutext") {
-            Ok(DeprecatedColor::MenuText)
+            Ok(Self::MenuText)
         } else if s.eq_ignore_ascii_case("scrollbar") {
-            Ok(DeprecatedColor::Scrollbar)
+            Ok(Self::Scrollbar)
         } else if s.eq_ignore_ascii_case("3ddarkshadow") {
-            Ok(DeprecatedColor::ThreeDDarkShadow)
+            Ok(Self::ThreeDDarkShadow)
         } else if s.eq_ignore_ascii_case("3dface") {
-            Ok(DeprecatedColor::ThreeDFace)
+            Ok(Self::ThreeDFace)
         } else if s.eq_ignore_ascii_case("3dhighlight") {
-            Ok(DeprecatedColor::ThreeDHighlight)
+            Ok(Self::ThreeDHighlight)
         } else if s.eq_ignore_ascii_case("3dlightshadow") {
-            Ok(DeprecatedColor::ThreeDLightShadow)
+            Ok(Self::ThreeDLightShadow)
         } else if s.eq_ignore_ascii_case("3dshadow") {
-            Ok(DeprecatedColor::ThreeDShadow)
+            Ok(Self::ThreeDShadow)
         } else if s.eq_ignore_ascii_case("window") {
-            Ok(DeprecatedColor::Window)
+            Ok(Self::Window)
         } else if s.eq_ignore_ascii_case("windowframe") {
-            Ok(DeprecatedColor::WindowFrame)
+            Ok(Self::WindowFrame)
         } else if s.eq_ignore_ascii_case("windowtext") {
-            Ok(DeprecatedColor::WindowText)
+            Ok(Self::WindowText)
         } else {
             Err(format!("Unknown deprecated system color: {}", s))
         }

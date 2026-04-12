@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Handles the event when a devtools page is ready, building the style and layout trees for the page and associating it with the corresponding tab in the application.
-pub(crate) fn on_devtools_page_ready(
+pub fn on_devtools_page_ready(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,

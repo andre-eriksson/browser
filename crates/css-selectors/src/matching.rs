@@ -58,7 +58,7 @@ pub struct ClassSet<'css> {
 }
 
 impl ClassSet<'_> {
-    pub fn new(classes: &HashSet<String>) -> ClassSet<'_> {
+    pub const fn new(classes: &HashSet<String>) -> ClassSet<'_> {
         ClassSet { classes }
     }
 
@@ -151,10 +151,8 @@ fn matches_compound_selectors(
                 None => return false,
             };
 
-            let sensitivity = match &attribute_selector.case {
-                Some(case) => case,
-                None => &CaseSensitivity::default(),
-            };
+            let default_sensitivity = CaseSensitivity::default();
+            let sensitivity = attribute_selector.case.as_ref().unwrap_or(&default_sensitivity);
 
             match operator {
                 AttributeOperator::Equals => match sensitivity {
@@ -296,7 +294,7 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element, cl
                     if *delim == '.' && !class_set.contains(ident) {
                         return false;
                     }
-                } else if let Some(CssTokenKind::Colon) = prev {
+                } else if matches!(prev, Some(CssTokenKind::Colon)) {
                     return false;
                 }
             }

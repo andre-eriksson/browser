@@ -21,7 +21,7 @@ impl<'input> Decoder<'input> {
     /// # Returns
     /// A new `Decoder` instance initialized with the provided input string.
     #[must_use]
-    pub fn new(input: &'input str) -> Self {
+    pub const fn new(input: &'input str) -> Self {
         Decoder { input }
     }
 
@@ -56,15 +56,12 @@ impl<'input> Decoder<'input> {
                 }
                 let base = if is_hex { 16 } else { 10 };
 
-                if let Ok(code_point) = u32::from_str_radix(&num_str, base) {
-                    if let Some(ch) = char::from_u32(code_point) {
-                        Ok(ch)
-                    } else {
-                        Err("Invalid Unicode code point".to_string())
-                    }
-                } else {
-                    Err("Invalid numeric character reference".to_string())
-                }
+                u32::from_str_radix(&num_str, base).map_or_else(
+                    |_| Err("Invalid numeric character reference".to_string()),
+                    |code_point| {
+                        char::from_u32(code_point).map_or_else(|| Err("Invalid Unicode code point".to_string()), Ok)
+                    },
+                )
             } else {
                 let mut entity_name = String::new();
                 while let Some(&next_char) = chars.peek() {

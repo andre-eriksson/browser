@@ -58,18 +58,18 @@ impl CSSParsable for BorderStyle {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
-        if let Some(cv) = stream.peek() {
-            if let ComponentValue::Token(token) = cv
-                && let CssTokenKind::Ident(ident) = &token.kind
-                && let Ok(style) = ident.parse()
-            {
-                Ok(style)
-            } else {
-                Err(CssValueError::InvalidComponentValue(cv.clone()))
-            }
-        } else {
-            Err(CssValueError::ExpectedComponentValue)
-        }
+        stream
+            .peek()
+            .map_or(Err(CssValueError::ExpectedComponentValue), |cv| {
+                if let ComponentValue::Token(token) = cv
+                    && let CssTokenKind::Ident(ident) = &token.kind
+                    && let Ok(style) = ident.parse()
+                {
+                    Ok(style)
+                } else {
+                    Err(CssValueError::InvalidComponentValue(cv.clone()))
+                }
+            })
     }
 }
 
@@ -87,13 +87,13 @@ pub enum BorderWidth {
 
 impl BorderWidth {
     /// Create a BorderWidth from a pixel value.
-    pub fn px(value: f32) -> Self {
-        BorderWidth::Length(Length::px(value))
+    pub const fn px(value: f32) -> Self {
+        Self::Length(Length::px(value))
     }
 
     /// Create a BorderWidth with a value of zero.
-    pub fn zero() -> Self {
-        BorderWidth::Length(Length::px(0.0))
+    pub const fn zero() -> Self {
+        Self::Length(Length::px(0.0))
     }
 }
 

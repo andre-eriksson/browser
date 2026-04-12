@@ -14,7 +14,7 @@ use crate::{
 ///
 /// # Behavior
 /// - If the character is '>', the tokenizer transitions back to the `ParserState::Data` state.
-pub fn handle_bogus_comment_state(state: &mut TokenizerState, ch: char) {
+pub const fn handle_bogus_comment_state(state: &mut TokenizerState, ch: char) {
     if ch == '>' {
         state.state = TokenState::Data;
     }

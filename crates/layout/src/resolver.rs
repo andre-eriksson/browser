@@ -8,7 +8,7 @@ use crate::SideOffset;
 pub struct PropertyResolver;
 
 impl PropertyResolver {
-    pub(crate) fn resolve_box_model(style: &ComputedStyle) -> (SideOffset, SideOffset, SideOffset) {
+    pub(crate) const fn resolve_box_model(style: &ComputedStyle) -> (SideOffset, SideOffset, SideOffset) {
         let margins = Self::resolve_margin(style);
         let padding = Self::resolve_padding(style);
         let borders = Self::resolve_border(style);
@@ -17,7 +17,7 @@ impl PropertyResolver {
     }
 
     #[allow(dead_code, reason = "TODO: Support all positions")]
-    pub fn establishes_bfc(style: &ComputedStyle) -> bool {
+    pub const fn establishes_bfc(style: &ComputedStyle) -> bool {
         !matches!(style.float, Float::None)
             || !matches!(style.position, Position::Static | Position::Relative)
             || matches!(style.display.inside(), Some(InsideDisplay::FlowRoot))
@@ -33,7 +33,7 @@ impl PropertyResolver {
     }
 
     /// Resolve margin values to pixels
-    pub fn resolve_margin(style: &ComputedStyle) -> SideOffset {
+    pub const fn resolve_margin(style: &ComputedStyle) -> SideOffset {
         SideOffset {
             top: style.margin_top,
             right: style.margin_right,
@@ -42,7 +42,7 @@ impl PropertyResolver {
         }
     }
 
-    pub(crate) fn resolve_padding(style: &ComputedStyle) -> SideOffset {
+    pub(crate) const fn resolve_padding(style: &ComputedStyle) -> SideOffset {
         SideOffset {
             top: style.padding_top,
             right: style.padding_right,
@@ -51,7 +51,7 @@ impl PropertyResolver {
         }
     }
 
-    fn resolve_border(style: &ComputedStyle) -> SideOffset {
+    const fn resolve_border(style: &ComputedStyle) -> SideOffset {
         SideOffset {
             top: style.border_top_width,
             right: style.border_right_width,

@@ -24,40 +24,40 @@ impl CSSRule {
     pub fn from_parsed(rule: Rule, collect_positions: bool) -> Option<Self> {
         match rule {
             Rule::QualifiedRule(qr) => CSSStyleRule::from_parsed(qr, collect_positions).map(CSSRule::Style),
-            Rule::AtRule(ar) => Some(CSSRule::AtRule(CSSAtRule::from_parsed(ar, collect_positions))),
+            Rule::AtRule(ar) => Some(Self::AtRule(CSSAtRule::from_parsed(ar, collect_positions))),
         }
     }
 
     /// Serialize this rule to CSS text
     fn to_css_string(&self) -> String {
         match self {
-            CSSRule::Style(style) => style.to_string(),
-            CSSRule::AtRule(at_rule) => at_rule.to_string(),
+            Self::Style(style) => style.to_string(),
+            Self::AtRule(at_rule) => at_rule.to_string(),
         }
     }
 
     /// Check if this is a style rule
-    pub fn is_style_rule(&self) -> bool {
-        matches!(self, CSSRule::Style(_))
+    pub const fn is_style_rule(&self) -> bool {
+        matches!(self, Self::Style(_))
     }
 
     /// Get this rule as a style rule, if it is one
-    pub fn as_style_rule(&self) -> Option<&CSSStyleRule> {
+    pub const fn as_style_rule(&self) -> Option<&CSSStyleRule> {
         match self {
-            CSSRule::Style(style) => Some(style),
+            Self::Style(style) => Some(style),
             _ => None,
         }
     }
 
     /// Check if this is an at-rule
-    pub fn is_at_rule(&self) -> bool {
-        matches!(self, CSSRule::AtRule(_))
+    pub const fn is_at_rule(&self) -> bool {
+        matches!(self, Self::AtRule(_))
     }
 
     /// Get this rule as an at-rule, if it is one
-    pub fn as_at_rule(&self) -> Option<&CSSAtRule> {
+    pub const fn as_at_rule(&self) -> Option<&CSSAtRule> {
         match self {
-            CSSRule::AtRule(at_rule) => Some(at_rule),
+            Self::AtRule(at_rule) => Some(at_rule),
             _ => None,
         }
     }

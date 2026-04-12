@@ -21,7 +21,7 @@ use crate::{
 ///
 /// Once all images are ready the relayout runs off the UI thread via `spawn_blocking` so that
 /// scrolling and other interactions remain responsive while the work is in progress.
-pub(crate) fn on_image_loaded(
+pub fn on_image_loaded(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
@@ -60,9 +60,10 @@ pub(crate) fn on_image_loaded(
     let image_node_ids: Vec<_> = tab
         .known_images
         .keys()
-        .flat_map(|src| match &tab.layout_tree {
-            Some(lt) => lt.find_image_nodes_by_src(&src.to_string()),
-            None => Vec::new(),
+        .flat_map(|src| {
+            tab.layout_tree
+                .as_ref()
+                .map_or_else(Vec::new, |lt| lt.find_image_nodes_by_src(&src.to_string()))
         })
         .collect();
 
@@ -115,18 +116,20 @@ pub(crate) fn on_image_loaded(
             .await
             .unwrap()
         },
-        move |layout_tree| match layout_tree {
-            Some(layout_tree) => {
-                Event::Browser(BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree))
-            }
-            None => Event::Browser(BrowserEvent::Error(BrowserError::ImageLoad(url.clone()))),
+        move |layout_tree| {
+            layout_tree.map_or_else(
+                || Event::Browser(BrowserEvent::Error(BrowserError::ImageLoad(url))),
+                |layout_tree| {
+                    Event::Browser(BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree))
+                },
+            )
         },
     )
 }
 
 /// Handles the completion of a relayout operation, updating the tab's layout tree if the
 /// generation matches.
-pub(crate) fn on_relayout_complete(
+pub fn on_relayout_complete(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,

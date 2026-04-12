@@ -13,11 +13,11 @@ impl PixelRepr for BorderWidth {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            BorderWidth::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
-            BorderWidth::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
-            BorderWidth::Thin => 1.0,
-            BorderWidth::Medium => 3.0,
-            BorderWidth::Thick => 5.0,
+            Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),
+            Self::Thin => 1.0,
+            Self::Medium => 3.0,
+            Self::Thick => 5.0,
         }
     }
 }

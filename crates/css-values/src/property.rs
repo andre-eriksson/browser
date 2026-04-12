@@ -11,7 +11,7 @@ use crate::{
     quantity::{Angle, Length, Resolution, Time},
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyntaxComponent {
     Length,
     Number,
@@ -36,42 +36,42 @@ impl FromStr for SyntaxComponent {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("length") {
-            Ok(SyntaxComponent::Length)
+            Ok(Self::Length)
         } else if s.eq_ignore_ascii_case("number") {
-            Ok(SyntaxComponent::Number)
+            Ok(Self::Number)
         } else if s.eq_ignore_ascii_case("percentage") {
-            Ok(SyntaxComponent::Percentage)
+            Ok(Self::Percentage)
         } else if s.eq_ignore_ascii_case("length-percentage") {
-            Ok(SyntaxComponent::LengthPercentage)
+            Ok(Self::LengthPercentage)
         } else if s.eq_ignore_ascii_case("color") {
-            Ok(SyntaxComponent::Color)
+            Ok(Self::Color)
         } else if s.eq_ignore_ascii_case("image") {
-            Ok(SyntaxComponent::Image)
+            Ok(Self::Image)
         } else if s.eq_ignore_ascii_case("url") {
-            Ok(SyntaxComponent::Url)
+            Ok(Self::Url)
         } else if s.eq_ignore_ascii_case("integer") {
-            Ok(SyntaxComponent::Integer)
+            Ok(Self::Integer)
         } else if s.eq_ignore_ascii_case("angle") {
-            Ok(SyntaxComponent::Angle)
+            Ok(Self::Angle)
         } else if s.eq_ignore_ascii_case("time") {
-            Ok(SyntaxComponent::Time)
+            Ok(Self::Time)
         } else if s.eq_ignore_ascii_case("resolution") {
-            Ok(SyntaxComponent::Resolution)
+            Ok(Self::Resolution)
         } else if s.eq_ignore_ascii_case("transform-function") {
-            Ok(SyntaxComponent::TransformFunction)
+            Ok(Self::TransformFunction)
         } else if s.eq_ignore_ascii_case("transform-list") {
-            Ok(SyntaxComponent::TransformList)
+            Ok(Self::TransformList)
         } else if s.starts_with("--") {
-            Ok(SyntaxComponent::CustomIdent) // Custom properties
+            Ok(Self::CustomIdent) // Custom properties
         } else if s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
-            Ok(SyntaxComponent::Ident(s.to_string()))
+            Ok(Self::Ident(s.to_string()))
         } else {
             Err(())
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertySyntax {
     /// The "*" universal syntax - any value is valid
     Universal,
@@ -90,50 +90,30 @@ pub struct PropertyDescriptor {
 impl PropertySyntax {
     pub fn validate(&self, values: &[ComponentValue]) -> bool {
         match self {
-            PropertySyntax::Universal => true,
-            PropertySyntax::Typed(components) => {
+            Self::Universal => true,
+            Self::Typed(components) => {
                 let stream = ComponentValueStream::new(values);
 
                 components.iter().any(|comp| match comp {
                     SyntaxComponent::Angle => Angle::parse(&mut stream.clone()).is_ok(),
                     SyntaxComponent::Color => Color::parse(&mut stream.clone()).is_ok(),
                     SyntaxComponent::CustomIdent => {
-                        if let Some(cv) = stream.clone().next_non_whitespace() {
-                            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(_)))
-                        } else {
-                            false
-                        }
+                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(_))))
                     }
                     SyntaxComponent::Ident(ident) => {
-                        if let Some(cv) = stream.clone().next_non_whitespace() {
-                            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(idt) if idt.eq_ignore_ascii_case(ident)))
-                        } else {
-                            false
-                        }
+                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(idt) if idt.eq_ignore_ascii_case(ident))))
                     }
                     SyntaxComponent::Image => Image::parse(&mut stream.clone()).is_ok(),
                     SyntaxComponent::Url => {
-                        if let Some(cv) = stream.clone().next_non_whitespace() {
-                            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Url(_)))
-                        } else {
-                            false
-                        }
+                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Url(_))))
                     }
                     SyntaxComponent::Integer => {
-                        if let Some(cv) = stream.clone().next_non_whitespace() {
-                            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(n) if n.is_integer()))
-                        } else {
-                            false
-                        }
+                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(n) if n.is_integer())))
                     }
                     SyntaxComponent::Length => Length::parse(&mut stream.clone()).is_ok(),
                     SyntaxComponent::LengthPercentage => LengthPercentage::parse(&mut stream.clone()).is_ok(),
                     SyntaxComponent::Number => {
-                        if let Some(cv) = stream.clone().next_non_whitespace() {
-                            matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(_)))
-                        } else {
-                            false
-                        }
+                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(_))))
                     }
                     SyntaxComponent::Percentage => Percentage::parse(&mut stream.clone()).is_ok(),
                     SyntaxComponent::Resolution => Resolution::parse(&mut stream.clone()).is_ok(),

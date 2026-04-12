@@ -17,7 +17,7 @@ pub struct FloatContext {
 }
 
 impl FloatContext {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             left_floats: Vec::new(),
             right_floats: Vec::new(),

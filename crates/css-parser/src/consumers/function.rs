@@ -6,7 +6,7 @@ use crate::{CssParser, Function, consumers::component::consume_component_value};
 /// Consume a function
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-function>
-pub(crate) fn consume_function(css_parser: &mut CssParser) -> Function {
+pub fn consume_function(css_parser: &mut CssParser) -> Function {
     let (name, pos) = match css_parser.consume() {
         Some(token) => {
             let pos = token.position.unwrap_or_default();

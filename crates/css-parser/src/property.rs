@@ -14,19 +14,19 @@ pub enum Property {
 impl Display for Property {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Property::Custom(name) => write!(f, "{}", name),
-            Property::Known(known) => write!(f, "{}", known),
+            Self::Custom(name) => write!(f, "{}", name),
+            Self::Known(known) => write!(f, "{}", known),
         }
     }
 }
 
 impl Property {
-    pub fn is_custom(&self) -> bool {
-        matches!(self, Property::Custom(_))
+    pub const fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom(_))
     }
 
     pub fn as_custom(&self) -> Option<&str> {
-        if let Property::Custom(name) = self {
+        if let Self::Custom(name) = self {
             Some(name)
         } else {
             None
@@ -37,12 +37,9 @@ impl Property {
 impl From<String> for Property {
     fn from(value: String) -> Self {
         if value.starts_with("--") {
-            Property::Custom(value)
+            Self::Custom(value)
         } else {
-            match value.parse() {
-                Ok(known_id) => Property::Known(known_id),
-                Err(_) => Property::Custom(value),
-            }
+            value.parse().map_or(Self::Custom(value), Self::Known)
         }
     }
 }
@@ -52,12 +49,10 @@ impl FromStr for Property {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.starts_with("--") {
-            Ok(Property::Custom(s.to_string()))
+            Ok(Self::Custom(s.to_string()))
         } else {
-            match s.parse() {
-                Ok(known_id) => Ok(Property::Known(known_id)),
-                Err(_) => Ok(Property::Custom(s.to_string())),
-            }
+            s.parse()
+                .map_or_else(|_| Ok(Self::Custom(s.to_string())), |known_id| Ok(Self::Known(known_id)))
         }
     }
 }

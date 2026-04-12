@@ -70,7 +70,7 @@ impl CSSStyleSheet {
             .collect()
     }
 
-    pub fn origin(&self) -> StylesheetOrigin {
+    pub const fn origin(&self) -> StylesheetOrigin {
         self.origin
     }
 
@@ -80,7 +80,7 @@ impl CSSStyleSheet {
     }
 
     /// Get the number of rules in this stylesheet
-    pub fn length(&self) -> usize {
+    pub const fn length(&self) -> usize {
         self.rules.len()
     }
 
@@ -150,7 +150,7 @@ impl Display for CSSStyleSheet {
 
 impl From<Stylesheet> for CSSStyleSheet {
     fn from(parsed: Stylesheet) -> Self {
-        let mut stylesheet = CSSStyleSheet::default();
+        let mut stylesheet = Self::default();
 
         for rule in parsed.rules {
             if let Some(css_rule) = CSSRule::from_parsed(rule, true) {

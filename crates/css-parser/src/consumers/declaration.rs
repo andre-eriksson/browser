@@ -9,7 +9,7 @@ use crate::{
 /// Consume a list of declarations
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-list-of-declarations>
-pub(crate) fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<DeclarationOrAtRule> {
+pub fn consume_list_of_declarations(css_parser: &mut CssParser) -> Vec<DeclarationOrAtRule> {
     let mut declarations = Vec::new();
 
     while let Some(token) = css_parser.peek() {

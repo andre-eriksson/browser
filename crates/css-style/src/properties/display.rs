@@ -11,6 +11,7 @@ use css_values::{
 };
 
 /// Represents the computed value of the CSS `display` property, which can be a combination of outside, inside, list-item, internal, and box display types.
+///
 /// This struct allows for a more structured representation of the `display` property, making it easier to work with in the layout engine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Display {
@@ -23,27 +24,27 @@ pub struct Display {
 
 impl Display {
     /// Returns the outside display type, if set.
-    pub fn outside(&self) -> Option<OutsideDisplay> {
+    pub const fn outside(&self) -> Option<OutsideDisplay> {
         self.outside
     }
 
     /// Returns the inside display type, if set.
-    pub fn inside(&self) -> Option<InsideDisplay> {
+    pub const fn inside(&self) -> Option<InsideDisplay> {
         self.inside
     }
 
     /// Returns the list-item display type, if set.
-    pub fn list_item(&self) -> Option<ListItemDisplay> {
+    pub const fn list_item(&self) -> Option<ListItemDisplay> {
         self.list_item
     }
 
     /// Returns the internal display type, if set.
-    pub fn internal(&self) -> Option<InternalDisplay> {
+    pub const fn internal(&self) -> Option<InternalDisplay> {
         self.internal
     }
 
     /// Returns the box display type, if set.
-    pub fn box_display(&self) -> Option<BoxDisplay> {
+    pub const fn box_display(&self) -> Option<BoxDisplay> {
         self.box_display
     }
 
@@ -62,23 +63,23 @@ impl Display {
                     | InternalDisplay::TableCaption
             )
         ) {
-            Display::from(InsideDisplay::Table)
+            Self::from(InsideDisplay::Table)
         } else if matches!(self.outside, Some(OutsideDisplay::Inline)) {
             match self.inside {
-                Some(InsideDisplay::FlowRoot | InsideDisplay::Flow) => Display {
+                Some(InsideDisplay::FlowRoot | InsideDisplay::Flow) => Self {
                     outside: Some(OutsideDisplay::Block),
                     inside: Some(InsideDisplay::Flow),
                     ..Default::default()
                 },
-                Some(InsideDisplay::Table) => Display {
+                Some(InsideDisplay::Table) => Self {
                     inside: Some(InsideDisplay::Table),
                     ..Default::default()
                 },
-                Some(InsideDisplay::Flex) => Display {
+                Some(InsideDisplay::Flex) => Self {
                     inside: Some(InsideDisplay::Flex),
                     ..Default::default()
                 },
-                Some(InsideDisplay::Grid) => Display {
+                Some(InsideDisplay::Grid) => Self {
                     inside: Some(InsideDisplay::Grid),
                     ..Default::default()
                 },
@@ -93,7 +94,7 @@ impl Display {
 impl Default for Display {
     /// The CSS initial value of `display` is `inline` (i.e., `outside: Inline, inside: Flow`).
     fn default() -> Self {
-        Display {
+        Self {
             outside: Some(OutsideDisplay::Inline),
             inside: Some(InsideDisplay::Flow),
             list_item: None,
@@ -105,7 +106,7 @@ impl Default for Display {
 
 impl From<OutsideDisplay> for Display {
     fn from(outside: OutsideDisplay) -> Self {
-        Display {
+        Self {
             outside: Some(outside),
             inside: None,
             list_item: None,
@@ -117,7 +118,7 @@ impl From<OutsideDisplay> for Display {
 
 impl From<InsideDisplay> for Display {
     fn from(inside: InsideDisplay) -> Self {
-        Display {
+        Self {
             outside: None,
             inside: Some(inside),
             list_item: None,
@@ -129,7 +130,7 @@ impl From<InsideDisplay> for Display {
 
 impl From<ListItemDisplay> for Display {
     fn from(list_item: ListItemDisplay) -> Self {
-        Display {
+        Self {
             outside: None,
             inside: Some(InsideDisplay::Flow),
             list_item: Some(list_item),
@@ -141,7 +142,7 @@ impl From<ListItemDisplay> for Display {
 
 impl From<InternalDisplay> for Display {
     fn from(internal: InternalDisplay) -> Self {
-        Display {
+        Self {
             outside: None,
             inside: None,
             list_item: None,
@@ -153,7 +154,7 @@ impl From<InternalDisplay> for Display {
 
 impl From<BoxDisplay> for Display {
     fn from(box_display: BoxDisplay) -> Self {
-        Display {
+        Self {
             outside: None,
             inside: None,
             list_item: None,
@@ -187,64 +188,64 @@ impl CSSParsable for Display {
 
         let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
         match parts.as_slice() {
-            ["inline"] => Ok(Display {
+            ["inline"] => Ok(Self {
                 outside: Some(OutsideDisplay::Inline),
                 inside: Some(InsideDisplay::Flow),
                 ..Default::default()
             }),
-            ["inline-block"] => Ok(Display {
+            ["inline-block"] => Ok(Self {
                 outside: Some(OutsideDisplay::Inline),
                 inside: Some(InsideDisplay::FlowRoot),
                 ..Default::default()
             }),
-            ["inline-table"] => Ok(Display {
+            ["inline-table"] => Ok(Self {
                 outside: Some(OutsideDisplay::Inline),
                 inside: Some(InsideDisplay::Table),
                 ..Default::default()
             }),
-            ["inline-flex"] => Ok(Display {
+            ["inline-flex"] => Ok(Self {
                 outside: Some(OutsideDisplay::Inline),
                 inside: Some(InsideDisplay::Flex),
                 ..Default::default()
             }),
-            ["inline-grid"] => Ok(Display {
+            ["inline-grid"] => Ok(Self {
                 outside: Some(OutsideDisplay::Inline),
                 inside: Some(InsideDisplay::Grid),
                 ..Default::default()
             }),
-            ["block"] => Ok(Display {
+            ["block"] => Ok(Self {
                 outside: Some(OutsideDisplay::Block),
                 inside: Some(InsideDisplay::Flow),
                 ..Default::default()
             }),
-            ["flow"] => Ok(Display::from(InsideDisplay::Flow)),
-            ["flow-root"] => Ok(Display::from(InsideDisplay::FlowRoot)),
-            ["table"] => Ok(Display::from(InsideDisplay::Table)),
-            ["flex"] => Ok(Display::from(InsideDisplay::Flex)),
-            ["grid"] => Ok(Display::from(InsideDisplay::Grid)),
-            ["ruby"] => Ok(Display::from(InsideDisplay::Ruby)),
-            ["list-item"] => Ok(Display::from(ListItemDisplay::ListItem)),
-            ["table-row-group"] => Ok(Display::from(InternalDisplay::TableRowGroup)),
-            ["table-header-group"] => Ok(Display::from(InternalDisplay::TableHeaderGroup)),
-            ["table-footer-group"] => Ok(Display::from(InternalDisplay::TableFooterGroup)),
-            ["table-row"] => Ok(Display::from(InternalDisplay::TableRow)),
-            ["table-cell"] => Ok(Display::from(InternalDisplay::TableCell)),
-            ["table-column-group"] => Ok(Display::from(InternalDisplay::TableColumnGroup)),
-            ["table-column"] => Ok(Display::from(InternalDisplay::TableColumn)),
-            ["table-caption"] => Ok(Display::from(InternalDisplay::TableCaption)),
-            ["ruby-base"] => Ok(Display::from(InternalDisplay::RubyBase)),
-            ["ruby-text"] => Ok(Display::from(InternalDisplay::RubyText)),
-            ["ruby-base-container"] => Ok(Display::from(InternalDisplay::RubyBaseContainer)),
-            ["ruby-text-container"] => Ok(Display::from(InternalDisplay::RubyTextContainer)),
-            ["contents"] => Ok(Display::from(BoxDisplay::Contents)),
-            ["none"] => Ok(Display::from(BoxDisplay::None)),
+            ["flow"] => Ok(Self::from(InsideDisplay::Flow)),
+            ["flow-root"] => Ok(Self::from(InsideDisplay::FlowRoot)),
+            ["table"] => Ok(Self::from(InsideDisplay::Table)),
+            ["flex"] => Ok(Self::from(InsideDisplay::Flex)),
+            ["grid"] => Ok(Self::from(InsideDisplay::Grid)),
+            ["ruby"] => Ok(Self::from(InsideDisplay::Ruby)),
+            ["list-item"] => Ok(Self::from(ListItemDisplay::ListItem)),
+            ["table-row-group"] => Ok(Self::from(InternalDisplay::TableRowGroup)),
+            ["table-header-group"] => Ok(Self::from(InternalDisplay::TableHeaderGroup)),
+            ["table-footer-group"] => Ok(Self::from(InternalDisplay::TableFooterGroup)),
+            ["table-row"] => Ok(Self::from(InternalDisplay::TableRow)),
+            ["table-cell"] => Ok(Self::from(InternalDisplay::TableCell)),
+            ["table-column-group"] => Ok(Self::from(InternalDisplay::TableColumnGroup)),
+            ["table-column"] => Ok(Self::from(InternalDisplay::TableColumn)),
+            ["table-caption"] => Ok(Self::from(InternalDisplay::TableCaption)),
+            ["ruby-base"] => Ok(Self::from(InternalDisplay::RubyBase)),
+            ["ruby-text"] => Ok(Self::from(InternalDisplay::RubyText)),
+            ["ruby-base-container"] => Ok(Self::from(InternalDisplay::RubyBaseContainer)),
+            ["ruby-text-container"] => Ok(Self::from(InternalDisplay::RubyTextContainer)),
+            ["contents"] => Ok(Self::from(BoxDisplay::Contents)),
+            ["none"] => Ok(Self::from(BoxDisplay::None)),
             [outside, list_item_or_inside] => {
                 let outside = outside
                     .parse()
                     .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {}", outside)))?;
 
                 if let Ok(list_item) = list_item_or_inside.parse::<ListItemDisplay>() {
-                    return Ok(Display {
+                    return Ok(Self {
                         outside: Some(outside),
                         inside: Some(InsideDisplay::Flow),
                         list_item: Some(list_item),
@@ -256,7 +257,7 @@ impl CSSParsable for Display {
                     CssValueError::InvalidValue(format!("Invalid inside display value: {}", list_item_or_inside))
                 })?;
 
-                Ok(Display {
+                Ok(Self {
                     outside: Some(outside),
                     inside: Some(inside),
                     ..Default::default()
@@ -273,7 +274,7 @@ impl CSSParsable for Display {
                     CssValueError::InvalidValue(format!("Invalid list-item display value: {}", list_item))
                 })?;
 
-                Ok(Display {
+                Ok(Self {
                     outside: Some(outside),
                     inside: Some(inside),
                     list_item: Some(list_item),

@@ -140,35 +140,35 @@ pub enum MediaCondition {
 }
 
 impl MediaCondition {
-    pub fn is_discrete_query(&self) -> bool {
+    pub const fn is_discrete_query(&self) -> bool {
         matches!(
             self,
-            MediaCondition::AnyHover
-                | MediaCondition::AnyPointer
-                | MediaCondition::ColorGamut
-                | MediaCondition::Grid
-                | MediaCondition::Hover
-                | MediaCondition::Orientation
-                | MediaCondition::OverflowBlock
-                | MediaCondition::OverflowInline
-                | MediaCondition::Pointer
-                | MediaCondition::Scan
-                | MediaCondition::Update
+            Self::AnyHover
+                | Self::AnyPointer
+                | Self::ColorGamut
+                | Self::Grid
+                | Self::Hover
+                | Self::Orientation
+                | Self::OverflowBlock
+                | Self::OverflowInline
+                | Self::Pointer
+                | Self::Scan
+                | Self::Update
         )
     }
 
-    pub fn is_range_query(&self) -> bool {
+    pub const fn is_range_query(&self) -> bool {
         matches!(
             self,
-            MediaCondition::AspectRatio
-                | MediaCondition::Color
-                | MediaCondition::ColorIndex
-                | MediaCondition::DeviceAspectRatio
-                | MediaCondition::DeviceHeight
-                | MediaCondition::DeviceWidth
-                | MediaCondition::Height
-                | MediaCondition::Monochrome
-                | MediaCondition::Resolution
+            Self::AspectRatio
+                | Self::Color
+                | Self::ColorIndex
+                | Self::DeviceAspectRatio
+                | Self::DeviceHeight
+                | Self::DeviceWidth
+                | Self::Height
+                | Self::Monochrome
+                | Self::Resolution
         )
     }
 }

@@ -1,4 +1,5 @@
 //! This module defines constants for file names used in the browser's cache and configuration directories.
+//!
 //! These constants are of type `ResourceType`, which is an enum that categorizes resources based on their
 //! storage location (cache, config, user data). The constants defined in this module provide a standardized
 //! way to reference specific files used by the browser, such as user agent stylesheets and user preferences.
@@ -25,7 +26,7 @@ pub struct Entry<'path> {
 }
 
 impl<'path> Entry<'path> {
-    pub fn location(&self) -> &'path str {
+    pub const fn location(&self) -> &'path str {
         self.location
     }
 
@@ -50,7 +51,7 @@ impl<'path> Entry<'path> {
         }
     }
 
-    pub fn absolute(path: &'path str) -> Self {
+    pub const fn absolute(path: &'path str) -> Self {
         Self {
             location: path,
             file_path: FilePath::Absolute,
@@ -62,35 +63,35 @@ impl<'path> Entry<'path> {
             FilePath::Cache => {
                 let cache_path = get_cache_path();
 
-                match cache_path {
-                    Some(path) => Some(path.join(self.location)),
-                    None => {
+                cache_path.map_or_else(
+                    || {
                         warn!("Cache directory is unavailable");
                         None
-                    }
-                }
+                    },
+                    |path| Some(path.join(self.location)),
+                )
             }
             FilePath::Config => {
                 let config_path = get_config_path();
 
-                match config_path {
-                    Some(path) => Some(path.join(self.location)),
-                    None => {
+                config_path.map_or_else(
+                    || {
                         warn!("Config directory is unavailable");
                         None
-                    }
-                }
+                    },
+                    |path| Some(path.join(self.location)),
+                )
             }
             FilePath::UserData => {
                 let user_data_path = get_data_path();
 
-                match user_data_path {
-                    Some(path) => Some(path.join(self.location)),
-                    None => {
+                user_data_path.map_or_else(
+                    || {
                         warn!("User data directory is unavailable");
                         None
-                    }
-                }
+                    },
+                    |path| Some(path.join(self.location)),
+                )
             }
             FilePath::Absolute => Some(PathBuf::from(self.location)),
         }

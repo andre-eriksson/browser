@@ -76,7 +76,7 @@ impl HtmlTokenizer {
             TokenState::XmlDeclaration => handle_xml_declaration_state(state, ch, tokens),
             TokenState::DoctypeDeclaration => handle_doctype_declaration_state(state, ch, tokens),
             TokenState::ScriptData => {
-                HtmlTokenizer::emit_token(
+                Self::emit_token(
                     tokens,
                     Token {
                         kind: TokenKind::EndTag,
@@ -87,10 +87,10 @@ impl HtmlTokenizer {
 
                 state.temporary_buffer.clear();
                 state.state = TokenState::Data;
-                HtmlTokenizer::process_char(state, ch, tokens);
+                Self::process_char(state, ch, tokens);
             }
             TokenState::StyleData => {
-                HtmlTokenizer::emit_token(
+                Self::emit_token(
                     tokens,
                     Token {
                         kind: TokenKind::EndTag,
@@ -101,10 +101,10 @@ impl HtmlTokenizer {
 
                 state.temporary_buffer.clear();
                 state.state = TokenState::Data;
-                HtmlTokenizer::process_char(state, ch, tokens);
+                Self::process_char(state, ch, tokens);
             }
             TokenState::SvgData => {
-                HtmlTokenizer::emit_token(
+                Self::emit_token(
                     tokens,
                     Token {
                         kind: TokenKind::EndTag,
@@ -115,7 +115,7 @@ impl HtmlTokenizer {
 
                 state.temporary_buffer.clear();
                 state.state = TokenState::Data;
-                HtmlTokenizer::process_char(state, ch, tokens);
+                Self::process_char(state, ch, tokens);
             }
         }
     }

@@ -18,7 +18,7 @@ pub struct SourcePosition {
 impl SourcePosition {
     /// Create a new source position
     #[must_use]
-    pub fn new(line: usize, column: usize, offset: usize) -> Self {
+    pub const fn new(line: usize, column: usize, offset: usize) -> Self {
         Self {
             line,
             column,
@@ -67,15 +67,15 @@ pub enum CssTokenizationError {
 impl CssTokenizationError {
     /// Get the source position where the error occurred
     #[must_use]
-    pub fn position(&self) -> SourcePosition {
+    pub const fn position(&self) -> SourcePosition {
         match self {
-            CssTokenizationError::EofInComment(pos)
-            | CssTokenizationError::EofInString(pos)
-            | CssTokenizationError::EofInUrl(pos)
-            | CssTokenizationError::InvalidEscape(pos)
-            | CssTokenizationError::NewlineInString(pos)
-            | CssTokenizationError::InvalidCharacterInUrl(pos)
-            | CssTokenizationError::InvalidEscapeInUrl(pos) => *pos,
+            Self::EofInComment(pos)
+            | Self::EofInString(pos)
+            | Self::EofInUrl(pos)
+            | Self::InvalidEscape(pos)
+            | Self::NewlineInString(pos)
+            | Self::InvalidCharacterInUrl(pos)
+            | Self::InvalidEscapeInUrl(pos) => *pos,
         }
     }
 }

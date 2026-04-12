@@ -78,7 +78,7 @@ impl WindowController {
     }
 
     /// Closes all open windows and returns a task that completes when all windows are closed.
-    pub fn close_all_windows(&mut self) -> Task<()> {
+    pub fn close_all_windows(&self) -> Task<()> {
         let tasks: Vec<_> = self
             .open_windows
             .keys()

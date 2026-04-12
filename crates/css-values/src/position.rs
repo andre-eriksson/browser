@@ -22,22 +22,19 @@ impl PosToken {
     /// Consume the next non-whitespace token from `stream` and classify it as
     /// either an ident or a length/percentage. Returns `None` if the stream is
     /// exhausted or the token is neither.
-    fn next_pos_token(stream: &mut ComponentValueStream) -> Option<PosToken> {
+    fn next_pos_token(stream: &mut ComponentValueStream) -> Option<Self> {
         match stream.next_non_whitespace()? {
             ComponentValue::Token(t) => match &t.kind {
-                CssTokenKind::Ident(s) => Some(PosToken::Ident(s.clone())),
+                CssTokenKind::Ident(s) => Some(Self::Ident(s.clone())),
                 CssTokenKind::Dimension { value, unit } => {
                     let len_unit = unit.parse::<LengthUnit>().ok()?;
-                    Some(PosToken::LengthPercentage(LengthPercentage::Length(Length::new(
-                        value.to_f64() as f32,
-                        len_unit,
-                    ))))
+                    Some(Self::LengthPercentage(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit))))
                 }
                 CssTokenKind::Percentage(pct) => {
-                    Some(PosToken::LengthPercentage(LengthPercentage::Percentage(Percentage::new(pct.to_f64() as f32))))
+                    Some(Self::LengthPercentage(LengthPercentage::Percentage(Percentage::new(pct.to_f64() as f32))))
                 }
                 CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
-                    Some(PosToken::LengthPercentage(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px))))
+                    Some(Self::LengthPercentage(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px))))
                 }
                 _ => None,
             },
@@ -63,7 +60,7 @@ pub enum HorizontalSide {
 }
 
 /// The relative horizontal side keywords include the horizontal sides (left and right) or the center keyword.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelativeHorizontalSide {
     Horizontal(HorizontalSide),
     Center(Center),
@@ -74,9 +71,9 @@ impl FromStr for RelativeHorizontalSide {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("center") {
-            Ok(RelativeHorizontalSide::Center(Center::Center))
+            Ok(Self::Center(Center::Center))
         } else if let Ok(h) = s.parse::<HorizontalSide>() {
-            Ok(RelativeHorizontalSide::Horizontal(h))
+            Ok(Self::Horizontal(h))
         } else {
             Err(strum::ParseError::VariantNotFound)
         }
@@ -103,18 +100,18 @@ impl FromStr for HorizontalOrXSide {
     type Err = strum::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(h) = s.parse::<HorizontalSide>() {
-            Ok(HorizontalOrXSide::Horizontal(h))
-        } else if let Ok(x) = s.parse::<XSide>() {
-            Ok(HorizontalOrXSide::XSide(x))
-        } else {
-            Err(strum::ParseError::VariantNotFound)
-        }
+        s.parse::<HorizontalSide>().map_or_else(
+            |_| {
+                s.parse::<XSide>()
+                    .map_or(Err(strum::ParseError::VariantNotFound), |x| Ok(Self::XSide(x)))
+            },
+            |h| Ok(Self::Horizontal(h)),
+        )
     }
 }
 
 /// The x-axis keywords include the horizontal sides (left and right), the center keyword, or the x-sides (x-start and x-end).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum XAxis {
     Horizontal(HorizontalSide),
     Center(Center),
@@ -126,11 +123,11 @@ impl FromStr for XAxis {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("center") {
-            Ok(XAxis::Center(Center::Center))
+            Ok(Self::Center(Center::Center))
         } else if let Ok(h) = s.parse::<HorizontalSide>() {
-            Ok(XAxis::Horizontal(h))
+            Ok(Self::Horizontal(h))
         } else if let Ok(x) = s.parse::<XSide>() {
-            Ok(XAxis::XSide(x))
+            Ok(Self::XSide(x))
         } else {
             Err(strum::ParseError::VariantNotFound)
         }
@@ -161,7 +158,7 @@ pub enum VerticalSide {
 }
 
 /// The relative vertical side keywords include the vertical sides (top and bottom) or the center keyword.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelativeVerticalSide {
     Vertical(VerticalSide),
     Center(Center),
@@ -172,9 +169,9 @@ impl FromStr for RelativeVerticalSide {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("center") {
-            Ok(RelativeVerticalSide::Center(Center::Center))
+            Ok(Self::Center(Center::Center))
         } else if let Ok(v) = s.parse::<VerticalSide>() {
-            Ok(RelativeVerticalSide::Vertical(v))
+            Ok(Self::Vertical(v))
         } else {
             Err(strum::ParseError::VariantNotFound)
         }
@@ -192,18 +189,18 @@ impl FromStr for VerticalOrYSide {
     type Err = strum::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(v) = s.parse::<VerticalSide>() {
-            Ok(VerticalOrYSide::Vertical(v))
-        } else if let Ok(y) = s.parse::<YSide>() {
-            Ok(VerticalOrYSide::YSide(y))
-        } else {
-            Err(strum::ParseError::VariantNotFound)
-        }
+        s.parse::<VerticalSide>().map_or_else(
+            |_| {
+                s.parse::<YSide>()
+                    .map_or(Err(strum::ParseError::VariantNotFound), |y| Ok(Self::YSide(y)))
+            },
+            |v| Ok(Self::Vertical(v)),
+        )
     }
 }
 
 /// The y-axis keywords include the vertical sides (top and bottom), the center keyword, or the y-sides (y-start and y-end).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum YAxis {
     Vertical(VerticalSide),
     Center(Center),
@@ -215,11 +212,11 @@ impl FromStr for YAxis {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("center") {
-            Ok(YAxis::Center(Center::Center))
+            Ok(Self::Center(Center::Center))
         } else if let Ok(v) = s.parse::<VerticalSide>() {
-            Ok(YAxis::Vertical(v))
+            Ok(Self::Vertical(v))
         } else if let Ok(y) = s.parse::<YSide>() {
-            Ok(YAxis::YSide(y))
+            Ok(Self::YSide(y))
         } else {
             Err(strum::ParseError::VariantNotFound)
         }
@@ -233,36 +230,45 @@ pub enum YAxisOrLengthPercentage {
     LengthPercentage(LengthPercentage),
 }
 
-/// The block-axis keywords (block-start and block-end) are used in position-related properties to specify a position relative to the
-/// start or end edge of the containing block in the block dimension, depends on the writing mode of the document.
-#[derive(Debug, Clone, PartialEq, EnumString)]
+/// The block-axis keywords (block-start and block-end)
+///
+/// Used in position-related properties to specify a position relative to the start or end edge of
+/// the containing block in the block dimension, depends on the writing mode of the document.
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum BlockAxis {
     BlockStart,
     BlockEnd,
 }
 
-/// The inline-axis keywords (inline-start and inline-end) are used in position-related properties to specify a position relative to the
-/// start or end edge of the containing block in the inline dimension, depends on the writing mode of the document.
-#[derive(Debug, Clone, PartialEq, EnumString)]
+/// The inline-axis keywords (inline-start and inline-end)
+///
+/// Used in position-related properties to specify a position relative to the start or end edge of
+/// the containing block in the inline dimension, depends on the writing mode of the document.
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum InlineAxis {
     InlineStart,
     InlineEnd,
 }
 
-/// The side keywords (start and end) are used in position-related properties to specify a position relative to the start or end edge of the
+/// The side keywords (start and end)
+///
+/// Used in position-related properties to specify a position relative to the start or end edge of the
 /// containing block in either dimension, depends on the writing mode of the document.
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum Side {
     Start,
     End,
 }
 
-/// The relative-axis keywords include the side keywords (start and end) or the center keyword. These are used in position-related properties to
-/// specify a position relative to the start or end edge of the containing block in either dimension, or the center of the containing block.
-#[derive(Debug, Clone, PartialEq)]
+/// The relative-axis keywords
+///
+/// Include the side keywords (start and end) or the center keyword. These are used in position-related properties to
+/// specify a position relative to the start or end edge of the containing block in either dimension, or the center of
+/// the containing block.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RelativeAxis {
     Side(Side),
     Center(Center),
@@ -273,9 +279,9 @@ impl FromStr for RelativeAxis {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("center") {
-            Ok(RelativeAxis::Center(Center::Center))
+            Ok(Self::Center(Center::Center))
         } else if let Ok(side) = s.parse::<Side>() {
-            Ok(RelativeAxis::Side(side))
+            Ok(Self::Side(side))
         } else {
             Err(strum::ParseError::VariantNotFound)
         }
@@ -283,9 +289,10 @@ impl FromStr for RelativeAxis {
 }
 
 /// The side-or-corner syntax is used in position-related properties to specify a position relative to one or two edges of the containing block.
+///
 /// It can include one horizontal side (left or right) and/or one vertical side (top or bottom), but not both horizontal sides or both vertical sides.
 /// The `to` keyword is expected to have already been consumed by the caller, so this only parses the remaining ident tokens for the sides.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SideOrCorner {
     pub horizontal: Option<HorizontalSide>,
     pub vertical: Option<VerticalSide>,
@@ -346,7 +353,7 @@ impl CSSParsable for SideOrCorner {
             ));
         }
 
-        Ok(SideOrCorner {
+        Ok(Self {
             horizontal,
             vertical,
         })
@@ -372,15 +379,15 @@ impl CSSParsable for PositionOne {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("center") {
-                            return Ok(PositionOne::Center(Center::Center));
+                            return Ok(Self::Center(Center::Center));
                         } else if let Ok(x) = ident.parse() {
-                            return Ok(PositionOne::Horizontal(x));
+                            return Ok(Self::Horizontal(x));
                         } else if let Ok(y) = ident.parse() {
-                            return Ok(PositionOne::Vertical(y));
+                            return Ok(Self::Vertical(y));
                         } else if let Ok(b) = ident.parse() {
-                            return Ok(PositionOne::BlockAxis(b));
+                            return Ok(Self::BlockAxis(b));
                         } else if let Ok(i) = ident.parse() {
-                            return Ok(PositionOne::InlineAxis(i));
+                            return Ok(Self::InlineAxis(i));
                         } else {
                             return Err(CssValueError::InvalidValue(format!("Unknown position keyword: '{}'", ident)));
                         }
@@ -390,11 +397,11 @@ impl CSSParsable for PositionOne {
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         let len = Length::new(value.to_f64() as f32, len_unit);
-                        return Ok(PositionOne::LengthPercentage(LengthPercentage::Length(len)));
+                        return Ok(Self::LengthPercentage(LengthPercentage::Length(len)));
                     }
                     CssTokenKind::Percentage(pct) => {
                         let percentage = Percentage::new(pct.to_f64() as f32);
-                        return Ok(PositionOne::LengthPercentage(LengthPercentage::Percentage(percentage)));
+                        return Ok(Self::LengthPercentage(LengthPercentage::Percentage(percentage)));
                     }
                     _ => continue,
                 },
@@ -441,10 +448,10 @@ impl PositionTwo {
             }
         };
         if let (Ok(ba), Ok(ia)) = (ai.parse::<BlockAxis>(), bi.parse::<InlineAxis>()) {
-            return Ok(PositionTwo::BlockInline(ba, ia));
+            return Ok(Self::BlockInline(ba, ia));
         }
         if let (Ok(ia), Ok(ba)) = (ai.parse::<InlineAxis>(), bi.parse::<BlockAxis>()) {
-            return Ok(PositionTwo::BlockInline(ba, ia));
+            return Ok(Self::BlockInline(ba, ia));
         }
         stream.restore(checkpoint);
         Err(CssValueError::InvalidValue("Not a block-axis/inline-axis pair".into()))
@@ -478,7 +485,7 @@ impl PositionTwo {
             }
         };
         if let Ok(rb) = bi.parse::<RelativeAxis>() {
-            return Ok(PositionTwo::Relative(ra, rb));
+            return Ok(Self::Relative(ra, rb));
         }
         stream.restore(checkpoint);
         Err(CssValueError::InvalidValue("Expected relative-axis keyword".into()))
@@ -501,10 +508,10 @@ impl PositionTwo {
             }
         };
         if let (Ok(x), Ok(y)) = (ai.parse::<XAxis>(), bi.parse::<YAxis>()) {
-            return Ok(PositionTwo::Axis(x, y));
+            return Ok(Self::Axis(x, y));
         }
         if let (Ok(y), Ok(x)) = (ai.parse::<YAxis>(), bi.parse::<XAxis>()) {
-            return Ok(PositionTwo::Axis(x, y));
+            return Ok(Self::Axis(x, y));
         }
         stream.restore(checkpoint);
         Err(CssValueError::InvalidValue("Not an x/y axis pair".into()))
@@ -547,21 +554,21 @@ impl PositionTwo {
             }
         };
 
-        Ok(PositionTwo::AxisOrPercentage(x_or_lp, y_or_lp))
+        Ok(Self::AxisOrPercentage(x_or_lp, y_or_lp))
     }
 }
 
 impl CSSParsable for PositionTwo {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Ok(v) = Self::try_block_inline(stream) {
-            Ok(v)
-        } else if let Ok(v) = Self::try_relative(stream) {
-            Ok(v)
-        } else if let Ok(v) = Self::try_axis(stream) {
-            Ok(v)
-        } else {
-            Self::try_axis_or_percentage(stream)
-        }
+        Self::try_block_inline(stream).map_or_else(
+            |_| {
+                Self::try_relative(stream).map_or_else(
+                    |_| Self::try_axis(stream).map_or_else(|_| Self::try_axis_or_percentage(stream), Ok),
+                    Ok,
+                )
+            },
+            Ok,
+        )
     }
 }
 
@@ -599,10 +606,10 @@ impl PositionThree {
             }
         };
         if let (Ok(h), Ok(rv)) = (ai.parse::<HorizontalSide>(), ci.parse::<RelativeVerticalSide>()) {
-            return Ok(PositionThree::RelativeHorizontal((h, lp), rv));
+            return Ok(Self::RelativeHorizontal((h, lp), rv));
         }
         if let (Ok(v), Ok(rh)) = (ai.parse::<VerticalSide>(), ci.parse::<RelativeHorizontalSide>()) {
-            return Ok(PositionThree::RelativeVertical(rh, (v, lp)));
+            return Ok(Self::RelativeVertical(rh, (v, lp)));
         }
         stream.restore(checkpoint);
         Err("Not a keyword-lp-keyword 3-value position".into())
@@ -633,10 +640,10 @@ impl PositionThree {
             }
         };
         if let (Ok(rh), Ok(v)) = (ai.parse::<RelativeHorizontalSide>(), bi.parse::<VerticalSide>()) {
-            return Ok(PositionThree::RelativeVertical(rh, (v, lp)));
+            return Ok(Self::RelativeVertical(rh, (v, lp)));
         }
         if let (Ok(rv), Ok(h)) = (ai.parse::<RelativeVerticalSide>(), bi.parse::<HorizontalSide>()) {
-            return Ok(PositionThree::RelativeHorizontal((h, lp), rv));
+            return Ok(Self::RelativeHorizontal((h, lp), rv));
         }
         stream.restore(checkpoint);
         Err("Not a keyword-keyword-lp 3-value position".into())
@@ -645,15 +652,9 @@ impl PositionThree {
 
 impl CSSParsable for PositionThree {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Ok(v) = Self::try_keyword_lp_keyword(stream) {
-            Ok(v)
-        } else if let Ok(v) = Self::try_keyword_keyword_lp(stream) {
-            Ok(v)
-        } else {
-            Err(CssValueError::InvalidValue(
-                "Invalid 3-value position: expected 'keyword length-percentage keyword' or 'keyword keyword length-percentage'".into(),
-            ))
-        }
+        Self::try_keyword_lp_keyword(stream).map_or_else(|_| Self::try_keyword_keyword_lp(stream).map_or_else(|_| Err(CssValueError::InvalidValue(
+                                  "Invalid 3-value position: expected 'keyword length-percentage keyword' or 'keyword keyword length-percentage'".into(),
+                              )), Ok), Ok)
     }
 }
 
@@ -704,22 +705,22 @@ impl PositionFour {
         };
 
         if let (Ok(ba), Ok(ia)) = (ai.parse::<BlockAxis>(), ci.parse::<InlineAxis>()) {
-            return Ok(PositionFour::BlockInline((ba, b_lp), (ia, d_lp)));
+            return Ok(Self::BlockInline((ba, b_lp), (ia, d_lp)));
         }
         if let (Ok(ia), Ok(ba)) = (ai.parse::<InlineAxis>(), ci.parse::<BlockAxis>()) {
-            return Ok(PositionFour::BlockInline((ba, d_lp), (ia, b_lp)));
+            return Ok(Self::BlockInline((ba, d_lp), (ia, b_lp)));
         }
 
         if let (Ok(s1), Ok(s2)) = (ai.parse::<Side>(), ci.parse::<Side>()) {
-            return Ok(PositionFour::StartEnd((s1, b_lp), (s2, d_lp)));
+            return Ok(Self::StartEnd((s1, b_lp), (s2, d_lp)));
         }
 
         if let (Ok(h), Ok(v)) = (ai.parse::<HorizontalOrXSide>(), ci.parse::<VerticalOrYSide>()) {
-            return Ok(PositionFour::XYPercentage((h, b_lp), (v, d_lp)));
+            return Ok(Self::XYPercentage((h, b_lp), (v, d_lp)));
         }
 
         if let (Ok(v), Ok(h)) = (ai.parse::<VerticalOrYSide>(), ci.parse::<HorizontalOrXSide>()) {
-            return Ok(PositionFour::XYPercentage((h, d_lp), (v, b_lp)));
+            return Ok(Self::XYPercentage((h, d_lp), (v, b_lp)));
         }
 
         stream.restore(checkpoint);
@@ -751,7 +752,7 @@ impl CSSParsable for Position {
         if let Ok(v) = PositionFour::parse(stream) {
             stream.skip_whitespace();
             if stream.peek().is_none() {
-                return Ok(Position::Four(v));
+                return Ok(Self::Four(v));
             }
         }
         stream.restore(checkpoint);
@@ -764,7 +765,7 @@ impl CSSParsable for Position {
         if let Ok(v) = PositionTwo::parse(stream) {
             stream.skip_whitespace();
             if stream.peek().is_none() {
-                return Ok(Position::Two(v));
+                return Ok(Self::Two(v));
             }
         }
         stream.restore(checkpoint);
@@ -772,7 +773,7 @@ impl CSSParsable for Position {
         if let Ok(v) = PositionOne::parse(stream) {
             stream.skip_whitespace();
             if stream.peek().is_none() {
-                return Ok(Position::One(v));
+                return Ok(Self::One(v));
             }
         }
 
@@ -796,22 +797,22 @@ impl CSSParsable for BgPosition {
         let checkpoint = stream.checkpoint();
 
         if let Ok(v) = PositionFour::parse(stream) {
-            return Ok(BgPosition::Four(v));
+            return Ok(Self::Four(v));
         }
         stream.restore(checkpoint);
 
         if let Ok(v) = PositionThree::parse(stream) {
-            return Ok(BgPosition::Three(v));
+            return Ok(Self::Three(v));
         }
         stream.restore(checkpoint);
 
         if let Ok(v) = PositionTwo::parse(stream) {
-            return Ok(BgPosition::Two(v));
+            return Ok(Self::Two(v));
         }
         stream.restore(checkpoint);
 
         if let Ok(v) = PositionOne::parse(stream) {
-            return Ok(BgPosition::One(v));
+            return Ok(Self::One(v));
         }
 
         Err(CssValueError::InvalidValue(
@@ -820,8 +821,10 @@ impl CSSParsable for BgPosition {
     }
 }
 
-/// The <position-x> and <position-y> CSS data types are used in position-related properties to specify a position along the
-/// horizontal (x) or vertical (y) axis, respectively, using a combination of position keywords and length/percentage values.
+/// The <position-x> and <position-y> CSS data types
+///
+/// Used in position-related properties to specify a position along the horizontal (x) or vertical (y) axis respectively,
+/// using a combination of position keywords and length/percentage values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PositionX {
     Center(Center, Option<LengthPercentage>),

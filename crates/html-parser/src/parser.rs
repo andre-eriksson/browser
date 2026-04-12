@@ -55,7 +55,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     }
 
     /// Returns a reference to the current state of the parser.
-    pub fn get_state(&self) -> &ParserState {
+    pub const fn get_state(&self) -> &ParserState {
         &self.state
     }
 

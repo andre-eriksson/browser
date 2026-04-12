@@ -47,7 +47,7 @@ impl Application {
 
         let tasks = vec![browser_task.discard()];
 
-        let app = Application {
+        let app = Self {
             browser_windows: HashMap::from([(main_window_id, BrowserContext::new(config))]),
             window_controller,
             browser,
@@ -102,14 +102,14 @@ impl Application {
     pub fn view(&self, window_id: window::Id) -> iced::Element<'_, Event, Theme, Renderer> {
         self.window_controller
             .render(self, window_id)
-            .unwrap_or(text("Window not found").into())
+            .unwrap_or_else(|| text("Window not found").into())
     }
 
     /// Returns the title of the application window.
     pub fn title(&self, window_id: window::Id) -> String {
         self.window_controller
             .title(window_id)
-            .unwrap_or(APP_NAME.to_string())
+            .unwrap_or_else(|| APP_NAME.to_string())
     }
 
     /// Returns the theme for the application window.

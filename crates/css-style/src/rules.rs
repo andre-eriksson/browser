@@ -36,7 +36,7 @@ impl<'css> GeneratedRule<'css> {
         stylesheets: &'css [CSSStyleSheet],
         property_registry: &mut PropertyRegistry,
         absolute_ctx: &AbsoluteContext,
-    ) -> Vec<GeneratedRule<'css>> {
+    ) -> Vec<Self> {
         let mut generated_rules = Vec::new();
 
         for stylesheet in stylesheets {
@@ -74,7 +74,7 @@ impl<'css> GeneratedRule<'css> {
 
     /// Recursively handle nested at-rules, filtering out any that are not applicable based on the absolute context.
     fn handle_nested_at_rule(
-        generated_rules: &mut Vec<GeneratedRule<'css>>,
+        generated_rules: &mut Vec<Self>,
         stylesheet: &CSSStyleSheet,
         at_rule: &'css CSSAtRule,
         property_registry: &mut PropertyRegistry,
@@ -634,7 +634,7 @@ impl<'css> GeneratedRule<'css> {
 
     fn handle_supports_condition(
         mut stream: ComponentValueStream,
-        property_registry: &mut PropertyRegistry,
+        property_registry: &PropertyRegistry,
         absolute_ctx: &AbsoluteContext,
     ) -> bool {
         let mut is_not = false;
@@ -660,7 +660,7 @@ impl<'css> GeneratedRule<'css> {
 
     fn handle_supports_block(
         block: &SimpleBlock,
-        property_registry: &mut PropertyRegistry,
+        property_registry: &PropertyRegistry,
         absolute_ctx: &AbsoluteContext,
     ) -> bool {
         let block_stream = ComponentValueStream::new(&block.value);
@@ -702,11 +702,7 @@ impl<'css> GeneratedRule<'css> {
     }
 
     /// Push a style rule into the generated rules list, extracting its selector sequences, declarations, origin, and specificity for cascade resolution.
-    fn push_rule(
-        generated_rules: &mut Vec<GeneratedRule<'css>>,
-        stylesheet: &CSSStyleSheet,
-        style_rule: &'css CSSStyleRule,
-    ) {
+    fn push_rule(generated_rules: &mut Vec<Self>, stylesheet: &CSSStyleSheet, style_rule: &'css CSSStyleRule) {
         let selector_list = generate_selector_list(&style_rule.prelude);
 
         for selector_sequence in selector_list {

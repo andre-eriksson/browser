@@ -27,7 +27,7 @@ mod whitespace;
 /// be emitted as a `LayoutNode` once the line is finished and final positions
 /// are known.
 #[derive(Debug, Clone)]
-pub(crate) struct InlineDecoration<'node> {
+pub struct InlineDecoration<'node> {
     id: NodeId,
     start_x: f32,
     end_x: f32,
@@ -38,7 +38,7 @@ pub(crate) struct InlineDecoration<'node> {
 
 /// State for an inline box that has been opened but not yet closed.
 #[derive(Debug, Clone)]
-pub(crate) struct ActiveInlineBox<'node> {
+pub struct ActiveInlineBox<'node> {
     id: NodeId,
     style: &'node ComputedStyle,
     start_x: f32,
@@ -48,7 +48,7 @@ pub(crate) struct ActiveInlineBox<'node> {
 }
 
 /// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
-pub(crate) struct InlineLayoutContext<'layout, 'node> {
+pub struct InlineLayoutContext<'layout, 'node> {
     pub current_y: &'layout mut f32,
     pub start_x: f32,
     pub available_width: f32,

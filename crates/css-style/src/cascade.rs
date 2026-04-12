@@ -44,7 +44,7 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
                         None
                     };
 
-                    if let Some(CssTokenKind::Delim('.')) = prev {
+                    if matches!(prev, Some(CssTokenKind::Delim('.'))) {
                         if class.is_none() {
                             class = Some(name.clone());
                         }
@@ -65,15 +65,10 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
         }
     }
 
-    if let Some(id) = id {
-        SelectorKey::Id(id)
-    } else if let Some(class) = class {
-        SelectorKey::Class(class)
-    } else if let Some(tag) = tag {
-        SelectorKey::Tag(tag)
-    } else {
-        SelectorKey::Universal
-    }
+    id.map_or_else(
+        || class.map_or_else(|| tag.map_or(SelectorKey::Universal, SelectorKey::Tag), SelectorKey::Class),
+        SelectorKey::Id,
+    )
 }
 
 /// An index that groups rules by their rightmost selector key for fast lookup.
@@ -158,14 +153,14 @@ pub struct CascadeSpecificity(
 
 impl CascadeSpecificity {
     /// Create a CascadeSpecificity for inline styles
-    pub fn inline() -> Self {
-        CascadeSpecificity(1, 0, 0, 0)
+    pub const fn inline() -> Self {
+        Self(1, 0, 0, 0)
     }
 }
 
 impl From<SelectorSpecificity> for CascadeSpecificity {
     fn from(spec: SelectorSpecificity) -> Self {
-        CascadeSpecificity(0, spec.0, spec.1, spec.2)
+        Self(0, spec.0, spec.1, spec.2)
     }
 }
 
@@ -275,7 +270,7 @@ impl CascadedDeclaration<'_> {
         (declarations, variables)
     }
 
-    fn origin_priority(origin: StylesheetOrigin, important: bool) -> u8 {
+    const fn origin_priority(origin: StylesheetOrigin, important: bool) -> u8 {
         match (origin, important) {
             (StylesheetOrigin::UserAgent, true) => 1,
             (StylesheetOrigin::User, true) => 2,

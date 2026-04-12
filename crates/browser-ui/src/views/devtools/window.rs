@@ -73,34 +73,35 @@ impl ApplicationWindow for DevtoolsWindow {
         // NOTE: Varies depending on UI elements around the content.
         let content_viewport_height = (viewport.height + 50.0).max(100.0);
 
-        match tab
-            .and_then(|t| t.devtools.as_ref())
+        tab.and_then(|t| t.devtools.as_ref())
             .and_then(|d| d.context.page.as_ref())
-        {
-            Some(devtools) => {
-                let renderer = HtmlRenderer::new(
-                    self.id,
-                    devtools.document(),
-                    devtools.layout_tree(),
-                    devtools.scroll_offset,
-                    WindowType::Devtools,
-                );
-                let html = DevtoolsHtml::new(
-                    renderer,
-                    devtools.layout_tree(),
-                    Rect::new(0.0, 0.0, viewport.width, content_viewport_height),
-                    devtools.scroll_offset,
-                );
-                html.render(application)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .into()
-            }
-            None => container(text("DevTools page not available"))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .into(),
-        }
+            .map_or_else(
+                || {
+                    container(text("DevTools page not available"))
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into()
+                },
+                |devtools| {
+                    let renderer = HtmlRenderer::new(
+                        self.id,
+                        devtools.document(),
+                        devtools.layout_tree(),
+                        devtools.scroll_offset,
+                        WindowType::Devtools,
+                    );
+                    let html = DevtoolsHtml::new(
+                        renderer,
+                        devtools.layout_tree(),
+                        Rect::new(0.0, 0.0, viewport.width, content_viewport_height),
+                        devtools.scroll_offset,
+                    );
+                    html.render(application)
+                        .width(Length::Fill)
+                        .height(Length::Fill)
+                        .into()
+                },
+            )
     }
 
     fn settings() -> iced::window::Settings {

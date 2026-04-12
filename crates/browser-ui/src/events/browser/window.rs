@@ -3,7 +3,7 @@ use iced::{Size, Task, window::Id};
 use crate::{core::Application, events::Event};
 
 /// Handles the change of the current URL when a `UrlChanged` event is received from the UI.
-pub(crate) fn on_url_change(application: &mut Application, window_id: Id, url: String) -> Task<Event> {
+pub fn on_url_change(application: &mut Application, window_id: Id, url: String) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id) {
         ctx.current_url = url;
     }
@@ -13,7 +13,7 @@ pub(crate) fn on_url_change(application: &mut Application, window_id: Id, url: S
 
 /// Handles the scrolling of content when a `ContentScrolled` event is received from the UI,
 /// updating the scroll offset of the active tab.
-pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, y: f32) -> Task<Event> {
+pub fn on_scrolled(application: &mut Application, window_id: Id, x: f32, y: f32) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
         && let Some(tab) = ctx.tab_manager.active_tab_mut()
     {
@@ -26,7 +26,7 @@ pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, 
 
 /// Handles the resizing of the browser window when a `Resize` event is received from the UI,
 /// updating the viewport size and recomputing the layout tree for the active tab's page.
-pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
+pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
     if let Some(ctx) = application.browser_windows.get_mut(&window_id)
         && let Some(tab) = ctx.tab_manager.active_tab_mut()
         && let Some(page_ctx) = tab.page_ctx.as_ref()

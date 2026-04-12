@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Consume an ident-like token (§4.3.4)
-pub(crate) fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken {
+pub fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken {
     let string = consume_ident_sequence(tokenizer);
 
     if string.eq_ignore_ascii_case("url") && tokenizer.stream.peek() == Some('(') {
@@ -48,7 +48,7 @@ pub(crate) fn consume_ident_like_token(tokenizer: &mut CssTokenizer) -> CssToken
 }
 
 /// Consume an ident sequence (§4.3.11)
-pub(crate) fn consume_ident_sequence(tokenizer: &mut CssTokenizer) -> String {
+pub fn consume_ident_sequence(tokenizer: &mut CssTokenizer) -> String {
     let mut result = String::new();
 
     loop {

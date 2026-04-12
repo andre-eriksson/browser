@@ -12,14 +12,14 @@ impl PixelRepr for Dimension {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            Dimension::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
-            Dimension::MaxContent => 0.0,
-            Dimension::MinContent => 0.0,
-            Dimension::FitContent(_) => 0.0,
-            Dimension::Stretch => 0.0,
-            Dimension::Auto => 0.0,
-            Dimension::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
-            Dimension::Percentage(p) => match rel_type {
+            Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::MaxContent => 0.0,
+            Self::MinContent => 0.0,
+            Self::FitContent(_) => 0.0,
+            Self::Stretch => 0.0,
+            Self::Auto => 0.0,
+            Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Percentage(p) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx
                     .map(|ctx| ctx.font_size * p.as_fraction())
                     .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),
@@ -46,14 +46,14 @@ impl PixelRepr for MaxDimension {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            MaxDimension::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
-            MaxDimension::MaxContent => 0.0,
-            MaxDimension::MinContent => 0.0,
-            MaxDimension::FitContent(_) => 0.0,
-            MaxDimension::Stretch => 0.0,
-            MaxDimension::None => f32::INFINITY,
-            MaxDimension::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
-            MaxDimension::Percentage(p) => match rel_type {
+            Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::MaxContent => 0.0,
+            Self::MinContent => 0.0,
+            Self::FitContent(_) => 0.0,
+            Self::Stretch => 0.0,
+            Self::None => f32::INFINITY,
+            Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Percentage(p) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx
                     .map(|ctx| ctx.font_size * p.as_fraction())
                     .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),

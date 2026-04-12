@@ -168,16 +168,17 @@ impl SimpleMiddleware {
             return false;
         }
 
-        if let Some(start) = spec.strip_prefix('-') {
-            !start.is_empty() && start.chars().all(|c| c.is_ascii_digit())
-        } else {
-            let mut parts = spec.splitn(2, '-');
-            let start = parts.next().unwrap_or("");
-            let end = parts.next().unwrap_or("");
-            !start.is_empty()
-                && !end.is_empty()
-                && start.chars().all(|c| c.is_ascii_digit())
-                && end.chars().all(|c| c.is_ascii_digit())
-        }
+        spec.strip_prefix('-').map_or_else(
+            || {
+                let mut parts = spec.splitn(2, '-');
+                let start = parts.next().unwrap_or("");
+                let end = parts.next().unwrap_or("");
+                !start.is_empty()
+                    && !end.is_empty()
+                    && start.chars().all(|c| c.is_ascii_digit())
+                    && end.chars().all(|c| c.is_ascii_digit())
+            },
+            |start| !start.is_empty() && start.chars().all(|c| c.is_ascii_digit()),
+        )
     }
 }

@@ -1,4 +1,4 @@
-pub(crate) mod pipeline;
-pub(crate) mod primitives;
-pub(crate) mod program;
-pub(crate) mod viewport;
+pub mod pipeline;
+pub mod primitives;
+pub mod program;
+pub mod viewport;

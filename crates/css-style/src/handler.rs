@@ -29,7 +29,7 @@ use crate::{
 };
 
 /// Context for updating a CSS property, containing necessary information and utilities for the update process.
-pub(crate) struct PropertyUpdateContext<'css> {
+pub struct PropertyUpdateContext<'css> {
     pub absolute_ctx: &'css AbsoluteContext<'css>,
     pub specified_style: &'css mut SpecifiedStyle,
     pub relative_ctx: &'css RelativeContext,
@@ -38,14 +38,14 @@ pub(crate) struct PropertyUpdateContext<'css> {
 
 /// Represents an error that occurred during the property update process, including the property name, the value that caused the error, and a descriptive error message.
 #[derive(Debug)]
-pub(crate) struct PropertyError {
+pub struct PropertyError {
     pub property: String,
     pub value: String,
     pub error: CssValueError,
 }
 
 impl<'css> PropertyUpdateContext<'css> {
-    pub fn new(
+    pub const fn new(
         absolute_ctx: &'css AbsoluteContext,
         specified_style: &'css mut SpecifiedStyle,
         relative_ctx: &'css RelativeContext,
@@ -58,7 +58,7 @@ impl<'css> PropertyUpdateContext<'css> {
         }
     }
 
-    pub fn has_errors(&self) -> bool {
+    pub const fn has_errors(&self) -> bool {
         !self.errors.is_empty()
     }
 
@@ -119,7 +119,7 @@ macro_rules! simple_property_handler {
 /// Parses the value once as either a `Global` or an `Offset`, then assigns to all four physical side fields.
 macro_rules! offset_shorthand_handler {
     ($fn_name:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
-        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+        pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
             let checkpoint = stream.checkpoint();
 
             if let Ok(global) = Global::parse(stream) {
@@ -158,7 +158,7 @@ macro_rules! logical_pair_handler {
      $htb_start:ident, $htb_end:ident,
      $vrl_start:ident, $vrl_end:ident,
      $vlr_start:ident, $vlr_end:ident) => {
-        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+        pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
             let checkpoint = stream.checkpoint();
             let global = Global::parse(stream).ok();
 
@@ -203,7 +203,7 @@ macro_rules! logical_pair_handler {
 /// where each `*_field` is a field on `SpecifiedStyle`.
 macro_rules! logical_edge_handler {
     ($fn_name:ident, $prop_name:expr, $htb:ident, $vrl:ident, $vlr:ident) => {
-        pub(crate) fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+        pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
             let field = match ctx.resolve_writing_mode() {
                 WritingMode::HorizontalTb => &mut ctx.specified_style.$htb,
                 WritingMode::VerticalRl => &mut ctx.specified_style.$vrl,
@@ -325,7 +325,7 @@ logical_edge_handler!(handle_margin_inline_end, "margin-inline-end", margin_righ
 logical_edge_handler!(handle_padding_inline_start, "padding-inline-start", padding_left, padding_top, padding_top);
 logical_edge_handler!(handle_padding_inline_end, "padding-inline-end", padding_right, padding_bottom, padding_bottom);
 
-pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_background_position(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     let checkpoint = stream.checkpoint();
 
     if let Ok(global) = Global::parse(stream) {
@@ -389,7 +389,7 @@ pub(crate) fn handle_background_position(ctx: &mut PropertyUpdateContext, stream
 ///   <bg-clip>                       ||
 ///   <visual-box>                    ||
 ///   <'background-color'>
-pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     let checkpoint = stream.checkpoint();
 
     if let Ok(global) = Global::parse(stream) {
@@ -749,7 +749,7 @@ pub(crate) fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Co
 }
 
 /// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
-pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     fn reset_border_color(ctx: &mut PropertyUpdateContext) {
         ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
         ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
@@ -757,7 +757,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut Compon
         ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
     }
 
-    fn reset_border_style(ctx: &mut PropertyUpdateContext) {
+    const fn reset_border_style(ctx: &mut PropertyUpdateContext) {
         ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
         ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
         ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
@@ -882,7 +882,7 @@ pub(crate) fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut Compon
 
 /// Handles the `border-color` shorthand property by parsing the provided component values and updating the corresponding border color properties in the specified style.
 /// The function supports both global values and individual color values for each side of the border.
-pub(crate) fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     stream.skip_whitespace();
     let checkpoint = stream.checkpoint();
 
@@ -940,7 +940,7 @@ pub(crate) fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut 
 
 /// Handles the `border-style` shorthand property by parsing the provided component values and updating the corresponding border style properties in the specified style.
 /// The function supports both global values and individual style values for each side of the border.
-pub(crate) fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     stream.skip_whitespace();
     let checkpoint = stream.checkpoint();
 
@@ -1001,7 +1001,7 @@ pub(crate) fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut 
 
 /// Handles the `border-width` shorthand property by parsing the provided component values and updating the corresponding border width properties in the specified style.
 /// The function supports both global values and individual width values for each side of the border.
-pub(crate) fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     stream.skip_whitespace();
     let checkpoint = stream.checkpoint();
 
@@ -1059,7 +1059,7 @@ pub(crate) fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut 
 
 /// Handles the `font-size` property by updating the specified style's font size based on the provided component values. The function first attempts to update the font size
 /// using the `CSSProperty::update_property` method.
-pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     CSSProperty::update_property(&mut ctx.specified_style.font_size, stream).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
@@ -1070,7 +1070,7 @@ pub(crate) fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut Com
 
 /// Handles the `font-weight` property by parsing the provided component values and updating the specified style's font weight accordingly. The function checks for the presence
 /// of `lighter` and `bolder` keywords, which adjust the font weight relative to the parent's font weight.
-pub(crate) fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
     let checkpoint = stream.checkpoint();
 
     while let Some(cv) = stream.next_cv() {

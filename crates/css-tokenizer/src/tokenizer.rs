@@ -35,7 +35,7 @@ pub struct InputStream {
 impl InputStream {
     /// Create a new input stream from the given string
     pub fn new(input: &str) -> Self {
-        InputStream {
+        Self {
             chars: input.chars().collect(),
             pos: 0,
             current: None,
@@ -80,7 +80,7 @@ impl InputStream {
     }
 
     /// Reconsume the current character by moving the position back by one
-    pub fn reconsume(&mut self) {
+    pub const fn reconsume(&mut self) {
         if self.pos > 0 && self.current.is_some() {
             self.pos -= 1;
             self.line = self.prev_line;
@@ -89,7 +89,7 @@ impl InputStream {
     }
 
     /// Get the current source position
-    pub fn position(&self) -> SourcePosition {
+    pub const fn position(&self) -> SourcePosition {
         SourcePosition {
             line: self.line,
             column: self.column,
@@ -100,7 +100,7 @@ impl InputStream {
     /// Get the position of the previously consumed character
     /// This is useful for recording errors at the position of the character
     /// that caused the error, rather than the position after consuming it.
-    pub fn prev_position(&self) -> SourcePosition {
+    pub const fn prev_position(&self) -> SourcePosition {
         SourcePosition {
             line: self.prev_line,
             column: self.prev_column,
@@ -128,9 +128,9 @@ impl CssTokenizer {
     /// * `input` - The input CSS string to tokenize
     #[must_use]
     pub fn new(input: &str, collect_positions: bool) -> Self {
-        let preprocessed_input = CssTokenizer::preprocess(input);
+        let preprocessed_input = Self::preprocess(input);
 
-        CssTokenizer {
+        Self {
             stream: InputStream::new(&preprocessed_input),
             errors: Vec::new(),
             collect_positions,
@@ -155,7 +155,7 @@ impl CssTokenizer {
     /// # Arguments
     /// * `input` - The input CSS string to tokenize
     pub fn tokenize(input: &str, collect_positions: bool) -> Vec<CssToken> {
-        let tokenizer = CssTokenizer::new(input, collect_positions);
+        let tokenizer = Self::new(input, collect_positions);
 
         for error in &tokenizer.errors {
             debug!("CSS Tokenization error: {}", error);
@@ -166,7 +166,7 @@ impl CssTokenizer {
 
     /// Collect the current position if position tracking is enabled
     #[inline]
-    pub fn collect_positions(tokenizer: &mut CssTokenizer) -> Option<SourcePosition> {
+    pub const fn collect_positions(tokenizer: &mut Self) -> Option<SourcePosition> {
         if tokenizer.collect_positions {
             Some(tokenizer.stream.position())
         } else {

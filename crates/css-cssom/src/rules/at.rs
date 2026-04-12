@@ -35,8 +35,8 @@ pub struct CSSAtRule {
 
 impl CSSAtRule {
     /// Create a new at-rule with the given name
-    pub fn new(name: String) -> Self {
-        CSSAtRule {
+    pub const fn new(name: String) -> Self {
+        Self {
             name,
             prelude: String::new(),
             prelude_values: Vec::new(),
@@ -61,7 +61,7 @@ impl CSSAtRule {
         let prelude = prelude_to_string(&ar.prelude);
         let has_block = ar.block.is_some();
 
-        let mut css_at_rule = CSSAtRule {
+        let mut css_at_rule = Self {
             name: ar.name.clone(),
             prelude,
             prelude_values: ar.prelude,
@@ -139,7 +139,7 @@ impl CSSAtRule {
                                 prelude: current_prelude[1..].to_vec(), // Skip the @token
                                 block: Some(sb.clone()),
                             };
-                            let css_at_rule = CSSAtRule::from_parsed(nested_at_rule, collect_positions);
+                            let css_at_rule = Self::from_parsed(nested_at_rule, collect_positions);
                             self.rules.push(CSSRule::AtRule(css_at_rule));
                             is_nested_at_rule.clear();
                         } else {
@@ -242,7 +242,7 @@ impl CSSAtRule {
     }
 
     /// Check if this at-rule has a block
-    pub fn has_block(&self) -> bool {
+    pub const fn has_block(&self) -> bool {
         self.has_block
     }
 

@@ -41,7 +41,7 @@ impl BrowserPreferences {
                     return Self::default();
                 };
 
-                let Ok(mut config) = toml::from_str::<BrowserPreferences>(data) else {
+                let Ok(mut config) = toml::from_str::<Self>(data) else {
                     return Self::default();
                 };
 

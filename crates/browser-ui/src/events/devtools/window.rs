@@ -10,7 +10,7 @@ use crate::{core::Application, events::Event};
 
 /// Handles the scrolling of content when a `ContentScrolled` event is received from the UI,
 /// updating the scroll offset of the active tab.
-pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, y: f32) -> Task<Event> {
+pub fn on_scrolled(application: &mut Application, window_id: Id, x: f32, y: f32) -> Task<Event> {
     let devtools_window = application
         .window_controller
         .get_window(window_id)
@@ -35,7 +35,7 @@ pub(crate) fn on_scrolled(application: &mut Application, window_id: Id, x: f32, 
 
 /// Handles the resizing of the DevTools window when a `Resize` event is received from the UI,
 /// updating the viewport size and recomputing the layout tree for the DevTools page.
-pub(crate) fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
+pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
     let devtools_window = application
         .window_controller
         .get_window(window_id)

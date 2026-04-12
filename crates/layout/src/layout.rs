@@ -112,7 +112,7 @@ pub struct ImageData {
 pub struct LayoutNode {
     pub node_id: NodeId,
     pub border: SideOffset,
-    pub children: Vec<LayoutNode>,
+    pub children: Vec<Self>,
     pub colors: LayoutColors,
     pub cursor: Cursor,
     pub dimensions: Rect,
@@ -257,7 +257,7 @@ pub struct LayoutContext {
 
 impl LayoutContext {
     /// Creates a new LayoutContext with the given containing block
-    pub fn new(containing_block: Rect) -> Self {
+    pub const fn new(containing_block: Rect) -> Self {
         Self {
             containing_block,
             positioned_containing_block: containing_block,
@@ -267,17 +267,17 @@ impl LayoutContext {
     }
 
     /// Returns the containing block rect
-    pub fn containing_block(&self) -> Rect {
+    pub const fn containing_block(&self) -> Rect {
         self.containing_block
     }
 
     /// Returns the nearest positioned ancestor containing block used by absolute positioning.
-    pub fn positioned_containing_block(&self) -> Rect {
+    pub const fn positioned_containing_block(&self) -> Rect {
         self.positioned_containing_block
     }
 
     /// Sets the nearest positioned ancestor containing block used by absolute positioning.
-    pub fn set_positioned_containing_block(&mut self, rect: Rect) {
+    pub const fn set_positioned_containing_block(&mut self, rect: Rect) {
         self.positioned_containing_block = rect;
     }
 }

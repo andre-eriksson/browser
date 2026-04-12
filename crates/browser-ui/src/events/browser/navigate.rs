@@ -11,7 +11,7 @@ use crate::{
 
 /// Handles navigation back in the tab's history by sending a `NavigateBack` command to the browser and processing the result,
 /// including handling any navigation errors that may occur (e.g., no history to navigate back to).
-pub(crate) fn navigate_back(application: &mut Application, window_id: Id) -> Task<Event> {
+pub fn navigate_back(application: &mut Application, window_id: Id) -> Task<Event> {
     let ctx = application
         .browser_windows
         .get_mut(&window_id)
@@ -69,7 +69,7 @@ pub(crate) fn navigate_back(application: &mut Application, window_id: Id) -> Tas
 
 /// Handles navigation forward in the tab's history by sending a `NavigateForward` command to the browser and processing the result,
 /// including handling any navigation errors that may occur (e.g., no history to navigate forward to).
-pub(crate) fn navigate_forward(application: &mut Application, window_id: Id) -> Task<Event> {
+pub fn navigate_forward(application: &mut Application, window_id: Id) -> Task<Event> {
     let ctx = application
         .browser_windows
         .get_mut(&window_id)
@@ -128,7 +128,7 @@ pub(crate) fn navigate_forward(application: &mut Application, window_id: Id) -> 
 /// Handles refreshing the current page by re-navigating to the current URL. It retrieves the current URL from the active tab's page
 /// information and sends a `Navigate` command to the browser with that URL. If the current URL is empty
 /// (e.g., if the tab has no page loaded), it simply returns without performing any action.
-pub(crate) fn refresh_page(application: &mut Application, window_id: Id) -> Task<Event> {
+pub fn refresh_page(application: &Application, window_id: Id) -> Task<Event> {
     let tab = application
         .browser_windows
         .get(&window_id)

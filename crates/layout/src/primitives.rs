@@ -9,7 +9,7 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+    pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
         Self {
             x,
             y,
@@ -33,7 +33,7 @@ pub struct SideOffset {
 }
 
 impl SideOffset {
-    pub fn all(value: f32) -> Self {
+    pub const fn all(value: f32) -> Self {
         Self {
             top: value,
             right: value,
@@ -50,7 +50,7 @@ impl SideOffset {
         self.top + self.bottom
     }
 
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self {
             top: 0.0,
             right: 0.0,

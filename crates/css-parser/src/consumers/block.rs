@@ -6,7 +6,7 @@ use crate::{AssociatedToken, CssParser, SimpleBlock, consumers::component::consu
 /// Consume a simple block
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-simple-block>
-pub(crate) fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
+pub fn consume_simple_block(css_parser: &mut CssParser) -> SimpleBlock {
     let Some(current) = css_parser.consume() else {
         // Should not happen
         return SimpleBlock::new(AssociatedToken::CurlyBracket);

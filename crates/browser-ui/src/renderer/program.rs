@@ -326,7 +326,7 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
         if matches!(self.window_type, WindowType::Browser)
             && let Some(href) = self.get_hovered_href(cursor, bounds)
             && let iced::Event::Mouse(e) = event
-            && let mouse::Event::ButtonReleased(mouse::Button::Left) = e
+            && matches!(e, mouse::Event::ButtonReleased(mouse::Button::Left))
         {
             return Some(Action::publish(Event::EngineRequest(EngineRequest::NavigateTo(self.window_id, href))));
         }

@@ -17,6 +17,7 @@ pub enum Attachment {
 }
 
 /// The `background-blend-mode` property specifies the blending mode for each background layer (color and image) of an element.
+///
 /// It determines how the background layers are blended together and with the content of the element.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
@@ -39,8 +40,9 @@ pub enum BlendMode {
     Luminosity,
 }
 
-/// The `background-origin` property specifies the background painting area for an element. It determines where the
-/// background image or color is applied in relation to the content, padding, and border of the element.
+/// The `background-origin` property specifies the background painting area for an element.
+///
+/// It determines where the background image or color is applied in relation to the content, padding, and border of the element.
 #[derive(Debug, Clone, Default, Copy, PartialEq, Eq)]
 pub enum VisualBox {
     /// The background is painted within the content box, which is the area where the content of the element is displayed.
@@ -58,15 +60,18 @@ pub enum VisualBox {
     Border,
 }
 
-/// The `background-clip` property specifies the area within which the background image or color is visible. It determines how
-/// the background is clipped in relation to the content, padding, and border of the element.
+/// The `background-clip` property specifies the area within which the background image or color is visible.
+///
+/// It determines how the background is clipped in relation to the content, padding, and border of the element.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Clip {
     Text,
     BorderArea,
 }
 
-/// The `background-clip` property can take one of two forms: it can specify a single visual box (content, padding, or border)
+/// The `background-clip` property
+///
+/// Can take one of two forms: it can specify a single visual box (content, padding, or border)
 /// that defines the area where the background is visible, or it can specify a combination of clipping areas using the `Clip`
 /// enum. When using the `Clip` enum, the first value specifies the primary clipping area (e.g., text or border), and the optional
 /// second value specifies an additional clipping area (e.g., border area) that further restricts the visibility of the background.
@@ -78,11 +83,13 @@ pub enum BgClip {
 
 impl Default for BgClip {
     fn default() -> Self {
-        BgClip::Visual(VisualBox::default())
+        Self::Visual(VisualBox::default())
     }
 }
 
-/// The `background-repeat` property specifies how background images are repeated (tiled) across the background of an element. It determines
+/// The `background-repeat` property
+///
+/// Specifies how background images are repeated (tiled) across the background of an element. It determines
 /// how the background image is repeated in the horizontal and vertical directions, and whether it is stretched to fit the element's background
 /// area or not.
 #[derive(Debug, Clone, Copy, EnumString, PartialEq, Eq)]
@@ -94,7 +101,9 @@ pub enum RepeatStyle {
     NoRepeat,
 }
 
-/// The `background-size` property specifies the size of the background image. It determines how the background image is scaled and sized within the
+/// The `background-size` property
+///
+/// Specifies the size of the background image. It determines how the background image is scaled and sized within the
 /// background area of an element. The property can take various values, including keywords like `cover` and `contain`, as well as specific width and height values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum WidthHeightSize {
@@ -102,7 +111,9 @@ pub enum WidthHeightSize {
     Length(LengthPercentage),
 }
 
-/// The `background-size` property can take one of three forms: it can be set to `cover`, which scales the background image to cover the entire background area while
+/// The `background-size` property
+///
+/// Can take one of three forms: it can be set to `cover`, which scales the background image to cover the entire background area while
 /// maintaining its aspect ratio; it can be set to `contain`, which scales the background image to fit within the background area while maintaining its aspect ratio;
 /// or it can be set to specific width and height values, where the first value specifies the width and the optional second value specifies the height. If only one
 /// value is provided, it is used for both width and height.
@@ -115,6 +126,6 @@ pub enum Size {
 
 impl Default for Size {
     fn default() -> Self {
-        Size::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto))
+        Self::WidthHeight(WidthHeightSize::Auto, Some(WidthHeightSize::Auto))
     }
 }

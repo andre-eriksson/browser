@@ -32,7 +32,7 @@ pub struct Response {
 
 impl From<Vec<u8>> for Response {
     fn from(body: Vec<u8>) -> Self {
-        Response {
+        Self {
             status_code: StatusCode::OK,
             headers: HeaderMap::new(),
             body: Some(body),
@@ -45,8 +45,8 @@ impl HeaderResponse {
     ///
     /// Useful for testing and constructing responses manually.
     #[must_use]
-    pub fn new(status_code: StatusCode, headers: HeaderMap) -> Self {
-        HeaderResponse {
+    pub const fn new(status_code: StatusCode, headers: HeaderMap) -> Self {
+        Self {
             status_code,
             headers,
         }

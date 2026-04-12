@@ -15,7 +15,7 @@ use crate::{
 };
 
 /// Consume a token (§4.3.1)
-pub(crate) fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
+pub fn consume_token(tokenizer: &mut CssTokenizer) -> CssToken {
     consume_comments(tokenizer);
 
     let Some(c) = tokenizer.stream.consume() else {
@@ -235,7 +235,7 @@ fn consume_comments(tokenizer: &mut CssTokenizer) {
 }
 
 /// Consume whitespace
-pub(crate) fn consume_whitespace(tokenizer: &mut CssTokenizer) {
+pub fn consume_whitespace(tokenizer: &mut CssTokenizer) {
     while tokenizer.stream.peek().is_some_and(is_whitespace) {
         tokenizer.stream.consume();
     }

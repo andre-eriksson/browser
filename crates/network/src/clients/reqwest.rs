@@ -24,7 +24,7 @@ impl ReqwestClient {
     /// Panics if the reqwest client fails to build, which is unlikely under normal circumstances.
     #[must_use]
     pub fn new() -> Self {
-        ReqwestClient {
+        Self {
             client: reqwest::Client::builder()
                 .http2_max_header_list_size(65536)
                 .build()
@@ -117,7 +117,7 @@ impl HttpClient for ReqwestClient {
     }
 
     fn box_clone(&self) -> Box<dyn HttpClient> {
-        Box::new(ReqwestClient {
+        Box::new(Self {
             client: self.client.clone(),
         })
     }

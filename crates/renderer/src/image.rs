@@ -102,7 +102,7 @@ impl GpuImageCache {
 
     /// Returns the bind group layout used for image textures.
     /// This is needed when creating the image render pipeline.
-    pub fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+    pub const fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.bind_group_layout
     }
 

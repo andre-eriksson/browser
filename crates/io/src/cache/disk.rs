@@ -40,7 +40,7 @@ impl DiskCache {
             }
         })
         .map_err(|err| {
-            if let CacheError::CorruptedIndex = err {
+            if matches!(err, CacheError::CorruptedIndex) {
                 let _ = Self::remove(key, Some(&connection));
             }
 

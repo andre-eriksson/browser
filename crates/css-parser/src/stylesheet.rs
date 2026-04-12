@@ -40,8 +40,8 @@ pub struct Declaration {
 
 impl Declaration {
     /// Create a new declaration
-    pub fn new(property: Property) -> Self {
-        Declaration {
+    pub const fn new(property: Property) -> Self {
+        Self {
             property,
             value: Vec::new(),
             important: false,
@@ -66,8 +66,8 @@ impl ComponentValue {
     /// Convert this component value to a CSS string representation
     fn to_css_string(&self) -> String {
         match self {
-            ComponentValue::Token(t) => t.kind.to_string(),
-            ComponentValue::Function(f) => {
+            Self::Token(t) => t.kind.to_string(),
+            Self::Function(f) => {
                 let mut s = format!("{}(", f.name);
                 for v in &f.value {
                     s.push_str(&v.to_css_string());
@@ -75,7 +75,7 @@ impl ComponentValue {
                 s.push(')');
                 s
             }
-            ComponentValue::SimpleBlock(b) => {
+            Self::SimpleBlock(b) => {
                 let (open, close) = match b.associated_token {
                     AssociatedToken::CurlyBracket => ('{', '}'),
                     AssociatedToken::SquareBracket => ('[', ']'),
@@ -93,14 +93,14 @@ impl ComponentValue {
     }
 
     /// Check if this component value is a token
-    pub fn is_token(&self) -> bool {
-        matches!(self, ComponentValue::Token(_))
+    pub const fn is_token(&self) -> bool {
+        matches!(self, Self::Token(_))
     }
 
     /// Get a reference to the token if this component value is a token
-    pub fn as_token(&self) -> Option<&CssToken> {
+    pub const fn as_token(&self) -> Option<&CssToken> {
         match self {
-            ComponentValue::Token(t) => Some(t),
+            Self::Token(t) => Some(t),
             _ => None,
         }
     }
@@ -109,9 +109,9 @@ impl ComponentValue {
     ///
     /// # Returns
     /// True if it is a whitespace token, false otherwise
-    pub fn is_whitespace(&self) -> bool {
+    pub const fn is_whitespace(&self) -> bool {
         match self {
-            ComponentValue::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
+            Self::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
             _ => false,
         }
     }
@@ -130,19 +130,19 @@ pub struct ComponentValueStream<'css> {
 }
 
 impl<'css> ComponentValueStream<'css> {
-    pub fn new(values: &'css [ComponentValue]) -> ComponentValueStream<'css> {
-        ComponentValueStream {
+    pub const fn new(values: &'css [ComponentValue]) -> Self {
+        Self {
             values,
             position: 0,
         }
     }
 
     /// Get the underlying slice of component values
-    pub fn values(&self) -> &[ComponentValue] {
+    pub const fn values(&self) -> &[ComponentValue] {
         self.values
     }
 
-    pub fn position(&self) -> usize {
+    pub const fn position(&self) -> usize {
         self.position
     }
 
@@ -161,12 +161,12 @@ impl<'css> ComponentValueStream<'css> {
     }
 
     /// Create a checkpoint of the current position in the stream
-    pub fn checkpoint(&self) -> usize {
+    pub const fn checkpoint(&self) -> usize {
         self.position
     }
 
     /// Restore the stream to a previously created checkpoint
-    pub fn restore(&mut self, checkpoint: usize) {
+    pub const fn restore(&mut self, checkpoint: usize) {
         self.position = checkpoint;
     }
 
@@ -230,8 +230,8 @@ pub struct Function {
 
 impl Function {
     /// Create a new function with the given name
-    pub fn new(name: String) -> Self {
-        Function {
+    pub const fn new(name: String) -> Self {
+        Self {
             name,
             value: Vec::new(),
         }
@@ -262,8 +262,8 @@ pub struct SimpleBlock {
 
 impl SimpleBlock {
     /// Create a new simple block with the given associated token
-    pub fn new(associated_token: AssociatedToken) -> Self {
-        SimpleBlock {
+    pub const fn new(associated_token: AssociatedToken) -> Self {
+        Self {
             associated_token,
             value: Vec::new(),
         }
@@ -283,8 +283,8 @@ pub struct StyleBlockContents {
 
 impl StyleBlockContents {
     /// Create new empty style block contents
-    pub fn new() -> Self {
-        StyleBlockContents {
+    pub const fn new() -> Self {
+        Self {
             declarations: Vec::new(),
             rules: Vec::new(),
         }

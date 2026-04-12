@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Handles the creation of a new window when a `NewWindow` event is received from the UI.
-pub(crate) fn create_window(application: &mut Application, window_id: Id, window_type: WindowType) -> Task<Event> {
+pub fn create_window(application: &mut Application, window_id: Id, window_type: WindowType) -> Task<Event> {
     match window_type {
         WindowType::Devtools => {
             let tab = application
@@ -54,7 +54,7 @@ pub(crate) fn create_window(application: &mut Application, window_id: Id, window
 }
 
 /// Handles the closure of a window when a `CloseWindow` event is received from the UI.
-pub(crate) fn close_window(application: &mut Application, window_id: Id) -> Task<Event> {
+pub fn close_window(application: &mut Application, window_id: Id) -> Task<Event> {
     let mut windows_to_close = vec![window_id];
 
     if let Some(ctx) = application.browser_windows.remove(&window_id) {

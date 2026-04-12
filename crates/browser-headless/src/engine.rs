@@ -35,7 +35,7 @@ pub struct HeadlessEngine {
 
 impl HeadlessEngine {
     pub fn new(browser: Browser) -> Self {
-        HeadlessEngine {
+        Self {
             browser,
             page: None,
             metadata: None,

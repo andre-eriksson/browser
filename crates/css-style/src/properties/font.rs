@@ -22,14 +22,14 @@ impl PixelRepr for AbsoluteSize {
         _abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            AbsoluteSize::XxSmall => 9.0,
-            AbsoluteSize::XSmall => 10.0,
-            AbsoluteSize::Small => 13.0,
-            AbsoluteSize::Medium => 16.0,
-            AbsoluteSize::Large => 18.0,
-            AbsoluteSize::XLarge => 24.0,
-            AbsoluteSize::XxLarge => 32.0,
-            AbsoluteSize::XxxLarge => 48.0,
+            Self::XxSmall => 9.0,
+            Self::XSmall => 10.0,
+            Self::Small => 13.0,
+            Self::Medium => 16.0,
+            Self::Large => 18.0,
+            Self::XLarge => 24.0,
+            Self::XxLarge => 32.0,
+            Self::XxxLarge => 48.0,
         }
     }
 }
@@ -42,10 +42,10 @@ impl PixelRepr for RelativeSize {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            RelativeSize::Smaller => rel_ctx
+            Self::Smaller => rel_ctx
                 .map(|ctx| ctx.parent.font_size * 0.833)
                 .unwrap_or(abs_ctx.root_font_size * 0.833),
-            RelativeSize::Larger => rel_ctx
+            Self::Larger => rel_ctx
                 .map(|ctx| ctx.parent.font_size * 1.2)
                 .unwrap_or(abs_ctx.root_font_size * 1.2),
         }
@@ -62,7 +62,7 @@ pub struct FontFamily {
 
 impl Default for FontFamily {
     fn default() -> Self {
-        FontFamily {
+        Self {
             names: vec![FontFamilyName::default()],
         }
     }
@@ -70,7 +70,7 @@ impl Default for FontFamily {
 
 impl FontFamily {
     /// Get the list of font family names in this FontFamily. The list is ordered by preference, with the most preferred font first.
-    pub fn names(&self) -> &Vec<FontFamilyName> {
+    pub const fn names(&self) -> &Vec<FontFamilyName> {
         &self.names
     }
 
@@ -129,7 +129,7 @@ impl CSSParsable for FontFamily {
             }
         }
 
-        Ok(FontFamily { names: full })
+        Ok(Self { names: full })
     }
 }
 
@@ -141,16 +141,16 @@ impl PixelRepr for FontSize {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            FontSize::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx),
-            FontSize::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
-            FontSize::Percentage(pct) => {
+            Self::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Percentage(pct) => {
                 pct.as_fraction()
                     * rel_ctx
                         .map(|ctx| ctx.parent.font_size)
                         .unwrap_or(abs_ctx.root_font_size)
             }
-            FontSize::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx),
-            FontSize::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),
+            Self::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),
         }
     }
 }

@@ -185,7 +185,7 @@ impl CSSParsable for ConicGradientSyntax {
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);
         let stops = AngularColorStopList::parse(&mut stop_cvs.as_slice().into())?;
 
-        Ok(ConicGradientSyntax {
+        Ok(Self {
             from_angle,
             position,
             interpolation,

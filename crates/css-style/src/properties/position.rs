@@ -8,6 +8,7 @@ use strum::EnumString;
 use crate::properties::CSSParsable;
 
 /// The `position` property specifies how an element is positioned in a document. It has five possible values: `static`, `relative`, `absolute`, `fixed`, and `sticky`.
+///
 /// Each value determines how the element is positioned in relation to its normal flow, its containing block, and the viewport.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/position>
@@ -35,21 +36,20 @@ pub enum Position {
 }
 
 impl Position {
-    pub fn is_out_of_flow(&self) -> bool {
-        matches!(self, Position::Absolute | Position::Fixed)
+    pub const fn is_out_of_flow(&self) -> bool {
+        matches!(self, Self::Absolute | Self::Fixed)
     }
 
-    pub fn affects_normal_flow(&self) -> bool {
-        matches!(self, Position::Sticky | Position::Relative | Position::Static)
+    pub const fn affects_normal_flow(&self) -> bool {
+        matches!(self, Self::Sticky | Self::Relative | Self::Static)
     }
 }
 
 impl CSSParsable for Position {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
@@ -57,10 +57,7 @@ impl CSSParsable for Position {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+            })
     }
 }
 

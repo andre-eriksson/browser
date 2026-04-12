@@ -271,23 +271,23 @@ impl TexturePipeline {
         self.vertex_count = 0;
     }
 
-    pub fn has_content(&self) -> bool {
+    pub const fn has_content(&self) -> bool {
         self.vertex_count > 0
     }
 
-    pub fn vertex_buffer(&self) -> &wgpu::Buffer {
+    pub const fn vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
 
-    pub fn pipeline(&self) -> &wgpu::RenderPipeline {
+    pub const fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }
 
-    pub fn bind_group(&self) -> &wgpu::BindGroup {
+    pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.globals.bind_group
     }
 
-    pub fn vertex_count(&self) -> u32 {
+    pub const fn vertex_count(&self) -> u32 {
         self.vertex_count
     }
 }

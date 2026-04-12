@@ -9,7 +9,7 @@ use crate::{
 /// Consume a list of rules
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-a-list-of-rules>
-pub(crate) fn consume_list_of_rules(css_parser: &mut CssParser, top_level: bool) -> Vec<Rule> {
+pub fn consume_list_of_rules(css_parser: &mut CssParser, top_level: bool) -> Vec<Rule> {
     let mut rules = Vec::new();
 
     while let Some(token) = css_parser.peek() {
@@ -42,7 +42,7 @@ pub(crate) fn consume_list_of_rules(css_parser: &mut CssParser, top_level: bool)
 /// Consume an at-rule
 ///
 /// <https://www.w3.org/TR/css-syntax-3/#consume-an-at-rule>
-pub(crate) fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
+pub fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
     let (name, pos) = match css_parser.consume() {
         Some(token) => {
             let pos = token.position.unwrap_or_default();

@@ -11,7 +11,7 @@ pub struct Percentage(
 
 impl Percentage {
     /// Create a new Percentage from a value (-100.0 to 100.0)
-    pub fn new(value: f32) -> Self {
+    pub const fn new(value: f32) -> Self {
         Self(value.clamp(-100.0, 100.0))
     }
 
@@ -21,7 +21,7 @@ impl Percentage {
     }
 
     /// Get the percentage value (0.0 to 100.0)
-    pub fn value(&self) -> f32 {
+    pub const fn value(&self) -> f32 {
         self.0
     }
 
@@ -42,18 +42,16 @@ impl From<ColorValue> for Percentage {
 
 impl CSSParsable for Percentage {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Percentage(numeric) => Ok(Self::new(numeric.to_f64() as f32)),
                     CssTokenKind::Number(numeric) => Ok(Self::from_fraction(numeric.to_f64() as f32 / 100.0)),
                     kind => Err(CssValueError::InvalidToken(kind.clone())),
                 },
                 _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+            })
     }
 }
 

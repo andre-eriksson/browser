@@ -68,7 +68,7 @@ impl<'client> NetworkService<'client> {
         }
     }
 
-    async fn raw_fetch(&mut self, request: Request) -> RequestResult<Box<dyn ResponseHandle>> {
+    async fn raw_fetch(&self, request: Request) -> RequestResult<Box<dyn ResponseHandle>> {
         let response = self.client.send(request).await;
 
         Self::convert_response(response)
@@ -76,7 +76,7 @@ impl<'client> NetworkService<'client> {
 
     #[instrument(skip(self, page_url, policies, request), fields(method = %request.method, url = %request.url))]
     pub async fn fetch(
-        &mut self,
+        &self,
         page_url: Option<Url>,
         policies: &DocumentPolicy,
         request: Request,

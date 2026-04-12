@@ -109,9 +109,9 @@ impl SpecifiedStyle {
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
         rule_index: &RuleIndex,
-        property_registry: &mut PropertyRegistry,
+        property_registry: &PropertyRegistry,
     ) -> Self {
-        let mut specified_style = SpecifiedStyle::default();
+        let mut specified_style = Self::default();
 
         let parent_variables = Arc::clone(&relative_ctx.parent.variables);
 
@@ -169,12 +169,12 @@ impl SpecifiedStyle {
     /// Checks if a given declaration is supported by the specified style system.
     pub fn supports(
         declaration: CascadedDeclaration,
-        property_registry: &mut PropertyRegistry,
+        property_registry: &PropertyRegistry,
         absolute_ctx: &AbsoluteContext,
     ) -> bool {
         let mut declarations = vec![declaration];
 
-        let mut default_style = SpecifiedStyle::default();
+        let mut default_style = Self::default();
         let default_relative_ctx = RelativeContext::default();
 
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut default_style, &default_relative_ctx);
@@ -193,7 +193,7 @@ impl SpecifiedStyle {
     fn resolve_property(
         property: &Property,
         value: &Vec<ComponentValue>,
-        property_registry: &mut PropertyRegistry,
+        property_registry: &PropertyRegistry,
         ctx: &mut PropertyUpdateContext<'_>,
     ) -> bool {
         let val = match resolve_css_variables(&ctx.specified_style.variables, property_registry, value.as_slice()) {
@@ -299,7 +299,7 @@ impl SpecifiedStyle {
 
 impl Default for SpecifiedStyle {
     fn default() -> Self {
-        SpecifiedStyle {
+        Self {
             variables: Arc::new(vec![]),
             computed_font_size_px: 16.0,
 

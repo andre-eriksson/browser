@@ -96,7 +96,7 @@ impl RequestBuilder {
     /// * Panics if the URL is invalid.
     #[must_use]
     pub fn new(url: &str) -> Self {
-        RequestBuilder::try_new(url).unwrap()
+        Self::try_new(url).unwrap()
     }
 
     /// Tries to create a new `RequestBuilder` with a URL relative to the current URL in the session.
@@ -113,7 +113,7 @@ impl RequestBuilder {
     pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, NetworkError> {
         let joined_url = starting_url.join(url).map_err(NetworkError::InvalidUrl)?;
 
-        Ok(RequestBuilder::from(joined_url))
+        Ok(Self::from(joined_url))
     }
 
     /// Tries to create a new `RequestBuilder` with the given URL.
@@ -129,7 +129,7 @@ impl RequestBuilder {
     pub fn try_new(url: &str) -> Result<Self, NetworkError> {
         let parsed_url = Url::parse(url).map_err(NetworkError::InvalidUrl)?;
 
-        Ok(RequestBuilder {
+        Ok(Self {
             method: Method::GET,
             url: parsed_url,
             headers: HeaderMap::new(),
@@ -213,7 +213,7 @@ impl RequestBuilder {
     /// # Arguments
     /// * `mode` - The request mode to set.
     #[must_use]
-    pub fn mode(mut self, mode: RequestMode) -> Self {
+    pub const fn mode(mut self, mode: RequestMode) -> Self {
         self.mode = mode;
         self
     }
@@ -223,7 +223,7 @@ impl RequestBuilder {
     /// # Arguments
     /// * `credentials` - The credentials mode to set.
     #[must_use]
-    pub fn credentials(mut self, credentials: Credentials) -> Self {
+    pub const fn credentials(mut self, credentials: Credentials) -> Self {
         self.credentials = credentials;
         self
     }
@@ -274,7 +274,7 @@ impl From<Url> for RequestBuilder {
     /// # Returns
     /// * `RequestBuilder` initialized with the given URL, default method GET, empty headers, mode CORS, credentials `SameOrigin`, and no body.
     fn from(url: Url) -> Self {
-        RequestBuilder {
+        Self {
             method: Method::GET,
             url,
             headers: HeaderMap::new(),
@@ -287,7 +287,7 @@ impl From<Url> for RequestBuilder {
 
 impl From<Request> for RequestBuilder {
     fn from(request: Request) -> Self {
-        RequestBuilder {
+        Self {
             method: request.method,
             url: request.url,
             headers: request.headers,

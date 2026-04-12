@@ -18,7 +18,7 @@ pub struct DevtoolsHtml<'renderer> {
 }
 
 impl<'renderer> DevtoolsHtml<'renderer> {
-    pub fn new(
+    pub const fn new(
         renderer: HtmlRenderer<'renderer>,
         layout_tree: &'renderer LayoutTree,
         initial_bounds: Rect,

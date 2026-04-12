@@ -22,8 +22,8 @@ impl PixelRepr for OffsetValue {
         abs_ctx: &AbsoluteContext,
     ) -> f32 {
         match self {
-            OffsetValue::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
-            OffsetValue::Percentage(pct) => match rel_type {
+            Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Percentage(pct) => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx
                     .map(|ctx| ctx.font_size * pct.as_fraction())
                     .unwrap_or(abs_ctx.root_font_size * pct.as_fraction()),
@@ -38,8 +38,8 @@ impl PixelRepr for OffsetValue {
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
                 None => 0.0,
             },
-            OffsetValue::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
-            OffsetValue::Auto => 0.0,
+            Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Auto => 0.0,
         }
     }
 }
@@ -57,7 +57,7 @@ pub struct Offset {
 
 impl Offset {
     /// Create an Offset with individual values for each side (top, right, bottom, left).
-    pub(crate) fn trbl(top: OffsetValue, right: OffsetValue, bottom: OffsetValue, left: OffsetValue) -> Self {
+    pub(crate) const fn trbl(top: OffsetValue, right: OffsetValue, bottom: OffsetValue, left: OffsetValue) -> Self {
         Self {
             top,
             right,
@@ -102,10 +102,10 @@ impl TryFrom<&[OffsetValue]> for Offset {
 
     fn try_from(values: &[OffsetValue]) -> Result<Self, Self::Error> {
         match values.len() {
-            1 => Ok(Offset::all(values[0].clone())),
-            2 => Ok(Offset::vh(values[0].clone(), values[1].clone())),
-            3 => Ok(Offset::thb(values[0].clone(), values[1].clone(), values[2].clone())),
-            4 => Ok(Offset::trbl(values[0].clone(), values[1].clone(), values[2].clone(), values[3].clone())),
+            1 => Ok(Self::all(values[0].clone())),
+            2 => Ok(Self::vh(values[0].clone(), values[1].clone())),
+            3 => Ok(Self::thb(values[0].clone(), values[1].clone(), values[2].clone())),
+            4 => Ok(Self::trbl(values[0].clone(), values[1].clone(), values[2].clone(), values[3].clone())),
             _ => Err(CssValueError::InvalidValue(format!("Expected 1 to 4 offset values, but got {}", values.len()))),
         }
     }
@@ -151,7 +151,7 @@ impl CSSParsable for Offset {
             )));
         }
 
-        Offset::try_from(offset_values.as_slice())
+        Self::try_from(offset_values.as_slice())
     }
 }
 

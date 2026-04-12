@@ -10,11 +10,11 @@ pub struct Headers;
 impl Headers {
     pub(crate) fn create_browser_headers(compatibility: bool, custom_user_agent: Option<String>) -> HeaderMap {
         let mut browser_headers = HeaderMap::with_capacity(6);
-        let user_agent = custom_user_agent.unwrap_or(Self::get_user_agent(compatibility));
+        let user_agent = custom_user_agent.unwrap_or_else(|| Self::get_user_agent(compatibility));
 
         macro_rules! insert_header {
             ($name:ident, $value:expr) => {
-                match HeaderValue::from_bytes($value.as_bytes()) {
+                match HeaderValue::from_bytes($value) {
                     Ok(header_value) => {
                         browser_headers.insert($name, header_value);
                     }
@@ -25,12 +25,12 @@ impl Headers {
             };
         }
 
-        insert_header!(ACCEPT, "text/html,*/*;q=0.8");
-        insert_header!(ACCEPT_ENCODING, "gzip, deflate, br");
-        insert_header!(ACCEPT_LANGUAGE, Self::get_accept_language_value());
-        insert_header!(CACHE_CONTROL, "no-store");
-        insert_header!(CONNECTION, "keep-alive");
-        insert_header!(USER_AGENT, user_agent);
+        insert_header!(ACCEPT, b"text/html,*/*;q=0.8");
+        insert_header!(ACCEPT_ENCODING, b"gzip, deflate, br");
+        insert_header!(ACCEPT_LANGUAGE, Self::get_accept_language_value().as_bytes());
+        insert_header!(CACHE_CONTROL, b"no-store");
+        insert_header!(CONNECTION, b"keep-alive");
+        insert_header!(USER_AGENT, user_agent.as_bytes());
 
         browser_headers
     }
@@ -47,7 +47,7 @@ impl Headers {
             if i == 0 {
                 accept_language.push_str(&format!("{},", locale));
             } else {
-                accept_language.push_str(&format!("{};q={:.1},", locale, 0.9 - (i as f32 * 0.1)));
+                accept_language.push_str(&format!("{};q={:.1},", locale, (i as f32).mul_add(-0.1, 0.9)));
             }
         }
 

@@ -32,7 +32,7 @@ pub trait HttpClient: Send + Sync + Debug {
 }
 
 impl Clone for Box<dyn HttpClient> {
-    fn clone(&self) -> Box<dyn HttpClient> {
+    fn clone(&self) -> Self {
         self.as_ref().box_clone()
     }
 }

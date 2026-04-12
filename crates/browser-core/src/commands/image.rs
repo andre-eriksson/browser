@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Loads an image from the specified URL using the browser's HTTP client, headers, and cookies.
-pub(crate) async fn load_image(
+pub async fn load_image(
     ctx: &mut dyn NavigationContext,
     url: Url,
     policies: DocumentPolicy,

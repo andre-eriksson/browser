@@ -7,7 +7,7 @@ use crate::tree::PropertyRegistry;
 ///
 /// Returns `None` if any `var()` reference cannot be resolved (variable not found and no fallback),
 /// which signals that the entire property value is invalid at computed-value time per the CSS spec.
-pub(crate) fn resolve_css_variables(
+pub fn resolve_css_variables(
     variables: &[(Property, Vec<ComponentValue>)],
     property_registry: &PropertyRegistry,
     value: &[ComponentValue],

@@ -19,7 +19,7 @@ pub fn is_math_function(name: &str) -> bool {
 }
 
 /// Represents the special keywords that can be used in calc() expressions.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CalcKeyword {
     E,
     PI,
@@ -29,13 +29,13 @@ pub enum CalcKeyword {
 }
 
 impl CalcKeyword {
-    pub fn to_f32(self) -> f32 {
+    pub const fn to_f32(self) -> f32 {
         match self {
-            CalcKeyword::E => std::f32::consts::E,
-            CalcKeyword::PI => std::f32::consts::PI,
-            CalcKeyword::Infinity => f32::INFINITY,
-            CalcKeyword::NegativeInfinity => f32::NEG_INFINITY,
-            CalcKeyword::NaN => f32::NAN,
+            Self::E => std::f32::consts::E,
+            Self::PI => std::f32::consts::PI,
+            Self::Infinity => f32::INFINITY,
+            Self::NegativeInfinity => f32::NEG_INFINITY,
+            Self::NaN => f32::NAN,
         }
     }
 }
@@ -45,11 +45,11 @@ impl FromStr for CalcKeyword {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "e" => Ok(CalcKeyword::E),
-            "pi" => Ok(CalcKeyword::PI),
-            "infinity" => Ok(CalcKeyword::Infinity),
-            "-infinity" => Ok(CalcKeyword::NegativeInfinity),
-            "nan" => Ok(CalcKeyword::NaN),
+            "e" => Ok(Self::E),
+            "pi" => Ok(Self::PI),
+            "infinity" => Ok(Self::Infinity),
+            "-infinity" => Ok(Self::NegativeInfinity),
+            "nan" => Ok(Self::NaN),
             _ => Err(format!("Invalid calculate keyword: {}", s)),
         }
     }
@@ -80,16 +80,16 @@ pub enum CalcValue {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcProduct {
     Value(CalcValue),
-    Multiply(Box<CalcProduct>, Box<CalcProduct>),
-    Divide(Box<CalcProduct>, Box<CalcProduct>),
+    Multiply(Box<Self>, Box<Self>),
+    Divide(Box<Self>, Box<Self>),
 }
 
 /// Represents a sum of products in a calc() expression, which can be a single product, an addition, or a subtraction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcSum {
     Product(CalcProduct),
-    Add(Box<CalcSum>, Box<CalcSum>),
-    Subtract(Box<CalcSum>, Box<CalcSum>),
+    Add(Box<Self>, Box<Self>),
+    Subtract(Box<Self>, Box<Self>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -108,7 +108,7 @@ impl CalcExpression {
             return Err(CssValueError::UnexpectedRemainingInput);
         }
 
-        Ok(CalcExpression { sum })
+        Ok(Self { sum })
     }
 
     /// Parse any CSS Calc function (calc, min, max, clamp) from its inner component values and function name.
@@ -121,7 +121,7 @@ impl CalcExpression {
             if args.is_empty() {
                 return Err(CssValueError::InvalidValue("min() requires at least one argument".into()));
             }
-            Ok(CalcExpression {
+            Ok(Self {
                 sum: CalcSum::Product(CalcProduct::Value(CalcValue::Min(args))),
             })
         } else if name.eq_ignore_ascii_case("max") {
@@ -129,12 +129,12 @@ impl CalcExpression {
             if args.is_empty() {
                 return Err(CssValueError::InvalidValue("max() requires at least one argument".into()));
             }
-            Ok(CalcExpression {
+            Ok(Self {
                 sum: CalcSum::Product(CalcProduct::Value(CalcValue::Max(args))),
             })
         } else if name.eq_ignore_ascii_case("clamp") {
             let args = Self::parse_clamp_args(value)?;
-            Ok(CalcExpression {
+            Ok(Self {
                 sum: CalcSum::Product(CalcProduct::Value(CalcValue::Clamp(args))),
             })
         } else {
@@ -273,7 +273,7 @@ impl CalcExpression {
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
                 let func = func.clone();
                 stream.next_cv();
-                let nested = CalcExpression::parse(&func.value)?;
+                let nested = Self::parse(&func.value)?;
                 Ok(CalcValue::NestedSum(Box::new(nested.sum)))
             }
 
@@ -307,7 +307,7 @@ impl CalcExpression {
             ComponentValue::SimpleBlock(block) if matches!(block.associated_token, AssociatedToken::Parenthesis) => {
                 let block = block.clone();
                 stream.next_cv();
-                let nested = CalcExpression::parse(&block.value)?;
+                let nested = Self::parse(&block.value)?;
                 Ok(CalcValue::NestedSum(Box::new(nested.sum)))
             }
 
@@ -363,7 +363,7 @@ impl CalcExpression {
         }
 
         let min = Self::parse_clamp_bound(&segments[0])?;
-        let val = CalcExpression::parse(&segments[1])
+        let val = Self::parse(&segments[1])
             .map(|e| Box::new(e.sum))
             .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() value argument: {}", e)))?;
         let max = Self::parse_clamp_bound(&segments[2])?;
@@ -387,7 +387,7 @@ impl CalcExpression {
             }
         }
 
-        CalcExpression::parse(segment)
+        Self::parse(segment)
             .map(|e| Some(Box::new(e.sum)))
             .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() bound argument: {}", e)))
     }
@@ -399,7 +399,7 @@ impl CalcExpression {
 
         let mut sums = Vec::with_capacity(segments.len());
         for segment in &segments {
-            let expr = CalcExpression::parse(segment)?;
+            let expr = Self::parse(segment)?;
             sums.push(expr.sum);
         }
 

@@ -29,9 +29,9 @@ impl LayoutMode {
         }
 
         match styled_node.style.display.inside() {
-            Some(InsideDisplay::Flex) => Some(LayoutMode::Flex),
-            Some(InsideDisplay::Grid) => Some(LayoutMode::Grid),
-            _ => Some(LayoutMode::Block),
+            Some(InsideDisplay::Flex) => Some(Self::Flex),
+            Some(InsideDisplay::Grid) => Some(Self::Grid),
+            _ => Some(Self::Block),
         }
     }
 }

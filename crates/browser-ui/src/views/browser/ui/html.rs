@@ -20,7 +20,7 @@ pub struct BrowserHtml<'renderer> {
 }
 
 impl<'renderer> BrowserHtml<'renderer> {
-    pub fn new(
+    pub const fn new(
         renderer: HtmlRenderer<'renderer>,
         layout_tree: &'renderer LayoutTree,
         initial_bounds: Rect,

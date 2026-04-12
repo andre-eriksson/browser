@@ -17,7 +17,7 @@ use css_values::{
     text::WritingMode,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundAttachment(pub Vec<Attachment>);
 
 impl Default for BackgroundAttachment {
@@ -72,7 +72,7 @@ impl CSSParsable for BackgroundAttachment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundBlendMode(pub Vec<BlendMode>);
 
 impl Default for BackgroundBlendMode {
@@ -124,7 +124,7 @@ impl CSSParsable for BackgroundBlendMode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundClip(pub Vec<BgClip>);
 
 impl Default for BackgroundClip {
@@ -250,7 +250,7 @@ impl CSSParsable for BackgroundImage {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundOrigin(pub Vec<VisualBox>);
 
 impl Default for BackgroundOrigin {
@@ -314,7 +314,7 @@ impl BackgroundPosition {
         x_pos: &mut Vec<PositionX>,
         y_pos: &mut Vec<PositionY>,
     ) {
-        fn resolve_horizontal_side(horizontal: HorizontalSide, writing_mode: WritingMode) -> HorizontalOrXSide {
+        const fn resolve_horizontal_side(horizontal: HorizontalSide, writing_mode: WritingMode) -> HorizontalOrXSide {
             match writing_mode {
                 WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => {
                     HorizontalOrXSide::Horizontal(horizontal)
@@ -326,7 +326,7 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_vertical_side(vertical: VerticalSide, writing_mode: WritingMode) -> VerticalOrYSide {
+        const fn resolve_vertical_side(vertical: VerticalSide, writing_mode: WritingMode) -> VerticalOrYSide {
             match writing_mode {
                 WritingMode::HorizontalTb => match vertical {
                     VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
@@ -340,7 +340,7 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_horizontal_x_side(side: Side, writing_mode: WritingMode) -> HorizontalOrXSide {
+        const fn resolve_horizontal_x_side(side: Side, writing_mode: WritingMode) -> HorizontalOrXSide {
             match writing_mode {
                 WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
                     Side::Start => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
@@ -353,7 +353,7 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_vertical_y_side(side: Side, writing_mode: WritingMode) -> VerticalOrYSide {
+        const fn resolve_vertical_y_side(side: Side, writing_mode: WritingMode) -> VerticalOrYSide {
             match writing_mode {
                 WritingMode::HorizontalTb => match side {
                     Side::Start => VerticalOrYSide::YSide(YSide::YStart),
@@ -370,7 +370,7 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_inline_axis(inline: InlineAxis, writing_mode: WritingMode) -> HorizontalOrXSide {
+        const fn resolve_inline_axis(inline: InlineAxis, writing_mode: WritingMode) -> HorizontalOrXSide {
             match writing_mode {
                 WritingMode::HorizontalTb => match inline {
                     InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
@@ -391,7 +391,7 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_block_axis(block: BlockAxis, writing_mode: WritingMode) -> VerticalOrYSide {
+        const fn resolve_block_axis(block: BlockAxis, writing_mode: WritingMode) -> VerticalOrYSide {
             match writing_mode {
                 WritingMode::HorizontalTb => match block {
                     BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
@@ -412,21 +412,21 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_x_side(x_side: XSide) -> PositionX {
+        const fn resolve_x_side(x_side: XSide) -> PositionX {
             match x_side {
                 XSide::XStart => PositionX::Relative((Some(HorizontalOrXSide::XSide(XSide::XStart)), None)),
                 XSide::XEnd => PositionX::Relative((Some(HorizontalOrXSide::XSide(XSide::XEnd)), None)),
             }
         }
 
-        fn resolve_y_side(y_side: YSide) -> PositionY {
+        const fn resolve_y_side(y_side: YSide) -> PositionY {
             match y_side {
                 YSide::YStart => PositionY::Relative((Some(VerticalOrYSide::YSide(YSide::YStart)), None)),
                 YSide::YEnd => PositionY::Relative((Some(VerticalOrYSide::YSide(YSide::YEnd)), None)),
             }
         }
 
-        fn resolve_x_axis(x_axis: XAxis) -> PositionX {
+        const fn resolve_x_axis(x_axis: XAxis) -> PositionX {
             match x_axis {
                 XAxis::Center(center) => PositionX::Center(center, None),
                 XAxis::Horizontal(horizontal) => {
@@ -436,7 +436,7 @@ impl BackgroundPosition {
             }
         }
 
-        fn resolve_y_axis(y_axis: YAxis) -> PositionY {
+        const fn resolve_y_axis(y_axis: YAxis) -> PositionY {
             match y_axis {
                 YAxis::Center(center) => PositionY::Center(center, None),
                 YAxis::Vertical(vertical) => PositionY::Relative((Some(VerticalOrYSide::Vertical(vertical)), None)),
@@ -606,7 +606,7 @@ impl CSSParsable for BackgroundPosition {
             return Err(CssValueError::InvalidValue("No valid BgPosition found for BackgroundPosition".into()));
         }
 
-        Ok(BackgroundPosition(layers))
+        Ok(Self(layers))
     }
 }
 
@@ -802,7 +802,7 @@ impl CSSParsable for BackgroundPositionY {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackgroundRepeat(pub Vec<(RepeatStyle, RepeatStyle)>);
 
 impl Default for BackgroundRepeat {

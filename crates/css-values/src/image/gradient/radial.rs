@@ -13,14 +13,14 @@ use crate::{
     quantity::{Length, LengthUnit},
 };
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum RadialShape {
     Circle,
     Ellipse,
 }
 
-#[derive(Debug, Clone, PartialEq, EnumString)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum RadialExtent {
     ClosestCorner,
@@ -119,11 +119,8 @@ impl RadialGradientSyntax {
 
         let at_pos = Gradient::find_ident_position(stripped, |s| s.eq_ignore_ascii_case("at"));
 
-        let (shape_size_cvs, position_cvs) = if let Some(pos) = at_pos {
-            (&stripped[..pos], Some(&stripped[pos + 1..]))
-        } else {
-            (stripped, None)
-        };
+        let (shape_size_cvs, position_cvs) =
+            at_pos.map_or((stripped, None), |pos| (&stripped[..pos], Some(&stripped[pos + 1..])));
 
         let mut shape: Option<RadialShape> = None;
         let mut size: Option<RadialSize> = None;
@@ -271,7 +268,7 @@ impl CSSParsable for RadialGradientSyntax {
         let stop_cvs = Gradient::reassemble_to_comma_separated(&segments[idx..]);
         let stops = ColorStopList::parse(&mut stop_cvs.as_slice().into())?;
 
-        Ok(RadialGradientSyntax {
+        Ok(Self {
             shape,
             size,
             position,

@@ -25,14 +25,17 @@ pub enum OutsideDisplay {
     Inline,
 }
 
-/// These keywords specify the element's inner display type, which defines the type of formatting context that its
-/// contents are laid out in (assuming it is a non-replaced element). When one of these keywords is used by itself
-/// as a single value, the element's outer display type defaults to block (with the exception of ruby,
-/// which defaults to inline).
+/// These keywords specify the element's inner display type
+///
+/// Defines the type of formatting context that its contents are laid out in (assuming it is a non-replaced element).
+/// When one of these keywords is used by itself as a single value, the element's outer display type defaults to block
+/// (with the exception of ruby, which defaults to inline).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 pub enum InsideDisplay {
-    /// The element lays out its contents using flow layout (block-and-inline layout). If its outer display type is inline, and it is participating
+    /// The element lays out its contents using flow layout (block-and-inline layout).
+    ///
+    /// If its outer display type is inline, and it is participating
     /// in a block or inline formatting context, then it generates an inline box. Otherwise it generates a block box. Depending on the value of
     /// other properties (such as position, float, or overflow) and whether it is itself participating in a block or inline formatting context,
     /// it either establishes a new block formatting context (BFC) for its contents or integrates its contents into its parent formatting context.
@@ -65,6 +68,7 @@ pub enum ListItemDisplay {
 }
 
 /// Some layout models such as table and ruby have a complex internal structure, with several different roles that their children and descendants can fill.
+///
 /// This section defines those "internal" display values, which only have meaning within that particular layout mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
@@ -145,7 +149,7 @@ impl CSSParsable for Float {
                     CssTokenKind::Ident(ident) => {
                         float = Some(
                             ident
-                                .parse::<Float>()
+                                .parse::<Self>()
                                 .map_err(|_| CssValueError::InvalidToken(token.kind.clone()))?,
                         );
                     }
@@ -185,7 +189,7 @@ impl CSSParsable for Clear {
                     CssTokenKind::Ident(ident) => {
                         clear = Some(
                             ident
-                                .parse::<Clear>()
+                                .parse::<Self>()
                                 .map_err(|_| CssValueError::InvalidToken(token.kind.clone()))?,
                         );
                     }

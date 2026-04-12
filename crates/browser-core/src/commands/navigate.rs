@@ -32,7 +32,7 @@ const ALLOWED_ABOUT_URLS: &[&str] = &["blank"];
 
 /// Navigates the specified tab to the given URL, fetching and parsing the content.
 /// Executes any scripts and processes stylesheets found during parsing.
-pub(crate) async fn navigate(
+pub async fn navigate(
     ctx: &mut dyn NavigationContext,
     url: &str,
     mut stylesheets: Vec<CSSStyleSheet>,
@@ -289,7 +289,7 @@ pub(crate) async fn navigate(
             .metadata
             .title
             .clone()
-            .unwrap_or("Untitled".to_string()),
+            .unwrap_or_else(|| "Untitled".to_string()),
         favicon: None,
         policies: DocumentPolicy::default(),
     };
@@ -342,7 +342,7 @@ async fn resolve_navigation_request(
             .map_err(NavigationError::Resource)?,
         );
 
-        let url = Url::parse(&format!("about:{}", location)).unwrap_or(Url::parse("about:blank").unwrap());
+        let url = Url::parse(&format!("about:{}", location)).unwrap_or_else(|_| Url::parse("about:blank").unwrap());
 
         return Ok((url, resp));
     }
@@ -353,21 +353,20 @@ async fn resolve_navigation_request(
         url: raw_url.to_string(),
     })?;
 
-    let url = match page_url.as_ref() {
-        Some(u) => u.join(&decoded_url),
-        None => Url::parse(&decoded_url),
-    }
-    .map_err(|e| NavigationError::Request {
-        source: RequestError::Network(NetworkError::InvalidUrl(e)),
-        url: raw_url.to_string(),
-    })?;
+    let url = page_url
+        .as_ref()
+        .map_or_else(|| Url::parse(&decoded_url), |u| u.join(&decoded_url))
+        .map_err(|e| NavigationError::Request {
+            source: RequestError::Network(NetworkError::InvalidUrl(e)),
+            url: raw_url.to_string(),
+        })?;
 
     let resp = resolve_request(url, ctx, None, policies, cookies, headers, client).await?;
 
     Ok(resp)
 }
 
-pub(crate) async fn resolve_request(
+pub async fn resolve_request(
     url: Url,
     ctx: &mut dyn NavigationContext,
     page_url: Option<Url>,

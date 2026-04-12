@@ -31,7 +31,7 @@ pub struct CacheControlResponse {
 
 impl From<&str> for CacheControlResponse {
     fn from(value: &str) -> Self {
-        let mut response = CacheControlResponse {
+        let mut response = Self {
             max_age_seconds: None,
             s_max_age_seconds: None,
             no_cache: false,

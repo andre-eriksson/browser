@@ -16,9 +16,10 @@ use crate::{
 
 pub mod gradient;
 
-/// Represents the various types of gradients in CSS, including linear, radial, and conic gradients,
-/// as well as their repeating variants. Each variant holds the specific syntax structure for that
-/// gradient type.
+/// Represents the various types of gradients in CSS,
+///
+/// Including linear, radial, and conic gradients, as well as their repeating variants.
+/// Each variant holds the specific syntax structure for that gradient type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Gradient {
     Linear(LinearGradientSyntax),
@@ -282,9 +283,10 @@ impl CSSParsable for Gradient {
     }
 }
 
-/// Represents the various ways to specify an image in CSS, including URLs, gradients,
-/// and more complex constructs like cross-fades and image sets. Each variant holds the
-/// specific data structure relevant to that type of image.
+/// Represents an image in CSS,
+///
+/// Including URLs, gradients, and more complex constructs like cross-fades and image sets.
+/// Each variant holds the specific data structure relevant to that type of image.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Image {
     None,
@@ -301,25 +303,29 @@ impl TryFrom<&Function> for Image {
     type Error = String;
 
     fn try_from(value: &Function) -> Result<Self, Self::Error> {
-        if let Ok(gradient) = Gradient::parse_function(value) {
-            Ok(Image::Gradient(gradient))
-        } else if value.name.eq_ignore_ascii_case("url") {
-            if let Some(ComponentValue::Token(token)) = value.value.first() {
-                if let CssTokenKind::String(s) = &token.kind {
-                    Ok(Image::Url(s.clone()))
+        Gradient::parse_function(value).map_or_else(
+            |_| {
+                if value.name.eq_ignore_ascii_case("url") {
+                    if let Some(ComponentValue::Token(token)) = value.value.first() {
+                        if let CssTokenKind::String(s) = &token.kind {
+                            Ok(Self::Url(s.clone()))
+                        } else {
+                            Err("Expected a string token in url() function".to_string())
+                        }
+                    } else {
+                        Err("Expected at least one argument in url() function".to_string())
+                    }
                 } else {
-                    Err("Expected a string token in url() function".to_string())
+                    Err(format!("Unknown image function: '{}'", value.name))
                 }
-            } else {
-                Err("Expected at least one argument in url() function".to_string())
-            }
-        } else {
-            Err(format!("Unknown image function: '{}'", value.name))
-        }
+            },
+            |gradient| Ok(Self::Gradient(gradient)),
+        )
     }
 }
 
 impl CSSParsable for Image {
+    #[allow(clippy::option_if_let_else)]
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
@@ -328,11 +334,11 @@ impl CSSParsable for Image {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none") => {
                         stream.next_cv();
-                        Ok(Image::None)
+                        Ok(Self::None)
                     }
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                ComponentValue::Function(func) => Image::try_from(func).map_err(CssValueError::InvalidValue),
+                ComponentValue::Function(func) => Self::try_from(func).map_err(CssValueError::InvalidValue),
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {

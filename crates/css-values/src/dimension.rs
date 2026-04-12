@@ -27,7 +27,7 @@ pub enum Dimension {
 
 impl Dimension {
     /// Create a Dimension from a pixel value.
-    pub fn px(value: f32) -> Self {
+    pub const fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
 }
@@ -98,7 +98,7 @@ pub enum MaxDimension {
 
 impl MaxDimension {
     /// Create a MaxDimension from a pixel value.
-    pub fn px(value: f32) -> Self {
+    pub const fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
 }
@@ -111,7 +111,7 @@ impl CSSParsable for MaxDimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(MaxDimension::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
                     } else {
                         Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
@@ -119,15 +119,15 @@ impl CSSParsable for MaxDimension {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("none") {
-                            Ok(MaxDimension::None)
+                            Ok(Self::None)
                         } else if ident.eq_ignore_ascii_case("max-content") {
-                            Ok(MaxDimension::MaxContent)
+                            Ok(Self::MaxContent)
                         } else if ident.eq_ignore_ascii_case("min-content") {
-                            Ok(MaxDimension::MinContent)
+                            Ok(Self::MinContent)
                         } else if ident.eq_ignore_ascii_case("fit-content") {
-                            Ok(MaxDimension::FitContent(None)) // TODO: Fix?
+                            Ok(Self::FitContent(None)) // TODO: Fix?
                         } else if ident.eq_ignore_ascii_case("stretch") {
-                            Ok(MaxDimension::Stretch)
+                            Ok(Self::Stretch)
                         } else {
                             Err(CssValueError::InvalidValue(format!("Invalid identifier: {}", ident)))
                         }
@@ -136,10 +136,10 @@ impl CSSParsable for MaxDimension {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        Ok(MaxDimension::Length(Length::new(value.to_f64() as f32, len_unit)))
+                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
                     }
-                    CssTokenKind::Number(num) => Ok(MaxDimension::Length(Length::px(num.to_f64() as f32))),
-                    CssTokenKind::Percentage(pct) => Ok(MaxDimension::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
+                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
@@ -162,16 +162,16 @@ pub enum OffsetValue {
 }
 
 impl OffsetValue {
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self::Length(Length::zero())
     }
 
-    pub fn px(value: f32) -> Self {
+    pub const fn px(value: f32) -> Self {
         Self::Length(Length::px(value))
     }
 
-    pub fn is_auto(&self) -> bool {
-        matches!(self, OffsetValue::Auto)
+    pub const fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
     }
 }
 

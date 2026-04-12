@@ -9,7 +9,7 @@ use crate::{core::ScrollOffset, renderer::program::HtmlRenderer};
 const IMAGE_PLACEHOLDER_COLOR: Color4f = Color4f::rgba(0.8, 0.8, 0.8, 1.0);
 
 /// Helper function to determine if a layout node is within the visible viewport based on its dimensions and the current scroll offset.
-pub(crate) fn is_visible_node(node_dimensions: Rect, initial_bounds: Rect, scroll_offset: ScrollOffset) -> bool {
+pub fn is_visible_node(node_dimensions: Rect, initial_bounds: Rect, scroll_offset: ScrollOffset) -> bool {
     let viewport_top = scroll_offset.y - initial_bounds.y;
     let viewport_bottom = scroll_offset.y + initial_bounds.height + initial_bounds.y;
     let viewport_left = scroll_offset.x - initial_bounds.x;
@@ -25,7 +25,7 @@ pub(crate) fn is_visible_node(node_dimensions: Rect, initial_bounds: Rect, scrol
 }
 
 /// Helper function to collect all render data from a layout tree with viewport culling
-pub(crate) fn collect_render_data_from_layout<'html>(
+pub fn collect_render_data_from_layout<'html>(
     renderer: &mut HtmlRenderer<'html>,
     layout_tree: &'html LayoutTree,
     image_cache: Option<&ImageCache>,

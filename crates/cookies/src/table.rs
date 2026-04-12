@@ -149,10 +149,10 @@ impl Table for CookieTable {
             Expiration::Date(offset) => Some(offset.unix_timestamp()),
         };
 
-        let max_age = match data.max_age() {
-            None => expiry.unwrap_or_default(),
-            Some(val) => UtcDateTime::now().unix_timestamp() + val.whole_seconds(),
-        };
+        let max_age = data.max_age().as_ref().map_or_else(
+            || expiry.unwrap_or_default(),
+            |val| UtcDateTime::now().unix_timestamp() + val.whole_seconds(),
+        );
 
         let same_site = data.same_site().to_string();
 

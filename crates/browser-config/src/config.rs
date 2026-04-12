@@ -28,15 +28,15 @@ impl BrowserConfig {
         }
     }
 
-    pub fn args(&self) -> &BrowserArgs {
+    pub const fn args(&self) -> &BrowserArgs {
         &self.args
     }
 
-    pub fn headers(&self) -> &HeaderMap {
+    pub const fn headers(&self) -> &HeaderMap {
         &self.headers
     }
 
-    pub fn preferences(&self) -> &BrowserPreferences {
+    pub const fn preferences(&self) -> &BrowserPreferences {
         &self.preferences
     }
 }

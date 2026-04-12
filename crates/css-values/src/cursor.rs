@@ -52,8 +52,9 @@ pub enum Cursor {
 
 impl CSSParsable for Cursor {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            match cv {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
@@ -61,10 +62,7 @@ impl CSSParsable for Cursor {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-            }
-        } else {
-            Err(CssValueError::UnexpectedEndOfInput)
-        }
+            })
     }
 }
 

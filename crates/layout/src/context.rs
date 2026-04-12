@@ -13,9 +13,11 @@ pub struct ImageMeta {
     pub vary_key: String,
 }
 
-/// Carries known image metadata (from previously decoded images) into the
-/// layout pipeline so that images whose intrinsic sizes are already available
-/// can be laid out with their real dimensions instead of placeholders.
+/// Known image metadata (from previously decoded images)
+///
+/// Carries the metadata into the layout pipeline so that images whose intrinsic
+/// sizes are already available can be laid out with their real dimensions instead
+/// of placeholders.
 ///
 /// This is the key piece of the relayout system: after an image is fetched and
 /// decoded, its [`ImageMeta`] is stored here and a full relayout is performed.
@@ -58,7 +60,7 @@ impl ImageContext {
 
     /// Creates an `ImageContext` pre-populated with a full metadata map
     /// (dimensions *and* vary keys).
-    pub fn with_meta(known: HashMap<String, ImageMeta>) -> Self {
+    pub const fn with_meta(known: HashMap<String, ImageMeta>) -> Self {
         Self { known }
     }
 

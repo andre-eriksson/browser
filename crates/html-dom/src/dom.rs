@@ -30,7 +30,7 @@ impl PartialEq for Element {
 
 impl Default for Element {
     fn default() -> Self {
-        Element {
+        Self {
             attributes: HashMap::new(),
             class_set: HashSet::new(),
             tag: Tag::Unknown(String::new()),
@@ -46,8 +46,8 @@ impl Element {
     /// * `class_set` - A set of class names for this element
     /// * `attributes` - A map of attribute names to values for this element
     #[must_use]
-    pub fn new(tag: Tag, class_set: HashSet<String>, attributes: HashMap<String, String>) -> Self {
-        Element {
+    pub const fn new(tag: Tag, class_set: HashSet<String>, attributes: HashMap<String, String>) -> Self {
+        Self {
             attributes,
             class_set,
             tag,
@@ -117,18 +117,18 @@ pub enum NodeData {
 
 impl NodeData {
     #[must_use]
-    pub fn as_element(&self) -> Option<&Element> {
+    pub const fn as_element(&self) -> Option<&Element> {
         match self {
-            NodeData::Element(elem) => Some(elem),
-            NodeData::Text(_) => None,
+            Self::Element(elem) => Some(elem),
+            Self::Text(_) => None,
         }
     }
 
     #[must_use]
-    pub fn as_text(&self) -> Option<&String> {
+    pub const fn as_text(&self) -> Option<&String> {
         match self {
-            NodeData::Text(text) => Some(text),
-            NodeData::Element(_) => None,
+            Self::Text(text) => Some(text),
+            Self::Element(_) => None,
         }
     }
 }
@@ -203,7 +203,7 @@ impl DocumentRoot {
     }
 
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 

@@ -31,10 +31,10 @@ impl BrowserFooter {
             .active_tab()
             .expect("Active tab should always be present when rendering the browser window");
 
-        let toggle_devtools_event = match &active_tab.devtools {
-            Some(devtools) => Event::Window(WindowEvent::CloseWindow(devtools.window_id)),
-            None => Event::Window(WindowEvent::NewWindow(window_id, WindowType::Devtools)),
-        };
+        let toggle_devtools_event = active_tab.devtools.as_ref().map_or_else(
+            || Event::Window(WindowEvent::NewWindow(window_id, WindowType::Devtools)),
+            |devtools| Event::Window(WindowEvent::CloseWindow(devtools.window_id)),
+        );
 
         container(
             button("Open DevTools")
