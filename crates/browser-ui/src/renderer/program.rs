@@ -76,9 +76,14 @@ impl<'html> HtmlRenderer<'html> {
 
     /// Determine if the cursor is hovering over a link and return its href if so.
     fn get_hovered_href(&self, cursor: iced::advanced::mouse::Cursor, bounds: Rectangle) -> Option<String> {
-        let position = cursor.position()?;
-        let x = position.x + self.scroll_offset.x - bounds.x;
-        let y = position.y + self.scroll_offset.y - bounds.y;
+        let cursor = cursor.position()?;
+
+        if !bounds.contains(cursor) {
+            return None;
+        }
+
+        let x = cursor.x + self.scroll_offset.x - bounds.x;
+        let y = cursor.y + self.scroll_offset.y - bounds.y;
 
         let nodes = self.layout_tree.resolve(x, y);
 
@@ -109,9 +114,14 @@ impl<'html> HtmlRenderer<'html> {
 
     /// Determine the mouse cursor interaction based on the layout nodes under the cursor position.
     fn hovered_cursor(&self, cursor: iced::advanced::mouse::Cursor, bounds: Rectangle) -> Option<Interaction> {
-        let position = cursor.position()?;
-        let x = position.x + self.scroll_offset.x - bounds.x;
-        let y = position.y + self.scroll_offset.y - bounds.y;
+        let cursor = cursor.position()?;
+
+        if !bounds.contains(cursor) {
+            return None;
+        }
+
+        let x = cursor.x + self.scroll_offset.x - bounds.x;
+        let y = cursor.y + self.scroll_offset.y - bounds.y;
 
         let nodes = self.layout_tree.resolve(x, y);
 
@@ -324,9 +334,9 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
         }
 
         if matches!(self.window_type, WindowType::Browser)
+            && matches!(event, iced::Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)))
+            // TODO: Pre calculate all anchor tags and store in State to avoid doing this hit testing on every click
             && let Some(href) = self.get_hovered_href(cursor, bounds)
-            && let iced::Event::Mouse(e) = event
-            && matches!(e, mouse::Event::ButtonReleased(mouse::Button::Left))
         {
             return Some(Action::publish(Event::EngineRequest(EngineRequest::NavigateTo(self.window_id, href))));
         }
@@ -343,6 +353,7 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
         if !matches!(self.window_type, WindowType::Browser) {
             return Interaction::default();
         }
+        // TODO: Pre calculate all cursor styles and store in State to avoid doing this hit testing on every mouse move
         self.hovered_cursor(cursor, bounds).unwrap_or_default()
     }
 }
