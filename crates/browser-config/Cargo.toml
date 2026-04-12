@@ -11,3 +11,4 @@ constants.workspace = true
 network.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+sys-locale.workspace = true

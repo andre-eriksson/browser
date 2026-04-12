@@ -12,7 +12,11 @@ use url::Url;
 
 use crate::network::{
     middleware::{
-        cookies::CookieMiddleware, cors::CorsMiddleware, referrer::ReferrerMiddleware, simple::SimpleMiddleware,
+        cookies::CookieMiddleware,
+        cors::CorsMiddleware,
+        headers::{Destination, HeadersMiddleware, RequestMode},
+        referrer::ReferrerMiddleware,
+        simple::SimpleMiddleware,
     },
     policy::DocumentPolicy,
 };
@@ -47,12 +51,20 @@ impl<'client> NetworkService<'client> {
         response: Result<Box<dyn ResponseHandle>, NetworkError>,
     ) -> RequestResult<Box<dyn ResponseHandle>> {
         match response {
-            Ok(resp) => match resp.metadata().status_code {
-                _ if resp.metadata().status_code.is_client_error() => RequestResult::ClientError(resp),
-                _ if resp.metadata().status_code.is_server_error() => RequestResult::ServerError(resp),
-                _ => RequestResult::Success(resp),
-            },
-            Err(e) => RequestResult::Failed(RequestError::Network(e)),
+            Ok(resp) => {
+                let status_code = resp.metadata().status_code;
+                debug!({ STATUS_CODE } = status_code.to_string());
+
+                match status_code {
+                    _ if status_code.is_client_error() => RequestResult::ClientError(resp),
+                    _ if status_code.is_server_error() => RequestResult::ServerError(resp),
+                    _ => RequestResult::Success(resp),
+                }
+            }
+            Err(e) => {
+                debug!("{}", e);
+                RequestResult::Failed(RequestError::Network(e))
+            }
         }
     }
 
@@ -73,7 +85,8 @@ impl<'client> NetworkService<'client> {
         let user_headers = request.headers.clone();
         request.headers.extend(self.browser_headers.clone());
 
-        // First request to set document URL
+        HeadersMiddleware::apply_forbidden_headers(&mut request.headers);
+
         if page_url.is_none() {
             if request.method != Method::GET {
                 return RequestResult::Failed(RequestError::InvalidMethod(
@@ -83,32 +96,16 @@ impl<'client> NetworkService<'client> {
 
             CookieMiddleware::apply_cookies(&mut request, self.cookies);
 
-            let resp = self.raw_fetch(request).await;
+            HeadersMiddleware::add_forbidden_fetch_headers(
+                &request.url,
+                None,
+                &mut request.headers,
+                Destination::Document,
+                RequestMode::Navigate,
+                true,
+            );
 
-            return match resp {
-                RequestResult::Failed(e) => {
-                    debug!("{}", e);
-
-                    RequestResult::Failed(e)
-                }
-                RequestResult::Success(resp) => {
-                    // TODO: page.document_url = Some(url);
-
-                    debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
-
-                    RequestResult::Success(resp)
-                }
-                RequestResult::ServerError(resp) => {
-                    debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
-
-                    RequestResult::ServerError(resp)
-                }
-                RequestResult::ClientError(resp) => {
-                    debug!({ STATUS_CODE } = resp.metadata().status_code.to_string());
-
-                    RequestResult::ClientError(resp)
-                }
-            };
+            return self.raw_fetch(request).await;
         }
 
         if let Some(current_url) = &page_url {

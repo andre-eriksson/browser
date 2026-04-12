@@ -1,20 +1,60 @@
-use std::collections::HashMap;
-
-use constants::APP_NAME;
+use constants::{APP_NAME, APP_VERSION};
 use network::{
     ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue, USER_AGENT,
 };
+use sys_locale::get_locales;
 use tracing::error;
 
 pub struct Headers;
 
-pub(crate) enum HeaderType {
-    Browser,
-    HeadlessBrowser,
-}
-
 impl Headers {
-    fn get_user_agent(browser_type: HeaderType) -> String {
+    pub(crate) fn create_browser_headers(compatibility: bool, custom_user_agent: Option<String>) -> HeaderMap {
+        let mut browser_headers = HeaderMap::with_capacity(6);
+        let user_agent = custom_user_agent.unwrap_or(Self::get_user_agent(compatibility));
+
+        macro_rules! insert_header {
+            ($name:ident, $value:expr) => {
+                match HeaderValue::from_bytes($value.as_bytes()) {
+                    Ok(header_value) => {
+                        browser_headers.insert($name, header_value);
+                    }
+                    Err(e) => {
+                        error!("Failed to create header value for {}: {}", stringify!($name), e);
+                    }
+                }
+            };
+        }
+
+        insert_header!(ACCEPT, "text/html,*/*;q=0.8");
+        insert_header!(ACCEPT_ENCODING, "gzip, deflate, br");
+        insert_header!(ACCEPT_LANGUAGE, Self::get_accept_language_value());
+        insert_header!(CACHE_CONTROL, "no-store");
+        insert_header!(CONNECTION, "keep-alive");
+        insert_header!(USER_AGENT, user_agent);
+
+        browser_headers
+    }
+
+    fn get_accept_language_value() -> String {
+        let locales = get_locales().collect::<Vec<_>>();
+
+        if locales.is_empty() {
+            return "en-US,en;q=0.9".to_string();
+        }
+
+        let mut accept_language = String::new();
+        for (i, locale) in locales.iter().enumerate() {
+            if i == 0 {
+                accept_language.push_str(&format!("{},", locale));
+            } else {
+                accept_language.push_str(&format!("{};q={:.1},", locale, 0.9 - (i as f32 * 0.1)));
+            }
+        }
+
+        accept_language.trim_end_matches(',').to_string()
+    }
+
+    fn get_user_agent(compatibility: bool) -> String {
         #[cfg(target_os = "windows")]
         let os_info = "Windows NT 10.0; Win64; x64";
         #[cfg(target_os = "linux")]
@@ -22,40 +62,11 @@ impl Headers {
         #[cfg(target_os = "macos")]
         let os_info = "Macintosh; Intel Mac OS X 10_15_7";
 
-        let mut user_agent = match browser_type {
-            HeaderType::Browser => format!("Mozilla/5.0 ({os_info}) MyRenderer/0.1 {APP_NAME}/0.1"),
-            HeaderType::HeadlessBrowser => format!("Mozilla/5.0 ({os_info}) MyRendererHeadless/0.1 {APP_NAME}/0.1"),
-        };
-
-        #[cfg(debug_assertions)]
-        {
-            user_agent += "-development";
-        }
-
-        user_agent
-    }
-
-    pub(crate) fn create_browser_headers(browser_type: HeaderType) -> HeaderMap {
-        let mut browser_headers = HeaderMap::new();
-
-        let mut headers = HashMap::new();
-        headers.insert(ACCEPT, "text/html".to_string());
-        headers.insert(ACCEPT_ENCODING, "gzip, deflate, br".to_string());
-        headers.insert(ACCEPT_LANGUAGE, "en-US, sv-SE;q=0.9, en;q=0.8, sv;q=0.7".to_string());
-        headers.insert(CACHE_CONTROL, "no-store".to_string());
-        headers.insert(CONNECTION, "keep-alive".to_string());
-
-        let user_agent = Self::get_user_agent(browser_type);
-        headers.insert(USER_AGENT, user_agent);
-
-        for (key, value) in headers {
-            if let Ok(header_value) = HeaderValue::from_str(&value) {
-                browser_headers.insert(key, header_value);
-            } else {
-                error!("Failed to create header value for {}: {}", key.as_str(), value);
+        match compatibility {
+            true => {
+                format!("Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) {APP_NAME}/{APP_VERSION}")
             }
+            false => format!("Mozilla/5.0 ({os_info}) {APP_NAME}/{APP_VERSION}"),
         }
-
-        browser_headers
     }
 }

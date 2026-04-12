@@ -24,12 +24,17 @@ pub struct BrowserArgs {
     pub enable_ua_css: bool,
 
     #[arg(
-        name = "header",
-        short = 'H',
-        long,
-        long_help = "Custom headers to include in requests.\nFormat: 'Header-Name: Header-Value'.\nWill override default headers if there are any conflicts."
+        long = "ua-compatibility",
+        help = "Enable user agent compatibility mode, which makes the browser identify itself as a more common browser to improve compatibility with websites that perform user agent sniffing."
     )]
-    pub headers: Vec<String>,
+    pub ua_compatibility: bool,
+
+    #[arg(
+        short = 'U',
+        long,
+        long_help = "Override the default user agent string sent in HTTP requests. This can be used to improve compatibility with websites that perform user agent sniffing, or to test how a website behaves with different user agents. If not specified, a default user agent string will be used based on the operating system and compatibility mode settings."
+    )]
+    pub user_agent: Option<String>,
 
     #[arg(
         short = 'T',
