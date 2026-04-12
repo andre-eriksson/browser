@@ -15,12 +15,7 @@ use crate::{
 };
 
 /// Handles the event when a devtools page is ready, building the style and layout trees for the page and associating it with the corresponding tab in the application.
-pub fn on_devtools_page_ready(
-    application: &mut Application,
-    window_id: Id,
-    tab_id: TabId,
-    page: Page,
-) -> Task<Event> {
+pub fn on_devtools_page_ready(application: &mut Application, window_id: Id, tab_id: TabId, page: Page) -> Task<Event> {
     let Some(ctx) = application.browser_windows.get_mut(&window_id) else {
         warn!("Devtools page ready for unknown window id: {}", window_id);
         return Task::none();
@@ -32,7 +27,7 @@ pub fn on_devtools_page_ready(
     };
 
     if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
-        let localhost = Url::parse(Ipv4Addr::LOCALHOST.to_string().as_str()).unwrap();
+        let localhost = Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap();
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: devtools_ctx.viewport.width,

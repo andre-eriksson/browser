@@ -53,7 +53,7 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
         devtools.context.viewport = new_viewport;
 
         if let Some(page) = devtools.context.page.as_mut() {
-            let localhost = Url::parse(Ipv4Addr::LOCALHOST.to_string().as_str()).unwrap();
+            let localhost = Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap();
 
             let abs_ctx = AbsoluteContext {
                 root_font_size: 16.0,
