@@ -1,6 +1,6 @@
 use std::{fmt::Display, net::Ipv4Addr};
 
-use crate::errors::CookieParsingError;
+use crate::errors::ParsingError;
 use time::{Date, Duration, OffsetDateTime, Time, UtcDateTime, UtcOffset, macros::format_description};
 use tracing::{debug, instrument};
 use url::{Host, Url};
@@ -95,7 +95,7 @@ impl Cookie {
     /// * `CookieParsingError::DateError` - If the Expires attribute is present but cannot be parsed into a valid date.
     /// * `CookieParsingError::TimeError` - If the Expires attribute is present but the time portion cannot be parsed into a valid time.
     #[instrument(skip(request_url), level = "trace", fields(cookie_str = %cookie_str))]
-    pub fn parse(cookie_str: &str, request_url: &Url) -> Result<Self, CookieParsingError> {
+    pub fn parse(cookie_str: &str, request_url: &Url) -> Result<Self, ParsingError> {
         let parts = cookie_str.split(';');
         let mut cookie = Cookie::default();
 
@@ -108,7 +108,7 @@ impl Cookie {
 
             if cookie.name.is_empty() {
                 let Some(pair) = part.split_once('=') else {
-                    return Err(CookieParsingError::InvalidCookie);
+                    return Err(ParsingError::InvalidCookie);
                 };
                 cookie.name = pair.0.trim().into();
                 cookie.value = pair.1.trim().into();
@@ -147,66 +147,66 @@ impl Cookie {
         Ok(cookie)
     }
 
-    pub(crate) fn validate_cookie_prefix(cookie: &Cookie) -> Result<(), CookieParsingError> {
+    pub(crate) fn validate_cookie_prefix(cookie: &Cookie) -> Result<(), ParsingError> {
         if cookie.name().starts_with("__Host-Http-") {
             if !cookie.secure() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-Http-"),
                     message: String::from("have the Secure attribute"),
                 });
             }
             if !cookie.http_only() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-Http-"),
                     message: String::from("have the HttpOnly attribute"),
                 });
             }
             if cookie.domain().is_some() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-Http-"),
                     message: String::from("not have a Domain attribute"),
                 });
             }
             if cookie.path() != "/" {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-Http-"),
                     message: String::from("have Path set to /"),
                 });
             }
         } else if cookie.name().starts_with("__Host-") {
             if !cookie.secure() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-"),
                     message: String::from("have the Secure attribute"),
                 });
             }
             if cookie.domain().is_some() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-"),
                     message: String::from("not have a Domain attribute"),
                 });
             }
             if cookie.path() != "/" {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Host-"),
                     message: String::from("have Path set to /"),
                 });
             }
         } else if cookie.name().starts_with("__Http-") {
             if !cookie.secure() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Http-"),
                     message: String::from("have the Secure attribute"),
                 });
             }
             if !cookie.http_only() {
-                return Err(CookieParsingError::PrefixMismatch {
+                return Err(ParsingError::PrefixMismatch {
                     prefix: String::from("__Http-"),
                     message: String::from("have the HttpOnly attribute"),
                 });
             }
         } else if cookie.name().starts_with("__Secure-") && !cookie.secure() {
-            return Err(CookieParsingError::PrefixMismatch {
+            return Err(ParsingError::PrefixMismatch {
                 prefix: String::from("__Secure-"),
                 message: String::from("have the Secure attribute"),
             });
@@ -215,7 +215,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_expires(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
+    fn parse_expires(cookie: &mut Cookie, value: Option<&str>) -> Result<(), ParsingError> {
         if let Some(expires) = value {
             let date_parts: Vec<&str> = expires.split_ascii_whitespace().collect();
 
@@ -225,13 +225,13 @@ impl Cookie {
                 let full_date = [date_parts[1], date_parts[2], date_parts[3]].join("-");
 
                 let date = match Date::parse(full_date.as_str(), date_format) {
-                    Err(e) => return Err(CookieParsingError::DateError(e.to_string())),
+                    Err(e) => return Err(ParsingError::Date(e.to_string())),
                     Ok(date) => date,
                 };
 
                 let time_format = format_description!("[hour]:[minute]:[second]");
                 let time = match Time::parse(date_parts[4], time_format) {
-                    Err(e) => return Err(CookieParsingError::TimeError(e.to_string())),
+                    Err(e) => return Err(ParsingError::Time(e.to_string())),
                     Ok(parsed) => parsed,
                 };
 
@@ -242,13 +242,13 @@ impl Cookie {
                 let full_date = [date_parts[1], date_parts[2], date_parts[4]].join("-");
 
                 let date = match Date::parse(full_date.as_str(), date_format) {
-                    Err(e) => return Err(CookieParsingError::DateError(e.to_string())),
+                    Err(e) => return Err(ParsingError::Date(e.to_string())),
                     Ok(date) => date,
                 };
 
                 let time_format = format_description!("[hour]:[minute]:[second]");
                 let time = match Time::parse(date_parts[3], time_format) {
-                    Err(e) => return Err(CookieParsingError::TimeError(e.to_string())),
+                    Err(e) => return Err(ParsingError::Time(e.to_string())),
                     Ok(parsed) => parsed,
                 };
 
@@ -272,13 +272,13 @@ impl Cookie {
                 let date_format = format_description!("[day]-[month repr:short]-[year]");
 
                 let date = match Date::parse(correct_date.trim(), date_format) {
-                    Err(e) => return Err(CookieParsingError::DateError(e.to_string())),
+                    Err(e) => return Err(ParsingError::Date(e.to_string())),
                     Ok(date) => date,
                 };
 
                 let time_format = format_description!("[hour]:[minute]:[second]");
                 let time = match Time::parse(date_parts[2], time_format) {
-                    Err(e) => return Err(CookieParsingError::TimeError(e.to_string())),
+                    Err(e) => return Err(ParsingError::Time(e.to_string())),
                     Ok(parsed) => parsed,
                 };
 
@@ -289,7 +289,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_max_age(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
+    fn parse_max_age(cookie: &mut Cookie, value: Option<&str>) -> Result<(), ParsingError> {
         if let Some(max_age) = value {
             let value = if max_age.starts_with('-') {
                 "0"
@@ -299,7 +299,7 @@ impl Cookie {
 
             let val = match value.parse::<i64>() {
                 Err(e) => {
-                    return Err(CookieParsingError::Parsing(String::from("i16"), e.to_string()));
+                    return Err(ParsingError::Parsing(String::from("i16"), e.to_string()));
                 }
                 Ok(val) => val,
             };
@@ -312,7 +312,7 @@ impl Cookie {
         Ok(())
     }
 
-    fn parse_domain(cookie: &mut Cookie, value: Option<&str>) -> Result<(), CookieParsingError> {
+    fn parse_domain(cookie: &mut Cookie, value: Option<&str>) -> Result<(), ParsingError> {
         if let Some(domain) = value {
             let mut domain_mut = domain;
 
@@ -322,7 +322,7 @@ impl Cookie {
 
             let domain = match Host::parse(domain_mut) {
                 Err(e) => {
-                    return Err(CookieParsingError::Parsing(String::from("host"), e.to_string()));
+                    return Err(ParsingError::Parsing(String::from("host"), e.to_string()));
                 }
                 Ok(host) => host,
             };
@@ -482,7 +482,7 @@ impl CookieBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Cookie, CookieParsingError> {
+    pub fn build(self) -> Result<Cookie, ParsingError> {
         let cookie = Cookie {
             name: self.name,
             value: self.value,

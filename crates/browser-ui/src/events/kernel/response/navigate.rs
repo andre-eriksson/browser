@@ -7,7 +7,7 @@ use iced::{Task, window::Id};
 use io::{CacheEntry, CacheRead, DocumentPolicy, ReferrerPolicy};
 use layout::{LayoutEngine, Rect};
 use renderer::image::ImageCache;
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 
 use crate::{
     core::{Application, TabId},
@@ -65,7 +65,7 @@ pub(crate) fn on_navigation_success(
             if let Ok(CacheEntry::Loaded(decoded)) = image_cache.get_with_vary(&src, "")
                 && let CacheRead::Hit(ref data) = *decoded
             {
-                debug!("Image cache hit (disk): {} ({}×{})", src, data.width, data.height);
+                trace!("Image cache hit (disk): {} ({}×{})", src, data.width, data.height);
                 tab.set_image_dimensions(src.clone(), data.width as f32, data.height as f32);
 
                 tab.set_image_vary_key(&src, String::new());
@@ -134,7 +134,7 @@ pub(crate) fn on_navigation_success(
 }
 
 pub(crate) fn on_navigation_error(_application: &mut Application, error: NavigationError) -> Task<Event> {
-    error!("Navigation error: {}", error);
+    error!(%error, "Navigation failed");
     Task::none()
 }
 
@@ -162,7 +162,9 @@ pub(crate) fn on_image_loaded(
             },
             move |result| match result {
                 Ok((url, decoded)) => {
-                    let _ = cache.store(url.clone(), decoded, &headers);
+                    if let Err(error) = cache.store(url.clone(), decoded, &headers) {
+                        debug!(%error, "Failed to store image in cache");
+                    }
                     Event::Browser(BrowserEvent::ImageLoaded(window_id, tab_id, url, vary_key))
                 }
                 Err((url, err)) => {

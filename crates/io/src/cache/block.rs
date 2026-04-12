@@ -66,7 +66,7 @@ impl BlockFile {
     pub fn write(value: &[u8], header: &mut CacheHeader) -> Result<(u32, u32, u32, u32), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+            None => return Err(CacheError::CacheDirectoryNotFound),
         };
 
         let block_dir = cache_path.join(BLOCK_DIR);
@@ -79,15 +79,15 @@ impl BlockFile {
             magic: MAGIC,
             version: VERSION,
         })
-        .map_err(|e| CacheError::WriteError(format!("Failed to serialize block header: {}", e)))?;
+        .map_err(CacheError::Serialization)?;
 
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&path)
-            .map_err(CacheError::IoError)?;
+            .map_err(CacheError::Io)?;
 
-        let file_len = file.metadata().map_err(CacheError::IoError)?.len();
+        let file_len = file.metadata().map_err(CacheError::Io)?.len();
 
         if file_len == 0 {
             file.write_all(&block_header_bytes)?;
@@ -97,13 +97,12 @@ impl BlockFile {
 
         header.content_size = value.len() as u32;
 
-        let header_bytes = postcard::to_stdvec(&header)
-            .map_err(|e| CacheError::WriteError(format!("Failed to serialize header: {}", e)))?;
+        let header_bytes = postcard::to_stdvec(&header).map_err(CacheError::Serialization)?;
 
         let header_size = header_bytes.len() as u32;
         let content_size = value.len() as u32;
 
-        let actual_offset = file.metadata().map_err(CacheError::IoError)?.len() as u32;
+        let actual_offset = file.metadata().map_err(CacheError::Io)?.len() as u32;
 
         file.write_all(&header_bytes)?;
         file.write_all(value)?;
@@ -126,7 +125,7 @@ impl BlockFile {
     ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::ReadError(String::from("Cache path not found"))),
+            None => return Err(CacheError::CacheDirectoryNotFound),
         };
 
         let data_path = cache_path
@@ -184,7 +183,7 @@ impl BlockFile {
     pub fn delete(block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+            None => return Err(CacheError::CacheDirectoryNotFound),
         };
 
         let data_path = cache_path
@@ -200,11 +199,10 @@ impl BlockFile {
 
         header.dead = true;
 
-        let header_bytes = postcard::to_stdvec(&header)
-            .map_err(|_| CacheError::WriteError(String::from("Failed to serialize header")))?;
+        let header_bytes = postcard::to_stdvec(&header).map_err(CacheError::Serialization)?;
 
         if header_bytes.len() as u32 != header_size {
-            return Err(CacheError::WriteError(String::from("Serialized header size mismatch")));
+            return Err(CacheError::Write("header size mismatch".to_string()));
         }
 
         file.seek(SeekFrom::Start(offset as u64))?;
@@ -227,7 +225,7 @@ impl BlockFile {
     pub fn compact() -> Result<(), CacheError> {
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+            None => return Err(CacheError::CacheDirectoryNotFound),
         };
 
         let block_dir = cache_path.join(BLOCK_DIR);
@@ -235,8 +233,7 @@ impl BlockFile {
             return Ok(());
         }
 
-        let conn = IndexDatabase::open()
-            .map_err(|e| CacheError::WriteError(format!("Failed to open index database: {}", e)))?;
+        let conn = IndexDatabase::open().map_err(CacheError::Database)?;
 
         let mut files: Vec<(PathBuf, u32)> = fs::read_dir(&block_dir)?
             .flatten()
@@ -323,7 +320,7 @@ impl BlockFile {
             let temp_path = path.with_extension("tmp");
 
             {
-                let mut new_file = File::create(&temp_path).map_err(CacheError::IoError)?;
+                let mut new_file = File::create(&temp_path).map_err(CacheError::Io)?;
 
                 new_file.write_all(&data[..block_header_size])?;
 
@@ -386,7 +383,7 @@ impl BlockFile {
         files.sort_by_key(|(_, num)| *num);
 
         for (path, num) in &files {
-            let meta = fs::metadata(path).map_err(CacheError::IoError)?;
+            let meta = fs::metadata(path).map_err(CacheError::Io)?;
             if meta.len() + item_size as u64 <= MAX_BLOCK_SIZE {
                 return Ok((path.clone(), *num));
             }

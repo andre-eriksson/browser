@@ -34,7 +34,7 @@ impl LargeFile {
         let str_sha = Self::hash_to_hex(&sha);
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::WriteError(String::from("Cache path not found"))),
+            None => return Err(CacheError::CacheDirectoryNotFound),
         };
 
         let path = cache_path
@@ -51,7 +51,7 @@ impl LargeFile {
             .open(path.join(METADATA_FILE))
         {
             Ok(file) => file,
-            Err(e) => return Err(CacheError::IoError(e)),
+            Err(e) => return Err(CacheError::Io(e)),
         };
 
         let content_file = match OpenOptions::new()
@@ -61,23 +61,16 @@ impl LargeFile {
             .open(path.join(CONTENT_FILE))
         {
             Ok(file) => file,
-            Err(e) => return Err(CacheError::IoError(e)),
+            Err(e) => return Err(CacheError::Io(e)),
         };
 
         let mut meta_writer = BufWriter::new(metadata_file);
-        postcard::to_io(&header, &mut meta_writer)
-            .map_err(|_| CacheError::WriteError(String::from("Failed to serialize header")))?;
-        meta_writer
-            .flush()
-            .map_err(|_| CacheError::WriteError(String::from("Failed to flush header")))?;
+        postcard::to_io(&header, &mut meta_writer).map_err(CacheError::Serialization)?;
+        meta_writer.flush().map_err(CacheError::Io)?;
 
         let mut content_writer = BufWriter::new(content_file);
-        content_writer
-            .write_all(data)
-            .map_err(|_| CacheError::WriteError(String::from("Failed to write content data")))?;
-        content_writer
-            .flush()
-            .map_err(|_| CacheError::WriteError(String::from("Failed to flush content data")))?;
+        content_writer.write_all(data).map_err(CacheError::Io)?;
+        content_writer.flush().map_err(CacheError::Io)?;
 
         Ok(data.len() as u32)
     }
@@ -90,7 +83,7 @@ impl LargeFile {
 
         let cache_path = match get_cache_path() {
             Some(path) => path,
-            None => return Err(CacheError::ReadError(String::from("Cache path not found"))),
+            None => return Err(CacheError::CacheDirectoryNotFound),
         };
 
         let path = cache_path
@@ -102,7 +95,7 @@ impl LargeFile {
         let content_path = path.join(CONTENT_FILE);
 
         if !std::path::Path::new(&metadata_path).exists() || !std::path::Path::new(&content_path).exists() {
-            return Err(CacheError::ReadError(String::from("Large file not found")));
+            return Err(CacheError::Read(String::from("large file not found")));
         }
 
         let meta_data = std::fs::read(&metadata_path)?;
@@ -118,8 +111,7 @@ impl LargeFile {
     /// with the entry, including both the metadata and content files. If the entry does not exist, it simply returns `Ok(())`,
     /// ensuring that the method is idempotent and does not fail if the entry is already absent.
     pub fn delete(sha: [u8; 32]) -> Result<(), CacheError> {
-        let cache_path =
-            get_cache_path().ok_or_else(|| CacheError::WriteError(String::from("Cache path not found")))?;
+        let cache_path = get_cache_path().ok_or(CacheError::CacheDirectoryNotFound)?;
         let str_sha = Self::hash_to_hex(&sha);
 
         let path = cache_path

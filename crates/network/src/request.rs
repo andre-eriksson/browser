@@ -111,9 +111,7 @@ impl RequestBuilder {
     /// # Errors
     /// * `NetworkError::InvalidUrl` if the URL is invalid or cannot be joined with the current URL.
     pub fn from_relative_url(starting_url: &Url, url: &str) -> Result<Self, NetworkError> {
-        let joined_url = starting_url
-            .join(url)
-            .map_err(|err| NetworkError::InvalidUrl(format!("Failed to join URL '{url}': {err}")))?;
+        let joined_url = starting_url.join(url).map_err(NetworkError::InvalidUrl)?;
 
         Ok(RequestBuilder::from(joined_url))
     }
@@ -129,8 +127,7 @@ impl RequestBuilder {
     /// # Errors
     /// * `NetworkError::InvalidUrl` if the URL is invalid.
     pub fn try_new(url: &str) -> Result<Self, NetworkError> {
-        let parsed_url =
-            Url::parse(url).map_err(|err| NetworkError::InvalidUrl(format!("Failed to parse URL '{url}': {err}")))?;
+        let parsed_url = Url::parse(url).map_err(NetworkError::InvalidUrl)?;
 
         Ok(RequestBuilder {
             method: Method::GET,

@@ -90,8 +90,8 @@ impl EventHandler<BrowserEvent> for Application {
                 on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
             }
 
-            BrowserEvent::Error(msg) => {
-                error!("Browser error: {}", msg);
+            BrowserEvent::Error(error) => {
+                error!(%error, "Browser error occurred");
                 Task::none()
             }
         }

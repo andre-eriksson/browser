@@ -3,17 +3,17 @@ use thiserror::Error;
 /// Errors related to network operations, preventing successful completion of a network request.
 #[derive(Error, Debug, Clone)]
 pub enum NetworkError {
-    #[error("Network error: {0}")]
-    RuntimeError(String),
-
     #[error("Connection timed out")]
     Timeout,
 
     #[error("Connection refused")]
     ConnectionRefused,
 
-    #[error("Invalid URL: {0}")]
-    InvalidUrl(String),
+    #[error("Failed to decode URL: {0}")]
+    Decode(String),
+
+    #[error(transparent)]
+    InvalidUrl(#[from] url::ParseError),
 
     #[error("Invalid header: {0}")]
     InvalidHeader(String),

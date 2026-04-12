@@ -3,36 +3,36 @@ use thiserror::Error;
 /// Subsystem errors sits at the boundary of a subsystem and the engine.
 #[derive(Error, Debug)]
 pub enum UiError {
-    #[error("UI Runtime error: {0}")]
-    RuntimeError(String),
+    #[error(transparent)]
+    Runtime(#[from] iced::Error),
 }
 
 #[derive(Error, Debug, Clone)]
 pub enum BrowserError {
-    #[error("Tab | {0}")]
-    TabError(TabError),
+    #[error(transparent)]
+    Tab(#[from] TabError),
 
-    #[error("Unable to load image: {0}")]
-    ImageLoadError(String),
+    #[error("unable to load image: {0}")]
+    ImageLoad(String),
 }
 
 #[derive(Error, Debug, Clone)]
 pub enum TabError {
-    #[error("ID {0:?} not found")]
+    #[error("tab id {0:?} not found")]
     TabNotFound(usize),
 
-    #[error("No tabs available")]
+    #[error("no tabs available")]
     NoTabsAvailable,
 
-    #[error("No active tab available")]
+    #[error("no active tab available")]
     NoActiveTab,
 
-    #[error("Tab has no URL to navigate to")]
+    #[error("tab has no URL to navigate to")]
     NoUrl,
 
-    #[error("Tab has no history to navigate back or forward")]
-    NoHistory,
+    #[error("tab has no backward history")]
+    NoBackHistory,
 
-    #[error("DevTools error: {0}")]
-    DevtoolsError(String),
+    #[error("tab has no forward history")]
+    NoForwardHistory,
 }

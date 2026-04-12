@@ -78,8 +78,7 @@ where
         let sha = Self::hash_url(key.as_ref(), vary);
 
         if let Some(data) = DiskCache::get(sha)? {
-            let deserialized: V = postcard::from_bytes(&data)
-                .map_err(|_| CacheError::ReadError(String::from("Failed to deserialize cache data")))?;
+            let deserialized: V = postcard::from_bytes(&data).map_err(CacheError::Serialization)?;
             let entry = CacheEntry::Loaded(Arc::new(CacheRead::Hit(deserialized)));
             self.insert(key.clone(), entry.clone());
             Ok(entry)
@@ -107,8 +106,7 @@ where
         let sha = Self::hash_url(key.as_ref(), &vary);
 
         if let Some(data) = DiskCache::get(sha)? {
-            let deserialized: V = postcard::from_bytes(&data)
-                .map_err(|_| CacheError::ReadError(String::from("Failed to deserialize cache data")))?;
+            let deserialized: V = postcard::from_bytes(&data).map_err(CacheError::Serialization)?;
             Ok(Some(deserialized))
         } else {
             Ok(None)
@@ -121,7 +119,7 @@ where
             match entries.entry(key.clone()) {
                 Entry::Occupied(mut occ) => match occ.get() {
                     CacheEntry::Loaded(_) => {
-                        return Err(CacheError::WriteError(String::from("Cache entry already exists for this key")));
+                        return Err(CacheError::Write("entry already exists for this key".to_string()));
                     }
                     _ => {
                         occ.insert(CacheEntry::Pending);
@@ -133,9 +131,9 @@ where
             }
         }
 
-        if let Err(e) = self.store_on_disk(&key, &value, headers) {
+        if let Err(error) = self.store_on_disk(&key, &value, headers) {
             self.mark_failed(key.clone());
-            return Err(e);
+            return Err(error);
         }
 
         self.insert(key, CacheEntry::Loaded(Arc::new(CacheRead::Hit(value))));
@@ -148,8 +146,7 @@ where
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
-        let serialized =
-            to_stdvec(value).map_err(|_| CacheError::WriteError(String::from("Failed to serialize cache data")))?;
+        let serialized = to_stdvec(value).map_err(CacheError::Serialization)?;
 
         let cache_control = CacheControlResponse::from(
             headers
@@ -159,7 +156,7 @@ where
         );
 
         if cache_control.no_store {
-            return Err(CacheError::WriteError(String::from("Cache-Control: no-store prevents caching")));
+            return Err(CacheError::Write(String::from("\"cache-control: no-store\" prevents caching")));
         }
 
         let header = CacheHeader::new(serialized.as_slice(), sha, &vary, headers, &cache_control);
@@ -235,7 +232,7 @@ where
             .unwrap_or_default();
 
         if vary.eq_ignore_ascii_case("*") {
-            return Err(CacheError::WriteError(String::from("Vary: * prevents caching")));
+            return Err(CacheError::Write(String::from("\"vary: *\" prevents caching")));
         } else if vary.is_empty() {
             return Ok(String::new());
         }
@@ -245,7 +242,7 @@ where
         for header in vary.split(',').map(|s| s.trim()) {
             let name = header
                 .parse::<HeaderName>()
-                .map_err(|_| CacheError::WriteError(format!("Invalid header name in Vary: '{}'", header)))?;
+                .map_err(|_| CacheError::Write(format!("invalid header name in \"vary: {}\"", header)))?;
 
             let value = headers
                 .get(&name)

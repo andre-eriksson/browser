@@ -1,6 +1,6 @@
 use crate::{
     context::page::PageMetadata,
-    errors::{KernelError, NavigationError},
+    errors::{CoreError, NavigationError},
 };
 use async_trait::async_trait;
 use html_dom::DocumentRoot;
@@ -12,7 +12,7 @@ use crate::context::page::Page;
 
 #[async_trait]
 pub trait Commandable {
-    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, KernelError>;
+    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, CoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +39,7 @@ pub enum EngineResponse {
     ImageFetched(String, Vec<u8>, HeaderMap),
 
     /// A general browser error occurred (for errors that don't fit other categories).
-    Error(KernelError),
+    Error(CoreError),
 }
 
 /// Represents commands that can be issued to the browser.

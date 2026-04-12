@@ -1,30 +1,45 @@
 use html_parser::errors::HtmlParsingError;
+use io::errors::ResourceError;
 use network::errors::RequestError;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
 pub enum NavigationError {
-    #[error("Navigation failed due to a parsing error: {0}")]
-    ParsingError(#[from] HtmlParsingError),
+    #[error("failed to parse HTML for {url}")]
+    Parsing {
+        url: String,
+        #[source]
+        source: HtmlParsingError,
+    },
 
-    #[error("Navigation failed due to a request error: {0}")]
-    RequestError(#[from] RequestError),
+    #[error("request failed for {url}")]
+    Request {
+        url: String,
+        #[source]
+        source: RequestError,
+    },
 
-    #[error("Navigation failed because the cookie jar is locked")]
+    #[error(transparent)]
+    Resource(#[from] ResourceError),
+
+    #[error("invalid navigation target: {0}")]
+    Forbidden(String),
+
+    #[error("cookie jar is locked")]
     CookieJarLocked,
 }
 
 #[derive(Error, Debug, Clone)]
-pub enum KernelError {
-    #[error("Navigation error: {0}")]
-    NavigationError(#[from] NavigationError),
+pub enum CoreError {
+    #[error(transparent)]
+    Navigation(#[from] NavigationError),
 
-    #[error("Failed to fetch image: {0}")]
-    ImageFetchError(String),
+    #[error("failed to get an image")]
+    Image,
 
-    #[error("The current browser doesn't support this command.")]
+    #[error("the current browser doesn't support this command.")]
     UnsupportedCommand,
 
-    #[error("Failed to generate devtools HTML: {0}")]
-    DevtoolsGenerationError(String),
+    #[error("failed to generate devtools HTML: {0}")]
+    DevtoolsGeneration(String),
 }

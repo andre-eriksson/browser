@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use constants::{
     events::{EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET},
     keys::EVENT,
@@ -12,7 +10,6 @@ use network::{
     errors::{NetworkError, RequestError},
     request::RequestBuilder,
 };
-use storage::paths::{get_cache_path, get_config_path, get_data_path};
 use tracing::{instrument, trace, warn};
 #[cfg(feature = "network")]
 use url::Url;
@@ -21,97 +18,11 @@ use url::Url;
 use crate::{DocumentPolicy, RequestResult, network::request::NetworkService};
 
 use crate::{
+    Entry,
     embeded::EmbededType,
-    errors::AssetError,
+    errors::ResourceError,
     loader::{Loader, Writer},
 };
-
-#[derive(Debug)]
-pub enum FilePath {
-    Cache,
-    Config,
-    UserData,
-    Absolute,
-}
-
-#[derive(Debug)]
-pub struct Entry<'path> {
-    location: &'path str,
-    file_path: FilePath,
-}
-
-impl<'path> Entry<'path> {
-    pub fn location(&self) -> &'path str {
-        self.location
-    }
-
-    pub const fn cache(path: &'path str) -> Self {
-        Self {
-            location: path,
-            file_path: FilePath::Cache,
-        }
-    }
-
-    pub const fn config(path: &'path str) -> Self {
-        Self {
-            location: path,
-            file_path: FilePath::Config,
-        }
-    }
-
-    pub const fn user_data(path: &'path str) -> Self {
-        Self {
-            location: path,
-            file_path: FilePath::UserData,
-        }
-    }
-
-    pub fn absolute(path: &'path str) -> Self {
-        Self {
-            location: path,
-            file_path: FilePath::Absolute,
-        }
-    }
-
-    pub fn path(&self) -> Option<PathBuf> {
-        match self.file_path {
-            FilePath::Cache => {
-                let cache_path = get_cache_path();
-
-                match cache_path {
-                    Some(path) => Some(path.join(self.location)),
-                    None => {
-                        warn!("Cache directory is unavailable");
-                        None
-                    }
-                }
-            }
-            FilePath::Config => {
-                let config_path = get_config_path();
-
-                match config_path {
-                    Some(path) => Some(path.join(self.location)),
-                    None => {
-                        warn!("Config directory is unavailable");
-                        None
-                    }
-                }
-            }
-            FilePath::UserData => {
-                let user_data_path = get_data_path();
-
-                match user_data_path {
-                    Some(path) => Some(path.join(self.location)),
-                    None => {
-                        warn!("User data directory is unavailable");
-                        None
-                    }
-                }
-            }
-            FilePath::Absolute => Some(PathBuf::from(self.location)),
-        }
-    }
-}
 
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
@@ -137,7 +48,7 @@ impl ResourceType<'_> {
             ResourceType::Embeded(embeded) => embeded.path(),
             ResourceType::Path(file) => file
                 .path()
-                .map_or_else(|| file.location.to_string(), |p| p.to_string_lossy().to_string()),
+                .map_or_else(|| file.location().to_string(), |p| p.to_string_lossy().to_string()),
             ResourceType::Absolute { location, .. } => location.to_string(),
         }
     }
@@ -161,7 +72,7 @@ impl Resource {
             Some(u) => u.join(url),
             None => Url::parse(url),
         }
-        .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
+        .map_err(|error| RequestError::Network(NetworkError::InvalidUrl(error)))?;
 
         let request = RequestBuilder::from(url).build();
         let mut service = NetworkService::new(client, cookies, browser_headers);
@@ -174,7 +85,7 @@ impl Resource {
     }
 
     /// Loads an asset from the specified resource type, handling both embedded and filesystem resources.
-    pub fn load(resource: ResourceType) -> Result<Vec<u8>, AssetError> {
+    pub fn load(resource: ResourceType) -> Result<Vec<u8>, ResourceError> {
         let path = resource.key();
         trace!({ EVENT } = EVENT_LOAD_ASSET);
 
@@ -185,16 +96,16 @@ impl Resource {
         }
 
         trace!({ EVENT } = EVENT_ASSET_NOT_FOUND);
-        Err(AssetError::NotFound(path))
+        Err(ResourceError::NotFound(path))
     }
 
-    pub fn load_dir(dir: Entry) -> Result<Vec<Vec<u8>>, AssetError> {
+    pub fn load_dir(dir: Entry) -> Result<Vec<Vec<u8>>, ResourceError> {
         if let Some(path) = dir.path() {
             let mut result = Vec::new();
             for entry in
-                std::fs::read_dir(path).map_err(|_| AssetError::NotFound("Directory doesn't exist".to_string()))?
+                std::fs::read_dir(path).map_err(|_| ResourceError::NotFound("Directory doesn't exist".to_string()))?
             {
-                let entry = entry.map_err(|_| AssetError::NotFound("Entry doesn't exist".to_string()))?;
+                let entry = entry.map_err(|_| ResourceError::NotFound("Entry doesn't exist".to_string()))?;
                 let path = entry.path();
 
                 if path.is_file()
@@ -206,13 +117,13 @@ impl Resource {
 
             Ok(result)
         } else {
-            Err(AssetError::NotFound("Directory path is unavailable".to_string()))
+            Err(ResourceError::NotFound("Directory path is unavailable".to_string()))
         }
     }
 
     /// Writes data to a specified resource, such as cache or config files.
     /// This operation is not supported for embedded or absolute resources.
-    pub fn write<C>(resource: ResourceType, data: C) -> Result<(), AssetError>
+    pub fn write<C>(resource: ResourceType, data: C) -> Result<(), ResourceError>
     where
         C: AsRef<[u8]>,
     {

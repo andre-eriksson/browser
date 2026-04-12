@@ -130,11 +130,10 @@ impl CookieJar {
         // TODO: Mark updated cookies as dirty then |
         //                                          v
         // TODO: Scheduler should periodically save cookies
-        if let Ok(connection) = CookieDatabase::open() {
-            match CookieTable::create_table(&connection) {
-                Ok(()) => debug!("Cookie table created successfully"),
-                Err(err) => debug!("Failed to create cookie table: {}", err),
-            }
+        if let Ok(connection) = CookieDatabase::open()
+            && let Err(err) = CookieTable::create_table(&connection)
+        {
+            debug!("Failed to create cookie table: {}", err);
         }
 
         if let Some(pos) = self

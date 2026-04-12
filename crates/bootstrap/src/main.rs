@@ -47,9 +47,9 @@ fn main() {
 
     let ui = Ui::run(browser, config);
 
-    if let Err(e) = ui {
-        error!("Application exited with error: {:?}", e);
+    if let Err(error) = ui {
+        error!(%error, "Application exited unsuccessfully.");
+    } else {
+        info!("Application exited successfully.");
     }
-
-    info!("Application exited successfully.");
 }

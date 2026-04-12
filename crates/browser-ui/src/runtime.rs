@@ -35,17 +35,7 @@ impl Ui {
 
         match result {
             Ok(_) => Ok(()),
-            Err(e) => match e {
-                iced::Error::ExecutorCreationFailed(msg) => {
-                    Err(UiError::RuntimeError(format!("Executor Creation Failed: {}", msg)))
-                }
-                iced::Error::GraphicsCreationFailed(msg) => {
-                    Err(UiError::RuntimeError(format!("Graphics Creation Failed: {}", msg)))
-                }
-                iced::Error::WindowCreationFailed(msg) => {
-                    Err(UiError::RuntimeError(format!("Window Creation Failed: {}", msg)))
-                }
-            },
+            Err(error) => Err(UiError::Runtime(error)),
         }
     }
 }

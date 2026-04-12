@@ -16,4 +16,5 @@ pub use network::{
 
 pub use cache::errors::CacheRead;
 pub use cache::memory::{CacheEntry, MemoryCache};
-pub use manager::{Entry, Resource, ResourceType};
+pub use files::Entry;
+pub use manager::{Resource, ResourceType};

@@ -119,7 +119,7 @@ pub(crate) fn on_image_loaded(
             Some(layout_tree) => {
                 Event::Browser(BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree))
             }
-            None => Event::Browser(BrowserEvent::Error(BrowserError::ImageLoadError(url.clone()))),
+            None => Event::Browser(BrowserEvent::Error(BrowserError::ImageLoad(url.clone()))),
         },
     )
 }

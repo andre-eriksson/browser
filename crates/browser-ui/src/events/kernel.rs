@@ -53,7 +53,7 @@ impl EventHandler<(Id, TabId, Box<EngineResponse>)> for Application {
             }
 
             EngineResponse::Error(error) => {
-                error!("Browser error: {:?}", error);
+                error!(%error, "Engine command failed");
                 Task::none()
             }
         }

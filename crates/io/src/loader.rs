@@ -3,36 +3,37 @@ use std::path::Path;
 use storage::paths::create_paths;
 
 use crate::{
+    Entry,
     embeded::{EmbededResource, EmbededType},
-    errors::AssetError,
-    manager::{Entry, ResourceType},
+    errors::ResourceError,
+    manager::ResourceType,
 };
 
 pub trait Loader {
-    fn load_asset(self) -> Result<Vec<u8>, AssetError>;
+    fn load_asset(self) -> Result<Vec<u8>, ResourceError>;
 }
 
 pub trait Writer {
-    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError>;
+    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), ResourceError>;
 }
 
 impl<'path> Loader for ResourceType<'path> {
-    fn load_asset(self) -> Result<Vec<u8>, AssetError> {
+    fn load_asset(self) -> Result<Vec<u8>, ResourceError> {
         match self {
             ResourceType::Path(entry) => {
                 let dir = entry
                     .path()
-                    .ok_or_else(|| AssetError::InvalidPath(entry.location().to_string()))?;
+                    .ok_or_else(|| ResourceError::InvalidPath(entry.location().to_string()))?;
 
                 if !dir.is_file() {
-                    return Err(AssetError::NotFound(entry.location().to_string()));
+                    return Err(ResourceError::NotFound(entry.location().to_string()));
                 }
 
-                std::fs::read(dir).map_err(|_| AssetError::NotFound(entry.location().to_string()))
+                std::fs::read(dir).map_err(|_| ResourceError::NotFound(entry.location().to_string()))
             }
             ResourceType::Embeded(asset) => EmbededResource::get(&asset.path())
                 .map(|file| file.data.into_owned())
-                .ok_or_else(|| AssetError::NotFound(asset.path())),
+                .ok_or_else(|| ResourceError::NotFound(asset.path())),
             ResourceType::Absolute { protocol, location } => match protocol {
                 "file" => Self::load_asset(ResourceType::Path(Entry::absolute(location))),
                 "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location))),
@@ -40,30 +41,30 @@ impl<'path> Loader for ResourceType<'path> {
                     let adjusted_location = location.trim_start_matches("about:");
                     Self::load_asset(ResourceType::Embeded(EmbededType::Browser(adjusted_location)))
                 }
-                _ => Err(AssetError::UnsupportedProtocol(protocol.to_string())),
+                _ => Err(ResourceError::UnsupportedProtocol(protocol.to_string())),
             },
         }
     }
 }
 
 impl<'path> Writer for ResourceType<'path> {
-    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), AssetError> {
+    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), ResourceError> {
         match self {
-            ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(AssetError::UnsupportedOperation(
+            ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(ResourceError::UnsupportedOperation(
                 "Cannot create or modify embedded or absolute resources".to_string(),
             )),
             ResourceType::Path(file) => {
                 let path = file
                     .path()
-                    .ok_or_else(|| AssetError::InvalidPath(file.location().to_string()))?;
+                    .ok_or_else(|| ResourceError::InvalidPath(file.location().to_string()))?;
 
                 if !is_relative_path(file.location()) {
-                    return Err(AssetError::InvalidPath(file.location().to_string()));
+                    return Err(ResourceError::InvalidPath(file.location().to_string()));
                 }
 
                 create_paths(&path.parent().unwrap().to_path_buf())
-                    .map_err(|_| AssetError::WriteFailed(file.location().to_string()))?;
-                std::fs::write(path, data).map_err(|_| AssetError::WriteFailed(file.location().to_string()))
+                    .map_err(|error| ResourceError::Io(error.to_string()))?;
+                std::fs::write(path, data).map_err(|error| ResourceError::Io(error.to_string()))
             }
         }
     }

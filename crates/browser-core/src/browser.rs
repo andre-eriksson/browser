@@ -6,7 +6,7 @@ use std::{
 use crate::{
     Page,
     commands::{load_image, parse_devtools_html},
-    errors::KernelError,
+    errors::CoreError,
 };
 use async_trait::async_trait;
 use browser_config::BrowserConfig;
@@ -19,7 +19,7 @@ use io::{
 };
 use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
-use tracing::{instrument, trace, warn};
+use tracing::{Instrument, instrument, trace, warn};
 
 use crate::{
     commands::navigate,
@@ -119,24 +119,29 @@ impl NavigationContext for Browser {
 
 #[async_trait]
 impl Commandable for Browser {
-    #[instrument(skip(self))]
-    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, KernelError> {
+    #[instrument(skip(self), level = "trace")]
+    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, CoreError> {
         match command {
             EngineCommand::Navigate {
                 url,
                 navigation_type,
             } => {
+                let span = tracing::debug_span!("Browser::Navigate");
+
                 let stylesheets = if let Some(default) = &self.default_stylesheet {
                     vec![default.clone()]
                 } else {
                     vec![]
                 };
 
-                let (page, metadata) = navigate(self, &url, stylesheets).await?;
+                let (page, metadata) = navigate(self, &url, stylesheets).instrument(span).await?;
 
                 Ok(EngineResponse::NavigateSuccess(page, metadata, navigation_type))
             }
             EngineCommand::GetDevtoolsPage { document } => {
+                let span = tracing::debug_span!("Browser::GetDevtoolsPage");
+                let _enter = span.enter();
+
                 let default_css = {
                     let css_resource = Resource::load_embedded(DEFAULT_CSS);
                     CSSStyleSheet::from_css(
@@ -157,8 +162,7 @@ impl Commandable for Browser {
                 };
 
                 let stylesheets = vec![default_css, devtools_css];
-                let dom =
-                    parse_devtools_html(&document).map_err(|e| KernelError::DevtoolsGenerationError(e.to_string()))?;
+                let dom = parse_devtools_html(&document).map_err(|e| CoreError::DevtoolsGeneration(e.to_string()))?;
 
                 let devtools_page = Page::new(dom, stylesheets);
 
@@ -168,7 +172,13 @@ impl Commandable for Browser {
                 request_url,
                 request_policies,
                 image_url,
-            } => load_image(self, request_url, request_policies, &image_url).await,
+            } => {
+                let span = tracing::debug_span!("Browser::FetchImage");
+
+                load_image(self, request_url, request_policies, &image_url)
+                    .instrument(span)
+                    .await
+            }
         }
     }
 }

@@ -11,27 +11,30 @@ pub enum CacheRead<T: Clone> {
 
 #[derive(Error, Debug)]
 pub enum CacheError {
-    #[error("Failed to serialize/deserialize cache data: {0}")]
-    SerializationError(#[from] postcard::Error),
+    #[error("cache directory not found, check if the cache directory exists and is writable.")]
+    CacheDirectoryNotFound,
 
-    #[error("Failed to read cache file: {0}")]
-    ReadError(String),
+    #[error(transparent)]
+    Serialization(#[from] postcard::Error),
 
-    #[error("Failed to write cache file: {0}")]
-    WriteError(String),
+    #[error(transparent)]
+    Database(#[from] rusqlite::Error),
 
-    #[error("Cache index is corrupted")]
+    #[error("{0}")]
+    Read(String),
+
+    #[error("{0}")]
+    Write(String),
+
+    #[error("cache index is corrupted")]
     CorruptedIndex,
 
-    #[error("Cache header is corrupted")]
+    #[error("cache header is corrupted")]
     CorruptedHeader,
 
-    #[error("Cache block is corrupted")]
+    #[error("cache block is corrupted")]
     CorruptedBlock,
 
-    #[error("I/O error: {0}")]
-    IoError(#[from] std::io::Error),
-
-    #[error("Asset error: {0}")]
-    AssetError(#[from] crate::errors::AssetError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }

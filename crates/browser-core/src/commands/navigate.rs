@@ -16,7 +16,7 @@ use network::{
     response::Response,
 };
 use tokio::task::JoinHandle;
-use tracing::{debug, warn};
+use tracing::{Instrument, debug, warn};
 use url::Url;
 
 use crate::{
@@ -56,7 +56,10 @@ pub(crate) async fn navigate(
     let body = match response.body {
         Some(b) => b,
         None => {
-            return Err(NavigationError::RequestError(RequestError::EmptyBody));
+            return Err(NavigationError::Request {
+                source: RequestError::EmptyBody,
+                url: url.to_string(),
+            });
         }
     };
 
@@ -67,7 +70,10 @@ pub(crate) async fn navigate(
     let mut parser = HtmlStreamParser::new(body.as_slice(), None, Some(TabCollector::default()));
 
     loop {
-        parser.step()?;
+        parser.step().map_err(|e| NavigationError::Parsing {
+            url: url.to_string(),
+            source: e,
+        })?;
 
         match parser.get_state() {
             ParserState::Running => continue,
@@ -110,38 +116,56 @@ pub(crate) async fn navigate(
                                 // let _ = parser.extract_script_content()?;
                                 // ctx.script_executor().execute_script(&script_text);
                             }
-                            Err(e) => {
+                            Err(error) => {
                                 warn!(
                                     "{}",
-                                    NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-                                        e.to_string()
-                                    ),))
+                                    NavigationError::Request {
+                                        source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                                        url: src.to_string(),
+                                    }
                                 );
                             }
                         }
                     } else {
-                        let script_content = parser.extract_script_content()?;
+                        let script_content = parser
+                            .extract_script_content()
+                            .map_err(|e| NavigationError::Parsing {
+                                url: url.to_string(),
+                                source: e,
+                            })?;
                         ctx.script_executor().execute_script(&script_content);
                     }
 
-                    parser.resume()?;
+                    parser.resume().map_err(|e| NavigationError::Parsing {
+                        url: url.to_string(),
+                        source: e,
+                    })?;
                 }
                 BlockedReason::WaitingForStyle(_attributes) => {
-                    let css_content = parser.extract_style_content()?;
+                    let css_content = parser
+                        .extract_style_content()
+                        .map_err(|e| NavigationError::Parsing {
+                            url: url.to_string(),
+                            source: e,
+                        })?;
 
+                    let current_span = tracing::Span::current();
                     let handle = tokio::task::spawn_blocking(move || {
+                        let _span = current_span.enter();
                         Some(CSSStyleSheet::from_css(&css_content, StylesheetOrigin::Author, true))
                     });
                     style_handles.push(handle);
 
-                    parser.resume()?;
+                    parser.resume().map_err(|e| NavigationError::Parsing {
+                        url: url.to_string(),
+                        source: e,
+                    })?;
                 }
                 BlockedReason::WaitingForResource(resource_type, href, metadata) => match resource_type {
                     ResourceType::Style => {
-                        let relative_url = url.join(href).map_err(|e| {
-                            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-                                e.to_string(),
-                            )))
+                        let relative_url = url.join(href).map_err(|error| NavigationError::Request {
+                            source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                            url: href.to_string(),
                         })?;
 
                         let handle = spawn_style_fetch_and_parse(
@@ -154,13 +178,15 @@ pub(crate) async fn navigate(
                         );
                         style_handles.push(handle);
 
-                        parser.resume()?;
+                        parser.resume().map_err(|e| NavigationError::Parsing {
+                            url: url.to_string(),
+                            source: e,
+                        })?;
                     }
                     ResourceType::Favicon => {
-                        let relative_url = url.join(href).map_err(|e| {
-                            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-                                e.to_string(),
-                            )))
+                        let relative_url = url.join(href).map_err(|error| NavigationError::Request {
+                            source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                            url: href.to_string(),
                         })?;
 
                         favicon.content_type = metadata.content_type.clone();
@@ -172,55 +198,69 @@ pub(crate) async fn navigate(
                         let headers_clone = Arc::clone(&headers);
                         let cookies_clone = cookies.clone();
 
-                        let handle = tokio::task::spawn(async move {
-                            if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
-                                match Resource::load(io::ResourceType::Absolute {
-                                    protocol: relative_url.scheme(),
-                                    location: relative_url.path(),
-                                }) {
-                                    Ok(b) => Some(b),
-                                    Err(e) => {
-                                        debug!("Failed to load favicon {}: {}", relative_url, e);
-                                        None
-                                    }
-                                }
-                            } else {
-                                match Resource::from_remote(
-                                    relative_url.as_str(),
-                                    client_clone.as_ref(),
-                                    &cookies_clone,
-                                    &headers_clone,
-                                    Some(page_url),
-                                    &policies,
-                                )
-                                .await
-                                {
-                                    Ok(r) => match r.response().await {
-                                        Ok(body_resp) => body_resp.body,
-                                        Err(e) => {
-                                            debug!("Failed to read body for favicon {}: {}", relative_url, e);
+                        let handle = tokio::spawn(
+                            async move {
+                                if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
+                                    match Resource::load(io::ResourceType::Absolute {
+                                        protocol: relative_url.scheme(),
+                                        location: relative_url.path(),
+                                    }) {
+                                        Ok(b) => Some(b),
+                                        Err(error) => {
+                                            debug!(%error, "Failed to load favicon {}", relative_url);
                                             None
                                         }
-                                    },
-                                    Err(e) => {
-                                        debug!("Failed to fetch favicon {}: {}", relative_url, e);
-                                        None
+                                    }
+                                } else {
+                                    match Resource::from_remote(
+                                        relative_url.as_str(),
+                                        client_clone.as_ref(),
+                                        &cookies_clone,
+                                        &headers_clone,
+                                        Some(page_url),
+                                        &policies,
+                                    )
+                                    .await
+                                    {
+                                        Ok(r) => match r.response().await {
+                                            Ok(body_resp) => body_resp.body,
+                                            Err(error) => {
+                                                debug!(%error, "Failed to read body for favicon {}", relative_url);
+                                                None
+                                            }
+                                        },
+                                        Err(error) => {
+                                            debug!(%error, "Failed to fetch favicon {}", relative_url);
+                                            None
+                                        }
                                     }
                                 }
                             }
-                        });
+                            .in_current_span(),
+                        );
 
                         favicon_handle = Some(handle);
 
-                        parser.resume()?;
+                        parser.resume().map_err(|e| NavigationError::Parsing {
+                            url: url.to_string(),
+                            source: e,
+                        })?;
                     }
                 },
                 BlockedReason::SVGContent => {
-                    let _svg_content = parser.extract_svg_content()?;
+                    let _svg_content = parser
+                        .extract_svg_content()
+                        .map_err(|e| NavigationError::Parsing {
+                            url: url.to_string(),
+                            source: e,
+                        })?;
 
                     // TODO: Process SVG content
 
-                    parser.resume()?;
+                    parser.resume().map_err(|e| NavigationError::Parsing {
+                        url: url.to_string(),
+                        source: e,
+                    })?;
                 }
             },
             ParserState::Completed => {
@@ -291,10 +331,7 @@ async fn resolve_navigation_request(
             .iter()
             .all(|&allowed| allowed != location)
         {
-            return Err(NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(format!(
-                "Disallowed about URL: {}",
-                location
-            )))));
+            return Err(NavigationError::Forbidden("Disallowed about URL".to_string()));
         }
 
         let resp = Response::from(
@@ -302,9 +339,7 @@ async fn resolve_navigation_request(
                 protocol: "about",
                 location: format!("{}.html", location).as_str(),
             })
-            .map_err(|e| {
-                NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string())))
-            })?,
+            .map_err(NavigationError::Resource)?,
         );
 
         let url = Url::parse(&format!("about:{}", location)).unwrap_or(Url::parse("about:blank").unwrap());
@@ -313,17 +348,21 @@ async fn resolve_navigation_request(
     }
 
     let decoder = Decoder::new(raw_url);
-    let decoded_url = decoder
-        .decode()
-        .map_err(|e| NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string()))))?;
+    let decoded_url = decoder.decode().map_err(|error| NavigationError::Request {
+        source: RequestError::Network(NetworkError::Decode(error)),
+        url: raw_url.to_string(),
+    })?;
 
     let url = match page_url.as_ref() {
         Some(u) => u.join(&decoded_url),
         None => Url::parse(&decoded_url),
     }
-    .map_err(|e| RequestError::Network(NetworkError::InvalidUrl(e.to_string())))?;
+    .map_err(|e| NavigationError::Request {
+        source: RequestError::Network(NetworkError::InvalidUrl(e)),
+        url: raw_url.to_string(),
+    })?;
 
-    let resp = resolve_request(url, ctx, page_url, policies, cookies, headers, client).await?;
+    let resp = resolve_request(url, ctx, None, policies, cookies, headers, client).await?;
 
     Ok(resp)
 }
@@ -346,16 +385,12 @@ pub(crate) async fn resolve_request(
                             protocol: url.scheme(),
                             location: url.path(),
                         })
-                        .map_err(|e| {
-                            NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
-                                e.to_string(),
-                            )))
-                        })?,
+                        .map_err(NavigationError::Resource)?,
                     )
                 } else {
-                    return Err(NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(
+                    return Err(NavigationError::Forbidden(
                         "Cannot resolve file URL with a non-file base URL for security reasons".to_string(),
-                    ))));
+                    ));
                 }
             }
             None => Response::from(
@@ -363,17 +398,22 @@ pub(crate) async fn resolve_request(
                     protocol: url.scheme(),
                     location: url.path(),
                 })
-                .map_err(|e| {
-                    NavigationError::RequestError(RequestError::Network(NetworkError::InvalidUrl(e.to_string())))
-                })?,
+                .map_err(NavigationError::Resource)?,
             ),
         }
     } else {
         Resource::from_remote(url.as_str(), client, cookies, headers, page_url, policies)
-            .await?
+            .await
+            .map_err(|e| NavigationError::Request {
+                source: e,
+                url: url.to_string(),
+            })?
             .response()
             .await
-            .map_err(RequestError::Network)?
+            .map_err(|e| NavigationError::Request {
+                source: RequestError::Network(e),
+                url: url.to_string(),
+            })?
     };
 
     for header in resp.headers.iter() {
@@ -400,87 +440,94 @@ fn spawn_style_fetch_and_parse(
     let page_url = page_url.clone();
     let policies = DocumentPolicy::default();
 
-    tokio::spawn(async move {
-        if style_url.scheme() != "http" && style_url.scheme() != "https" {
-            let res = Resource::load(io::ResourceType::Absolute {
-                protocol: style_url.scheme(),
-                location: style_url.path(),
-            });
+    tokio::spawn(
+        async move {
+            if style_url.scheme() != "http" && style_url.scheme() != "https" {
+                let res = Resource::load(io::ResourceType::Absolute {
+                    protocol: style_url.scheme(),
+                    location: style_url.path(),
+                });
 
-            let body = match res {
-                Ok(b) => b,
-                Err(e) => {
-                    debug!("Failed to load stylesheet {}: {}", style_url, e);
-                    return None;
-                }
-            };
-
-            let stylesheet_url = style_url.clone();
-            match tokio::task::spawn_blocking(move || {
-                let css_str = String::from_utf8_lossy(&body);
-                CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
-            })
-            .await
-            {
-                Ok(stylesheet) => Some(stylesheet),
-                Err(e) => {
-                    warn!("CSS parse task panicked for {}: {}", stylesheet_url, e);
-                    None
-                }
-            }
-        } else {
-            let resp = match Resource::from_remote(
-                style_url.as_str(),
-                client.as_ref(),
-                &cookies,
-                &headers,
-                Some(page_url),
-                &policies,
-            )
-            .await
-            {
-                Ok(r) => r,
-                Err(e) => {
-                    debug!("Failed to fetch stylesheet {}: {}", style_url, e);
-                    return None;
-                }
-            };
-
-            for header in resp.metadata().headers.iter() {
-                if header.0 == SET_COOKIE
-                    && let Ok(mut cookie_jar) = cookie_jar.lock()
-                {
-                    CookieMiddleware::handle_response_cookie(&mut cookie_jar, &style_url, header.1);
-                }
-            }
-
-            let body_bytes = match resp.response().await {
-                Ok(body_resp) => match body_resp.body {
-                    Some(b) => b,
-                    None => {
-                        debug!("Empty body for stylesheet {}", style_url);
+                let body = match res {
+                    Ok(b) => b,
+                    Err(error) => {
+                        debug!(%error, "Failed to load stylesheet {}", style_url);
                         return None;
                     }
-                },
-                Err(e) => {
-                    debug!("Failed to read body for stylesheet {}: {}", style_url, e);
-                    return None;
-                }
-            };
+                };
 
-            let stylesheet_url = style_url.clone();
-            match tokio::task::spawn_blocking(move || {
-                let css_str = String::from_utf8_lossy(&body_bytes);
-                CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
-            })
-            .await
-            {
-                Ok(stylesheet) => Some(stylesheet),
-                Err(e) => {
-                    warn!("CSS parse task panicked for {}: {}", stylesheet_url, e);
-                    None
+                let stylesheet_url = style_url.clone();
+                let current_span = tracing::Span::current();
+                match tokio::task::spawn_blocking(move || {
+                    let _span = current_span.enter();
+                    let css_str = String::from_utf8_lossy(&body);
+                    CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
+                })
+                .await
+                {
+                    Ok(stylesheet) => Some(stylesheet),
+                    Err(error) => {
+                        warn!(%error, "CSS parse task panicked for {}", stylesheet_url);
+                        None
+                    }
+                }
+            } else {
+                let resp = match Resource::from_remote(
+                    style_url.as_str(),
+                    client.as_ref(),
+                    &cookies,
+                    &headers,
+                    Some(page_url),
+                    &policies,
+                )
+                .await
+                {
+                    Ok(r) => r,
+                    Err(error) => {
+                        debug!(%error, "Failed to fetch stylesheet {}", style_url);
+                        return None;
+                    }
+                };
+
+                for header in resp.metadata().headers.iter() {
+                    if header.0 == SET_COOKIE
+                        && let Ok(mut cookie_jar) = cookie_jar.lock()
+                    {
+                        CookieMiddleware::handle_response_cookie(&mut cookie_jar, &style_url, header.1);
+                    }
+                }
+
+                let body_bytes = match resp.response().await {
+                    Ok(body_resp) => match body_resp.body {
+                        Some(b) => b,
+                        None => {
+                            debug!("Empty body for stylesheet {}", style_url);
+                            return None;
+                        }
+                    },
+                    Err(error) => {
+                        debug!(%error, "Failed to read body for stylesheet {}", style_url);
+                        return None;
+                    }
+                };
+
+                let stylesheet_url = style_url.clone();
+                let current_span = tracing::Span::current();
+                match tokio::task::spawn_blocking(move || {
+                    let _span = current_span.enter();
+                    let css_str = String::from_utf8_lossy(&body_bytes);
+                    CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
+                })
+                .await
+                {
+                    Ok(stylesheet) => Some(stylesheet),
+                    Err(error) => {
+                        warn!(%error, "CSS parse task panicked for {}", stylesheet_url);
+                        None
+                    }
                 }
             }
         }
-    })
+        .in_current_span(),
+    )
 }

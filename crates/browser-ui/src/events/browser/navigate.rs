@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use browser_core::{Commandable, EngineCommand, EngineResponse, NavigationType, errors::KernelError};
+use browser_core::{Commandable, EngineCommand, EngineResponse, NavigationType, errors::CoreError};
 use iced::{Task, window::Id};
 
 use crate::{
@@ -23,7 +23,7 @@ pub(crate) fn navigate_back(application: &mut Application, window_id: Id) -> Tas
         .expect("There should always be an active tab in the browser");
 
     if !tab.history.can_go_back() {
-        return Task::done(Event::Browser(BrowserEvent::Error(BrowserError::TabError(TabError::NoHistory))));
+        return Task::done(Event::Browser(BrowserEvent::Error(BrowserError::Tab(TabError::NoBackHistory))));
     }
 
     if let Some(page_ctx) = std::mem::take(&mut tab.page_ctx) {
@@ -51,7 +51,7 @@ pub(crate) fn navigate_back(application: &mut Application, window_id: Id) -> Tas
                     move |result| match result {
                         Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
                         Err(err) => match err {
-                            KernelError::NavigationError(nav_err) => Event::EngineResponse(
+                            CoreError::Navigation(nav_err) => Event::EngineResponse(
                                 window_id,
                                 tab_id,
                                 Box::new(EngineResponse::NavigateError(nav_err)),
@@ -81,7 +81,7 @@ pub(crate) fn navigate_forward(application: &mut Application, window_id: Id) -> 
         .expect("There should always be an active tab in the browser");
 
     if !tab.history.can_go_forward() {
-        return Task::done(Event::Browser(BrowserEvent::Error(BrowserError::TabError(TabError::NoHistory))));
+        return Task::done(Event::Browser(BrowserEvent::Error(BrowserError::Tab(TabError::NoForwardHistory))));
     }
 
     if let Some(page_ctx) = std::mem::take(&mut tab.page_ctx) {
@@ -109,7 +109,7 @@ pub(crate) fn navigate_forward(application: &mut Application, window_id: Id) -> 
                     move |result| match result {
                         Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
                         Err(err) => match err {
-                            KernelError::NavigationError(nav_err) => Event::EngineResponse(
+                            CoreError::Navigation(nav_err) => Event::EngineResponse(
                                 window_id,
                                 tab_id,
                                 Box::new(EngineResponse::NavigateError(nav_err)),
@@ -158,7 +158,7 @@ pub(crate) fn refresh_page(application: &mut Application, window_id: Id) -> Task
         move |result| match result {
             Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
             Err(err) => match err {
-                KernelError::NavigationError(nav_err) => {
+                CoreError::Navigation(nav_err) => {
                     Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::NavigateError(nav_err)))
                 }
                 _ => Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::Error(err))),

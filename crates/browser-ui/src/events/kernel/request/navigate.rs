@@ -1,4 +1,4 @@
-use browser_core::{Commandable, EngineCommand, EngineResponse, NavigationType, errors::KernelError};
+use browser_core::{Commandable, EngineCommand, EngineResponse, NavigationType, errors::CoreError};
 use iced::{Task, window::Id};
 use regex::Regex;
 use url::Url;
@@ -62,7 +62,7 @@ pub(crate) fn navigate_to_url(application: &mut Application, window_id: Id, new_
         move |result| match result {
             Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
             Err(err) => match err {
-                KernelError::NavigationError(nav_err) => {
+                CoreError::Navigation(nav_err) => {
                     Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::NavigateError(nav_err)))
                 }
                 _ => Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::Error(err))),

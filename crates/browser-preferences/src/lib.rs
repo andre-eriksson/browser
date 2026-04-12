@@ -37,7 +37,7 @@ impl BrowserPreferences {
         match Resource::load(PREFERENCES) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
-                    warn!("Failed to parse preferences file as UTF-8, using default settings");
+                    warn!("Failed to parse preferences file as UTF-8, using default settings.");
                     return Self::default();
                 };
 
@@ -48,14 +48,18 @@ impl BrowserPreferences {
                 config.themes = Self::load_themes();
 
                 if config.theme.is_empty() || !config.themes.contains_key(&config.theme) {
-                    warn!("Active theme is invalid, defaulting to 'light'");
+                    warn!(
+                        "Active theme \"{}\" not found in {:?}, defaulting to \"light\".",
+                        config.theme,
+                        config.themes.keys().collect::<Vec<_>>()
+                    );
                     config.theme = "light".to_string();
                 }
 
                 config
             }
-            Err(_) => {
-                warn!("Failed to load preferences, using default settings");
+            Err(error) => {
+                warn!(%error, "Failed to load preferences, using default settings.");
 
                 Self::default()
             }
@@ -67,15 +71,9 @@ impl BrowserPreferences {
     }
 
     pub fn theme(&self) -> &Theme {
-        let theme = self.themes.get(&self.theme);
-
-        match theme {
-            Some(theme) => theme,
-            None => {
-                warn!("Selected theme '{}' not found, defaulting to 'light'", self.theme);
-                self.themes.get("light").unwrap()
-            }
-        }
+        self.themes
+            .get(&self.theme)
+            .expect("Active theme should always be valid, due to loading checks.")
     }
 
     fn load_themes() -> HashMap<String, Theme> {
@@ -84,24 +82,24 @@ impl BrowserPreferences {
             ("dark".to_string(), Theme::dark()),
         ]);
 
-        let theme_files = Resource::load_dir(Entry::config("themes/")).unwrap();
+        let theme_files = Resource::load_dir(Entry::config("themes/")).unwrap_or_default();
 
         for file in theme_files {
             if let Ok(content) = std::str::from_utf8(&file)
                 && let Ok(theme) = toml::from_str::<Theme>(content)
             {
                 if theme.name.is_empty() {
-                    warn!("Theme with empty name will be skipped");
+                    warn!("Theme with an empty name will be skipped");
                     continue;
                 }
 
                 if theme.name.eq_ignore_ascii_case("light") || theme.name.eq_ignore_ascii_case("dark") {
-                    warn!("Theme '{}' has a reserved name and will be skipped", theme.name);
+                    warn!("Theme \"{}\" has a reserved name and will be skipped.", theme.name);
                     continue;
                 }
 
                 if themes.contains_key(&theme.name) {
-                    warn!("Theme '{}' already exists and will be overwritten", theme.name);
+                    warn!("Theme \"{}\" already exists and will be overwritten.", theme.name);
                 }
 
                 themes.insert(theme.name.clone(), theme);
