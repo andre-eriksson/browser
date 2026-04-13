@@ -6,12 +6,10 @@ license.workspace = true
 
 [dependencies]
 css-tokenizer.workspace = true
-
-# External dependencies
-thiserror.workspace = true
-tracing.workspace = true
 serde.workspace = true
 strum.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 criterion.workspace = true

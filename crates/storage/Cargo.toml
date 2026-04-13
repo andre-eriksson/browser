@@ -6,6 +6,4 @@ license.workspace = true
 
 [dependencies]
 constants.workspace = true
-
-# External dependencies
-dirs = "6.0.0"
+dirs.workspace = true

@@ -9,6 +9,6 @@ browser-preferences.workspace = true
 clap.workspace = true
 constants.workspace = true
 network.workspace = true
+sys-locale.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-sys-locale.workspace = true

@@ -6,26 +6,24 @@ license.workspace = true
 
 [dependencies]
 constants.workspace = true
-database.workspace = true
-storage.workspace = true
-network = { workspace = true, optional = true }
 cookies  = { workspace = true, optional = true }
-
-# External dependencies
-dirs = "6.0.0"
+database.workspace = true
+dirs.workspace = true
 httpdate.workspace = true
+network = { workspace = true, optional = true }
 postcard.workspace = true
-rust-embed = { version = "8.9.0", features = ["include-exclude"] }
+rand.workspace = true
 rusqlite.workspace = true
+rust-embed.workspace = true
 serde.workspace = true
 sha2.workspace = true
+storage.workspace = true
+strum.workspace = true
+sysinfo.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, optional = true }
 tracing.workspace = true
 url = { workspace = true, optional = true}
-rand.workspace = true
-sysinfo.workspace = true
-strum.workspace = true
 
 [features]
 default = []

@@ -5,12 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+bytemuck.workspace = true
+cosmic-text.workspace = true
 io.workspace = true
 layout.workspace = true
-
-# External dependencies
-wgpu = "27.0.1"
-bytemuck = { version = "1.24.0", features = ["derive"] }
-cosmic-text.workspace = true
 serde.workspace = true
 tracing.workspace = true
+wgpu.workspace = true

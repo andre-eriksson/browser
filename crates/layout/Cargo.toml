@@ -5,20 +5,18 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+cosmic-text.workspace = true
 css-style.workspace = true
 css-values.workspace = true
 html-dom.workspace = true
-
-# External dependencies
-cosmic-text.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
 browser-core.workspace = true
 browser-preferences.workspace = true
 browser-ui.workspace = true
-html-parser.workspace = true
 css-cssom.workspace = true
-url.workspace = true
+html-parser.workspace = true
 io.workspace = true
+url.workspace = true
 zstd.workspace = true

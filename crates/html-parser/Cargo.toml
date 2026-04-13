@@ -6,14 +6,12 @@ license.workspace = true
 
 [dependencies]
 html-dom.workspace = true
-
-# External dependencies
 thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-zstd.workspace = true
 criterion.workspace = true
+zstd.workspace = true
 
 [[bench]]
 name = "parser_benches"

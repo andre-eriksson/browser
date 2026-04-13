@@ -16,13 +16,7 @@ css-values.workspace = true
 html-dom.workspace = true
 html-parser.workspace = true
 http.workspace = true
-iced = { version = "0.14.0", features = [
-    "advanced",
-    "tokio",
-    "image",
-    "svg",
-    "wgpu"
-] }
+iced.workspace = true
 image.workspace = true
 io.workspace = true
 layout.workspace = true

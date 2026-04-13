@@ -6,13 +6,13 @@ license.workspace = true
 
 [dependencies]
 browser-preferences.workspace = true
-html-dom.workspace = true
 css-cssom.workspace = true
 css-selectors.workspace = true
 css-values.workspace = true
+html-dom.workspace = true
 strum.workspace = true
-url.workspace = true
 tracing.workspace = true
+url.workspace = true
 
 [features]
 network = ["browser-preferences/network"]

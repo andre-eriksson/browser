@@ -5,7 +5,5 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-storage.workspace = true
-
-# External dependencies
 rusqlite.workspace = true
+storage.workspace = true
