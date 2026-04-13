@@ -1,6 +1,3 @@
-pub mod events;
-pub mod keys;
-
 pub const APP_NAME: &str = "MyBrowser";
 pub const APP_ID: &str = "com.andree.mybrowser";
 

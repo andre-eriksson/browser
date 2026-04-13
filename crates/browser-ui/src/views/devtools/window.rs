@@ -1,4 +1,3 @@
-use constants::{DEVTOOLS_ID, DEVTOOLS_NAME};
 use iced::{
     Length, Renderer, Size, Theme,
     widget::{container, text},
@@ -6,6 +5,7 @@ use iced::{
 };
 use io::{Resource, embeded::DEVTOOLS_ICON};
 use layout::Rect;
+use manifest::{DEVTOOLS_ID, DEVTOOLS_NAME};
 
 use crate::{
     core::{Application, ApplicationWindow, UiDevtools, WindowType},

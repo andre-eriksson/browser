@@ -1,7 +1,3 @@
-use constants::{
-    events::{EVENT_ASSET_LOADED, EVENT_ASSET_NOT_FOUND, EVENT_LOAD_ASSET},
-    keys::EVENT,
-};
 use cookies::Cookie;
 #[cfg(feature = "network")]
 use network::{
@@ -84,18 +80,18 @@ impl Resource {
     }
 
     /// Loads an asset from the specified resource type, handling both embedded and filesystem resources.
+    #[instrument(fields(resource = ?resource.key()))]
     pub fn load(resource: ResourceType) -> Result<Vec<u8>, ResourceError> {
-        let path = resource.key();
-        trace!({ EVENT } = EVENT_LOAD_ASSET);
-
-        if let Ok(data) = resource.load_asset() {
-            trace!({ EVENT } = EVENT_ASSET_LOADED);
-
-            return Ok(data);
+        match resource.load_asset() {
+            Ok(data) => {
+                trace!("OK");
+                Ok(data)
+            }
+            Err(error) => {
+                trace!(%error);
+                Err(error)
+            }
         }
-
-        trace!({ EVENT } = EVENT_ASSET_NOT_FOUND);
-        Err(ResourceError::NotFound(path))
     }
 
     pub fn load_dir(dir: Entry) -> Result<Vec<Vec<u8>>, ResourceError> {
@@ -134,13 +130,12 @@ impl Resource {
     ///
     /// # Panics
     /// If the embedded asset cannot be found, which should not happen if the asset is correctly included in the build.
-    #[instrument(fields(embeded_asset = ?embeded_asset))]
-    pub fn load_embedded(embeded_asset: EmbededType) -> Vec<u8> {
-        let path = &embeded_asset.path();
-        trace!({ EVENT } = EVENT_LOAD_ASSET);
+    #[instrument(fields(?asset))]
+    pub fn load_embedded(asset: EmbededType) -> Vec<u8> {
+        let path = &asset.path();
 
-        if let Ok(data) = ResourceType::Embeded(embeded_asset).load_asset() {
-            trace!({ EVENT } = EVENT_ASSET_LOADED);
+        if let Ok(data) = ResourceType::Embeded(asset).load_asset() {
+            trace!("OK");
 
             return data;
         }

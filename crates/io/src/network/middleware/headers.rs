@@ -1,6 +1,6 @@
 use rand::RngExt;
 
-use constants::{APP_MAJOR_VERSION, APP_NAME};
+use manifest::{APP_MAJOR_VERSION, APP_NAME};
 use network::{HeaderMap, HeaderName, HeaderValue};
 use strum::{AsRefStr, EnumString};
 use url::Url;

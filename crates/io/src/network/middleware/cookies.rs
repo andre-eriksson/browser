@@ -1,8 +1,9 @@
-use constants::keys::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
 use cookies::{Cookie, CookieJar};
 use network::{COOKIE, HeaderValue, request::Request};
 use tracing::{debug, trace, trace_span, warn};
 use url::Url;
+
+use crate::logging::{COOKIE_NAME, COOKIE_VALUE, REQUEST_COOKIE, RESPONSE_COOKIE};
 
 pub struct CookieMiddleware;
 

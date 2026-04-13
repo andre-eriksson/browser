@@ -5,11 +5,11 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-constants.workspace = true
 cookies  = { workspace = true, optional = true }
 database.workspace = true
 dirs.workspace = true
 httpdate.workspace = true
+manifest.workspace = true
 network = { workspace = true, optional = true }
 postcard.workspace = true
 rand.workspace = true

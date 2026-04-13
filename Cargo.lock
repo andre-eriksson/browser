@@ -613,7 +613,7 @@ version = "0.1.0"
 dependencies = [
  "browser-preferences",
  "clap",
- "constants",
+ "manifest",
  "network",
  "sys-locale",
  "tokio",
@@ -626,13 +626,13 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "browser-config",
- "constants",
  "cookies",
  "css-cssom",
  "css-style",
  "html-dom",
  "html-parser",
  "io",
+ "manifest",
  "network",
  "postcard",
  "serde",
@@ -680,7 +680,6 @@ dependencies = [
  "browser-config",
  "browser-core",
  "browser-preferences",
- "constants",
  "cookies",
  "css-cssom",
  "css-style",
@@ -692,6 +691,7 @@ dependencies = [
  "image",
  "io",
  "layout",
+ "manifest",
  "network",
  "postcard",
  "regex",
@@ -1044,10 +1044,6 @@ checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
 ]
-
-[[package]]
-name = "constants"
-version = "0.1.0"
 
 [[package]]
 name = "cookies"
@@ -2710,11 +2706,11 @@ dependencies = [
 name = "io"
 version = "0.1.0"
 dependencies = [
- "constants",
  "cookies",
  "database",
  "dirs",
  "httpdate",
+ "manifest",
  "network",
  "postcard",
  "rand 0.10.1",
@@ -3041,6 +3037,10 @@ checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "manifest"
+version = "0.1.0"
 
 [[package]]
 name = "matchers"
@@ -5153,8 +5153,8 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "storage"
 version = "0.1.0"
 dependencies = [
- "constants",
  "dirs",
+ "manifest",
 ]
 
 [[package]]

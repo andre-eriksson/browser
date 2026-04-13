@@ -1,4 +1,3 @@
-use constants::keys::STATUS_CODE;
 use cookies::Cookie;
 use network::{
     ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, HeaderMap, Method, ORIGIN,
@@ -10,15 +9,18 @@ use network::{
 use tracing::{debug, instrument, trace};
 use url::Url;
 
-use crate::network::{
-    middleware::{
-        cookies::CookieMiddleware,
-        cors::CorsMiddleware,
-        headers::{Destination, HeadersMiddleware, RequestMode},
-        referrer::ReferrerMiddleware,
-        simple::SimpleMiddleware,
+use crate::{
+    logging::STATUS_CODE,
+    network::{
+        middleware::{
+            cookies::CookieMiddleware,
+            cors::CorsMiddleware,
+            headers::{Destination, HeadersMiddleware, RequestMode},
+            referrer::ReferrerMiddleware,
+            simple::SimpleMiddleware,
+        },
+        policy::DocumentPolicy,
     },
-    policy::DocumentPolicy,
 };
 
 pub enum RequestResult<T> {

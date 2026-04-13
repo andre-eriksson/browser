@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 
 use browser_config::BrowserConfig;
-use constants::{APP_ID, APP_NAME};
 use iced::{
     Length, Renderer, Size, Subscription, Theme,
     advanced::graphics::text::cosmic_text::FontSystem,
@@ -11,6 +10,7 @@ use iced::{
 };
 use io::{Resource, embeded::WINDOW_ICON};
 use layout::{Rect, TextContext};
+use manifest::{APP_ID, APP_NAME};
 
 use crate::{
     core::{Application, ApplicationWindow, TabManager, WindowType},

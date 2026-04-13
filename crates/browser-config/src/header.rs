@@ -1,4 +1,4 @@
-use constants::{APP_NAME, APP_VERSION};
+use manifest::{APP_NAME, APP_VERSION};
 use network::{
     ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue, USER_AGENT,
 };

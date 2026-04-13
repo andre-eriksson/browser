@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 async-trait.workspace = true
 browser-config.workspace = true
-constants.workspace = true
+manifest.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true
 css-style.workspace = true

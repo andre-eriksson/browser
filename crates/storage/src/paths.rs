@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use constants::APP_NAME;
+use manifest::APP_NAME;
 
 #[must_use]
 pub fn get_cache_path() -> Option<PathBuf> {

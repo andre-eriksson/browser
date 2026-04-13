@@ -4,13 +4,13 @@ use std::sync::Arc;
 
 use browser_config::BrowserConfig;
 use browser_core::Browser;
-use constants::APP_NAME;
 use iced::keyboard::key;
 use iced::theme::{Custom, Palette};
 use iced::widget::text;
 use iced::window::Id;
 use iced::{Color, Subscription, event, keyboard};
 use iced::{Renderer, Task, Theme, window};
+use manifest::APP_NAME;
 use renderer::image::ImageCache;
 use tokio::sync::Mutex;
 

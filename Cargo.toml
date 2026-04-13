@@ -7,7 +7,6 @@ members = [
     "crates/browser-headless",
     "crates/browser-preferences",
     "crates/browser-ui",
-    "crates/constants",
     "crates/cookies",
     "crates/css-cssom",
     "crates/css-parser",
@@ -21,6 +20,7 @@ members = [
     "crates/html-tokenizer",
     "crates/io",
     "crates/layout",
+    "crates/manifest",
     "crates/network",
     "crates/renderer",
     "crates/storage",
@@ -38,7 +38,6 @@ browser-core        = { path = "crates/browser-core" }
 browser-headless    = { path = "crates/browser-headless" }
 browser-preferences = { path = "crates/browser-preferences" }
 browser-ui          = { path = "crates/browser-ui" }
-constants           = { path = "crates/constants" }
 cookies             = { path = "crates/cookies" }
 css-cssom           = { path = "crates/css-cssom" }
 css-parser          = { path = "crates/css-parser" }
@@ -52,6 +51,7 @@ html-parser         = { path = "crates/html-parser" }
 html-tokenizer      = { path = "crates/html-tokenizer" }
 io                  = { path = "crates/io" }
 layout              = { path = "crates/layout" }
+manifest            = { path = "crates/manifest" }
 network             = { path = "crates/network" }
 renderer            = { path = "crates/renderer" }
 storage             = { path = "crates/storage" }

@@ -1,10 +1,10 @@
 use clap::{ArgAction, Parser};
-use constants::APP_NAME;
+use manifest::{APP_NAME, APP_VERSION};
 
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = APP_NAME,
-    version,
+    version = APP_VERSION,
     about = "A web browser implemented in Rust."
 )]
 pub struct BrowserArgs {
