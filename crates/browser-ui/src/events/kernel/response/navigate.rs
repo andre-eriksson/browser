@@ -85,7 +85,7 @@ pub fn on_navigation_success(
                 style_tree,
                 Rect::new(0.0, 0.0, viewport.width, viewport.height),
                 &mut tc,
-                Some(&image_ctx),
+                &image_ctx,
             );
             drop(tc);
             tab.layout_tree = Some(layout_tree);

@@ -112,8 +112,11 @@ mod tests {
     /// Runs layout from a pre-built `StyleTree`, optionally with an
     /// `ImageContext` for known image dimensions.
     macro_rules! layout_from {
-        ($style_tree:expr, $text_context:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, None) }};
-        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, Some($image_ctx)) }};
+        ($style_tree:expr, $text_context:expr) => {{
+            let img_ctx = ImageContext::new();
+            LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, &img_ctx)
+        }};
+        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, $image_ctx) }};
     }
 
     /// Convenience: parse HTML and immediately compute layout (no image
@@ -121,7 +124,8 @@ mod tests {
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr) => {{
             let (_, style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, None)
+            let img_ctx = ImageContext::new();
+            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, &img_ctx)
         }};
     }
 
@@ -188,7 +192,8 @@ mod tests {
             let style_tree = StyleTree::build(&absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
             let mut text_context = TextContext::new(font_system);
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, None)
+            let img_ctx = ImageContext::new();
+            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, &img_ctx)
         }};
     }
 
@@ -400,7 +405,7 @@ mod tests {
             &style_tree,
             &dom,
             &mut text_context,
-            Some(&image_ctx),
+            &image_ctx,
         );
 
         let root2 = &layout.root_nodes[0];
@@ -470,7 +475,7 @@ mod tests {
             &style_tree,
             &dom,
             &mut text_context,
-            Some(&image_ctx),
+            &image_ctx,
         );
 
         let root2 = &layout.root_nodes[0];

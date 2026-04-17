@@ -3,7 +3,7 @@ use std::net::Ipv4Addr;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::{Size, Task, window::Id};
-use layout::{LayoutEngine, Rect};
+use layout::{ImageContext, LayoutEngine, Rect};
 use url::Url;
 
 use crate::{core::Application, events::Event};
@@ -67,11 +67,12 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
             let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());
 
             let mut tc = ctx.text_context.lock().unwrap();
+            let img_ctx = ImageContext::new();
             let layout_tree = LayoutEngine::compute_layout(
                 &style_tree,
                 Rect::new(0.0, 0.0, new_viewport.width, new_viewport.height),
                 &mut tc,
-                None,
+                &img_ctx,
             );
             drop(tc);
 

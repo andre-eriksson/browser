@@ -107,7 +107,7 @@ pub fn on_image_loaded(
                         &style_tree,
                         dom_tree,
                         &mut tc,
-                        Some(&image_ctx),
+                        &image_ctx,
                     );
                 }
 

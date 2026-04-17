@@ -191,25 +191,26 @@ impl<'node> LineBoxBuilder<'node> {
     /// boxes, then starts a fresh line and re-opens those inline boxes on it.
     pub(crate) fn finish_line_with_decorations(
         &mut self,
-        ctx: &mut InlineLayoutContext<'_, 'node>,
+        ctx: &mut InlineLayoutContext<'node>,
         text_ctx: &TextContext,
+        float_ctx: &FloatContext,
         min_line_height: Option<f32>,
     ) {
-        let mut continuing_boxes = std::mem::take(ctx.inline_box_stack);
+        let mut continuing_boxes = std::mem::take(&mut ctx.inline_box_stack);
 
         self.close_active_decorations(&mut continuing_boxes);
 
-        let old_line = std::mem::replace(&mut self.line_box, LineBox::new(ctx.start_x, *ctx.current_y));
+        let old_line = std::mem::replace(&mut self.line_box, LineBox::new(ctx.start_x, ctx.current_y));
         let (line_nodes, h) = old_line.finish(
-            ctx.float_context,
+            float_ctx,
             ctx.start_x,
             ctx.available_width,
             &text_ctx.last_text_align,
             &text_ctx.last_writing_mode,
         );
         ctx.nodes.extend(line_nodes);
-        *ctx.current_y += min_line_height.map_or(h, |min_h| h.max(min_h));
-        self.line_box = LineBox::new(ctx.start_x, *ctx.current_y);
+        ctx.current_y += min_line_height.map_or(h, |min_h| h.max(min_h));
+        self.line_box = LineBox::new(ctx.start_x, ctx.current_y);
 
         for con_box in continuing_boxes {
             ctx.inline_box_stack.push(con_box);

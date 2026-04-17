@@ -1,12 +1,14 @@
-use css_style::{StyleTree, StyledNode};
+use css_style::{ComputedStyle, Position, StyleTree, StyledNode};
 use css_values::display::{BoxDisplay, InsideDisplay};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     context::ImageContext,
-    float::FloatContext,
     layout::{LayoutContext, LayoutNode, LayoutTree},
-    mode::block::BlockLayout,
+    mode::{
+        block::BlockLayout,
+        inline::{InlineContext, InlineLayout},
+    },
     position::PositionContext,
     primitives::Rect,
     text::TextContext,
@@ -18,6 +20,7 @@ const EPSILON: f32 = 0.1;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LayoutMode {
     Block,
+    Inline,
     Flex, // TODO: implement
     Grid, // TODO: implement
 }
@@ -26,6 +29,10 @@ impl LayoutMode {
     pub fn new(styled_node: &StyledNode) -> Option<Self> {
         if styled_node.style.display.box_display() == Some(BoxDisplay::None) {
             return None;
+        }
+
+        if styled_node.style.position.is_out_of_flow() {
+            return Some(Self::Block);
         }
 
         match styled_node.style.display.inside() {
@@ -52,12 +59,10 @@ impl LayoutEngine {
         style_tree: &StyleTree,
         viewport: Rect,
         text_ctx: &mut TextContext,
-        image_ctx: Option<&ImageContext>,
+        image_ctx: &ImageContext,
     ) -> LayoutTree {
-        let mut ctx = LayoutContext::new(viewport);
         let mut position_ctx = PositionContext::new(viewport);
-        let mut float_ctx = FloatContext::new();
-        let img_ctx = image_ctx.cloned().unwrap_or_default();
+        let mut ctx = LayoutContext::new(viewport, image_ctx, &mut position_ctx);
 
         let mut total_height = 0.0;
         let mut max_width: f32 = 0.0;
@@ -66,19 +71,19 @@ impl LayoutEngine {
         for styled_node in &style_tree.root_nodes {
             ctx.block_cursor.y = total_height;
 
-            let pos_count_before = position_ctx.position_count();
+            let pos_count_before = ctx.position_ctx().position_count();
 
-            let mut node =
-                match Self::layout_node(styled_node, &mut ctx, &mut position_ctx, &mut float_ctx, text_ctx, &img_ctx) {
-                    Some(node) => node,
-                    None => continue, // For `display: none`
-                };
+            let mut node = match Self::layout_node(styled_node, &mut ctx, text_ctx) {
+                Some(node) => node,
+                None => continue, // For `display: none`
+            };
 
             let top_margin = node.margin.top;
             let bottom_margin = node.margin.bottom;
 
             Self::offset_children_y(&mut node.children, top_margin);
-            position_ctx.offset_positions_since(pos_count_before, top_margin);
+            ctx.position_ctx()
+                .offset_positions_since(pos_count_before, top_margin);
 
             node.dimensions.height += top_margin + bottom_margin;
 
@@ -88,7 +93,7 @@ impl LayoutEngine {
             root_nodes.push(node);
         }
 
-        for mut defered_node in position_ctx.resolve_all(&mut float_ctx, text_ctx, &img_ctx) {
+        for mut defered_node in ctx.position_ctx().resolve_all(image_ctx, text_ctx) {
             Self::offset_children_y(&mut defered_node.children, defered_node.margin.top);
 
             root_nodes.push(defered_node);
@@ -104,6 +109,10 @@ impl LayoutEngine {
     /// Recursively offset all children's y positions
     fn offset_children_y(children: &mut [LayoutNode], offset: f32) {
         for child in children.iter_mut() {
+            if child.position.is_out_of_flow() {
+                continue;
+            }
+
             child.dimensions.y += offset;
             Self::offset_children_y(&mut child.children, offset);
         }
@@ -113,17 +122,35 @@ impl LayoutEngine {
     pub(crate) fn layout_node(
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
-        position_ctx: &mut PositionContext,
-        float_ctx: &mut FloatContext,
         text_ctx: &mut TextContext,
-        image_ctx: &ImageContext,
     ) -> Option<LayoutNode> {
         let layout_mode = LayoutMode::new(styled_node)?;
 
         match layout_mode {
-            LayoutMode::Block => BlockLayout::layout(styled_node, ctx, position_ctx, float_ctx, text_ctx, image_ctx),
-            LayoutMode::Flex => BlockLayout::layout(styled_node, ctx, position_ctx, float_ctx, text_ctx, image_ctx), // TODO: implement flex layout
-            LayoutMode::Grid => BlockLayout::layout(styled_node, ctx, position_ctx, float_ctx, text_ctx, image_ctx), // TODO: implement grid layout
+            LayoutMode::Block => BlockLayout::layout(styled_node, ctx, text_ctx),
+            LayoutMode::Flex => BlockLayout::layout(styled_node, ctx, text_ctx), // TODO: implement flex layout
+            LayoutMode::Grid => BlockLayout::layout(styled_node, ctx, text_ctx), // TODO: implement grid layout
+            _ => unreachable!("Only block layout should be supported for single nodes right now"),
+        }
+    }
+
+    pub(crate) fn layout_nodes(
+        styled_nodes: &[&StyledNode],
+        mode: LayoutMode,
+        parent_style: &ComputedStyle,
+        containing_block: Rect,
+        ctx: &mut LayoutContext,
+        text_ctx: &mut TextContext,
+    ) -> (Vec<LayoutNode>, Rect) {
+        match mode {
+            LayoutMode::Inline => {
+                let inline_items =
+                    InlineLayout::collect_inline_items_from_nodes(parent_style, styled_nodes, ctx.image_ctx());
+                let inline_ctx = InlineContext::new(containing_block);
+
+                InlineLayout::layout(&inline_items, ctx, text_ctx, inline_ctx)
+            }
+            _ => todo!("Only inline layout is supported for collections of nodes right now"),
         }
     }
 
@@ -135,10 +162,8 @@ impl LayoutEngine {
         style_tree: &StyleTree,
         dom_tree: &DocumentRoot,
         text_ctx: &mut TextContext,
-        image_ctx: Option<&ImageContext>,
+        image_ctx: &ImageContext,
     ) {
-        let img_ctx = image_ctx.cloned().unwrap_or_default();
-
         let ancestors: Vec<NodeId> = dom_tree
             .ancestors(&node_id)
             .into_iter()
@@ -159,16 +184,11 @@ impl LayoutEngine {
             return;
         };
 
-        let mut ctx = LayoutContext::new(old_layout.dimensions);
+        let mut position_ctx = PositionContext::new(viewport);
+        let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
+        ctx.position_ctx().update_viewport(viewport);
 
-        let mut new_node = match Self::layout_node(
-            styled_node,
-            &mut ctx,
-            &mut PositionContext::new(viewport),
-            &mut FloatContext::new(),
-            text_ctx,
-            &img_ctx,
-        ) {
+        let mut new_node = match Self::layout_node(styled_node, &mut ctx, text_ctx) {
             Some(node) => node,
             None => return, // For `display: none`
         };
@@ -218,6 +238,40 @@ impl LayoutEngine {
         for child in node.children.iter_mut() {
             Self::shift_y_recursively(child, delta);
         }
+    }
+
+    pub(crate) fn collect_children<'node, F>(
+        ctx: &mut LayoutContext,
+        parent_node: &'node StyledNode,
+        start_idx: &mut usize,
+        condition: F,
+    ) -> Vec<&'node StyledNode>
+    where
+        F: Fn(&StyledNode) -> bool,
+    {
+        let mut collected = Vec::new();
+        for child in parent_node.children.iter().skip(*start_idx) {
+            if child.style.position.is_out_of_flow() && !ctx.is_deferred() {
+                let containing_block = if child.style.position == Position::Fixed {
+                    ctx.containing_block()
+                } else {
+                    ctx.positioned_containing_block()
+                };
+
+                ctx.position_ctx().defer(child.clone(), containing_block);
+                *start_idx += 1;
+                continue;
+            }
+
+            if condition(child) {
+                collected.push(child);
+                *start_idx += 1;
+            } else {
+                break;
+            }
+        }
+
+        collected
     }
 }
 
@@ -293,16 +347,13 @@ mod tests {
             ..StyledNode::new(NodeId(0))
         };
 
-        let mut ctx = LayoutContext::new(viewport());
+        let img_ctx = ImageContext::new();
+        let mut position_ctx = PositionContext::new(viewport());
+        let mut ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
         let mut text_ctx = TextContext::default();
-        let image_ctx = ImageContext::new();
-        let mut position_ctx = PositionContext::new(viewport());
-        let mut float_ctx = FloatContext::new();
 
-        let layout_node =
-            BlockLayout::layout(&styled_node, &mut ctx, &mut position_ctx, &mut float_ctx, &mut text_ctx, &image_ctx)
-                .unwrap();
+        let layout_node = BlockLayout::layout(&styled_node, &mut ctx, &mut text_ctx).unwrap();
 
         assert_eq!(layout_node.node_id, styled_node.node_id);
         assert_eq!(layout_node.dimensions.x, 0.0);

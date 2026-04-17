@@ -4,7 +4,6 @@ use html_dom::NodeId;
 use crate::{
     LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
     context::ImageContext,
-    float::FloatContext,
     layout::LayoutContext,
     mode::inline::{
         collection::{InlineItem, collect},
@@ -13,7 +12,6 @@ use crate::{
         text::layout_text,
         whitespace::canonicalize_whitespace,
     },
-    position::PositionContext,
     resolver::PropertyResolver,
 };
 
@@ -48,18 +46,24 @@ pub struct ActiveInlineBox<'node> {
 }
 
 /// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
-pub struct InlineLayoutContext<'layout, 'node> {
-    pub current_y: &'layout mut f32,
+#[derive(Debug, Default)]
+pub struct InlineLayoutContext<'node> {
+    pub current_y: f32,
     pub start_x: f32,
     pub available_width: f32,
-    pub float_context: &'layout FloatContext,
-    pub nodes: &'layout mut Vec<LayoutNode>,
-    pub inline_box_stack: &'layout mut Vec<ActiveInlineBox<'node>>,
+    pub nodes: Vec<LayoutNode>,
+    pub inline_box_stack: Vec<ActiveInlineBox<'node>>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct InlineContext {
-    pub containing_block: Rect,
+    containing_block: Rect,
+}
+
+impl InlineContext {
+    pub const fn new(containing_block: Rect) -> Self {
+        Self { containing_block }
+    }
 }
 
 pub struct InlineLayout;
@@ -71,15 +75,13 @@ impl InlineLayout {
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
     pub fn collect_inline_items_from_nodes<'node>(
         parent_style: &'node ComputedStyle,
-        nodes: &'node [StyledNode],
+        nodes: &'node [&StyledNode],
         image_ctx: &ImageContext,
     ) -> Vec<InlineItem<'node>> {
         let mut raw_items = Vec::with_capacity(nodes.len() * 2);
 
         for node in nodes {
-            let result = collect(parent_style, node, &mut raw_items, image_ctx);
-
-            if result.is_err() {
+            if collect(parent_style, node, &mut raw_items, image_ctx).is_err() {
                 break;
             }
         }
@@ -95,56 +97,47 @@ impl InlineLayout {
     /// finally returning the positioned `LayoutNode`s and total height of the laid-out lines.
     pub fn layout(
         items: &[InlineItem],
+        ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
-        position_ctx: &mut PositionContext,
-        float_ctx: &FloatContext,
-        image_ctx: &ImageContext,
         inline_ctx: InlineContext,
-    ) -> (Vec<LayoutNode>, f32) {
-        let mut nodes = Vec::new();
-        let mut current_y = inline_ctx.containing_block.y;
+    ) -> (Vec<LayoutNode>, Rect) {
         let mut line = LineBoxBuilder::new(inline_ctx.containing_block.x, inline_ctx.containing_block.y);
 
-        let mut inline_box_stack: Vec<ActiveInlineBox> = Vec::new();
+        let mut inline_layout_ctx = InlineLayoutContext {
+            available_width: inline_ctx.containing_block.width,
+            current_y: inline_ctx.containing_block.y,
+            start_x: inline_ctx.containing_block.x,
+            nodes: Vec::new(),
+            inline_box_stack: Vec::new(),
+        };
 
         for item in items {
             match item {
                 InlineItem::TextRun(text) => {
-                    layout_text(
-                        InlineLayoutContext {
-                            available_width: inline_ctx.containing_block.width,
-                            float_context: float_ctx,
-                            current_y: &mut current_y,
-                            start_x: inline_ctx.containing_block.x,
-                            nodes: &mut nodes,
-                            inline_box_stack: &mut inline_box_stack,
-                        },
-                        text_ctx,
-                        &mut line,
-                        text,
-                    );
+                    layout_text(&mut inline_layout_ctx, ctx.float_ctx(), text_ctx, &mut line, text);
                 }
                 InlineItem::InlineBoxStart { id, style } => {
-                    line.open_inline_box(&mut inline_box_stack, text_ctx, *id, style);
+                    line.open_inline_box(&mut inline_layout_ctx.inline_box_stack, text_ctx, *id, style);
                 }
                 InlineItem::InlineBoxEnd { id } => {
-                    line.close_inline_box(&mut inline_box_stack, *id);
+                    line.close_inline_box(&mut inline_layout_ctx.inline_box_stack, *id);
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
                     let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
 
-                    let mut block_ctx = LayoutContext::new(Rect::new(
-                        inline_ctx.containing_block.x,
-                        inline_ctx.containing_block.y,
-                        inline_ctx.containing_block.width,
-                        inline_ctx.containing_block.height,
-                    ));
+                    let img_ctx = ctx.image_ctx().clone();
+                    let mut block_ctx = LayoutContext::new(
+                        Rect::new(
+                            inline_ctx.containing_block.x,
+                            inline_ctx.containing_block.y,
+                            inline_ctx.containing_block.width,
+                            inline_ctx.containing_block.height,
+                        ),
+                        &img_ctx,
+                        ctx.position_ctx(),
+                    );
 
-                    let mut f_ctx = float_ctx.clone();
-
-                    if let Some(mut layout_node) =
-                        LayoutEngine::layout_node(node, &mut block_ctx, position_ctx, &mut f_ctx, text_ctx, image_ctx)
-                    {
+                    if let Some(mut layout_node) = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx) {
                         let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
 
                         let alignment = &style.text_align;
@@ -155,18 +148,7 @@ impl InlineLayout {
                         if line.line_box.width + total_width > inline_ctx.containing_block.width
                             && line.line_box.width > 0.0
                         {
-                            line.finish_line_with_decorations(
-                                &mut InlineLayoutContext {
-                                    available_width: inline_ctx.containing_block.width,
-                                    float_context: float_ctx,
-                                    current_y: &mut current_y,
-                                    start_x: inline_ctx.containing_block.x,
-                                    inline_box_stack: &mut inline_box_stack,
-                                    nodes: &mut nodes,
-                                },
-                                text_ctx,
-                                None,
-                            );
+                            line.finish_line_with_decorations(&mut inline_layout_ctx, text_ctx, ctx.float_ctx(), None);
                         }
 
                         let ascent = layout_node.dimensions.height + margin.top + margin.bottom;
@@ -177,50 +159,39 @@ impl InlineLayout {
                     }
                 }
                 InlineItem::Image(img) => {
-                    layout_image(
-                        InlineLayoutContext {
-                            available_width: inline_ctx.containing_block.width,
-                            float_context: float_ctx,
-                            current_y: &mut current_y,
-                            start_x: inline_ctx.containing_block.x,
-                            inline_box_stack: &mut inline_box_stack,
-                            nodes: &mut nodes,
-                        },
-                        img,
-                        text_ctx,
-                        &mut line,
-                        image_ctx,
-                    );
+                    layout_image(&mut inline_layout_ctx, img, text_ctx, ctx, &mut line);
                 }
                 InlineItem::Break { line_height_px } => {
                     line.finish_line_with_decorations(
-                        &mut InlineLayoutContext {
-                            available_width: inline_ctx.containing_block.width,
-                            float_context: float_ctx,
-                            current_y: &mut current_y,
-                            start_x: inline_ctx.containing_block.x,
-                            inline_box_stack: &mut inline_box_stack,
-                            nodes: &mut nodes,
-                        },
+                        &mut inline_layout_ctx,
                         text_ctx,
+                        ctx.float_ctx(),
                         Some(*line_height_px),
                     );
                 }
             }
         }
 
-        line.close_active_decorations(&mut inline_box_stack);
+        line.close_active_decorations(&mut inline_layout_ctx.inline_box_stack);
 
         let (line_nodes, h) = line.line_box.finish(
-            float_ctx,
+            ctx.float_ctx(),
             inline_ctx.containing_block.x,
             inline_ctx.containing_block.width,
             &text_ctx.last_text_align,
             &text_ctx.last_writing_mode,
         );
-        nodes.extend(line_nodes);
-        let total_height = current_y + h - inline_ctx.containing_block.y;
+        inline_layout_ctx.nodes.extend(line_nodes);
+        let total_height = inline_layout_ctx.current_y + h - inline_ctx.containing_block.y;
 
-        (nodes, total_height)
+        (
+            inline_layout_ctx.nodes,
+            Rect::new(
+                inline_ctx.containing_block.x,
+                inline_ctx.containing_block.y,
+                inline_ctx.containing_block.width,
+                total_height,
+            ),
+        )
     }
 }

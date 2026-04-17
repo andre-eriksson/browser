@@ -1,4 +1,4 @@
-use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, float::FloatContext, layout::LayoutContext};
+use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, layout::LayoutContext};
 use css_style::StyledNode;
 
 #[derive(Debug, Clone)]
@@ -21,6 +21,10 @@ impl PositionContext {
             viewport,
             positioned: vec![viewport],
         }
+    }
+
+    pub fn update_viewport(&mut self, viewport: Rect) {
+        self.viewport = viewport;
     }
 
     pub fn push_position(&mut self, rect: Rect) {
@@ -47,30 +51,15 @@ impl PositionContext {
         });
     }
 
-    pub fn resolve_all(
-        &mut self,
-        float_ctx: &mut FloatContext,
-        text_ctx: &mut TextContext,
-        image_ctx: &ImageContext,
-    ) -> Vec<LayoutNode> {
+    pub fn resolve_all(&mut self, image_ctx: &ImageContext, text_ctx: &mut TextContext) -> Vec<LayoutNode> {
         self.pending
             .drain(..)
             .filter_map(|pending| {
-                let mut ctx = LayoutContext::new(pending.containing_block);
-                ctx.deferred = false;
+                let mut new_position_ctx = PositionContext::new(pending.containing_block);
+                let mut ctx =
+                    LayoutContext::deferred(pending.containing_block, self.viewport, image_ctx, &mut new_position_ctx);
 
-                ctx.set_positioned_containing_block(self.viewport);
-
-                let node = LayoutEngine::layout_node(
-                    &pending.styled_node,
-                    &mut ctx,
-                    &mut Self::new(self.viewport),
-                    float_ctx,
-                    text_ctx,
-                    image_ctx,
-                )?;
-
-                Some(node)
+                LayoutEngine::layout_node(&pending.styled_node, &mut ctx, text_ctx)
             })
             .collect()
     }

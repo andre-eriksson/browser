@@ -2,7 +2,7 @@ use browser_config::BrowserConfig;
 use browser_core::{Browser, History, NavigationType, Page, PageMetadata};
 use browser_preferences::theme::ThemeCategory;
 use css_style::{AbsoluteContext, StyleTree};
-use layout::{LayoutEngine, LayoutTree, Rect, TextContext};
+use layout::{ImageContext, LayoutEngine, LayoutTree, Rect, TextContext};
 use std::{
     io::{self, Write},
     net::Ipv4Addr,
@@ -116,7 +116,8 @@ impl HeadlessEngine {
         let style_tree = StyleTree::build(&ctx, document, stylesheets);
 
         let viewport = Rect::new(0.0, 0.0, self.viewport_width, self.viewport_height);
-        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport, &mut self.text_ctx, None);
+        let img_ctx = ImageContext::new();
+        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport, &mut self.text_ctx, &img_ctx);
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);

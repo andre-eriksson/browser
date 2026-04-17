@@ -87,6 +87,7 @@ impl StyleTree {
 
             let node = dom.get_node(&node_id).unwrap();
 
+            // FIXME: Avoid clone
             let text_content = match &node.data {
                 NodeData::Text(text) => Some(text.clone()),
                 _ => None,

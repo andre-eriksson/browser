@@ -1,22 +1,24 @@
 use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle};
 
 use crate::{
-    ImageContext, ImageData, LayoutColors, LayoutNode, Rect, TextContext,
+    ImageData, LayoutColors, LayoutNode, Rect, TextContext,
+    layout::LayoutContext,
     mode::inline::{InlineLayoutContext, collection::ImageItem, line::LineBoxBuilder},
 };
 
 pub fn layout_image<'node>(
-    mut ctx: InlineLayoutContext<'_, 'node>,
+    ctx: &mut InlineLayoutContext<'node>,
     img: &ImageItem,
     text_ctx: &mut TextContext,
+    layout_ctx: &LayoutContext,
     line: &mut LineBoxBuilder<'node>,
-    image_ctx: &ImageContext,
 ) {
     let alignment = &img.style.text_align;
     let writing_mode = &img.style.writing_mode;
     text_ctx.last_text_align = *alignment;
     text_ctx.last_writing_mode = *writing_mode;
-    let has_intrinsic_size = image_ctx
+    let has_intrinsic_size = layout_ctx
+        .image_ctx()
         .get(&img.src)
         .is_some_and(|(w, h)| w > 0.0 && h > 0.0);
 
@@ -27,11 +29,11 @@ pub fn layout_image<'node>(
         img.has_explicit_height,
         img.style,
         ctx.available_width,
-        image_ctx.get(&img.src),
+        layout_ctx.image_ctx().get(&img.src),
     );
 
     if line.line_box.width + img_width > ctx.available_width && line.line_box.width > 0.0 {
-        line.finish_line_with_decorations(&mut ctx, text_ctx, None);
+        line.finish_line_with_decorations(ctx, text_ctx, layout_ctx.float_ctx_ref(), None);
     }
 
     let node = LayoutNode::builder(img.id)
@@ -39,7 +41,8 @@ pub fn layout_image<'node>(
         .colors(LayoutColors::from(img.style))
         .image_data(ImageData {
             image_src: img.src.clone(),
-            vary_key: image_ctx
+            vary_key: layout_ctx
+                .image_ctx()
                 .get_meta(&img.src)
                 .map(|m| m.vary_key.clone())
                 .unwrap_or_default(),

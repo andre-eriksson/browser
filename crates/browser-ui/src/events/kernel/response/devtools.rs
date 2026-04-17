@@ -4,7 +4,7 @@ use browser_core::Page;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::{Task, window::Id};
-use layout::{LayoutEngine, Rect};
+use layout::{ImageContext, LayoutEngine, Rect};
 use tracing::warn;
 use url::Url;
 
@@ -40,11 +40,12 @@ pub fn on_devtools_page_ready(application: &mut Application, window_id: Id, tab_
 
         let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());
         let mut tc = ctx.text_context.lock().unwrap();
+        let img_ctx = ImageContext::new();
         let layout_tree = LayoutEngine::compute_layout(
             &style_tree,
             Rect::new(0.0, 0.0, devtools_ctx.viewport.width, devtools_ctx.viewport.height),
             &mut tc,
-            None,
+            &img_ctx,
         );
         drop(tc);
 

@@ -153,7 +153,7 @@ impl UiTab {
             &style_tree,
             Rect::new(0.0, 0.0, viewport.width, viewport.height),
             text_context,
-            Some(&self.image_context()),
+            &self.image_context(),
         );
 
         self.style_tree = Some(style_tree);
@@ -184,7 +184,7 @@ impl UiTab {
             &style_tree,
             Rect::new(0.0, 0.0, viewport.width, viewport.height),
             text_context,
-            Some(&self.image_context()),
+            &self.image_context(),
         );
 
         self.style_tree = Some(style_tree);
