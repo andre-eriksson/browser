@@ -4,6 +4,7 @@ pub mod content;
 pub mod dom;
 pub mod layout;
 pub mod navigation;
+pub mod node;
 
 /// Headless browser command parser
 #[derive(Parser, Debug)]
@@ -69,12 +70,10 @@ pub enum HeadlessCommand {
         selector: String,
     },
 
-    /// Get the layout node at the specified coordinates
+    /// Node inspection commands
     Node {
-        /// X coordinate
-        x: f32,
-        /// Y coordinate
-        y: f32,
+        #[command(subcommand)]
+        command: NodeCommand,
     },
 
     /// Set the viewport size for layout computation
@@ -90,6 +89,53 @@ pub enum HeadlessCommand {
 
     /// Print information about the current page (title, URL, document size)
     Info,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum NodeCommand {
+    /// Get the layout node at the specified coordinates
+    At {
+        /// X coordinate
+        x: f32,
+        /// Y coordinate
+        y: f32,
+    },
+
+    /// Print node summary by NodeId
+    Id {
+        /// NodeId from DOM/layout output
+        id: usize,
+    },
+
+    /// Print a node's DOM subtree
+    Dom {
+        /// NodeId from DOM/layout output
+        id: usize,
+        /// Optional maximum child depth (0 = only selected node)
+        #[arg(long, visible_alias = "depth")]
+        max_depth: Option<usize>,
+    },
+
+    /// Print a node's computed style
+    Style {
+        /// NodeId from DOM/layout output
+        id: usize,
+    },
+
+    /// Print a node's layout subtree
+    Layout {
+        /// NodeId from DOM/layout output
+        id: usize,
+    },
+
+    /// Print child nodes (direct children by default)
+    Children {
+        /// NodeId from DOM/layout output
+        id: usize,
+        /// Include all descendants recursively
+        #[arg(long)]
+        recursive: bool,
+    },
 }
 
 impl HeadlessCommand {
@@ -133,8 +179,13 @@ impl HeadlessCommand {
         help.push_str("  info                  Print page summary\n");
         help.push('\n');
         help.push_str("Layout & DOM:\n");
-        help.push_str("  dom <selector>        Query DOM with CSS selector\n");
-        help.push_str("  node <x> <y>          Get layout node at coordinates\n");
+        help.push_str("  dom <selector>        Query DOM with a CSS selector\n");
+        help.push_str("  node at <x> <y>       Get layout node at coordinates\n");
+        help.push_str("  node id <id>          Print node summary by NodeId\n");
+        help.push_str("  node dom <id>         Print node DOM subtree\n");
+        help.push_str("  node style <id>       Print computed style for node\n");
+        help.push_str("  node layout <id>      Print layout subtree for node\n");
+        help.push_str("  node children <id>    Print child nodes (use --recursive)\n");
         help.push_str("  layout                Print layout tree\n");
         help.push_str("  resize <w> <h>        Set viewport size\n");
 
@@ -186,10 +237,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_node() {
-        let cmd = HeadlessCommand::parse("node 100.5 200.0").unwrap();
+    fn test_parse_node_at() {
+        let cmd = HeadlessCommand::parse("node at 100.5 200.0").unwrap();
         match cmd {
-            HeadlessCommand::Node { x, y } => {
+            HeadlessCommand::Node {
+                command: NodeCommand::At { x, y },
+            } => {
                 assert!((x - 100.5).abs() < f32::EPSILON);
                 assert!((y - 200.0).abs() < f32::EPSILON);
             }
@@ -225,6 +278,73 @@ mod tests {
             HeadlessCommand::Dom { selector } => assert_eq!(selector, "div.container > p"),
             _ => panic!("Expected Dom command"),
         }
+    }
+
+    #[test]
+    fn test_parse_node_id() {
+        let cmd = HeadlessCommand::parse("node id 14").unwrap();
+        match cmd {
+            HeadlessCommand::Node {
+                command: NodeCommand::Id { id },
+            } => assert_eq!(id, 14),
+            _ => panic!("Expected node id command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_node_dom_with_depth() {
+        let cmd = HeadlessCommand::parse("node dom 14 --max-depth 2").unwrap();
+        match cmd {
+            HeadlessCommand::Node {
+                command: NodeCommand::Dom { id, max_depth },
+            } => {
+                assert_eq!(id, 14);
+                assert_eq!(max_depth, Some(2));
+            }
+            _ => panic!("Expected node dom command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_node_style() {
+        let cmd = HeadlessCommand::parse("node style 14").unwrap();
+        match cmd {
+            HeadlessCommand::Node {
+                command: NodeCommand::Style { id },
+            } => assert_eq!(id, 14),
+            _ => panic!("Expected node style command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_node_layout() {
+        let cmd = HeadlessCommand::parse("node layout 14").unwrap();
+        match cmd {
+            HeadlessCommand::Node {
+                command: NodeCommand::Layout { id },
+            } => assert_eq!(id, 14),
+            _ => panic!("Expected node layout command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_node_children_recursive() {
+        let cmd = HeadlessCommand::parse("node children 14 --recursive").unwrap();
+        match cmd {
+            HeadlessCommand::Node {
+                command: NodeCommand::Children { id, recursive },
+            } => {
+                assert_eq!(id, 14);
+                assert!(recursive);
+            }
+            _ => panic!("Expected node children command"),
+        }
+    }
+
+    #[test]
+    fn test_parse_node_legacy_coords_rejected() {
+        let result = HeadlessCommand::parse("node 100.5 200.0");
+        assert!(result.is_err());
     }
 
     #[test]

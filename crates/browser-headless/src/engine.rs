@@ -11,11 +11,12 @@ use tracing::{error, info};
 use url::Url;
 
 use crate::commands::{
-    HeadlessCommand,
+    HeadlessCommand, NodeCommand,
     content::{cmd_body, cmd_cookies, cmd_headers, cmd_info, cmd_title, cmd_url},
     dom::cmd_dom,
     layout::{cmd_layout, cmd_node, cmd_resize},
     navigation::{cmd_back, cmd_forward, cmd_navigate, cmd_reload},
+    node::{cmd_node_children, cmd_node_dom, cmd_node_id, cmd_node_layout, cmd_node_style},
 };
 
 const DEFAULT_VIEWPORT_WIDTH: f32 = 1280.0;
@@ -75,7 +76,14 @@ impl HeadlessEngine {
             HeadlessCommand::Body => cmd_body(self),
             HeadlessCommand::Cookies { domain } => cmd_cookies(self, domain.as_deref()),
             HeadlessCommand::Dom { selector } => cmd_dom(self, &selector),
-            HeadlessCommand::Node { x, y } => cmd_node(self, x, y),
+            HeadlessCommand::Node { command } => match command {
+                NodeCommand::At { x, y } => cmd_node(self, x, y),
+                NodeCommand::Id { id } => cmd_node_id(self, id),
+                NodeCommand::Dom { id, max_depth } => cmd_node_dom(self, id, max_depth),
+                NodeCommand::Style { id } => cmd_node_style(self, id),
+                NodeCommand::Layout { id } => cmd_node_layout(self, id),
+                NodeCommand::Children { id, recursive } => cmd_node_children(self, id, recursive),
+            },
             HeadlessCommand::Resize { width, height } => cmd_resize(self, width, height),
             HeadlessCommand::Layout => cmd_layout(self),
             HeadlessCommand::Info => cmd_info(self),
@@ -101,7 +109,7 @@ impl HeadlessEngine {
         let document = page.document();
         let stylesheets = page.stylesheets();
 
-        let localhost = Url::parse(Ipv4Addr::LOCALHOST.to_string().as_str()).unwrap();
+        let localhost = Url::parse(&format!("http://{}/", Ipv4Addr::LOCALHOST)).unwrap();
 
         let ctx = AbsoluteContext {
             root_font_size: 16.0,
