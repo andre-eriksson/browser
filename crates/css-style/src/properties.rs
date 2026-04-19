@@ -176,10 +176,7 @@ impl<T: CSSParsable> CSSProperty<T> {
     /// if the value is a global value, and if so, updates the property accordingly.
     /// If not, it tries to parse the stream into the specific type T and updates
     /// the property with the parsed value.
-    pub(crate) fn update_property(
-        property: &mut Self,
-        stream: &mut ComponentValueStream,
-    ) -> Result<(), CssValueError> {
+    pub(crate) fn update_property(property: &mut Self, stream: &mut ComponentValueStream) -> Result<(), CssValueError> {
         let checkpoint = stream.checkpoint();
 
         if let Ok(global) = Global::parse(stream) {

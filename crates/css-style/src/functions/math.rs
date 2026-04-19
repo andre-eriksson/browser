@@ -86,9 +86,7 @@ impl PixelRepr for CalcSum {
     ) -> f32 {
         match self {
             Self::Product(p) => p.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Add(left, right) => {
-                left.to_px(rel_type, rel_ctx, abs_ctx) + right.to_px(rel_type, rel_ctx, abs_ctx)
-            }
+            Self::Add(left, right) => left.to_px(rel_type, rel_ctx, abs_ctx) + right.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Subtract(left, right) => {
                 left.to_px(rel_type, rel_ctx, abs_ctx) - right.to_px(rel_type, rel_ctx, abs_ctx)
             }
