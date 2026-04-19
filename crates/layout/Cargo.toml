@@ -15,8 +15,13 @@ tracing.workspace = true
 browser-core.workspace = true
 browser-preferences.workspace = true
 browser-ui.workspace = true
+criterion.workspace = true
 css-cssom.workspace = true
 html-parser.workspace = true
 io.workspace = true
 url.workspace = true
 zstd.workspace = true
+
+[[bench]]
+name = "layout_integration_benchmark"
+harness = false

@@ -93,3 +93,7 @@ zstd                = "0.13.3"
 
 [profile.release]
 debug = true
+
+[profile.bench]
+inherits = "release"
+debug = 1

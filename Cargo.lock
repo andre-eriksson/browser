@@ -2871,6 +2871,7 @@ dependencies = [
  "browser-preferences",
  "browser-ui",
  "cosmic-text",
+ "criterion",
  "css-cssom",
  "css-style",
  "css-values",
