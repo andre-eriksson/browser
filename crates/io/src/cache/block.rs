@@ -16,7 +16,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use database::Database;
-use storage::paths::get_cache_path;
+use storage::get_cache_path;
 
 use crate::cache::{
     errors::CacheError,

@@ -20,4 +20,10 @@ pub enum ResourceError {
 
     #[error("invalid path: {0}")]
     InvalidPath(String),
+
+    #[error("file too large: {data_size} bytes (max allowed: {max_size} bytes)")]
+    FileTooLarge { data_size: u64, max_size: u64 },
+
+    #[error("too many entries in directory: {0}")]
+    TooManyEntries(String),
 }

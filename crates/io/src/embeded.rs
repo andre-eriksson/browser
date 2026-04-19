@@ -9,12 +9,13 @@ use rust_embed::RustEmbed;
 #[derive(RustEmbed)]
 #[folder = "../../assets/"]
 #[include = "**/*"]
+#[exclude = ".gitignore"]
 /// A struct representing embedded resources in the application,
 /// using the `rust_embed` crate to include files from the specified folder.
 pub(crate) struct EmbededResource;
 
 /// Represents different types of embedded resources in the application.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EmbededType<'path> {
     Icon(&'path str),
     Font(&'path str),

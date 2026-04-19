@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use database::{Database, Table};
 use rusqlite::{Connection, Result};
-use storage::paths::get_data_path;
+use storage::get_data_path;
 use time::UtcDateTime;
 use tracing::debug;
 use url::Host;

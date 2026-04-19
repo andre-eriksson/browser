@@ -7,7 +7,7 @@
 
 use database::{Database, Table};
 use rusqlite::{Connection, Result, params};
-use storage::paths::get_cache_path;
+use storage::get_cache_path;
 
 /// Path to the SQLite database file that stores the cache index entries.
 #[cfg(not(test))]

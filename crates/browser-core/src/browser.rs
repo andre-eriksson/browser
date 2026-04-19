@@ -35,6 +35,9 @@ pub struct Browser {
 }
 
 impl Browser {
+    /// Maximum allowed size for the user agent stylesheet, set to 50 KiB.
+    const MAX_USER_AGENT_CSS_SIZE: Option<usize> = Some(50 * 1024);
+
     pub fn new(config: &'static BrowserConfig) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
@@ -42,7 +45,7 @@ impl Browser {
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
         let stylesheet = if config.args().enable_ua_css {
-            match Resource::load(CACHE_USER_AGENT) {
+            match Resource::load(CACHE_USER_AGENT, Self::MAX_USER_AGENT_CSS_SIZE) {
                 Ok(data) => {
                     trace!("Loaded user agent stylesheet from cache");
 

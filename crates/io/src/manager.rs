@@ -22,7 +22,7 @@ use crate::{
 
 /// AssetType represents the type of asset being managed by the AssetManager.
 /// It can be an icon, font, or image.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ResourceType<'resource> {
     /// Represents resources that are embedded within the application, such as icons, fonts, images, shaders, browser assets, and root assets.
     Embeded(EmbededType<'resource>),
@@ -54,6 +54,12 @@ impl ResourceType<'_> {
 pub struct Resource;
 
 impl Resource {
+    /// Default maximum file size limit for loading resources, set to 10 MiB. This limit helps prevent excessive memory usage when loading large files.
+    pub const DEFAULT_MAX_FILE_SIZE: Option<usize> = Some(10 * 1024 * 1024);
+
+    /// Default maximum number of files to load from a directory, set to 100. This limit helps prevent performance issues when loading directories with a large number of files.
+    pub const DEFAULT_MAX_FILES: Option<usize> = Some(100);
+
     /// Fetches a resource from a remote URL, applying the necessary policies and handling cookies and headers.
     #[cfg(feature = "network")]
     pub async fn from_remote<'app>(
@@ -80,10 +86,23 @@ impl Resource {
     }
 
     /// Loads an asset from the specified resource type, handling both embedded and filesystem resources.
+    ///
+    /// # Args
+    /// * `resource` - The resource to load, which can be an embedded asset, a file path, or an absolute URL.
+    /// * `max_file_size` - An optional maximum file size limit in bytes. If the loaded asset exceeds this size, an error will be returned. If `None`, there is no size limit.
     #[instrument(fields(resource = ?resource.key()))]
-    pub fn load(resource: ResourceType) -> Result<Vec<u8>, ResourceError> {
+    pub fn load(resource: ResourceType, max_file_size: Option<usize>) -> Result<Vec<u8>, ResourceError> {
         match resource.load_asset() {
             Ok(data) => {
+                if let Some(max) = max_file_size
+                    && data.len() > max
+                {
+                    return Err(ResourceError::FileTooLarge {
+                        data_size: data.len() as u64,
+                        max_size: max as u64,
+                    });
+                }
+
                 trace!("OK");
                 Ok(data)
             }
@@ -94,18 +113,70 @@ impl Resource {
         }
     }
 
-    pub fn load_dir(dir: Entry) -> Result<Vec<Vec<u8>>, ResourceError> {
+    /// Loads all files from a specified directory resource, returning their contents as a vector of byte vectors.
+    ///
+    /// # Args
+    /// * `dir` - The directory resource to load, which should be a `ResourceType::Path` pointing to a directory.
+    /// * `max_files` - An optional maximum number of files to load from the directory. If the directory contains more files than this limit, an error will be returned.
+    ///   If `None`, there is no limit on the number of files.
+    /// * `max_file_size` - An optional maximum file size limit in bytes for each file. If any loaded file exceeds this size, it will be skipped and a warning will be logged.
+    ///   If `None`, there is no size limit for individual files.
+    pub fn load_dir(
+        dir: Entry,
+        max_files: Option<usize>,
+        max_file_size: Option<usize>,
+    ) -> Result<Vec<Vec<u8>>, ResourceError> {
         if let Some(path) = dir.path() {
             let mut result = Vec::new();
-            for entry in
-                std::fs::read_dir(path).map_err(|_| ResourceError::NotFound("Directory doesn't exist".to_string()))?
+            let path =
+                std::fs::read_dir(path).map_err(|_| ResourceError::NotFound("Directory doesn't exist".to_string()))?;
+
+            let mut count = 0;
+            let (_, upper_bound) = path.size_hint();
+
+            if let Some(max) = max_files
+                && let Some(ub) = upper_bound
             {
+                if ub >= max {
+                    return Err(ResourceError::TooManyEntries(format!(
+                        "Directory contains too many entries ({}), which exceeds the limit of {}",
+                        upper_bound.map_or(0, |ub| ub),
+                        max
+                    )));
+                } else if ub >= max / 2 {
+                    warn!("Directory contains a large number of entries ({}), which may impact performance", ub);
+                }
+            }
+
+            for entry in path {
+                if let Some(max) = max_files
+                    && count >= max
+                {
+                    return Err(ResourceError::TooManyEntries(format!(
+                        "Directory contains too many entries, which exceeds the limit of {}",
+                        max
+                    )));
+                }
+
                 let entry = entry.map_err(|_| ResourceError::NotFound("Entry doesn't exist".to_string()))?;
                 let path = entry.path();
 
                 if path.is_file()
                     && let Ok(data) = std::fs::read(&path)
                 {
+                    if let Some(max) = max_file_size
+                        && data.len() > max
+                    {
+                        warn!(
+                            "File {} is too large ({} bytes), which exceeds the limit of {} bytes. Skipping this file.",
+                            path.to_string_lossy(),
+                            data.len(),
+                            max
+                        );
+                        continue;
+                    }
+
+                    count += 1;
                     result.push(data);
                 }
             }

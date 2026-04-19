@@ -201,10 +201,13 @@ pub async fn navigate(
                         let handle = tokio::spawn(
                             async move {
                                 if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
-                                    match Resource::load(io::ResourceType::Absolute {
-                                        protocol: relative_url.scheme(),
-                                        location: relative_url.path(),
-                                    }) {
+                                    match Resource::load(
+                                        io::ResourceType::Absolute {
+                                            protocol: relative_url.scheme(),
+                                            location: relative_url.path(),
+                                        },
+                                        Resource::DEFAULT_MAX_FILE_SIZE,
+                                    ) {
                                         Ok(b) => Some(b),
                                         Err(error) => {
                                             debug!(%error, "Failed to load favicon {}", relative_url);
@@ -335,10 +338,13 @@ async fn resolve_navigation_request(
         }
 
         let resp = Response::from(
-            Resource::load(io::ResourceType::Absolute {
-                protocol: "about",
-                location: format!("{}.html", location).as_str(),
-            })
+            Resource::load(
+                io::ResourceType::Absolute {
+                    protocol: "about",
+                    location: format!("{}.html", location).as_str(),
+                },
+                Resource::DEFAULT_MAX_FILE_SIZE,
+            )
             .map_err(NavigationError::Resource)?,
         );
 
@@ -380,10 +386,13 @@ pub async fn resolve_request(
             Some(base) => {
                 if base.scheme() == "file" {
                     Response::from(
-                        Resource::load(io::ResourceType::Absolute {
-                            protocol: url.scheme(),
-                            location: url.path(),
-                        })
+                        Resource::load(
+                            io::ResourceType::Absolute {
+                                protocol: url.scheme(),
+                                location: url.path(),
+                            },
+                            Resource::DEFAULT_MAX_FILE_SIZE,
+                        )
                         .map_err(NavigationError::Resource)?,
                     )
                 } else {
@@ -393,10 +402,13 @@ pub async fn resolve_request(
                 }
             }
             None => Response::from(
-                Resource::load(io::ResourceType::Absolute {
-                    protocol: url.scheme(),
-                    location: url.path(),
-                })
+                Resource::load(
+                    io::ResourceType::Absolute {
+                        protocol: url.scheme(),
+                        location: url.path(),
+                    },
+                    Resource::DEFAULT_MAX_FILE_SIZE,
+                )
                 .map_err(NavigationError::Resource)?,
             ),
         }
@@ -442,10 +454,13 @@ fn spawn_style_fetch_and_parse(
     tokio::spawn(
         async move {
             if style_url.scheme() != "http" && style_url.scheme() != "https" {
-                let res = Resource::load(io::ResourceType::Absolute {
-                    protocol: style_url.scheme(),
-                    location: style_url.path(),
-                });
+                let res = Resource::load(
+                    io::ResourceType::Absolute {
+                        protocol: style_url.scheme(),
+                        location: style_url.path(),
+                    },
+                    Resource::DEFAULT_MAX_FILE_SIZE,
+                );
 
                 let body = match res {
                     Ok(b) => b,

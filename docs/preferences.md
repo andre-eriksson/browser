@@ -16,7 +16,7 @@ The location of the configuration folder depends on the operating system:
 
 ### Theme
 
-The `theme` value specifies the theme to use for the browser. The default value is `light`. You can set it to `dark` to use the dark theme, or to the name of a custom theme that you have created.
+The `theme` value specifies the theme to use for the browser. The default value is `light`. You can set it to `dark` to use the dark theme, or the name of a custom theme that you have created.
 
 **Example:**
 

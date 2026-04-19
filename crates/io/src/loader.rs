@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use storage::paths::create_paths;
+use storage::create_paths;
 
 use crate::{
     Entry,
@@ -54,16 +54,22 @@ impl<'path> Writer for ResourceType<'path> {
                 "Cannot create or modify embedded or absolute resources".to_string(),
             )),
             ResourceType::Path(file) => {
-                let path = file
-                    .path()
-                    .ok_or_else(|| ResourceError::InvalidPath(file.location().to_string()))?;
+                let Some(path) = file.path() else {
+                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+                };
 
                 if !is_relative_path(file.location()) {
                     return Err(ResourceError::InvalidPath(file.location().to_string()));
                 }
 
-                create_paths(&path.parent().unwrap().to_path_buf())
-                    .map_err(|error| ResourceError::Io(error.to_string()))?;
+                let Some(parent) = path.parent() else {
+                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+                };
+
+                if let Err(error) = create_paths(&parent.to_path_buf()) {
+                    return Err(ResourceError::Io(error.to_string()));
+                }
+
                 std::fs::write(path, data).map_err(|error| ResourceError::Io(error.to_string()))
             }
         }

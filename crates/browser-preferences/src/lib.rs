@@ -9,10 +9,10 @@ use crate::theme::Theme;
 pub mod theme;
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(default)]
 pub struct BrowserPreferences {
     #[serde(skip)]
     themes: HashMap<String, Theme>,
+    #[serde(default = "BrowserPreferences::default_theme")]
     theme: String,
 }
 
@@ -26,6 +26,15 @@ impl Default for BrowserPreferences {
 }
 
 impl BrowserPreferences {
+    /// Maximum allowed file size for the preferences file, set to 10 KiB.
+    const MAX_PREFERENCES_FILE_SIZE: Option<usize> = Some(10 * 1024);
+
+    /// Maximum allowed file size for theme files, set to 1 KiB.
+    const MAX_THEME_FILE_SIZE: Option<usize> = Some(1024);
+
+    /// Maximum number of theme files to load from the themes directory, set to 100.
+    const MAX_THEME_FILES: Option<usize> = Some(100);
+
     pub fn new(active_theme: String) -> Self {
         Self {
             themes: Self::load_themes(),
@@ -34,7 +43,7 @@ impl BrowserPreferences {
     }
 
     pub fn load() -> Self {
-        match Resource::load(PREFERENCES) {
+        match Resource::load(PREFERENCES, Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");
@@ -82,7 +91,14 @@ impl BrowserPreferences {
             ("dark".to_string(), Theme::dark()),
         ]);
 
-        let theme_files = Resource::load_dir(Entry::config("themes/")).unwrap_or_default();
+        let theme_files =
+            match Resource::load_dir(Entry::user_data("themes/"), Self::MAX_THEME_FILES, Self::MAX_THEME_FILE_SIZE) {
+                Ok(files) => files,
+                Err(error) => {
+                    warn!(%error, "Failed to load themes from user data directory, using default themes only.");
+                    return themes;
+                }
+            };
 
         for file in theme_files {
             if let Ok(content) = std::str::from_utf8(&file)
@@ -107,5 +123,9 @@ impl BrowserPreferences {
         }
 
         themes
+    }
+
+    fn default_theme() -> String {
+        "light".to_string()
     }
 }

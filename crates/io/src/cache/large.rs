@@ -5,7 +5,7 @@ use std::{
     io::{BufWriter, Write},
 };
 
-use storage::paths::get_cache_path;
+use storage::get_cache_path;
 
 use crate::cache::{errors::CacheError, header::CacheHeader};
 
