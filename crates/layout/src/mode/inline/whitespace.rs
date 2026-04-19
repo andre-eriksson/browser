@@ -51,6 +51,10 @@ pub fn canonicalize_whitespace(items: &mut Vec<InlineItem>) {
                     }
                 }
             }
+            InlineItem::InlineBoxStart { .. } | InlineItem::InlineBoxEnd { .. } => {
+                items[write_idx] = item;
+                write_idx += 1;
+            }
             other => {
                 items[write_idx] = other;
                 write_idx += 1;
@@ -129,5 +133,84 @@ fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
 
     if end_idx < items.len() {
         items.drain(end_idx..);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use css_style::{ComputedStyle, StyledNode};
+    use html_dom::NodeId;
+
+    use super::*;
+
+    #[test]
+    fn collapses_whitespace_across_inline_box_boundaries() {
+        let style = ComputedStyle::default();
+        let mut items = vec![
+            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+                id: NodeId(1),
+                content: "A ".to_string(),
+                style: &style,
+            }),
+            InlineItem::InlineBoxStart {
+                id: NodeId(2),
+                style: &style,
+            },
+            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+                id: NodeId(3),
+                content: " ".to_string(),
+                style: &style,
+            }),
+            InlineItem::InlineBoxEnd { id: NodeId(2) },
+            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+                id: NodeId(4),
+                content: "B".to_string(),
+                style: &style,
+            }),
+        ];
+
+        canonicalize_whitespace(&mut items);
+
+        assert_eq!(items.len(), 4);
+        match &items[0] {
+            InlineItem::TextRun(text) => assert_eq!(text.content, "A "),
+            _ => panic!("expected leading text run"),
+        }
+        assert!(matches!(items[1], InlineItem::InlineBoxStart { .. }));
+        assert!(matches!(items[2], InlineItem::InlineBoxEnd { .. }));
+        match &items[3] {
+            InlineItem::TextRun(text) => assert_eq!(text.content, "B"),
+            _ => panic!("expected trailing text run"),
+        }
+    }
+
+    #[test]
+    fn atomic_items_still_reset_whitespace_collapse_state() {
+        let style = ComputedStyle::default();
+        let flow_root = StyledNode::new(NodeId(9));
+        let mut items = vec![
+            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+                id: NodeId(1),
+                content: "A ".to_string(),
+                style: &style,
+            }),
+            InlineItem::InlineFlowRoot {
+                node: &flow_root,
+                style: &flow_root.style,
+            },
+            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+                id: NodeId(2),
+                content: " B".to_string(),
+                style: &style,
+            }),
+        ];
+
+        canonicalize_whitespace(&mut items);
+
+        assert_eq!(items.len(), 3);
+        match &items[2] {
+            InlineItem::TextRun(text) => assert_eq!(text.content, " B"),
+            _ => panic!("expected trailing text run"),
+        }
     }
 }

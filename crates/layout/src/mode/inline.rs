@@ -1,4 +1,4 @@
-use css_style::{ComputedStyle, StyledNode};
+use css_style::{ComputedDimension, ComputedStyle, StyledNode};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -140,20 +140,27 @@ impl InlineLayout {
                     );
 
                     if let Some(mut layout_node) = LayoutEngine::layout_node(dom_tree, node, &mut block_ctx, text_ctx) {
-                        let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
+                        if style.width == ComputedDimension::Auto {
+                            layout_node.dimensions.width =
+                                InlineLayout::auto_inline_flow_root_width(&layout_node, padding, border)
+                                    .min(layout_node.dimensions.width);
+                        }
+
+                        let total_width = layout_node.dimensions.width + margin.horizontal();
+                        let available_line_width = line
+                            .line_box
+                            .available_width(ctx.float_ctx_ref(), inline_layout_ctx.available_width);
 
                         let alignment = &style.text_align;
                         let writing_mode = &style.writing_mode;
                         text_ctx.last_text_align = *alignment;
                         text_ctx.last_writing_mode = *writing_mode;
 
-                        if line.line_box.width + total_width > inline_ctx.containing_block.width
-                            && line.line_box.width > 0.0
-                        {
+                        if line.line_box.width + total_width > available_line_width && line.line_box.width > 0.0 {
                             line.finish_line_with_decorations(&mut inline_layout_ctx, text_ctx, ctx.float_ctx(), None);
                         }
 
-                        let ascent = layout_node.dimensions.height + margin.top + margin.bottom;
+                        let ascent = layout_node.dimensions.height + margin.vertical();
 
                         layout_node.margin = margin;
 
@@ -195,5 +202,64 @@ impl InlineLayout {
                 total_height,
             ),
         )
+    }
+
+    fn auto_inline_flow_root_width(layout_node: &LayoutNode, padding: SideOffset, border: SideOffset) -> f32 {
+        let content_left = layout_node.dimensions.x + padding.left + border.left;
+        let max_right = layout_node
+            .children
+            .iter()
+            .fold(content_left, |right, child| right.max(InlineLayout::max_right_edge(child)));
+        let content_width = (max_right - content_left).max(0.0);
+
+        content_width + padding.horizontal() + border.horizontal()
+    }
+
+    fn max_right_edge(node: &LayoutNode) -> f32 {
+        let mut right = node.dimensions.x + node.dimensions.width;
+        for child in &node.children {
+            right = right.max(InlineLayout::max_right_edge(child));
+        }
+
+        right
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use html_dom::NodeId;
+
+    use super::*;
+
+    #[test]
+    fn auto_inline_flow_root_width_uses_descendant_extent() {
+        let nested_text = LayoutNode::builder(NodeId(3))
+            .dimensions(Rect::new(13.0, 0.0, 25.0, 12.0))
+            .build();
+        let inline_child = LayoutNode::builder(NodeId(2))
+            .dimensions(Rect::new(13.0, 0.0, 25.0, 12.0))
+            .children(vec![nested_text])
+            .build();
+        let container = LayoutNode::builder(NodeId(1))
+            .dimensions(Rect::new(8.0, 0.0, 500.0, 20.0))
+            .children(vec![inline_child])
+            .build();
+
+        let padding = SideOffset {
+            top: 0.0,
+            right: 4.0,
+            bottom: 0.0,
+            left: 4.0,
+        };
+        let border = SideOffset {
+            top: 0.0,
+            right: 1.0,
+            bottom: 0.0,
+            left: 1.0,
+        };
+
+        let width = InlineLayout::auto_inline_flow_root_width(&container, padding, border);
+
+        assert!((width - 35.0).abs() < 0.001);
     }
 }

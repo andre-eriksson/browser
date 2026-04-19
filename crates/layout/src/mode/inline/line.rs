@@ -42,8 +42,15 @@ impl<'node> LineBox<'node> {
     }
 
     pub fn add(&mut self, mut node: LayoutNode, ascent: f32, descent: f32) {
-        node.dimensions.x = self.x + self.width + node.margin.left;
-        self.width += node.dimensions.width - node.margin.horizontal();
+        let new_x = self.x + self.width + node.margin.left;
+        let delta_x = new_x - node.dimensions.x;
+        node.dimensions.x = new_x;
+
+        if delta_x != 0.0 {
+            LineBox::shift_descendants(&mut node.children, delta_x, 0.0);
+        }
+
+        self.width += node.dimensions.width + node.margin.horizontal();
 
         self.max_ascent = self.max_ascent.max(ascent);
         self.max_descent = self.max_descent.max(descent);
@@ -54,6 +61,14 @@ impl<'node> LineBox<'node> {
     /// padding/border contributions) without adding a layout node.
     pub fn advance(&mut self, amount: f32) {
         self.width += amount;
+    }
+
+    fn shift_descendants(children: &mut [LayoutNode], delta_x: f32, delta_y: f32) {
+        for child in children.iter_mut() {
+            child.dimensions.x += delta_x;
+            child.dimensions.y += delta_y;
+            LineBox::shift_descendants(&mut child.children, delta_x, delta_y);
+        }
     }
 
     /// Finalise the line, emitting positioned `LayoutNode`s for any active
@@ -121,10 +136,19 @@ impl<'node> LineBox<'node> {
         }
 
         for mut node in self.items {
-            node.dimensions.x = content_start_x + node.dimensions.x - self.x + offset_x;
+            let new_x = content_start_x + node.dimensions.x - self.x + offset_x;
             // TODO: vertical-align support.
             let baseline_y = self.y + self.max_ascent;
-            node.dimensions.y = baseline_y - node.dimensions.height;
+            let new_y = baseline_y - node.dimensions.height;
+            let delta_x = new_x - node.dimensions.x;
+            let delta_y = new_y - node.dimensions.y;
+
+            node.dimensions.x = new_x;
+            node.dimensions.y = new_y;
+
+            if delta_x != 0.0 || delta_y != 0.0 {
+                LineBox::shift_descendants(&mut node.children, delta_x, delta_y);
+            }
 
             final_nodes.push(node);
         }
@@ -233,5 +257,73 @@ impl<'node> LineBoxBuilder<'node> {
                 border: active.border,
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use html_dom::NodeId;
+
+    use super::*;
+    use crate::{Rect, SideOffset};
+
+    #[test]
+    fn add_accounts_for_horizontal_margins() {
+        let mut line = LineBox::new(0.0, 0.0);
+        let node = LayoutNode::builder(NodeId(1))
+            .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
+            .margin(SideOffset {
+                top: 0.0,
+                right: 3.0,
+                bottom: 0.0,
+                left: 2.0,
+            })
+            .build();
+
+        line.add(node, 10.0, 0.0);
+
+        assert_eq!(line.width, 15.0);
+        assert_eq!(line.items[0].dimensions.x, 2.0);
+    }
+
+    #[test]
+    fn add_repositions_descendants_when_parent_x_changes() {
+        let child = LayoutNode::builder(NodeId(2))
+            .dimensions(Rect::new(5.0, 0.0, 4.0, 4.0))
+            .build();
+        let parent = LayoutNode::builder(NodeId(1))
+            .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
+            .children(vec![child])
+            .build();
+
+        let mut line = LineBox::new(10.0, 0.0);
+        line.add(parent, 10.0, 0.0);
+
+        assert_eq!(line.items[0].dimensions.x, 10.0);
+        assert_eq!(line.items[0].children[0].dimensions.x, 15.0);
+    }
+
+    #[test]
+    fn finish_repositions_descendants_with_parent() {
+        let child = LayoutNode::builder(NodeId(2))
+            .dimensions(Rect::new(2.0, 3.0, 4.0, 4.0))
+            .build();
+        let parent = LayoutNode::builder(NodeId(1))
+            .dimensions(Rect::new(1.0, 2.0, 10.0, 10.0))
+            .children(vec![child])
+            .build();
+
+        let mut line = LineBox::new(0.0, 40.0);
+        line.add(parent, 10.0, 0.0);
+
+        let (nodes, _) = line.finish(&FloatContext::new(), 10.0, 200.0, &TextAlign::Left, &WritingMode::HorizontalTb);
+
+        let parent = &nodes[0];
+        assert_eq!(parent.dimensions.x, 10.0);
+        assert_eq!(parent.dimensions.y, 40.0);
+
+        let child = &parent.children[0];
+        assert_eq!(child.dimensions.x, 11.0);
+        assert_eq!(child.dimensions.y, 41.0);
     }
 }
