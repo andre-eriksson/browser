@@ -79,7 +79,7 @@ pub async fn navigate(
             ParserState::Running => continue,
             ParserState::Blocked(reason) => match reason {
                 BlockedReason::WaitingForScript(attributes) => {
-                    if let Some(src) = attributes.get("src") {
+                    if let Some(src) = attributes.as_ref().and_then(|attrs| attrs.get("src")) {
                         match url.join(src) {
                             Ok(_url) => {
                                 // TODO: Uncomment when we have script execution implemented

@@ -66,13 +66,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         for token in tokens {
             match token.kind {
                 TokenKind::StartTag => {
-                    self.handle_start_tag(&token);
+                    self.handle_start_tag(token);
                 }
                 TokenKind::EndTag => {
-                    self.handle_end_tag(&token);
+                    self.handle_end_tag(token);
                 }
                 TokenKind::Text => {
-                    self.handle_text_content(&token);
+                    self.handle_text_content(token);
                 }
                 _ => {}
             }
@@ -117,18 +117,28 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the start tag to be processed.
-    fn handle_start_tag(&mut self, token: &Token) {
+    fn handle_start_tag(&mut self, token: Token) {
         let tag = Tag::from_str_insensitive(&token.data);
-        let attributes = &token.attributes;
+        let attributes = token.attributes;
+        let class_set = attributes
+            .as_ref()
+            .and_then(|attrs| {
+                attrs
+                    .iter()
+                    .find(|(name, _)| name.eq_ignore_ascii_case("class"))
+            })
+            .map(|(_, value)| {
+                value
+                    .split_whitespace()
+                    .map(|s| Some(s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
 
         let element = Element {
             tag: tag.clone(),
-            class_set: attributes
-                .iter()
-                .find(|(name, _)| name.eq_ignore_ascii_case("class"))
-                .map(|(_, value)| value.split_whitespace().map(String::from).collect())
-                .unwrap_or_default(),
-            attributes: attributes.clone(),
+            class_set,
+            attributes,
         };
 
         let node_data = NodeData::Element(element);
@@ -139,7 +149,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
 
         self.collector.collect(&TagInfo {
             tag: &tag,
-            attributes: &token.attributes,
+            attributes: &node_data.as_element().unwrap().attributes,
             node_id: new_id,
             data: None,
         });
@@ -153,7 +163,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
-    fn handle_end_tag(&mut self, token: &Token) {
+    fn handle_end_tag(&mut self, token: Token) {
         let target_tag = Tag::from_str_insensitive(&token.data);
 
         let should_close = if let Some(last) = self.open_elements.last() {
@@ -177,8 +187,8 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `token` - A reference to the `Token` containing the text content to be processed.
-    fn handle_text_content(&mut self, token: &Token) {
-        let mut text_content = token.data.clone();
+    fn handle_text_content(&mut self, token: Token) {
+        let mut text_content = token.data;
 
         if text_content.contains('&') {
             let decoder = Decoder::new(&text_content);

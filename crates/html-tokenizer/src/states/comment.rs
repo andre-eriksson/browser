@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     Token, TokenKind,
     state::TokenState,
@@ -34,7 +32,7 @@ pub fn handle_comment_start_state(state: &mut TokenizerState, ch: char) {
         '-' => {
             state.current_token = Some(Token {
                 kind: TokenKind::Comment,
-                attributes: HashMap::new(),
+                attributes: None,
                 data: String::new(),
             });
 
@@ -66,7 +64,7 @@ pub fn handle_comment_state(state: &mut TokenizerState, ch: char) {
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::Comment,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: ch.to_string(),
                 });
             }
@@ -101,7 +99,7 @@ pub fn handle_comment_end_state(state: &mut TokenizerState, ch: char, tokens: &m
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::Comment,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: format!("-{ch}"),
                 });
             }

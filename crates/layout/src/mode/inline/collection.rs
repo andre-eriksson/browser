@@ -1,6 +1,6 @@
 use css_style::{ComputedDimension, ComputedStyle, StyledNode};
 use css_values::display::{InsideDisplay, OutsideDisplay};
-use html_dom::{HtmlTag, NodeId, Tag};
+use html_dom::{DocumentRoot, HtmlTag, NodeData, NodeId, Tag};
 
 use crate::ImageContext;
 
@@ -58,47 +58,44 @@ pub enum InlineItem<'node> {
 /// Recursively collects inline items from the given styled node and its children,
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
 pub fn collect<'node>(
+    dom_tree: &DocumentRoot,
     style: &'node ComputedStyle,
     inline_node: &'node StyledNode,
     items: &mut Vec<InlineItem<'node>>,
     image_ctx: &ImageContext,
 ) -> Result<(), ()> {
-    if let Some(text) = inline_node.text_content.as_ref() {
-        items.push(InlineItem::TextRun(TextRun {
-            id: inline_node.node_id,
-            content: text.clone(),
-            style,
-        }));
-    }
+    let Some(node) = dom_tree.get_node(&inline_node.node_id) else {
+        return Ok(());
+    };
 
-    if let Some(tag) = inline_node.tag.as_ref() {
-        match tag {
+    match &node.data {
+        NodeData::Text(content) => {
+            items.push(InlineItem::TextRun(TextRun {
+                id: inline_node.node_id,
+                content: content.clone(),
+                style,
+            }));
+        }
+        NodeData::Element(element) => match element.tag {
             Tag::Html(HtmlTag::Br) => {
                 items.push(InlineItem::Break {
                     line_height_px: inline_node.style.line_height,
                 });
             }
             Tag::Html(HtmlTag::Img) => {
-                let src = inline_node
-                    .attributes
-                    .get("src")
-                    .cloned()
-                    .unwrap_or_default();
+                let Some(attrs) = element.attributes.as_ref() else {
+                    return Ok(());
+                };
+
+                let src = attrs.get("src").cloned().unwrap_or_default();
 
                 const DEFAULT_IMAGE_WIDTH: f32 = 300.0;
                 const DEFAULT_IMAGE_HEIGHT: f32 = 150.0;
 
                 let known = image_ctx.get(&src);
 
-                let attr_width = inline_node
-                    .attributes
-                    .get("width")
-                    .and_then(|v| v.parse::<f32>().ok());
-
-                let attr_height = inline_node
-                    .attributes
-                    .get("height")
-                    .and_then(|v| v.parse::<f32>().ok());
+                let attr_width = attrs.get("width").and_then(|v| v.parse::<f32>().ok());
+                let attr_height = attrs.get("height").and_then(|v| v.parse::<f32>().ok());
 
                 let css_width = !matches!(inline_node.style.width, ComputedDimension::Auto);
                 let css_height = !matches!(inline_node.style.height, ComputedDimension::Auto);
@@ -170,14 +167,14 @@ pub fn collect<'node>(
                 });
 
                 for child in &inline_node.children {
-                    collect(&inline_node.style, child, items, image_ctx)?;
+                    collect(dom_tree, &inline_node.style, child, items, image_ctx)?;
                 }
 
                 items.push(InlineItem::InlineBoxEnd {
                     id: inline_node.node_id,
                 });
             }
-        }
+        },
     }
 
     Ok(())

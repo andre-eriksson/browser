@@ -1,5 +1,6 @@
 use css_style::{ComputedDimension, ComputedStyle, Position, StyledNode};
 use css_values::display::{Clear, Float, OutsideDisplay};
+use html_dom::DocumentRoot;
 
 use crate::{
     LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, engine::LayoutMode, layout::LayoutContext,
@@ -86,7 +87,12 @@ impl BlockFlow {
 pub struct BlockLayout;
 
 impl BlockLayout {
-    pub fn layout(styled_node: &StyledNode, ctx: &mut LayoutContext, text_ctx: &mut TextContext) -> Option<LayoutNode> {
+    pub fn layout(
+        dom_tree: &DocumentRoot,
+        styled_node: &StyledNode,
+        ctx: &mut LayoutContext,
+        text_ctx: &mut TextContext,
+    ) -> Option<LayoutNode> {
         if styled_node.style.position.is_out_of_flow() && !ctx.is_deferred() {
             let containing_block = if styled_node.style.position == Position::Fixed {
                 ctx.containing_block()
@@ -138,6 +144,7 @@ impl BlockLayout {
                     child_containing_height - flow.current_y,
                 );
                 let (inline_layout_nodes, inline_result) = LayoutEngine::layout_nodes(
+                    dom_tree,
                     &inline_items,
                     LayoutMode::Inline,
                     &styled_node.style,
@@ -197,7 +204,7 @@ impl BlockLayout {
             child_ctx.set_positioned_containing_block(child_ctx.positioned_containing_block());
             child_ctx.block_cursor.y = child_y_offset;
 
-            if let Some(child_node) = LayoutEngine::layout_node(child_style_node, &mut child_ctx, text_ctx) {
+            if let Some(child_node) = LayoutEngine::layout_node(dom_tree, child_style_node, &mut child_ctx, text_ctx) {
                 if has_clearance {
                     flow.advance_to(
                         child_y_offset,

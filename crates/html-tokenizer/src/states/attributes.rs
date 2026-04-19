@@ -109,9 +109,7 @@ pub fn handle_after_attribute_name_state(state: &mut TokenizerState, ch: char, t
         ch if ch.is_whitespace() => {}
         ch if ch.is_alphabetic() => {
             if let Some(token) = state.current_token.as_mut() {
-                token
-                    .attributes
-                    .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
+                HtmlTokenizer::insert_attribute(token, &state.current_attribute_name, &state.current_attribute_value);
             }
 
             state.current_attribute_name.clear();
@@ -208,9 +206,7 @@ pub fn handle_attribute_value_unquoted_state(state: &mut TokenizerState, ch: cha
         '>' => handle_closing_tag(state, tokens),
         ch if ch.is_ascii_whitespace() => {
             if let Some(token) = state.current_token.as_mut() {
-                token
-                    .attributes
-                    .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
+                HtmlTokenizer::insert_attribute(token, &state.current_attribute_name, &state.current_attribute_value);
 
                 state.current_attribute_name.clear();
                 state.current_attribute_value.clear();
@@ -242,9 +238,7 @@ pub fn handle_after_attribute_value_quoted_state(state: &mut TokenizerState, ch:
         }
         _ => {
             if let Some(token) = state.current_token.as_mut() {
-                token
-                    .attributes
-                    .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
+                HtmlTokenizer::insert_attribute(token, &state.current_attribute_name, &state.current_attribute_value);
 
                 state.current_attribute_name.clear();
                 state.current_attribute_value.clear();

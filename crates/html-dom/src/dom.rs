@@ -17,8 +17,8 @@ impl Display for NodeId {
 
 #[derive(Debug, Clone)]
 pub struct Element {
-    pub attributes: HashMap<String, String>,
-    pub class_set: HashSet<String>,
+    pub attributes: Option<HashMap<String, String>>,
+    pub class_set: Option<HashSet<String>>,
     pub tag: Tag,
 }
 
@@ -31,8 +31,8 @@ impl PartialEq for Element {
 impl Default for Element {
     fn default() -> Self {
         Self {
-            attributes: HashMap::new(),
-            class_set: HashSet::new(),
+            attributes: None,
+            class_set: None,
             tag: Tag::Unknown(String::new()),
         }
     }
@@ -48,8 +48,8 @@ impl Element {
     #[must_use]
     pub const fn new(tag: Tag, class_set: HashSet<String>, attributes: HashMap<String, String>) -> Self {
         Self {
-            attributes,
-            class_set,
+            attributes: Some(attributes),
+            class_set: Some(class_set),
             tag,
         }
     }
@@ -60,7 +60,9 @@ impl Element {
     /// An Option containing the ID as &str, or None if not present
     #[must_use]
     pub fn id(&self) -> Option<&str> {
-        self.attributes.get("id").map(String::as_str)
+        self.attributes
+            .as_ref()
+            .and_then(|attrs| attrs.get("id").map(String::as_str))
     }
 
     /// Get an iterator over the classes of this element
@@ -69,10 +71,15 @@ impl Element {
     /// An iterator over class names as &str
     pub fn classes(&self) -> impl Iterator<Item = &str> {
         self.attributes
-            .get("class")
-            .map(|s| s.split_whitespace())
+            .as_ref()
+            .and_then(|attrs| attrs.get("class"))
             .into_iter()
-            .flatten()
+            .flat_map(|class_str| {
+                class_str
+                    .split_whitespace()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+            })
     }
 
     /// Check if this element has a specific attribute
@@ -84,7 +91,9 @@ impl Element {
     /// bool indicating whether the attribute is present
     #[must_use]
     pub fn has_attribute(&self, name: &str) -> bool {
-        self.attributes.contains_key(name)
+        self.attributes
+            .as_ref()
+            .is_some_and(|attrs| attrs.contains_key(name))
     }
 
     /// Get the value of a specific attribute by name
@@ -96,7 +105,9 @@ impl Element {
     /// An Option containing the attribute value as &str, or None if not present
     #[must_use]
     pub fn get_attribute(&self, name: &str) -> Option<&str> {
-        self.attributes.get(name).map(String::as_str)
+        self.attributes
+            .as_ref()
+            .and_then(|attrs| attrs.get(name).map(String::as_str))
     }
 
     /// Get the tag name of this element as a string
@@ -230,15 +241,17 @@ impl DocumentRoot {
                         node.id,
                     ).unwrap();
 
-                    for (attr_name, attr_value) in &elem.attributes {
-                        if attr_name.trim().is_empty() {
-                            continue;
-                        }
+                    if let Some(attrs) = &elem.attributes {
+                        for (attr_name, attr_value) in attrs {
+                            if attr_name.trim().is_empty() {
+                                continue;
+                            }
 
-                        write!(
-                            &mut html,
-                            " <span class='attr-name'>{attr_name}</span><span class='attr-equals'>=</span><span class='attr-value'>\"{attr_value}\"</span>",
-                        ).unwrap();
+                            write!(
+                                &mut html,
+                                " <span class='attr-name'>{attr_name}</span><span class='attr-equals'>=</span><span class='attr-value'>\"{attr_value}\"</span>",
+                            ).unwrap();
+                        }
                     }
 
                     write!(&mut html, "<span class='tag'>&gt;</span>").unwrap();
@@ -295,12 +308,14 @@ impl Display for DocumentRoot {
                         write!(f, " ")?;
                     }
                     write!(f, "<{} data-node-id=\"{}\"", elem.tag_name(), node.id)?;
-                    for attr in &elem.attributes {
-                        if attr.0.trim().is_empty() {
-                            continue;
-                        }
+                    if let Some(attrs) = &elem.attributes {
+                        for attr in attrs {
+                            if attr.0.trim().is_empty() {
+                                continue;
+                            }
 
-                        write!(f, " {}=\"{}\"", attr.0, attr.1)?;
+                            write!(f, " {}=\"{}\"", attr.0, attr.1)?;
+                        }
                     }
                     writeln!(f, ">")?;
 

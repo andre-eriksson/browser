@@ -97,13 +97,18 @@ impl<'html> HtmlRenderer<'html> {
             if let Some(n) = dom_node.data.as_element()
                 && n.tag == Tag::Html(HtmlTag::A)
             {
-                return Some(n.attributes.get("href").cloned().unwrap_or_default());
+                return Some(
+                    n.attributes
+                        .as_ref()
+                        .and_then(|attrs| attrs.get("href").cloned())
+                        .unwrap_or_default(),
+                );
             }
 
             for ancestor in self.dom_tree.ancestors(&node.node_id) {
                 if let Some(n) = ancestor.data.as_element()
                     && n.tag == Tag::Html(HtmlTag::A)
-                    && let Some(href) = n.attributes.get("href")
+                    && let Some(href) = n.attributes.as_ref().and_then(|attrs| attrs.get("href"))
                 {
                     return Some(href.clone());
                 }

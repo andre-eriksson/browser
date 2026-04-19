@@ -82,6 +82,7 @@ pub fn on_navigation_success(
             let image_ctx = tab.image_context();
             let mut tc = ctx.text_context.lock().unwrap();
             let layout_tree = LayoutEngine::compute_layout(
+                tab.page_ctx.as_ref().unwrap().page.document(),
                 style_tree,
                 Rect::new(0.0, 0.0, viewport.width, viewport.height),
                 &mut tc,

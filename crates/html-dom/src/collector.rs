@@ -12,7 +12,7 @@ pub struct TagInfo<'tag> {
     /// The name of the HTML tag (e.g., `"div"`, `"span"`).
     pub tag: &'tag Tag,
     /// A reference to a map of attribute names and their values for the tag (e.g., `{"class": "my-class"}`).
-    pub attributes: &'tag HashMap<String, String>,
+    pub attributes: &'tag Option<HashMap<String, String>>,
     /// A reference to the associated DOM node, which can be used to access the tag's position in the document structure.
     pub node_id: NodeId,
     /// Optional text data associated with the tag, only applicable for text nodes.
@@ -59,18 +59,18 @@ pub struct DefaultCollector {
 
 impl Collector for DefaultCollector {
     fn collect(&mut self, tag: &TagInfo) {
-        if tag.attributes.is_empty() {
-            return;
-        }
+        let Some(attr) = tag.attributes else {
+            return; // No attributes to collect
+        };
 
         if let Some(id_map) = &mut self.id_map
-            && let Some(id) = tag.attributes.get("id")
+            && let Some(id) = attr.get("id")
         {
             id_map.entry(id.clone()).or_insert(tag.node_id);
         }
 
         if let Some(class_map) = &mut self.class_map
-            && let Some(classes) = tag.attributes.get("class")
+            && let Some(classes) = attr.get("class")
         {
             for class in classes.split_whitespace() {
                 class_map
@@ -81,7 +81,7 @@ impl Collector for DefaultCollector {
         }
 
         if let Some(external_resources) = &mut self.external_resources {
-            if let Some(href) = tag.attributes.get("href") {
+            if let Some(href) = attr.get("href") {
                 if *tag.tag == Tag::Html(HtmlTag::A) {
                     return; // Skip anchor tags for href collection
                 }
@@ -92,7 +92,7 @@ impl Collector for DefaultCollector {
                     .push(tag.node_id);
             }
 
-            if let Some(src) = tag.attributes.get("src") {
+            if let Some(src) = attr.get("src") {
                 external_resources
                     .entry(src.clone())
                     .or_default()

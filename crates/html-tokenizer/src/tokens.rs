@@ -31,6 +31,6 @@ pub struct Token {
     /// The content of the token, such as the tag name or text content.
     pub data: String,
 
-    /// A map of attributes associated with the token, where the key is the attribute name and the value is the attribute value.
-    pub attributes: HashMap<String, String>,
+    /// Optional map of attributes associated with the token, where the key is the attribute name and the value is the attribute value.
+    pub attributes: Option<HashMap<String, String>>,
 }

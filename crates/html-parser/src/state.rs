@@ -19,11 +19,11 @@ pub struct ResourceMetadata {
 pub enum BlockedReason {
     /// The parser is waiting for a script to load or execute.
     /// The associated `HashMap` contains attributes of the script element.
-    WaitingForScript(HashMap<String, String>),
+    WaitingForScript(Option<HashMap<String, String>>),
 
     /// The parser is waiting for a style resource to load.
     /// The associated `HashMap` contains attributes of the style element.
-    WaitingForStyle(HashMap<String, String>),
+    WaitingForStyle(Option<HashMap<String, String>>),
 
     /// The parser is waiting for a generic resource to load, from <link> tags.
     WaitingForResource(ResourceType, String, ResourceMetadata),

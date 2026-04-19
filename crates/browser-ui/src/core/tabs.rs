@@ -150,6 +150,7 @@ impl UiTab {
 
         let style_tree = StyleTree::build(&absolute_ctx, page.document(), page.stylesheets());
         let layout_tree = LayoutEngine::compute_layout(
+            page.document(),
             &style_tree,
             Rect::new(0.0, 0.0, viewport.width, viewport.height),
             text_context,
@@ -181,6 +182,7 @@ impl UiTab {
 
         let style_tree = StyleTree::build(&absolute_ctx, page.document(), page.stylesheets());
         let layout_tree = LayoutEngine::compute_layout(
+            page.document(),
             &style_tree,
             Rect::new(0.0, 0.0, viewport.width, viewport.height),
             text_context,

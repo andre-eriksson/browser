@@ -80,7 +80,7 @@ impl HtmlTokenizer {
                     tokens,
                     Token {
                         kind: TokenKind::EndTag,
-                        attributes: HashMap::new(),
+                        attributes: None,
                         data: "script".to_string(),
                     },
                 );
@@ -94,7 +94,7 @@ impl HtmlTokenizer {
                     tokens,
                     Token {
                         kind: TokenKind::EndTag,
-                        attributes: HashMap::new(),
+                        attributes: None,
                         data: "style".to_string(),
                     },
                 );
@@ -108,7 +108,7 @@ impl HtmlTokenizer {
                     tokens,
                     Token {
                         kind: TokenKind::EndTag,
-                        attributes: HashMap::new(),
+                        attributes: None,
                         data: "svg".to_string(),
                     },
                 );
@@ -120,13 +120,27 @@ impl HtmlTokenizer {
         }
     }
 
-    /// An **inline** helper function to emit a token by pushing it onto the tokens vector.
+    /// A helper function to emit a token by pushing it onto the tokens vector.
     ///
     /// # Arguments
     /// * `tokens` - A mutable reference to the vector of tokens.
     /// * `token` - The token to be emitted.
-    #[inline]
-    pub fn emit_token(tokens: &mut Vec<Token>, token: Token) {
+    pub(crate) fn emit_token(tokens: &mut Vec<Token>, token: Token) {
         tokens.push(token);
+    }
+
+    /// Inserts an attribute on a token when the attribute name exists.
+    /// If the token has no attribute map yet, this initializes one first.
+    pub(crate) fn insert_attribute(token: &mut Token, name: &str, value: &str) {
+        if name.is_empty() {
+            return;
+        }
+
+        if let Some(attributes) = token.attributes.as_mut() {
+            attributes.insert(name.to_string(), value.to_string());
+        } else {
+            let attributes = HashMap::from([(name.to_string(), value.to_string())]);
+            token.attributes = Some(attributes);
+        }
     }
 }

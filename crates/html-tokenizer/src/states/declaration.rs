@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     Token, TokenKind,
     state::TokenState,
@@ -25,7 +23,7 @@ pub fn handle_start_declaration_state(state: &mut TokenizerState, ch: char) {
         'd' | 'D' => {
             state.current_token = Some(Token {
                 kind: TokenKind::DoctypeDeclaration,
-                attributes: HashMap::new(),
+                attributes: None,
                 data: ch.to_string(),
             });
             state.state = TokenState::DoctypeDeclaration;
@@ -65,7 +63,7 @@ pub fn handle_xml_declaration_state(state: &mut TokenizerState, ch: char, tokens
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::XmlDeclaration,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: ch.to_string(),
                 });
             }
@@ -76,7 +74,7 @@ pub fn handle_xml_declaration_state(state: &mut TokenizerState, ch: char, tokens
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::XmlDeclaration,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: ch.to_string(),
                 });
             }
@@ -108,7 +106,7 @@ pub fn handle_doctype_declaration_state(state: &mut TokenizerState, ch: char, to
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::DoctypeDeclaration,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: ch.to_string(),
                 });
             }

@@ -69,6 +69,7 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
             let mut tc = ctx.text_context.lock().unwrap();
             let img_ctx = ImageContext::new();
             let layout_tree = LayoutEngine::compute_layout(
+                page.document(),
                 &style_tree,
                 Rect::new(0.0, 0.0, new_viewport.width, new_viewport.height),
                 &mut tc,

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     Token, TokenKind,
     state::TokenState,
@@ -24,7 +22,7 @@ pub fn handle_data_state(state: &mut TokenizerState, ch: char, tokens: &mut Vec<
                     tokens,
                     Token {
                         kind: TokenKind::Text,
-                        attributes: HashMap::new(),
+                        attributes: None,
                         data: state.temporary_buffer.clone(),
                     },
                 );

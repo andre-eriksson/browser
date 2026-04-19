@@ -125,7 +125,7 @@ impl HeadlessEngine {
 
         let viewport = Rect::new(0.0, 0.0, self.viewport_width, self.viewport_height);
         let img_ctx = ImageContext::new();
-        let layout_tree = LayoutEngine::compute_layout(&style_tree, viewport, &mut self.text_ctx, &img_ctx);
+        let layout_tree = LayoutEngine::compute_layout(document, &style_tree, viewport, &mut self.text_ctx, &img_ctx);
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);

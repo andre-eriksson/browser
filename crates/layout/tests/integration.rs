@@ -112,20 +112,20 @@ mod tests {
     /// Runs layout from a pre-built `StyleTree`, optionally with an
     /// `ImageContext` for known image dimensions.
     macro_rules! layout_from {
-        ($style_tree:expr, $text_context:expr) => {{
+        ($dom_tree:expr, $style_tree:expr, $text_context:expr) => {{
             let img_ctx = ImageContext::new();
-            LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, &img_ctx)
+            LayoutEngine::compute_layout(&$dom_tree, &$style_tree, viewport(), $text_context, &img_ctx)
         }};
-        ($style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$style_tree, viewport(), $text_context, $image_ctx) }};
+        ($dom_tree:expr, $style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$dom_tree, &$style_tree, viewport(), $text_context, $image_ctx) }};
     }
 
     /// Convenience: parse HTML and immediately compute layout (no image
     /// context).
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr) => {{
-            let (_, style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
+            let (dom_tree, style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
             let img_ctx = ImageContext::new();
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, &img_ctx)
+            LayoutEngine::compute_layout(&dom_tree, &style_tree, viewport(), &mut text_context, &img_ctx)
         }};
     }
 
@@ -193,7 +193,7 @@ mod tests {
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
             let mut text_context = TextContext::new(font_system);
             let img_ctx = ImageContext::new();
-            LayoutEngine::compute_layout(&style_tree, viewport(), &mut text_context, &img_ctx)
+            LayoutEngine::compute_layout(&document, &style_tree, viewport(), &mut text_context, &img_ctx)
         }};
     }
 
@@ -365,7 +365,7 @@ mod tests {
     fn test_image_relayout_repositions_siblings() {
         let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
 
-        let mut layout = layout_from!(style_tree, &mut text_context);
+        let mut layout = layout_from!(dom, style_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -454,7 +454,7 @@ mod tests {
     fn test_image_relayout_respects_css_width_percentage() {
         let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout_css_width.html.zst", true);
 
-        let mut layout = layout_from!(style_tree, &mut text_context);
+        let mut layout = layout_from!(dom, style_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -496,13 +496,13 @@ mod tests {
     /// running it twice produces identical results.
     #[test]
     fn test_image_relayout_is_idempotent() {
-        let (_, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
+        let (dom_tree, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
 
-        let layout_a = layout_from!(style_tree, &mut text_context, &image_ctx);
-        let layout_b = layout_from!(style_tree, &mut text_context, &image_ctx);
+        let layout_a = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);
+        let layout_b = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);
 
         assert_eq!(layout_a.content_height, layout_b.content_height);
 
@@ -525,8 +525,8 @@ mod tests {
 
     #[test]
     fn test_float_basic() {
-        let (_, style_tree, mut text_context) = process_html_raw!("float_basic.html.zst", true);
-        let layout = layout_from!(style_tree, &mut text_context);
+        let (dom_tree, style_tree, mut text_context) = process_html_raw!("float_basic.html.zst", true);
+        let layout = layout_from!(dom_tree, style_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -552,8 +552,8 @@ mod tests {
 
     #[test]
     fn test_float_clear_left() {
-        let (_, style_tree, mut text_context) = process_html_raw!("float_clear.html.zst", true);
-        let layout = layout_from!(style_tree, &mut text_context);
+        let (dom_tree, style_tree, mut text_context) = process_html_raw!("float_clear.html.zst", true);
+        let layout = layout_from!(dom_tree, style_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -582,8 +582,8 @@ mod tests {
 
     #[test]
     fn test_float_clear_right() {
-        let (_, style_tree, mut text_context) = process_html_raw!("float_clear_right.html.zst", true);
-        let layout = layout_from!(style_tree, &mut text_context);
+        let (dom_tree, style_tree, mut text_context) = process_html_raw!("float_clear_right.html.zst", true);
+        let layout = layout_from!(dom_tree, style_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];

@@ -14,7 +14,7 @@ mod selector;
 /// A module for calculating the specificity of CSS selectors
 mod specificity;
 
-pub use matching::{AttributeOperator, ClassSet, Combinator, matches_compound};
+pub use matching::{AttributeOperator, Combinator, matches_compound};
 pub use parser::CaseSensitivity;
 pub use selector::{AttributeSelector, CompoundSelector, CompoundSelectorSequence, generate_selector_list};
 pub use specificity::{SelectorSpecificity, SpecificityCalculable};
@@ -26,7 +26,7 @@ mod tests {
 
     use css_cssom::{AssociatedToken, ComponentValue, CssToken, CssTokenKind, HashType, SimpleBlock};
 
-    use crate::{ClassSet, SelectorSpecificity, SpecificityCalculable};
+    use crate::{SelectorSpecificity, SpecificityCalculable};
     use crate::{matching::matches_compound, selector::generate_compound_sequences};
     use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
 
@@ -123,9 +123,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -148,9 +146,8 @@ mod tests {
             children: Vec::new(),
             data: node_data,
         };
-        let class_set = ClassSet::new(&hash_set);
 
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -179,9 +176,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -211,9 +206,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -243,9 +236,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -275,9 +266,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -309,9 +298,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -344,9 +331,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     // === Ancestor Combinator Tests ===
@@ -379,9 +364,7 @@ mod tests {
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, child_node, &class_set));
+        assert!(matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
 
     #[test]
@@ -412,9 +395,7 @@ mod tests {
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, child_node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
 
     #[test]
@@ -442,9 +423,7 @@ mod tests {
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, child_node, &class_set));
+        assert!(matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
 
     #[test]
@@ -472,9 +451,7 @@ mod tests {
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, child_node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
 
     #[test]
@@ -505,9 +482,7 @@ mod tests {
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, sibling2_node, &class_set));
+        assert!(matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
 
     #[test]
@@ -538,9 +513,7 @@ mod tests {
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, sibling2_node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
 
     #[test]
@@ -574,9 +547,7 @@ mod tests {
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, sibling3_node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, sibling3_node, Some(&hash_set)));
     }
 
     #[test]
@@ -607,9 +578,7 @@ mod tests {
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, sibling2_node, &class_set));
+        assert!(matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
 
     #[test]
@@ -640,9 +609,7 @@ mod tests {
 
         let sibling2_node = tree.get_node(&sibling2_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, sibling2_node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
 
     #[test]
@@ -676,9 +643,7 @@ mod tests {
 
         let sibling3_node = tree.get_node(&sibling3_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, sibling3_node, &class_set));
+        assert!(matches_compound(&sequences, &tree, sibling3_node, Some(&hash_set)));
     }
 
     // === Attribute Selector Tests ===
@@ -711,9 +676,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -744,9 +707,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -779,9 +740,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -814,9 +773,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -851,9 +808,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -888,9 +843,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -923,9 +876,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -958,9 +909,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -993,9 +942,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1028,9 +975,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1063,9 +1008,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1098,9 +1041,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1133,9 +1074,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1168,9 +1107,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1203,9 +1140,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1238,9 +1173,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     // === Misc Tests ===
@@ -1266,9 +1199,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1305,9 +1236,7 @@ mod tests {
 
         let child_node = tree.get_node(&child_id).unwrap();
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, child_node, &class_set));
+        assert!(matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
 
     #[test]
@@ -1342,9 +1271,8 @@ mod tests {
         let absolute_id = tree.push_node(&absolute_data, Some(middle_id));
 
         let absolute_node = tree.get_node(&absolute_id).unwrap();
-        let absolute_class_set = ClassSet::new(&absolute_classes);
 
-        assert!(matches_compound(&sequences, &tree, absolute_node, &absolute_class_set));
+        assert!(matches_compound(&sequences, &tree, absolute_node, Some(&absolute_classes)));
     }
 
     #[test]
@@ -1388,9 +1316,7 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 
     #[test]
@@ -1436,9 +1362,8 @@ mod tests {
 
         let target_node = tree.get_node(&target_id).unwrap();
         let classes = HashSet::new();
-        let class_set = ClassSet::new(&classes);
 
-        assert!(!matches_compound(&sequences, &tree, target_node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, target_node, Some(&classes)));
     }
 
     #[test]
@@ -1482,8 +1407,6 @@ mod tests {
             data: node_data,
         };
 
-        let class_set = ClassSet::new(&hash_set);
-
-        assert!(!matches_compound(&sequences, &tree, &node, &class_set));
+        assert!(!matches_compound(&sequences, &tree, &node, Some(&hash_set)));
     }
 }

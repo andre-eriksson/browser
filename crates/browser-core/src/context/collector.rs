@@ -28,7 +28,7 @@ impl Collector for TabCollector {
         }
 
         if *tag.tag == Tag::Html(HtmlTag::Img)
-            && let Some(src) = tag.attributes.get("src")
+            && let Some(src) = tag.attributes.as_ref().and_then(|attrs| attrs.get("src"))
         {
             self.images.push(src.to_string());
         }

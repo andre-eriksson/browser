@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use css_cssom::CSSStyleSheet;
 use css_values::property::PropertyDescriptor;
-use html_dom::{DocumentRoot, NodeData, NodeId, Tag};
+use html_dom::{DocumentRoot, NodeId};
 
 use crate::cascade::RuleIndex;
 use crate::properties::AbsoluteContext;
@@ -27,11 +27,8 @@ pub struct PropertyRegistry {
 #[derive(Debug, Clone)]
 pub struct StyledNode {
     pub node_id: NodeId,
-    pub tag: Option<Tag>,
     pub style: ComputedStyle,
     pub children: Vec<Self>,
-    pub text_content: Option<String>,
-    pub attributes: HashMap<String, String>,
 }
 
 impl StyledNode {
@@ -39,11 +36,8 @@ impl StyledNode {
     pub fn new(node_id: NodeId) -> Self {
         Self {
             node_id,
-            tag: None,
             style: ComputedStyle::default(),
             children: Vec::new(),
-            text_content: None,
-            attributes: HashMap::new(),
         }
     }
 }
@@ -86,13 +80,6 @@ impl StyleTree {
             rel_ctx.parent = Arc::new(computed_style.clone());
 
             let node = dom.get_node(&node_id).unwrap();
-
-            // FIXME: Avoid clone
-            let text_content = match &node.data {
-                NodeData::Text(text) => Some(text.clone()),
-                _ => None,
-            };
-
             let saved_parent = Arc::clone(&rel_ctx.parent);
 
             let children = node
@@ -106,18 +93,10 @@ impl StyleTree {
 
             rel_ctx.parent = saved_parent;
 
-            let attributes = match &node.data {
-                NodeData::Element(el) => el.attributes.clone(),
-                _ => HashMap::new(),
-            };
-
             StyledNode {
                 node_id,
-                tag: node.data.as_element().map(|e| e.tag.clone()),
                 style: computed_style,
                 children,
-                text_content,
-                attributes,
             }
         }
 

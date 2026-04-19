@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{
     Token, TokenKind,
     state::TokenState,
@@ -26,7 +24,7 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
         '?' => {
             state.current_token = Some(Token {
                 kind: TokenKind::XmlDeclaration,
-                attributes: HashMap::new(),
+                attributes: None,
                 data: ch.to_string(),
             });
             state.state = TokenState::XmlDeclaration;
@@ -34,7 +32,7 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
         '/' => {
             state.current_token = Some(Token {
                 kind: TokenKind::EndTag,
-                attributes: HashMap::new(),
+                attributes: None,
                 data: String::new(),
             });
             state.state = TokenState::EndTagOpen;
@@ -42,7 +40,7 @@ pub fn handle_tag_open_state(state: &mut TokenizerState, ch: char) {
         ch if ch.is_alphabetic() => {
             state.current_token = Some(Token {
                 kind: TokenKind::StartTag,
-                attributes: HashMap::new(),
+                attributes: None,
                 data: ch.to_string(),
             });
             state.state = TokenState::TagName;
@@ -79,7 +77,7 @@ pub fn handle_end_tag_open_state(state: &mut TokenizerState, ch: char, tokens: &
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::EndTag,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: ch.to_string(),
                 });
             }
@@ -107,9 +105,11 @@ pub fn handle_self_closing_tag_start_state(state: &mut TokenizerState, ch: char,
         '>' => {
             if let Some(mut token) = state.current_token.take() {
                 if !state.current_attribute_name.is_empty() {
-                    token
-                        .attributes
-                        .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
+                    HtmlTokenizer::insert_attribute(
+                        &mut token,
+                        &state.current_attribute_name,
+                        &state.current_attribute_value,
+                    );
 
                     state.current_attribute_name.clear();
                     state.current_attribute_value.clear();
@@ -153,7 +153,7 @@ pub fn handle_tag_name_state(state: &mut TokenizerState, ch: char, tokens: &mut 
             } else {
                 state.current_token = Some(Token {
                     kind: TokenKind::StartTag,
-                    attributes: HashMap::new(),
+                    attributes: None,
                     data: ch.to_string(),
                 });
             }
@@ -174,9 +174,7 @@ pub fn handle_tag_name_state(state: &mut TokenizerState, ch: char, tokens: &mut 
 /// - Emits the current token.
 pub fn handle_closing_tag(state: &mut TokenizerState, tokens: &mut Vec<Token>) {
     if let Some(mut token) = state.current_token.take() {
-        token
-            .attributes
-            .insert(state.current_attribute_name.clone(), state.current_attribute_value.clone());
+        HtmlTokenizer::insert_attribute(&mut token, &state.current_attribute_name, &state.current_attribute_value);
 
         state.current_attribute_name.clear();
         state.current_attribute_value.clear();

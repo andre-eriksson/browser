@@ -1,5 +1,5 @@
 use css_style::{ComputedStyle, StyledNode};
-use html_dom::NodeId;
+use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
@@ -74,6 +74,7 @@ impl InlineLayout {
     /// The resulting flat list of inline items is then canonicalised by collapsing whitespace
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
     pub fn collect_inline_items_from_nodes<'node>(
+        dom_tree: &DocumentRoot,
         parent_style: &'node ComputedStyle,
         nodes: &'node [&StyledNode],
         image_ctx: &ImageContext,
@@ -81,7 +82,7 @@ impl InlineLayout {
         let mut raw_items = Vec::with_capacity(nodes.len() * 2);
 
         for node in nodes {
-            if collect(parent_style, node, &mut raw_items, image_ctx).is_err() {
+            if collect(dom_tree, parent_style, node, &mut raw_items, image_ctx).is_err() {
                 break;
             }
         }
@@ -96,6 +97,7 @@ impl InlineLayout {
     /// one or more `LineBox`es according to the available width and text alignment,
     /// finally returning the positioned `LayoutNode`s and total height of the laid-out lines.
     pub fn layout(
+        dom_tree: &DocumentRoot,
         items: &[InlineItem],
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
@@ -137,7 +139,7 @@ impl InlineLayout {
                         ctx.position_ctx(),
                     );
 
-                    if let Some(mut layout_node) = LayoutEngine::layout_node(node, &mut block_ctx, text_ctx) {
+                    if let Some(mut layout_node) = LayoutEngine::layout_node(dom_tree, node, &mut block_ctx, text_ctx) {
                         let total_width = layout_node.dimensions.width + padding.horizontal() + border.horizontal();
 
                         let alignment = &style.text_align;

@@ -52,36 +52,6 @@ pub enum Combinator {
     GeneralSibling,
 }
 
-/// A set of classes for efficient lookup
-pub struct ClassSet<'css> {
-    classes: &'css HashSet<String>,
-}
-
-impl ClassSet<'_> {
-    pub const fn new(classes: &HashSet<String>) -> ClassSet<'_> {
-        ClassSet { classes }
-    }
-
-    /// Check if the class set contains a specific class
-    ///
-    /// # Arguments
-    /// * `class` - The class name to check for
-    ///
-    /// # Returns
-    /// * `bool` - True if the class is in the set, false otherwise
-    pub fn contains(&self, class: &str) -> bool {
-        self.classes.contains(class)
-    }
-}
-
-impl<'css> From<&'css Element> for ClassSet<'css> {
-    fn from(element: &'css Element) -> Self {
-        ClassSet {
-            classes: &element.class_set,
-        }
-    }
-}
-
 /// Check if an element matches a list of compound selectors
 ///
 /// # Arguments
@@ -93,7 +63,7 @@ impl<'css> From<&'css Element> for ClassSet<'css> {
 fn matches_compound_selectors(
     compound_selectors: &[CompoundSelector],
     element: &Element,
-    class_set: &ClassSet,
+    class_set: Option<&HashSet<String>>,
     tree: &DocumentRoot,
     node: &DomNode,
 ) -> bool {
@@ -152,7 +122,10 @@ fn matches_compound_selectors(
             };
 
             let default_sensitivity = CaseSensitivity::default();
-            let sensitivity = attribute_selector.case.as_ref().unwrap_or(&default_sensitivity);
+            let sensitivity = attribute_selector
+                .case
+                .as_ref()
+                .unwrap_or(&default_sensitivity);
 
             match operator {
                 AttributeOperator::Equals => match sensitivity {
@@ -270,7 +243,11 @@ fn matches_compound_selectors(
 ///
 /// # Returns
 /// * `bool` - True if the element matches the simple selectors, false otherwise
-fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element, class_set: &ClassSet) -> bool {
+fn matches_simple_selectors(
+    simple_selectors: &[CssToken],
+    element: &Element,
+    class_set: Option<&HashSet<String>>,
+) -> bool {
     for i in 0..simple_selectors.len() {
         let previous_token = &simple_selectors.get(i.wrapping_sub(1));
         let current_token = &simple_selectors[i];
@@ -283,14 +260,18 @@ fn matches_simple_selectors(simple_selectors: &[CssToken], element: &Element, cl
 
                 if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                     match next {
-                        None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
-                            if Tag::from_str_insensitive(ident) != element.tag && ident != "*" {
-                                return false;
-                            }
+                        None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace)
+                            if Tag::from_str_insensitive(ident) != element.tag && ident != "*" =>
+                        {
+                            return false;
                         }
                         _ => {}
                     }
                 } else if let Some(CssTokenKind::Delim(delim)) = prev {
+                    let Some(class_set) = class_set else {
+                        return false;
+                    };
+
                     if *delim == '.' && !class_set.contains(ident) {
                         return false;
                     }
@@ -349,14 +330,14 @@ pub fn matches_compound(
     sequence: &[CompoundSelectorSequence],
     tree: &DocumentRoot,
     node: &DomNode,
-    class_set: &ClassSet,
+    class_set: Option<&HashSet<String>>,
 ) -> bool {
     fn matches_from_index(
         sequences: &[CompoundSelectorSequence],
         index: usize,
         tree: &DocumentRoot,
         node: &DomNode,
-        class_set: &ClassSet,
+        class_set: Option<&HashSet<String>>,
     ) -> bool {
         if sequences.is_empty() {
             return false;
@@ -397,16 +378,17 @@ pub fn matches_compound(
                     Some(elem) => elem,
                     None => return false,
                 };
-                let parent_class_set = ClassSet::from(parent_element);
-                matches_from_index(sequences, index - 1, tree, parent_node, &parent_class_set)
+
+                let class_set = parent_element.class_set.as_ref();
+                matches_from_index(sequences, index - 1, tree, parent_node, class_set)
             }
             Combinator::Descendant => {
                 let mut ancestor = Some(parent_node);
 
                 while let Some(candidate) = ancestor {
                     if let Some(candidate_element) = candidate.data.as_element() {
-                        let candidate_class_set = ClassSet::from(candidate_element);
-                        if matches_from_index(sequences, index - 1, tree, candidate, &candidate_class_set) {
+                        let class_set = candidate_element.class_set.as_ref();
+                        if matches_from_index(sequences, index - 1, tree, candidate, class_set) {
                             return true;
                         }
                     }
@@ -435,8 +417,8 @@ pub fn matches_compound(
                     Some(elem) => elem,
                     None => return false,
                 };
-                let sibling_class_set = ClassSet::from(sibling_element);
-                matches_from_index(sequences, index - 1, tree, previous_sibling_node, &sibling_class_set)
+                let class_set = sibling_element.class_set.as_ref();
+                matches_from_index(sequences, index - 1, tree, previous_sibling_node, class_set)
             }
             Combinator::GeneralSibling => {
                 let siblings = &parent_node.children;
@@ -454,8 +436,8 @@ pub fn matches_compound(
                     let Some(sibling_element) = sibling_node.data.as_element() else {
                         continue;
                     };
-                    let sibling_class_set = ClassSet::from(sibling_element);
-                    if matches_from_index(sequences, index - 1, tree, sibling_node, &sibling_class_set) {
+                    let class_set = sibling_element.class_set.as_ref();
+                    if matches_from_index(sequences, index - 1, tree, sibling_node, class_set) {
                         return true;
                     }
                 }

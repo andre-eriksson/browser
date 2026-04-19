@@ -1,5 +1,6 @@
 use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, layout::LayoutContext};
 use css_style::StyledNode;
+use html_dom::DocumentRoot;
 
 #[derive(Debug, Clone)]
 struct PendingPosition {
@@ -51,7 +52,12 @@ impl PositionContext {
         });
     }
 
-    pub fn resolve_all(&mut self, image_ctx: &ImageContext, text_ctx: &mut TextContext) -> Vec<LayoutNode> {
+    pub fn resolve_all(
+        &mut self,
+        dom_tree: &DocumentRoot,
+        image_ctx: &ImageContext,
+        text_ctx: &mut TextContext,
+    ) -> Vec<LayoutNode> {
         self.pending
             .drain(..)
             .filter_map(|pending| {
@@ -59,7 +65,7 @@ impl PositionContext {
                 let mut ctx =
                     LayoutContext::deferred(pending.containing_block, self.viewport, image_ctx, &mut new_position_ctx);
 
-                LayoutEngine::layout_node(&pending.styled_node, &mut ctx, text_ctx)
+                LayoutEngine::layout_node(dom_tree, &pending.styled_node, &mut ctx, text_ctx)
             })
             .collect()
     }

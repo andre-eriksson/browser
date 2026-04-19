@@ -42,6 +42,7 @@ pub fn on_devtools_page_ready(application: &mut Application, window_id: Id, tab_
         let mut tc = ctx.text_context.lock().unwrap();
         let img_ctx = ImageContext::new();
         let layout_tree = LayoutEngine::compute_layout(
+            page.document(),
             &style_tree,
             Rect::new(0.0, 0.0, devtools_ctx.viewport.width, devtools_ctx.viewport.height),
             &mut tc,

@@ -180,11 +180,13 @@ fn write_dom_subtree(
     match &node.data {
         NodeData::Element(element) => {
             write!(output, "{}<{} data-node-id=\"{}\"", indent, element.tag_name(), node.id.0)?;
-            for (name, value) in &element.attributes {
-                if name.trim().is_empty() {
-                    continue;
+            if let Some(attrs) = &element.attributes {
+                for (name, value) in attrs {
+                    if name.trim().is_empty() {
+                        continue;
+                    }
+                    write!(output, " {}=\"{}\"", name, value)?;
                 }
-                write!(output, " {}=\"{}\"", name, value)?;
             }
             writeln!(output, ">")?;
 

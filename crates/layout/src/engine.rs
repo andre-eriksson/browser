@@ -56,6 +56,7 @@ impl LayoutEngine {
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
     pub fn compute_layout(
+        dom_tree: &DocumentRoot,
         style_tree: &StyleTree,
         viewport: Rect,
         text_ctx: &mut TextContext,
@@ -73,7 +74,7 @@ impl LayoutEngine {
 
             let pos_count_before = ctx.position_ctx().position_count();
 
-            let mut node = match Self::layout_node(styled_node, &mut ctx, text_ctx) {
+            let mut node = match Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) {
                 Some(node) => node,
                 None => continue, // For `display: none`
             };
@@ -93,7 +94,10 @@ impl LayoutEngine {
             root_nodes.push(node);
         }
 
-        for mut defered_node in ctx.position_ctx().resolve_all(image_ctx, text_ctx) {
+        for mut defered_node in ctx
+            .position_ctx()
+            .resolve_all(dom_tree, image_ctx, text_ctx)
+        {
             Self::offset_children_y(&mut defered_node.children, defered_node.margin.top);
 
             root_nodes.push(defered_node);
@@ -120,6 +124,7 @@ impl LayoutEngine {
 
     /// Compute layout for a single node and its descendants
     pub(crate) fn layout_node(
+        dom_tree: &DocumentRoot,
         styled_node: &StyledNode,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
@@ -127,14 +132,15 @@ impl LayoutEngine {
         let layout_mode = LayoutMode::new(styled_node)?;
 
         match layout_mode {
-            LayoutMode::Block => BlockLayout::layout(styled_node, ctx, text_ctx),
-            LayoutMode::Flex => BlockLayout::layout(styled_node, ctx, text_ctx), // TODO: implement flex layout
-            LayoutMode::Grid => BlockLayout::layout(styled_node, ctx, text_ctx), // TODO: implement grid layout
+            LayoutMode::Block => BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx),
+            LayoutMode::Flex => BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx), // TODO: implement flex layout
+            LayoutMode::Grid => BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx), // TODO: implement grid layout
             _ => unreachable!("Only block layout should be supported for single nodes right now"),
         }
     }
 
     pub(crate) fn layout_nodes(
+        dom_tree: &DocumentRoot,
         styled_nodes: &[&StyledNode],
         mode: LayoutMode,
         parent_style: &ComputedStyle,
@@ -144,11 +150,15 @@ impl LayoutEngine {
     ) -> (Vec<LayoutNode>, Rect) {
         match mode {
             LayoutMode::Inline => {
-                let inline_items =
-                    InlineLayout::collect_inline_items_from_nodes(parent_style, styled_nodes, ctx.image_ctx());
+                let inline_items = InlineLayout::collect_inline_items_from_nodes(
+                    dom_tree,
+                    parent_style,
+                    styled_nodes,
+                    ctx.image_ctx(),
+                );
                 let inline_ctx = InlineContext::new(containing_block);
 
-                InlineLayout::layout(&inline_items, ctx, text_ctx, inline_ctx)
+                InlineLayout::layout(dom_tree, &inline_items, ctx, text_ctx, inline_ctx)
             }
             _ => todo!("Only inline layout is supported for collections of nodes right now"),
         }
@@ -188,7 +198,7 @@ impl LayoutEngine {
         let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
         ctx.position_ctx().update_viewport(viewport);
 
-        let mut new_node = match Self::layout_node(styled_node, &mut ctx, text_ctx) {
+        let mut new_node = match Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) {
             Some(node) => node,
             None => return, // For `display: none`
         };
@@ -352,8 +362,9 @@ mod tests {
         let mut ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
         let mut text_ctx = TextContext::default();
+        let dom_tree = DocumentRoot::default();
 
-        let layout_node = BlockLayout::layout(&styled_node, &mut ctx, &mut text_ctx).unwrap();
+        let layout_node = BlockLayout::layout(&dom_tree, &styled_node, &mut ctx, &mut text_ctx).unwrap();
 
         assert_eq!(layout_node.node_id, styled_node.node_id);
         assert_eq!(layout_node.dimensions.x, 0.0);

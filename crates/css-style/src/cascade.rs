@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use css_cssom::{CSSDeclaration, ComponentValue, CssTokenKind, HashType, Property, StylesheetOrigin};
-use css_selectors::{ClassSet, CompoundSelectorSequence, SelectorSpecificity, matches_compound};
+use css_selectors::{CompoundSelectorSequence, SelectorSpecificity, matches_compound};
 
 use html_dom::{DocumentRoot, DomNode, Element};
 
@@ -32,10 +32,8 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
         for i in 0..tokens.len() {
             let token = &tokens[i];
             match &token.kind {
-                CssTokenKind::Hash { value, type_flag } if *type_flag == HashType::Id => {
-                    if id.is_none() {
-                        id = Some(value.to_ascii_lowercase());
-                    }
+                CssTokenKind::Hash { value, type_flag } if *type_flag == HashType::Id && id.is_none() => {
+                    id = Some(value.to_ascii_lowercase());
                 }
                 CssTokenKind::Ident(name) => {
                     let prev = if i > 0 {
@@ -51,10 +49,10 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
                     } else if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                         let next = tokens.get(i + 1).map(|t| &t.kind);
                         match next {
-                            None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace) => {
-                                if name != "*" && tag.is_none() {
-                                    tag = Some(name.to_ascii_lowercase());
-                                }
+                            None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace)
+                                if name != "*" && tag.is_none() =>
+                            {
+                                tag = Some(name.to_ascii_lowercase());
                             }
                             _ => {}
                         }
@@ -209,12 +207,12 @@ impl CascadedDeclaration<'_> {
             None => return (vec![], vec![]),
         };
 
-        let class_set = ClassSet::new(&element.class_set);
+        let class_set = element.class_set.as_ref();
         let candidates = rule_index.candidates(element);
 
         for &idx in &candidates {
             let rule = &rules[idx];
-            if matches_compound(&rule.selector_sequences, dom, node, &class_set) {
+            if matches_compound(&rule.selector_sequences, dom, node, class_set) {
                 for decl in rule.declarations {
                     if decl.property.is_custom() {
                         variables.push(CascadedDeclaration {

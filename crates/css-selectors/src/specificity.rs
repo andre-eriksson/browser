@@ -83,10 +83,8 @@ impl SpecificityCalculable for CompoundSelector {
 
         for (i, token) in self.tokens.iter().enumerate() {
             match &token.kind {
-                CssTokenKind::Hash { value, type_flag } => {
-                    if *type_flag == HashType::Id && !value.is_empty() {
-                        specificity.0 += 1;
-                    }
+                CssTokenKind::Hash { value, type_flag } if *type_flag == HashType::Id && !value.is_empty() => {
+                    specificity.0 += 1;
                 }
                 CssTokenKind::Ident(ident) => {
                     let prev_token_kind = if i > 0 {

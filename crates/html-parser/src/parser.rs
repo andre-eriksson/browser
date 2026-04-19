@@ -278,20 +278,14 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                     TokenState::ScriptData => {
                         trace!("Blocking parser for script content at token: {:?}", tokens.last());
 
-                        let attributes = tokens
-                            .last()
-                            .map(|t| t.attributes.clone())
-                            .unwrap_or_default();
+                        let attributes = tokens.last().and_then(|t| t.attributes.clone());
 
                         Some(BlockedReason::WaitingForScript(attributes))
                     }
                     TokenState::StyleData => {
                         trace!("Blocking parser for style content at token: {:?}", tokens.last());
 
-                        let attributes = tokens
-                            .last()
-                            .map(|t| t.attributes.clone())
-                            .unwrap_or_default();
+                        let attributes = tokens.last().and_then(|t| t.attributes.clone());
 
                         Some(BlockedReason::WaitingForStyle(attributes))
                     }
@@ -303,10 +297,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                     TokenState::Data => {
                         if let Some(last_token) = tokens.last()
                             && last_token.data.eq_ignore_ascii_case("link")
-                            && let Some(rel_value) = last_token.attributes.get("rel")
+                            && let Some(attr) = &last_token.attributes
+                            && let Some(rel_value) = attr.get("rel")
                         {
                             if rel_value.trim().eq_ignore_ascii_case("stylesheet") {
-                                last_token.attributes.get("href").map(|href| {
+                                attr.get("href").map(|href| {
                                     trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
 
                                     BlockedReason::WaitingForResource(
@@ -318,11 +313,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                             } else if rel_value.trim().eq_ignore_ascii_case("icon")
                                 || rel_value.trim().eq_ignore_ascii_case("shortcut icon")
                             {
-                                last_token.attributes.get("href").map(|href| {
+                                attr.get("href").map(|href| {
                                     trace!("Blocking parser for favicon resource at token: {:?}", last_token);
 
-                                    let content_type = last_token.attributes.get("type").cloned();
-                                    let sizes = last_token.attributes.get("sizes").and_then(|s| {
+                                    let content_type = attr.get("type").cloned();
+                                    let sizes = attr.get("sizes").and_then(|s| {
                                         let parts: Vec<&str> = s.split('x').collect();
                                         if parts.len() == 2
                                             && let (Ok(width), Ok(height)) = (parts[0].parse(), parts[1].parse())
