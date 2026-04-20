@@ -88,6 +88,7 @@ pub struct PropertyDescriptor {
 }
 
 impl PropertySyntax {
+    #[must_use]
     pub fn validate(&self, values: &[ComponentValue]) -> bool {
         match self {
             Self::Universal => true,

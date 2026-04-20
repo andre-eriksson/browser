@@ -1,5 +1,5 @@
 use crate::errors::CssParsingError;
-use css_tokenizer::{CssTokenKind, SourcePosition};
+use css_tokenizer::CssTokenKind;
 
 use crate::{CssParser, Function, consumers::component::consume_component_value};
 
@@ -13,17 +13,17 @@ pub fn consume_function(css_parser: &mut CssParser) -> Function {
 
             match token.kind {
                 CssTokenKind::Function(name) => (name, pos),
-                _ => (String::new(), pos), // NOTE: Should not happen
+                _ => unreachable!("consume_function should only be called when the current token is a function token"),
             }
         }
-        _ => (String::new(), SourcePosition::default()), // NOTE: Should not happen
+        _ => unreachable!("consume_function should only be called when there is a current token"),
     };
 
     let mut function = Function::new(name);
 
     loop {
-        match css_parser.peek() {
-            Some(token) => match &token.kind {
+        if let Some(token) = css_parser.peek() {
+            match &token.kind {
                 CssTokenKind::Eof => {
                     css_parser.record_error(CssParsingError::EofInFunction(pos));
                     break;
@@ -39,11 +39,10 @@ pub fn consume_function(css_parser: &mut CssParser) -> Function {
                 _ => {
                     function.value.push(consume_component_value(css_parser));
                 }
-            },
-            None => {
-                css_parser.record_error(CssParsingError::IncompleteFunction(pos));
-                break;
             }
+        } else {
+            css_parser.record_error(CssParsingError::IncompleteFunction(pos));
+            break;
         }
     }
 

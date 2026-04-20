@@ -8,7 +8,7 @@ pub enum ComputedDimension {
     #[default]
     Auto,
     Fixed,
-    Percentage(f32),
+    Percentage(f64),
     MaxContent,
     MinContent,
     FitContent(Option<Length>),
@@ -48,7 +48,7 @@ pub enum ComputedMaxDimension {
     #[default]
     None,
     Fixed,
-    Percentage(f32),
+    Percentage(f64),
     MaxContent,
     MinContent,
     FitContent(Option<Length>),

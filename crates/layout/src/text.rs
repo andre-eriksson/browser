@@ -4,23 +4,23 @@ use css_values::text::{FontFamilyName, GenericName, TextAlign, Whitespace, Writi
 
 #[derive(Debug)]
 pub struct Text {
-    pub width: f32,
-    pub last_line_width: f32,
-    pub height: f32,
-    pub total_width: f32,
+    pub width: f64,
+    pub last_line_width: f64,
+    pub height: f64,
+    pub total_width: f64,
     pub buffer: Buffer,
 }
 
 #[derive(Debug)]
 pub struct TextDescription<'text> {
     pub whitespace: &'text Whitespace,
-    pub line_height: f32,
+    pub line_height: f64,
     pub font_family: &'text FontFamily,
     pub font_weight: u16,
-    pub font_size_px: f32,
+    pub font_size_px: f64,
 }
 
-/// TextContext provides functionality to measure and render text.
+/// `TextContext` provides functionality to measure and render text.
 #[derive(Debug)]
 pub struct TextContext {
     /// The font system used for text rendering.
@@ -57,12 +57,12 @@ impl TextContext {
         &mut self,
         text: &'text str,
         text_description: &TextDescription,
-        max_width: f32,
+        max_width: f64,
     ) -> (Text, Option<&'text str>) {
         // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
         let line_height_px = text_description.line_height.max(1.0);
 
-        let metrics = Metrics::new(text_description.font_size_px, line_height_px);
+        let metrics = Metrics::new(text_description.font_size_px as f32, line_height_px as f32);
         let family = Self::resolve_font_family(text_description.font_family);
         let weight = Self::resolve_font_weight(text_description.font_weight);
         let attrs = Attrs::new()
@@ -71,13 +71,12 @@ impl TextContext {
             .stretch(Stretch::Normal);
 
         let wrap_mode = match text_description.whitespace {
-            Whitespace::Normal | Whitespace::PreLine | Whitespace::PreWrap => Wrap::Word,
             Whitespace::Pre => Wrap::None,
             _ => Wrap::Word,
         };
 
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
-        buffer.set_size(&mut self.font_system, Some(max_width), None);
+        buffer.set_size(&mut self.font_system, Some(max_width as f32), None);
         buffer.set_wrap(&mut self.font_system, wrap_mode);
         buffer.set_text(&mut self.font_system, text, &attrs, Shaping::Advanced, Some(Align::Left));
         buffer.shape_until_scroll(&mut self.font_system, false);
@@ -86,7 +85,7 @@ impl TextContext {
         let mut first_run_end = text.len();
         for run in buffer.layout_runs() {
             if run_count == 0 {
-                first_run_end = run.glyphs.last().map(|g| g.end).unwrap_or(text.len());
+                first_run_end = run.glyphs.last().map_or(text.len(), |g| g.end);
             }
             run_count += 1;
             if run_count > 1 {
@@ -102,30 +101,30 @@ impl TextContext {
             buffer.set_text(&mut self.font_system, fitted_text, &attrs, Shaping::Advanced, Some(Align::Left));
             buffer.shape_until_scroll(&mut self.font_system, false);
 
-            let measured = self.extract_text_metrics(&buffer, text_description, fitted_text);
+            let measured = TextContext::extract_text_metrics(&buffer, text_description, fitted_text);
             return (Text { buffer, ..measured }, Some(remaining_text));
         }
 
-        let measured = self.extract_text_metrics(&buffer, text_description, text);
+        let measured = TextContext::extract_text_metrics(&buffer, text_description, text);
         (Text { buffer, ..measured }, None)
     }
 
     /// Extract text metrics from an already-shaped buffer.
-    fn extract_text_metrics(&self, buffer: &Buffer, text_description: &TextDescription, text: &str) -> Text {
+    fn extract_text_metrics(buffer: &Buffer, text_description: &TextDescription, text: &str) -> Text {
         let line_height_px = text_description.line_height.max(1.0);
         let preserve_whitespace = matches!(text_description.whitespace, Whitespace::Pre | Whitespace::PreWrap);
         let is_whitespace_only = text.trim().is_empty() && !preserve_whitespace;
 
-        let mut max_width: f32 = 0.0;
-        let mut last_line_width: f32 = 0.0;
+        let mut max_width: f64 = 0.0;
+        let mut last_line_width: f64 = 0.0;
         let mut line_count: usize = 0;
 
         for run in buffer.layout_runs() {
-            let w = if is_whitespace_only {
-                run.glyphs.last().map(|g| g.x + g.w).unwrap_or(0.0)
+            let w = f64::from(if is_whitespace_only {
+                run.glyphs.last().map_or(0.0, |g| g.x + g.w)
             } else {
                 run.line_w
-            };
+            });
             max_width = max_width.max(w);
             last_line_width = w;
             line_count += 1;
@@ -133,14 +132,14 @@ impl TextContext {
 
         if is_whitespace_only && max_width == 0.0 {
             let space_count = text.chars().filter(|c| *c == ' ').count().max(1);
-            max_width = space_count as f32 * text_description.font_size_px * 0.25;
+            max_width = space_count as f64 * text_description.font_size_px * 0.25;
             last_line_width = max_width;
             if line_count == 0 {
                 line_count = 1;
             }
         }
 
-        let mut total_height = line_count as f32 * line_height_px;
+        let mut total_height = line_count as f64 * line_height_px;
 
         if preserve_whitespace && text.ends_with('\n') {
             total_height += line_height_px;
@@ -152,7 +151,7 @@ impl TextContext {
             last_line_width,
             height: total_height,
             total_width: max_width,
-            buffer: Buffer::new_empty(Metrics::new(text_description.font_size_px, line_height_px)),
+            buffer: Buffer::new_empty(Metrics::new(text_description.font_size_px as f32, line_height_px as f32)),
         }
     }
 
@@ -164,7 +163,6 @@ impl TextContext {
         match &font_family.names()[0] {
             FontFamilyName::Generic(generic) => match generic {
                 GenericName::Serif => Family::Serif,
-                GenericName::SansSerif => Family::SansSerif,
                 GenericName::Monospace => Family::Monospace,
                 GenericName::Cursive => Family::Cursive,
                 GenericName::Fantasy => Family::Fantasy,
@@ -180,7 +178,6 @@ impl TextContext {
             100 => Weight::THIN,
             200 => Weight::EXTRA_LIGHT,
             300 => Weight::LIGHT,
-            400 => Weight::NORMAL,
             500 => Weight::MEDIUM,
             600 => Weight::SEMIBOLD,
             700 => Weight::BOLD,

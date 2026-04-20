@@ -58,7 +58,7 @@ pub fn generate_selector_list(components: &[ComponentValue]) -> Vec<Vec<Compound
 /// Generate compound selector sequences from a list of component values
 ///
 /// # Arguments
-/// * `components` - A vector of ComponentValue representing the selector
+/// * `components` - A vector of `ComponentValue` representing the selector
 ///
 /// # Returns
 /// * `Vec<CompoundSelectorSequence>` - A vector of compound selector sequences
@@ -76,8 +76,7 @@ pub fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<Compoun
     let end = components
         .iter()
         .rposition(|cv| !cv.is_whitespace())
-        .map(|idx| idx + 1)
-        .unwrap_or(0);
+        .map_or(0, |idx| idx + 1);
     let trimmed_components = &components[start..end];
 
     for (idx, component) in trimmed_components.iter().enumerate() {
@@ -117,32 +116,27 @@ pub fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<Compoun
                     current_sequence.combinator = Some(Combinator::GeneralSibling);
                     flush_sequence(&mut current_sequence, &mut sequences);
                 }
-                CssTokenKind::Whitespace => {
-                    if !current_sequence.compound_selectors.is_empty() {
-                        let next_non_whitespace = trimmed_components[idx + 1..]
-                            .iter()
-                            .find_map(|cv| match cv {
-                                ComponentValue::Token(token) if !matches!(token.kind, CssTokenKind::Whitespace) => {
-                                    Some(&token.kind)
-                                }
-                                _ => None,
-                            });
+                CssTokenKind::Whitespace if !current_sequence.compound_selectors.is_empty() => {
+                    let next_non_whitespace = trimmed_components[idx + 1..]
+                        .iter()
+                        .find_map(|cv| match cv {
+                            ComponentValue::Token(token) if !matches!(token.kind, CssTokenKind::Whitespace) => {
+                                Some(&token.kind)
+                            }
+                            _ => None,
+                        });
 
-                        if matches!(
-                            next_non_whitespace,
-                            Some(CssTokenKind::Delim('>') | CssTokenKind::Delim('+') | CssTokenKind::Delim('~'))
-                        ) {
-                            continue;
-                        }
-
-                        current_sequence.combinator = Some(Combinator::Descendant);
-                        flush_sequence(&mut current_sequence, &mut sequences);
+                    if matches!(next_non_whitespace, Some(CssTokenKind::Delim('>' | '+' | '~'))) {
+                        continue;
                     }
+
+                    current_sequence.combinator = Some(Combinator::Descendant);
+                    flush_sequence(&mut current_sequence, &mut sequences);
                 }
+
                 CssTokenKind::Ident(_)
                 | CssTokenKind::Hash { .. }
-                | CssTokenKind::Delim('.')
-                | CssTokenKind::Delim('*')
+                | CssTokenKind::Delim('.' | '*')
                 | CssTokenKind::Colon => {
                     if matches!(&token.kind, CssTokenKind::Colon)
                         && let Some(ComponentValue::Function(f)) = trimmed_components.get(idx + 1)
@@ -166,7 +160,7 @@ pub fn generate_compound_sequences(components: &[ComponentValue]) -> Vec<Compoun
                             .push(new_compound_selector);
                     }
                 }
-                _ => continue,
+                _ => {}
             },
             ComponentValue::Function(function) => {
                 if function.name.eq_ignore_ascii_case("is") {

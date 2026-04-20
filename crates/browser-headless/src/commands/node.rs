@@ -13,9 +13,9 @@ pub fn cmd_node_id(engine: &HeadlessEngine, id: usize) -> Result<(), String> {
     let node_id = NodeId(id);
     let node = document
         .get_node(&node_id)
-        .ok_or_else(|| format!("Node {} not found in DOM", id))?;
+        .ok_or_else(|| format!("Node {id} not found in DOM"))?;
 
-    println!("Node {}", id);
+    println!("Node {id}");
     println!("Type: {}", describe_node_type(node));
 
     match node.parent {
@@ -47,13 +47,13 @@ pub fn cmd_node_dom(engine: &HeadlessEngine, id: usize, max_depth: Option<usize>
     let node_id = NodeId(id);
     document
         .get_node(&node_id)
-        .ok_or_else(|| format!("Node {} not found in DOM", id))?;
+        .ok_or_else(|| format!("Node {id} not found in DOM"))?;
 
     let mut output = String::new();
     write_dom_subtree(document, node_id, 0, max_depth, &mut output).map_err(|e| e.to_string())?;
 
     if output.trim().is_empty() {
-        println!("Node {} has no printable DOM output", id);
+        println!("Node {id} has no printable DOM output");
     } else {
         print!("{output}");
     }
@@ -71,10 +71,10 @@ pub fn cmd_node_style(engine: &mut HeadlessEngine, id: usize) -> Result<(), Stri
     };
 
     let styled_node = style_tree
-        .find_node(&node_id)
-        .ok_or_else(|| format!("Node {} not found in style tree", id))?;
+        .find_node(node_id)
+        .ok_or_else(|| format!("Node {id} not found in style tree"))?;
 
-    println!("Computed style for node {}:", id);
+    println!("Computed style for node {id}:");
     println!("{:#?}", styled_node.style);
 
     Ok(())
@@ -88,14 +88,14 @@ pub fn cmd_node_layout(engine: &mut HeadlessEngine, id: usize) -> Result<(), Str
         return Err("Layout not available".to_string());
     };
 
-    let path = layout.find_path(node_id).ok_or_else(|| {
-        format!("Node {} is not present in the layout tree (it may not render, e.g. display:none)", id)
-    })?;
+    let path = layout
+        .find_path(node_id)
+        .ok_or_else(|| format!("Node {id} is not present in the layout tree (it may not render, e.g. display:none)"))?;
     let node = layout
         .node_at(&path)
-        .ok_or_else(|| format!("Layout node {} could not be resolved by path", id))?;
+        .ok_or_else(|| format!("Layout node {id} could not be resolved by path"))?;
 
-    println!("Layout subtree for node {}:", id);
+    println!("Layout subtree for node {id}:");
     print_layout_node(node, 0);
 
     Ok(())
@@ -110,24 +110,24 @@ pub fn cmd_node_children(engine: &HeadlessEngine, id: usize, recursive: bool) ->
     let node_id = NodeId(id);
     let node = document
         .get_node(&node_id)
-        .ok_or_else(|| format!("Node {} not found in DOM", id))?;
+        .ok_or_else(|| format!("Node {id} not found in DOM"))?;
 
     if node.children.is_empty() {
-        println!("Node {} has no children", id);
+        println!("Node {id} has no children");
         return Ok(());
     }
 
     if recursive {
-        println!("Descendants of node {}:", id);
+        println!("Descendants of node {id}:");
         for child_id in &node.children {
             print_descendants(document, *child_id, 1)?;
         }
     } else {
-        println!("Children of node {}:", id);
+        println!("Children of node {id}:");
         for child_id in &node.children {
             let child = document
                 .get_node(child_id)
-                .ok_or_else(|| format!("Node {} references missing child {}", id, child_id.0))?;
+                .ok_or_else(|| format!("Node {id} references missing child {}", child_id.0))?;
             println!("  [{}] {}", child_id.0, describe_node_type(child));
         }
     }
@@ -158,7 +158,7 @@ fn describe_node_type(node: &DomNode) -> String {
             if trimmed.is_empty() {
                 "Text (whitespace)".to_string()
             } else {
-                format!("Text \"{}\"", trimmed)
+                format!("Text \"{trimmed}\"")
             }
         }
     }
@@ -185,7 +185,7 @@ fn write_dom_subtree(
                     if name.trim().is_empty() {
                         continue;
                     }
-                    write!(output, " {}=\"{}\"", name, value)?;
+                    write!(output, " {name}=\"{value}\"")?;
                 }
             }
             writeln!(output, ">")?;
@@ -196,7 +196,7 @@ fn write_dom_subtree(
                     write_dom_subtree(document, *child_id, depth + 1, max_depth, output)?;
                 }
             } else if !node.children.is_empty() {
-                writeln!(output, "{}  ...", indent)?;
+                writeln!(output, "{indent}  ...")?;
             }
 
             if !element.tag.is_void_element() {

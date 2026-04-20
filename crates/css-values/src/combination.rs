@@ -39,11 +39,11 @@ impl CSSParsable for LengthPercentage {
                         let unit = LengthUnit::try_from(unit.as_str())
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
 
-                        Ok(Self::Length(Length::new(value.to_f64() as f32, unit)))
+                        Ok(Self::Length(Length::new(value.to_f64(), unit)))
                     }
-                    CssTokenKind::Percentage(numeric) => Ok(Self::Percentage(Percentage::new(numeric.to_f64() as f32))),
+                    CssTokenKind::Percentage(numeric) => Ok(Self::Percentage(Percentage::new(numeric.to_f64()))),
                     CssTokenKind::Number(numeric) => {
-                        Ok(Self::Percentage(Percentage::from_fraction(numeric.to_f64() as f32 / 100.0)))
+                        Ok(Self::Percentage(Percentage::from_fraction(numeric.to_f64() / 100.0)))
                     }
                     kind => Err(CssValueError::InvalidToken(kind.clone())),
                 },

@@ -48,7 +48,7 @@ pub trait PixelRepr {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32;
+    ) -> f64;
 }
 
 /// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.
@@ -64,8 +64,8 @@ pub enum RelativeType {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct DocumentContext {
-    pub root_font_size: f32,
-    pub root_line_height_multiplier: f32,
+    pub root_font_size: f64,
+    pub root_line_height_multiplier: f64,
     pub root_color: Color,
     pub theme_category: ThemeCategory,
 }
@@ -73,20 +73,21 @@ pub struct DocumentContext {
 /// Context for resolving absolute CSS properties.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AbsoluteContext<'page> {
-    pub root_font_size: f32,
-    pub root_line_height_multiplier: f32,
-    pub viewport_width: f32,
-    pub viewport_height: f32,
+    pub root_font_size: f64,
+    pub root_line_height_multiplier: f64,
+    pub viewport_width: f64,
+    pub viewport_height: f64,
     pub root_color: Color,
     pub theme_category: ThemeCategory,
     pub document_url: &'page Url,
 }
 
 impl<'page> AbsoluteContext<'page> {
+    #[must_use]
     pub fn new(
         document_ctx: DocumentContext,
-        viewport_width: f32,
-        viewport_height: f32,
+        viewport_width: f64,
+        viewport_height: f64,
         document_url: &'page Url,
     ) -> Self {
         Self {
@@ -100,6 +101,7 @@ impl<'page> AbsoluteContext<'page> {
         }
     }
 
+    #[must_use]
     pub const fn default_url(document_url: &'page Url) -> Self {
         Self {
             root_font_size: 16.0,
@@ -117,7 +119,7 @@ impl<'page> AbsoluteContext<'page> {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct RelativeContext {
     pub parent: Arc<ComputedStyle>,
-    pub font_size: f32,
+    pub font_size: f64,
 }
 
 /// A CSS property that can either be a specific value or a global value (initial, inherit, unset, revert, revert-layer).
@@ -140,7 +142,7 @@ impl<T: CSSParsable> CSSProperty<T> {
     pub(crate) fn resolve(property: &Self) -> Result<&T, String> {
         match property {
             Self::Value(val) => Ok(val),
-            Self::Global(global) => Err(format!("Cannot resolve global property: {:?}", global)),
+            Self::Global(global) => Err(format!("Cannot resolve global property: {global:?}")),
         }
     }
 
@@ -163,10 +165,8 @@ impl<T: CSSParsable> CSSProperty<T> {
     {
         match self {
             Self::Global(global) => match global {
-                Global::Initial => T::default(),
-                Global::Inherit => parent,
-                Global::Unset => parent,
-                Global::Revert | Global::RevertLayer => T::default(),
+                Global::Inherit | Global::Unset => parent,
+                Global::Initial | Global::Revert | Global::RevertLayer => T::default(),
             },
             Self::Value(val) => val,
         }

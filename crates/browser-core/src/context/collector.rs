@@ -30,7 +30,7 @@ impl Collector for TabCollector {
         if *tag.tag == Tag::Html(HtmlTag::Img)
             && let Some(src) = tag.attributes.as_ref().and_then(|attrs| attrs.get("src"))
         {
-            self.images.push(src.to_string());
+            self.images.push(src.clone());
         }
 
         if !self.in_head {
@@ -44,7 +44,7 @@ impl Collector for TabCollector {
         if self.in_title
             && let Some(title) = tag.data
         {
-            self.title = Some(title.to_string());
+            self.title = Some(title.clone());
             self.in_title = false;
         }
     }

@@ -13,7 +13,7 @@ pub fn prelude_to_selector_text(prelude: &[ComponentValue]) -> String {
 pub fn prelude_to_string(prelude: &[ComponentValue]) -> String {
     prelude
         .iter()
-        .map(|cv| cv.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<String>()
         .trim()
         .to_string()

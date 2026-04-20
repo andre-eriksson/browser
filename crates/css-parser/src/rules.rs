@@ -15,10 +15,11 @@ pub enum Rule {
 
 impl Rule {
     /// Get the qualified rule if this is a qualified rule, otherwise return None
+    #[must_use]
     pub const fn as_qualified_rule(&self) -> Option<&QualifiedRule> {
         match self {
             Self::QualifiedRule(qr) => Some(qr),
-            _ => None,
+            Self::AtRule(_) => None,
         }
     }
 }
@@ -38,6 +39,7 @@ pub struct QualifiedRule {
 
 impl QualifiedRule {
     /// Create a new qualified rule
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             prelude: Vec::new(),
@@ -48,6 +50,7 @@ impl QualifiedRule {
     /// Get the selector as a string representation
     ///
     /// This concatenates all the tokens in the prelude to form the selector string.
+    #[must_use]
     pub fn selector_text(&self) -> String {
         let mut result = String::new();
         for cv in &self.prelude {
@@ -59,13 +62,17 @@ impl QualifiedRule {
     /// Parse the block contents as a list of declarations
     ///
     /// This is useful for style rules where the block contains property declarations.
+    #[must_use]
     pub fn parse_declarations(&self, collect_positions: bool) -> Vec<Declaration> {
         let mut tokens: Vec<CssTokenKind> = Vec::new();
         for cv in &self.block.value {
             Self::collect_tokens_from_component_value(cv, &mut tokens);
         }
 
-        let input = tokens.iter().map(|t| t.to_string()).collect::<String>();
+        let input = tokens
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<String>();
 
         let mut parser = CssParser::default();
         let decl_list = parser.parse_list_of_declarations(&input, collect_positions);
@@ -129,6 +136,7 @@ pub struct AtRule {
 
 impl AtRule {
     /// Create a new at-rule with the given name
+    #[must_use]
     pub const fn new(name: String) -> Self {
         Self {
             name,

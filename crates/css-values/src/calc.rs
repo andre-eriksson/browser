@@ -12,13 +12,14 @@ use crate::{
 const MATH_FUNCTION_NAMES: &[&str] = &["calc", "min", "max", "clamp"];
 
 /// Returns true if the given function name is a CSS Calc function (calc, min, max, clamp).
+#[must_use]
 pub fn is_math_function(name: &str) -> bool {
     MATH_FUNCTION_NAMES
         .iter()
         .any(|n| name.eq_ignore_ascii_case(n))
 }
 
-/// Represents the special keywords that can be used in calc() expressions.
+/// Represents the special keywords that can be used in `calc()` expressions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CalcKeyword {
     E,
@@ -29,13 +30,14 @@ pub enum CalcKeyword {
 }
 
 impl CalcKeyword {
-    pub const fn to_f32(self) -> f32 {
+    #[must_use]
+    pub const fn to_f64(self) -> f64 {
         match self {
-            Self::E => std::f32::consts::E,
-            Self::PI => std::f32::consts::PI,
-            Self::Infinity => f32::INFINITY,
-            Self::NegativeInfinity => f32::NEG_INFINITY,
-            Self::NaN => f32::NAN,
+            Self::E => std::f64::consts::E,
+            Self::PI => std::f64::consts::PI,
+            Self::Infinity => f64::INFINITY,
+            Self::NegativeInfinity => f64::NEG_INFINITY,
+            Self::NaN => f64::NAN,
         }
     }
 }
@@ -50,12 +52,12 @@ impl FromStr for CalcKeyword {
             "infinity" => Ok(Self::Infinity),
             "-infinity" => Ok(Self::NegativeInfinity),
             "nan" => Ok(Self::NaN),
-            _ => Err(format!("Invalid calculate keyword: {}", s)),
+            _ => Err(format!("Invalid calculate keyword: {s}")),
         }
     }
 }
 
-/// Represents the arguments to a clamp() function, which consists of an optional minimum value, a required value, and an optional maximum value.
+/// Represents the arguments to a `clamp()` function, which consists of an optional minimum value, a required value, and an optional maximum value.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClampArgs {
     pub min: Option<Box<CalcSum>>,
@@ -63,10 +65,10 @@ pub struct ClampArgs {
     pub max: Option<Box<CalcSum>>,
 }
 
-/// Represents a single value in a calc() expression, which can be a number, length, percentage, keyword, or a nested calc() expression.
+/// Represents a single value in a `calc()` expression, which can be a number, length, percentage, keyword, or a nested `calc()` expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcValue {
-    Number(f32),
+    Number(f64),
     Length(Length),
     Percentage(Percentage),
     Keyword(CalcKeyword),
@@ -76,7 +78,7 @@ pub enum CalcValue {
     Clamp(ClampArgs),
 }
 
-/// Represents a product of values in a calc() expression, which can be a single value, a multiplication, or a division.
+/// Represents a product of values in a `calc()` expression, which can be a single value, a multiplication, or a division.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcProduct {
     Value(CalcValue),
@@ -84,7 +86,7 @@ pub enum CalcProduct {
     Divide(Box<Self>, Box<Self>),
 }
 
-/// Represents a sum of products in a calc() expression, which can be a single product, an addition, or a subtraction.
+/// Represents a sum of products in a `calc()` expression, which can be a single product, an addition, or a subtraction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcSum {
     Product(CalcProduct),
@@ -138,7 +140,7 @@ impl CalcExpression {
                 sum: CalcSum::Product(CalcProduct::Value(CalcValue::Clamp(args))),
             })
         } else {
-            Err(CssValueError::InvalidFunction(format!("Math function: {}", name)))
+            Err(CssValueError::InvalidFunction(format!("Math function: {name}")))
         }
     }
 
@@ -313,13 +315,13 @@ impl CalcExpression {
 
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Number(num) => {
-                    let val = num.to_f64() as f32;
+                    let val = num.to_f64();
                     stream.next_cv();
                     Ok(CalcValue::Number(val))
                 }
 
                 CssTokenKind::Dimension { value, unit } => {
-                    let val = value.to_f64() as f32;
+                    let val = value.to_f64();
                     let len_unit = unit
                         .parse::<LengthUnit>()
                         .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
@@ -328,7 +330,7 @@ impl CalcExpression {
                 }
 
                 CssTokenKind::Percentage(num) => {
-                    let val = num.to_f64() as f32;
+                    let val = num.to_f64();
                     stream.next_cv();
                     Ok(CalcValue::Percentage(Percentage::new(val)))
                 }
@@ -336,7 +338,7 @@ impl CalcExpression {
                 CssTokenKind::Ident(ident) => {
                     let result = CalcKeyword::from_str(ident)
                         .map(CalcValue::Keyword)
-                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid calc() keyword: {}", ident)));
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid calc() keyword: {ident}")));
                     if result.is_ok() {
                         stream.next_cv();
                     }
@@ -365,13 +367,13 @@ impl CalcExpression {
         let min = Self::parse_clamp_bound(&segments[0])?;
         let val = Self::parse(&segments[1])
             .map(|e| Box::new(e.sum))
-            .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() value argument: {}", e)))?;
+            .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() value argument: {e}")))?;
         let max = Self::parse_clamp_bound(&segments[2])?;
 
         Ok(ClampArgs { min, val, max })
     }
 
-    /// Parses a single clamp() bound, which is either `none` or a `<calc-sum>`.
+    /// Parses a single `clamp()` bound, which is either `none` or a `<calc-sum>`.
     fn parse_clamp_bound(segment: &[ComponentValue]) -> Result<Option<Box<CalcSum>>, CssValueError> {
         let mut stream = ComponentValueStream::new(segment);
         stream.skip_whitespace();
@@ -389,7 +391,7 @@ impl CalcExpression {
 
         Self::parse(segment)
             .map(|e| Some(Box::new(e.sum)))
-            .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() bound argument: {}", e)))
+            .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() bound argument: {e}")))
     }
 
     /// Parses comma-separated `<calc-sum>` arguments from a function's value tokens.

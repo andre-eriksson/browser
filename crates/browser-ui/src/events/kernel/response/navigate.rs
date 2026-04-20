@@ -73,7 +73,7 @@ pub fn on_navigation_success(
                 continue;
             }
 
-            if image_cache.mark_pending(src.to_string()) {
+            if image_cache.mark_pending(src.clone()) {
                 fetch_srcs.push(src);
             }
         }
@@ -84,7 +84,7 @@ pub fn on_navigation_success(
             let layout_tree = LayoutEngine::compute_layout(
                 tab.page_ctx.as_ref().unwrap().page.document(),
                 style_tree,
-                Rect::new(0.0, 0.0, viewport.width, viewport.height),
+                Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
                 &mut tc,
                 &image_ctx,
             );
@@ -134,7 +134,7 @@ pub fn on_navigation_success(
     Task::none()
 }
 
-pub fn on_navigation_error(_application: &mut Application, error: NavigationError) -> Task<Event> {
+pub fn on_navigation_error(_application: &mut Application, error: &NavigationError) -> Task<Event> {
     error!(%error, "Navigation failed");
     Task::none()
 }
@@ -156,7 +156,7 @@ pub fn on_image_loaded(
         let vary_key = ImageCache::resolve_vary(&headers).unwrap_or_default();
         return Task::perform(
             async move {
-                match decode_image_bytes(url.clone(), bytes.as_slice()) {
+                match decode_image_bytes(&url, bytes.as_slice()) {
                     Ok(decoded) => Ok((url, decoded)),
                     Err(err) => Err((url, err)),
                 }

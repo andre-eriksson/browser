@@ -13,7 +13,7 @@ impl PixelRepr for Length {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self.unit() {
             LengthUnit::Px => self.value(),
             LengthUnit::Cm => self.value() * 96.0 / 2.54,
@@ -25,17 +25,15 @@ impl PixelRepr for Length {
             LengthUnit::Vw => abs_ctx.viewport_width * self.value() / 100.0,
             LengthUnit::Vh => abs_ctx.viewport_height * self.value() / 100.0,
 
-            LengthUnit::Ch | LengthUnit::Cap => rel_ctx
-                .map(|ctx| ctx.parent.font_size * 0.5 * self.value())
-                .unwrap_or_else(|| abs_ctx.root_font_size * 0.5 * self.value()),
+            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.map_or_else(
+                || abs_ctx.root_font_size * 0.5 * self.value(),
+                |ctx| ctx.parent.font_size * 0.5 * self.value(),
+            ),
             LengthUnit::Rem => abs_ctx.root_font_size * self.value(),
             LengthUnit::Em => match rel_type {
                 Some(RelativeType::FontSize) => rel_ctx
-                    .map(|ctx| ctx.parent.font_size * self.value())
-                    .unwrap_or_else(|| abs_ctx.root_font_size * self.value()),
-                _ => rel_ctx
-                    .map(|ctx| ctx.font_size * self.value())
-                    .unwrap_or_else(|| abs_ctx.root_font_size * self.value()),
+                    .map_or_else(|| abs_ctx.root_font_size * self.value(), |ctx| ctx.parent.font_size * self.value()),
+                _ => rel_ctx.map_or_else(|| abs_ctx.root_font_size * self.value(), |ctx| ctx.font_size * self.value()),
             },
             _ => self.value(), // TODO: Handle other units properly
         }

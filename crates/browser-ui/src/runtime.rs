@@ -15,6 +15,9 @@ pub struct Ui;
 
 impl Ui {
     /// Runs the UI runtime, initializing the application and starting the event loop.
+    ///
+    /// # Errors
+    /// If the application fails to run, a `UiError::Runtime` is returned with the underlying error.
     pub fn run(browser: Arc<Mutex<Browser>>, config: &'static BrowserConfig) -> Result<(), UiError> {
         let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);
         let monospace_font = Resource::load_embedded(ROBOTO_MONO_REGULAR);
@@ -34,7 +37,7 @@ impl Ui {
                 .run();
 
         match result {
-            Ok(_) => Ok(()),
+            Ok(()) => Ok(()),
             Err(error) => Err(UiError::Runtime(error)),
         }
     }

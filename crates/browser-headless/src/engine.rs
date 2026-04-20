@@ -19,22 +19,23 @@ use crate::commands::{
     node::{cmd_node_children, cmd_node_dom, cmd_node_id, cmd_node_layout, cmd_node_style},
 };
 
-const DEFAULT_VIEWPORT_WIDTH: f32 = 1280.0;
-const DEFAULT_VIEWPORT_HEIGHT: f32 = 800.0;
+const DEFAULT_VIEWPORT_WIDTH: f64 = 1280.0;
+const DEFAULT_VIEWPORT_HEIGHT: f64 = 800.0;
 
 pub struct HeadlessEngine {
     pub browser: Browser,
     pub page: Option<Page>,
     pub metadata: Option<PageMetadata>,
     pub history: History,
-    pub viewport_width: f32,
-    pub viewport_height: f32,
+    pub viewport_width: f64,
+    pub viewport_height: f64,
     pub layout_tree: Option<LayoutTree>,
     pub style_tree: Option<StyleTree>,
     pub text_ctx: TextContext,
 }
 
 impl HeadlessEngine {
+    #[must_use]
     pub fn new(browser: Browser) -> Self {
         Self {
             browser,
@@ -70,11 +71,26 @@ impl HeadlessEngine {
             HeadlessCommand::Back => cmd_back(self).await,
             HeadlessCommand::Forward => cmd_forward(self).await,
             HeadlessCommand::Reload => cmd_reload(self).await,
-            HeadlessCommand::Title => cmd_title(self),
-            HeadlessCommand::Url => cmd_url(self),
-            HeadlessCommand::Headers => cmd_headers(self),
-            HeadlessCommand::Body => cmd_body(self),
-            HeadlessCommand::Cookies { domain } => cmd_cookies(self, domain.as_deref()),
+            HeadlessCommand::Title => {
+                cmd_title(self);
+                Ok(())
+            }
+            HeadlessCommand::Url => {
+                cmd_url(self);
+                Ok(())
+            }
+            HeadlessCommand::Headers => {
+                cmd_headers(self);
+                Ok(())
+            }
+            HeadlessCommand::Body => {
+                cmd_body(self);
+                Ok(())
+            }
+            HeadlessCommand::Cookies { domain } => {
+                cmd_cookies(self, domain.as_deref());
+                Ok(())
+            }
             HeadlessCommand::Dom { selector } => cmd_dom(self, &selector),
             HeadlessCommand::Node { command } => match command {
                 NodeCommand::At { x, y } => cmd_node(self, x, y),
@@ -86,7 +102,10 @@ impl HeadlessEngine {
             },
             HeadlessCommand::Resize { width, height } => cmd_resize(self, width, height),
             HeadlessCommand::Layout => cmd_layout(self),
-            HeadlessCommand::Info => cmd_info(self),
+            HeadlessCommand::Info => {
+                cmd_info(self);
+                Ok(())
+            }
         }
     }
 
@@ -118,7 +137,7 @@ impl HeadlessEngine {
             viewport_height: self.viewport_height,
             root_color: css_values::color::Color::BLACK,
             theme_category: ThemeCategory::Light,
-            document_url: self.metadata.as_ref().map(|m| &m.url).unwrap_or(&localhost),
+            document_url: self.metadata.as_ref().map_or(&localhost, |m| &m.url),
         };
 
         let style_tree = StyleTree::build(&ctx, document, stylesheets);
@@ -132,6 +151,10 @@ impl HeadlessEngine {
     }
 
     /// Main loop to process commands
+    ///
+    /// # Panics
+    /// * If the input file cannot be read
+    /// * If io operations fail when reading from stdin or writing to stdout
     pub async fn run(&mut self, config: &BrowserConfig) {
         if let Some(ref url) = config.args().url
             && let Err(e) = cmd_navigate(self, url, NavigationType::Normal).await

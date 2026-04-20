@@ -86,12 +86,14 @@ pub enum BorderWidth {
 }
 
 impl BorderWidth {
-    /// Create a BorderWidth from a pixel value.
-    pub const fn px(value: f32) -> Self {
+    /// Create a `BorderWidth` from a pixel value.
+    #[must_use]
+    pub const fn px(value: f64) -> Self {
         Self::Length(Length::px(value))
     }
 
-    /// Create a BorderWidth with a value of zero.
+    /// Create a `BorderWidth` with a value of zero.
+    #[must_use]
     pub const fn zero() -> Self {
         Self::Length(Length::px(0.0))
     }
@@ -127,16 +129,16 @@ impl CSSParsable for BorderWidth {
                         } else if ident.eq_ignore_ascii_case("thick") {
                             Ok(Self::Thick)
                         } else {
-                            Err(CssValueError::InvalidValue(format!("Invalid border width keyword: {}", ident)))
+                            Err(CssValueError::InvalidValue(format!("Invalid border width keyword: {ident}")))
                         }
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
+                        Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
                     }
-                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64() as f32))),
+                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64()))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 ComponentValue::Function(func) if is_math_function(&func.name) => {

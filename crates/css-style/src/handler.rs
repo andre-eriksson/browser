@@ -74,7 +74,7 @@ impl<'css> PropertyUpdateContext<'css> {
         let value = stream
             .values()
             .iter()
-            .map(|cv| cv.to_string())
+            .map(std::string::ToString::to_string)
             .collect::<String>();
 
         self.record_error(property, value, error);
@@ -353,7 +353,7 @@ pub fn handle_background_position(ctx: &mut PropertyUpdateContext, stream: &mut 
             ctx.record_error_from_stream(
                 "background-position",
                 stream,
-                CssValueError::InvalidValue(format!("Invalid value for background-position: {}", e)),
+                CssValueError::InvalidValue(format!("Invalid value for background-position: {e}")),
             );
         }
     }
@@ -450,13 +450,10 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
                 CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("auto") => Some(WidthHeightSize::Auto),
                 CssTokenKind::Dimension { value, unit } => {
                     let len_unit = unit.parse::<LengthUnit>().ok()?;
-                    Some(WidthHeightSize::Length(LengthPercentage::Length(Length::new(
-                        value.to_f64() as f32,
-                        len_unit,
-                    ))))
+                    Some(WidthHeightSize::Length(LengthPercentage::Length(Length::new(value.to_f64(), len_unit))))
                 }
                 CssTokenKind::Percentage(pct) => {
-                    Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(pct.to_f64() as f32))))
+                    Some(WidthHeightSize::Length(LengthPercentage::Percentage(Percentage::new(pct.to_f64()))))
                 }
                 CssTokenKind::Number(n) if n.to_f64() == 0.0 => {
                     Some(WidthHeightSize::Length(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px))))
@@ -574,7 +571,6 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
                         let one = [ComponentValue::Function(func)];
                         if let Ok(c) = Color::parse(&mut one.as_slice().into()) {
                             layer_color = Some(c);
-                            continue;
                         }
                     }
                 }
@@ -653,14 +649,12 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
                         let one = [ComponentValue::Token(token)];
                         if let Ok(c) = Color::parse(&mut one.as_slice().into()) {
                             layer_color = Some(c);
-                            continue;
                         }
                     }
                 }
                 BgToken::Url(url) => {
                     if layer_image.is_none() {
                         layer_image = Some(Image::Url(url));
-                        continue;
                     }
                 }
                 BgToken::Hash(value) => {
@@ -675,7 +669,6 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
                         let one = [ComponentValue::Token(token)];
                         if let Ok(c) = Color::parse(&mut one.as_slice().into()) {
                             layer_color = Some(c);
-                            continue;
                         }
                     }
                 }
@@ -1074,22 +1067,18 @@ pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut Componen
     let checkpoint = stream.checkpoint();
 
     while let Some(cv) = stream.next_cv() {
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Ident(ident) => {
-                    if ident.eq_ignore_ascii_case("lighter") {
-                        let lighter = ctx.relative_ctx.parent.font_weight - 100;
-                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(lighter));
-                        return;
-                    } else if ident.eq_ignore_ascii_case("bolder") {
-                        let bolder = ctx.relative_ctx.parent.font_weight + 100;
-                        ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(bolder));
-                        return;
-                    }
-                }
-                _ => continue,
-            },
-            _ => continue,
+        if let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+        {
+            if ident.eq_ignore_ascii_case("lighter") {
+                let lighter = ctx.relative_ctx.parent.font_weight - 100;
+                ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(lighter));
+                return;
+            } else if ident.eq_ignore_ascii_case("bolder") {
+                let bolder = ctx.relative_ctx.parent.font_weight + 100;
+                ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(bolder));
+                return;
+            }
         }
     }
 

@@ -26,7 +26,7 @@ pub enum NavigationType {
 /// Represents various events that can occur within the browser.
 #[derive(Debug, Clone)]
 pub enum EngineResponse {
-    /// The DevTools page for a tab is ready.
+    /// The `DevTools` page for a tab is ready.
     DevtoolsPageReady(Page),
 
     /// Navigation succeeded.
@@ -51,7 +51,7 @@ pub enum EngineCommand {
         navigation_type: NavigationType,
     },
 
-    /// Get the DevTools page for a specific tab.
+    /// Get the `DevTools` page for a specific tab.
     GetDevtoolsPage { document: DocumentRoot },
 
     /// Command to fetch an image resource using the browser's HTTP client, headers, and cookies.

@@ -3,7 +3,7 @@ use tracing::info;
 
 use crate::HeadlessEngine;
 
-pub fn cmd_node(engine: &mut HeadlessEngine, x: f32, y: f32) -> Result<(), String> {
+pub fn cmd_node(engine: &mut HeadlessEngine, x: f64, y: f64) -> Result<(), String> {
     engine.ensure_layout()?;
 
     let Some(ref layout) = engine.layout_tree else {
@@ -13,9 +13,9 @@ pub fn cmd_node(engine: &mut HeadlessEngine, x: f32, y: f32) -> Result<(), Strin
     let nodes = layout.resolve(x, y);
 
     if nodes.is_empty() {
-        println!("No node at ({}, {})", x, y);
+        println!("No node at ({x}, {y})");
     } else {
-        println!("Nodes at ({}, {}):", x, y);
+        println!("Nodes at ({x}, {y}):");
         for node in nodes {
             print_layout_node(node, 1);
         }
@@ -39,7 +39,7 @@ pub fn cmd_layout(engine: &mut HeadlessEngine) -> Result<(), String> {
     Ok(())
 }
 
-pub fn cmd_resize(engine: &mut HeadlessEngine, width: f32, height: f32) -> Result<(), String> {
+pub fn cmd_resize(engine: &mut HeadlessEngine, width: f64, height: f64) -> Result<(), String> {
     if width <= 0.0 || height <= 0.0 {
         return Err("Viewport dimensions must be positive".to_string());
     }

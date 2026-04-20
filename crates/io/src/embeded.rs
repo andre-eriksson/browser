@@ -27,13 +27,14 @@ pub enum EmbededType<'path> {
 
 impl EmbededType<'_> {
     /// Returns the path of the embedded resource based on its type and name.
+    #[must_use]
     pub fn path(&self) -> String {
         match self {
-            EmbededType::Icon(name) => format!("icon/{}", name),
-            EmbededType::Font(name) => format!("font/{}", name),
-            EmbededType::Image(name) => format!("image/{}", name),
-            EmbededType::Shader(name) => format!("shader/{}", name),
-            EmbededType::Browser(name) => format!("browser/{}", name),
+            EmbededType::Icon(name) => format!("icon/{name}"),
+            EmbededType::Font(name) => format!("font/{name}"),
+            EmbededType::Image(name) => format!("image/{name}"),
+            EmbededType::Shader(name) => format!("shader/{name}"),
+            EmbededType::Browser(name) => format!("browser/{name}"),
             EmbededType::Root(name) => name.to_string(),
         }
     }
@@ -44,7 +45,7 @@ impl EmbededType<'_> {
 /// Represents the main icon asset.
 pub const WINDOW_ICON: EmbededType = EmbededType::Icon("icon.ico");
 
-/// Represents the DevTools variant of the main icon asset.
+/// Represents the `DevTools` variant of the main icon asset.
 pub const DEVTOOLS_ICON: EmbededType = EmbededType::Icon("devtools.ico");
 
 pub const PLUS_ICON: EmbededType = EmbededType::Icon("plus.svg");

@@ -10,18 +10,16 @@ impl PixelRepr for LineHeight {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
-            Self::Normal => rel_ctx
-                .map(|ctx| ctx.font_size * abs_ctx.root_line_height_multiplier)
-                .unwrap_or(abs_ctx.root_font_size * abs_ctx.root_line_height_multiplier),
-            Self::Number(num) => rel_ctx
-                .map(|ctx| ctx.font_size * num)
-                .unwrap_or(abs_ctx.root_font_size * num),
+            Self::Normal => rel_ctx.map_or(abs_ctx.root_font_size * abs_ctx.root_line_height_multiplier, |ctx| {
+                ctx.font_size * abs_ctx.root_line_height_multiplier
+            }),
+            Self::Number(num) => rel_ctx.map_or(abs_ctx.root_font_size * num, |ctx| ctx.font_size * num),
             Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Percentage(pct) => rel_ctx
-                .map(|ctx| ctx.font_size * pct.as_fraction())
-                .unwrap_or(abs_ctx.root_font_size * pct.as_fraction()),
+            Self::Percentage(pct) => {
+                rel_ctx.map_or(abs_ctx.root_font_size * pct.as_fraction(), |ctx| ctx.font_size * pct.as_fraction())
+            }
             Self::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),
         }
     }

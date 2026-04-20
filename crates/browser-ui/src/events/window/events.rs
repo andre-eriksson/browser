@@ -36,7 +36,7 @@ pub fn create_window(application: &mut Application, window_id: Id, window_type: 
                 move |result| match result {
                     Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
                     Err(e) => {
-                        panic!("Failed to get devtools page: {:?}", e);
+                        panic!("Failed to get devtools page: {e:?}");
                     }
                 },
             )

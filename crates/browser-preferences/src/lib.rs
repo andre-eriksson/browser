@@ -35,6 +35,7 @@ impl BrowserPreferences {
     /// Maximum number of theme files to load from the themes directory, set to 100.
     const MAX_THEME_FILES: Option<usize> = Some(100);
 
+    #[must_use]
     pub fn new(active_theme: String) -> Self {
         Self {
             themes: Self::load_themes(),
@@ -75,10 +76,16 @@ impl BrowserPreferences {
         }
     }
 
+    #[must_use]
     pub fn theme_name(&self) -> &str {
         &self.theme
     }
 
+    /// Get the active theme configuration
+    ///
+    /// # Panics
+    /// * If the active theme is not found in the loaded themes, which should never happen due to checks during loading.
+    #[must_use]
     pub fn theme(&self) -> &Theme {
         self.themes
             .get(&self.theme)

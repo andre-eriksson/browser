@@ -15,7 +15,7 @@ impl ReferrerMiddleware {
     ///
     /// # Notes
     /// This function modifies the `request` in place by adding the Referrer header if applicable.
-    pub fn apply_referrer(current_url: &Url, request: &mut Request, referrer_policy: &ReferrerPolicy) {
+    pub fn apply_referrer(current_url: &Url, request: &mut Request, referrer_policy: ReferrerPolicy) {
         match referrer_policy {
             ReferrerPolicy::NoReferrer => {}
             ReferrerPolicy::NoReferrerWhenDowngrade => {
@@ -78,15 +78,15 @@ impl ReferrerMiddleware {
                     return;
                 }
 
-                if current_url.origin() != request.url.origin() {
-                    let origin = current_url.origin().ascii_serialization();
-                    let value = HeaderValue::from_str(&origin);
-
+                if current_url.origin() == request.url.origin() {
+                    let value = HeaderValue::from_str(current_url.as_str());
                     if let Ok(value) = value {
                         request.headers.insert(REFERER, value);
                     }
                 } else {
-                    let value = HeaderValue::from_str(current_url.as_str());
+                    let origin = current_url.origin().ascii_serialization();
+                    let value = HeaderValue::from_str(&origin);
+
                     if let Ok(value) = value {
                         request.headers.insert(REFERER, value);
                     }

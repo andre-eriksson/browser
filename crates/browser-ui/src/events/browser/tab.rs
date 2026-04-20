@@ -19,7 +19,7 @@ pub fn create_new_tab(application: &mut Application, window_id: Id) -> Task<Even
         None => {
             error!("No browser context found for window ID: {:?}", window_id);
         }
-    };
+    }
 
     Task::none()
 }
@@ -47,7 +47,7 @@ pub fn close_tab(application: &mut Application, window_id: Id, tab_id: TabId) ->
         None => {
             error!("No browser context found for window ID: {:?}", window_id);
         }
-    };
+    }
 
     Task::none()
 }
@@ -73,7 +73,7 @@ pub fn change_active_tab(application: &mut Application, window_id: Id, tab_id: T
         None => {
             error!("No browser context found for window ID: {:?}", window_id);
         }
-    };
+    }
 
     Task::none()
 }

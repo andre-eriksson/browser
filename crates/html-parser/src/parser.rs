@@ -64,8 +64,10 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// Assumes that the conditions for resuming have been met (e.g., scripts/styles have been handled).
     ///
     /// # Returns
-    /// * `Ok(&ParserState)` - A reference to the current parser state after resuming.
-    /// * `Err(String)` - An error message if the parser has already completed.
+    /// A `Result` containing a reference to the current parser state if the parser was successfully resumed, or an error message if the parser is already completed.
+    ///
+    /// # Errors
+    /// * `HtmlParsingError::AlreadyFinished` - If the parser is already in the completed state and cannot be resumed.
     pub fn resume(&mut self) -> Result<&ParserState, HtmlParsingError> {
         match &self.state {
             ParserState::Blocked(_) => {
@@ -80,18 +82,20 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// Processes the next chunk of HTML content from the input stream.
     ///
     /// # Returns
-    /// * `Ok(&ParserState)` - A reference to the current parser state after processing the chunk.
-    /// * `Err(String)` - An error message if reading from the stream fails.
+    /// A `Result` containing a reference to the current parser state after processing the chunk, or an error message if an error occurs while reading from the stream.
+    ///
+    /// # Errors
+    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the input stream.
+    /// * `HtmlParsingError::UnexpectedUtf8Error` - If an unexpected UTF-8 decoding error occurs while processing the input stream.
     pub fn step(&mut self) -> Result<&ParserState, HtmlParsingError> {
         match &self.state {
-            ParserState::Blocked(_) => return Ok(&self.state),
-            ParserState::Completed => return Ok(&self.state),
+            ParserState::Blocked(_) | ParserState::Completed => return Ok(&self.state),
             ParserState::Running => {}
         }
 
         if !self.buffer.is_empty() {
             let full_chunk = mem::take(&mut self.buffer);
-            self.process_chunk(&full_chunk)?;
+            self.process_chunk(&full_chunk);
             if !matches!(self.state, ParserState::Running) {
                 return Ok(&self.state);
             }
@@ -108,7 +112,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                             flush_chunk = prefix;
                         }
 
-                        self.process_chunk(&flush_chunk)?;
+                        self.process_chunk(&flush_chunk);
 
                         if !matches!(self.state, ParserState::Running) {
                             self.byte_buffer.clear();
@@ -128,16 +132,16 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                 let mut combined_bytes = self.byte_buffer.clone();
                 combined_bytes.extend_from_slice(&self.read_buffer[..bytes_read]);
 
-                let (chunk, remaining_bytes) = self.try_decode_utf8(&combined_bytes)?;
+                let (chunk, remaining_bytes) = Self::try_decode_utf8(&combined_bytes)?;
                 self.byte_buffer = remaining_bytes;
 
                 if !chunk.is_empty() {
-                    if !self.buffer.is_empty() {
+                    if self.buffer.is_empty() {
+                        self.process_chunk(&chunk);
+                    } else {
                         let mut full_chunk = mem::take(&mut self.buffer);
                         full_chunk.push_str(&chunk);
-                        self.process_chunk(&full_chunk)?;
-                    } else {
-                        self.process_chunk(&chunk)?;
+                        self.process_chunk(&full_chunk);
                     }
 
                     if !matches!(self.state, ParserState::Running) {
@@ -154,8 +158,12 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// Extracts the content of a `<script>` tag when the parser is blocked waiting for a script.
     ///
     /// # Returns
-    /// * `Ok(String)` - The content of the `<script>` tag.
-    /// * `Err(String)` - An error message if the parser is not blocked waiting for a script or if extraction fails.
+    /// A `Result` containing the content of the `<script>` tag if successful, or an error message if the parser is not blocked waiting for a script or if extraction fails.
+    ///
+    /// # Errors
+    /// * `HtmlParsingError::InvalidBlockReason` - If the parser is not blocked waiting for a script.
+    /// * `HtmlParsingError::MalformedDocument` - If the end tag `</script>` is not found before the end of the stream.
+    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
     pub fn extract_script_content(&mut self) -> Result<String, HtmlParsingError> {
         if !matches!(self.state, ParserState::Blocked(BlockedReason::WaitingForScript(_)),) {
             return Err(HtmlParsingError::InvalidBlockReason("script".to_string()));
@@ -167,8 +175,12 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// Extracts the content of a `<style>` tag when the parser is blocked waiting for a style.
     ///
     /// # Returns
-    /// * `Ok(String)` - The content of the `<style>` tag.
-    /// * `Err(String)` - An error message if the parser is not blocked waiting for a style or if extraction fails.
+    /// A `Result` containing the content of the `<style>` tag if successful, or an error message if the parser is not blocked waiting for a style or if extraction fails.
+    ///
+    /// # Errors
+    /// * `HtmlParsingError::InvalidBlockReason` - If the parser is not blocked waiting for a style.
+    /// * `HtmlParsingError::MalformedDocument` - If the end tag `</style>` is not found before the end of the stream.
+    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
     pub fn extract_style_content(&mut self) -> Result<String, HtmlParsingError> {
         if !matches!(self.state, ParserState::Blocked(BlockedReason::WaitingForStyle(_)),) {
             return Err(HtmlParsingError::InvalidBlockReason("style".to_string()));
@@ -180,8 +192,12 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// Extracts the content of an `<svg>` tag when the parser is blocked parsing SVG.
     ///
     /// # Returns
-    /// * `Ok(String)` - The content of the `<svg>` tag.
-    /// * `Err(String)` - An error message if the parser is not blocked parsing SVG or if extraction fails.
+    /// A `Result` containing the content of the `<svg>` tag if successful, or an error message if the parser is not blocked parsing SVG or if extraction fails.
+    ///
+    /// # Errors
+    /// * `HtmlParsingError::InvalidBlockReason` - If the parser is not blocked parsing SVG.
+    /// * `HtmlParsingError::MalformedDocument` - If the end tag `</svg>` is not found before the end of the stream.
+    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
     pub fn extract_svg_content(&mut self) -> Result<String, HtmlParsingError> {
         if !matches!(self.state, ParserState::Blocked(BlockedReason::SVGContent),) {
             return Err(HtmlParsingError::InvalidBlockReason("svg".to_string()));
@@ -196,8 +212,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// * `tag` - The end tag to search for (e.g., `</script>` or `</style>`).
     ///
     /// # Returns
-    /// * `Ok(String)` - The content found before the end tag.
-    /// * `Err(String)` - An error message if the end tag is not found or
+    /// A `Result` containing the extracted content if successful, or an error message if the end tag is not found before the end of the stream or if reading from the stream fails.
+    ///
+    /// # Errors
+    /// * `HtmlParsingError::MalformedDocument` - If the specified end tag is not found before the end of the stream.
+    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
     fn extract_content_until_end_tag(&mut self, tag: &str) -> Result<String, HtmlParsingError> {
         let mut content = String::new();
         let tag_lower = tag.to_ascii_lowercase();
@@ -227,15 +246,14 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
             match self.reader.read(&mut self.read_buffer) {
                 Ok(0) => {
                     return Err(HtmlParsingError::MalformedDocument(format!(
-                        "End tag '{}' not found before end of stream",
-                        tag
+                        "End tag '{tag}' not found before end of stream"
                     )));
                 }
                 Ok(bytes_read) => {
                     let mut combined_bytes = self.byte_buffer.clone();
                     combined_bytes.extend_from_slice(&self.read_buffer[..bytes_read]);
 
-                    let (chunk, remaining_bytes) = self.try_decode_utf8(&combined_bytes)?;
+                    let (chunk, remaining_bytes) = Self::try_decode_utf8(&combined_bytes)?;
                     self.byte_buffer = remaining_bytes;
 
                     if !chunk.is_empty() {
@@ -261,11 +279,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     ///
     /// # Arguments
     /// * `chunk` - A string slice containing the HTML content to process.
-    ///
-    /// # Returns
-    /// * `Ok(())` - If the chunk was processed successfully.
-    /// * `Err(String)` - An error message if processing fails.
-    fn process_chunk(&mut self, chunk: &str) -> Result<(), HtmlParsingError> {
+    fn process_chunk(&mut self, chunk: &str) {
         let mut tokens: Vec<Token> = Vec::new();
 
         for (idx, ch) in chunk.char_indices() {
@@ -306,7 +320,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                                     BlockedReason::WaitingForResource(
                                         ResourceType::Style,
-                                        href.to_string(),
+                                        href.clone(),
                                         ResourceMetadata::default(),
                                     )
                                 })
@@ -329,7 +343,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                                     BlockedReason::WaitingForResource(
                                         ResourceType::Favicon,
-                                        href.to_string(),
+                                        href.clone(),
                                         ResourceMetadata {
                                             content_type,
                                             sizes,
@@ -357,7 +371,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                     self.state = ParserState::Blocked(reason);
 
                     self.previous_token_state = current_state;
-                    return Ok(());
+                    return;
                 }
 
                 self.previous_token_state = current_state;
@@ -365,7 +379,6 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
         }
 
         self.builder.build_from_tokens(tokens);
-        Ok(())
     }
 
     /// Attempts to decode a byte slice as UTF-8, handling incomplete sequences and invalid bytes.
@@ -376,7 +389,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     /// # Returns
     /// A `Result` containing a tuple of the decoded string and any remaining bytes that could not be decoded,
     /// or an error message if decoding fails.
-    fn try_decode_utf8(&self, bytes: &[u8]) -> Result<(String, Vec<u8>), HtmlParsingError> {
+    fn try_decode_utf8(bytes: &[u8]) -> Result<(String, Vec<u8>), HtmlParsingError> {
         match str::from_utf8(bytes) {
             Ok(text) => Ok((text.to_string(), Vec::new())),
             Err(error) => {
@@ -387,7 +400,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                 }
 
                 let valid_text =
-                    str::from_utf8(&bytes[..valid_up_to]).map_err(|e| format!("Unexpected UTF-8 error: {}", e));
+                    str::from_utf8(&bytes[..valid_up_to]).map_err(|e| format!("Unexpected UTF-8 error: {e}"));
 
                 let valid_text = match valid_text {
                     Ok(text) => text,
@@ -396,7 +409,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                 let remaining_bytes = &bytes[valid_up_to..];
 
-                if remaining_bytes.len() < 4 && self.could_be_incomplete_utf8(remaining_bytes) {
+                if remaining_bytes.len() < 4 && Self::could_be_incomplete_utf8(remaining_bytes) {
                     Ok((valid_text.to_string(), remaining_bytes.to_vec()))
                 } else {
                     let mut result = valid_text.to_string();
@@ -422,7 +435,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
     ///
     /// # Returns
     /// A boolean indicating whether the byte slice could be an incomplete UTF-8 sequence.
-    fn could_be_incomplete_utf8(&self, bytes: &[u8]) -> bool {
+    fn could_be_incomplete_utf8(bytes: &[u8]) -> bool {
         if bytes.is_empty() {
             return false;
         }

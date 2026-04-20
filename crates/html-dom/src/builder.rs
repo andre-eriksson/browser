@@ -69,7 +69,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
                     self.handle_start_tag(token);
                 }
                 TokenKind::EndTag => {
-                    self.handle_end_tag(token);
+                    self.handle_end_tag(&token);
                 }
                 TokenKind::Text => {
                     self.handle_text_content(token);
@@ -163,7 +163,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     ///
     /// # Arguments
     /// * `token` - A reference to the `Token` representing the end tag to be processed.
-    fn handle_end_tag(&mut self, token: Token) {
+    fn handle_end_tag(&mut self, token: &Token) {
         let target_tag = Tag::from_str_insensitive(&token.data);
 
         let should_close = if let Some(last) = self.open_elements.last() {

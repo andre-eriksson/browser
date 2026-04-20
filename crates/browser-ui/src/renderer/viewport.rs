@@ -10,10 +10,10 @@ const IMAGE_PLACEHOLDER_COLOR: Color4f = Color4f::rgba(0.8, 0.8, 0.8, 1.0);
 
 /// Helper function to determine if a layout node is within the visible viewport based on its dimensions and the current scroll offset.
 pub fn is_visible_node(node_dimensions: Rect, initial_bounds: Rect, scroll_offset: ScrollOffset) -> bool {
-    let viewport_top = scroll_offset.y - initial_bounds.y;
-    let viewport_bottom = scroll_offset.y + initial_bounds.height + initial_bounds.y;
-    let viewport_left = scroll_offset.x - initial_bounds.x;
-    let viewport_right = scroll_offset.x + initial_bounds.width + initial_bounds.x;
+    let viewport_top = f64::from(scroll_offset.y) - initial_bounds.y;
+    let viewport_bottom = f64::from(scroll_offset.y) + initial_bounds.height + initial_bounds.y;
+    let viewport_left = f64::from(scroll_offset.x) - initial_bounds.x;
+    let viewport_right = f64::from(scroll_offset.x) + initial_bounds.width + initial_bounds.x;
 
     let node_bottom = node_dimensions.y + node_dimensions.height;
     let node_right = node_dimensions.x + node_dimensions.width;
@@ -49,15 +49,15 @@ pub fn collect_render_data_from_layout<'html>(
             && node.dimensions.width > 0.0
             && node.dimensions.height > 0.0
         {
-            let x = node.dimensions.x;
-            let y = node.dimensions.y;
-            let w = node.dimensions.width;
-            let h = node.dimensions.height;
+            let x = node.dimensions.x as f32;
+            let y = node.dimensions.y as f32;
+            let w = node.dimensions.width as f32;
+            let h = node.dimensions.height as f32;
 
-            let inner_x = x + border.left;
-            let inner_y = y + border.top;
-            let inner_w = (w - border.horizontal()).max(0.0);
-            let inner_h = (h - border.vertical()).max(0.0);
+            let inner_x = x + border.left as f32;
+            let inner_y = y + border.top as f32;
+            let inner_w = (w - border.horizontal() as f32).max(0.0);
+            let inner_h = (h - border.vertical() as f32).max(0.0);
             let inner_right = inner_x + inner_w;
             let inner_bottom = inner_y + inner_h;
 
@@ -138,8 +138,12 @@ pub fn collect_render_data_from_layout<'html>(
         }
 
         if let Some(buffer) = &node.text_buffer {
-            let text_block =
-                TextBlockInfo::from_arc_buffer(buffer, node.dimensions.x, node.dimensions.y, node.colors.color);
+            let text_block = TextBlockInfo::from_arc_buffer(
+                buffer,
+                node.dimensions.x as f32,
+                node.dimensions.y as f32,
+                node.colors.color,
+            );
             if !text_block.glyphs.is_empty() {
                 renderer.text_blocks.push(text_block);
             }

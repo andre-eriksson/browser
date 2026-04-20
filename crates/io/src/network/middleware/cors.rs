@@ -28,7 +28,7 @@ impl CorsMiddleware {
         request_url: &Url,
         request_method: &Method,
         request_headers: &HeaderMap,
-        preflight_response: HeaderResponse,
+        preflight_response: &HeaderResponse,
     ) -> Result<(), RequestError> {
         if request_origin.ascii_serialization() == request_url.origin().ascii_serialization() {
             return Ok(());
@@ -57,15 +57,13 @@ impl CorsMiddleware {
                     Credentials::Include => {
                         if origin_str == "*" {
                             return Err(RequestError::CorsViolation(format!(
-                                "Request with credentials not allowed with wildcard origin '{}'",
-                                request_origin
+                                "Request with credentials not allowed with wildcard origin '{request_origin}'"
                             )));
                         }
 
                         if origin_str != request_origin {
                             return Err(RequestError::CorsViolation(format!(
-                                "Request with credentials not allowed for origin '{}'",
-                                request_origin
+                                "Request with credentials not allowed for origin '{request_origin}'"
                             )));
                         }
                     }
@@ -84,15 +82,13 @@ impl CorsMiddleware {
 
             if request_origin == "null" && origin_str != "null" && origin_str != "*" {
                 return Err(RequestError::CorsViolation(format!(
-                    "Request from origin '{}' to origin '{}' is not allowed",
-                    request_origin, origin_str
+                    "Request from origin '{request_origin}' to origin '{origin_str}' is not allowed"
                 )));
             }
 
             if origin != "*" && origin_str != request_origin {
                 return Err(RequestError::CorsViolation(format!(
-                    "Request from origin '{}' to origin '{}' is not allowed",
-                    request_origin, origin_str
+                    "Request from origin '{request_origin}' to origin '{origin_str}' is not allowed"
                 )));
             }
         } else {
@@ -128,7 +124,7 @@ impl CorsMiddleware {
             // TODO: Handle invalid headers instead of unwrap_or
             let headers_str = headers.to_str().unwrap_or("").to_lowercase();
 
-            for (name, value) in request_headers.iter() {
+            for (name, value) in request_headers {
                 let name_str = name.as_str().trim().to_lowercase();
 
                 if SimpleMiddleware::is_simple_header(&name_str, value) {
@@ -141,8 +137,7 @@ impl CorsMiddleware {
                     .any(|h| h == name_str)
                 {
                     return Err(RequestError::CorsViolation(format!(
-                        "Request header '{}' not allowed by server",
-                        name_str
+                        "Request header '{name_str}' not allowed by server"
                     )));
                 }
             }

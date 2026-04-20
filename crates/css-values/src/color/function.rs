@@ -6,16 +6,16 @@ use crate::{
     quantity::Angle,
 };
 
-/// Represents a color specified using functional notation, which can be in the form of srgba() functions (e.g., rgb(), rgba(), hsl(), hsla(), hwb()) or color() functions (e.g., lab(), oklab()).
+/// Represents a color specified using functional notation, which can be in the form of `srgba()` functions (e.g., `rgb()`, `rgba()`, `hsl()`, `hsla()`, `hwb()`) or `color()` functions (e.g., `lab()`, `oklab()`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum ColorFunction {
-    /// rgb() and rgba() functions with R, G, B components and optional alpha
+    /// `rgb()` and `rgba()` functions with R, G, B components and optional alpha
     ///
     /// * R, G, B: 0 to 255 or 0% to 100%
     /// * alpha: Opacity (0.0 to 1.0)
     Rgb(ColorValue, ColorValue, ColorValue, Alpha),
 
-    /// hsl() and hsla() functions with H, S, L components and optional alpha
+    /// `hsl()` and `hsla()` functions with H, S, L components and optional alpha
     ///
     /// * H: Hue angle in degrees (0 to 360 as degrees)
     /// * S: Saturation (0% to 100%)
@@ -23,7 +23,7 @@ pub enum ColorFunction {
     /// * alpha: Opacity (0.0 to 1.0)
     Hsl(Hue, Percentage, Percentage, Alpha),
 
-    /// hwb() function with H, W, B components and optional alpha
+    /// `hwb()` function with H, W, B components and optional alpha
     ///
     /// * H: Hue angle in degrees (0 to 360 as degrees)
     /// * W: Whiteness (0% to 100%)
@@ -31,7 +31,7 @@ pub enum ColorFunction {
     /// * alpha: Opacity (0.0 to 1.0)
     Hwb(Hue, Percentage, Percentage, Alpha),
 
-    /// lab() function with L, a, b components and optional alpha
+    /// `lab()` function with L, a, b components and optional alpha
     ///
     /// * L: Lightness (0 to 100) or (0% to 100%)
     /// * a: Green-Red component (-125 to 125) or (-100% to 100%)
@@ -39,7 +39,7 @@ pub enum ColorFunction {
     /// * alpha: Opacity (0.0 to 1.0)
     Lab(ColorValue, ColorValue, ColorValue, Alpha),
 
-    /// lch() function with L, C, H components and optional alpha
+    /// `lch()` function with L, C, H components and optional alpha
     ///
     /// * L: Lightness (0 to 100) or (0% to 100%)
     /// * C: Chroma (0 to 150) or (0% to 100%)
@@ -47,7 +47,7 @@ pub enum ColorFunction {
     /// * alpha: Opacity (0.0 to 1.0)
     Lch(ColorValue, ColorValue, Hue, Alpha),
 
-    /// oklab() function with L, a, b components and optional alpha
+    /// `oklab()` function with L, a, b components and optional alpha
     ///
     /// * L: Lightness (0 to 1) or (0% to 100%)
     /// * a: Green-Red component (-0.4 to 0.4) or (-100% to 100%)
@@ -55,7 +55,7 @@ pub enum ColorFunction {
     /// * alpha: Opacity (0.0 to 1.0)
     Oklab(ColorValue, ColorValue, ColorValue, Alpha),
 
-    /// oklch() function with L, C, H components and optional alpha
+    /// `oklch()` function with L, C, H components and optional alpha
     ///
     /// * L: Lightness (0 to 1) or (0% to 100%)
     /// * C: Chroma (0 to 0.4) or (0% to 100%)
@@ -87,8 +87,8 @@ impl ColorFunction {
         let mut parsing_alpha = false;
 
         for cv in values {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("none") {
                             if parsing_alpha {
@@ -100,7 +100,7 @@ impl ColorFunction {
                                 return Err("Too many components in color function".to_string());
                             }
                         } else {
-                            return Err(format!("Invalid token in color function: '{}'", ident));
+                            return Err(format!("Invalid token in color function: '{ident}'"));
                         }
                     }
                     CssTokenKind::Delim('/') => {
@@ -108,24 +108,24 @@ impl ColorFunction {
                     }
                     CssTokenKind::Percentage(pct) => {
                         if parsing_alpha {
-                            alpha = Some(Alpha::from(Percentage::new(pct.to_f64() as f32)));
+                            alpha = Some(Alpha::from(Percentage::new(pct.to_f64())));
                         } else if channel_idx < 3 {
-                            channels[channel_idx] = Some(ColorValue::Percentage(Percentage::new(pct.to_f64() as f32)));
+                            channels[channel_idx] = Some(ColorValue::Percentage(Percentage::new(pct.to_f64())));
                             channel_idx += 1;
                         } else if alpha.is_none() {
-                            alpha = Some(Alpha::from(Percentage::new(pct.to_f64() as f32)));
+                            alpha = Some(Alpha::from(Percentage::new(pct.to_f64())));
                         } else {
                             return Err("Too many percentage components in color function".to_string());
                         }
                     }
                     CssTokenKind::Number(num) => {
                         if parsing_alpha {
-                            alpha = Some(Alpha::new(num.to_f64() as f32));
+                            alpha = Some(Alpha::new(num.to_f64()));
                         } else if channel_idx < 3 {
-                            channels[channel_idx] = Some(ColorValue::Number(num.to_f64() as f32));
+                            channels[channel_idx] = Some(ColorValue::Number(num.to_f64()));
                             channel_idx += 1;
                         } else if alpha.is_none() {
-                            alpha = Some(Alpha::new(num.to_f64() as f32));
+                            alpha = Some(Alpha::new(num.to_f64()));
                         } else {
                             return Err("Too many number components in color function".to_string());
                         }
@@ -144,9 +144,8 @@ impl ColorFunction {
                             return Err("Too many components in color function".to_string());
                         }
                     }
-                    _ => continue,
-                },
-                _ => continue,
+                    _ => {}
+                }
             }
         }
 

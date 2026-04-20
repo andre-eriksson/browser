@@ -7,7 +7,7 @@ use html_dom::NodeId;
 
 use crate::{ImageData, LayoutColors, LayoutNode, Rect, SideOffset};
 
-/// Builder pattern for constructing a LayoutNode.
+/// Builder pattern for constructing a `LayoutNode`.
 #[derive(Debug, Clone)]
 pub struct NodeBuilder {
     pub layout_node: LayoutNode,

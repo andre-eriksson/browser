@@ -1,5 +1,3 @@
-use std::f32;
-
 use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle, Position, StyledNode};
 use css_values::display::{Float, InsideDisplay};
 
@@ -61,9 +59,9 @@ impl PropertyResolver {
     }
 
     /// Calculate content width (top-down from containing block)
-    pub(crate) fn calculate_width(styled_node: &StyledNode, width: f32) -> f32 {
+    pub(crate) fn calculate_width(styled_node: &StyledNode, width: f64) -> f64 {
         let max_width = match &styled_node.style.max_width {
-            ComputedMaxDimension::None => f32::INFINITY,
+            ComputedMaxDimension::None => f64::INFINITY,
             ComputedMaxDimension::Fixed => styled_node.style.max_intrinsic_width,
             ComputedMaxDimension::Percentage(f) => (width * f).max(0.0),
             ComputedMaxDimension::MaxContent
@@ -72,10 +70,10 @@ impl PropertyResolver {
             | ComputedMaxDimension::Stretch => styled_node.style.max_intrinsic_width,
         };
 
-        let available_width = f32::min(
+        let available_width = f64::min(
             width - (styled_node.style.margin_left + styled_node.style.margin_right),
             if max_width == 0.0 && styled_node.style.width == ComputedDimension::Auto {
-                f32::INFINITY
+                f64::INFINITY
             } else {
                 max_width
             },
@@ -94,7 +92,7 @@ impl PropertyResolver {
         width.min(available_width)
     }
 
-    pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f32, containing_height: f32) -> f32 {
+    pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f64, containing_height: f64) -> f64 {
         let height = match &styled_node.style.height {
             ComputedDimension::Auto => children_height.max(styled_node.style.intrinsic_height),
             ComputedDimension::Fixed => styled_node.style.intrinsic_height,
@@ -105,25 +103,25 @@ impl PropertyResolver {
             | ComputedDimension::Stretch => children_height.max(styled_node.style.intrinsic_height),
         };
 
-        if styled_node.style.max_height != ComputedMaxDimension::None {
+        if styled_node.style.max_height == ComputedMaxDimension::None {
+            height
+        } else {
             let max_height = match &styled_node.style.max_height {
                 ComputedMaxDimension::Fixed => styled_node.style.max_intrinsic_height,
                 ComputedMaxDimension::Percentage(f) => (containing_height * f).max(0.0),
-                _ => f32::INFINITY,
+                _ => f64::INFINITY,
             };
 
-            let available_height = f32::min(
+            let available_height = f64::min(
                 containing_height - (styled_node.style.margin_top + styled_node.style.margin_bottom),
                 if max_height == 0.0 && styled_node.style.height == ComputedDimension::Auto {
-                    f32::INFINITY
+                    f64::INFINITY
                 } else {
                     max_height
                 },
             );
 
             height.min(available_height)
-        } else {
-            height
         }
     }
 }

@@ -53,7 +53,7 @@ impl BrowserContext {
     }
 }
 
-/// BrowserWindow is the "main" application window for the browser UI.
+/// `BrowserWindow` is the "main" application window for the browser UI.
 #[derive(Debug)]
 pub struct BrowserWindow {
     id: Id,
@@ -106,7 +106,7 @@ impl ApplicationWindow for BrowserWindow {
             let html = BrowserHtml::new(
                 renderer,
                 layout_tree,
-                Rect::new(0.0, 87.0, viewport.width, content_viewport_height),
+                Rect::new(0.0, 87.0, f64::from(viewport.width), f64::from(content_viewport_height)),
                 active_tab.scroll_offset,
             );
             let html_content = html.render(app);
@@ -125,7 +125,7 @@ impl ApplicationWindow for BrowserWindow {
     fn settings() -> iced::window::Settings {
         let icon = Resource::load_embedded(WINDOW_ICON);
 
-        let browser_icon = load_icon(icon);
+        let browser_icon = load_icon(&icon);
 
         Settings {
             size: Self::DEFAULT_VIEWPORT_SIZE,

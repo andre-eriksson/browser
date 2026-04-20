@@ -20,7 +20,7 @@ use crate::{
     loader::{Loader, Writer},
 };
 
-/// AssetType represents the type of asset being managed by the AssetManager.
+/// `AssetType` represents the type of asset being managed by the `AssetManager`.
 /// It can be an icon, font, or image.
 #[derive(Debug, Clone)]
 pub enum ResourceType<'resource> {
@@ -39,6 +39,7 @@ pub enum ResourceType<'resource> {
 }
 
 impl ResourceType<'_> {
+    #[must_use]
     pub fn key(&self) -> String {
         match self {
             ResourceType::Embeded(embeded) => embeded.path(),
@@ -50,7 +51,7 @@ impl ResourceType<'_> {
     }
 }
 
-/// AssetManager is responsible for managing and loading assets from various backends.
+/// `AssetManager` is responsible for managing and loading assets from various backends.
 pub struct Resource;
 
 impl Resource {
@@ -153,8 +154,7 @@ impl Resource {
                     && count >= max
                 {
                     return Err(ResourceError::TooManyEntries(format!(
-                        "Directory contains too many entries, which exceeds the limit of {}",
-                        max
+                        "Directory contains too many entries, which exceeds the limit of {max}"
                     )));
                 }
 

@@ -3,7 +3,7 @@
 
 use thiserror::Error;
 
-/// AssetError represents errors that can occur when loading assets.
+/// `AssetError` represents errors that can occur when loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum ResourceError {
     #[error("asset not found: {0}")]

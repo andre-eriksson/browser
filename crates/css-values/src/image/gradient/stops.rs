@@ -90,8 +90,7 @@ impl CSSParsable for LinearColorStop {
             }
             n => {
                 return Err(CssValueError::InvalidValue(format!(
-                    "Too many length/percentage values in linear color stop (expected 0-2, got {})",
-                    n
+                    "Too many length/percentage values in linear color stop (expected 0-2, got {n})"
                 )));
             }
         };
@@ -112,7 +111,7 @@ impl CSSParsable for ColorStopList {
 
         let first_segment = iter.next().unwrap();
         let first = LinearColorStop::parse(&mut first_segment.as_slice().into())
-            .map_err(|e| CssValueError::InvalidValue(format!("First color stop: {}", e)))?;
+            .map_err(|e| CssValueError::InvalidValue(format!("First color stop: {e}")))?;
 
         let mut rest: Vec<(Option<LinearColorHint>, LinearColorStop)> = Vec::new();
         let mut pending_hint: Option<LinearColorHint> = None;
@@ -174,7 +173,7 @@ impl CSSParsable for AngularColorHint {
                     Ok(Self::AnglePercentage(AnglePercentage::Angle(angle)))
                 }
                 CssTokenKind::Percentage(value) => {
-                    let pct = Percentage::new(value.to_f64() as f32);
+                    let pct = Percentage::new(value.to_f64());
                     Ok(Self::AnglePercentage(AnglePercentage::Percentage(pct)))
                 }
                 _ => Err(CssValueError::InvalidToken(token.kind.clone())),
@@ -211,8 +210,7 @@ impl CSSParsable for AngularColorStop {
             }
             n => {
                 return Err(CssValueError::InvalidValue(format!(
-                    "Too many angle/percentage values in angular color stop (expected 0-2, got {})",
-                    n
+                    "Too many angle/percentage values in angular color stop (expected 0-2, got {n})"
                 )));
             }
         };

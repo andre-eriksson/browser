@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, hash::BuildHasher};
 
 use css_cssom::{CssToken, CssTokenKind, HashType};
 use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, Tag};
@@ -55,15 +55,15 @@ pub enum Combinator {
 /// Check if an element matches a list of compound selectors
 ///
 /// # Arguments
-/// * `compound_selectors` - A slice of CompoundSelector representing the selector
+/// * `compound_selectors` - A slice of `CompoundSelector` representing the selector
 /// * `element` - The DOM element to check for a match
 ///
 /// # Returns
 /// * `bool` - True if the element matches the compound selectors, false otherwise
-fn matches_compound_selectors(
+fn matches_compound_selectors<H: BuildHasher>(
     compound_selectors: &[CompoundSelector],
     element: &Element,
-    class_set: Option<&HashSet<String>>,
+    class_set: Option<&HashSet<String, H>>,
     tree: &DocumentRoot,
     node: &DomNode,
 ) -> bool {
@@ -94,20 +94,15 @@ fn matches_compound_selectors(
                 None => return false,
             };
 
-            let operator = match &attribute_selector.operator {
-                Some(op) => op,
-                None => {
-                    if !element.has_attribute(attr_name) {
-                        return false;
-                    } else {
-                        continue;
-                    }
+            let Some(operator) = &attribute_selector.operator else {
+                if element.has_attribute(attr_name) {
+                    continue;
                 }
+                return false;
             };
 
-            let element_attribute_value = match element.get_attribute(attr_name) {
-                Some(value) => value,
-                None => return false,
+            let Some(element_attribute_value) = element.get_attribute(attr_name) else {
+                return false;
             };
 
             let expected_value = match &attribute_selector.value {
@@ -243,10 +238,10 @@ fn matches_compound_selectors(
 ///
 /// # Returns
 /// * `bool` - True if the element matches the simple selectors, false otherwise
-fn matches_simple_selectors(
+fn matches_simple_selectors<H: BuildHasher>(
     simple_selectors: &[CssToken],
     element: &Element,
-    class_set: Option<&HashSet<String>>,
+    class_set: Option<&HashSet<String, H>>,
 ) -> bool {
     for i in 0..simple_selectors.len() {
         let previous_token = &simple_selectors.get(i.wrapping_sub(1));
@@ -260,7 +255,7 @@ fn matches_simple_selectors(
 
                 if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                     match next {
-                        None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace)
+                        None | Some(CssTokenKind::Delim(_) | CssTokenKind::Whitespace)
                             if Tag::from_str_insensitive(ident) != element.tag && ident != "*" =>
                         {
                             return false;
@@ -284,9 +279,7 @@ fn matches_simple_selectors(
                     continue;
                 }
 
-                let id = if let Some(element_id) = element.id() {
-                    element_id
-                } else {
+                let Some(id) = element.id() else {
                     return false;
                 };
 
@@ -310,7 +303,7 @@ fn matches_simple_selectors(
 
                 return false;
             }
-            _ => continue, // TODO: Handle other simple selectors
+            _ => {} // TODO: Handle other simple selectors
         }
     }
 
@@ -320,32 +313,32 @@ fn matches_simple_selectors(
 /// Check if a DOM node matches a sequence of compound selectors
 ///
 /// # Arguments
-/// * `sequence` - A vector of CompoundSelectorSequence representing the selector
-/// * `tree` - The DocumentRoot representing the DOM tree
-/// * `node` - The DomNode to check for a match
+/// * `sequence` - A vector of `CompoundSelectorSequence` representing the selector
+/// * `tree` - The `DocumentRoot` representing the DOM tree
+/// * `node` - The `DomNode` to check for a match
 ///
 /// # Returns
 /// * `bool` - True if the node matches the selector sequence, false otherwise
-pub fn matches_compound(
+#[must_use]
+pub fn matches_compound<H: BuildHasher>(
     sequence: &[CompoundSelectorSequence],
     tree: &DocumentRoot,
     node: &DomNode,
-    class_set: Option<&HashSet<String>>,
+    class_set: Option<&HashSet<String, H>>,
 ) -> bool {
-    fn matches_from_index(
+    fn matches_from_index<H: BuildHasher>(
         sequences: &[CompoundSelectorSequence],
         index: usize,
         tree: &DocumentRoot,
         node: &DomNode,
-        class_set: Option<&HashSet<String>>,
+        class_set: Option<&HashSet<String, H>>,
     ) -> bool {
         if sequences.is_empty() {
             return false;
         }
 
-        let element = match node.data.as_element() {
-            Some(elem) => elem,
-            None => return false,
+        let Some(element) = node.data.as_element() else {
+            return false;
         };
 
         let current = &sequences[index];
@@ -357,26 +350,22 @@ pub fn matches_compound(
             return true;
         }
 
-        let relation = match &sequences[index - 1].combinator {
-            Some(rel) => rel,
-            None => return false,
+        let Some(relation) = &sequences[index - 1].combinator else {
+            return false;
         };
 
-        let parent_id = match node.parent {
-            Some(parent_id) => parent_id,
-            None => return false,
+        let Some(parent_id) = node.parent else {
+            return false;
         };
 
-        let parent_node = match tree.get_node(&parent_id) {
-            Some(node) => node,
-            None => return false,
+        let Some(parent_node) = tree.get_node(&parent_id) else {
+            return false;
         };
 
         match relation {
             Combinator::Child => {
-                let parent_element = match parent_node.data.as_element() {
-                    Some(elem) => elem,
-                    None => return false,
+                let Some(parent_element) = parent_node.data.as_element() else {
+                    return false;
                 };
 
                 let class_set = parent_element.class_set.as_ref();
@@ -400,37 +389,34 @@ pub fn matches_compound(
             }
             Combinator::AdjacentSibling => {
                 let siblings = &parent_node.children;
-                let node_idx = match siblings.iter().position(|id| *id == node.id) {
-                    Some(idx) => idx,
-                    None => return false,
+                let Some(node_idx) = siblings.iter().position(|id| *id == node.id) else {
+                    return false;
                 };
+
                 if node_idx == 0 {
                     return false;
                 }
 
-                let previous_sibling_node = match tree.get_node(&siblings[node_idx - 1]) {
-                    Some(node) => node,
-                    None => return false,
+                let Some(previous_sibling_node) = tree.get_node(&siblings[node_idx - 1]) else {
+                    return false;
                 };
 
-                let sibling_element = match previous_sibling_node.data.as_element() {
-                    Some(elem) => elem,
-                    None => return false,
+                let Some(sibling_element) = previous_sibling_node.data.as_element() else {
+                    return false;
                 };
+
                 let class_set = sibling_element.class_set.as_ref();
                 matches_from_index(sequences, index - 1, tree, previous_sibling_node, class_set)
             }
             Combinator::GeneralSibling => {
                 let siblings = &parent_node.children;
-                let node_idx = match siblings.iter().position(|id| *id == node.id) {
-                    Some(idx) => idx,
-                    None => return false,
+                let Some(node_idx) = siblings.iter().position(|id| *id == node.id) else {
+                    return false;
                 };
 
                 for sibling_id in &siblings[..node_idx] {
-                    let sibling_node = match tree.get_node(sibling_id) {
-                        Some(node) => node,
-                        None => continue,
+                    let Some(sibling_node) = tree.get_node(sibling_id) else {
+                        continue;
                     };
 
                     let Some(sibling_element) = sibling_node.data.as_element() else {

@@ -359,9 +359,9 @@ fn bench_property_access(c: &mut Criterion) {
         b.iter(|| {
             let rules = stylesheet.css_rules();
             if let Some(CSSRule::Style(style_rule)) = rules.first() {
-                let color = style_rule.get_property_value(Property::Known(KnownProperty::Color));
-                let margin = style_rule.get_property_value(Property::Known(KnownProperty::MarginTop));
-                let font = style_rule.get_property_value(Property::Known(KnownProperty::FontFamily));
+                let color = style_rule.get_property_value(&Property::Known(KnownProperty::Color));
+                let margin = style_rule.get_property_value(&Property::Known(KnownProperty::MarginTop));
+                let font = style_rule.get_property_value(&Property::Known(KnownProperty::FontFamily));
                 black_box((color, margin, font));
             }
         })

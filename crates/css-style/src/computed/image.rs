@@ -15,7 +15,7 @@ impl From<ComputedImage> for Image {
         match computed {
             ComputedImage::None => Self::None,
             ComputedImage::Url(url) => Self::Url(url.to_string()),
-            ComputedImage::Gradient(gradient) => Self::Gradient(gradient),
+            ComputedImage::Gradient(gradient) => Self::Gradient(Box::new(gradient)),
         }
     }
 }
@@ -27,9 +27,9 @@ impl ComputedImage {
                 absolute_ctx
                     .document_url
                     .join(&url)
-                    .map_err(|e| format!("Failed to resolve URL: {}", e))?,
+                    .map_err(|e| format!("Failed to resolve URL: {e}"))?,
             )),
-            Image::Gradient(gradient) => Ok(Self::Gradient(gradient)),
+            Image::Gradient(gradient) => Ok(Self::Gradient(*gradient)),
             Image::None => Ok(Self::None),
         }
     }

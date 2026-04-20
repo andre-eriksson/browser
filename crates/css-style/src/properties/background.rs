@@ -46,8 +46,6 @@ impl CSSParsable for BackgroundAttachment {
                             current_attachment = Some(Attachment::Fixed);
                         } else if ident.eq_ignore_ascii_case("local") {
                             current_attachment = Some(Attachment::Local);
-                        } else {
-                            continue;
                         }
                     }
                     CssTokenKind::Comma => {
@@ -55,7 +53,7 @@ impl CSSParsable for BackgroundAttachment {
                             attachments.push(attachment);
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 }
             }
         }
@@ -88,8 +86,8 @@ impl CSSParsable for BackgroundBlendMode {
         let mut current_mode = None;
 
         while let Some(cv) = stream.next_cv() {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_mode.is_some() {
                             return Err(CssValueError::InvalidValue(
@@ -97,8 +95,6 @@ impl CSSParsable for BackgroundBlendMode {
                             ));
                         } else if let Ok(mode) = ident.parse() {
                             current_mode = Some(mode);
-                        } else {
-                            continue;
                         }
                     }
                     CssTokenKind::Comma => {
@@ -106,9 +102,8 @@ impl CSSParsable for BackgroundBlendMode {
                             modes.push(mode);
                         }
                     }
-                    _ => continue,
-                },
-                _ => continue,
+                    _ => {}
+                }
             }
         }
 
@@ -156,8 +151,6 @@ impl CSSParsable for BackgroundClip {
                             current_clip = Some(BgClip::Visual(VisualBox::Padding));
                         } else if ident.eq_ignore_ascii_case("content-box") {
                             current_clip = Some(BgClip::Visual(VisualBox::Content));
-                        } else {
-                            continue;
                         }
                     }
                     CssTokenKind::Comma => {
@@ -165,12 +158,12 @@ impl CSSParsable for BackgroundClip {
                             clips.push(clip);
                         } else if !clip_values.is_empty() {
                             let first_clip = clip_values[0];
-                            let second_clip = clip_values.get(1).cloned();
+                            let second_clip = clip_values.get(1).copied();
                             clips.push(BgClip::Clip(first_clip, second_clip));
                             clip_values.clear();
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 }
             }
         }
@@ -179,7 +172,7 @@ impl CSSParsable for BackgroundClip {
             clips.push(clip);
         } else if !clip_values.is_empty() {
             let first_clip = clip_values[0];
-            let second_clip = clip_values.get(1).cloned();
+            let second_clip = clip_values.get(1).copied();
             clips.push(BgClip::Clip(first_clip, second_clip));
             clip_values.clear();
         }
@@ -216,14 +209,14 @@ impl CSSParsable for BackgroundImage {
                             return Err(CssValueError::InvalidValue("Multiple image values without a comma".into()));
                         }
 
-                        current_image = Some(Image::Url(url.clone()))
+                        current_image = Some(Image::Url(url.clone()));
                     }
                     CssTokenKind::Comma => {
                         if let Some(image) = current_image.take() {
                             images.push(image);
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 },
                 ComponentValue::Function(func) => match Image::try_from(func) {
                     Ok(img) => current_image = Some(img),
@@ -234,7 +227,7 @@ impl CSSParsable for BackgroundImage {
                         )));
                     }
                 },
-                _ => continue,
+                ComponentValue::SimpleBlock(_) => {}
             }
         }
 
@@ -277,8 +270,6 @@ impl CSSParsable for BackgroundOrigin {
                             current_origin = Some(VisualBox::Padding);
                         } else if ident.eq_ignore_ascii_case("border-box") {
                             current_origin = Some(VisualBox::Border);
-                        } else {
-                            continue;
                         }
                     }
                     CssTokenKind::Comma => {
@@ -286,7 +277,7 @@ impl CSSParsable for BackgroundOrigin {
                             origins.push(origin);
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 }
             }
         }
@@ -328,15 +319,11 @@ impl BackgroundPosition {
 
         const fn resolve_vertical_side(vertical: VerticalSide, writing_mode: WritingMode) -> VerticalOrYSide {
             match writing_mode {
-                WritingMode::HorizontalTb => match vertical {
+                WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => match vertical {
                     VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
                     VerticalSide::Bottom => VerticalOrYSide::YSide(YSide::YEnd),
                 },
                 WritingMode::VerticalRl | WritingMode::VerticalLr => VerticalOrYSide::Vertical(vertical),
-                WritingMode::SidewaysLr | WritingMode::SidewaysRl => match vertical {
-                    VerticalSide::Top => VerticalOrYSide::YSide(YSide::YStart),
-                    VerticalSide::Bottom => VerticalOrYSide::YSide(YSide::YEnd),
-                },
             }
         }
 
@@ -355,7 +342,7 @@ impl BackgroundPosition {
 
         const fn resolve_vertical_y_side(side: Side, writing_mode: WritingMode) -> VerticalOrYSide {
             match writing_mode {
-                WritingMode::HorizontalTb => match side {
+                WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
                     Side::Start => VerticalOrYSide::YSide(YSide::YStart),
                     Side::End => VerticalOrYSide::YSide(YSide::YEnd),
                 },
@@ -363,16 +350,12 @@ impl BackgroundPosition {
                     Side::Start => VerticalOrYSide::Vertical(VerticalSide::Top),
                     Side::End => VerticalOrYSide::Vertical(VerticalSide::Bottom),
                 },
-                WritingMode::SidewaysLr | WritingMode::SidewaysRl => match side {
-                    Side::Start => VerticalOrYSide::YSide(YSide::YStart),
-                    Side::End => VerticalOrYSide::YSide(YSide::YEnd),
-                },
             }
         }
 
         const fn resolve_inline_axis(inline: InlineAxis, writing_mode: WritingMode) -> HorizontalOrXSide {
             match writing_mode {
-                WritingMode::HorizontalTb => match inline {
+                WritingMode::HorizontalTb | WritingMode::VerticalRl | WritingMode::VerticalLr => match inline {
                     InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
                     InlineAxis::InlineEnd => HorizontalOrXSide::XSide(XSide::XEnd),
                 },
@@ -384,16 +367,12 @@ impl BackgroundPosition {
                     InlineAxis::InlineStart => HorizontalOrXSide::Horizontal(HorizontalSide::Right),
                     InlineAxis::InlineEnd => HorizontalOrXSide::Horizontal(HorizontalSide::Left),
                 },
-                WritingMode::VerticalRl | WritingMode::VerticalLr => match inline {
-                    InlineAxis::InlineStart => HorizontalOrXSide::XSide(XSide::XStart),
-                    InlineAxis::InlineEnd => HorizontalOrXSide::XSide(XSide::XEnd),
-                },
             }
         }
 
         const fn resolve_block_axis(block: BlockAxis, writing_mode: WritingMode) -> VerticalOrYSide {
             match writing_mode {
-                WritingMode::HorizontalTb => match block {
+                WritingMode::HorizontalTb | WritingMode::SidewaysLr | WritingMode::SidewaysRl => match block {
                     BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
                     BlockAxis::BlockEnd => VerticalOrYSide::YSide(YSide::YEnd),
                 },
@@ -404,10 +383,6 @@ impl BackgroundPosition {
                 WritingMode::VerticalLr => match block {
                     BlockAxis::BlockStart => VerticalOrYSide::Vertical(VerticalSide::Bottom),
                     BlockAxis::BlockEnd => VerticalOrYSide::Vertical(VerticalSide::Top),
-                },
-                WritingMode::SidewaysLr | WritingMode::SidewaysRl => match block {
-                    BlockAxis::BlockStart => VerticalOrYSide::YSide(YSide::YStart),
-                    BlockAxis::BlockEnd => VerticalOrYSide::YSide(YSide::YEnd),
                 },
             }
         }
@@ -644,8 +619,7 @@ impl CSSParsable for BackgroundPositionX {
                             horizontal_side = Some(h);
                         } else {
                             return Err(CssValueError::InvalidValue(format!(
-                                "Invalid horizontal side keyword: '{}'",
-                                ident
+                                "Invalid horizontal side keyword: '{ident}'"
                             )));
                         }
                     }
@@ -658,14 +632,13 @@ impl CSSParsable for BackgroundPositionX {
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
 
-                        length_percentage =
-                            Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        length_percentage = Some(LengthPercentage::Length(Length::new(value.to_f64(), len_unit)));
                     }
                     CssTokenKind::Percentage(value) => {
                         if length_percentage.is_some() {
                             return Err(CssValueError::InvalidValue("Duplicate length or percentage".into()));
                         }
-                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
+                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64())));
                     }
                     CssTokenKind::Comma => {
                         if let Some(pos) = current_position.take() {
@@ -681,7 +654,7 @@ impl CSSParsable for BackgroundPositionX {
                             positions.push(PositionX::Relative((horizontal_side.take(), length_percentage.take())));
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 }
             }
         }
@@ -740,8 +713,7 @@ impl CSSParsable for BackgroundPositionY {
                             vertical_side = Some(v);
                         } else {
                             return Err(CssValueError::InvalidValue(format!(
-                                "Invalid vertical side keyword: '{}'",
-                                ident
+                                "Invalid vertical side keyword: '{ident}'"
                             )));
                         }
                     }
@@ -754,14 +726,13 @@ impl CSSParsable for BackgroundPositionY {
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
 
-                        length_percentage =
-                            Some(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        length_percentage = Some(LengthPercentage::Length(Length::new(value.to_f64(), len_unit)));
                     }
                     CssTokenKind::Percentage(value) => {
                         if length_percentage.is_some() {
                             return Err(CssValueError::InvalidValue("Duplicate length or percentage".into()));
                         }
-                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)));
+                        length_percentage = Some(LengthPercentage::Percentage(Percentage::new(value.to_f64())));
                     }
                     CssTokenKind::Comma => {
                         if let Some(pos) = current_position.take() {
@@ -777,7 +748,7 @@ impl CSSParsable for BackgroundPositionY {
                             positions.push(PositionY::Relative((vertical_side.take(), length_percentage.take())));
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 }
             }
         }
@@ -818,8 +789,8 @@ impl CSSParsable for BackgroundRepeat {
         let mut current_pair = (None, None);
 
         while let Some(cv) = stream.next_cv() {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if current_pair.0.is_some() && current_pair.1.is_some() {
                             return Err(CssValueError::InvalidValue(
@@ -863,9 +834,8 @@ impl CSSParsable for BackgroundRepeat {
                         }
                         current_pair = (None, None);
                     }
-                    _ => continue,
-                },
-                _ => continue,
+                    _ => {}
+                }
             }
         }
 
@@ -932,7 +902,7 @@ impl CSSParsable for BackgroundSize {
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         width_height_values.push(WidthHeightSize::Length(LengthPercentage::Length(Length::new(
-                            value.to_f64() as f32,
+                            value.to_f64(),
                             len_unit,
                         ))));
                     }
@@ -944,7 +914,7 @@ impl CSSParsable for BackgroundSize {
                         }
 
                         width_height_values.push(WidthHeightSize::Length(LengthPercentage::Percentage(
-                            Percentage::new(value.to_f64() as f32),
+                            Percentage::new(value.to_f64()),
                         )));
                     }
                     CssTokenKind::Comma => {
@@ -959,7 +929,7 @@ impl CSSParsable for BackgroundSize {
                                 }
                                 1 => {
                                     let values = std::mem::take(&mut width_height_values);
-                                    sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                                    sizes.push(Size::WidthHeight(values[0], values.get(1).copied()));
                                 }
                                 2 => {
                                     let values = std::mem::take(&mut width_height_values);
@@ -969,7 +939,7 @@ impl CSSParsable for BackgroundSize {
                             }
                         }
                     }
-                    _ => continue,
+                    _ => {}
                 }
             }
         }
@@ -985,7 +955,7 @@ impl CSSParsable for BackgroundSize {
                 }
                 1 => {
                     let values = std::mem::take(&mut width_height_values);
-                    sizes.push(Size::WidthHeight(values[0], values.get(1).cloned()));
+                    sizes.push(Size::WidthHeight(values[0], values.get(1).copied()));
                 }
                 2 => {
                     let values = std::mem::take(&mut width_height_values);

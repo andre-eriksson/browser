@@ -131,7 +131,7 @@ impl HeadersMiddleware {
 
         headers.insert(
             HeaderName::from_bytes(b"sec-ch-ua").unwrap(),
-            HeaderValue::from_str(&format!("\" {not_a_brand}\";v=\"99\", \"{APP_NAME}\";v=\"{APP_MAJOR_VERSION}\"",))
+            HeaderValue::from_str(&format!("\" {not_a_brand}\";v=\"99\", \"{APP_NAME}\";v=\"{APP_MAJOR_VERSION}\""))
                 .unwrap(),
         );
         headers.insert(HeaderName::from_bytes(b"sec-ch-ua-mobile").unwrap(), HeaderValue::from_str("?0").unwrap());

@@ -27,8 +27,8 @@ mod whitespace;
 #[derive(Debug, Clone)]
 pub struct InlineDecoration<'node> {
     id: NodeId,
-    start_x: f32,
-    end_x: f32,
+    start_x: f64,
+    end_x: f64,
     style: &'node ComputedStyle,
     padding: SideOffset,
     border: SideOffset,
@@ -39,7 +39,7 @@ pub struct InlineDecoration<'node> {
 pub struct ActiveInlineBox<'node> {
     id: NodeId,
     style: &'node ComputedStyle,
-    start_x: f32,
+    start_x: f64,
     margin: SideOffset,
     padding: SideOffset,
     border: SideOffset,
@@ -48,9 +48,9 @@ pub struct ActiveInlineBox<'node> {
 /// Context passed around during inline layout, allowing helper functions to update the current line box, emit positioned layout nodes, and track active inline boxes for decoration purposes.
 #[derive(Debug, Default)]
 pub struct InlineLayoutContext<'node> {
-    pub current_y: f32,
-    pub start_x: f32,
-    pub available_width: f32,
+    pub current_y: f64,
+    pub start_x: f64,
+    pub available_width: f64,
     pub nodes: Vec<LayoutNode>,
     pub inline_box_stack: Vec<ActiveInlineBox<'node>>,
 }
@@ -187,8 +187,8 @@ impl InlineLayout {
             ctx.float_ctx(),
             inline_ctx.containing_block.x,
             inline_ctx.containing_block.width,
-            &text_ctx.last_text_align,
-            &text_ctx.last_writing_mode,
+            text_ctx.last_text_align,
+            text_ctx.last_writing_mode,
         );
         inline_layout_ctx.nodes.extend(line_nodes);
         let total_height = inline_layout_ctx.current_y + h - inline_ctx.containing_block.y;
@@ -204,7 +204,7 @@ impl InlineLayout {
         )
     }
 
-    fn auto_inline_flow_root_width(layout_node: &LayoutNode, padding: SideOffset, border: SideOffset) -> f32 {
+    fn auto_inline_flow_root_width(layout_node: &LayoutNode, padding: SideOffset, border: SideOffset) -> f64 {
         let content_left = layout_node.dimensions.x + padding.left + border.left;
         let max_right = layout_node
             .children
@@ -215,7 +215,7 @@ impl InlineLayout {
         content_width + padding.horizontal() + border.horizontal()
     }
 
-    fn max_right_edge(node: &LayoutNode) -> f32 {
+    fn max_right_edge(node: &LayoutNode) -> f64 {
         let mut right = node.dimensions.x + node.dimensions.width;
         for child in &node.children {
             right = right.max(InlineLayout::max_right_edge(child));

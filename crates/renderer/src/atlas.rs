@@ -25,17 +25,18 @@ pub struct GlyphRegion {
 
 impl GlyphRegion {
     /// Calculate UV coordinates for this region in a texture of given size
-    pub fn uv_rect(&self, atlas_width: u32, atlas_height: u32) -> Rect {
+    pub fn uv_rect(&self, atlas_width: f32, atlas_height: f32) -> Rect<f32> {
         Rect::new(
-            self.x as f32 / atlas_width as f32,
-            self.y as f32 / atlas_height as f32,
-            self.width as f32 / atlas_width as f32,
-            self.height as f32 / atlas_height as f32,
+            self.x as f32 / atlas_width,
+            self.y as f32 / atlas_height,
+            self.width as f32 / atlas_width,
+            self.height as f32 / atlas_height,
         )
     }
 }
 
 /// Simple row-based atlas packer
+#[derive(Debug)]
 struct AtlasPacker {
     cursor_x: u32,
     cursor_y: u32,
@@ -87,6 +88,7 @@ impl AtlasPacker {
 }
 
 /// A GPU-backed texture atlas for caching rasterized glyphs
+#[derive(Debug)]
 pub struct GlyphAtlas {
     /// The GPU texture
     texture: wgpu::Texture,
@@ -100,31 +102,23 @@ pub struct GlyphAtlas {
     height: u32,
     /// Packer for allocating glyph regions
     packer: AtlasPacker,
-    /// Cache mapping CacheKey to glyph regions
+    /// Cache mapping `CacheKey` to glyph regions
     glyph_cache: HashMap<CacheKey, GlyphRegion>,
-    /// SwashCache for rasterizing glyphs
+    /// `SwashCache` for rasterizing glyphs
     swash_cache: SwashCache,
-}
-
-impl Debug for GlyphAtlas {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GlyphAtlas")
-            .field("width", &self.width)
-            .field("height", &self.height)
-            .field("glyph_count", &self.glyph_cache.len())
-            .finish()
-    }
 }
 
 impl GlyphAtlas {
     pub const DEFAULT_SIZE: u32 = 2048;
 
     /// Create a new glyph atlas
+    #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         Self::with_size(device, Self::DEFAULT_SIZE, Self::DEFAULT_SIZE)
     }
 
     /// Create a new glyph atlas with specified dimensions
+    #[must_use]
     pub fn with_size(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Glyph Atlas Texture"),
@@ -204,16 +198,19 @@ impl GlyphAtlas {
     }
 
     /// Get the bind group layout for pipeline creation
+    #[must_use]
     pub const fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.bind_group_layout
     }
 
     /// Get the bind group for rendering
+    #[must_use]
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.bind_group
     }
 
     /// Get atlas dimensions
+    #[must_use]
     pub const fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
@@ -314,8 +311,8 @@ impl GlyphAtlas {
 #[derive(Debug, Clone)]
 pub struct GlyphRenderInfo {
     pub cache_key: CacheKey,
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
     pub text_color: Color4f,
 }
 
@@ -333,13 +330,13 @@ impl TextBlockInfo {
         for run in buffer.layout_runs() {
             let line_y = run.line_y;
 
-            for glyph in run.glyphs.iter() {
+            for glyph in run.glyphs {
                 let physical = glyph.physical((base_x, base_y), 1.0);
 
                 info.glyphs.push(GlyphRenderInfo {
                     cache_key: physical.cache_key,
-                    x: physical.x,
-                    y: line_y as i32 + physical.y,
+                    x: physical.x as f32,
+                    y: line_y + physical.y as f32,
                     text_color,
                 });
             }
@@ -349,6 +346,7 @@ impl TextBlockInfo {
     }
 
     /// Extract from an Arc<Buffer>
+    #[must_use]
     pub fn from_arc_buffer(buffer: &Arc<Buffer>, base_x: f32, base_y: f32, text_color: Color4f) -> Self {
         Self::from_buffer(buffer.as_ref(), base_x, base_y, text_color)
     }

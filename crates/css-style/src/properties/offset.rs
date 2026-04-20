@@ -20,19 +20,20 @@ impl PixelRepr for OffsetValue {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
             Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Percentage(pct) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx
-                    .map(|ctx| ctx.font_size * pct.as_fraction())
-                    .unwrap_or(abs_ctx.root_font_size * pct.as_fraction()),
+                Some(RelativeType::FontSize) => {
+                    rel_ctx.map_or(abs_ctx.root_font_size * pct.as_fraction(), |ctx| ctx.font_size * pct.as_fraction())
+                }
                 Some(RelativeType::ParentHeight) => rel_ctx
-                    .map(|ctx| ctx.parent.intrinsic_height * pct.as_fraction())
-                    .unwrap_or(abs_ctx.viewport_height * pct.as_fraction()),
-                Some(RelativeType::ParentWidth) => rel_ctx
-                    .map(|ctx| ctx.parent.intrinsic_width * pct.as_fraction())
-                    .unwrap_or(abs_ctx.viewport_width * pct.as_fraction()),
+                    .map_or(abs_ctx.viewport_height * pct.as_fraction(), |ctx| {
+                        ctx.parent.intrinsic_height * pct.as_fraction()
+                    }),
+                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * pct.as_fraction(), |ctx| {
+                    ctx.parent.intrinsic_width * pct.as_fraction()
+                }),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
@@ -44,7 +45,7 @@ impl PixelRepr for OffsetValue {
     }
 }
 
-/// Represents the offset values for the four sides (top, right, bottom, left) of a CSS property like margin or padding. Each side can have its own OffsetValue.
+/// Represents the offset values for the four sides (top, right, bottom, left) of a CSS property like margin or padding. Each side can have its own `OffsetValue`.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/margin>
 #[derive(Debug, Clone, PartialEq)]
@@ -127,18 +128,18 @@ impl CSSParsable for Offset {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        offset_values.push(OffsetValue::Length(Length::new(value.to_f64() as f32, len_unit)));
+                        offset_values.push(OffsetValue::Length(Length::new(value.to_f64(), len_unit)));
                     }
                     CssTokenKind::Percentage(pct) => {
-                        offset_values.push(OffsetValue::Percentage(Percentage::new(pct.to_f64() as f32)));
+                        offset_values.push(OffsetValue::Percentage(Percentage::new(pct.to_f64())));
                     }
                     CssTokenKind::Number(num) => {
-                        offset_values.push(OffsetValue::Length(Length::px(num.to_f64() as f32)));
+                        offset_values.push(OffsetValue::Length(Length::px(num.to_f64())));
                     }
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
                         offset_values.push(OffsetValue::Auto);
                     }
-                    _ => continue,
+                    _ => {}
                 },
                 _ => return Err(CssValueError::InvalidComponentValue(cv.clone())),
             }

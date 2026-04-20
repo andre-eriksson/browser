@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use manifest::{APP_NAME, APP_VERSION};
 use network::{
     ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue, USER_AGENT,
@@ -45,9 +47,9 @@ impl Headers {
         let mut accept_language = String::new();
         for (i, locale) in locales.iter().enumerate() {
             if i == 0 {
-                accept_language.push_str(&format!("{},", locale));
+                let _ = write!(accept_language, "{locale},");
             } else {
-                accept_language.push_str(&format!("{};q={:.1},", locale, (i as f32).mul_add(-0.1, 0.9)));
+                let _ = write!(accept_language, "{};q={:.1},", locale, (i as f64).mul_add(-0.1, 0.9));
             }
         }
 
@@ -62,11 +64,10 @@ impl Headers {
         #[cfg(target_os = "macos")]
         let os_info = "Macintosh; Intel Mac OS X 10_15_7";
 
-        match compatibility {
-            true => {
-                format!("Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) {APP_NAME}/{APP_VERSION}")
-            }
-            false => format!("Mozilla/5.0 ({os_info}) {APP_NAME}/{APP_VERSION}"),
+        if compatibility {
+            format!("Mozilla/5.0 ({os_info}) AppleWebKit/537.36 (KHTML, like Gecko) {APP_NAME}/{APP_VERSION}")
+        } else {
+            format!("Mozilla/5.0 ({os_info}) {APP_NAME}/{APP_VERSION}")
         }
     }
 }

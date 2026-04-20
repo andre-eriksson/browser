@@ -15,7 +15,7 @@ struct Text<'text> {
     content: &'text str,
     node_id: NodeId,
     style: &'text ComputedStyle,
-    text_desc: &'text TextDescription<'text>,
+    desc: &'text TextDescription<'text>,
 }
 
 pub fn layout_text<'node>(
@@ -59,7 +59,7 @@ pub fn layout_text<'node>(
                         content: segment,
                         node_id: text.id,
                         style: text.style,
-                        text_desc: &text_desc,
+                        desc: &text_desc,
                     },
                     line,
                 );
@@ -78,7 +78,7 @@ pub fn layout_text<'node>(
                 content: &text.content,
                 node_id: text.id,
                 style: text.style,
-                text_desc: &text_desc,
+                desc: &text_desc,
             },
             line,
         );
@@ -108,7 +108,7 @@ fn layout_text_segment<'node>(
             continue;
         }
 
-        let (measured, rest) = text_ctx.measure_text_that_fits(remaining_text, text.text_desc, remaining_line_space);
+        let (measured, rest) = text_ctx.measure_text_that_fits(remaining_text, text.desc, remaining_line_space);
 
         if measured.width == 0.0 && measured.height == 0.0 {
             if let Some(r) = rest {

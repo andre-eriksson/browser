@@ -58,7 +58,7 @@ impl RadialGradientSyntax {
                     let len_unit = unit
                         .parse::<LengthUnit>()
                         .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                    Ok(Length::new(value.to_f64() as f32, len_unit))
+                    Ok(Length::new(value.to_f64(), len_unit))
                 }
                 CssTokenKind::Number(value) if value.to_f64() == 0.0 => Ok(Length::new(0.0, LengthUnit::Px)),
                 _ => Err(CssValueError::InvalidToken(token.kind.clone())),
@@ -93,8 +93,7 @@ impl RadialGradientSyntax {
                         || s.eq_ignore_ascii_case("in")
                         || s.parse::<RadialExtent>().is_ok()
                 }
-                CssTokenKind::Dimension { .. } => true,
-                CssTokenKind::Percentage(_) => true,
+                CssTokenKind::Dimension { .. } | CssTokenKind::Percentage(_) => true,
                 CssTokenKind::Number(n) if n.to_f64() == 0.0 => true,
                 _ => false,
             },
@@ -136,23 +135,20 @@ impl RadialGradientSyntax {
                         if let Ok(s) = ident.parse::<RadialShape>() {
                             if shape.is_some() {
                                 return Err(CssValueError::InvalidValue(format!(
-                                    "Multiple shape keywords in radial config: '{}'",
-                                    ident
+                                    "Multiple shape keywords in radial config: '{ident}'"
                                 )));
                             }
                             shape = Some(s);
                         } else if let Ok(extent) = ident.parse::<RadialExtent>() {
                             if size.is_some() {
                                 return Err(CssValueError::InvalidValue(format!(
-                                    "Multiple size keywords in radial config: '{}'",
-                                    ident
+                                    "Multiple size keywords in radial config: '{ident}'"
                                 )));
                             }
                             size = Some(RadialSize::Extent(extent));
                         } else {
                             return Err(CssValueError::InvalidValue(format!(
-                                "Unexpected identifier in radial config: '{}'",
-                                ident
+                                "Unexpected identifier in radial config: '{ident}'"
                             )));
                         }
                     }
@@ -187,8 +183,7 @@ impl RadialGradientSyntax {
                 }
                 n => {
                     return Err(CssValueError::InvalidValue(format!(
-                        "Too many length values in radial config: expected 1 or 2, got {}",
-                        n
+                        "Too many length values in radial config: expected 1 or 2, got {n}"
                     )));
                 }
             }

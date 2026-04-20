@@ -29,17 +29,20 @@ pub struct Entry<'path> {
 impl<'path> Entry<'path> {
     /// Returns the original location string provided when creating the `Entry`. This is the relative path that will be
     /// appended to the base directory (cache, config, user data, or temporary) when resolving the full file path.
+    #[must_use]
     pub const fn location(&self) -> &'path str {
         self.location
     }
 
     /// Returns the `FilePath` type of this `Entry`, which indicates where the file is located (cache, config, user data, absolute, or temporary).
+    #[must_use]
     pub const fn file_path(&self) -> &FilePath {
         &self.file_path
     }
 
     /// Creates a new `Entry` for cache files. The file will be located in the cache directory, and the provided `path`
     /// will be appended to that directory.
+    #[must_use]
     pub const fn cache(path: &'path str) -> Self {
         Self {
             location: path,
@@ -49,6 +52,7 @@ impl<'path> Entry<'path> {
 
     /// Creates a new `Entry` for configuration files. The file will be located in the configuration directory, and the
     /// provided `path` will be appended to that directory.
+    #[must_use]
     pub const fn config(path: &'path str) -> Self {
         Self {
             location: path,
@@ -58,6 +62,7 @@ impl<'path> Entry<'path> {
 
     /// Creates a new `Entry` for user data files. The file will be located in the user data directory, and the provided
     /// `path` will be appended to that directory.
+    #[must_use]
     pub const fn user_data(path: &'path str) -> Self {
         Self {
             location: path,
@@ -66,6 +71,7 @@ impl<'path> Entry<'path> {
     }
 
     /// Creates a new `Entry` for an absolute file path. The provided `path` should be an absolute path to the file.
+    #[must_use]
     pub const fn absolute(path: &'path str) -> Self {
         Self {
             location: path,
@@ -75,6 +81,7 @@ impl<'path> Entry<'path> {
 
     /// Creates a new `Entry` for a temporary file. The file will be located in the system's temporary directory, and the
     /// provided `path` will be appended to that directory.
+    #[must_use]
     pub const fn temporary(path: &'path str) -> Self {
         Self {
             location: path,
@@ -86,6 +93,7 @@ impl<'path> Entry<'path> {
     /// this method will attempt to retrieve the corresponding base directory and append the `location` to it. If the base directory
     /// is unavailable, it will log a warning and return `None`. For absolute entries, it will return the `location` as a `PathBuf`.
     /// For temporary entries, it will return the path to the temporary directory with the `location` appended.
+    #[must_use]
     pub fn path(&self) -> Option<PathBuf> {
         match self.file_path {
             FilePath::Cache => {

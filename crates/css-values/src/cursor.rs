@@ -58,7 +58,7 @@ impl CSSParsable for Cursor {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|e| CssValueError::InvalidValue(format!("Failed to parse cursor value: {}", e))),
+                        .map_err(|e| CssValueError::InvalidValue(format!("Failed to parse cursor value: {e}"))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),

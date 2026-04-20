@@ -32,7 +32,7 @@ pub fn parse_attribute_selectors_components(components: &[ComponentValue]) -> Op
 /// * `tokens` - A vector of CSS tokens representing the attribute selector
 ///
 /// # Returns
-/// * `Option<AttributeSelector>` - An optional AttributeSelector if parsing was successful
+/// * `Option<AttributeSelector>` - An optional `AttributeSelector` if parsing was successful
 pub fn parse_attribute_selector(tokens: &[CssToken]) -> Option<AttributeSelector> {
     let mut attribute_selector = AttributeSelector::default();
     let mut temp_buffer_ch = '0';

@@ -38,10 +38,10 @@ pub async fn cmd_navigate(
                 info!("Navigated to: {}", url);
                 Ok(())
             }
-            EngineResponse::NavigateError(err) => Err(format!("Navigation error: {}", err)),
+            EngineResponse::NavigateError(err) => Err(format!("Navigation error: {err}")),
             _ => Err("Unexpected response from navigation command".to_string()),
         },
-        Err(e) => Err(format!("Navigation error: {}", e)),
+        Err(e) => Err(format!("Navigation error: {e}")),
     }
 }
 

@@ -166,7 +166,7 @@ impl Display for CssTokenKind {
     ///<https://www.w3.org/TR/css-syntax-3/#serialization>
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Ident(value) => write!(f, "{value}",),
+            Self::Ident(value) => write!(f, "{value}"),
             Self::Function(value) => write!(f, "{value}("),
             Self::AtKeyword(value) => write!(f, "@{value}"),
             Self::Hash { value, .. } => write!(f, "#{value}"),

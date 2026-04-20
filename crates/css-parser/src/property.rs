@@ -14,17 +14,19 @@ pub enum Property {
 impl Display for Property {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Custom(name) => write!(f, "{}", name),
-            Self::Known(known) => write!(f, "{}", known),
+            Self::Custom(name) => write!(f, "{name}"),
+            Self::Known(known) => write!(f, "{known}"),
         }
     }
 }
 
 impl Property {
+    #[must_use]
     pub const fn is_custom(&self) -> bool {
         matches!(self, Self::Custom(_))
     }
 
+    #[must_use]
     pub fn as_custom(&self) -> Option<&str> {
         if let Self::Custom(name) = self {
             Some(name)

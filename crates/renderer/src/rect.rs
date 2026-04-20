@@ -46,7 +46,11 @@ pub struct RectPipeline {
 impl RectPipeline {
     pub const MAX_QUADS: usize = 10_000;
 
-    /// Creates a new RectPipeline
+    /// Creates a new `RectPipeline`
+    ///
+    /// # Panics
+    /// * If the embedded shader resource is not valid UTF-8 (should never happen)
+    #[must_use]
     pub fn new(device: &Device, format: TextureFormat) -> Self {
         let shader_bytes = Resource::load_embedded(SOLID_SHADER);
         let shader = std::str::from_utf8(&shader_bytes).expect("Shader is not valid UTF-8");
@@ -132,7 +136,7 @@ impl RectPipeline {
     }
 
     /// Pushes a solid-colored rectangle to be rendered
-    pub fn push_quad(&mut self, rect: Rect, background: Color4f) {
+    pub fn push_quad(&mut self, rect: Rect<f32>, background: Color4f) {
         if self.vertices.len() + 6 > self.max_vertices {
             debug!("RectPipeline: max vertex capacity reached, skipping quad");
             return;
@@ -147,7 +151,7 @@ impl RectPipeline {
         let w = rect.width;
         let h = rect.height;
 
-        let color = background.into();
+        let color = Color4f::from(background).into();
 
         let quad_vertices = [
             SolidVertex {
@@ -190,7 +194,7 @@ impl RectPipeline {
             return;
         }
 
-        let color = color.into();
+        let color = Color4f::from(color).into();
         let tri_vertices = [
             SolidVertex {
                 position: p0,
@@ -217,30 +221,42 @@ impl RectPipeline {
         }
 
         queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
-        self.vertex_count = self.vertices.len() as u32;
+        let count = if let Ok(len) = u32::try_from(self.vertices.len()) {
+            len
+        } else {
+            debug!("RectPipeline: vertex count exceeds u32::MAX, truncating to maximum");
+            u32::MAX
+        };
+
+        self.vertex_count = count;
     }
 
     /// Returns true if there are vertices to draw
+    #[must_use]
     pub const fn has_content(&self) -> bool {
         self.vertex_count > 0
     }
 
     /// Returns a reference to the render pipeline
+    #[must_use]
     pub const fn pipeline(&self) -> &RenderPipeline {
         &self.pipeline
     }
 
     /// Returns a reference to the globals bind group
+    #[must_use]
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.globals.bind_group
     }
 
     /// Returns the vertex buffer
+    #[must_use]
     pub const fn vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
 
     /// Returns the number of vertices to draw
+    #[must_use]
     pub const fn vertex_count(&self) -> u32 {
         self.vertex_count
     }

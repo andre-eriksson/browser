@@ -9,7 +9,7 @@ use database::{Database, Table};
 use rusqlite::{Connection, Result, params};
 use storage::get_cache_path;
 
-/// Path to the SQLite database file that stores the cache index entries.
+/// Path to the `SQLite` database file that stores the cache index entries.
 #[cfg(not(test))]
 const IDX_DATABASE: &str = "resources/index.db";
 #[cfg(test)]
@@ -46,10 +46,10 @@ pub struct Index {
     pub content_size: u32,
 
     /// The UNIX timestamp (in seconds) when the cached entry expires, used to determine if the entry is still valid.
-    pub expires_at: Option<u64>,
+    pub expires_at: Option<Vec<u8>>,
 
     /// The UNIX timestamp (in seconds) when the cached entry was created, used for cache management and eviction policies.
-    pub created_at: u64,
+    pub created_at: isize,
 
     /// The headers associated with the cached entry that affect its cache key, derived from the Vary header, used for cache validation.
     pub vary: Option<String>,
@@ -77,8 +77,8 @@ impl IndexTable {
                 _ => return Ok(None),
             };
 
-            let expires_at = row.get::<usize, Option<i64>>(6)?.map(|e| e as u64);
-            let created_at = row.get::<usize, i64>(7)? as u64;
+            let expires_at = row.get::<usize, Option<Vec<u8>>>(6)?;
+            let created_at = row.get::<usize, isize>(7)?;
 
             Ok(Some(Index {
                 key: row.get(0)?,
@@ -172,8 +172,8 @@ impl Table for IndexTable {
                 data.offset,
                 data.header_size,
                 data.content_size,
-                data.expires_at.map(|e| e as i64),
-                data.created_at as i64,
+                data.expires_at,
+                data.created_at,
                 data.vary
             ],
         )?;

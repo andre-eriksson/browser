@@ -18,9 +18,8 @@ enum SelectorKey {
 
 /// Extracts the most selective key from the rightmost compound selector sequence.
 fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
-    let subject = match sequences.last() {
-        Some(seq) => seq,
-        None => return SelectorKey::Universal,
+    let Some(subject) = sequences.last() else {
+        return SelectorKey::Universal;
     };
 
     let mut id: Option<String> = None;
@@ -49,7 +48,7 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
                     } else if prev.is_none() || matches!(prev, Some(CssTokenKind::Whitespace)) {
                         let next = tokens.get(i + 1).map(|t| &t.kind);
                         match next {
-                            None | Some(CssTokenKind::Delim(_)) | Some(CssTokenKind::Whitespace)
+                            None | Some(CssTokenKind::Delim(_) | CssTokenKind::Whitespace)
                                 if name != "*" && tag.is_none() =>
                             {
                                 tag = Some(name.to_ascii_lowercase());
@@ -106,7 +105,7 @@ impl RuleIndex {
     /// Return candidate rule indices for the given element, sorted by source order.
     ///
     /// This collects rules from all matching buckets (universal + tag + classes + id)
-    /// and returns them sorted so that source_order assignment is consistent.
+    /// and returns them sorted so that `source_order` assignment is consistent.
     fn candidates(&self, element: &Element) -> Vec<usize> {
         let mut candidates = Vec::with_capacity(self.universal.len() + 16);
 
@@ -150,7 +149,7 @@ pub struct CascadeSpecificity(
 );
 
 impl CascadeSpecificity {
-    /// Create a CascadeSpecificity for inline styles
+    /// Create a `CascadeSpecificity` for inline styles
     pub const fn inline() -> Self {
         Self(1, 0, 0, 0)
     }
@@ -202,9 +201,8 @@ impl CascadedDeclaration<'_> {
         let mut variables = Vec::new();
         let mut source_order: usize = 0;
 
-        let element = match node.data.as_element() {
-            Some(elem) => elem,
-            None => return (vec![], vec![]),
+        let Some(element) = node.data.as_element() else {
+            return (vec![], vec![]);
         };
 
         let class_set = element.class_set.as_ref();

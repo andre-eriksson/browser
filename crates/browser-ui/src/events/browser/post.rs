@@ -28,9 +28,7 @@ pub fn on_image_loaded(
     url: &str,
     vary_key: &str,
 ) -> Task<Event> {
-    let ctx = if let Some(ctx) = application.browser_windows.get_mut(&window_id) {
-        ctx
-    } else {
+    let Some(ctx) = application.browser_windows.get_mut(&window_id) else {
         error!("Browser context not found for window ID: {}", window_id);
         return Task::none();
     };
@@ -44,7 +42,7 @@ pub fn on_image_loaded(
         let intrinsic_w = decoded.width as f32;
         let intrinsic_h = decoded.height as f32;
         if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
-            tab.set_image_dimensions(url.to_string(), intrinsic_w, intrinsic_h);
+            tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
             tab.set_image_vary_key(&url, vary_key.to_string());
         }
     }
@@ -63,7 +61,7 @@ pub fn on_image_loaded(
         .flat_map(|src| {
             tab.layout_tree
                 .as_ref()
-                .map_or_else(Vec::new, |lt| lt.find_image_nodes_by_src(&src.to_string()))
+                .map_or_else(Vec::new, |lt| lt.find_image_nodes_by_src(&src.clone()))
         })
         .collect();
 
@@ -87,8 +85,8 @@ pub fn on_image_loaded(
             tokio::task::spawn_blocking(move || {
                 let ctx = AbsoluteContext {
                     root_font_size: 16.0,
-                    viewport_width: viewport.width,
-                    viewport_height: viewport.height,
+                    viewport_width: f64::from(viewport.width),
+                    viewport_height: f64::from(viewport.height),
                     theme_category,
                     document_url: &page_ctx.metadata.url,
                     root_color: Color::BLACK,
@@ -102,7 +100,7 @@ pub fn on_image_loaded(
                 for node_id in image_node_ids {
                     LayoutEngine::relayout_node(
                         node_id,
-                        Rect::new(0.0, 0.0, viewport.width, viewport.height),
+                        Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
                         &mut layout_tree,
                         &style_tree,
                         dom_tree,
@@ -136,9 +134,7 @@ pub fn on_relayout_complete(
     generation: u64,
     layout_tree: layout::LayoutTree,
 ) -> Task<Event> {
-    let ctx = if let Some(ctx) = application.browser_windows.get_mut(&window_id) {
-        ctx
-    } else {
+    let Some(ctx) = application.browser_windows.get_mut(&window_id) else {
         error!("Browser context not found for window ID: {}", window_id);
         return Task::none();
     };

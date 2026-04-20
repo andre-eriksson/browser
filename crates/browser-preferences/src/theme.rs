@@ -44,6 +44,7 @@ pub struct Theme {
 
 impl Theme {
     /// Creates a new light theme with default values.
+    #[must_use]
     pub fn light() -> Self {
         Self {
             name: "Light".to_string(),
@@ -73,6 +74,7 @@ impl Theme {
     }
 
     /// Creates a new dark theme with default values.
+    #[must_use]
     pub fn dark() -> Self {
         Self {
             name: "Dark".to_string(),

@@ -23,6 +23,7 @@ pub struct History {
 
 impl History {
     /// Creates a new `History` instance with empty caches and metadata lists.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             f_cache: Vec::with_capacity(MAX_BFCACHE_SIZE),
@@ -67,11 +68,13 @@ impl History {
     }
 
     /// Checks if there are entries available in the backward history, indicating that the user can navigate back to a previous page.
+    #[must_use]
     pub const fn can_go_back(&self) -> bool {
         !self.backward.is_empty()
     }
 
     /// Checks if there are entries available in the forward history, indicating that the user can navigate forward to a previously visited page.
+    #[must_use]
     pub const fn can_go_forward(&self) -> bool {
         !self.forward.is_empty()
     }
@@ -79,6 +82,9 @@ impl History {
     /// Navigates back to the previous page in the history, returning the cached page if available along with its metadata.
     /// If the cache is exhausted, it returns `None` for the page, and the metadata can be used to perform a fresh navigation
     /// to the previous URL.
+    ///
+    /// # Panics
+    /// * This method will panic if there are no entries in the backward history when attempting to navigate back, as it assumes that the caller has already checked for availability using `can_go_back()`.
     pub fn go_back(&mut self, page: Page, metadata: PageMetadata) -> (Option<Page>, PageMetadata) {
         let previous_metadata = self
             .backward
@@ -93,6 +99,9 @@ impl History {
     /// Navigates forward to the next page in the history, returning the cached page if available along with its metadata.
     /// If the cache is exhausted, it returns `None` for the page, and the metadata can be used to perform a fresh navigation
     /// to the next URL.
+    ///
+    /// # Panics
+    /// * This method will panic if there is no page metadata available in the forward history, which should not happen if `can_go_forward()` is checked before calling this method.
     pub fn go_forward(&mut self, page: Page, metadata: PageMetadata) -> (Option<Page>, PageMetadata) {
         let previous_metadata = self
             .forward

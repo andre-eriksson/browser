@@ -46,7 +46,7 @@ impl EventHandler<(Id, TabId, Box<EngineResponse>)> for Application {
             EngineResponse::NavigateSuccess(page, metadata, navigation_type) => {
                 on_navigation_success(self, window_id, tab_id, page, metadata, navigation_type)
             }
-            EngineResponse::NavigateError(error) => on_navigation_error(self, error),
+            EngineResponse::NavigateError(error) => on_navigation_error(self, &error),
 
             EngineResponse::ImageFetched(url, bytes, headers) => {
                 on_image_loaded(self, window_id, tab_id, url, bytes, headers)

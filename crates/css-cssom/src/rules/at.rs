@@ -35,6 +35,7 @@ pub struct CSSAtRule {
 
 impl CSSAtRule {
     /// Create a new at-rule with the given name
+    #[must_use]
     pub const fn new(name: String) -> Self {
         Self {
             name,
@@ -47,6 +48,7 @@ impl CSSAtRule {
     }
 
     /// Check if this at-rule can contain nested rules
+    #[must_use]
     pub fn can_be_nested(&self) -> bool {
         self.name.eq_ignore_ascii_case("media")
             || self.name.eq_ignore_ascii_case("supports")
@@ -56,7 +58,7 @@ impl CSSAtRule {
             || self.name.eq_ignore_ascii_case("container")
     }
 
-    /// Create a CSSAtRule from a parsed AtRule
+    /// Create a `CSSAtRule` from a parsed `AtRule`
     pub(crate) fn from_parsed(ar: AtRule, collect_positions: bool) -> Self {
         let prelude = prelude_to_string(&ar.prelude);
         let has_block = ar.block.is_some();
@@ -107,17 +109,15 @@ impl CSSAtRule {
                 match cv {
                     ComponentValue::Token(token) => match token.kind {
                         CssTokenKind::OpenCurly => block_depth += 1,
-                        CssTokenKind::CloseCurly => {
-                            if block_depth > 0 {
-                                block_depth -= 1;
-                            }
+                        CssTokenKind::CloseCurly if block_depth > 0 => {
+                            block_depth -= 1;
                         }
-                        _ => continue,
+                        _ => {}
                     },
                     ComponentValue::SimpleBlock(sb) if sb.associated_token == AssociatedToken::CurlyBracket => {
                         block_depth += 1;
                     }
-                    _ => continue,
+                    _ => {}
                 }
             } else {
                 match cv {
@@ -126,14 +126,22 @@ impl CSSAtRule {
                         CssTokenKind::Whitespace if current_prelude.is_empty() => {}
                         CssTokenKind::AtKeyword(name) => {
                             current_prelude.push(cv.clone());
-                            is_nested_at_rule = name.clone();
+                            is_nested_at_rule.clone_from(name);
                         }
                         _ => {
                             current_prelude.push(cv.clone());
                         }
                     },
                     ComponentValue::SimpleBlock(sb) if sb.associated_token == AssociatedToken::CurlyBracket => {
-                        if !is_nested_at_rule.is_empty() {
+                        if is_nested_at_rule.is_empty() {
+                            let qr = QualifiedRule {
+                                prelude: current_prelude.clone(),
+                                block: sb.clone(),
+                            };
+                            if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
+                                self.rules.push(CSSRule::Style(style_rule));
+                            }
+                        } else {
                             let nested_at_rule = AtRule {
                                 name: is_nested_at_rule.clone(),
                                 prelude: current_prelude[1..].to_vec(), // Skip the @token
@@ -142,14 +150,6 @@ impl CSSAtRule {
                             let css_at_rule = Self::from_parsed(nested_at_rule, collect_positions);
                             self.rules.push(CSSRule::AtRule(css_at_rule));
                             is_nested_at_rule.clear();
-                        } else {
-                            let qr = QualifiedRule {
-                                prelude: current_prelude.clone(),
-                                block: sb.clone(),
-                            };
-                            if let Some(style_rule) = CSSStyleRule::from_parsed(qr, collect_positions) {
-                                self.rules.push(CSSRule::Style(style_rule));
-                            }
                         }
 
                         current_prelude.clear();
@@ -222,26 +222,31 @@ impl CSSAtRule {
     }
 
     /// Get the at-rule name
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
     /// Get the prelude values
+    #[must_use]
     pub fn prelude_values(&self) -> &[ComponentValue] {
         &self.prelude_values
     }
 
     /// Get the prelude text
+    #[must_use]
     pub fn prelude(&self) -> &str {
         &self.prelude
     }
 
     /// Get the declarations
+    #[must_use]
     pub fn declarations(&self) -> &[CSSDeclaration] {
         &self.declarations
     }
 
     /// Check if this at-rule has a block
+    #[must_use]
     pub const fn has_block(&self) -> bool {
         self.has_block
     }

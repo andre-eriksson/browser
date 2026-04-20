@@ -96,16 +96,16 @@ pub struct SpecifiedStyle {
     pub writing_mode: WritingModeProperty,
 
     // === Non-CSS properties ===
-    pub computed_font_size_px: f32,
+    pub computed_font_size_px: f64,
     pub variables: Arc<Vec<(Property, Vec<ComponentValue>)>>,
 }
 
 impl SpecifiedStyle {
-    /// Computes the ComputedStyle for a given node in the DOM.
+    /// Computes the `ComputedStyle` for a given node in the DOM.
     pub fn from_node(
         absolute_ctx: &AbsoluteContext,
         relative_ctx: &RelativeContext,
-        node_id: &NodeId,
+        node_id: NodeId,
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
         rule_index: &RuleIndex,
@@ -115,9 +115,8 @@ impl SpecifiedStyle {
 
         let parent_variables = Arc::clone(&relative_ctx.parent.variables);
 
-        let node = match dom.get_node(node_id) {
-            Some(n) => n,
-            None => return specified_style,
+        let Some(node) = dom.get_node(&node_id) else {
+            return specified_style;
         };
 
         let inline_declarations = node
@@ -145,7 +144,7 @@ impl SpecifiedStyle {
             };
 
             for (name, value) in new_vars {
-                merged.insert(name.clone(), value.to_vec());
+                merged.insert(name.clone(), value.clone());
             }
 
             specified_style.variables = Arc::new(merged.into_iter().collect());
@@ -156,9 +155,7 @@ impl SpecifiedStyle {
         let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
 
         for (property, value) in properties {
-            if !Self::resolve_property(property, value, property_registry, &mut ctx) {
-                continue;
-            }
+            Self::resolve_property(property, value, property_registry, &mut ctx);
         }
 
         ctx.log_errors();
@@ -196,21 +193,20 @@ impl SpecifiedStyle {
         property_registry: &PropertyRegistry,
         ctx: &mut PropertyUpdateContext<'_>,
     ) -> bool {
-        let val = match resolve_css_variables(&ctx.specified_style.variables, property_registry, value.as_slice()) {
-            Some(v) => v,
-            None => {
-                debug!(
-                    "Failed to resolve variables for property {:?} with value {}",
-                    property,
-                    value
-                        .iter()
-                        .map(|v| v.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                );
-                return false;
-            }
+        let Some(val) = resolve_css_variables(&ctx.specified_style.variables, property_registry, value.as_slice())
+        else {
+            debug!(
+                "Failed to resolve variables for property {:?} with value {}",
+                property,
+                value
+                    .iter()
+                    .map(std::string::ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            );
+            return false;
         };
+
         let mut stream = ComponentValueStream::new(&val);
 
         match property {

@@ -11,7 +11,7 @@ impl PixelRepr for BorderWidth {
         rel_type: Option<super::RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
             Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Calc(calc) => calc.to_px(None, rel_ctx, abs_ctx),

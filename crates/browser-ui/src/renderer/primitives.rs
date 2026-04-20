@@ -8,7 +8,7 @@ use renderer::{ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo};
 
 use crate::{core::ScrollOffset, renderer::pipeline::HtmlPipeline};
 
-/// The primitive that carries render data from draw() to prepare()/render()
+/// The primitive that carries render data from `draw()` to `prepare()`/`render()`
 #[derive(Debug, Clone)]
 pub struct HtmlPrimitive {
     pub rects: Vec<RenderRect>,
@@ -77,10 +77,10 @@ impl Primitive for HtmlPrimitive {
 
         for render_rect in &self.rects {
             let offset_rect = Rect::new(
-                render_rect.rect.x - self.scroll_offset.x,
-                render_rect.rect.y - self.scroll_offset.y,
-                render_rect.rect.width,
-                render_rect.rect.height,
+                render_rect.rect.x as f32 - self.scroll_offset.x,
+                render_rect.rect.y as f32 - self.scroll_offset.y,
+                render_rect.rect.width as f32,
+                render_rect.rect.height as f32,
             );
             pipeline
                 .rect_pipeline
@@ -107,23 +107,22 @@ impl Primitive for HtmlPrimitive {
 
         for text_block in &self.text_blocks {
             for glyph_info in &text_block.glyphs {
-                let region =
-                    match pipeline
+                let Some(region) =
+                    pipeline
                         .glyph_atlas
                         .cache_glyph(&mut pipeline.font_system, queue, glyph_info.cache_key)
-                    {
-                        Some(region) => region,
-                        None => continue,
-                    };
+                else {
+                    continue;
+                };
 
                 if region.width == 0 || region.height == 0 {
                     continue;
                 }
 
-                let screen_x = glyph_info.x as f32 + region.placement_left as f32 - self.scroll_offset.x;
-                let screen_y = glyph_info.y as f32 - region.placement_top as f32 - self.scroll_offset.y;
+                let screen_x = glyph_info.x + region.placement_left as f32 - self.scroll_offset.x;
+                let screen_y = glyph_info.y - region.placement_top as f32 - self.scroll_offset.y;
 
-                let uv_rect = region.uv_rect(atlas_width, atlas_height);
+                let uv_rect = region.uv_rect(atlas_width as f32, atlas_height as f32);
 
                 let screen_rect = Rect::new(screen_x, screen_y, region.width as f32, region.height as f32);
 
@@ -139,10 +138,10 @@ impl Primitive for HtmlPrimitive {
                 .ensure_uploaded(device, queue, &image_info.src, &image_info.data);
 
             let screen_rect = Rect::new(
-                image_info.screen_rect.x - self.scroll_offset.x,
-                image_info.screen_rect.y - self.scroll_offset.y,
-                image_info.screen_rect.width,
-                image_info.screen_rect.height,
+                image_info.screen_rect.x as f32 - self.scroll_offset.x,
+                image_info.screen_rect.y as f32 - self.scroll_offset.y,
+                image_info.screen_rect.width as f32,
+                image_info.screen_rect.height as f32,
             );
             let full_uv = Rect::new(0.0, 0.0, 1.0, 1.0);
 

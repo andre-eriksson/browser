@@ -39,6 +39,7 @@ pub struct CSSStyleSheet {
 }
 
 impl CSSStyleSheet {
+    #[must_use]
     pub fn from_css(css: &str, origin: StylesheetOrigin, collect_positions: bool) -> Self {
         let mut parser = CssParser::default();
         let parsed = parser.parse_css(css, collect_positions);
@@ -57,6 +58,7 @@ impl CSSStyleSheet {
     /// ```ignore
     /// let decls = CSSStyleSheet::from_inline("color: red; font-size: 16px");
     /// ```
+    #[must_use]
     pub fn from_inline(css: &str) -> Vec<CSSDeclaration> {
         let mut parser = CssParser::default();
         let parsed = parser.parse_list_of_declarations(css, false);
@@ -70,16 +72,19 @@ impl CSSStyleSheet {
             .collect()
     }
 
+    #[must_use]
     pub const fn origin(&self) -> StylesheetOrigin {
         self.origin
     }
 
     /// Get the list of CSS rules
+    #[must_use]
     pub fn css_rules(&self) -> &[CSSRule] {
         &self.rules
     }
 
     /// Get the number of rules in this stylesheet
+    #[must_use]
     pub const fn length(&self) -> usize {
         self.rules.len()
     }
@@ -117,6 +122,7 @@ impl CSSStyleSheet {
     }
 
     /// Get all style rules in this stylesheet (flattening nested rules)
+    #[must_use]
     pub fn get_style_rules(&self) -> Vec<&CSSStyleRule> {
         let mut style_rules = Vec::new();
         for rule in &self.rules {
@@ -195,8 +201,8 @@ mod tests {
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert_eq!(style.selector_text(), "p");
             assert_eq!(style.declarations().len(), 2);
-            assert_eq!(style.get_property_value(Property::Known(KnownProperty::Margin)), Some("10px"));
-            assert_eq!(style.get_property_value(Property::Known(KnownProperty::Padding)), Some("5px"));
+            assert_eq!(style.get_property_value(&Property::Known(KnownProperty::Margin)), Some("10px"));
+            assert_eq!(style.get_property_value(&Property::Known(KnownProperty::Padding)), Some("5px"));
         }
     }
 
@@ -208,7 +214,7 @@ mod tests {
 
         if let CSSRule::Style(style) = &stylesheet.css_rules()[0] {
             assert!(style.declarations()[0].is_important());
-            assert_eq!(style.get_property_priority(Property::Known(KnownProperty::Color)), "important");
+            assert_eq!(style.get_property_priority(&Property::Known(KnownProperty::Color)), "important");
         }
     }
 
@@ -290,12 +296,12 @@ mod tests {
         let mut style_rule = CSSStyleRule::new("div".to_string());
         style_rule.set_property(Property::Known(KnownProperty::Color), "blue".to_string(), false);
 
-        assert_eq!(style_rule.get_property_value(Property::Known(KnownProperty::Color)), Some("blue"));
-        assert_eq!(style_rule.get_property_priority(Property::Known(KnownProperty::Color)), "");
+        assert_eq!(style_rule.get_property_value(&Property::Known(KnownProperty::Color)), Some("blue"));
+        assert_eq!(style_rule.get_property_priority(&Property::Known(KnownProperty::Color)), "");
 
         style_rule.set_property(Property::Known(KnownProperty::Color), "red".to_string(), true);
-        assert_eq!(style_rule.get_property_value(Property::Known(KnownProperty::Color)), Some("red"));
-        assert_eq!(style_rule.get_property_priority(Property::Known(KnownProperty::Color)), "important");
+        assert_eq!(style_rule.get_property_value(&Property::Known(KnownProperty::Color)), Some("red"));
+        assert_eq!(style_rule.get_property_priority(&Property::Known(KnownProperty::Color)), "important");
     }
 
     #[test]

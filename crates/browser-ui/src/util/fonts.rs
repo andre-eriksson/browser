@@ -13,6 +13,7 @@ use io::{
 };
 
 /// Load the default fonts used by the UI
+#[must_use]
 pub fn load_fallback_fonts() -> [Source; 22] {
     [
         // Sans-serif

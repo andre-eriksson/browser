@@ -20,7 +20,7 @@ impl PixelRepr for AbsoluteSize {
         _rel_type: Option<RelativeType>,
         _rel_ctx: Option<&RelativeContext>,
         _abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
             Self::XxSmall => 9.0,
             Self::XSmall => 10.0,
@@ -40,14 +40,10 @@ impl PixelRepr for RelativeSize {
         _rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
-            Self::Smaller => rel_ctx
-                .map(|ctx| ctx.parent.font_size * 0.833)
-                .unwrap_or(abs_ctx.root_font_size * 0.833),
-            Self::Larger => rel_ctx
-                .map(|ctx| ctx.parent.font_size * 1.2)
-                .unwrap_or(abs_ctx.root_font_size * 1.2),
+            Self::Smaller => rel_ctx.map_or(abs_ctx.root_font_size * 0.833, |ctx| ctx.parent.font_size * 0.833),
+            Self::Larger => rel_ctx.map_or(abs_ctx.root_font_size * 1.2, |ctx| ctx.parent.font_size * 1.2),
         }
     }
 }
@@ -69,12 +65,14 @@ impl Default for FontFamily {
 }
 
 impl FontFamily {
-    /// Get the list of font family names in this FontFamily. The list is ordered by preference, with the most preferred font first.
+    /// Get the list of font family names in this `FontFamily`. The list is ordered by preference, with the most preferred font first.
+    #[must_use]
     pub const fn names(&self) -> &Vec<FontFamilyName> {
         &self.names
     }
 
-    /// Check if this FontFamily includes a monospace font, either as a generic family or as a specific font name.
+    /// Check if this `FontFamily` includes a monospace font, either as a generic family or as a specific font name.
+    #[must_use]
     pub fn is_monospace(&self) -> bool {
         self.names.iter().any(|name| match name {
             FontFamilyName::Generic(generic) => generic == &GenericName::Monospace,
@@ -92,8 +90,8 @@ impl CSSParsable for FontFamily {
         let mut names: Vec<String> = Vec::with_capacity(4);
 
         while let Some(cv) = stream.next_cv() {
-            match cv {
-                ComponentValue::Token(token) => match &token.kind {
+            if let ComponentValue::Token(token) = cv {
+                match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         names.push(ident.clone());
                     }
@@ -109,9 +107,8 @@ impl CSSParsable for FontFamily {
                         }
                         names.clear();
                     }
-                    _ => continue,
-                },
-                _ => continue,
+                    _ => {}
+                }
             }
         }
 
@@ -139,15 +136,12 @@ impl PixelRepr for FontSize {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
             Self::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Percentage(pct) => {
-                pct.as_fraction()
-                    * rel_ctx
-                        .map(|ctx| ctx.parent.font_size)
-                        .unwrap_or(abs_ctx.root_font_size)
+                pct.as_fraction() * rel_ctx.map_or(abs_ctx.root_font_size, |ctx| ctx.parent.font_size)
             }
             Self::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),

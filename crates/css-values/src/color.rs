@@ -23,16 +23,18 @@ pub mod system;
 ///
 /// Always in the range [0.0, 1.0]
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Alpha(f32);
+pub struct Alpha(f64);
 
 impl Alpha {
     /// Create a new Alpha value from a floating-point number, which is clamped to the range [0.0, 1.0].
-    pub const fn new(value: f32) -> Self {
+    #[must_use]
+    pub const fn new(value: f64) -> Self {
         Self(value.clamp(0.0, 1.0))
     }
 
     /// Get the alpha value as a floating-point number in the range [0.0, 1.0].
-    pub const fn value(&self) -> f32 {
+    #[must_use]
+    pub const fn value(&self) -> f64 {
         self.0.clamp(0.0, 1.0)
     }
 }
@@ -47,11 +49,17 @@ impl From<Percentage> for Alpha {
 ///
 /// Is represented as a floating-point number in degrees, normalized to the range [0, 360).
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Hue(f32);
+pub struct Hue(f64);
 
 impl Hue {
+    #[must_use]
+    pub const fn new(value: f64) -> Self {
+        Self(value)
+    }
+
     /// Get the hue value as a floating-point number in degrees, normalized to the range [0, 360).
-    pub fn value(&self) -> f32 {
+    #[must_use]
+    pub fn value(&self) -> f64 {
         self.0.rem_euclid(360.0)
     }
 }
@@ -66,6 +74,7 @@ impl From<ColorValue> for Hue {
 }
 
 /// Indicates how to interpret percentage values when converting them to numbers for color components.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Fraction {
     /// Treat percentage values as unsigned fractions, where 0% corresponds to the start of the range and 100% corresponds to the end of the range.
     Unsigned,
@@ -79,14 +88,14 @@ pub enum Fraction {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ColorValue {
     /// A number, which is clamped to the specified range (e.g., 0-255 for RGB components).
-    Number(f32),
+    Number(f64),
 
     /// A percentage, which is converted to a number based on the specified range (e.g., 100% would be 255 for RGB components).
     Percentage(Percentage),
 }
 
 impl ColorValue {
-    /// Convert the ColorValue to a number based on the specified range and fraction type.
+    /// Convert the `ColorValue` to a number based on the specified range and fraction type.
     ///
     /// For Number, the value is clamped to the range.
     /// For Percentage, the value is converted to a fraction and then linearly interpolated within the range.
@@ -101,7 +110,8 @@ impl ColorValue {
     /// assert_eq!(percentage.value(0.0..=255.0, Fraction::Unsigned), 127.5);
     /// assert_eq!(percentage.value(0.0..=255.0, Fraction::Signed), 191.25);
     /// ```
-    pub fn value(&self, range: RangeInclusive<f32>, fraction: Fraction) -> f32 {
+    #[must_use]
+    pub fn value(&self, range: RangeInclusive<f64>, fraction: Fraction) -> f64 {
         match self {
             Self::Number(n) => n.clamp(*range.start(), *range.end()),
             Self::Percentage(p) => match fraction {
@@ -112,21 +122,21 @@ impl ColorValue {
     }
 
     /// Linearly interpolate a fraction (0.0 to 1.0) within the specified range.
-    fn lerp(fraction: f32, range: RangeInclusive<f32>) -> f32 {
+    fn lerp(fraction: f64, range: RangeInclusive<f64>) -> f64 {
         let t = fraction.clamp(0.0, 1.0);
         *range.start() + t * (*range.end() - *range.start())
     }
 
     /// Linearly interpolate a signed fraction (-1.0 to 1.0) within the specified range, where 0.0 corresponds to the start of the range,
     /// 1.0 corresponds to the end of the range, and -1.0 corresponds to the start of the range.
-    fn signed_lerp(fraction: f32, range: RangeInclusive<f32>) -> f32 {
-        let t = (fraction.clamp(-1.0, 1.0) + 1.0) / 2.0;
+    fn signed_lerp(fraction: f64, range: RangeInclusive<f64>) -> f64 {
+        let t = f64::midpoint(fraction.clamp(-1.0, 1.0), 1.0);
         range.start() + t * (range.end() - range.start())
     }
 }
 
-impl From<f32> for ColorValue {
-    fn from(value: f32) -> Self {
+impl From<f64> for ColorValue {
+    fn from(value: f64) -> Self {
         Self::Number(value)
     }
 }
@@ -134,14 +144,14 @@ impl From<f32> for ColorValue {
 /// Represents the <color> data type in CSS
 ///
 /// Which can be specified using various formats such as named colors, hexadecimal colors,
-/// functional notations (e.g., rgb(), hsl()), system colors, and the currentColor keyword.
+/// functional notations (e.g., `rgb()`, `hsl()`), system colors, and the currentColor keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Color {
     Base(ColorBase),
     /// The 'currentColor' keyword represents the current value of the 'color' property.
     Current,
     System(SystemColor),
-    /// The light-dark() function allows authors to specify two colors: one for light mode and one for dark mode.
+    /// The `light-dark()` function allows authors to specify two colors: one for light mode and one for dark mode.
     /// The user agent will use the appropriate color based on the user's preferred color scheme, currently the app theme.
     LightDark(Box<Self>, Box<Self>),
     // TODO: contrast-color()
@@ -182,12 +192,12 @@ impl CSSParsable for Color {
                         } else if let Some(named_color) = NamedColor::from_str_insensitive(ident) {
                             Ok(Self::Base(ColorBase::Named(named_color)))
                         } else {
-                            Err(CssValueError::InvalidValue(format!("Unrecognized color identifier: {}", ident)))
+                            Err(CssValueError::InvalidValue(format!("Unrecognized color identifier: {ident}")))
                         }
                     }
                     CssTokenKind::Hash { .. } => {
                         let hex_color = HexColor::try_from(token)
-                            .map_err(|e| CssValueError::InvalidValue(format!("Invalid hex color: {}", e)))?;
+                            .map_err(|e| CssValueError::InvalidValue(format!("Invalid hex color: {e}")))?;
                         Ok(Self::Base(ColorBase::Hex(hex_color)))
                     }
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
@@ -215,7 +225,7 @@ impl CSSParsable for Color {
                         Err(CssValueError::InvalidFunction(function.name.clone()))
                     }
                 }
-                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+                cvs @ ComponentValue::SimpleBlock(_) => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
             Err(CssValueError::ExpectedComponentValue)

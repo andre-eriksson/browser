@@ -24,6 +24,7 @@ pub struct SelectorSpecificity(
 );
 
 impl SelectorSpecificity {
+    #[must_use]
     pub const fn new(a: u32, b: u32, c: u32) -> Self {
         Self(a, b, c)
     }
@@ -79,7 +80,7 @@ impl SpecificityCalculable for CompoundSelector {
     fn specificity(&self) -> SelectorSpecificity {
         let mut specificity = SelectorSpecificity::default();
 
-        specificity.1 += self.attribute_selectors.len() as u32;
+        specificity.1 += u32::try_from(self.attribute_selectors.len()).unwrap_or(u32::MAX);
 
         for (i, token) in self.tokens.iter().enumerate() {
             match &token.kind {
@@ -122,7 +123,7 @@ impl SpecificityCalculable for CompoundSelector {
                 .map(|selector_sequence| {
                     selector_sequence
                         .iter()
-                        .map(|seq| seq.specificity())
+                        .map(SpecificityCalculable::specificity)
                         .fold(SelectorSpecificity::default(), |acc, sp| acc + sp)
                 })
                 .max()
@@ -139,7 +140,7 @@ impl SpecificityCalculable for CompoundSelectorSequence {
     fn specificity(&self) -> SelectorSpecificity {
         self.compound_selectors
             .iter()
-            .map(|cs| cs.specificity())
+            .map(SpecificityCalculable::specificity)
             .fold(SelectorSpecificity::default(), |acc, sp| acc + sp)
     }
 }

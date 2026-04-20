@@ -40,6 +40,7 @@ pub struct Declaration {
 
 impl Declaration {
     /// Create a new declaration
+    #[must_use]
     pub const fn new(property: Property) -> Self {
         Self {
             property,
@@ -93,11 +94,13 @@ impl ComponentValue {
     }
 
     /// Check if this component value is a token
+    #[must_use]
     pub const fn is_token(&self) -> bool {
         matches!(self, Self::Token(_))
     }
 
     /// Get a reference to the token if this component value is a token
+    #[must_use]
     pub const fn as_token(&self) -> Option<&CssToken> {
         match self {
             Self::Token(t) => Some(t),
@@ -109,6 +112,7 @@ impl ComponentValue {
     ///
     /// # Returns
     /// True if it is a whitespace token, false otherwise
+    #[must_use]
     pub const fn is_whitespace(&self) -> bool {
         match self {
             Self::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
@@ -130,6 +134,7 @@ pub struct ComponentValueStream<'css> {
 }
 
 impl<'css> ComponentValueStream<'css> {
+    #[must_use]
     pub const fn new(values: &'css [ComponentValue]) -> Self {
         Self {
             values,
@@ -138,15 +143,18 @@ impl<'css> ComponentValueStream<'css> {
     }
 
     /// Get the underlying slice of component values
+    #[must_use]
     pub const fn values(&self) -> &[ComponentValue] {
         self.values
     }
 
+    #[must_use]
     pub const fn position(&self) -> usize {
         self.position
     }
 
     /// Peek at the next component value without consuming it
+    #[must_use]
     pub fn peek(&self) -> Option<&ComponentValue> {
         self.values.get(self.position)
     }
@@ -161,6 +169,7 @@ impl<'css> ComponentValueStream<'css> {
     }
 
     /// Create a checkpoint of the current position in the stream
+    #[must_use]
     pub const fn checkpoint(&self) -> usize {
         self.position
     }
@@ -171,6 +180,7 @@ impl<'css> ComponentValueStream<'css> {
     }
 
     /// Returns the unconsumed portion of the underlying slice.
+    #[must_use]
     pub fn remaining(&self) -> &[ComponentValue] {
         &self.values[self.position..]
     }
@@ -230,6 +240,7 @@ pub struct Function {
 
 impl Function {
     /// Create a new function with the given name
+    #[must_use]
     pub const fn new(name: String) -> Self {
         Self {
             name,
@@ -262,6 +273,7 @@ pub struct SimpleBlock {
 
 impl SimpleBlock {
     /// Create a new simple block with the given associated token
+    #[must_use]
     pub const fn new(associated_token: AssociatedToken) -> Self {
         Self {
             associated_token,
@@ -283,6 +295,7 @@ pub struct StyleBlockContents {
 
 impl StyleBlockContents {
     /// Create new empty style block contents
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             declarations: Vec::new(),

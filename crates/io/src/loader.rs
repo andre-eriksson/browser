@@ -17,7 +17,7 @@ pub trait Writer {
     fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), ResourceError>;
 }
 
-impl<'path> Loader for ResourceType<'path> {
+impl Loader for ResourceType<'_> {
     fn load_asset(self) -> Result<Vec<u8>, ResourceError> {
         match self {
             ResourceType::Path(entry) => {
@@ -47,7 +47,7 @@ impl<'path> Loader for ResourceType<'path> {
     }
 }
 
-impl<'path> Writer for ResourceType<'path> {
+impl Writer for ResourceType<'_> {
     fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), ResourceError> {
         match self {
             ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(ResourceError::UnsupportedOperation(

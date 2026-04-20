@@ -1,4 +1,4 @@
-/// Globals2D uniform buffer and bind group for 2D rendering
+/// `Globals2D` uniform buffer and bind group for 2D rendering
 pub struct Globals2D {
     pub buffer: wgpu::Buffer,
     pub layout: wgpu::BindGroupLayout,
@@ -6,7 +6,7 @@ pub struct Globals2D {
 }
 
 impl Globals2D {
-    /// Creates a new Globals2D uniform buffer and bind group
+    /// Creates a new `Globals2D` uniform buffer and bind group
     pub fn new(device: &wgpu::Device, label: &str) -> Self {
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some(&format!("{label} Globals2D Buffer")),
@@ -45,7 +45,7 @@ impl Globals2D {
         }
     }
 
-    /// Updates the Globals2D uniform buffer with the given width and height
+    /// Updates the `Globals2D` uniform buffer with the given width and height
     pub fn update(&self, queue: &wgpu::Queue, width: f32, height: f32) {
         let globals: [f32; 4] = [width, height, 0.0, 0.0];
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&globals));

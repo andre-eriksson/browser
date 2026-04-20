@@ -46,6 +46,7 @@ where
     V: Clone + Serialize + DeserializeOwned,
 {
     /// Creates a new empty cache.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             entries: Arc::new(RwLock::new(HashMap::new())),
@@ -56,8 +57,7 @@ where
     pub fn contains(&self, key: &K) -> bool {
         self.entries
             .read()
-            .map(|entries| entries.contains_key(key))
-            .unwrap_or(false)
+            .is_ok_and(|entries| entries.contains_key(key))
     }
 
     /// Gets the cache entry for a given key, checking memory first and falling back
@@ -67,8 +67,15 @@ where
     ///
     /// If the entry is found on disk it is promoted into the in-memory cache
     /// so that subsequent lookups are fast.
+    ///
+    /// # Errors
+    /// * If the cache lock is poisoned.
+    /// * If there is an error reading from disk or deserializing the cached value.
     pub fn get_with_vary(&self, key: &K, vary: &str) -> Result<CacheEntry<V>, CacheError> {
-        let entries = self.entries.read().expect("Cache lock poisoned");
+        let entries = self
+            .entries
+            .read()
+            .map_err(|_| CacheError::Read("cache lock poisoned".to_string()))?;
         if let Some(entry) = entries.get(key) {
             // TODO: Vary?
             return Ok(entry.clone());
@@ -88,20 +95,30 @@ where
     }
 
     /// Gets the cache entry for a given key, if it exists.
+    ///
+    /// # Errors
+    /// * If the cache lock is poisoned.
+    /// * If there is an error reading from disk or deserializing the cached value.
     pub fn get(&self, key: &K, headers: &HeaderMap) -> Result<CacheEntry<V>, CacheError> {
-        let entries = self.entries.read().expect("Cache lock poisoned");
+        let entries = self
+            .entries
+            .read()
+            .map_err(|_| CacheError::Read("cache lock poisoned".to_string()))?;
         if let Some(entry) = entries.get(key) {
             // TODO: Vary?
             return Ok(entry.clone());
         }
         drop(entries);
 
-        self.get_from_disk(key, headers)?
+        Self::get_from_disk(key, headers)?
             .map_or(Ok(CacheEntry::Pending), |value| Ok(CacheEntry::Loaded(Arc::new(CacheRead::Hit(value)))))
     }
 
     /// Retrieves a cached value from disk for a given key and headers, returning `None` if not found or expired.
-    fn get_from_disk(&self, key: &K, headers: &HeaderMap) -> Result<Option<V>, CacheError> {
+    ///
+    /// # Errors
+    /// * If there is an error reading from disk or deserializing the cached value.
+    fn get_from_disk(key: &K, headers: &HeaderMap) -> Result<Option<V>, CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
@@ -114,6 +131,10 @@ where
     }
 
     /// Stores a successfully loaded value in the cache for a given key.
+    ///
+    /// # Errors
+    /// * If there is already an entry for the key in the cache.
+    /// * If there is an error writing to disk or serializing the value.
     pub fn store(&self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
         if let Ok(mut entries) = self.entries.write() {
             match entries.entry(key.clone()) {
@@ -131,7 +152,7 @@ where
             }
         }
 
-        if let Err(error) = self.store_on_disk(&key, &value, headers) {
+        if let Err(error) = Self::store_on_disk(&key, &value, headers) {
             self.mark_failed(key.clone());
             return Err(error);
         }
@@ -142,7 +163,12 @@ where
     }
 
     /// Stores a value on disk for a given key and headers, handling Vary header resolution and cache control directives.
-    fn store_on_disk(&self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
+    ///
+    /// # Errors
+    /// * If the `Vary` header is invalid or prevents caching.
+    /// * If the `Cache-Control` header prevents caching.
+    /// * If there is an error writing to disk or serializing the value.
+    fn store_on_disk(key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
@@ -165,6 +191,9 @@ where
     }
 
     /// Evicts a cache entry for a given key, removing it from both memory and disk.
+    ///
+    /// # Errors
+    /// * If there is an error removing the entry from disk.
     pub fn evict(&self, key: &K, headers: &HeaderMap) -> Result<bool, CacheError> {
         let removed_mem = self
             .entries
@@ -224,6 +253,10 @@ where
     /// pairs, sorted alphabetically. If there is no `Vary` header or it is empty,
     /// an empty string is returned. `Vary: *` is treated as an error because it
     /// prevents caching entirely.
+    ///
+    /// # Errors
+    /// * If the `Vary` header is invalid or prevents caching.
+    /// * If there is an error parsing header names or values.
     pub fn resolve_vary(headers: &HeaderMap) -> Result<String, CacheError> {
         let vary = headers
             .get(VARY)
@@ -238,17 +271,17 @@ where
 
         let mut parts = Vec::new();
 
-        for header in vary.split(',').map(|s| s.trim()) {
+        for header in vary.split(',').map(str::trim) {
             let name = header
                 .parse::<HeaderName>()
-                .map_err(|_| CacheError::Write(format!("invalid header name in \"vary: {}\"", header)))?;
+                .map_err(|_| CacheError::Write(format!("invalid header name in \"vary: {header}\"")))?;
 
             let value = headers
                 .get(&name)
                 .map(|v| v.to_str().unwrap_or_default())
                 .unwrap_or_default();
 
-            parts.push(format!("{}:{}", name, value));
+            parts.push(format!("{name}:{value}"));
         }
 
         parts.sort();
@@ -269,18 +302,17 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
-        let cache = MemoryCache::<String, String>::new();
         let key = "https://example.com/resource".to_string();
         let value = "cached data".to_string();
 
-        let result = cache.store_on_disk(&key, &value, &headers);
+        let result = MemoryCache::store_on_disk(&key, &value, &headers);
         assert!(result.is_ok());
 
         let mut headers = HeaderMap::new();
         headers.insert(VARY, "Accept-Encoding".parse().unwrap());
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
 
-        let retrieved = cache.get_from_disk(&key, &headers).unwrap();
+        let retrieved = MemoryCache::<String, String>::get_from_disk(&key, &headers).unwrap();
         assert!(retrieved.is_some());
 
         assert_eq!(value, retrieved.unwrap());
@@ -300,7 +332,7 @@ mod tests {
         let vary = MemoryCache::<String, String>::resolve_vary(&headers).unwrap();
         assert!(!vary.is_empty());
 
-        cache.store_on_disk(&key, &value, &headers).unwrap();
+        MemoryCache::store_on_disk(&key, &value, &headers).unwrap();
 
         cache.entries.write().unwrap().clear();
 
@@ -325,7 +357,7 @@ mod tests {
         let key = "https://example.com/vary-miss-test".to_string();
         let value = "gzip data".to_string();
 
-        cache.store_on_disk(&key, &value, &headers).unwrap();
+        MemoryCache::store_on_disk(&key, &value, &headers).unwrap();
 
         cache.entries.write().unwrap().clear();
 

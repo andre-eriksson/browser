@@ -189,7 +189,7 @@ pub enum LengthUnit {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Length {
     /// The numeric value of the length.
-    value: f32,
+    value: f64,
 
     /// The unit of the length.
     unit: LengthUnit,
@@ -197,21 +197,25 @@ pub struct Length {
 
 impl Length {
     /// Creates a new Length with the given value and unit.
-    pub const fn new(value: f32, unit: LengthUnit) -> Self {
+    #[must_use]
+    pub const fn new(value: f64, unit: LengthUnit) -> Self {
         Self { value, unit }
     }
 
     /// Returns the numeric value of the length.
-    pub const fn value(&self) -> f32 {
+    #[must_use]
+    pub const fn value(&self) -> f64 {
         self.value
     }
 
     /// Returns the unit of the length.
+    #[must_use]
     pub const fn unit(&self) -> LengthUnit {
         self.unit
     }
 
     /// Constructs a Length of zero, for convenience.
+    #[must_use]
     pub const fn zero() -> Self {
         Self {
             value: 0.0,
@@ -220,7 +224,8 @@ impl Length {
     }
 
     /// Constructs a Length in pixels, for convenience.
-    pub const fn px(value: f32) -> Self {
+    #[must_use]
+    pub const fn px(value: f64) -> Self {
         Self {
             value,
             unit: LengthUnit::Px,
@@ -236,7 +241,7 @@ impl TryFrom<&CssToken> for Length {
             CssTokenKind::Dimension { value, unit } => {
                 let unit = LengthUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
 
-                Ok(Self::new(value.to_f64() as f32, unit))
+                Ok(Self::new(value.to_f64(), unit))
             }
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
@@ -260,27 +265,28 @@ pub enum Angle {
     /// Degrees (e.g., "45deg")
     ///
     /// Note: The value is normalized to the [0, 360) range, so "450deg" would be treated as "90deg".
-    Deg(f32),
+    Deg(f64),
 
     /// Radians (e.g., "3.14rad")
     ///
     /// Note: The value is normalized to the [0, 2π) range, so "7.28rad" would be treated as "0.28rad".
-    Rad(f32),
+    Rad(f64),
 
     /// Gradians (e.g., "100grad")
     ///
     /// Note: The value is normalized to the [0, 400) range, so "450grad" would be treated as "50grad".
-    Grad(f32),
+    Grad(f64),
 
     /// Turns (e.g., "0.5turn")
     ///
     /// Note: The value is normalized to the [0, 1) range, so "1.5turn" would be treated as "0.5turn".
-    Turn(f32),
+    Turn(f64),
 }
 
 impl Angle {
     /// Convert the angle to degrees
-    pub fn to_degrees(self) -> f32 {
+    #[must_use]
+    pub fn to_degrees(self) -> f64 {
         match self {
             Self::Deg(v) => v,
             Self::Rad(v) => v.to_degrees(),
@@ -290,32 +296,37 @@ impl Angle {
     }
 
     /// Convert the angle to radians
-    pub fn to_radians(self) -> f32 {
+    #[must_use]
+    pub fn to_radians(self) -> f64 {
         match self {
             Self::Deg(v) => v.to_radians(),
             Self::Rad(v) => v,
             Self::Grad(v) => (v * 0.9).to_radians(),
-            Self::Turn(v) => v * 2.0 * std::f32::consts::PI,
+            Self::Turn(v) => v * 2.0 * std::f64::consts::PI,
         }
     }
 
     /// Convert f32 degrees to an Angle, normalizing it to the [0, 360) range
-    pub fn from_degrees(deg: f32) -> Self {
+    #[must_use]
+    pub fn from_degrees(deg: f64) -> Self {
         Self::Deg((deg / 360.0).fract() * 360.0)
     }
 
     /// Convert f32 radians to an Angle, normalizing it to the [0, 2π) range
-    pub fn from_radians(rad: f32) -> Self {
-        Self::Rad((rad / (2.0 * std::f32::consts::PI)).fract() * (2.0 * std::f32::consts::PI))
+    #[must_use]
+    pub fn from_radians(rad: f64) -> Self {
+        Self::Rad((rad / (2.0 * std::f64::consts::PI)).fract() * (2.0 * std::f64::consts::PI))
     }
 
     /// Convert f32 gradians to an Angle, normalizing it to the [0, 400) range
-    pub fn from_gradians(grad: f32) -> Self {
+    #[must_use]
+    pub fn from_gradians(grad: f64) -> Self {
         Self::Grad((grad / 400.0).fract() * 400.0)
     }
 
     /// Convert f32 turns to an Angle, normalizing it to the [0, 1) range
-    pub const fn from_turns(turn: f32) -> Self {
+    #[must_use]
+    pub const fn from_turns(turn: f64) -> Self {
         Self::Turn((turn).fract())
     }
 }
@@ -326,16 +337,19 @@ impl TryFrom<&CssToken> for Angle {
     fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
-                let unit_str = unit.to_ascii_lowercase();
-                match unit_str.as_str() {
-                    "deg" => Ok(Self::from_degrees(value.to_f64() as f32)),
-                    "rad" => Ok(Self::from_radians(value.to_f64() as f32)),
-                    "grad" => Ok(Self::from_gradians(value.to_f64() as f32)),
-                    "turn" => Ok(Self::from_turns(value.to_f64() as f32)),
-                    _ => Ok(Self::from_degrees(value.to_f64() as f32)),
+                if unit.eq_ignore_ascii_case("deg") {
+                    Ok(Self::from_degrees(value.to_f64()))
+                } else if unit.eq_ignore_ascii_case("rad") {
+                    Ok(Self::from_radians(value.to_f64()))
+                } else if unit.eq_ignore_ascii_case("grad") {
+                    Ok(Self::from_gradians(value.to_f64()))
+                } else if unit.eq_ignore_ascii_case("turn") {
+                    Ok(Self::from_turns(value.to_f64()))
+                } else {
+                    Err(CssValueError::InvalidUnit(unit.clone()))
                 }
             }
-            CssTokenKind::Number(value) => Ok(Self::from_degrees(value.to_f64() as f32)),
+            CssTokenKind::Number(value) => Ok(Self::from_degrees(value.to_f64())),
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
     }
@@ -358,12 +372,12 @@ pub enum Time {
     /// Seconds (e.g., "2s")
     ///
     /// Note: The value is normalized to a non-negative number, so "-1s" would be treated as "0s".
-    Seconds(f32),
+    Seconds(f64),
 
     /// Milliseconds (e.g., "500ms")
     ///
     /// Note: The value is normalized to a non-negative number, so "-500ms" would be treated as "0ms".
-    Milliseconds(f32),
+    Milliseconds(f64),
 }
 
 impl TryFrom<&CssToken> for Time {
@@ -373,9 +387,9 @@ impl TryFrom<&CssToken> for Time {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 if unit.eq_ignore_ascii_case("s") {
-                    Ok(Self::Seconds(value.to_f64() as f32))
+                    Ok(Self::Seconds(value.to_f64()))
                 } else if unit.eq_ignore_ascii_case("ms") {
-                    Ok(Self::Milliseconds(value.to_f64() as f32))
+                    Ok(Self::Milliseconds(value.to_f64()))
                 } else {
                     Err(CssValueError::InvalidUnit(unit.clone()))
                 }
@@ -403,12 +417,12 @@ pub enum Frequency {
     /// Hertz (e.g., "440Hz")
     ///
     /// Note: The value is normalized to a non-negative number, so "-440Hz" would be treated as "0Hz".
-    Hz(f32),
+    Hz(f64),
 
     /// Kilohertz (e.g., "1.5kHz")
     ///
     /// Note: The value is normalized to a non-negative number, so "-1.5kHz" would be treated as "0kHz".
-    KHz(f32),
+    KHz(f64),
 }
 
 impl TryFrom<&CssToken> for Frequency {
@@ -418,9 +432,9 @@ impl TryFrom<&CssToken> for Frequency {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 if unit.eq_ignore_ascii_case("hz") {
-                    Ok(Self::Hz(value.to_f64() as f32))
+                    Ok(Self::Hz(value.to_f64()))
                 } else if unit.eq_ignore_ascii_case("khz") {
-                    Ok(Self::KHz(value.to_f64() as f32))
+                    Ok(Self::KHz(value.to_f64()))
                 } else {
                     Err(CssValueError::InvalidUnit(unit.clone()))
                 }
@@ -450,17 +464,17 @@ pub enum Resolution {
     /// Dots per inch (e.g., "300dpi")
     ///
     /// Note: The value is normalized to a non-negative number, so "-300dpi" would be treated as "0dpi".
-    Dpi(f32),
+    Dpi(f64),
 
     /// Dots per centimeter (e.g., "118dpcm")
     ///
     /// Note: The value is normalized to a non-negative number, so "-118dpcm" would be treated as "0dpcm".
-    Dpcm(f32),
+    Dpcm(f64),
 
     /// Dots per pixel (e.g., "2dppx")
     ///
     /// Note: The value is normalized to a non-negative number, so "-2dppx" would be treated as "0dppx".
-    Dppx(f32),
+    Dppx(f64),
 }
 
 impl TryFrom<&CssToken> for Resolution {
@@ -470,11 +484,11 @@ impl TryFrom<&CssToken> for Resolution {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
                 if unit.eq_ignore_ascii_case("dpi") {
-                    Ok(Self::Dpi(value.to_f64() as f32))
+                    Ok(Self::Dpi(value.to_f64()))
                 } else if unit.eq_ignore_ascii_case("dpcm") {
-                    Ok(Self::Dpcm(value.to_f64() as f32))
+                    Ok(Self::Dpcm(value.to_f64()))
                 } else if unit.eq_ignore_ascii_case("dppx") {
-                    Ok(Self::Dppx(value.to_f64() as f32))
+                    Ok(Self::Dppx(value.to_f64()))
                 } else {
                     Err(CssValueError::InvalidUnit(unit.clone()))
                 }
@@ -504,7 +518,7 @@ mod tests {
         let angle_deg = Angle::Deg(90.0);
         assert_eq!(angle_deg.to_degrees(), 90.0);
 
-        let angle_rad = Angle::Rad(std::f32::consts::PI / 2.0);
+        let angle_rad = Angle::Rad(std::f64::consts::PI / 2.0);
         assert!((angle_rad.to_degrees() - 90.0).abs() < 1e-6);
 
         let angle_grad = Angle::Grad(100.0);

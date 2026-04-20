@@ -53,14 +53,11 @@ pub async fn navigate(
         resolve_navigation_request(url, ctx, None, &DocumentPolicy::default(), &cookies, &headers, client.as_ref())
             .await?;
 
-    let body = match response.body {
-        Some(b) => b,
-        None => {
-            return Err(NavigationError::Request {
-                source: RequestError::EmptyBody,
-                url: url.to_string(),
-            });
-        }
+    let Some(body) = response.body else {
+        return Err(NavigationError::Request {
+            source: RequestError::EmptyBody,
+            url: url.to_string(),
+        });
     };
 
     let mut favicon = Favicon::default();
@@ -76,7 +73,7 @@ pub async fn navigate(
         })?;
 
         match parser.get_state() {
-            ParserState::Running => continue,
+            ParserState::Running => {}
             ParserState::Blocked(reason) => match reason {
                 BlockedReason::WaitingForScript(attributes) => {
                     if let Some(src) = attributes.as_ref().and_then(|attrs| attrs.get("src")) {
@@ -121,7 +118,7 @@ pub async fn navigate(
                                     "{}",
                                     NavigationError::Request {
                                         source: RequestError::Network(NetworkError::InvalidUrl(error)),
-                                        url: src.to_string(),
+                                        url: src.clone(),
                                     }
                                 );
                             }
@@ -165,7 +162,7 @@ pub async fn navigate(
                     ResourceType::Style => {
                         let relative_url = url.join(href).map_err(|error| NavigationError::Request {
                             source: RequestError::Network(NetworkError::InvalidUrl(error)),
-                            url: href.to_string(),
+                            url: href.clone(),
                         })?;
 
                         let handle = spawn_style_fetch_and_parse(
@@ -186,7 +183,7 @@ pub async fn navigate(
                     ResourceType::Favicon => {
                         let relative_url = url.join(href).map_err(|error| NavigationError::Request {
                             source: RequestError::Network(NetworkError::InvalidUrl(error)),
-                            url: href.to_string(),
+                            url: href.clone(),
                         })?;
 
                         favicon.content_type = metadata.content_type.clone();
@@ -341,14 +338,14 @@ async fn resolve_navigation_request(
             Resource::load(
                 io::ResourceType::Absolute {
                     protocol: "about",
-                    location: format!("{}.html", location).as_str(),
+                    location: format!("{location}.html").as_str(),
                 },
                 Resource::DEFAULT_MAX_FILE_SIZE,
             )
             .map_err(NavigationError::Resource)?,
         );
 
-        let url = Url::parse(&format!("about:{}", location)).unwrap_or_else(|_| Url::parse("about:blank").unwrap());
+        let url = Url::parse(&format!("about:{location}")).unwrap_or_else(|_| Url::parse("about:blank").unwrap());
 
         return Ok((url, resp));
     }
@@ -427,7 +424,7 @@ pub async fn resolve_request(
             })?
     };
 
-    for header in resp.headers.iter() {
+    for header in &resp.headers {
         if header.0 == SET_COOKIE
             && let Ok(mut cookie_jar) = ctx.cookie_jar().lock()
         {
@@ -503,7 +500,7 @@ fn spawn_style_fetch_and_parse(
                     }
                 };
 
-                for header in resp.metadata().headers.iter() {
+                for header in &resp.metadata().headers {
                     if header.0 == SET_COOKIE
                         && let Ok(mut cookie_jar) = cookie_jar.lock()
                     {
@@ -512,13 +509,14 @@ fn spawn_style_fetch_and_parse(
                 }
 
                 let body_bytes = match resp.response().await {
-                    Ok(body_resp) => match body_resp.body {
-                        Some(b) => b,
-                        None => {
+                    Ok(body_resp) => {
+                        if let Some(b) = body_resp.body {
+                            b
+                        } else {
                             debug!("Empty body for stylesheet {}", style_url);
                             return None;
                         }
-                    },
+                    }
                     Err(error) => {
                         debug!(%error, "Failed to read body for stylesheet {}", style_url);
                         return None;

@@ -14,7 +14,7 @@ use crate::{
     text::TextContext,
 };
 
-const EPSILON: f32 = 0.1;
+const EPSILON: f64 = 0.1;
 
 /// Layout mode determines how children are positioned
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub(crate) enum LayoutMode {
 
 impl LayoutMode {
     pub fn new(styled_node: &StyledNode) -> Option<Self> {
-        if styled_node.style.display.box_display() == Some(BoxDisplay::None) {
+        if styled_node.style.display.boxed() == Some(BoxDisplay::None) {
             return None;
         }
 
@@ -65,8 +65,8 @@ impl LayoutEngine {
         let mut position_ctx = PositionContext::new(viewport);
         let mut ctx = LayoutContext::new(viewport, image_ctx, &mut position_ctx);
 
-        let mut total_height = 0.0;
-        let mut max_width: f32 = 0.0;
+        let mut total_height = 0.0f64;
+        let mut max_width = 0.0f64;
         let mut root_nodes = Vec::new();
 
         for styled_node in &style_tree.root_nodes {
@@ -74,9 +74,8 @@ impl LayoutEngine {
 
             let pos_count_before = ctx.position_ctx().position_count();
 
-            let mut node = match Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) {
-                Some(node) => node,
-                None => continue, // For `display: none`
+            let Some(mut node) = Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) else {
+                continue;
             };
 
             let top_margin = node.margin.top;
@@ -111,7 +110,7 @@ impl LayoutEngine {
     }
 
     /// Recursively offset all children's y positions
-    fn offset_children_y(children: &mut [LayoutNode], offset: f32) {
+    fn offset_children_y(children: &mut [LayoutNode], offset: f64) {
         for child in children.iter_mut() {
             if child.position.is_out_of_flow() {
                 continue;
@@ -129,14 +128,9 @@ impl LayoutEngine {
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
     ) -> Option<LayoutNode> {
-        let layout_mode = LayoutMode::new(styled_node)?;
+        let _layout_mode = LayoutMode::new(styled_node)?;
 
-        match layout_mode {
-            LayoutMode::Block => BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx),
-            LayoutMode::Flex => BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx), // TODO: implement flex layout
-            LayoutMode::Grid => BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx), // TODO: implement grid layout
-            _ => unreachable!("Only block layout should be supported for single nodes right now"),
-        }
+        BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx)
     }
 
     pub(crate) fn layout_nodes(
@@ -165,6 +159,9 @@ impl LayoutEngine {
     }
 
     /// Relayout a single node and its ancestors, updating the layout tree in place.
+    ///
+    /// # Panics
+    /// * If the node or any of its ancestors are not found in the layout tree, which should never happen since the layout tree is built from the DOM tree.
     pub fn relayout_node(
         node_id: NodeId,
         viewport: Rect,
@@ -190,7 +187,7 @@ impl LayoutEngine {
         let old_layout = layout_tree.node_at(&parent_path).unwrap();
         let old_height = old_layout.dimensions.height;
 
-        let Some(styled_node) = style_tree.find_node(&dirty_parent_id) else {
+        let Some(styled_node) = style_tree.find_node(dirty_parent_id) else {
             return;
         };
 
@@ -198,9 +195,8 @@ impl LayoutEngine {
         let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
         ctx.position_ctx().update_viewport(viewport);
 
-        let mut new_node = match Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) {
-            Some(node) => node,
-            None => return, // For `display: none`
+        let Some(mut new_node) = Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) else {
+            return;
         };
 
         Self::offset_children_y(&mut new_node.children, new_node.margin.top);
@@ -228,7 +224,7 @@ impl LayoutEngine {
                 .position(|child| child.node_id == prev_id);
 
             if let Some(idx) = changed_child_idx {
-                for sibling in ancestor.children[idx + 1..].iter_mut() {
+                for sibling in &mut ancestor.children[idx + 1..] {
                     Self::shift_y_recursively(sibling, delta);
                 }
             }
@@ -243,9 +239,9 @@ impl LayoutEngine {
         layout_tree.content_height += delta;
     }
 
-    fn shift_y_recursively(node: &mut LayoutNode, delta: f32) {
+    fn shift_y_recursively(node: &mut LayoutNode, delta: f64) {
         node.dimensions.y += delta;
-        for child in node.children.iter_mut() {
+        for child in &mut node.children {
             Self::shift_y_recursively(child, delta);
         }
     }

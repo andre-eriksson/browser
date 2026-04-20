@@ -36,10 +36,12 @@ pub enum Position {
 }
 
 impl Position {
+    #[must_use]
     pub const fn is_out_of_flow(&self) -> bool {
         matches!(self, Self::Absolute | Self::Fixed)
     }
 
+    #[must_use]
     pub const fn affects_normal_flow(&self) -> bool {
         matches!(self, Self::Sticky | Self::Relative | Self::Static)
     }
@@ -53,7 +55,7 @@ impl CSSParsable for Position {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid position value: {}", ident))),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid position value: {ident}"))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 _ => Err(CssValueError::InvalidComponentValue(cv.clone())),

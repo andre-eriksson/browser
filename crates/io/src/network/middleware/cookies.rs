@@ -31,7 +31,7 @@ impl CookieMiddleware {
 
             let _enter = span.enter();
 
-            let cookie_str = format!("{}={}", cookie_name, cookie_value);
+            let cookie_str = format!("{cookie_name}={cookie_value}");
 
             let cookie_header = HeaderValue::from_str(&cookie_str);
 
@@ -43,7 +43,6 @@ impl CookieMiddleware {
                 Err(e) => {
                     // This should rarely happen since cookies are validated when stored
                     warn!("Failed to create Cookie header for '{}': {}", cookie_str, e);
-                    continue;
                 }
             }
         }
@@ -56,22 +55,17 @@ impl CookieMiddleware {
     /// * `request_domain` - The domain of the request that received the response.
     /// * `header_value` - The value of the Set-Cookie header from the response.
     pub fn handle_response_cookie(cookie_jar: &mut CookieJar, request_url: &Url, header_value: &HeaderValue) {
-        let host = match request_url.host() {
-            Some(h) => h,
-            _ => {
-                debug!("Request URL does not have a valid domain host");
-                return;
-            }
+        let Some(host) = request_url.host() else {
+            debug!("Request URL does not have a valid domain host");
+            return;
         };
 
-        let cookie_str = match header_value.to_str() {
-            Ok(s) => s,
-            Err(_) => return,
+        let Ok(cookie_str) = header_value.to_str() else {
+            return;
         };
 
-        let cookie = match Cookie::parse(cookie_str, request_url) {
-            Ok(c) => c,
-            Err(_) => return,
+        let Ok(cookie) = Cookie::parse(cookie_str, request_url) else {
+            return;
         };
 
         let span = trace_span!(

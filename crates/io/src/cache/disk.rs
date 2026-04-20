@@ -25,10 +25,7 @@ impl DiskCache {
         let connection = IndexDatabase::open().map_err(CacheError::Database)?;
         let index = IndexTable::get_by_key(&connection, &key).map_err(CacheError::Database)?;
 
-        let idx = match index {
-            Some(idx) => idx,
-            None => return Ok(None),
-        };
+        let Some(idx) = index else { return Ok(None) };
 
         let (header, value, content_size) = (match idx.entry {
             IndexEntry::Large => LargeFile::read(key),
@@ -52,7 +49,7 @@ impl DiskCache {
         let content_hash: [u8; 32] = hasher.finalize().into();
 
         if header.url_hash != key
-            || header.content_size != content_size as u32
+            || header.content_size != u32::try_from(content_size).unwrap_or(u32::MAX)
             || header.header_version != HEADER_VERSION
             || !header.is_fresh()
             || header.content_hash != content_hash
@@ -101,7 +98,7 @@ impl DiskCache {
 
             if let Err(e) = Self::remove(key, Some(&connection)) {
                 connection.execute("ROLLBACK", []).ok();
-                return Err(CacheError::Write(format!("failed to remove existing cache entry: {}", e)));
+                return Err(CacheError::Write(format!("failed to remove existing cache entry: {e}")));
             }
         }
 
@@ -110,15 +107,16 @@ impl DiskCache {
             .unwrap_or_default()
             .as_secs();
 
-        let (entry_type, file_id, offset, header_size, content_size) = if value.len() > MAX_BLOCK_SIZE as usize {
-            LargeFile::write(key, value, &header)?;
+        let (entry_type, file_id, offset, header_size, content_size) =
+            if value.len() > usize::try_from(MAX_BLOCK_SIZE).unwrap_or(usize::MAX) {
+                LargeFile::write(key, value, &header)?;
 
-            (IndexEntry::Large, 0u32, None, None, value.len() as u32)
-        } else {
-            let (fid, off, hsz, csz) = BlockFile::write(value, &mut header)?;
+                (IndexEntry::Large, 0u32, None, None, u32::try_from(value.len()).unwrap_or(u32::MAX))
+            } else {
+                let (fid, off, hsz, csz) = BlockFile::write(value, &mut header)?;
 
-            (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
-        };
+                (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
+            };
 
         let index = Index {
             key,
@@ -128,7 +126,7 @@ impl DiskCache {
             header_size,
             content_size,
             expires_at: header.expires_at,
-            created_at: now,
+            created_at: isize::try_from(now).unwrap_or(isize::MAX),
             vary: header.vary.clone(),
         };
 
@@ -158,26 +156,25 @@ impl DiskCache {
 
     /// Removes a cache entry by its key, deleting both the index entry and the associated data file if it exists. If the entry does not exist, this function will simply return `Ok(())`.
     pub fn remove(key: [u8; 32], connection: Option<&Connection>) -> Result<bool, CacheError> {
-        match connection {
-            Some(conn) => Self::delete(key, conn),
-            None => {
-                let conn = IndexDatabase::open().map_err(CacheError::Database)?;
+        if let Some(conn) = connection {
+            Self::delete(key, conn)
+        } else {
+            let conn = IndexDatabase::open().map_err(CacheError::Database)?;
 
-                conn.execute("BEGIN TRANSACTION", [])
-                    .map_err(CacheError::Database)?;
+            conn.execute("BEGIN TRANSACTION", [])
+                .map_err(CacheError::Database)?;
 
-                let result = Self::delete(key, &conn);
+            let result = Self::delete(key, &conn);
 
-                match result {
-                    Ok(value) => {
-                        conn.execute("COMMIT", []).map_err(CacheError::Database)?;
+            match result {
+                Ok(value) => {
+                    conn.execute("COMMIT", []).map_err(CacheError::Database)?;
 
-                        Ok(value)
-                    }
-                    Err(e) => {
-                        let _ = conn.execute("ROLLBACK", []);
-                        Err(e)
-                    }
+                    Ok(value)
+                }
+                Err(e) => {
+                    let _ = conn.execute("ROLLBACK", []);
+                    Err(e)
                 }
             }
         }
@@ -194,7 +191,7 @@ impl DiskCache {
                     let offset = idx.offset.ok_or(CacheError::CorruptedIndex)?;
                     let header_size = idx.header_size.ok_or(CacheError::CorruptedIndex)?;
 
-                    BlockFile::delete(idx.file_id, offset, header_size)?
+                    BlockFile::delete(idx.file_id, offset, header_size)?;
                 }
             }
 

@@ -79,9 +79,9 @@ pub enum HeadlessCommand {
     /// Set the viewport size for layout computation
     Resize {
         /// Viewport width
-        width: f32,
+        width: f64,
         /// Viewport height
-        height: f32,
+        height: f64,
     },
 
     /// Print the computed layout tree
@@ -96,20 +96,20 @@ pub enum NodeCommand {
     /// Get the layout node at the specified coordinates
     At {
         /// X coordinate
-        x: f32,
+        x: f64,
         /// Y coordinate
-        y: f32,
+        y: f64,
     },
 
-    /// Print node summary by NodeId
+    /// Print node summary by `NodeId`
     Id {
-        /// NodeId from DOM/layout output
+        /// `NodeId` from DOM/layout output
         id: usize,
     },
 
     /// Print a node's DOM subtree
     Dom {
-        /// NodeId from DOM/layout output
+        /// `NodeId` from DOM/layout output
         id: usize,
         /// Optional maximum child depth (0 = only selected node)
         #[arg(long, visible_alias = "depth")]
@@ -118,19 +118,19 @@ pub enum NodeCommand {
 
     /// Print a node's computed style
     Style {
-        /// NodeId from DOM/layout output
+        /// `NodeId` from DOM/layout output
         id: usize,
     },
 
     /// Print a node's layout subtree
     Layout {
-        /// NodeId from DOM/layout output
+        /// `NodeId` from DOM/layout output
         id: usize,
     },
 
     /// Print child nodes (direct children by default)
     Children {
-        /// NodeId from DOM/layout output
+        /// `NodeId` from DOM/layout output
         id: usize,
         /// Include all descendants recursively
         #[arg(long)]
@@ -139,14 +139,18 @@ pub enum NodeCommand {
 }
 
 impl HeadlessCommand {
-    /// Parse a command string into a HeadlessCommand
+    /// Parse a command string into a `HeadlessCommand`
+    ///
+    /// # Errors
+    /// * If the input is empty or only whitespace, returns an empty error string (indicating no command)
+    /// * If the input cannot be parsed as a valid command, returns an error message describing the parse failure
     pub fn parse(input: &str) -> Result<Self, String> {
         let input = input.trim();
         if input.is_empty() {
             return Err(String::new());
         }
 
-        let args = shell_words::split(input).map_err(|e| format!("Parse error: {}", e))?;
+        let args = shell_words::split(input).map_err(|e| format!("Parse error: {e}"))?;
 
         if args.is_empty() {
             return Err(String::new());
@@ -158,6 +162,7 @@ impl HeadlessCommand {
     }
 
     /// Generate help text for all commands
+    #[must_use]
     pub fn help_text() -> String {
         let mut help = String::from("Available commands:\n\n");
 
@@ -243,8 +248,8 @@ mod tests {
             HeadlessCommand::Node {
                 command: NodeCommand::At { x, y },
             } => {
-                assert!((x - 100.5).abs() < f32::EPSILON);
-                assert!((y - 200.0).abs() < f32::EPSILON);
+                assert!((x - 100.5).abs() < f64::EPSILON);
+                assert!((y - 200.0).abs() < f64::EPSILON);
             }
             _ => panic!("Expected Node command"),
         }
@@ -255,8 +260,8 @@ mod tests {
         let cmd = HeadlessCommand::parse("resize 1920 1080").unwrap();
         match cmd {
             HeadlessCommand::Resize { width, height } => {
-                assert!((width - 1920.0).abs() < f32::EPSILON);
-                assert!((height - 1080.0).abs() < f32::EPSILON);
+                assert!((width - 1920.0).abs() < f64::EPSILON);
+                assert!((height - 1080.0).abs() < f64::EPSILON);
             }
             _ => panic!("Expected Resize command"),
         }

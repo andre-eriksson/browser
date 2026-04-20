@@ -5,9 +5,9 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct ImageMeta {
     /// Intrinsic width in CSS pixels.
-    pub width: f32,
+    pub width: f64,
     /// Intrinsic height in CSS pixels.
-    pub height: f32,
+    pub height: f64,
     /// Pre-resolved Vary string computed from the HTTP response headers at
     /// fetch time.  May be empty if the response had no Vary header.
     pub vary_key: String,
@@ -31,6 +31,7 @@ pub struct ImageContext {
 
 impl ImageContext {
     /// Creates an empty `ImageContext` with no known images.
+    #[must_use]
     pub fn new() -> Self {
         Self {
             known: HashMap::new(),
@@ -41,7 +42,8 @@ impl ImageContext {
     ///
     /// Vary keys default to empty strings.  Use [`insert`](Self::insert) or
     /// [`insert_with_vary`](Self::insert_with_vary) to set them afterwards.
-    pub fn with_dimensions(dimensions: HashMap<String, (f32, f32)>) -> Self {
+    #[must_use]
+    pub fn with_dimensions(dimensions: HashMap<String, (f64, f64)>) -> Self {
         let known = dimensions
             .into_iter()
             .map(|(src, (w, h))| {
@@ -60,13 +62,14 @@ impl ImageContext {
 
     /// Creates an `ImageContext` pre-populated with a full metadata map
     /// (dimensions *and* vary keys).
+    #[must_use]
     pub const fn with_meta(known: HashMap<String, ImageMeta>) -> Self {
         Self { known }
     }
 
     /// Records intrinsic dimensions for an image source URL (vary key defaults
     /// to empty).
-    pub fn insert(&mut self, src: impl Into<String>, width: f32, height: f32) {
+    pub fn insert(&mut self, src: impl Into<String>, width: f64, height: f64) {
         let key = src.into();
         self.known
             .entry(key)
@@ -82,7 +85,7 @@ impl ImageContext {
     }
 
     /// Records intrinsic dimensions **and** a vary key for an image source URL.
-    pub fn insert_with_vary(&mut self, src: impl Into<String>, width: f32, height: f32, vary_key: impl Into<String>) {
+    pub fn insert_with_vary(&mut self, src: impl Into<String>, width: f64, height: f64, vary_key: impl Into<String>) {
         self.known.insert(
             src.into(),
             ImageMeta {
@@ -106,21 +109,25 @@ impl ImageContext {
     ///
     /// Returns `Some((width, height))` when the image has been decoded, or
     /// `None` if the image is still pending / unknown.
-    pub fn get(&self, src: &str) -> Option<(f32, f32)> {
+    #[must_use]
+    pub fn get(&self, src: &str) -> Option<(f64, f64)> {
         self.known.get(src).map(|m| (m.width, m.height))
     }
 
     /// Looks up the full [`ImageMeta`] for the given image source URL.
+    #[must_use]
     pub fn get_meta(&self, src: &str) -> Option<&ImageMeta> {
         self.known.get(src)
     }
 
     /// Returns `true` if there are no known images stored.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.known.is_empty()
     }
 
     /// Returns how many images are currently stored.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.known.len()
     }

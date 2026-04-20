@@ -58,7 +58,7 @@ impl TryFrom<&CssToken> for HexColor {
                     let a = (parsed & 0xFF) as u8;
                     Ok(Self { r, g, b, a })
                 }
-                _ => Err(format!("'{}', Invalid hex color format", value)),
+                _ => Err(format!("'{value}', Invalid hex color format")),
             }
         } else {
             Err("Expected a hash token for hex color".to_string())
@@ -66,7 +66,7 @@ impl TryFrom<&CssToken> for HexColor {
     }
 }
 
-/// Represents the <color-base> type in CSS, including hexadecimal colors, functional colors (like rgb(), hsl()), named colors, and the transparent keyword.
+/// Represents the <color-base> type in CSS, including hexadecimal colors, functional colors (like `rgb()`, `hsl()`), named colors, and the transparent keyword.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ColorBase {
     Hex(HexColor),

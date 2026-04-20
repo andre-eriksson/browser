@@ -5,7 +5,7 @@ use css_cssom::{
     CSSAtRule, CSSDeclaration, CSSRule, CSSStyleRule, CSSStyleSheet, ComponentValue, ComponentValueStream,
     CssTokenKind, Property, SimpleBlock, StylesheetOrigin,
 };
-use css_selectors::{CompoundSelectorSequence, SelectorSpecificity, SpecificityCalculable, generate_selector_list};
+use css_selectors::{CompoundSelectorSequence, SelectorSpecificity, generate_selector_list};
 use css_values::{
     media::{MediaCondition, MediaFeature, MediaType, RangeOperator},
     property::{PropertyDescriptor, PropertySyntax, SyntaxComponent},
@@ -130,7 +130,7 @@ impl<'css> GeneratedRule<'css> {
                 Self::eval_and_logic(
                     and_stream,
                     || (),
-                    |query, _| Self::handle_supports_condition(query, property_registry, absolute_ctx),
+                    |query, ()| Self::handle_supports_condition(query, property_registry, absolute_ctx),
                 )
             })
         } else if at_rule.name().eq_ignore_ascii_case("layer") {
@@ -199,10 +199,7 @@ impl<'css> GeneratedRule<'css> {
                 return false;
             }
 
-            let syntax = match syntax {
-                Some(s) => s,
-                None => return false,
-            };
+            let Some(syntax) = syntax else { return false };
 
             if initial_value.is_none() && syntax != PropertySyntax::Universal {
                 return false;
@@ -289,16 +286,15 @@ impl<'css> GeneratedRule<'css> {
 
         while let Some(cv) = stream.next_non_whitespace() {
             match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) => {
+                ComponentValue::Token(token) => {
+                    if let CssTokenKind::Ident(ident) = &token.kind {
                         if ident.eq_ignore_ascii_case("not") {
                             is_not = true;
                             continue;
                         }
 
-                        let media_type = match ident.parse::<MediaType>() {
-                            Ok(mt) => mt,
-                            Err(_) => return false,
+                        let Ok(media_type) = ident.parse::<MediaType>() else {
+                            return false;
                         };
 
                         if !matches!(media_type, MediaType::All | MediaType::Screen | MediaType::Print) {
@@ -308,8 +304,7 @@ impl<'css> GeneratedRule<'css> {
 
                         media_types.insert(media_type);
                     }
-                    _ => continue,
-                },
+                }
 
                 ComponentValue::SimpleBlock(block) => {
                     if media_types.contains(&MediaType::Print) && media_types.len() == 1 {
@@ -319,7 +314,7 @@ impl<'css> GeneratedRule<'css> {
 
                     return Self::handle_media_block(block, absolute_ctx) ^ is_not;
                 }
-                _ => return false,
+                ComponentValue::Function(_) => return false,
             }
         }
 
@@ -344,35 +339,30 @@ impl<'css> GeneratedRule<'css> {
 
                     match &buf {
                         b"max-" => {
-                            let remaining = match str::from_utf8(&bytes[4..]) {
-                                Ok(s) => s,
-                                Err(_) => return false,
+                            let Ok(remaining) = str::from_utf8(&bytes[4..]) else {
+                                return false;
                             };
 
-                            let media_condition = match remaining.parse::<MediaCondition>() {
-                                Ok(media_condition) => media_condition,
-                                Err(_) => return false,
+                            let Ok(media_condition) = remaining.parse::<MediaCondition>() else {
+                                return false;
                             };
 
                             return Self::handle_media_range_max(media_condition, &mut block_stream, absolute_ctx);
                         }
                         b"min-" => {
-                            let remaining = match str::from_utf8(&bytes[4..]) {
-                                Ok(s) => s,
-                                Err(_) => return false,
+                            let Ok(remaining) = str::from_utf8(&bytes[4..]) else {
+                                return false;
                             };
 
-                            let media_condition = match remaining.parse::<MediaCondition>() {
-                                Ok(media_condition) => media_condition,
-                                Err(_) => return false,
+                            let Ok(media_condition) = remaining.parse::<MediaCondition>() else {
+                                return false;
                             };
 
                             return Self::handle_media_range_min(media_condition, &mut block_stream, absolute_ctx);
                         }
                         _ => {
-                            let media_feature = match ident.parse::<MediaFeature>() {
-                                Ok(feature) => feature,
-                                Err(_) => return false,
+                            let Ok(media_feature) = ident.parse::<MediaFeature>() else {
+                                return false;
                             };
 
                             match media_feature {
@@ -398,11 +388,11 @@ impl<'css> GeneratedRule<'css> {
                     //               device-height, device-width, height, resolution, width
 
                     // TODO: Resolution
-                    let first_length_unit = match unit.parse::<LengthUnit>() {
-                        Ok(unit) => unit,
-                        Err(_) => return false,
+                    let Ok(first_length_unit) = unit.parse::<LengthUnit>() else {
+                        return false;
                     };
-                    let first_length = Length::new(value.to_f64() as f32, first_length_unit);
+
+                    let first_length = Length::new(value.to_f64(), first_length_unit);
 
                     let first_comparison_token = match block_stream.next_non_whitespace() {
                         Some(ComponentValue::Token(token)) => {
@@ -483,11 +473,11 @@ impl<'css> GeneratedRule<'css> {
                     let second_length = match block_stream.next_non_whitespace() {
                         Some(ComponentValue::Token(token)) => {
                             if let CssTokenKind::Dimension { value, unit } = &token.kind {
-                                let length_unit = match unit.parse::<LengthUnit>() {
-                                    Ok(unit) => unit,
-                                    Err(_) => return false,
+                                let Ok(length_unit) = unit.parse::<LengthUnit>() else {
+                                    return false;
                                 };
-                                Length::new(value.to_f64() as f32, length_unit)
+
+                                Length::new(value.to_f64(), length_unit)
                             } else {
                                 return false;
                             }
@@ -539,11 +529,11 @@ impl<'css> GeneratedRule<'css> {
         if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace() {
             match &token.kind {
                 CssTokenKind::Dimension { value, unit } => {
-                    let length_unit = match unit.parse::<LengthUnit>() {
-                        Ok(unit) => unit,
-                        Err(_) => return false,
+                    let Ok(length_unit) = unit.parse::<LengthUnit>() else {
+                        return false;
                     };
-                    let length = Length::new(value.to_f64() as f32, length_unit);
+
+                    let length = Length::new(value.to_f64(), length_unit);
 
                     match media_condition {
                         MediaCondition::Width | MediaCondition::DeviceWidth => {
@@ -576,11 +566,11 @@ impl<'css> GeneratedRule<'css> {
         if let Some(ComponentValue::Token(token)) = block_stream.next_non_whitespace() {
             match &token.kind {
                 CssTokenKind::Dimension { value, unit } => {
-                    let length_unit = match unit.parse::<LengthUnit>() {
-                        Ok(unit) => unit,
-                        Err(_) => return false,
+                    let Ok(length_unit) = unit.parse::<LengthUnit>() else {
+                        return false;
                     };
-                    let length = Length::new(value.to_f64() as f32, length_unit);
+
+                    let length = Length::new(value.to_f64(), length_unit);
 
                     match media_condition {
                         MediaCondition::Width | MediaCondition::DeviceWidth => {
@@ -607,7 +597,7 @@ impl<'css> GeneratedRule<'css> {
         first_comparison: RangeOperator,
         second_comparison: RangeOperator,
         second_length: Length,
-        value: f32,
+        value: f64,
     ) -> bool {
         if matches!(first_comparison, RangeOperator::LessThan | RangeOperator::LessThanOrEqual)
             && matches!(second_comparison, RangeOperator::GreaterThan | RangeOperator::GreaterThanOrEqual)
@@ -620,14 +610,14 @@ impl<'css> GeneratedRule<'css> {
             RangeOperator::LessThanOrEqual => value >= first_length.to_px(None, None, absolute_ctx),
             RangeOperator::GreaterThan => value < first_length.to_px(None, None, absolute_ctx),
             RangeOperator::GreaterThanOrEqual => value <= first_length.to_px(None, None, absolute_ctx),
-            _ => return false,
+            RangeOperator::Equal => return false,
         };
         let second_condition = match second_comparison {
             RangeOperator::LessThan => value < second_length.to_px(None, None, absolute_ctx),
             RangeOperator::LessThanOrEqual => value <= second_length.to_px(None, None, absolute_ctx),
             RangeOperator::GreaterThan => value > second_length.to_px(None, None, absolute_ctx),
             RangeOperator::GreaterThanOrEqual => value >= second_length.to_px(None, None, absolute_ctx),
-            _ => return false,
+            RangeOperator::Equal => return false,
         };
         first_condition && second_condition
     }
@@ -644,14 +634,13 @@ impl<'css> GeneratedRule<'css> {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("not") => {
                         is_not = true;
-                        continue;
                     }
                     _ => return false,
                 },
                 ComponentValue::SimpleBlock(block) => {
                     return Self::handle_supports_block(block, property_registry, absolute_ctx) ^ is_not;
                 }
-                _ => return false,
+                ComponentValue::Function(_) => return false,
             }
         }
 
@@ -684,9 +673,8 @@ impl<'css> GeneratedRule<'css> {
             }
         }
 
-        let declaration = match value {
-            Some(decl) => decl,
-            None => return false,
+        let Some(declaration) = value else {
+            return false;
         };
 
         let decl = CascadedDeclaration {
@@ -708,7 +696,7 @@ impl<'css> GeneratedRule<'css> {
         for selector_sequence in selector_list {
             let specificity = selector_sequence
                 .iter()
-                .map(|seq| seq.specificity())
+                .map(css_selectors::SpecificityCalculable::specificity)
                 .max()
                 .unwrap_or_default();
 

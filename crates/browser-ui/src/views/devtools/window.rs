@@ -30,7 +30,7 @@ impl Default for DevtoolsContext {
     }
 }
 
-/// DevtoolsWindow is a window for displaying developer tools in the application.
+/// `DevtoolsWindow` is a window for displaying developer tools in the application.
 #[derive(Debug)]
 pub struct DevtoolsWindow {
     parent_id: Id,
@@ -67,8 +67,7 @@ impl ApplicationWindow for DevtoolsWindow {
 
         let viewport = tab
             .and_then(|t| t.devtools.as_ref())
-            .map(|d| d.context.viewport)
-            .unwrap_or(Self::DEFAULT_VIEWPORT_SIZE);
+            .map_or(Self::DEFAULT_VIEWPORT_SIZE, |d| d.context.viewport);
 
         // NOTE: Varies depending on UI elements around the content.
         let content_viewport_height = (viewport.height + 50.0).max(100.0);
@@ -93,7 +92,7 @@ impl ApplicationWindow for DevtoolsWindow {
                     let html = DevtoolsHtml::new(
                         renderer,
                         devtools.layout_tree(),
-                        Rect::new(0.0, 0.0, viewport.width, content_viewport_height),
+                        Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(content_viewport_height)),
                         devtools.scroll_offset,
                     );
                     html.render(application)
@@ -107,7 +106,7 @@ impl ApplicationWindow for DevtoolsWindow {
     fn settings() -> iced::window::Settings {
         let icon = Resource::load_embedded(DEVTOOLS_ICON);
 
-        let devtools_icon = load_icon(icon);
+        let devtools_icon = load_icon(&icon);
 
         Settings {
             size: Self::DEFAULT_VIEWPORT_SIZE,

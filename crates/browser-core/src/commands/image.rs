@@ -40,7 +40,10 @@ pub async fn load_image(
             url: image_url.to_string(),
         })?;
 
-    if absolute_url.path().ends_with(".svg") {
+    if std::path::Path::new(absolute_url.path())
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
+    {
         debug!("SVG images are not supported, skipping: {}", absolute_url);
         return Err(CoreError::Image);
     }
@@ -48,11 +51,8 @@ pub async fn load_image(
     let (_resolved_url, response) =
         resolve_request(absolute_url, ctx, Some(url), &policies, &cookies, &headers, client.as_ref()).await?;
 
-    let body = match response.body {
-        Some(body) => body,
-        None => {
-            return Err(CoreError::Image);
-        }
+    let Some(body) = response.body else {
+        return Err(CoreError::Image);
     };
 
     Ok(EngineResponse::ImageFetched(image_url.to_string(), body, response.headers))

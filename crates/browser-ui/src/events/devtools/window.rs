@@ -33,8 +33,8 @@ pub fn on_scrolled(application: &mut Application, window_id: Id, x: f32, y: f32)
     Task::none()
 }
 
-/// Handles the resizing of the DevTools window when a `Resize` event is received from the UI,
-/// updating the viewport size and recomputing the layout tree for the DevTools page.
+/// Handles the resizing of the `DevTools` window when a `Resize` event is received from the UI,
+/// updating the viewport size and recomputing the layout tree for the `DevTools` page.
 pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Size) -> Task<Event> {
     let devtools_window = application
         .window_controller
@@ -57,8 +57,8 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
 
             let abs_ctx = AbsoluteContext {
                 root_font_size: 16.0,
-                viewport_width: new_viewport.width,
-                viewport_height: new_viewport.height,
+                viewport_width: f64::from(new_viewport.width),
+                viewport_height: f64::from(new_viewport.height),
                 theme_category: application.config.preferences().theme().category,
                 document_url: &localhost,
                 root_color: Color::BLACK,
@@ -71,7 +71,7 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
             let layout_tree = LayoutEngine::compute_layout(
                 page.document(),
                 &style_tree,
-                Rect::new(0.0, 0.0, new_viewport.width, new_viewport.height),
+                Rect::new(0.0, 0.0, f64::from(new_viewport.width), f64::from(new_viewport.height)),
                 &mut tc,
                 &img_ctx,
             );

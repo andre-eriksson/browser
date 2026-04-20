@@ -15,8 +15,8 @@ pub struct TextRun<'node> {
 pub struct ImageItem<'node> {
     pub id: NodeId,
     pub src: String,
-    pub width: f32,
-    pub height: f32,
+    pub width: f64,
+    pub height: f64,
     pub has_explicit_width: bool,
     pub has_explicit_height: bool,
     pub needs_intrinsic_size: bool,
@@ -52,7 +52,7 @@ pub enum InlineItem<'node> {
     Image(ImageItem<'node>),
 
     /// A line break, <br>
-    Break { line_height_px: f32 },
+    Break { line_height_px: f64 },
 }
 
 /// Recursively collects inline items from the given styled node and its children,
@@ -83,19 +83,19 @@ pub fn collect<'node>(
                 });
             }
             Tag::Html(HtmlTag::Img) => {
+                const DEFAULT_IMAGE_WIDTH: f64 = 300.0;
+                const DEFAULT_IMAGE_HEIGHT: f64 = 150.0;
+
                 let Some(attrs) = element.attributes.as_ref() else {
                     return Ok(());
                 };
 
                 let src = attrs.get("src").cloned().unwrap_or_default();
 
-                const DEFAULT_IMAGE_WIDTH: f32 = 300.0;
-                const DEFAULT_IMAGE_HEIGHT: f32 = 150.0;
-
                 let known = image_ctx.get(&src);
 
-                let attr_width = attrs.get("width").and_then(|v| v.parse::<f32>().ok());
-                let attr_height = attrs.get("height").and_then(|v| v.parse::<f32>().ok());
+                let attr_width = attrs.get("width").and_then(|v| v.parse::<f64>().ok());
+                let attr_height = attrs.get("height").and_then(|v| v.parse::<f64>().ok());
 
                 let css_width = !matches!(inline_node.style.width, ComputedDimension::Auto);
                 let css_height = !matches!(inline_node.style.height, ComputedDimension::Auto);
@@ -108,7 +108,7 @@ pub fn collect<'node>(
                     } else if let Some(attr_w) = attr_width {
                         attr_w
                     } else {
-                        known.map(|m| m.0).unwrap_or(DEFAULT_IMAGE_WIDTH)
+                        known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.0)
                     };
 
                     let h = if css_height {
@@ -116,7 +116,7 @@ pub fn collect<'node>(
                     } else if let Some(attr_h) = attr_height {
                         attr_h
                     } else {
-                        known.map(|m| m.1).unwrap_or(DEFAULT_IMAGE_HEIGHT)
+                        known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1)
                     };
 
                     (

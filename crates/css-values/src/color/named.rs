@@ -423,6 +423,7 @@ pub enum NamedColor {
 }
 
 impl NamedColor {
+    #[must_use]
     pub fn from_str_insensitive(s: &str) -> Option<Self> {
         let bytes = s.as_bytes();
         match bytes.len() {
@@ -444,12 +445,10 @@ impl NamedColor {
                     bytes[2].to_ascii_lowercase(),
                     bytes[3].to_ascii_lowercase(),
                 ] {
-                    [b'a', b'q', b'u', b'a'] => Some(Self::Aqua),
                     [b'b', b'l', b'u', b'e'] => Some(Self::Blue),
-                    [b'c', b'y', b'a', b'n'] => Some(Self::Aqua),
+                    [b'a', b'q', b'u', b'a'] | [b'c', b'y', b'a', b'n'] => Some(Self::Aqua),
                     [b'g', b'o', b'l', b'd'] => Some(Self::Gold),
-                    [b'g', b'r', b'a', b'y'] => Some(Self::Gray),
-                    [b'g', b'r', b'e', b'y'] => Some(Self::Gray),
+                    [b'g', b'r', b'e' | b'a', b'y'] => Some(Self::Gray),
                     [b'l', b'i', b'm', b'e'] => Some(Self::Lime),
                     [b'n', b'a', b'v', b'y'] => Some(Self::Navy),
                     [b'p', b'e', b'r', b'u'] => Some(Self::Peru),
@@ -519,8 +518,7 @@ impl NamedColor {
                 ] {
                     [b'c', b'r', b'i', b'm', b's', b'o', b'n'] => Some(Self::Crimson),
                     [b'd', b'a', b'r', b'k', b'r', b'e', b'd'] => Some(Self::DarkRed),
-                    [b'd', b'i', b'm', b'g', b'r', b'a', b'y'] => Some(Self::DimGray),
-                    [b'd', b'i', b'm', b'g', b'r', b'e', b'y'] => Some(Self::DimGray),
+                    [b'd', b'i', b'm', b'g', b'r', b'e' | b'a', b'y'] => Some(Self::DimGray),
                     [b'f', b'u', b'c', b'h', b's', b'i', b'a'] => Some(Self::Fuchsia),
                     [b'h', b'o', b't', b'p', b'i', b'n', b'k'] => Some(Self::HotPink),
                     [b'm', b'a', b'g', b'e', b'n', b't', b'a'] => Some(Self::Magenta),
@@ -544,8 +542,7 @@ impl NamedColor {
                     [b'c', b'o', b'r', b'n', b's', b'i', b'l', b'k'] => Some(Self::Cornsilk),
                     [b'd', b'a', b'r', b'k', b'b', b'l', b'u', b'e'] => Some(Self::DarkBlue),
                     [b'd', b'a', b'r', b'k', b'c', b'y', b'a', b'n'] => Some(Self::DarkCyan),
-                    [b'd', b'a', b'r', b'k', b'g', b'r', b'a', b'y'] => Some(Self::DarkGray),
-                    [b'd', b'a', b'r', b'k', b'g', b'r', b'e', b'y'] => Some(Self::DarkGray),
+                    [b'd', b'a', b'r', b'k', b'g', b'r', b'e' | b'a', b'y'] => Some(Self::DarkGray),
                     [b'd', b'e', b'e', b'p', b'p', b'i', b'n', b'k'] => Some(Self::DeepPink),
                     [b'h', b'o', b'n', b'e', b'y', b'd', b'e', b'w'] => Some(Self::HoneyDew),
                     [b'l', b'a', b'v', b'e', b'n', b'd', b'e', b'r'] => Some(Self::Lavender),
@@ -580,8 +577,7 @@ impl NamedColor {
                     [b'l', b'a', b'w', b'n', b'g', b'r', b'e', b'e', b'n'] => Some(Self::LawnGreen),
                     [b'l', b'i', b'g', b'h', b't', b'b', b'l', b'u', b'e'] => Some(Self::LightBlue),
                     [b'l', b'i', b'g', b'h', b't', b'c', b'y', b'a', b'n'] => Some(Self::LightCyan),
-                    [b'l', b'i', b'g', b'h', b't', b'g', b'r', b'a', b'y'] => Some(Self::LightGray),
-                    [b'l', b'i', b'g', b'h', b't', b'g', b'r', b'e', b'y'] => Some(Self::LightGray),
+                    [b'l', b'i', b'g', b'h', b't', b'g', b'r', b'e' | b'a', b'y'] => Some(Self::LightGray),
                     [b'l', b'i', b'g', b'h', b't', b'p', b'i', b'n', b'k'] => Some(Self::LightPink),
                     [b'l', b'i', b'm', b'e', b'g', b'r', b'e', b'e', b'n'] => Some(Self::LimeGreen),
                     [b'm', b'i', b'n', b't', b'c', b'r', b'e', b'a', b'm'] => Some(Self::MintCream),
@@ -593,8 +589,7 @@ impl NamedColor {
                     [b'r', b'o', b's', b'y', b'b', b'r', b'o', b'w', b'n'] => Some(Self::RosyBrown),
                     [b'r', b'o', b'y', b'a', b'l', b'b', b'l', b'u', b'e'] => Some(Self::RoyalBlue),
                     [b's', b'l', b'a', b't', b'e', b'b', b'l', b'u', b'e'] => Some(Self::SlateBlue),
-                    [b's', b'l', b'a', b't', b'e', b'g', b'r', b'a', b'y'] => Some(Self::SlateGray),
-                    [b's', b'l', b'a', b't', b'e', b'g', b'r', b'e', b'y'] => Some(Self::SlateGray),
+                    [b's', b'l', b'a', b't', b'e', b'g', b'r', b'e' | b'a', b'y'] => Some(Self::SlateGray),
                     [b's', b't', b'e', b'e', b'l', b'b', b'l', b'u', b'e'] => Some(Self::SteelBlue),
                     [b't', b'u', b'r', b'q', b'u', b'o', b'i', b's', b'e'] => Some(Self::Turquoise),
                     _ => None,
@@ -966,22 +961,7 @@ impl NamedColor {
                         b'e',
                         b'g',
                         b'r',
-                        b'a',
-                        b'y',
-                    ] => Some(Self::DarkSlateGray),
-                    [
-                        b'd',
-                        b'a',
-                        b'r',
-                        b'k',
-                        b's',
-                        b'l',
-                        b'a',
-                        b't',
-                        b'e',
-                        b'g',
-                        b'r',
-                        b'e',
+                        b'a' | b'e',
                         b'y',
                     ] => Some(Self::DarkSlateGray),
                     [
@@ -1170,23 +1150,7 @@ impl NamedColor {
                         b'e',
                         b'g',
                         b'r',
-                        b'a',
-                        b'y',
-                    ] => Some(Self::LightSlateGray),
-                    [
-                        b'l',
-                        b'i',
-                        b'g',
-                        b'h',
-                        b't',
-                        b's',
-                        b'l',
-                        b'a',
-                        b't',
-                        b'e',
-                        b'g',
-                        b'r',
-                        b'e',
+                        b'e' | b'a',
                         b'y',
                     ] => Some(Self::LightSlateGray),
                     [
@@ -1430,7 +1394,8 @@ impl NamedColor {
         }
     }
 
-    /// Converts the NamedColor to its hexadecimal string representation, or returns None if the color is not recognized.
+    /// Converts the `NamedColor` to its hexadecimal string representation, or returns None if the color is not recognized.
+    #[must_use]
     pub const fn to_hex(self) -> Option<&'static str> {
         match self {
             Self::AliceBlue => Some("#F0F8FF"),

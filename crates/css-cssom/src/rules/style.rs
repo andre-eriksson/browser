@@ -28,6 +28,7 @@ pub struct CSSStyleRule {
 
 impl CSSStyleRule {
     /// Create a new style rule with the given selector
+    #[must_use]
     pub const fn new(selector_text: String) -> Self {
         Self {
             selector_text,
@@ -62,19 +63,22 @@ impl CSSStyleRule {
     }
 
     /// Get the selector text
+    #[must_use]
     pub fn selector_text(&self) -> &str {
         &self.selector_text
     }
 
     /// Get the declarations
+    #[must_use]
     pub fn declarations(&self) -> &[CSSDeclaration] {
         &self.declarations
     }
 
     /// Get the value of a property by property
-    pub fn get_property_value(&self, property: Property) -> Option<&str> {
+    #[must_use]
+    pub fn get_property_value(&self, property: &Property) -> Option<&str> {
         for decl in self.declarations.iter().rev() {
-            if decl.property == property {
+            if &decl.property == property {
                 return Some(&decl.value);
             }
         }
@@ -82,9 +86,10 @@ impl CSSStyleRule {
     }
 
     /// Get the priority of a property (returns "important" or "")
-    pub fn get_property_priority(&self, property: Property) -> &str {
+    #[must_use]
+    pub fn get_property_priority(&self, property: &Property) -> &str {
         for decl in self.declarations.iter().rev() {
-            if decl.property == property {
+            if &decl.property == property {
                 return if decl.important { "important" } else { "" };
             }
         }

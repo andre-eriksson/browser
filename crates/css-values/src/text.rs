@@ -64,7 +64,7 @@ impl Default for FontFamilyName {
 /// Represents the font-size property,
 ///
 /// Can be specified using absolute-size keywords (e.g., small, medium), relative-size keywords (e.g., larger, smaller),
-/// length units (e.g., 16px, 1.5em), percentage, or a calc() expression.
+/// length units (e.g., 16px, 1.5em), percentage, or a `calc()` expression.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/font-size>
 #[derive(Debug, Clone, PartialEq)]
@@ -77,8 +77,9 @@ pub enum FontSize {
 }
 
 impl FontSize {
-    /// Create a FontSize from a length value in pixels.
-    pub const fn px(value: f32) -> Self {
+    /// Create a `FontSize` from a length value in pixels.
+    #[must_use]
+    pub const fn px(value: f64) -> Self {
         Self::Length(Length::px(value))
     }
 }
@@ -106,7 +107,7 @@ impl CSSParsable for FontSize {
                     CssTokenKind::Ident(ident) => ident.parse().map_or_else(
                         |_| {
                             ident.parse().map_or_else(
-                                |_| Err(CssValueError::InvalidValue(format!("Invalid font size keyword: {}", ident))),
+                                |_| Err(CssValueError::InvalidValue(format!("Invalid font size keyword: {ident}"))),
                                 |rel_size| Ok(Self::Relative(rel_size)),
                             )
                         },
@@ -116,12 +117,12 @@ impl CSSParsable for FontSize {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
+                        Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
                     }
-                    CssTokenKind::Percentage(num) => Ok(Self::Percentage(Percentage::new(num.to_f64() as f32))),
+                    CssTokenKind::Percentage(num) => Ok(Self::Percentage(Percentage::new(num.to_f64()))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+                cvs @ ComponentValue::SimpleBlock(_) => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
             Err(CssValueError::ExpectedComponentValue)
@@ -179,7 +180,7 @@ impl CSSParsable for FontWeight {
                         } else if ident.eq_ignore_ascii_case("bold") {
                             Ok(Self::Bold)
                         } else {
-                            Err(CssValueError::InvalidValue(format!("Invalid font weight keyword: {}", ident)))
+                            Err(CssValueError::InvalidValue(format!("Invalid font weight keyword: {ident}")))
                         }
                     }
                     CssTokenKind::Number(num) => Ok(Self::from(num.to_f64() as u16)),
@@ -205,7 +206,7 @@ pub enum GenericName {
     /// Example sans-serif fonts include Open Sans, Fira Sans, Lucida Sans, Lucida Sans Unicode, Trebuchet MS, Liberation Sans, and Nimbus Sans L.
     SansSerif,
 
-    /// All glyphs have the same fixed width. Example monospace fonts include Fira Mono, DejaVu Sans Mono, Menlo, Consolas, Liberation Mono,
+    /// All glyphs have the same fixed width. Example monospace fonts include Fira Mono, `DejaVu` Sans Mono, Menlo, Consolas, Liberation Mono,
     /// Monaco, and Lucida Console.
     Monospace,
 
@@ -249,14 +250,15 @@ pub enum GenericName {
 pub enum LineHeight {
     #[default]
     Normal,
-    Number(f32),
+    Number(f64),
     Length(Length),
     Percentage(Percentage),
     Calc(CalcExpression),
 }
 
 impl LineHeight {
-    pub const fn px(value: f32) -> Self {
+    #[must_use]
+    pub const fn px(value: f64) -> Self {
         Self::Length(Length::px(value))
     }
 }
@@ -272,14 +274,14 @@ impl CSSParsable for LineHeight {
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => Ok(Self::Normal),
-                    CssTokenKind::Number(num) => Ok(Self::Number(num.to_f64() as f32)),
+                    CssTokenKind::Number(num) => Ok(Self::Number(num.to_f64())),
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        Ok(Self::Length(Length::new(value.to_f64() as f32, len_unit)))
+                        Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
                     }
-                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64() as f32))),
+                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64()))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
@@ -338,7 +340,7 @@ impl CSSParsable for TextAlign {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid text-align value: {}", ident))),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid text-align value: {ident}"))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
@@ -387,7 +389,7 @@ impl CSSParsable for Whitespace {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid white-space value: {}", ident))),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid white-space value: {ident}"))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
@@ -433,7 +435,7 @@ impl CSSParsable for WritingMode {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => ident
                         .parse()
-                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid writing-mode value: {}", ident))),
+                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid writing-mode value: {ident}"))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),

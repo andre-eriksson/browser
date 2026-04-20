@@ -1,4 +1,4 @@
-//! Defines the Dimension and MaxDimension types, which represent CSS dimension values (width, height, max-width, max-height) and their parsing from CSS component values.
+//! Defines the Dimension and `MaxDimension` types, which represent CSS dimension values (width, height, max-width, max-height) and their parsing from CSS component values.
 
 use css_values::dimension::{Dimension, MaxDimension};
 
@@ -10,7 +10,7 @@ impl PixelRepr for Dimension {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
             Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
             Self::MaxContent => 0.0,
@@ -20,15 +20,15 @@ impl PixelRepr for Dimension {
             Self::Auto => 0.0,
             Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx
-                    .map(|ctx| ctx.font_size * p.as_fraction())
-                    .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),
-                Some(RelativeType::ParentHeight) => rel_ctx
-                    .map(|ctx| ctx.parent.intrinsic_height * p.as_fraction())
-                    .unwrap_or(abs_ctx.viewport_height * p.as_fraction()),
-                Some(RelativeType::ParentWidth) => rel_ctx
-                    .map(|ctx| ctx.parent.intrinsic_width * p.as_fraction())
-                    .unwrap_or(abs_ctx.viewport_width * p.as_fraction()),
+                Some(RelativeType::FontSize) => {
+                    rel_ctx.map_or(abs_ctx.root_font_size * p.as_fraction(), |ctx| ctx.font_size * p.as_fraction())
+                }
+                Some(RelativeType::ParentHeight) => rel_ctx.map_or(abs_ctx.viewport_height * p.as_fraction(), |ctx| {
+                    ctx.parent.intrinsic_height * p.as_fraction()
+                }),
+                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * p.as_fraction(), |ctx| {
+                    ctx.parent.intrinsic_width * p.as_fraction()
+                }),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
@@ -44,25 +44,25 @@ impl PixelRepr for MaxDimension {
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f32 {
+    ) -> f64 {
         match self {
             Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
             Self::MaxContent => 0.0,
             Self::MinContent => 0.0,
             Self::FitContent(_) => 0.0,
             Self::Stretch => 0.0,
-            Self::None => f32::INFINITY,
+            Self::None => f64::INFINITY,
             Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx
-                    .map(|ctx| ctx.font_size * p.as_fraction())
-                    .unwrap_or(abs_ctx.root_font_size * p.as_fraction()),
-                Some(RelativeType::ParentHeight) => rel_ctx
-                    .map(|ctx| ctx.parent.intrinsic_height * p.as_fraction())
-                    .unwrap_or(abs_ctx.viewport_height * p.as_fraction()),
-                Some(RelativeType::ParentWidth) => rel_ctx
-                    .map(|ctx| ctx.parent.intrinsic_width * p.as_fraction())
-                    .unwrap_or(abs_ctx.viewport_width * p.as_fraction()),
+                Some(RelativeType::FontSize) => {
+                    rel_ctx.map_or(abs_ctx.root_font_size * p.as_fraction(), |ctx| ctx.font_size * p.as_fraction())
+                }
+                Some(RelativeType::ParentHeight) => rel_ctx.map_or(abs_ctx.viewport_height * p.as_fraction(), |ctx| {
+                    ctx.parent.intrinsic_height * p.as_fraction()
+                }),
+                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * p.as_fraction(), |ctx| {
+                    ctx.parent.intrinsic_width * p.as_fraction()
+                }),
                 Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
                 Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
                 Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),

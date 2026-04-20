@@ -25,6 +25,7 @@ pub struct CSSDeclaration {
 
 impl CSSDeclaration {
     /// Create a declaration from component values
+    #[must_use]
     pub fn from_values(property: Property, values: Vec<ComponentValue>) -> Self {
         let mut value_parts: Vec<String> = Vec::new();
         let mut important = false;
@@ -50,7 +51,6 @@ impl CSSDeclaration {
             let last = &check_values[len - 1];
             let second_last = &check_values[len - 2];
 
-            use css_parser::CssTokenKind;
             if let (
                 ComponentValue::Token(CssToken {
                     kind: CssTokenKind::Delim('!'),
@@ -95,16 +95,19 @@ impl CSSDeclaration {
     }
 
     /// Get the property name
+    #[must_use]
     pub const fn property(&self) -> &Property {
         &self.property
     }
 
     /// Get the property value
+    #[must_use]
     pub fn value(&self) -> &str {
         &self.value
     }
 
     /// Check if this declaration is !important
+    #[must_use]
     pub const fn is_important(&self) -> bool {
         self.important
     }

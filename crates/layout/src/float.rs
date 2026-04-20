@@ -33,13 +33,13 @@ impl FloatContext {
             Float::Right => self.right_floats.push(float_box),
             Float::InlineEnd => match writing_mode {
                 WritingMode::HorizontalTb | WritingMode::SidewaysRl | WritingMode::VerticalRl => {
-                    self.right_floats.push(float_box)
+                    self.right_floats.push(float_box);
                 }
                 WritingMode::SidewaysLr | WritingMode::VerticalLr => self.left_floats.push(float_box),
             },
             Float::InlineStart => match writing_mode {
                 WritingMode::HorizontalTb | WritingMode::SidewaysRl | WritingMode::VerticalRl => {
-                    self.left_floats.push(float_box)
+                    self.left_floats.push(float_box);
                 }
                 WritingMode::SidewaysLr | WritingMode::VerticalLr => self.right_floats.push(float_box),
             },
@@ -47,7 +47,7 @@ impl FloatContext {
         }
     }
 
-    pub fn available_width_at(&self, y: f32, container_width: f32) -> (f32, f32) {
+    pub fn available_width_at(&self, y: f64, container_width: f64) -> (f64, f64) {
         let left_offset = self
             .left_floats
             .iter()
@@ -67,7 +67,7 @@ impl FloatContext {
         (left_offset, container_width - right_offset)
     }
 
-    pub fn clear_y(&self, clear: Clear, writing_mode: WritingMode, current_y: f32) -> f32 {
+    pub fn clear_y(&self, clear: Clear, writing_mode: WritingMode, current_y: f64) -> f64 {
         match clear {
             Clear::None => current_y,
             Clear::Left => self

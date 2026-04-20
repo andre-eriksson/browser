@@ -19,35 +19,41 @@ pub struct Display {
     inside: Option<InsideDisplay>,
     list_item: Option<ListItemDisplay>,
     internal: Option<InternalDisplay>,
-    box_display: Option<BoxDisplay>,
+    boxed: Option<BoxDisplay>,
 }
 
 impl Display {
     /// Returns the outside display type, if set.
+    #[must_use]
     pub const fn outside(&self) -> Option<OutsideDisplay> {
         self.outside
     }
 
     /// Returns the inside display type, if set.
+    #[must_use]
     pub const fn inside(&self) -> Option<InsideDisplay> {
         self.inside
     }
 
     /// Returns the list-item display type, if set.
+    #[must_use]
     pub const fn list_item(&self) -> Option<ListItemDisplay> {
         self.list_item
     }
 
     /// Returns the internal display type, if set.
+    #[must_use]
     pub const fn internal(&self) -> Option<InternalDisplay> {
         self.internal
     }
 
     /// Returns the box display type, if set.
-    pub const fn box_display(&self) -> Option<BoxDisplay> {
-        self.box_display
+    #[must_use]
+    pub const fn boxed(&self) -> Option<BoxDisplay> {
+        self.boxed
     }
 
+    #[must_use]
     pub fn adjust_float(self, float: Float) -> Self {
         if matches!(float, Float::None) {
             self
@@ -99,7 +105,7 @@ impl Default for Display {
             inside: Some(InsideDisplay::Flow),
             list_item: None,
             internal: None,
-            box_display: None,
+            boxed: None,
         }
     }
 }
@@ -111,7 +117,7 @@ impl From<OutsideDisplay> for Display {
             inside: None,
             list_item: None,
             internal: None,
-            box_display: None,
+            boxed: None,
         }
     }
 }
@@ -123,7 +129,7 @@ impl From<InsideDisplay> for Display {
             inside: Some(inside),
             list_item: None,
             internal: None,
-            box_display: None,
+            boxed: None,
         }
     }
 }
@@ -135,7 +141,7 @@ impl From<ListItemDisplay> for Display {
             inside: Some(InsideDisplay::Flow),
             list_item: Some(list_item),
             internal: None,
-            box_display: None,
+            boxed: None,
         }
     }
 }
@@ -147,7 +153,7 @@ impl From<InternalDisplay> for Display {
             inside: None,
             list_item: None,
             internal: Some(internal),
-            box_display: None,
+            boxed: None,
         }
     }
 }
@@ -159,7 +165,7 @@ impl From<BoxDisplay> for Display {
             inside: None,
             list_item: None,
             internal: None,
-            box_display: Some(box_display),
+            boxed: Some(box_display),
         }
     }
 }
@@ -172,7 +178,7 @@ impl CSSParsable for Display {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => parts.push(ident.to_ascii_lowercase()),
-                    CssTokenKind::Whitespace => continue,
+                    CssTokenKind::Whitespace => {}
                     _ => return Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 _ => return Err(CssValueError::InvalidComponentValue(cv.clone())),
@@ -186,7 +192,7 @@ impl CSSParsable for Display {
             )));
         }
 
-        let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
+        let parts: Vec<&str> = parts.iter().map(std::string::String::as_str).collect();
         match parts.as_slice() {
             ["inline"] => Ok(Self {
                 outside: Some(OutsideDisplay::Inline),
@@ -242,7 +248,7 @@ impl CSSParsable for Display {
             [outside, list_item_or_inside] => {
                 let outside = outside
                     .parse()
-                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {}", outside)))?;
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {outside}")))?;
 
                 if let Ok(list_item) = list_item_or_inside.parse::<ListItemDisplay>() {
                     return Ok(Self {
@@ -254,7 +260,7 @@ impl CSSParsable for Display {
                 }
 
                 let inside = list_item_or_inside.parse().map_err(|_| {
-                    CssValueError::InvalidValue(format!("Invalid inside display value: {}", list_item_or_inside))
+                    CssValueError::InvalidValue(format!("Invalid inside display value: {list_item_or_inside}"))
                 })?;
 
                 Ok(Self {
@@ -266,12 +272,12 @@ impl CSSParsable for Display {
             [outside, inside, list_item] => {
                 let outside = outside
                     .parse()
-                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {}", outside)))?;
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid outside display value: {outside}")))?;
                 let inside = inside
                     .parse()
-                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid inside display value: {}", inside)))?;
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid inside display value: {inside}")))?;
                 let list_item = list_item.parse().map_err(|_| {
-                    CssValueError::InvalidValue(format!("Invalid list-item display value: {}", list_item))
+                    CssValueError::InvalidValue(format!("Invalid list-item display value: {list_item}"))
                 })?;
 
                 Ok(Self {
@@ -281,7 +287,7 @@ impl CSSParsable for Display {
                     ..Default::default()
                 })
             }
-            _ => Err(CssValueError::InvalidValue(format!("Invalid combination of display values: {:?}", parts))),
+            _ => Err(CssValueError::InvalidValue(format!("Invalid combination of display values: {parts:?}"))),
         }
     }
 }
@@ -317,7 +323,7 @@ mod tests {
                 inside: Some(InsideDisplay::FlowRoot),
                 list_item: None,
                 internal: None,
-                box_display: None,
+                boxed: None,
             }
         );
     }

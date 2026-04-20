@@ -33,6 +33,7 @@ pub struct StyledNode {
 
 impl StyledNode {
     /// Creates a new `StyledNode` with the given `node_id`. The `tag`, `style`, `children`, and `text_content` fields are initialized to their default values.
+    #[must_use]
     pub fn new(node_id: NodeId) -> Self {
         Self {
             node_id,
@@ -59,12 +60,8 @@ pub struct StyleTree {
 impl StyleTree {
     /// Builds the style tree from the given absolute context, DOM tree, and stylesheets. This function computes the styles for each node in the
     /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
+    #[must_use]
     pub fn build(absolute_ctx: &AbsoluteContext, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
-        let mut property_registry = PropertyRegistry::default();
-        let rules = GeneratedRule::build(stylesheets, &mut property_registry, absolute_ctx);
-        let rule_index = RuleIndex::build(&rules);
-        let mut relative_ctx = RelativeContext::default();
-
         fn build_styled_node(
             absolute_ctx: &AbsoluteContext,
             rel_ctx: &mut RelativeContext,
@@ -75,7 +72,7 @@ impl StyleTree {
             property_registry: &mut PropertyRegistry,
         ) -> StyledNode {
             let computed_style =
-                ComputedStyle::from_node(absolute_ctx, rel_ctx, &node_id, dom, rules, rule_index, property_registry);
+                ComputedStyle::from_node(absolute_ctx, rel_ctx, node_id, dom, rules, rule_index, property_registry);
 
             rel_ctx.parent = Arc::new(computed_style.clone());
 
@@ -99,6 +96,11 @@ impl StyleTree {
                 children,
             }
         }
+
+        let mut property_registry = PropertyRegistry::default();
+        let rules = GeneratedRule::build(stylesheets, &mut property_registry, absolute_ctx);
+        let rule_index = RuleIndex::build(&rules);
+        let mut relative_ctx = RelativeContext::default();
 
         let root_nodes = dom
             .root_nodes
@@ -125,9 +127,10 @@ impl StyleTree {
     /// Finds a `StyledNode` in the style tree by its `NodeId`. This function performs a depth-first search through the style tree
     /// to find the node with the specified `NodeId`. If the node is found, it returns a reference to the `StyledNode`; otherwise,
     /// it returns `None`.
-    pub fn find_node(&self, node_id: &NodeId) -> Option<&StyledNode> {
-        fn find_in_node<'node>(node: &'node StyledNode, node_id: &NodeId) -> Option<&'node StyledNode> {
-            if &node.node_id == node_id {
+    #[must_use]
+    pub fn find_node(&self, node_id: NodeId) -> Option<&StyledNode> {
+        fn find_in_node(node: &StyledNode, node_id: NodeId) -> Option<&StyledNode> {
+            if node.node_id == node_id {
                 return Some(node);
             }
             for child in &node.children {

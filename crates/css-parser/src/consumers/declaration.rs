@@ -62,18 +62,16 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
 
     let mut sub_parser = CssParser::new(Some(tokens.to_vec()));
 
-    let name = match sub_parser.consume() {
-        Some(token) => match token.kind {
-            CssTokenKind::Ident(ref ident) => ident.clone(),
-            _ => {
-                sub_parser.record_error(CssParsingError::InvalidDeclarationName(token.position.unwrap_or_default()));
-                return None;
-            }
-        },
-        _ => {
-            sub_parser.record_error(CssParsingError::EofInDeclaration(SourcePosition::default()));
+    let name = if let Some(token) = sub_parser.consume() {
+        if let CssTokenKind::Ident(ref ident) = token.kind {
+            ident.clone()
+        } else {
+            sub_parser.record_error(CssParsingError::InvalidDeclarationName(token.position.unwrap_or_default()));
             return None;
         }
+    } else {
+        sub_parser.record_error(CssParsingError::EofInDeclaration(SourcePosition::default()));
+        return None;
     };
 
     let property_id = Property::from(name);
@@ -100,7 +98,7 @@ fn consume_declaration_from_tokens(tokens: &[CssToken]) -> Option<Declaration> {
             .push(consume_component_value(&mut sub_parser));
     }
 
-    sub_parser.check_important(&mut declaration);
+    CssParser::check_important(&mut declaration);
 
     while matches!(
         declaration.value.last(),

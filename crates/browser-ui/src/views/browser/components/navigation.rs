@@ -99,7 +99,7 @@ impl ForwardButton {
 pub struct RefreshButton;
 
 impl RefreshButton {
-    pub fn render<'app>(window_id: Id, theme: &'app browser_config::Theme) -> Button<'app, Event> {
+    pub fn render(window_id: Id, theme: &browser_config::Theme) -> Button<'_, Event> {
         let refresh_icon = Resource::load_embedded(REFRESH_ICON);
 
         button(

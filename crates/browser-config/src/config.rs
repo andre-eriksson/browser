@@ -18,8 +18,7 @@ impl BrowserConfig {
         let preferences = args
             .theme
             .as_ref()
-            .map(|t| BrowserPreferences::new(t.clone()))
-            .unwrap_or_else(BrowserPreferences::load);
+            .map_or_else(BrowserPreferences::load, |t| BrowserPreferences::new(t.clone()));
 
         Self {
             args,
@@ -28,14 +27,17 @@ impl BrowserConfig {
         }
     }
 
+    #[must_use]
     pub const fn args(&self) -> &BrowserArgs {
         &self.args
     }
 
+    #[must_use]
     pub const fn headers(&self) -> &HeaderMap {
         &self.headers
     }
 
+    #[must_use]
     pub const fn preferences(&self) -> &BrowserPreferences {
         &self.preferences
     }

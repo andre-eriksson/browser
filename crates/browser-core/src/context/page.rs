@@ -28,6 +28,7 @@ pub struct Page {
 }
 
 impl Page {
+    #[must_use]
     pub const fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
         Self {
             document,
@@ -37,6 +38,7 @@ impl Page {
     }
 
     /// Creates a new blank page with default settings.
+    #[must_use]
     pub fn blank() -> Self {
         Self {
             document: DocumentRoot::new(),
@@ -46,6 +48,7 @@ impl Page {
     }
 
     /// Loads the page with the given title, document URL, document root, stylesheets, and policies.
+    #[must_use]
     pub fn load(mut self, document: DocumentRoot, images: Vec<String>, stylesheets: Vec<CSSStyleSheet>) -> Self {
         self.document = document;
         self.images = images;
@@ -53,14 +56,17 @@ impl Page {
         self
     }
 
+    #[must_use]
     pub const fn document(&self) -> &DocumentRoot {
         &self.document
     }
 
+    #[must_use]
     pub const fn stylesheets(&self) -> &Vec<CSSStyleSheet> {
         &self.stylesheets
     }
 
+    #[must_use]
     pub const fn images(&self) -> &Vec<String> {
         &self.images
     }

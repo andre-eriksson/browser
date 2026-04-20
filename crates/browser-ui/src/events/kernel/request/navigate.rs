@@ -32,16 +32,16 @@ pub fn navigate_to_url(application: &mut Application, window_id: Id, new_url: St
             if new_url.starts_with("http://") || new_url.starts_with("https://") {
                 new_url
             } else if local_regex.is_match(new_url.as_str()) {
-                format!("http://{}", new_url)
+                format!("http://{new_url}")
             } else {
-                format!("https://{}", new_url)
+                format!("https://{new_url}")
             }
         },
         |rel_url| {
             if rel_url.contains("://") || rel_url.starts_with("about:") {
                 rel_url
             } else {
-                format!("http://{}", rel_url)
+                format!("http://{rel_url}")
             }
         },
     );
@@ -51,7 +51,7 @@ pub fn navigate_to_url(application: &mut Application, window_id: Id, new_url: St
         .active_tab()
         .expect("There should always be an active tab in the browser")
         .id;
-    ctx.current_url = url.clone();
+    ctx.current_url.clone_from(&url);
 
     Task::perform(
         async move {

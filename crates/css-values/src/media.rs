@@ -101,7 +101,7 @@ pub enum Update {
     None,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RangeOperator {
     GreaterThan,
     LessThan,
@@ -113,7 +113,7 @@ pub enum RangeOperator {
 /// A media condition represents a single media feature and its value, such as (min-width: 600px)
 ///
 /// <https://drafts.csswg.org/mediaqueries/#media-descriptor-table>
-#[derive(Debug, Clone, PartialEq, Eq, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub enum MediaCondition {
     AnyHover,
@@ -140,6 +140,7 @@ pub enum MediaCondition {
 }
 
 impl MediaCondition {
+    #[must_use]
     pub const fn is_discrete_query(&self) -> bool {
         matches!(
             self,
@@ -157,6 +158,7 @@ impl MediaCondition {
         )
     }
 
+    #[must_use]
     pub const fn is_range_query(&self) -> bool {
         matches!(
             self,

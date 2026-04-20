@@ -49,18 +49,20 @@ pub fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
 
             match token.kind {
                 CssTokenKind::AtKeyword(name) => (name, pos),
-                _ => (String::new(), pos), // Should not happen
+                _ => {
+                    unreachable!("consume_at_rule should only be called when the current token is an at-keyword token")
+                }
             }
         }
-        None => (String::new(), SourcePosition::default()), // Should not happen
+        None => unreachable!("consume_at_rule should only be called when there is a current token"),
     };
 
     let mut at_rule = AtRule::new(name);
 
     #[allow(clippy::while_let_loop)]
     loop {
-        match css_parser.peek() {
-            Some(token) => match &token.kind {
+        if let Some(token) = css_parser.peek() {
+            match &token.kind {
                 CssTokenKind::Eof => {
                     css_parser.record_error(CssParsingError::EofInAtRule(pos));
                     break;
@@ -76,11 +78,10 @@ pub fn consume_at_rule(css_parser: &mut CssParser) -> AtRule {
                 _ => {
                     at_rule.prelude.push(consume_component_value(css_parser));
                 }
-            },
-            None => {
-                css_parser.record_error(CssParsingError::IncompleteAtRule(pos));
-                break;
             }
+        } else {
+            css_parser.record_error(CssParsingError::IncompleteAtRule(pos));
+            break;
         }
     }
 
@@ -94,8 +95,8 @@ fn consume_qualified_rule(css_parser: &mut CssParser) -> Option<QualifiedRule> {
     let mut rule = QualifiedRule::new();
 
     loop {
-        match css_parser.peek() {
-            Some(token) => match &token.kind {
+        if let Some(token) = css_parser.peek() {
+            match &token.kind {
                 CssTokenKind::Eof => {
                     let pos = token.position.unwrap_or_default();
                     css_parser.record_error(CssParsingError::EofInQualifiedRule(pos));
@@ -108,12 +109,11 @@ fn consume_qualified_rule(css_parser: &mut CssParser) -> Option<QualifiedRule> {
                 _ => {
                     rule.prelude.push(consume_component_value(css_parser));
                 }
-            },
-            None => {
-                // Parse error, return nothing
-                css_parser.record_error(CssParsingError::IncompleteQualifiedRule(SourcePosition::default()));
-                return None;
             }
+        } else {
+            // Parse error, return nothing
+            css_parser.record_error(CssParsingError::IncompleteQualifiedRule(SourcePosition::default()));
+            return None;
         }
     }
 }

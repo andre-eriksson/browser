@@ -12,7 +12,7 @@ pub enum ReferrerPolicy {
     NoReferrerWhenDowngrade,
 
     /// Send only the origin in the Referer header.
-    /// For example, a document at https://example.com/page.html will send the referrer https://example.com/.
+    /// For example, a document at <https://example.com/page.html> will send the referrer <https://example.com>/.
     Origin,
 
     /// When performing a same-origin request, send the origin, path, and query string.

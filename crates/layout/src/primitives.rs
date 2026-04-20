@@ -1,15 +1,17 @@
+use std::ops::Add;
+
 /// Rectangle representation for layout dimensions and positions
-#[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
+pub struct Rect<T = f64> {
+    pub x: T,
+    pub y: T,
+    pub width: T,
+    pub height: T,
 }
 
-impl Rect {
-    pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+impl<T: Add<Output = T> + PartialOrd + Copy> Rect<T> {
+    #[must_use]
+    pub const fn new(x: T, y: T, width: T, height: T) -> Self {
         Self {
             x,
             y,
@@ -18,7 +20,8 @@ impl Rect {
         }
     }
 
-    pub fn contains_point(&self, px: f32, py: f32) -> bool {
+    #[must_use]
+    pub fn contains_point(&self, px: T, py: T) -> bool {
         px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
     }
 }
@@ -26,14 +29,15 @@ impl Rect {
 /// Resolved edge values (border, margins, padding) in pixels
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SideOffset {
-    pub top: f32,
-    pub right: f32,
-    pub bottom: f32,
-    pub left: f32,
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+    pub left: f64,
 }
 
 impl SideOffset {
-    pub const fn all(value: f32) -> Self {
+    #[must_use]
+    pub const fn all(value: f64) -> Self {
         Self {
             top: value,
             right: value,
@@ -42,14 +46,17 @@ impl SideOffset {
         }
     }
 
-    pub fn horizontal(&self) -> f32 {
+    #[must_use]
+    pub fn horizontal(&self) -> f64 {
         self.left + self.right
     }
 
-    pub fn vertical(&self) -> f32 {
+    #[must_use]
+    pub fn vertical(&self) -> f64 {
         self.top + self.bottom
     }
 
+    #[must_use]
     pub const fn zero() -> Self {
         Self {
             top: 0.0,

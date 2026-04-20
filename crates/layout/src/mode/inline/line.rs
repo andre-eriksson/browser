@@ -14,16 +14,16 @@ use crate::{
 /// inline box decorations.
 pub struct LineBox<'node> {
     pub items: Vec<LayoutNode>,
-    pub width: f32,
-    pub max_ascent: f32,
-    pub max_descent: f32,
-    pub x: f32,
-    pub y: f32,
+    pub width: f64,
+    pub max_ascent: f64,
+    pub max_descent: f64,
+    pub x: f64,
+    pub y: f64,
     pub decorations: Vec<InlineDecoration<'node>>,
 }
 
-impl<'node> LineBox<'node> {
-    pub fn new(x: f32, y: f32) -> Self {
+impl LineBox<'_> {
+    pub fn new(x: f64, y: f64) -> Self {
         Self {
             items: Vec::with_capacity(8),
             width: 0.0,
@@ -36,12 +36,12 @@ impl<'node> LineBox<'node> {
     }
 
     /// Get the available width for this line, accounting for floats
-    pub fn available_width(&self, float_ctx: &FloatContext, container_width: f32) -> f32 {
+    pub fn available_width(&self, float_ctx: &FloatContext, container_width: f64) -> f64 {
         let (left_edge, right_edge) = float_ctx.available_width_at(self.y, container_width);
         (right_edge - left_edge).max(0.0)
     }
 
-    pub fn add(&mut self, mut node: LayoutNode, ascent: f32, descent: f32) {
+    pub fn add(&mut self, mut node: LayoutNode, ascent: f64, descent: f64) {
         let new_x = self.x + self.width + node.margin.left;
         let delta_x = new_x - node.dimensions.x;
         node.dimensions.x = new_x;
@@ -59,11 +59,11 @@ impl<'node> LineBox<'node> {
 
     /// Advance the line width by a fixed amount (e.g. for inline box
     /// padding/border contributions) without adding a layout node.
-    pub fn advance(&mut self, amount: f32) {
+    pub fn advance(&mut self, amount: f64) {
         self.width += amount;
     }
 
-    fn shift_descendants(children: &mut [LayoutNode], delta_x: f32, delta_y: f32) {
+    fn shift_descendants(children: &mut [LayoutNode], delta_x: f64, delta_y: f64) {
         for child in children.iter_mut() {
             child.dimensions.x += delta_x;
             child.dimensions.y += delta_y;
@@ -76,11 +76,11 @@ impl<'node> LineBox<'node> {
     pub fn finish(
         self,
         float_ctx: &FloatContext,
-        container_x: f32,
-        container_width: f32,
-        text_align: &TextAlign,
-        writing_mode: &WritingMode,
-    ) -> (Vec<LayoutNode>, f32) {
+        container_x: f64,
+        container_width: f64,
+        text_align: TextAlign,
+        writing_mode: WritingMode,
+    ) -> (Vec<LayoutNode>, f64) {
         let line_height = self.max_ascent + self.max_descent;
         let mut final_nodes = Vec::with_capacity(self.decorations.len() + self.items.len());
 
@@ -162,7 +162,7 @@ pub struct LineBoxBuilder<'node> {
 }
 
 impl<'node> LineBoxBuilder<'node> {
-    pub fn new(start_x: f32, start_y: f32) -> Self {
+    pub fn new(start_x: f64, start_y: f64) -> Self {
         Self {
             line_box: LineBox::new(start_x, start_y),
         }
@@ -218,7 +218,7 @@ impl<'node> LineBoxBuilder<'node> {
         ctx: &mut InlineLayoutContext<'node>,
         text_ctx: &TextContext,
         float_ctx: &FloatContext,
-        min_line_height: Option<f32>,
+        min_line_height: Option<f64>,
     ) {
         let mut continuing_boxes = std::mem::take(&mut ctx.inline_box_stack);
 
@@ -229,8 +229,8 @@ impl<'node> LineBoxBuilder<'node> {
             float_ctx,
             ctx.start_x,
             ctx.available_width,
-            &text_ctx.last_text_align,
-            &text_ctx.last_writing_mode,
+            text_ctx.last_text_align,
+            text_ctx.last_writing_mode,
         );
         ctx.nodes.extend(line_nodes);
         ctx.current_y += min_line_height.map_or(h, |min_h| h.max(min_h));
@@ -316,7 +316,7 @@ mod tests {
         let mut line = LineBox::new(0.0, 40.0);
         line.add(parent, 10.0, 0.0);
 
-        let (nodes, _) = line.finish(&FloatContext::new(), 10.0, 200.0, &TextAlign::Left, &WritingMode::HorizontalTb);
+        let (nodes, _) = line.finish(&FloatContext::new(), 10.0, 200.0, TextAlign::Left, WritingMode::HorizontalTb);
 
         let parent = &nodes[0];
         assert_eq!(parent.dimensions.x, 10.0);

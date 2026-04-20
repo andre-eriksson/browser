@@ -1,68 +1,60 @@
 use crate::HeadlessEngine;
 
-pub fn cmd_title(engine: &HeadlessEngine) -> Result<(), String> {
+pub fn cmd_title(engine: &HeadlessEngine) {
     println!(
         "{}",
         engine
             .metadata
             .as_ref()
-            .map(|m| m.title.trim())
-            .unwrap_or("Untitled")
+            .map_or("Untitled", |m| m.title.trim())
     );
-
-    Ok(())
 }
 
-pub fn cmd_url(engine: &HeadlessEngine) -> Result<(), String> {
+pub fn cmd_url(engine: &HeadlessEngine) {
     if let Some(metadata) = &engine.metadata {
         println!("{}", metadata.url);
     } else {
         println!("about:blank");
     }
-    Ok(())
 }
 
-pub fn cmd_headers(engine: &HeadlessEngine) -> Result<(), String> {
-    for header in engine.browser.headers().iter() {
+pub fn cmd_headers(engine: &HeadlessEngine) {
+    for header in engine.browser.headers() {
         println!("{}: {}", header.0, header.1.to_str().unwrap_or(""));
     }
-    Ok(())
 }
 
-pub fn cmd_body(engine: &HeadlessEngine) -> Result<(), String> {
+pub fn cmd_body(engine: &HeadlessEngine) {
     println!(
         "{}",
         engine
             .page
             .as_ref()
-            .map(|p| p.document().to_string())
-            .unwrap_or_else(|| "No page loaded".to_string())
+            .map_or_else(|| "No page loaded".to_string(), |p| p.document().to_string())
     );
-    Ok(())
 }
 
-pub fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) -> Result<(), String> {
+pub fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) {
     let jar = engine.browser.cookie_jar().lock().unwrap();
 
     match domain {
         Some(domain) => {
             for cookie in jar.get_cookies_for_domain(domain) {
-                println!("{}", cookie);
+                println!("{cookie}");
             }
         }
         None => {
             for cookie in jar.cookies() {
-                println!("{}", cookie);
+                println!("{cookie}");
             }
         }
     }
-    Ok(())
 }
 
-pub fn cmd_info(engine: &HeadlessEngine) -> Result<(), String> {
+pub fn cmd_info(engine: &HeadlessEngine) {
     let Some(metadata) = &engine.metadata else {
         println!("No metadata available");
-        return Ok(());
+        return;
     };
 
     println!("Title: {}", metadata.title);
@@ -75,5 +67,4 @@ pub fn cmd_info(engine: &HeadlessEngine) -> Result<(), String> {
     } else {
         println!("Layout: not computed");
     }
-    Ok(())
 }

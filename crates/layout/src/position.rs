@@ -39,7 +39,7 @@ impl PositionContext {
 
     /// Offsets the Y coordinate of all positioned rects added since `start_count`.
     /// This is used to apply margin offsets after layout completes for a subtree.
-    pub fn offset_positions_since(&mut self, start_count: usize, y_offset: f32) {
+    pub fn offset_positions_since(&mut self, start_count: usize, y_offset: f64) {
         for rect in self.positioned.iter_mut().skip(start_count) {
             rect.y += y_offset;
         }

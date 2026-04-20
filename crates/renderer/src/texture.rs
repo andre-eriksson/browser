@@ -1,6 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use io::{Resource, embeded::TEXTURE_SHADER};
 use layout::{Color4f, Rect};
+use tracing::debug;
 use wgpu::RenderPipeline;
 
 use crate::{globals::Globals2D, vertex::VertexBuffer};
@@ -45,8 +46,9 @@ impl TexturePipeline {
         (globals, shader_module)
     }
 
-    /// Create a new TexturePipeline for rendering images.
+    /// Create a new `TexturePipeline` for rendering images.
     /// The `texture_bind_group_layout` is used for per-image texture bind groups (group 1).
+    #[must_use]
     pub fn new_image(
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
@@ -116,7 +118,8 @@ impl TexturePipeline {
         }
     }
 
-    /// Create a new TexturePipeline for rendering text
+    /// Create a new `TexturePipeline` for rendering text
+    #[must_use]
     pub fn new_text(
         device: &wgpu::Device,
         format: wgpu::TextureFormat,
@@ -197,7 +200,7 @@ impl TexturePipeline {
         }
     }
 
-    pub fn push_quad(&mut self, rect: Rect, uv_rect: Rect, color: Color4f) {
+    pub fn push_quad(&mut self, rect: Rect<f32>, uv_rect: Rect<f32>, color: Color4f) {
         if self.vertex_count as usize + 6 > self.max_vertices {
             return;
         }
@@ -212,7 +215,7 @@ impl TexturePipeline {
         let u1 = uv_rect.x + uv_rect.width;
         let v1 = uv_rect.y + uv_rect.height;
 
-        let color = color.into();
+        let color = Color4f::from(color).into();
 
         let vertices = [
             TextureVertex {
@@ -263,7 +266,14 @@ impl TexturePipeline {
 
         let vertex_data = bytemuck::cast_slice(&self.vertices);
         queue.write_buffer(&self.vertex_buffer, 0, vertex_data);
-        self.vertex_count = self.vertices.len() as u32;
+        let count = if let Ok(len) = u32::try_from(self.vertices.len()) {
+            len
+        } else {
+            debug!("RectPipeline: vertex count exceeds u32::MAX, truncating to maximum");
+            u32::MAX
+        };
+
+        self.vertex_count = count;
     }
 
     pub fn clear(&mut self) {
@@ -271,22 +281,27 @@ impl TexturePipeline {
         self.vertex_count = 0;
     }
 
+    #[must_use]
     pub const fn has_content(&self) -> bool {
         self.vertex_count > 0
     }
 
+    #[must_use]
     pub const fn vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }
 
+    #[must_use]
     pub const fn pipeline(&self) -> &wgpu::RenderPipeline {
         &self.pipeline
     }
 
+    #[must_use]
     pub const fn bind_group(&self) -> &wgpu::BindGroup {
         &self.globals.bind_group
     }
 
+    #[must_use]
     pub const fn vertex_count(&self) -> u32 {
         self.vertex_count
     }

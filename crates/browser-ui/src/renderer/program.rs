@@ -85,12 +85,10 @@ impl<'html> HtmlRenderer<'html> {
         let x = cursor.x + self.scroll_offset.x - bounds.x;
         let y = cursor.y + self.scroll_offset.y - bounds.y;
 
-        let nodes = self.layout_tree.resolve(x, y);
+        let nodes = self.layout_tree.resolve(f64::from(x), f64::from(y));
 
         for node in nodes {
-            let dom_node = if let Some(dom_node) = self.dom_tree.get_node(&node.node_id) {
-                dom_node
-            } else {
+            let Some(dom_node) = self.dom_tree.get_node(&node.node_id) else {
                 continue;
             };
 
@@ -128,7 +126,7 @@ impl<'html> HtmlRenderer<'html> {
         let x = cursor.x + self.scroll_offset.x - bounds.x;
         let y = cursor.y + self.scroll_offset.y - bounds.y;
 
-        let nodes = self.layout_tree.resolve(x, y);
+        let nodes = self.layout_tree.resolve(f64::from(x), f64::from(y));
 
         for node in nodes {
             match node.cursor {
@@ -138,7 +136,7 @@ impl<'html> HtmlRenderer<'html> {
                 CssCursor::AllScroll => {
                     return Some(Interaction::AllScroll);
                 }
-                CssCursor::Auto => continue,
+                CssCursor::Auto => {}
                 CssCursor::Cell => {
                     return Some(Interaction::Cell);
                 }
@@ -154,13 +152,10 @@ impl<'html> HtmlRenderer<'html> {
                 CssCursor::Crosshair => {
                     return Some(Interaction::Crosshair);
                 }
-                CssCursor::Default => {
+                CssCursor::Default | CssCursor::None => {
                     return Some(Interaction::None);
                 }
-                CssCursor::EResize => {
-                    return Some(Interaction::ResizingHorizontally);
-                }
-                CssCursor::EwResize => {
+                CssCursor::EResize | CssCursor::EwResize | CssCursor::WResize => {
                     return Some(Interaction::ResizingHorizontally);
                 }
                 CssCursor::Grab => {
@@ -175,32 +170,20 @@ impl<'html> HtmlRenderer<'html> {
                 CssCursor::Move => {
                     return Some(Interaction::Move);
                 }
-                CssCursor::NResize => {
+                CssCursor::NResize | CssCursor::NsResize | CssCursor::SResize => {
                     return Some(Interaction::ResizingVertically);
                 }
-                CssCursor::NeResize => {
+                CssCursor::NeResize | CssCursor::NwseResize | CssCursor::SeResize => {
                     return Some(Interaction::ResizingDiagonallyUp);
                 }
-                CssCursor::NeswResize => {
+                CssCursor::NeswResize | CssCursor::NwResize | CssCursor::SwResize => {
                     return Some(Interaction::ResizingDiagonallyDown);
                 }
                 CssCursor::NoDrop => {
                     return Some(Interaction::NoDrop);
                 }
-                CssCursor::None => {
-                    return Some(Interaction::None);
-                }
                 CssCursor::NotAllowed => {
                     return Some(Interaction::NotAllowed);
-                }
-                CssCursor::NsResize => {
-                    return Some(Interaction::ResizingVertically);
-                }
-                CssCursor::NwResize => {
-                    return Some(Interaction::ResizingDiagonallyDown);
-                }
-                CssCursor::NwseResize => {
-                    return Some(Interaction::ResizingDiagonallyUp);
                 }
                 CssCursor::Pointer => {
                     return Some(Interaction::Pointer);
@@ -211,23 +194,8 @@ impl<'html> HtmlRenderer<'html> {
                 CssCursor::RowResize => {
                     return Some(Interaction::ResizingRow);
                 }
-                CssCursor::SResize => {
-                    return Some(Interaction::ResizingVertically);
-                }
-                CssCursor::SeResize => {
-                    return Some(Interaction::ResizingDiagonallyUp);
-                }
-                CssCursor::SwResize => {
-                    return Some(Interaction::ResizingDiagonallyDown);
-                }
-                CssCursor::Text => {
+                CssCursor::Text | CssCursor::VerticalText => {
                     return Some(Interaction::Text);
-                }
-                CssCursor::VerticalText => {
-                    return Some(Interaction::Text);
-                }
-                CssCursor::WResize => {
-                    return Some(Interaction::ResizingHorizontally);
                 }
                 CssCursor::Wait => {
                     return Some(Interaction::Wait);
@@ -245,7 +213,7 @@ impl<'html> HtmlRenderer<'html> {
     }
 }
 
-impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
+impl Program<Event> for HtmlRenderer<'_> {
     type Primitive = HtmlPrimitive;
     type State = HtmlState;
 
@@ -299,7 +267,7 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
                     mouse::ScrollDelta::Pixels { y, .. } => -iced::Vector::new(y, 0.0),
                 };
 
-                let max_scroll_x = (self.layout_tree.content_width - bounds.width).max(0.0);
+                let max_scroll_x = (self.layout_tree.content_width as f32 - bounds.width).max(0.0);
                 let new_x = (self.scroll_offset.x + delta.x).clamp(0.0, max_scroll_x);
 
                 if (new_x - self.scroll_offset.x).abs() > f32::EPSILON {
@@ -320,7 +288,7 @@ impl<'renderer> Program<Event> for HtmlRenderer<'renderer> {
                     mouse::ScrollDelta::Pixels { y, .. } => -iced::Vector::new(0.0, y),
                 };
 
-                let max_scroll_y = (self.layout_tree.content_height - bounds.height).max(0.0);
+                let max_scroll_y = (self.layout_tree.content_height as f32 - bounds.height).max(0.0);
                 let new_y = (self.scroll_offset.y + delta.y).clamp(0.0, max_scroll_y);
 
                 if (new_y - self.scroll_offset.y).abs() > f32::EPSILON {

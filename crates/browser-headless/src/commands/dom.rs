@@ -18,7 +18,7 @@ pub fn cmd_dom(engine: &HeadlessEngine, selector: &str) -> Result<(), String> {
     let selector_lists = generate_selector_list(&component_values);
 
     if selector_lists.is_empty() {
-        return Err(format!("Invalid selector: {}", selector));
+        return Err(format!("Invalid selector: {selector}"));
     }
 
     let mut matches_found: Vec<(NodeId, String)> = Vec::new();
@@ -36,7 +36,7 @@ pub fn cmd_dom(engine: &HeadlessEngine, selector: &str) -> Result<(), String> {
     }
 
     if matches_found.is_empty() {
-        println!("No elements match selector: {}", selector);
+        println!("No elements match selector: {selector}");
     } else {
         println!("Found {} matching element(s):", matches_found.len());
         for (node_id, description) in &matches_found {
@@ -49,10 +49,7 @@ pub fn cmd_dom(engine: &HeadlessEngine, selector: &str) -> Result<(), String> {
 
 fn describe_element(element: &html_dom::Element, node_id: NodeId) -> String {
     let tag = element.tag_name();
-    let id_str = element
-        .id()
-        .map(|id| format!("#{}", id))
-        .unwrap_or_default();
+    let id_str = element.id().map(|id| format!("#{id}")).unwrap_or_default();
     let classes: Vec<_> = element.classes().take(3).collect();
     let class_str = if classes.is_empty() {
         String::new()

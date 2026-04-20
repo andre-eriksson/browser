@@ -59,6 +59,7 @@ pub struct GpuImageCache {
 impl GpuImageCache {
     /// Creates a new GPU image cache, including the shared bind group layout
     /// and sampler that will be used for all image textures.
+    #[must_use]
     pub fn new(device: &wgpu::Device) -> Self {
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Image Texture Bind Group Layout"),
@@ -102,6 +103,7 @@ impl GpuImageCache {
 
     /// Returns the bind group layout used for image textures.
     /// This is needed when creating the image render pipeline.
+    #[must_use]
     pub const fn bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.bind_group_layout
     }
@@ -120,7 +122,7 @@ impl GpuImageCache {
     ) -> &wgpu::BindGroup {
         if !self.cache.contains_key(src) {
             let texture = device.create_texture(&wgpu::TextureDescriptor {
-                label: Some(&format!("Image Texture: {}", src)),
+                label: Some(&format!("Image Texture: {src}")),
                 size: wgpu::Extent3d {
                     width: data.width,
                     height: data.height,
@@ -157,7 +159,7 @@ impl GpuImageCache {
             let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some(&format!("Image Bind Group: {}", src)),
+                label: Some(&format!("Image Bind Group: {src}")),
                 layout: &self.bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -178,11 +180,13 @@ impl GpuImageCache {
     }
 
     /// Returns the bind group for a cached image, if it exists.
+    #[must_use]
     pub fn get_bind_group(&self, src: &str) -> Option<&wgpu::BindGroup> {
         self.cache.get(src).map(|img| &img.bind_group)
     }
 
     /// Returns true if the given image URL has a GPU texture cached.
+    #[must_use]
     pub fn contains(&self, src: &str) -> bool {
         self.cache.contains_key(src)
     }

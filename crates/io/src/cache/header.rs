@@ -1,12 +1,14 @@
 //! Defines the `CacheHeader` struct which encapsulates metadata for cached HTTP responses,
-//! including content type, ETag, last modified time, expiration time, and cache control
+//! including content type, `ETag`, last modified time, expiration time, and cache control
 //! directives. It also provides methods to determine if a cached entry is still fresh and
 //! to generate revalidation headers for conditional requests.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use httpdate::fmt_http_date;
-use network::{CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
+use network::{
+    CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, HeaderValue, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -45,7 +47,7 @@ impl From<&str> for CacheControlResponse {
             immutable: false,
         };
 
-        for directive in value.split(',').map(|s| s.trim()) {
+        for directive in value.split(',').map(str::trim) {
             if directive.eq_ignore_ascii_case("no-cache") {
                 response.no_cache = true;
             } else if directive.eq_ignore_ascii_case("must-revalidate") {
@@ -91,7 +93,7 @@ pub struct CacheHeader {
     pub content_type: String,
 
     // HTTP cache metadata
-    /// Optional ETag value from the HTTP response, used for conditional requests during revalidation.
+    /// Optional `ETag` value from the HTTP response, used for conditional requests during revalidation.
     pub etag: Option<String>,
 
     /// Optional last modified time of the cached content, represented as a UNIX timestamp in seconds.
@@ -99,7 +101,7 @@ pub struct CacheHeader {
 
     /// Optional expiration time of the cached content, represented as a UNIX timestamp in seconds.
     /// If `None`, expiration is determined by other cache control directives or heuristics.
-    pub expires_at: Option<u64>,
+    pub expires_at: Option<Vec<u8>>,
 
     /// Optional max-age directive from the `Cache-Control` header, representing the maximum age of the cached content in seconds.
     pub max_age_seconds: Option<u32>,
@@ -154,7 +156,7 @@ impl CacheHeader {
         let etag = headers
             .get(ETAG)
             .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_string());
+            .map(std::string::ToString::to_string);
 
         let last_modified = headers
             .get(LAST_MODIFIED)
@@ -164,15 +166,14 @@ impl CacheHeader {
 
         let expires_at = headers
             .get(EXPIRES)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| httpdate::parse_http_date(s).ok())
-            .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
+            .map(HeaderValue::as_bytes)
+            .map(<[u8]>::to_vec);
 
         let mut hasher = Sha256::new();
         hasher.update(data);
         let content_hash = hasher.finalize().into();
 
-        let content_size = data.len() as u32;
+        let content_size = u32::try_from(data.len()).unwrap_or(u32::MAX);
 
         Self {
             url_hash,
@@ -220,12 +221,20 @@ impl CacheHeader {
             .unwrap_or_default()
             .as_secs();
 
-        if let Some(expires_at) = self.expires_at {
-            return now < expires_at;
+        if let Some(expires_at) = &self.expires_at {
+            return now
+                < SystemTime::UNIX_EPOCH
+                    .checked_add(Duration::from_secs(u64::from_be_bytes(
+                        expires_at.as_slice().try_into().unwrap_or_default(),
+                    )))
+                    .unwrap_or(SystemTime::UNIX_EPOCH)
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
         }
 
         if let Some(max_age) = self.max_age_seconds {
-            return now < self.fetched_at + max_age as u64;
+            return now < self.fetched_at + u64::from(max_age);
         }
 
         if let Some(last_modified) = self.last_modified {
@@ -237,7 +246,7 @@ impl CacheHeader {
     }
 
     /// Generates the necessary headers for revalidating the cached entry with the origin server. This includes:
-    /// - `If-None-Match` header with the ETag value if it is present, allowing the server to respond with a
+    /// - `If-None-Match` header with the `ETag` value if it is present, allowing the server to respond with a
     ///   304 Not Modified if the content has not changed.
     /// - `If-Modified-Since` header with the last modified time if it is present, allowing the server to
     ///   respond with a 304 Not Modified if the content has not changed since that time.

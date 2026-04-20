@@ -1,6 +1,7 @@
 //! Large file handling for the cache system.
 
 use std::{
+    fmt::Write as FmtWrite,
     fs::{self, OpenOptions},
     io::{BufWriter, Write},
 };
@@ -30,11 +31,10 @@ impl LargeFile {
     /// Writes a large cache entry to the filesystem, creating a directory structure based on the SHA-256 hash of the
     /// entry's URL. It stores the cache header metadata in a separate file and the actual content in another file.
     /// The method returns the size of the content written or an error if the operation fails.
-    pub fn write(sha: [u8; 32], data: &[u8], header: &CacheHeader) -> Result<u32, CacheError> {
+    pub fn write(sha: [u8; 32], data: &[u8], header: &CacheHeader) -> Result<usize, CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
-        let cache_path = match get_cache_path() {
-            Some(path) => path,
-            None => return Err(CacheError::CacheDirectoryNotFound),
+        let Some(cache_path) = get_cache_path() else {
+            return Err(CacheError::CacheDirectoryNotFound);
         };
 
         let path = cache_path
@@ -72,7 +72,7 @@ impl LargeFile {
         content_writer.write_all(data).map_err(CacheError::Io)?;
         content_writer.flush().map_err(CacheError::Io)?;
 
-        Ok(data.len() as u32)
+        Ok(data.len())
     }
 
     /// Reads a large cache entry from the filesystem based on its SHA-256 hash. It retrieves both the cache header metadata
@@ -81,9 +81,8 @@ impl LargeFile {
     pub fn read(sha: [u8; 32]) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
 
-        let cache_path = match get_cache_path() {
-            Some(path) => path,
-            None => return Err(CacheError::CacheDirectoryNotFound),
+        let Some(cache_path) = get_cache_path() else {
+            return Err(CacheError::CacheDirectoryNotFound);
         };
 
         let path = cache_path
@@ -130,6 +129,9 @@ impl LargeFile {
     /// in the filesystem. This method iterates over each byte in the hash and formats it as a two-digit hexadecimal string,
     /// concatenating them to produce the final string representation of the hash.
     fn hash_to_hex(hash: &[u8; 32]) -> String {
-        hash.iter().map(|b| format!("{:02x}", b)).collect()
+        hash.iter().fold(String::with_capacity(64), |mut s, b| {
+            write!(s, "{b:02x}").unwrap();
+            s
+        })
     }
 }

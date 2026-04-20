@@ -11,11 +11,8 @@ pub fn parse_devtools_html(document: &DocumentRoot) -> Result<DocumentRoot, Html
     loop {
         parser.step()?;
 
-        match parser.get_state() {
-            ParserState::Completed => {
-                break;
-            }
-            _ => continue,
+        if let ParserState::Completed = parser.get_state() {
+            break;
         }
     }
 

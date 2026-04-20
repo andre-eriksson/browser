@@ -78,11 +78,7 @@ impl Gradient {
         let is_ws =
             |cv: &ComponentValue| matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace));
         let start = cvs.iter().position(|cv| !is_ws(cv)).unwrap_or(cvs.len());
-        let end = cvs
-            .iter()
-            .rposition(|cv| !is_ws(cv))
-            .map(|i| i + 1)
-            .unwrap_or(0);
+        let end = cvs.iter().rposition(|cv| !is_ws(cv)).map_or(0, |i| i + 1);
         if start >= end { &[] } else { &cvs[start..end] }
     }
 
@@ -102,11 +98,9 @@ impl Gradient {
                     let len_unit = unit
                         .parse::<LengthUnit>()
                         .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                    Ok(LengthPercentage::Length(Length::new(value.to_f64() as f32, len_unit)))
+                    Ok(LengthPercentage::Length(Length::new(value.to_f64(), len_unit)))
                 }
-                CssTokenKind::Percentage(value) => {
-                    Ok(LengthPercentage::Percentage(Percentage::new(value.to_f64() as f32)))
-                }
+                CssTokenKind::Percentage(value) => Ok(LengthPercentage::Percentage(Percentage::new(value.to_f64()))),
                 CssTokenKind::Number(value) if value.to_f64() == 0.0 => {
                     Ok(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px)))
                 }
@@ -163,7 +157,7 @@ impl Gradient {
             return Ok(ColorInterpolationMethod::Polar(polar, hue_method));
         }
 
-        Ok(ColorInterpolationMethod::Custom(first.to_string()))
+        Ok(ColorInterpolationMethod::Custom(first.clone()))
     }
 
     /// Reassemble a set of already-split segments back into a flat
@@ -225,7 +219,7 @@ impl Gradient {
                     Ok(AnglePercentageZero::from(AnglePercentage::Angle(angle)))
                 }
                 CssTokenKind::Percentage(value) => {
-                    let pct = Percentage::new(value.to_f64() as f32);
+                    let pct = Percentage::new(value.to_f64());
                     Ok(AnglePercentageZero::from(AnglePercentage::Percentage(pct)))
                 }
                 _ => Err(CssValueError::InvalidToken(token.kind.clone())),
@@ -247,11 +241,10 @@ impl Gradient {
         match segment.first()? {
             ComponentValue::Function(_) => Some(1),
             ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Ident(_) => Some(1),
-                CssTokenKind::Hash { .. } => Some(1),
+                CssTokenKind::Ident(_) | CssTokenKind::Hash { .. } => Some(1),
                 _ => None,
             },
-            _ => None,
+            ComponentValue::SimpleBlock(_) => None,
         }
     }
 
@@ -291,7 +284,7 @@ impl CSSParsable for Gradient {
 pub enum Image {
     None,
     Url(String),
-    Gradient(Gradient),
+    Gradient(Box<Gradient>),
     // TODO: Element()
     // TODO: Image()
     // TODO: CrossFade()
@@ -319,7 +312,7 @@ impl TryFrom<&Function> for Image {
                     Err(format!("Unknown image function: '{}'", value.name))
                 }
             },
-            |gradient| Ok(Self::Gradient(gradient)),
+            |gradient| Ok(Self::Gradient(Box::new(gradient))),
         )
     }
 }
@@ -339,7 +332,7 @@ impl CSSParsable for Image {
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 ComponentValue::Function(func) => Self::try_from(func).map_err(CssValueError::InvalidValue),
-                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+                cvs @ ComponentValue::SimpleBlock(_) => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {
             Err(CssValueError::UnexpectedEndOfInput)

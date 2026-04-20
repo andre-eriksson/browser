@@ -26,8 +26,7 @@ impl TabButton {
         let tab_title = text(
             tab.page_ctx
                 .as_ref()
-                .map(|ctx| ctx.metadata.title.trim())
-                .unwrap_or("about:blank"),
+                .map_or("about:blank", |ctx| ctx.metadata.title.trim()),
         )
         .width(Length::Shrink)
         .height(Length::Shrink);
@@ -120,7 +119,7 @@ impl TabButton {
 pub struct NewTabButton;
 
 impl NewTabButton {
-    pub fn render<'app>(window_id: Id, theme: &'app browser_config::Theme) -> Button<'app, Event> {
+    pub fn render(window_id: Id, theme: &browser_config::Theme) -> Button<'_, Event> {
         let plus_icon = Resource::load_embedded(PLUS_ICON);
 
         button(

@@ -28,7 +28,7 @@ use crate::cache::{
 const MAGIC: [u8; 4] = *b"BLKC";
 /// The current version of the block file format. Increment this if any incompatible changes are made to the
 /// structure of block files, so that readers can detect unsupported formats and avoid misinterpreting data.
-/// This is separate from the header version in CacheHeader, which tracks the format of individual entries
+/// This is separate from the header version in `CacheHeader`, which tracks the format of individual entries
 /// rather than the overall block file structure.
 const VERSION: u16 = 1;
 /// Directory within the cache path where block files are stored. Each block file contains multiple cache
@@ -42,15 +42,22 @@ const BLOCK_DIR: &str = "tests/resources/blocks";
 /// Entries larger than this size will be stored as large files, while smaller entries will be
 /// stored in block files.
 pub const MAX_BLOCK_SIZE: u64 = 20 * 1024 * 1024;
-/// Minimum file fullness ratio before compaction is considered (80%).
-const COMPACTION_FULLNESS_THRESHOLD: f64 = 0.80;
+/// Minimum block file size before compaction is considered (16MB).
+const COMPACTION_THRESHOLD: u64 = 16 * 1024 * 1024;
 /// Minimum dead-byte ratio within entries to trigger compaction (50%).
-const COMPACTION_DEAD_THRESHOLD: f64 = 0.50;
+const COMPACTION_DEAD_THRESHOLD: usize = 2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeader {
     pub magic: [u8; 4],
     pub version: u16,
+}
+
+struct ScannedEntry {
+    url_hash: [u8; 32],
+    header_bytes: Vec<u8>,
+    content_bytes: Vec<u8>,
+    is_dead: bool,
 }
 
 pub struct BlockFile;
@@ -61,12 +68,10 @@ impl BlockFile {
     /// and raw content bytes.
     ///
     /// Returns `(file_id, actual_offset, header_size, content_size)` — all values
-    /// are derived from the write itself, so the caller can record them in the index
-    /// without any speculative prediction.
+    /// are derived from the write itself.
     pub fn write(value: &[u8], header: &mut CacheHeader) -> Result<(u32, u32, u32, u32), CacheError> {
-        let cache_path = match get_cache_path() {
-            Some(path) => path,
-            None => return Err(CacheError::CacheDirectoryNotFound),
+        let Some(cache_path) = get_cache_path() else {
+            return Err(CacheError::CacheDirectoryNotFound);
         };
 
         let block_dir = cache_path.join(BLOCK_DIR);
@@ -87,22 +92,26 @@ impl BlockFile {
             .open(&path)
             .map_err(CacheError::Io)?;
 
-        let file_len = file.metadata().map_err(CacheError::Io)?.len();
+        let file_len = usize::try_from(file.metadata().map_err(CacheError::Io)?.len()).unwrap_or(usize::MAX);
 
         if file_len == 0 {
             file.write_all(&block_header_bytes)?;
-        } else if file_len < block_header_bytes.len() as u64 {
+        } else if file_len < block_header_bytes.len() {
             return Err(CacheError::CorruptedBlock);
         }
 
-        header.content_size = value.len() as u32;
+        header.content_size =
+            u32::try_from(value.len()).map_err(|_| CacheError::Write("content size exceeds u32".to_string()))?;
 
         let header_bytes = postcard::to_stdvec(&header).map_err(CacheError::Serialization)?;
 
-        let header_size = header_bytes.len() as u32;
-        let content_size = value.len() as u32;
+        let header_size =
+            u32::try_from(header_bytes.len()).map_err(|_| CacheError::Write("header size exceeds u32".to_string()))?;
+        let content_size =
+            u32::try_from(value.len()).map_err(|_| CacheError::Write("content size exceeds u32".to_string()))?;
 
-        let actual_offset = file.metadata().map_err(CacheError::Io)?.len() as u32;
+        let actual_offset = u32::try_from(file.metadata().map_err(CacheError::Io)?.len())
+            .map_err(|_| CacheError::Write("file size exceeds u32".to_string()))?;
 
         file.write_all(&header_bytes)?;
         file.write_all(value)?;
@@ -123,9 +132,8 @@ impl BlockFile {
         header_size: u32,
         content_size: u32,
     ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
-        let cache_path = match get_cache_path() {
-            Some(path) => path,
-            None => return Err(CacheError::CacheDirectoryNotFound),
+        let Some(cache_path) = get_cache_path() else {
+            return Err(CacheError::CacheDirectoryNotFound);
         };
 
         let data_path = cache_path
@@ -181,9 +189,8 @@ impl BlockFile {
     /// to `true`, and then writes the updated header back to the same location in the file. If any step fails
     /// (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
     pub fn delete(block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
-        let cache_path = match get_cache_path() {
-            Some(path) => path,
-            None => return Err(CacheError::CacheDirectoryNotFound),
+        let Some(cache_path) = get_cache_path() else {
+            return Err(CacheError::CacheDirectoryNotFound);
         };
 
         let data_path = cache_path
@@ -191,7 +198,7 @@ impl BlockFile {
             .join(format!("{}.bin", block_id.saturating_sub(1)));
 
         let mut file = OpenOptions::new().read(true).write(true).open(&data_path)?;
-        file.seek(SeekFrom::Start(offset as u64))?;
+        file.seek(SeekFrom::Start(u64::from(offset)))?;
 
         let mut header_buf = vec![0u8; header_size as usize];
         file.read_exact(&mut header_buf)?;
@@ -200,12 +207,13 @@ impl BlockFile {
         header.dead = true;
 
         let header_bytes = postcard::to_stdvec(&header).map_err(CacheError::Serialization)?;
+        let loaded_header_size = u32::try_from(header_bytes.len()).map_err(|_| CacheError::CorruptedHeader)?;
 
-        if header_bytes.len() as u32 != header_size {
+        if loaded_header_size != header_size {
             return Err(CacheError::Write("header size mismatch".to_string()));
         }
 
-        file.seek(SeekFrom::Start(offset as u64))?;
+        file.seek(SeekFrom::Start(u64::from(offset)))?;
         file.write_all(&header_bytes)?;
 
         Ok(())
@@ -223,9 +231,8 @@ impl BlockFile {
     // NOTE: Will be used when a scheduler is implemented to run compaction in
     //       the background every N hours or when certain thresholds are met.
     pub fn compact() -> Result<(), CacheError> {
-        let cache_path = match get_cache_path() {
-            Some(path) => path,
-            None => return Err(CacheError::CacheDirectoryNotFound),
+        let Some(cache_path) = get_cache_path() else {
+            return Err(CacheError::CacheDirectoryNotFound);
         };
 
         let block_dir = cache_path.join(BLOCK_DIR);
@@ -251,7 +258,7 @@ impl BlockFile {
             let metadata = fs::metadata(path)?;
             let file_size = metadata.len();
 
-            if (file_size as f64) < (MAX_BLOCK_SIZE as f64 * COMPACTION_FULLNESS_THRESHOLD) {
+            if file_size < COMPACTION_THRESHOLD {
                 continue;
             }
 
@@ -264,18 +271,9 @@ impl BlockFile {
                 continue;
             }
 
-            let block_header_size = data.len() - remaining.len();
-
-            struct ScannedEntry {
-                url_hash: [u8; 32],
-                header_bytes: Vec<u8>,
-                content_bytes: Vec<u8>,
-                is_dead: bool,
-            }
-
             let mut entries: Vec<ScannedEntry> = Vec::new();
-            let mut total_entry_bytes: u64 = 0;
-            let mut dead_entry_bytes: u64 = 0;
+            let mut total_entry_bytes = 0;
+            let mut dead_entry_bytes = 0;
             let mut cursor: &[u8] = remaining;
 
             while !cursor.is_empty() {
@@ -291,7 +289,7 @@ impl BlockFile {
                     break;
                 }
 
-                let entry_size = (header_size + content_size) as u64;
+                let entry_size = header_size + content_size;
                 total_entry_bytes += entry_size;
 
                 if header.dead {
@@ -312,41 +310,36 @@ impl BlockFile {
                 continue;
             }
 
-            let dead_ratio = dead_entry_bytes as f64 / total_entry_bytes as f64;
-            if dead_ratio < COMPACTION_DEAD_THRESHOLD {
+            if total_entry_bytes.div_ceil(dead_entry_bytes) < COMPACTION_DEAD_THRESHOLD {
                 continue;
             }
 
             let temp_path = path.with_extension("tmp");
 
-            {
-                let mut new_file = File::create(&temp_path).map_err(CacheError::Io)?;
+            let mut block_header_size =
+                u32::try_from(data.len() - remaining.len()).map_err(|_| CacheError::CorruptedBlock)?;
 
-                new_file.write_all(&data[..block_header_size])?;
+            let mut new_file = File::create(&temp_path).map_err(CacheError::Io)?;
 
-                let mut new_offset = block_header_size as u32;
+            new_file.write_all(&data[..block_header_size as usize])?;
 
-                for entry in &entries {
-                    if entry.is_dead {
-                        let _ = IndexTable::delete_by_key(&conn, &entry.url_hash);
-                        continue;
-                    }
-
-                    new_file.write_all(&entry.header_bytes)?;
-                    new_file.write_all(&entry.content_bytes)?;
-
-                    let _ = IndexTable::update_block_offset(
-                        &conn,
-                        &entry.url_hash,
-                        new_offset,
-                        entry.header_bytes.len() as u32,
-                    );
-
-                    new_offset += entry.header_bytes.len() as u32 + entry.content_bytes.len() as u32;
+            for entry in &entries {
+                if entry.is_dead {
+                    let _ = IndexTable::delete_by_key(&conn, &entry.url_hash);
+                    continue;
                 }
 
-                new_file.flush()?;
+                new_file.write_all(&entry.header_bytes)?;
+                new_file.write_all(&entry.content_bytes)?;
+
+                let header_size = u32::try_from(entry.header_bytes.len()).unwrap_or(u32::MAX);
+
+                let _ = IndexTable::update_block_offset(&conn, &entry.url_hash, block_header_size, header_size);
+
+                block_header_size += header_size + u32::try_from(entry.content_bytes.len()).unwrap_or(u32::MAX);
             }
+
+            new_file.flush()?;
 
             fs::rename(&temp_path, path)?;
         }
@@ -389,7 +382,7 @@ impl BlockFile {
             }
         }
 
-        let next_num = files.last().map(|(_, n)| n + 1).unwrap_or(0);
-        Ok((block_dir.join(format!("{}.bin", next_num)), next_num))
+        let next_num = files.last().map_or(0, |(_, n)| n + 1);
+        Ok((block_dir.join(format!("{next_num}.bin")), next_num))
     }
 }

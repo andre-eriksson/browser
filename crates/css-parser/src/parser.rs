@@ -31,6 +31,7 @@ pub struct CssParser {
 
 impl CssParser {
     /// Create a new CSS parser with an optional list of tokens
+    #[must_use]
     pub fn new(tokens: Option<Vec<CssToken>>) -> Self {
         Self {
             tokens: tokens.unwrap_or_default(),
@@ -59,18 +60,18 @@ impl CssParser {
 
     const fn get_error_pos(error: &CssParsingError) -> SourcePosition {
         match error {
-            CssParsingError::EofInAtRule(pos) => *pos,
-            CssParsingError::EofInFunction(pos) => *pos,
-            CssParsingError::IncompleteAtRule(pos) => *pos,
-            CssParsingError::IncompleteFunction(pos) => *pos,
-            CssParsingError::InvalidDeclarationStart(pos) => *pos,
-            CssParsingError::IncompleteSimpleBlock(pos) => *pos,
-            CssParsingError::IncompleteQualifiedRule(pos) => *pos,
-            CssParsingError::EofInSimpleBlock(pos) => *pos,
-            CssParsingError::EofInQualifiedRule(pos) => *pos,
-            CssParsingError::EofInDeclaration(pos) => *pos,
-            CssParsingError::InvalidDeclarationName(pos) => *pos,
-            CssParsingError::MissingColonInDeclaration(pos) => *pos,
+            CssParsingError::EofInAtRule(pos)
+            | CssParsingError::EofInFunction(pos)
+            | CssParsingError::IncompleteAtRule(pos)
+            | CssParsingError::IncompleteFunction(pos)
+            | CssParsingError::InvalidDeclarationStart(pos)
+            | CssParsingError::IncompleteSimpleBlock(pos)
+            | CssParsingError::IncompleteQualifiedRule(pos)
+            | CssParsingError::EofInSimpleBlock(pos)
+            | CssParsingError::EofInQualifiedRule(pos)
+            | CssParsingError::EofInDeclaration(pos)
+            | CssParsingError::InvalidDeclarationName(pos)
+            | CssParsingError::MissingColonInDeclaration(pos) => *pos,
         }
     }
 
@@ -98,7 +99,7 @@ impl CssParser {
     }
 
     /// Check for !important and set the flag
-    pub(crate) fn check_important(&self, declaration: &mut Declaration) {
+    pub(crate) fn check_important(declaration: &mut Declaration) {
         let mut non_ws_indices: Vec<usize> = Vec::new();
 
         for (i, cv) in declaration.value.iter().enumerate() {

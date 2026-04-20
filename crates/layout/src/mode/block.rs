@@ -9,19 +9,19 @@ use crate::{
 
 #[derive(Debug, Clone, Default, Copy)]
 pub struct BlockContext {
-    pub y: f32,
+    pub y: f64,
 }
 
-impl From<f32> for BlockContext {
-    fn from(y: f32) -> Self {
+impl From<f64> for BlockContext {
+    fn from(y: f64) -> Self {
         Self { y }
     }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct BlockFlow {
-    current_y: f32,
-    previous_margin_bottom: f32,
+    current_y: f64,
+    previous_margin_bottom: f64,
     parent_has_top_fence: bool,
     is_first_child: bool,
 }
@@ -36,7 +36,7 @@ impl BlockFlow {
         }
     }
 
-    fn advance(&mut self, child_margin_top: f32, child_height: f32, child_margin_bottom: f32, is_float: bool) -> f32 {
+    fn advance(&mut self, child_margin_top: f64, child_height: f64, child_margin_bottom: f64, is_float: bool) -> f64 {
         if is_float {
             return self.current_y;
         }
@@ -63,7 +63,7 @@ impl BlockFlow {
 
     /// Advance the flow to account for a child positioned at `child_y_offset` with given height.
     /// This is used when clearance or other factors have already determined the child's y position.
-    fn advance_to(&mut self, child_y_offset: f32, child_height: f32, child_margin_bottom: f32, is_float: bool) {
+    fn advance_to(&mut self, child_y_offset: f64, child_height: f64, child_margin_bottom: f64, is_float: bool) {
         if is_float {
             return;
         }
@@ -73,11 +73,11 @@ impl BlockFlow {
         self.previous_margin_bottom = child_margin_bottom;
     }
 
-    fn collapse_margins(a: f32, b: f32) -> f32 {
+    fn collapse_margins(a: f64, b: f64) -> f64 {
         if a >= 0.0 && b >= 0.0 {
-            f32::max(a, b)
+            f64::max(a, b)
         } else if a < 0.0 && b < 0.0 {
-            f32::min(a, b)
+            f64::min(a, b)
         } else {
             a + b
         }
@@ -119,13 +119,13 @@ impl BlockLayout {
 
         let parent_positioned_cb = ctx.positioned_containing_block();
 
-        if styled_node.style.position != Position::Static {
+        if styled_node.style.position == Position::Static {
+            ctx.set_positioned_containing_block(parent_positioned_cb);
+        } else {
             let rect = Rect::new(x, y, width, child_containing_height + padding.vertical() + border.vertical());
 
             ctx.position_ctx().push_position(rect);
             ctx.set_positioned_containing_block(rect);
-        } else {
-            ctx.set_positioned_containing_block(parent_positioned_cb);
         }
 
         let child_len = styled_node.children.len();
@@ -179,7 +179,9 @@ impl BlockLayout {
             let mut child_y_offset = flow.current_y + temp_clearance;
 
             let clear = child_style_node.style.clear;
-            let has_clearance = if clear != Clear::None {
+            let has_clearance = if clear == Clear::None {
+                false
+            } else {
                 let absolute_y = y + padding.top + border.top + child_y_offset;
                 let cleared_y = ctx
                     .float_ctx()
@@ -191,8 +193,6 @@ impl BlockLayout {
                 } else {
                     false
                 }
-            } else {
-                false
             };
 
             let mut child_ctx = ctx.child_context(Rect::new(
@@ -256,20 +256,18 @@ impl BlockLayout {
 
         let final_height = if styled_node.style.height == ComputedDimension::Auto {
             content_height_from_children + padding.vertical() + border.vertical()
+        } else if child_containing_height > calculated_height {
+            child_containing_height + padding.vertical() + border.vertical()
         } else {
-            if child_containing_height > calculated_height {
-                child_containing_height + padding.vertical() + border.vertical()
-            } else {
-                calculated_height + padding.vertical() + border.vertical()
-            }
+            calculated_height + padding.vertical() + border.vertical()
         };
 
         let mut margin = margin;
         if !flow.parent_has_top_fence && !children.is_empty() {
-            margin.top = f32::max(margin.top, children[0].margin.top);
+            margin.top = f64::max(margin.top, children[0].margin.top);
         }
         if !has_bottom_fence && !children.is_empty() {
-            margin.bottom = f32::max(margin.bottom, children.last().unwrap().margin.bottom);
+            margin.bottom = f64::max(margin.bottom, children.last().unwrap().margin.bottom);
         }
 
         let colors = LayoutColors::from(styled_node);
@@ -295,10 +293,10 @@ impl BlockLayout {
 
     fn calculate_width(
         styled_node: &StyledNode,
-        container_width: f32,
+        container_width: f64,
         padding: &SideOffset,
         border: &SideOffset,
-    ) -> f32 {
+    ) -> f64 {
         let style = &styled_node.style;
         if style.position.is_out_of_flow() {
             let has_left = !style.left_auto;
@@ -324,8 +322,8 @@ impl BlockLayout {
         margin: &SideOffset,
         padding: &SideOffset,
         border: &SideOffset,
-        content_width: f32,
-    ) -> f32 {
+        content_width: f64,
+    ) -> f64 {
         let style = &styled_node.style;
         let container_width = ctx.containing_block().width;
         let has_left = !style.left_auto;
@@ -361,7 +359,7 @@ impl BlockLayout {
         normal_x
     }
 
-    fn calculate_y(styled_node: &StyledNode, ctx: &LayoutContext) -> f32 {
+    fn calculate_y(styled_node: &StyledNode, ctx: &LayoutContext) -> f64 {
         let style = &styled_node.style;
         let has_top = !style.top_auto;
         let has_bottom = !style.bottom_auto;
@@ -380,7 +378,7 @@ impl BlockLayout {
         normal_y
     }
 
-    fn calculate_height(styled_node: &StyledNode, containing_block_height: f32) -> f32 {
+    fn calculate_height(styled_node: &StyledNode, containing_block_height: f64) -> f64 {
         let style = &styled_node.style;
         let height_is_unconstrained =
             style.height == ComputedDimension::Auto || style.height == ComputedDimension::Percentage(100.0);

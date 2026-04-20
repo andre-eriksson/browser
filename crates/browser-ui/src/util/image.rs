@@ -10,8 +10,8 @@ use tracing::error;
 ///
 /// # Returns
 /// An `Icon` that can be used in an Iced application.
-pub fn load_icon(data: Vec<u8>) -> Icon {
-    let image = image::load_from_memory(&data)
+pub fn load_icon(data: &[u8]) -> Icon {
+    let image = image::load_from_memory(data)
         .expect("Failed to load icon image")
         .into_rgba8();
 
@@ -25,8 +25,8 @@ pub fn load_icon(data: Vec<u8>) -> Icon {
 }
 
 /// Decode raw image bytes into RGBA pixel data.
-pub fn decode_image_bytes(url: String, bytes: &[u8]) -> Result<DecodedImageData, String> {
-    let img = image::load_from_memory(bytes).map_err(|e| format!("Failed to decode image {}: {}", url, e))?;
+pub fn decode_image_bytes(url: &str, bytes: &[u8]) -> Result<DecodedImageData, String> {
+    let img = image::load_from_memory(bytes).map_err(|e| format!("Failed to decode image {url}: {e}"))?;
 
     let (width, height) = img.dimensions();
     let rgba = img.to_rgba8().into_raw();

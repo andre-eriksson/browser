@@ -62,7 +62,7 @@ pub fn resolve_css_variables(
                     value: resolved_inner,
                 }));
             }
-            _ => {
+            ComponentValue::Token(_) => {
                 output.push(cv.clone());
             }
         }
@@ -87,7 +87,7 @@ fn resolve_var_function(
         return Some(Vec::new());
     }
 
-    for cv in func.value.iter() {
+    for cv in &func.value {
         match cv {
             ComponentValue::Token(token) if matches!(token.kind, CssTokenKind::Comma) => {
                 found_comma = true;
@@ -99,10 +99,10 @@ fn resolve_var_function(
                 fallback_values.push(cv.clone());
             }
             _ => {
-                if !found_comma {
-                    var_name.push_str(&cv.to_string());
-                } else {
+                if found_comma {
                     fallback_values.push(cv.clone());
+                } else {
+                    var_name.push_str(&cv.to_string());
                 }
             }
         }

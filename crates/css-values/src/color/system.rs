@@ -73,13 +73,14 @@ impl FromStr for SystemColor {
         } else if let Ok(deprecated) = DeprecatedColor::from_str(s) {
             Ok(Self::Deprecated(deprecated))
         } else {
-            Err(format!("Unknown system color: {}", s))
+            Err(format!("Unknown system color: {s}"))
         }
     }
 }
 
 impl SystemColor {
-    /// Converts the SystemColor to its hexadecimal string representation, or returns None if the color is not recognized.
+    /// Converts the `SystemColor` to its hexadecimal string representation, or returns None if the color is not recognized.
+    #[must_use]
     pub const fn to_hex(self) -> Option<&'static str> {
         match self {
             Self::AccentColor => Some("#0078D7"),
@@ -135,7 +136,8 @@ pub enum DeprecatedColor {
 }
 
 impl DeprecatedColor {
-    /// Converts the DeprecatedColor to its hexadecimal string representation, or returns None if the color is not recognized.
+    /// Converts the `DeprecatedColor` to its hexadecimal string representation, or returns None if the color is not recognized.
+    #[must_use]
     pub const fn to_hex(self) -> Option<&'static str> {
         match self {
             Self::ActiveBorder => Some("#A9A9A9"),
@@ -216,7 +218,7 @@ impl FromStr for DeprecatedColor {
         } else if s.eq_ignore_ascii_case("windowtext") {
             Ok(Self::WindowText)
         } else {
-            Err(format!("Unknown deprecated system color: {}", s))
+            Err(format!("Unknown deprecated system color: {s}"))
         }
     }
 }

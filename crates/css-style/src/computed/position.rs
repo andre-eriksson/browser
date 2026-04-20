@@ -12,8 +12,8 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComputedLengthPercentage {
-    Length(f32),
-    Percentage(f32),
+    Length(f64),
+    Percentage(f64),
 }
 
 impl ComputedLengthPercentage {

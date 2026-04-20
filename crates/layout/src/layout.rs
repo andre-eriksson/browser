@@ -58,7 +58,8 @@ impl Default for LayoutColors {
 
 impl LayoutColors {
     /// Creates colors for a text node using only the inherited foreground color.
-    /// Background and border are transparent since those come from InlineDecoration.
+    /// Background and border are transparent since those come from `InlineDecoration`.
+    #[must_use]
     pub fn text_only(color: Color4f) -> Self {
         Self {
             background_color: Color4f::TRANSPARENT,
@@ -128,6 +129,7 @@ pub struct LayoutNode {
 }
 
 impl LayoutNode {
+    #[must_use]
     pub fn builder(node_id: NodeId) -> NodeBuilder {
         NodeBuilder::new(node_id)
     }
@@ -140,15 +142,16 @@ pub struct LayoutTree {
     pub root_nodes: Vec<LayoutNode>,
 
     /// The total content height of the layout tree
-    pub content_height: f32,
+    pub content_height: f64,
 
     /// The total content width of the layout tree
-    pub content_width: f32,
+    pub content_width: f64,
 }
 
 impl LayoutTree {
     /// Resolves the layout node at the given (x, y) coordinates
-    pub fn resolve(&self, x: f32, y: f32) -> Vec<&LayoutNode> {
+    #[must_use]
+    pub fn resolve(&self, x: f64, y: f64) -> Vec<&LayoutNode> {
         let mut collected = Vec::new();
         for node in &self.root_nodes {
             Self::resolve_in_node(&mut collected, node, x, y);
@@ -156,7 +159,7 @@ impl LayoutTree {
         collected
     }
 
-    fn resolve_in_node<'nodes>(collected: &mut Vec<&'nodes LayoutNode>, node: &'nodes LayoutNode, x: f32, y: f32) {
+    fn resolve_in_node<'nodes>(collected: &mut Vec<&'nodes LayoutNode>, node: &'nodes LayoutNode, x: f64, y: f64) {
         if node.dimensions.contains_point(x, y) {
             for child in &node.children {
                 Self::resolve_in_node(collected, child, x, y);
@@ -169,6 +172,7 @@ impl LayoutTree {
     ///
     /// An image node is any [`LayoutNode`] that has `image_data.image_src == url`.
     /// There may be more than one if the same image appears multiple times on the page.
+    #[must_use]
     pub fn find_image_nodes_by_src(&self, url: &str) -> Vec<NodeId> {
         let mut result = Vec::new();
         for root in &self.root_nodes {
@@ -190,6 +194,7 @@ impl LayoutTree {
     }
 
     /// Finds the path to the layout node corresponding to the given `NodeId`, if it exists.
+    #[must_use]
     pub fn find_path(&self, node_id: NodeId) -> Option<Vec<usize>> {
         for (idx, root) in self.root_nodes.iter().enumerate() {
             if let Some(mut path) = Self::find_path_in_node(root, node_id) {
@@ -217,6 +222,7 @@ impl LayoutTree {
     }
 
     /// Retrieves a reference to the layout node at the specified path, if it exists.
+    #[must_use]
     pub fn node_at(&self, path: &[usize]) -> Option<&LayoutNode> {
         if path.is_empty() {
             return None;
@@ -262,7 +268,7 @@ pub struct LayoutContext<'layout> {
 }
 
 impl<'layout> LayoutContext<'layout> {
-    /// Creates a new LayoutContext with the given containing block
+    /// Creates a new `LayoutContext` with the given containing block
     pub(crate) fn new(
         containing_block: Rect,
         image_ctx: &'layout ImageContext,
@@ -279,7 +285,7 @@ impl<'layout> LayoutContext<'layout> {
         }
     }
 
-    /// Creates a new LayoutContext for deferred layout, which will be used for elements that are
+    /// Creates a new `LayoutContext` for deferred layout, which will be used for elements that are
     /// laid out in a second pass after the initial layout has completed.
     pub(crate) fn deferred(
         containing_block: Rect,

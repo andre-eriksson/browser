@@ -55,14 +55,14 @@ pub fn layout_image<'node>(
 }
 
 fn resolve_image_size(
-    width: f32,
-    height: f32,
+    width: f64,
+    height: f64,
     has_explicit_width: bool,
     has_explicit_height: bool,
     style: &ComputedStyle,
-    available_width: f32,
-    intrinsic_size: Option<(f32, f32)>,
-) -> (f32, f32) {
+    available_width: f64,
+    intrinsic_size: Option<(f64, f64)>,
+) -> (f64, f64) {
     let max_width = match style.max_width {
         ComputedMaxDimension::Percentage(f) => (available_width * f).max(0.0),
         _ => style.max_intrinsic_width,

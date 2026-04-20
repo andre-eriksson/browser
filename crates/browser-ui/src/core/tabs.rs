@@ -140,8 +140,8 @@ impl UiTab {
 
         let absolute_ctx = AbsoluteContext {
             root_font_size: 16.0,
-            viewport_width: viewport.width,
-            viewport_height: viewport.height,
+            viewport_width: f64::from(viewport.width),
+            viewport_height: f64::from(viewport.height),
             theme_category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
@@ -152,7 +152,7 @@ impl UiTab {
         let layout_tree = LayoutEngine::compute_layout(
             page.document(),
             &style_tree,
-            Rect::new(0.0, 0.0, viewport.width, viewport.height),
+            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
             text_context,
             &self.image_context(),
         );
@@ -172,8 +172,8 @@ impl UiTab {
     ) {
         let absolute_ctx = AbsoluteContext {
             root_font_size: 16.0,
-            viewport_width: viewport.width,
-            viewport_height: viewport.height,
+            viewport_width: f64::from(viewport.width),
+            viewport_height: f64::from(viewport.height),
             theme_category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
@@ -184,7 +184,7 @@ impl UiTab {
         let layout_tree = LayoutEngine::compute_layout(
             page.document(),
             &style_tree,
-            Rect::new(0.0, 0.0, viewport.width, viewport.height),
+            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
             text_context,
             &self.image_context(),
         );
@@ -246,7 +246,7 @@ impl UiTab {
     pub fn image_context(&self) -> ImageContext {
         let mut ctx = ImageContext::new();
         for (src, meta) in &self.known_images {
-            ctx.insert_with_vary(src.clone(), meta.width, meta.height, meta.vary_key.clone());
+            ctx.insert_with_vary(src.clone(), f64::from(meta.width), f64::from(meta.height), meta.vary_key.clone());
         }
         ctx
     }

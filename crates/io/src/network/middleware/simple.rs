@@ -35,7 +35,7 @@ impl SimpleMiddleware {
     /// # Returns
     /// * `bool` - True if all headers are simple, false otherwise.
     pub fn is_simple_headers(headers: &HeaderMap) -> bool {
-        for (name, value) in headers.iter() {
+        for (name, value) in headers {
             let name_str = name.as_str().to_lowercase();
             if name_str != "accept"
                 && name_str != "accept-language"
@@ -83,9 +83,8 @@ impl SimpleMiddleware {
             }
             "accept-language" | "content-language" => {
                 // Check for 0-9 a-z A-Z *,-.;= and spaces
-                let val_str = match header_value.to_str() {
-                    Ok(v) => v,
-                    Err(_) => return false,
+                let Ok(val_str) = header_value.to_str() else {
+                    return false;
                 };
 
                 if !val_str
@@ -126,14 +125,13 @@ impl SimpleMiddleware {
     /// Checks if the Content-Type header value is a simple content type.
     ///
     /// # Arguments
-    /// * `value` - The HeaderValue of the Content-Type header.
+    /// * `value` - The `HeaderValue` of the Content-Type header.
     ///
     /// # Returns
     /// * `bool` - True if the content type is simple, false otherwise.
     fn is_simple_content_type(value: &HeaderValue) -> bool {
-        let val_str = match value.to_str() {
-            Ok(v) => v,
-            Err(_) => return false,
+        let Ok(val_str) = value.to_str() else {
+            return false;
         };
 
         let simple_types = [
@@ -149,14 +147,13 @@ impl SimpleMiddleware {
     /// Checks if the Range header value is a simple range.
     ///
     /// # Arguments
-    /// * `value` - The HeaderValue of the Range header.
+    /// * `value` - The `HeaderValue` of the Range header.
     ///
     /// # Returns
     /// * `bool` - True if the range is simple, false otherwise.
     fn is_simple_range(value: &HeaderValue) -> bool {
-        let val_str = match value.to_str() {
-            Ok(v) => v,
-            Err(_) => return false,
+        let Ok(val_str) = value.to_str() else {
+            return false;
         };
 
         if !val_str.starts_with("bytes=") || val_str.contains(',') {

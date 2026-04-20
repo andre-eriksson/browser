@@ -11,7 +11,7 @@ use crate::{
     views::{browser::window::BrowserWindow, devtools::window::DevtoolsWindow},
 };
 
-/// WindowController manages multiple application windows, allowing for rendering and interaction.
+/// `WindowController` manages multiple application windows, allowing for rendering and interaction.
 ///
 /// # Fields
 /// * `open_windows` - A map of currently open windows, keyed by their unique ID.
@@ -31,7 +31,7 @@ impl WindowController {
     /// # Arguments
     /// * `id` - The ID of the window to retrieve.
     pub fn get_window(&self, id: Id) -> Option<&dyn ApplicationWindow> {
-        self.open_windows.get(&id).map(|window| window.as_ref())
+        self.open_windows.get(&id).map(AsRef::as_ref)
     }
 
     /// Renders the content of the window with the specified ID.
@@ -52,7 +52,7 @@ impl WindowController {
     /// # Arguments
     /// * `id` - The ID of the window whose title is requested.
     pub fn title(&self, id: Id) -> Option<String> {
-        self.get_window(id).map(|window| window.title())
+        self.get_window(id).map(ApplicationWindow::title)
     }
 
     /// Opens a new window of the given type, constructs its instance with the

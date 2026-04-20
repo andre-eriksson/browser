@@ -1,4 +1,4 @@
-use std::{f32, sync::Arc};
+use std::sync::Arc;
 
 use css_cssom::{ComponentValue, Property};
 use css_values::{
@@ -55,17 +55,17 @@ pub struct ComputedStyle {
     pub background_size: ComputedBackgroundSize,
     pub border_bottom_color: Color4f,
     pub border_bottom_style: BorderStyle,
-    pub border_bottom_width: f32,
+    pub border_bottom_width: f64,
     pub border_left_color: Color4f,
     pub border_left_style: BorderStyle,
-    pub border_left_width: f32,
+    pub border_left_width: f64,
     pub border_right_color: Color4f,
     pub border_right_style: BorderStyle,
-    pub border_right_width: f32,
+    pub border_right_width: f64,
     pub border_top_color: Color4f,
     pub border_top_style: BorderStyle,
-    pub border_top_width: f32,
-    pub bottom: f32,
+    pub border_top_width: f64,
+    pub bottom: f64,
     pub bottom_auto: bool,
     pub clear: Clear,
     pub color: Color4f,
@@ -73,39 +73,39 @@ pub struct ComputedStyle {
     pub display: Display,
     pub float: Float,
     pub font_family: Arc<FontFamily>,
-    pub font_size: f32,
+    pub font_size: f64,
     pub font_weight: u16,
     pub height: ComputedDimension,
-    pub intrinsic_height: f32,
-    pub intrinsic_width: f32,
-    pub left: f32,
+    pub intrinsic_height: f64,
+    pub intrinsic_width: f64,
+    pub left: f64,
     pub left_auto: bool,
-    pub line_height: f32,
-    pub margin_bottom: f32,
+    pub line_height: f64,
+    pub margin_bottom: f64,
     pub margin_bottom_auto: bool,
-    pub margin_left: f32,
+    pub margin_left: f64,
     pub margin_left_auto: bool,
-    pub margin_right: f32,
+    pub margin_right: f64,
     pub margin_right_auto: bool,
-    pub margin_top: f32,
+    pub margin_top: f64,
     pub margin_top_auto: bool,
     pub max_height: ComputedMaxDimension,
-    pub max_intrinsic_height: f32,
-    pub max_intrinsic_width: f32,
+    pub max_intrinsic_height: f64,
+    pub max_intrinsic_width: f64,
     pub max_width: ComputedMaxDimension,
-    pub padding_bottom: f32,
+    pub padding_bottom: f64,
     pub padding_bottom_auto: bool,
-    pub padding_left: f32,
+    pub padding_left: f64,
     pub padding_left_auto: bool,
-    pub padding_right: f32,
+    pub padding_right: f64,
     pub padding_right_auto: bool,
-    pub padding_top: f32,
+    pub padding_top: f64,
     pub padding_top_auto: bool,
     pub position: Position,
-    pub right: f32,
+    pub right: f64,
     pub right_auto: bool,
     pub text_align: TextAlign,
-    pub top: f32,
+    pub top: f64,
     pub top_auto: bool,
     pub whitespace: Whitespace,
     pub width: ComputedDimension,
@@ -115,11 +115,11 @@ pub struct ComputedStyle {
 }
 
 impl ComputedStyle {
-    /// Computes the ComputedStyle for a given node in the DOM.
+    /// Computes the `ComputedStyle` for a given node in the DOM.
     pub fn from_node(
         absolute_ctx: &AbsoluteContext,
         relative_ctx: &mut RelativeContext,
-        node_id: &NodeId,
+        node_id: NodeId,
         dom: &DocumentRoot,
         rules: &[GeneratedRule],
         rule_index: &RuleIndex,
@@ -307,7 +307,8 @@ impl ComputedStyle {
         }
     }
 
-    /// Returns a subset of the ComputedStyle containing only inherited properties.
+    /// Returns a subset of the `ComputedStyle` containing only inherited properties.
+    #[must_use]
     pub fn inherited_subset(&self) -> Self {
         Self {
             color: self.color,
@@ -374,8 +375,8 @@ impl Default for ComputedStyle {
             margin_top: 0.0,
             margin_top_auto: false,
             max_height: ComputedMaxDimension::None,
-            max_intrinsic_height: f32::INFINITY,
-            max_intrinsic_width: f32::INFINITY,
+            max_intrinsic_height: f64::INFINITY,
+            max_intrinsic_width: f64::INFINITY,
             max_width: ComputedMaxDimension::None,
             padding_bottom: 0.0,
             padding_bottom_auto: false,

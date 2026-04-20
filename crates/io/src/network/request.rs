@@ -111,7 +111,7 @@ impl<'client> NetworkService<'client> {
         }
 
         if let Some(current_url) = &page_url {
-            ReferrerMiddleware::apply_referrer(current_url, &mut request, &policies.referrer);
+            ReferrerMiddleware::apply_referrer(current_url, &mut request, policies.referrer);
         }
 
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
@@ -121,14 +121,11 @@ impl<'client> NetworkService<'client> {
             return Self::convert_response(self.client.send(request).await);
         }
 
-        let preflight_response = match self
+        let RequestResult::Success(preflight_response) = self
             .preflight_request(page_url, &user_headers, &request.url, &request.method)
             .await
-        {
-            RequestResult::Success(resp) => resp,
-            _ => {
-                return RequestResult::Failed(RequestError::PreflightFailed);
-            }
+        else {
+            return RequestResult::Failed(RequestError::PreflightFailed);
         };
 
         if let Err(e) = CorsMiddleware::is_allowed(
@@ -137,7 +134,7 @@ impl<'client> NetworkService<'client> {
             &request.url,
             &request.method,
             &user_headers,
-            preflight_response,
+            &preflight_response,
         ) {
             return RequestResult::Failed(e);
         }
@@ -154,13 +151,10 @@ impl<'client> NetworkService<'client> {
         url: &Url,
         method: &Method,
     ) -> RequestResult<HeaderResponse> {
-        let page = match page_url.as_ref() {
-            Some(u) => u,
-            None => {
-                return RequestResult::Failed(RequestError::InvalidMethod(
-                    "First request can not be a OPTION request".to_string(),
-                ));
-            }
+        let Some(page) = page_url.as_ref() else {
+            return RequestResult::Failed(RequestError::InvalidMethod(
+                "First request can not be a OPTION request".to_string(),
+            ));
         };
 
         let origin = page.origin().ascii_serialization();

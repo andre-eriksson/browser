@@ -38,6 +38,13 @@ impl Browser {
     /// Maximum allowed size for the user agent stylesheet, set to 50 KiB.
     const MAX_USER_AGENT_CSS_SIZE: Option<usize> = Some(50 * 1024);
 
+    /// Creates a new instance of the `Browser` struct, initializing the HTTP client, cookie jar, and user agent stylesheet.
+    ///
+    /// # Arguments
+    /// * `config` - A reference to the browser configuration, which may contain settings for enabling the user agent stylesheet and custom headers.
+    ///
+    /// # Panics
+    /// * This function will panic if the embedded user agent CSS is not valid UTF-8, which should never happen since it's embedded in the binary.
     pub fn new(config: &'static BrowserConfig) -> Self {
         let http_client = Box::new(ReqwestClient::new());
         let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
@@ -89,6 +96,7 @@ impl Browser {
         }
     }
 
+    #[must_use]
     pub const fn headers(&self) -> &HeaderMap {
         self.headers
     }
