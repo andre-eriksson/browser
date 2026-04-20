@@ -91,6 +91,10 @@ url                 = "2.5.4"
 wgpu                = "27.0.1"
 zstd                = "0.13.3"
 
+
+[patch.crates-io]
+iced = { git = "https://github.com/andre-eriksson/iced", branch = "custom-format" }
+
 [profile.release]
 debug = true
 

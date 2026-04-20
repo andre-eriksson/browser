@@ -32,6 +32,7 @@ impl Ui {
                     default_text_size: Pixels(theme.typography.ui.size),
                     ..Default::default()
                 })
+                .texture_format(Some(iced::wgpu::TextureFormat::Bgra8Unorm))
                 .theme(Application::theme)
                 .title(Application::title)
                 .run();
