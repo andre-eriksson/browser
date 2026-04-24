@@ -7,6 +7,7 @@ use css_values::{
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
     display::{Clear, Float},
+    flex::{FlexDirection, FlexWrap},
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};
@@ -34,6 +35,7 @@ use crate::{
 
 pub mod color;
 pub mod dimension;
+pub mod flex;
 mod handler;
 pub mod image;
 pub mod offset;
@@ -73,6 +75,11 @@ pub struct ComputedStyle {
     pub color: Color4f,
     pub cursor: Cursor,
     pub display: Display,
+    pub flex_basis: ComputedFlexBasis,
+    pub flex_direction: FlexDirection,
+    pub flex_grow: f64,
+    pub flex_shrink: f64,
+    pub flex_wrap: FlexWrap,
     pub float: Float,
     pub font_family: Arc<FontFamily>,
     pub font_size: f64,
@@ -235,6 +242,21 @@ impl ComputedStyle {
             ),
             cursor: compute!(specified_style, parent, cursor),
             display: compute!(specified_style, parent, display).adjust_float(float),
+            flex_basis: into_compute!(specified_style, parent, flex_basis).into(),
+            flex_direction: compute!(specified_style, parent, flex_direction),
+            flex_grow: specified_style
+                .flex_grow
+                .resolve_with_context(&parent.flex_grow.into(), &0.0f64.into())
+                .0
+                .clone()
+                .into(),
+            flex_shrink: specified_style
+                .flex_shrink
+                .resolve_with_context(&parent.flex_shrink.into(), &1.0f64.into())
+                .0
+                .clone()
+                .into(),
+            flex_wrap: compute!(specified_style, parent, flex_wrap),
             float,
             font_family: Arc::new(
                 specified_style
@@ -375,6 +397,11 @@ impl Default for ComputedStyle {
             color: Color4f::BLACK,
             cursor: Cursor::default(),
             display: Display::default(),
+            flex_basis: ComputedFlexBasis::default(),
+            flex_direction: FlexDirection::default(),
+            flex_grow: 0.0,
+            flex_shrink: 1.0,
+            flex_wrap: FlexWrap::default(),
             float: Float::default(),
             font_family: Arc::new(FontFamily::default()),
             font_size: 16.0,

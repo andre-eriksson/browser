@@ -7,6 +7,7 @@ use css_values::{
     color::{Color, base::ColorBase},
     combination::LengthPercentage,
     error::CssValueError,
+    flex::{FlexDirection, FlexWrap},
     global::Global,
     image::Image,
     numeric::Percentage,
@@ -255,6 +256,11 @@ simple_property_handler!(handle_clear, clear, "clear");
 simple_property_handler!(handle_color, color, "color");
 simple_property_handler!(handle_cursor, cursor, "cursor");
 simple_property_handler!(handle_display, display, "display");
+simple_property_handler!(handle_flex_basis, flex_basis, "flex-basis");
+simple_property_handler!(handle_flex_direction, flex_direction, "flex-direction");
+simple_property_handler!(handle_flex_grow, flex_grow, "flex-grow");
+simple_property_handler!(handle_flex_shrink, flex_shrink, "flex-shrink");
+simple_property_handler!(handle_flex_wrap, flex_wrap, "flex-wrap");
 simple_property_handler!(handle_float, float, "float");
 simple_property_handler!(handle_font_family, font_family, "font-family");
 simple_property_handler!(handle_height, height, "height");
@@ -1052,6 +1058,49 @@ pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut Compone
                 CssValueError::InvalidValue("Invalid number of width values".to_string()),
             );
         }
+    }
+}
+
+pub fn handle_flex_flow(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.flex_direction = CSSProperty::Global(global);
+        ctx.specified_style.flex_wrap = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+
+    let mut direction = None;
+    let mut wrap = None;
+
+    while let Some(cv) = stream.next_cv() {
+        if let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+        {
+            if direction.is_none()
+                && let Ok(d) = ident.parse::<FlexDirection>()
+            {
+                direction = Some(d);
+                continue;
+            }
+
+            if wrap.is_none()
+                && let Ok(w) = ident.parse::<FlexWrap>()
+            {
+                wrap = Some(w);
+                continue;
+            }
+        }
+    }
+
+    if let Some(d) = direction {
+        ctx.specified_style.flex_direction = CSSProperty::Value(d);
+    }
+
+    if let Some(w) = wrap {
+        ctx.specified_style.flex_wrap = CSSProperty::Value(w);
     }
 }
 

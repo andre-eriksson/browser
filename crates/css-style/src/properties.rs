@@ -10,7 +10,9 @@ use css_values::{
     dimension::{MarginValue, MaxSize, OffsetValue, Size},
     display::{Clear, Float},
     error::CssValueError,
+    flex::{FlexBasis, FlexDirection, FlexWrap},
     global::Global,
+    numeric::Flex,
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use url::Url;
@@ -233,6 +235,12 @@ pub type MaxSizeProperty = CSSProperty<MaxSize>;
 pub type ClearProperty = CSSProperty<Clear>;
 pub type DisplayProperty = CSSProperty<Display>;
 pub type FloatProperty = CSSProperty<Float>;
+
+// Flex
+pub type FlexBasisProperty = CSSProperty<FlexBasis>;
+pub type FlexDirectionProperty = CSSProperty<FlexDirection>;
+pub type FlexValueProperty = CSSProperty<Flex>;
+pub type FlexWrapProperty = CSSProperty<FlexWrap>;
 
 // Font
 pub type FontWeightProperty = CSSProperty<FontWeight>;

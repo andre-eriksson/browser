@@ -21,6 +21,15 @@ impl From<f64> for NumberOrCalc {
     }
 }
 
+impl From<NumberOrCalc> for f64 {
+    fn from(value: NumberOrCalc) -> Self {
+        match value {
+            NumberOrCalc::Number(n) => n,
+            NumberOrCalc::Calc(expr) => expr.evaluate(),
+        }
+    }
+}
+
 impl CSSParsable for NumberOrCalc {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream
@@ -154,6 +163,18 @@ pub struct Flex(pub NumberOrCalc);
 impl CSSParsable for Flex {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         NumberOrCalc::parse(stream).map(Self)
+    }
+}
+
+impl From<Flex> for f64 {
+    fn from(value: Flex) -> Self {
+        value.0.into()
+    }
+}
+
+impl From<f64> for Flex {
+    fn from(value: f64) -> Self {
+        Self(NumberOrCalc::Number(value))
     }
 }
 

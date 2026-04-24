@@ -13,6 +13,7 @@ pub mod cursor;
 pub mod dimension;
 pub mod display;
 pub mod error;
+pub mod flex;
 pub mod global;
 pub mod image;
 pub mod media;
