@@ -5,14 +5,14 @@ use css_values::{
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
-    dimension::{MaxDimension, OffsetValue},
+    dimension::{MaxSize, OffsetValue},
     display::{Clear, Float},
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    AbsoluteContext, Color4f, ComputedDimension, ComputedMaxDimension, Display, FontFamily, Position, RelativeContext,
+    AbsoluteContext, Color4f, ComputedMaxDimension, ComputedSize, Display, FontFamily, Position, RelativeContext,
     RelativeType,
     cascade::RuleIndex,
     clone_compute, compute, compute_parent_px, compute_px,
@@ -75,7 +75,7 @@ pub struct ComputedStyle {
     pub font_family: Arc<FontFamily>,
     pub font_size: f64,
     pub font_weight: u16,
-    pub height: ComputedDimension,
+    pub height: ComputedSize,
     pub intrinsic_height: f64,
     pub intrinsic_width: f64,
     pub left: f64,
@@ -108,7 +108,7 @@ pub struct ComputedStyle {
     pub top: f64,
     pub top_auto: bool,
     pub whitespace: Whitespace,
-    pub width: ComputedDimension,
+    pub width: ComputedSize,
     pub writing_mode: WritingMode,
 
     pub variables: Arc<Vec<(Property, Vec<ComponentValue>)>>,
@@ -143,9 +143,9 @@ impl ComputedStyle {
         let right = compute_px!(specified_style, parent, right, OffsetValue);
         let top = compute_px!(specified_style, parent, top, OffsetValue);
         let height = into_compute!(specified_style, parent, height);
-        let max_height = compute_parent_px!(specified_style, parent, max_height, max_intrinsic_height, MaxDimension);
+        let max_height = compute_parent_px!(specified_style, parent, max_height, max_intrinsic_height, MaxSize);
         let width = into_compute!(specified_style, parent, width);
-        let max_width = compute_parent_px!(specified_style, parent, max_width, max_intrinsic_width, MaxDimension);
+        let max_width = compute_parent_px!(specified_style, parent, max_width, max_intrinsic_width, MaxSize);
         let font_size = specified_style
             .font_size
             .compute(FontSize::px(parent.font_size))
@@ -182,6 +182,7 @@ impl ComputedStyle {
                 specified_style
                     .background_size
                     .compute(parent.background_size.clone().into()),
+                Some(RelativeType::BackgroundArea),
                 relative_ctx,
                 absolute_ctx,
             ),
@@ -360,7 +361,7 @@ impl Default for ComputedStyle {
             font_family: Arc::new(FontFamily::default()),
             font_size: 16.0,
             font_weight: 500,
-            height: ComputedDimension::Auto,
+            height: ComputedSize::Auto,
             intrinsic_height: 0.0,
             intrinsic_width: 0.0,
             left: 0.0,
@@ -393,7 +394,7 @@ impl Default for ComputedStyle {
             top: 0.0,
             top_auto: true,
             whitespace: Whitespace::Normal,
-            width: ComputedDimension::Auto,
+            width: ComputedSize::Auto,
             writing_mode: WritingMode::HorizontalTb,
 
             variables: Arc::new(vec![]),

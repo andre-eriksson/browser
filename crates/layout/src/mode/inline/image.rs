@@ -1,4 +1,4 @@
-use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle};
+use css_style::{ComputedSize, ComputedMaxDimension, ComputedStyle};
 
 use crate::{
     ImageData, LayoutColors, LayoutNode, Rect, TextContext,
@@ -68,7 +68,7 @@ fn resolve_image_size(
         _ => style.max_intrinsic_width,
     };
     let mut used_width = match style.width {
-        ComputedDimension::Percentage(f) => (available_width * f).max(0.0),
+        ComputedSize::Percentage(f) => (available_width * f).max(0.0),
         _ => width.max(0.0),
     };
     let mut used_height = height.max(0.0);

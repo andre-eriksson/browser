@@ -1,10 +1,10 @@
 //! Defines the Dimension and `MaxDimension` types, which represent CSS dimension values (width, height, max-width, max-height) and their parsing from CSS component values.
 
-use css_values::dimension::{Dimension, MaxDimension};
+use css_values::dimension::{MaxSize, Size};
 
 use crate::properties::{AbsoluteContext, PixelRepr, RelativeContext, RelativeType};
 
-impl PixelRepr for Dimension {
+impl PixelRepr for Size {
     fn to_px(
         &self,
         rel_type: Option<RelativeType>,
@@ -15,30 +15,16 @@ impl PixelRepr for Dimension {
             Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
             Self::MaxContent => 0.0,
             Self::MinContent => 0.0,
-            Self::FitContent(_) => 0.0,
+            Self::FitContent => 0.0,
             Self::Stretch => 0.0,
             Self::Auto => 0.0,
             Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => {
-                    rel_ctx.map_or(abs_ctx.root_font_size * p.as_fraction(), |ctx| ctx.font_size * p.as_fraction())
-                }
-                Some(RelativeType::ParentHeight) => rel_ctx.map_or(abs_ctx.viewport_height * p.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_height * p.as_fraction()
-                }),
-                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * p.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_width * p.as_fraction()
-                }),
-                Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
-                Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
-                Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
-                None => 0.0,
-            },
+            Self::Percentage(pct) => pct.to_px(rel_type, rel_ctx, abs_ctx),
         }
     }
 }
 
-impl PixelRepr for MaxDimension {
+impl PixelRepr for MaxSize {
     fn to_px(
         &self,
         rel_type: Option<RelativeType>,
@@ -49,25 +35,11 @@ impl PixelRepr for MaxDimension {
             Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
             Self::MaxContent => 0.0,
             Self::MinContent => 0.0,
-            Self::FitContent(_) => 0.0,
+            Self::FitContent => 0.0,
             Self::Stretch => 0.0,
             Self::None => f64::INFINITY,
             Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => {
-                    rel_ctx.map_or(abs_ctx.root_font_size * p.as_fraction(), |ctx| ctx.font_size * p.as_fraction())
-                }
-                Some(RelativeType::ParentHeight) => rel_ctx.map_or(abs_ctx.viewport_height * p.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_height * p.as_fraction()
-                }),
-                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * p.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_width * p.as_fraction()
-                }),
-                Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
-                Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
-                Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
-                None => 0.0,
-            },
+            Self::Percentage(pct) => pct.to_px(rel_type, rel_ctx, abs_ctx),
         }
     }
 }
@@ -101,7 +73,7 @@ mod tests {
             ..AbsoluteContext::default_url(url)
         };
 
-        let dim = Dimension::Percentage(Percentage::new(50.0));
+        let dim = Size::Percentage(Percentage::new(50.0));
         assert_eq!(dim.to_px(Some(RelativeType::ParentWidth), Some(&rel_ctx), &abs_ctx), 100.0);
     }
 }

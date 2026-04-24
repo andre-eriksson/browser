@@ -1,4 +1,4 @@
-use css_style::{ComputedDimension, ComputedStyle, Position, StyledNode};
+use css_style::{ComputedSize, ComputedStyle, Position, StyledNode};
 use css_values::display::{Clear, Float, OutsideDisplay};
 use html_dom::DocumentRoot;
 
@@ -254,7 +254,7 @@ impl BlockLayout {
             ctx.containing_block().height,
         );
 
-        let final_height = if styled_node.style.height == ComputedDimension::Auto {
+        let final_height = if styled_node.style.height == ComputedSize::Auto {
             content_height_from_children + padding.vertical() + border.vertical()
         } else if child_containing_height > calculated_height {
             child_containing_height + padding.vertical() + border.vertical()
@@ -279,7 +279,7 @@ impl BlockLayout {
             .colors(colors)
             .cursor(styled_node.style.cursor)
             .children(children)
-            .height_auto(styled_node.style.height == ComputedDimension::Auto)
+            .height_auto(styled_node.style.height == ComputedSize::Auto)
             .position(styled_node.style.position)
             .dimensions(Rect::new(x, y, width + padding.horizontal() + border.horizontal(), final_height))
             .build();
@@ -301,7 +301,7 @@ impl BlockLayout {
         if style.position.is_out_of_flow() {
             let has_left = !style.left_auto;
             let has_right = !style.right_auto;
-            let width_is_auto = style.width == ComputedDimension::Auto;
+            let width_is_auto = style.width == ComputedSize::Auto;
 
             if has_left && has_right && width_is_auto {
                 return container_width - style.left - style.right;
@@ -309,7 +309,7 @@ impl BlockLayout {
         }
 
         let specified_width = PropertyResolver::calculate_width(styled_node, container_width);
-        if styled_node.style.width == ComputedDimension::Auto {
+        if styled_node.style.width == ComputedSize::Auto {
             (specified_width - padding.horizontal() - border.horizontal()).max(0.0)
         } else {
             specified_width
@@ -381,7 +381,7 @@ impl BlockLayout {
     fn calculate_height(styled_node: &StyledNode, containing_block_height: f64) -> f64 {
         let style = &styled_node.style;
         let height_is_unconstrained =
-            style.height == ComputedDimension::Auto || style.height == ComputedDimension::Percentage(100.0);
+            style.height == ComputedSize::Auto || style.height == ComputedSize::Percentage(100.0);
         let has_top = !style.top_auto;
         let has_bottom = !style.bottom_auto;
 
@@ -389,7 +389,7 @@ impl BlockLayout {
             (containing_block_height - style.top - style.bottom).max(0.0)
         } else {
             match styled_node.style.height {
-                ComputedDimension::Auto => 0.0,
+                ComputedSize::Auto => 0.0,
                 _ => PropertyResolver::calculate_height(styled_node, 0.0, containing_block_height).max(0.0),
             }
         }
@@ -733,7 +733,7 @@ mod tests {
             top_auto: false,
             bottom: 30.0,
             bottom_auto: false,
-            height: ComputedDimension::Auto,
+            height: ComputedSize::Auto,
             ..Default::default()
         };
 
@@ -754,7 +754,7 @@ mod tests {
             top_auto: false,
             bottom: 40.0,
             bottom_auto: false,
-            height: ComputedDimension::Percentage(100.0),
+            height: ComputedSize::Percentage(100.0),
             ..Default::default()
         };
 
@@ -775,7 +775,7 @@ mod tests {
             top_auto: false,
             bottom: 20.0,
             bottom_auto: false,
-            height: ComputedDimension::Auto,
+            height: ComputedSize::Auto,
             ..Default::default()
         };
 

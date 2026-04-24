@@ -1,6 +1,54 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
-use crate::{CSSParsable, color::ColorValue, error::CssValueError};
+use crate::{
+    CSSParsable,
+    calc::{CalcDomain, CalcExpression, is_math_function},
+    error::CssValueError,
+};
+
+/// The primitive: <number> | calc(<number>)
+#[derive(Debug, Clone, PartialEq)]
+pub enum NumberOrCalc {
+    Number(f64),
+    Calc(CalcExpression),
+}
+
+impl From<f64> for NumberOrCalc {
+    fn from(value: f64) -> Self {
+        Self::Number(value)
+    }
+}
+
+impl CSSParsable for NumberOrCalc {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        stream
+            .next_non_whitespace()
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Number(numeric) => Ok(Self::Number(numeric.to_f64())),
+                    kind => Err(CssValueError::InvalidToken(kind.clone())),
+                },
+                ComponentValue::Function(func) => {
+                    if is_math_function(&func.name) {
+                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let domain = expr.resolve_type()?;
+
+                        if !matches!(domain, CalcDomain::Number) {
+                            return Err(CssValueError::InvalidCalcDomain {
+                                expected: vec![CalcDomain::Number],
+                                found: domain,
+                            });
+                        }
+
+                        Ok(Self::Calc(expr))
+                    } else {
+                        Err(CssValueError::InvalidFunction(func.name.clone()))
+                    }
+                }
+                _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
+            })
+    }
+}
 
 /// Percentage representation for CSS properties that accept percentage values, such as width, height, opacity, etc.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -30,17 +78,8 @@ impl Percentage {
 
     /// Get the percentage as a fraction (0.0 to 1.0)
     #[must_use]
-    pub fn as_fraction(&self) -> f64 {
+    pub const fn as_fraction(&self) -> f64 {
         self.0 / 100.0
-    }
-}
-
-impl From<ColorValue> for Percentage {
-    fn from(value: ColorValue) -> Self {
-        match value {
-            ColorValue::Percentage(pct) => pct,
-            ColorValue::Number(num) => Self::from_fraction(num / 100.0),
-        }
     }
 }
 
@@ -59,13 +98,48 @@ impl CSSParsable for Percentage {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RatioValue(pub NumberOrCalc);
+
+impl CSSParsable for RatioValue {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        NumberOrCalc::parse(stream).map(Self)
+    }
+}
+
 /// Ratio representation for CSS properties that accept ratio values, such as aspect-ratio, etc.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Ratio(f64, f64);
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/ratio>
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ratio {
+    pub numerator: RatioValue,
+    pub denominator: RatioValue,
+}
+
+impl CSSParsable for Ratio {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        let numerator = RatioValue::parse(stream)?;
+        let denominator = if stream.next_non_whitespace().is_some() {
+            RatioValue::parse(stream)?
+        } else {
+            RatioValue(NumberOrCalc::Number(1.0))
+        };
+        Ok(Self {
+            numerator,
+            denominator,
+        })
+    }
+}
 
 /// Flex representation for CSS properties that accept flex values, such as flex-grow, flex-shrink, etc.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Flex(f64);
+#[derive(Debug, Clone, PartialEq)]
+pub struct Flex(pub NumberOrCalc);
+
+impl CSSParsable for Flex {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        NumberOrCalc::parse(stream).map(Self)
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -105,7 +105,7 @@ pub enum RepeatStyle {
 ///
 /// Specifies the size of the background image. It determines how the background image is scaled and sized within the
 /// background area of an element. The property can take various values, including keywords like `cover` and `contain`, as well as specific width and height values.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WidthHeightSize {
     Auto,
     Length(LengthPercentage),
@@ -117,7 +117,7 @@ pub enum WidthHeightSize {
 /// maintaining its aspect ratio; it can be set to `contain`, which scales the background image to fit within the background area while maintaining its aspect ratio;
 /// or it can be set to specific width and height values, where the first value specifies the width and the optional second value specifies the height. If only one
 /// value is provided, it is used for both width and height.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Size {
     Cover,
     Contain,

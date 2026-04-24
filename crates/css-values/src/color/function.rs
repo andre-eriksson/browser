@@ -1,8 +1,9 @@
 use css_cssom::{ComponentValue, CssTokenKind, Function};
 
 use crate::{
-    color::{Alpha, ColorValue, Hue},
-    numeric::Percentage,
+    calc::{CalcDomain, CalcExpression, is_math_function},
+    color::{Alpha, ColorValue, Fraction, Hue},
+    numeric::{NumberOrCalc, Percentage},
     quantity::Angle,
 };
 
@@ -71,7 +72,7 @@ pub enum ColorFunction {
     //       hdr-color()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 struct RawColorComponents {
     channels: [Option<ColorValue>; 3],
     alpha: Alpha,
@@ -87,14 +88,57 @@ impl ColorFunction {
         let mut parsing_alpha = false;
 
         for cv in values {
-            if let ComponentValue::Token(token) = cv {
-                match &token.kind {
+            match cv {
+                ComponentValue::Function(func) => {
+                    if is_math_function(&func.name) {
+                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)
+                            .map_err(|e| format!("Error parsing calc() expression in color function: {e}"))?;
+
+                        let domain = expr
+                            .resolve_type()
+                            .map_err(|e| format!("Error resolving calc() expression type in color function: {e}"))?;
+
+                        if parsing_alpha {
+                            if !matches!(domain, CalcDomain::Number) {
+                                return Err(format!("Expected a number for alpha component, got {domain:?}"));
+                            }
+                        } else if channel_idx < 3 {
+                            if !matches!(domain, CalcDomain::Number | CalcDomain::Percentage) {
+                                return Err(format!(
+                                    "Expected a number or percentage for color channel, got {domain:?}"
+                                ));
+                            }
+                        } else if alpha.is_none() {
+                            if !matches!(domain, CalcDomain::Number) {
+                                return Err(format!("Expected a number for alpha component, got {domain:?}"));
+                            }
+                        } else {
+                            return Err("Too many components in color function".to_string());
+                        }
+
+                        let value = if matches!(domain, CalcDomain::Number) {
+                            ColorValue::Number(NumberOrCalc::Calc(expr))
+                        } else {
+                            ColorValue::Percentage(Percentage::from_fraction(expr.evaluate()))
+                        };
+
+                        if parsing_alpha {
+                            alpha = Some(Alpha::from(value));
+                        } else if channel_idx < 3 {
+                            channels[channel_idx] = Some(value);
+                            channel_idx += 1;
+                        } else if alpha.is_none() {
+                            alpha = Some(Alpha::from(value));
+                        }
+                    }
+                }
+                ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("none") {
                             if parsing_alpha {
-                                alpha = Some(Alpha(1.0));
+                                alpha = Some(Alpha::new(1.0));
                             } else if channel_idx < 3 {
-                                channels[channel_idx] = Some(ColorValue::Number(0.0));
+                                channels[channel_idx] = Some(ColorValue::Number(0.0.into()));
                                 channel_idx += 1;
                             } else {
                                 return Err("Too many components in color function".to_string());
@@ -122,7 +166,7 @@ impl ColorFunction {
                         if parsing_alpha {
                             alpha = Some(Alpha::new(num.to_f64()));
                         } else if channel_idx < 3 {
-                            channels[channel_idx] = Some(ColorValue::Number(num.to_f64()));
+                            channels[channel_idx] = Some(ColorValue::Number(num.to_f64().into()));
                             channel_idx += 1;
                         } else if alpha.is_none() {
                             alpha = Some(Alpha::new(num.to_f64()));
@@ -135,7 +179,7 @@ impl ColorFunction {
                             return Err("Dimension tokens are not allowed in alpha component".to_string());
                         } else if channel_idx < 3 {
                             if let Ok(angle) = Angle::try_from(token) {
-                                channels[channel_idx] = Some(ColorValue::Number(angle.to_degrees()));
+                                channels[channel_idx] = Some(ColorValue::Number(angle.to_degrees().into()));
                                 channel_idx += 1;
                             } else {
                                 return Err("Invalid angle value in color function".to_string());
@@ -145,13 +189,16 @@ impl ColorFunction {
                         }
                     }
                     _ => {}
+                },
+                cvs => {
+                    return Err(format!("Invalid component value in color function: '{cvs:?}'"));
                 }
             }
         }
 
         Ok(RawColorComponents {
             channels,
-            alpha: alpha.unwrap_or(Alpha(1.0)),
+            alpha: alpha.unwrap_or(Alpha::new(1.0)),
         })
     }
 }
@@ -171,18 +218,24 @@ impl TryFrom<&Function> for ColorFunction {
             let raw = Self::parse_color_components(&func.value)?;
 
             match raw.channels {
-                [Some(h), Some(s), Some(l)] => {
-                    Ok(Self::Hsl(Hue::from(h), Percentage::from(s), Percentage::from(l), raw.alpha))
-                }
+                [Some(h), Some(s), Some(l)] => Ok(Self::Hsl(
+                    Hue::from(h),
+                    Percentage::new(s.value(0.0..=100.0, Fraction::Unsigned)),
+                    Percentage::new(l.value(0.0..=100.0, Fraction::Unsigned)),
+                    raw.alpha,
+                )),
                 _ => Err("Missing components in hsl() or hsla()".to_string()),
             }
         } else if func.name.eq_ignore_ascii_case("hwb") {
             let raw = Self::parse_color_components(&func.value)?;
 
             match raw.channels {
-                [Some(h), Some(w), Some(b)] => {
-                    Ok(Self::Hwb(Hue::from(h), Percentage::from(w), Percentage::from(b), raw.alpha))
-                }
+                [Some(h), Some(w), Some(b)] => Ok(Self::Hwb(
+                    Hue::from(h),
+                    Percentage::new(w.value(0.0..=100.0, Fraction::Unsigned)),
+                    Percentage::new(b.value(0.0..=100.0, Fraction::Unsigned)),
+                    raw.alpha,
+                )),
                 _ => Err("Missing components in hwb()".to_string()),
             }
         } else if func.name.eq_ignore_ascii_case("lab") {
@@ -353,10 +406,10 @@ mod tests {
         ];
 
         let result = ColorFunction::parse_color_components(&components).unwrap();
-        assert_eq!(result.channels[0], Some(ColorValue::Number(255.0)));
+        assert_eq!(result.channels[0], Some(ColorValue::Number(255.0.into())));
         assert_eq!(result.channels[1], Some(ColorValue::Percentage(Percentage::new(50.0))));
-        assert_eq!(result.channels[2], Some(ColorValue::Number(0.0)));
-        assert_eq!(result.alpha, Alpha(1.0));
+        assert_eq!(result.channels[2], Some(ColorValue::Number(0.0.into())));
+        assert_eq!(result.alpha, Alpha::new(1.0));
     }
 
     #[test]
@@ -366,10 +419,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Rgb(
-                ColorValue::Number(255.0),
-                ColorValue::Number(0.0),
-                ColorValue::Number(128.0),
-                Alpha(1.0)
+                ColorValue::Number(255.0.into()),
+                ColorValue::Number(0.0.into()),
+                ColorValue::Number(128.0.into()),
+                Alpha::new(1.0)
             )))
         );
     }
@@ -381,10 +434,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Rgb(
-                ColorValue::Number(255.0),
-                ColorValue::Number(0.0),
-                ColorValue::Number(128.0),
-                Alpha(0.5)
+                ColorValue::Number(255.0.into()),
+                ColorValue::Number(0.0.into()),
+                ColorValue::Number(128.0.into()),
+                Alpha::new(0.5)
             )))
         );
     }
@@ -396,10 +449,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Hsl(
-                Hue(120.0),
+                Hue::new(120.0),
                 Percentage::new(100.0),
                 Percentage::new(50.0),
-                Alpha(1.0)
+                Alpha::new(1.0)
             )))
         );
     }
@@ -411,10 +464,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Hsl(
-                Hue(120.0),
+                Hue::new(120.0),
                 Percentage::new(100.0),
                 Percentage::new(50.0),
-                Alpha(0.5)
+                Alpha::new(0.5)
             )))
         );
     }
@@ -426,10 +479,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Hwb(
-                Hue(120.0),
+                Hue::new(120.0),
                 Percentage::new(100.0),
                 Percentage::new(50.0),
-                Alpha(1.0)
+                Alpha::new(1.0)
             )))
         );
     }
@@ -441,10 +494,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Lab(
-                ColorValue::Number(50.0),
-                ColorValue::Number(20.0),
-                ColorValue::Number(-30.0),
-                Alpha(1.0)
+                ColorValue::Number(50.0.into()),
+                ColorValue::Number(20.0.into()),
+                ColorValue::Number((-30.0).into()),
+                Alpha::new(1.0)
             )))
         );
     }
@@ -456,10 +509,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Oklab(
-                ColorValue::Number(0.5),
-                ColorValue::Number(0.1),
-                ColorValue::Number(-0.1),
-                Alpha(1.0)
+                ColorValue::Number(0.5.into()),
+                ColorValue::Number(0.1.into()),
+                ColorValue::Number((-0.1).into()),
+                Alpha::new(1.0)
             )))
         );
     }
@@ -471,10 +524,10 @@ mod tests {
         assert_eq!(
             parsed,
             Color::Base(ColorBase::Function(ColorFunction::Oklch(
-                ColorValue::Number(0.5),
-                ColorValue::Number(0.1),
-                Hue(120.0),
-                Alpha(1.0)
+                ColorValue::Number(0.5.into()),
+                ColorValue::Number(0.1.into()),
+                Hue::new(120.0),
+                Alpha::new(1.0)
             )))
         );
     }

@@ -2,7 +2,6 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssToken, CssTokenKind, Fu
 
 use crate::{
     CSSParsable,
-    combination::{AnglePercentage, AnglePercentageZero, LengthPercentage},
     error::CssValueError,
     image::gradient::{
         conic::ConicGradientSyntax,
@@ -10,8 +9,6 @@ use crate::{
         linear::LinearGradientSyntax,
         radial::RadialGradientSyntax,
     },
-    numeric::Percentage,
-    quantity::{Angle, Length, LengthUnit},
 };
 
 pub mod gradient;
@@ -88,26 +85,6 @@ impl Gradient {
         cvs.iter()
             .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
             .collect()
-    }
-
-    /// Try to parse a single `ComponentValue` as a `LengthPercentage`.
-    pub(crate) fn try_parse_length_percentage(cv: &ComponentValue) -> Result<LengthPercentage, CssValueError> {
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Dimension { value, unit } => {
-                    let len_unit = unit
-                        .parse::<LengthUnit>()
-                        .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                    Ok(LengthPercentage::Length(Length::new(value.to_f64(), len_unit)))
-                }
-                CssTokenKind::Percentage(value) => Ok(LengthPercentage::Percentage(Percentage::new(value.to_f64()))),
-                CssTokenKind::Number(value) if value.to_f64() == 0.0 => {
-                    Ok(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px)))
-                }
-                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
-            },
-            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-        }
     }
 
     /// Collect all non-whitespace ident strings from a segment.
@@ -206,26 +183,6 @@ impl Gradient {
             return Ok(Some(method));
         }
         Ok(None)
-    }
-
-    /// Try to parse a single `ComponentValue` as an `AnglePercentageOrZero`.
-    pub(crate) fn try_parse_angle_percentage_or_zero(
-        cv: &ComponentValue,
-    ) -> Result<AnglePercentageZero, CssValueError> {
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Dimension { .. } | CssTokenKind::Number(_) => {
-                    let angle = Angle::try_from(token)?;
-                    Ok(AnglePercentageZero::from(AnglePercentage::Angle(angle)))
-                }
-                CssTokenKind::Percentage(value) => {
-                    let pct = Percentage::new(value.to_f64());
-                    Ok(AnglePercentageZero::from(AnglePercentage::Percentage(pct)))
-                }
-                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
-            },
-            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-        }
     }
 
     /// Determines how many leading `ComponentValue`s form a color in a

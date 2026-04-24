@@ -86,9 +86,7 @@ impl ConicGradientSyntax {
                 .filter(|cv| !matches!(cv, ComponentValue::Token(t) if matches!(t.kind, CssTokenKind::Whitespace)))
                 .collect();
             if meaningful.len() == 1 {
-                if let ComponentValue::Token(token) = meaningful[0] {
-                    from_angle = Some(AngleZero::try_from(token)?);
-                }
+                from_angle = Some(AngleZero::try_from(meaningful[0])?);
             } else if !meaningful.is_empty() {
                 return Err(CssValueError::InvalidValue(format!(
                     "Expected a single angle after 'from', got {} tokens",

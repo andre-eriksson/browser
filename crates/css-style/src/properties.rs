@@ -7,7 +7,7 @@ use css_values::{
     border::{BorderStyle, BorderWidth},
     color::Color,
     cursor::Cursor,
-    dimension::{Dimension, MaxDimension, OffsetValue},
+    dimension::{MaxSize, OffsetValue, Size},
     display::{Clear, Float},
     error::CssValueError,
     global::Global,
@@ -31,6 +31,7 @@ pub mod display;
 pub mod font;
 pub mod length;
 pub mod offset;
+pub mod percentage;
 pub mod position;
 pub mod text;
 
@@ -60,6 +61,7 @@ pub enum RelativeType {
     RootFontSize,
     ViewportWidth,
     ViewportHeight,
+    BackgroundArea,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -215,10 +217,10 @@ pub type BorderStyleValueProperty = CSSProperty<BorderStyle>;
 pub type ColorProperty = CSSProperty<Color>;
 
 // Dimensions
-pub type HeightProperty = CSSProperty<Dimension>;
-pub type MaxHeightProperty = CSSProperty<MaxDimension>;
-pub type WidthProperty = CSSProperty<Dimension>;
-pub type MaxWidthProperty = CSSProperty<MaxDimension>;
+pub type HeightProperty = CSSProperty<Size>;
+pub type MaxHeightProperty = CSSProperty<MaxSize>;
+pub type WidthProperty = CSSProperty<Size>;
+pub type MaxWidthProperty = CSSProperty<MaxSize>;
 
 // Display
 pub type ClearProperty = CSSProperty<Clear>;

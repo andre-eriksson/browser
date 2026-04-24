@@ -422,7 +422,7 @@ impl BackgroundPosition {
         match position {
             BgPosition::One(one) => match one {
                 PositionOne::LengthPercentage(lp) => {
-                    x_pos.push(PositionX::Relative((None, Some(lp))));
+                    x_pos.push(PositionX::Relative((None, Some(lp.clone()))));
                     y_pos.push(PositionY::Relative((None, Some(lp))));
                 }
                 PositionOne::Horizontal(horizontal) => match horizontal {
@@ -929,11 +929,11 @@ impl CSSParsable for BackgroundSize {
                                 }
                                 1 => {
                                     let values = std::mem::take(&mut width_height_values);
-                                    sizes.push(Size::WidthHeight(values[0], values.get(1).copied()));
+                                    sizes.push(Size::WidthHeight(values[0].clone(), values.get(1).cloned()));
                                 }
                                 2 => {
                                     let values = std::mem::take(&mut width_height_values);
-                                    sizes.push(Size::WidthHeight(values[0], Some(values[1])));
+                                    sizes.push(Size::WidthHeight(values[0].clone(), Some(values[1].clone())));
                                 }
                                 _ => return Err(CssValueError::InvalidValue("Too many width/height values".into())),
                             }
@@ -955,11 +955,11 @@ impl CSSParsable for BackgroundSize {
                 }
                 1 => {
                     let values = std::mem::take(&mut width_height_values);
-                    sizes.push(Size::WidthHeight(values[0], values.get(1).copied()));
+                    sizes.push(Size::WidthHeight(values[0].clone(), values.get(1).cloned()));
                 }
                 2 => {
                     let values = std::mem::take(&mut width_height_values);
-                    sizes.push(Size::WidthHeight(values[0], Some(values[1])));
+                    sizes.push(Size::WidthHeight(values[0].clone(), Some(values[1].clone())));
                 }
                 _ => return Err(CssValueError::InvalidValue("Too many width/height values".into())),
             }

@@ -23,22 +23,7 @@ impl PixelRepr for OffsetValue {
     ) -> f64 {
         match self {
             Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Percentage(pct) => match rel_type {
-                Some(RelativeType::FontSize) => {
-                    rel_ctx.map_or(abs_ctx.root_font_size * pct.as_fraction(), |ctx| ctx.font_size * pct.as_fraction())
-                }
-                Some(RelativeType::ParentHeight) => rel_ctx
-                    .map_or(abs_ctx.viewport_height * pct.as_fraction(), |ctx| {
-                        ctx.parent.intrinsic_height * pct.as_fraction()
-                    }),
-                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * pct.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_width * pct.as_fraction()
-                }),
-                Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * pct.as_fraction(),
-                Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * pct.as_fraction(),
-                Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * pct.as_fraction(),
-                None => 0.0,
-            },
+            Self::Percentage(pct) => pct.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Calc(calc) => calc.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Auto => 0.0,
         }

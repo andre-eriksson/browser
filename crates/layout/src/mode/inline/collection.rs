@@ -1,4 +1,4 @@
-use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use css_style::{ComputedSize, ComputedStyle, StyledNode};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{DocumentRoot, HtmlTag, NodeData, NodeId, Tag};
 
@@ -97,8 +97,8 @@ pub fn collect<'node>(
                 let attr_width = attrs.get("width").and_then(|v| v.parse::<f64>().ok());
                 let attr_height = attrs.get("height").and_then(|v| v.parse::<f64>().ok());
 
-                let css_width = !matches!(inline_node.style.width, ComputedDimension::Auto);
-                let css_height = !matches!(inline_node.style.height, ComputedDimension::Auto);
+                let css_width = !matches!(inline_node.style.width, ComputedSize::Auto);
+                let css_height = !matches!(inline_node.style.height, ComputedSize::Auto);
                 let has_explicit_width = css_width || attr_width.is_some();
                 let has_explicit_height = css_height || attr_height.is_some();
 

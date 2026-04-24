@@ -1,4 +1,7 @@
-use css_values::calc::{CalcExpression, CalcProduct, CalcSum, CalcValue};
+use css_values::{
+    calc::{CalcExpression, CalcProduct, CalcSum, CalcValue},
+    quantity::Dimension,
+};
 
 use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
 
@@ -11,23 +14,13 @@ impl PixelRepr for CalcValue {
     ) -> f64 {
         match self {
             Self::Number(n) => *n,
-            Self::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Dimension(dim) => match dim {
+                Dimension::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
+                _ => 0.0,
+            },
             Self::Keyword(k) => k.to_f64(),
             Self::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Percentage(p) => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx
-                    .map_or(abs_ctx.root_font_size * p.as_fraction(), |ctx| ctx.parent.font_size * p.as_fraction()),
-                Some(RelativeType::ParentHeight) => rel_ctx.map_or(abs_ctx.viewport_height * p.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_height * p.as_fraction()
-                }),
-                Some(RelativeType::ParentWidth) => rel_ctx.map_or(abs_ctx.viewport_width * p.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_width * p.as_fraction()
-                }),
-                Some(RelativeType::RootFontSize) => abs_ctx.root_font_size * p.as_fraction(),
-                Some(RelativeType::ViewportHeight) => abs_ctx.viewport_height * p.as_fraction(),
-                Some(RelativeType::ViewportWidth) => abs_ctx.viewport_width * p.as_fraction(),
-                None => 0.0,
-            },
+            Self::Percentage(pct) => pct.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Min(args) => args
                 .iter()
                 .map(|sum| sum.to_px(rel_type, rel_ctx, abs_ctx))
@@ -100,7 +93,7 @@ impl PixelRepr for CalcExpression {
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
     ) -> f64 {
-        self.sum.to_px(rel_type, rel_ctx, abs_ctx)
+        self.sum().to_px(rel_type, rel_ctx, abs_ctx)
     }
 }
 

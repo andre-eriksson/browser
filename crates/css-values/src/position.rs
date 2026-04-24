@@ -5,6 +5,7 @@ use strum::EnumString;
 
 use crate::{
     CSSParsable,
+    calc::{CalcDomain, CalcExpression, is_math_function},
     combination::LengthPercentage,
     error::CssValueError,
     numeric::Percentage,
@@ -24,6 +25,20 @@ impl PosToken {
     /// exhausted or the token is neither.
     fn next_pos_token(stream: &mut ComponentValueStream) -> Option<Self> {
         match stream.next_non_whitespace()? {
+            ComponentValue::Function(func) => {
+                if is_math_function(&func.name) {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value).ok()?;
+                    let domain = expr.resolve_type().ok()?;
+
+                    if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
+                        return None;
+                    }
+
+                    Some(Self::LengthPercentage(LengthPercentage::Calc(expr)))
+                } else {
+                    None
+                }
+            }
             ComponentValue::Token(t) => match &t.kind {
                 CssTokenKind::Ident(s) => Some(Self::Ident(s.clone())),
                 CssTokenKind::Dimension { value, unit } => {
@@ -135,7 +150,7 @@ impl FromStr for XAxis {
 }
 
 /// The x-axis or length/percentage values include the x-axis keywords (horizontal sides, center, x-sides) or a length/percentage value.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum XAxisOrLengthPercentage {
     XAxis(XAxis),
     LengthPercentage(LengthPercentage),
@@ -371,6 +386,22 @@ impl CSSParsable for PositionOne {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         while let Some(cv) = stream.next_cv() {
             match cv {
+                ComponentValue::Function(func) => {
+                    if is_math_function(&func.name) {
+                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let domain = expr.resolve_type()?;
+
+                        if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Expected length or percentage math function for <position-one>, got {domain:?}"
+                            )));
+                        }
+
+                        return Ok(Self::LengthPercentage(LengthPercentage::Calc(expr)));
+                    } else {
+                        return Err(CssValueError::InvalidFunction(func.name.clone()));
+                    }
+                }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("center") {
@@ -786,7 +817,7 @@ impl CSSParsable for BgPosition {
 ///
 /// Used in position-related properties to specify a position along the horizontal (x) or vertical (y) axis respectively,
 /// using a combination of position keywords and length/percentage values.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PositionX {
     Center(Center, Option<LengthPercentage>),
     /// At least one option must be provided, but both can be present. If both are present, the horizontal or x-side value must come before the length or percentage value.
@@ -795,7 +826,7 @@ pub enum PositionX {
 
 /// The <position-y> CSS data type is used in position-related properties to specify a position along the vertical (y) axis,
 /// using a combination of position keywords and length/percentage values.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PositionY {
     Center(Center, Option<LengthPercentage>),
     /// At least one option must be provided, but both can be present. If both are present, the vertical or y-side value must come before the length or percentage value.

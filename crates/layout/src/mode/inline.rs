@@ -1,4 +1,4 @@
-use css_style::{ComputedDimension, ComputedStyle, StyledNode};
+use css_style::{ComputedSize, ComputedStyle, StyledNode};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -140,7 +140,7 @@ impl InlineLayout {
                     );
 
                     if let Some(mut layout_node) = LayoutEngine::layout_node(dom_tree, node, &mut block_ctx, text_ctx) {
-                        if style.width == ComputedDimension::Auto {
+                        if style.width == ComputedSize::Auto {
                             layout_node.dimensions.width =
                                 InlineLayout::auto_inline_flow_root_width(&layout_node, padding, border)
                                     .min(layout_node.dimensions.width);

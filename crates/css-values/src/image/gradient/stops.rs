@@ -2,6 +2,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     CSSParsable,
+    calc::{CalcDomain, CalcExpression, is_math_function},
     color::Color,
     combination::{AnglePercentage, AnglePercentageZero, LengthPercentage},
     error::CssValueError,
@@ -17,50 +18,6 @@ pub struct ColorStopLength(pub LengthPercentage, pub Option<LengthPercentage>);
 pub struct LinearColorStop {
     pub color: Color,
     pub length: Option<ColorStopLength>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct LinearColorHint(pub LengthPercentage);
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ColorStopList(pub LinearColorStop, pub Vec<(Option<LinearColorHint>, LinearColorStop)>);
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ColorStopAngle(pub AnglePercentageZero, pub Option<AnglePercentageZero>);
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AngularColorStop {
-    pub color: Color,
-    pub angle: Option<ColorStopAngle>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum AngularColorHint {
-    AnglePercentage(AnglePercentage),
-    Zero,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AngularColorStopList(pub AngularColorStop, pub Vec<(Option<AngularColorHint>, AngularColorStop)>);
-
-impl CSSParsable for LinearColorHint {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        let stripped = Gradient::strip_whitespace(stream.remaining());
-        if stripped.is_empty() {
-            return Err(CssValueError::UnexpectedEndOfInput);
-        }
-
-        let meaningful = Gradient::meaningful_cvs(stripped);
-        if meaningful.len() != 1 {
-            return Err(CssValueError::InvalidValue(format!(
-                "Linear color hint must be a single length or percentage, got {} tokens",
-                meaningful.len()
-            )));
-        }
-
-        let lp = Gradient::try_parse_length_percentage(meaningful[0])?;
-        Ok(Self(lp))
-    }
 }
 
 impl CSSParsable for LinearColorStop {
@@ -80,12 +37,12 @@ impl CSSParsable for LinearColorStop {
         let length = match length_cvs.len() {
             0 => None,
             1 => {
-                let lp = Gradient::try_parse_length_percentage(length_cvs[0])?;
+                let lp = LengthPercentage::try_from(length_cvs[0])?;
                 Some(ColorStopLength(lp, None))
             }
             2 => {
-                let lp1 = Gradient::try_parse_length_percentage(length_cvs[0])?;
-                let lp2 = Gradient::try_parse_length_percentage(length_cvs[1])?;
+                let lp1 = LengthPercentage::try_from(length_cvs[0])?;
+                let lp2 = LengthPercentage::try_from(length_cvs[1])?;
                 Some(ColorStopLength(lp1, Some(lp2)))
             }
             n => {
@@ -98,6 +55,32 @@ impl CSSParsable for LinearColorStop {
         Ok(Self { color, length })
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LinearColorHint(pub LengthPercentage);
+
+impl CSSParsable for LinearColorHint {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        let stripped = Gradient::strip_whitespace(stream.remaining());
+        if stripped.is_empty() {
+            return Err(CssValueError::UnexpectedEndOfInput);
+        }
+
+        let meaningful = Gradient::meaningful_cvs(stripped);
+        if meaningful.len() != 1 {
+            return Err(CssValueError::InvalidValue(format!(
+                "Linear color hint must be a single length or percentage, got {} tokens",
+                meaningful.len()
+            )));
+        }
+
+        let lp = LengthPercentage::try_from(meaningful[0])?;
+        Ok(Self(lp))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorStopList(pub LinearColorStop, pub Vec<(Option<LinearColorHint>, LinearColorStop)>);
 
 impl CSSParsable for ColorStopList {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
@@ -149,38 +132,13 @@ impl CSSParsable for ColorStopList {
     }
 }
 
-impl CSSParsable for AngularColorHint {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        let stripped = Gradient::strip_whitespace(stream.remaining());
-        if stripped.is_empty() {
-            return Err(CssValueError::UnexpectedEndOfInput);
-        }
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorStopAngle(pub AnglePercentageZero, pub Option<AnglePercentageZero>);
 
-        let meaningful = Gradient::meaningful_cvs(stripped);
-        if meaningful.len() != 1 {
-            return Err(CssValueError::InvalidValue(format!(
-                "Angular color hint must be a single angle or percentage, got {} tokens",
-                meaningful.len()
-            )));
-        }
-
-        let cv = meaningful[0];
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Number(n) if n.to_f64() == 0.0 => Ok(Self::Zero),
-                CssTokenKind::Dimension { .. } | CssTokenKind::Number(_) => {
-                    let angle = Angle::try_from(token)?;
-                    Ok(Self::AnglePercentage(AnglePercentage::Angle(angle)))
-                }
-                CssTokenKind::Percentage(value) => {
-                    let pct = Percentage::new(value.to_f64());
-                    Ok(Self::AnglePercentage(AnglePercentage::Percentage(pct)))
-                }
-                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
-            },
-            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-        }
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub struct AngularColorStop {
+    pub color: Color,
+    pub angle: Option<ColorStopAngle>,
 }
 
 impl CSSParsable for AngularColorStop {
@@ -200,12 +158,12 @@ impl CSSParsable for AngularColorStop {
         let angle = match angle_cvs.len() {
             0 => None,
             1 => {
-                let ap = Gradient::try_parse_angle_percentage_or_zero(angle_cvs[0])?;
+                let ap = AnglePercentageZero::try_from(angle_cvs[0])?;
                 Some(ColorStopAngle(ap, None))
             }
             2 => {
-                let ap1 = Gradient::try_parse_angle_percentage_or_zero(angle_cvs[0])?;
-                let ap2 = Gradient::try_parse_angle_percentage_or_zero(angle_cvs[1])?;
+                let ap1 = AnglePercentageZero::try_from(angle_cvs[0])?;
+                let ap2 = AnglePercentageZero::try_from(angle_cvs[1])?;
                 Some(ColorStopAngle(ap1, Some(ap2)))
             }
             n => {
@@ -218,6 +176,67 @@ impl CSSParsable for AngularColorStop {
         Ok(Self { color, angle })
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AngularColorHint {
+    AnglePercentage(AnglePercentage),
+    Zero,
+}
+
+impl CSSParsable for AngularColorHint {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        let stripped = Gradient::strip_whitespace(stream.remaining());
+        if stripped.is_empty() {
+            return Err(CssValueError::UnexpectedEndOfInput);
+        }
+
+        let meaningful = Gradient::meaningful_cvs(stripped);
+        if meaningful.len() != 1 {
+            return Err(CssValueError::InvalidValue(format!(
+                "Angular color hint must be a single angle or percentage, got {} tokens",
+                meaningful.len()
+            )));
+        }
+
+        let cv = meaningful[0];
+        match cv {
+            ComponentValue::Function(func) => {
+                if is_math_function(&func.name) {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_type()?;
+
+                    if !matches!(domain, CalcDomain::Angle | CalcDomain::Percentage) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![CalcDomain::Angle, CalcDomain::Percentage],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::AnglePercentage(AnglePercentage::Calc(expr)))
+                } else {
+                    // TODO: Implement `from` and `to` functions for angular color hints, which allow specifying angles relative to the gradient's start angle.
+                    Err(CssValueError::InvalidFunction(func.name.clone()))
+                }
+            }
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Number(n) if n.to_f64() == 0.0 => Ok(Self::Zero),
+                CssTokenKind::Dimension { .. } | CssTokenKind::Number(_) => {
+                    let angle = Angle::try_from(token)?;
+                    Ok(Self::AnglePercentage(AnglePercentage::Angle(angle)))
+                }
+                CssTokenKind::Percentage(value) => {
+                    let pct = Percentage::new(value.to_f64());
+                    Ok(Self::AnglePercentage(AnglePercentage::Percentage(pct)))
+                }
+                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+            },
+            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AngularColorStopList(pub AngularColorStop, pub Vec<(Option<AngularColorHint>, AngularColorStop)>);
 
 impl CSSParsable for AngularColorStopList {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {

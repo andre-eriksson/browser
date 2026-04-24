@@ -1,4 +1,4 @@
-use css_cssom::{CssToken, CssTokenKind};
+use css_cssom::{ComponentValue, CssToken, CssTokenKind, NumericValue};
 use strum::EnumString;
 
 use crate::{CSSParsable, error::CssValueError};
@@ -248,86 +248,141 @@ impl TryFrom<&CssToken> for Length {
     }
 }
 
+impl TryFrom<&ComponentValue> for Length {
+    type Error = CssValueError;
+
+    fn try_from(cv: &ComponentValue) -> Result<Self, Self::Error> {
+        cv.as_token()
+            .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
+    }
+}
+
 impl CSSParsable for Length {
     fn parse(stream: &mut css_cssom::ComponentValueStream) -> Result<Self, CssValueError> {
         stream
             .next_non_whitespace()
-            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| {
-                cv.as_token()
-                    .map_or_else(|| Err(CssValueError::InvalidComponentValue(cv.clone())), Self::try_from)
-            })
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), Self::try_from)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+pub enum AngleUnit {
+    Deg,
+    Rad,
+    Grad,
+    Turn,
 }
 
 /// Angle representation for CSS properties that accept angles, such as hue in HSL colors or rotation in transforms
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Angle {
-    /// Degrees (e.g., "45deg")
-    ///
-    /// Note: The value is normalized to the [0, 360) range, so "450deg" would be treated as "90deg".
-    Deg(f64),
+pub struct Angle {
+    /// The numeric value of the angle
+    value: f64,
 
-    /// Radians (e.g., "3.14rad")
-    ///
-    /// Note: The value is normalized to the [0, 2π) range, so "7.28rad" would be treated as "0.28rad".
-    Rad(f64),
-
-    /// Gradians (e.g., "100grad")
-    ///
-    /// Note: The value is normalized to the [0, 400) range, so "450grad" would be treated as "50grad".
-    Grad(f64),
-
-    /// Turns (e.g., "0.5turn")
-    ///
-    /// Note: The value is normalized to the [0, 1) range, so "1.5turn" would be treated as "0.5turn".
-    Turn(f64),
+    /// The unit of the angle
+    unit: AngleUnit,
 }
 
 impl Angle {
+    /// Creates a new Angle with the given value and unit.
+    #[must_use]
+    pub const fn new(value: f64, unit: AngleUnit) -> Self {
+        Self { value, unit }
+    }
+
+    /// A shorthand constructor for creating an Angle with the degrees unit, for convenience.
+    #[must_use]
+    pub const fn deg(value: f64) -> Self {
+        Self {
+            value,
+            unit: AngleUnit::Deg,
+        }
+    }
+
+    /// A shorthand constructor for creating an Angle with the radians unit, for convenience.
+    #[must_use]
+    pub const fn rad(value: f64) -> Self {
+        Self {
+            value,
+            unit: AngleUnit::Rad,
+        }
+    }
+
+    /// A shorthand constructor for creating an Angle with the gradians unit, for convenience.
+    #[must_use]
+    pub const fn grad(value: f64) -> Self {
+        Self {
+            value,
+            unit: AngleUnit::Grad,
+        }
+    }
+
+    /// A shorthand constructor for creating an Angle with the turns unit, for convenience.
+    #[must_use]
+    pub const fn turn(value: f64) -> Self {
+        Self {
+            value,
+            unit: AngleUnit::Turn,
+        }
+    }
+
     /// Convert the angle to degrees
     #[must_use]
     pub fn to_degrees(self) -> f64 {
-        match self {
-            Self::Deg(v) => v,
-            Self::Rad(v) => v.to_degrees(),
-            Self::Grad(v) => v * 0.9,
-            Self::Turn(v) => v * 360.0,
+        match self.unit {
+            AngleUnit::Deg => self.value,
+            AngleUnit::Rad => self.value.to_degrees(),
+            AngleUnit::Grad => self.value * 0.9,
+            AngleUnit::Turn => self.value * 360.0,
         }
     }
 
     /// Convert the angle to radians
     #[must_use]
     pub fn to_radians(self) -> f64 {
-        match self {
-            Self::Deg(v) => v.to_radians(),
-            Self::Rad(v) => v,
-            Self::Grad(v) => (v * 0.9).to_radians(),
-            Self::Turn(v) => v * 2.0 * std::f64::consts::PI,
+        match self.unit {
+            AngleUnit::Deg => self.value.to_radians(),
+            AngleUnit::Rad => self.value,
+            AngleUnit::Grad => (self.value * 0.9).to_radians(),
+            AngleUnit::Turn => self.value * 2.0 * std::f64::consts::PI,
         }
     }
 
     /// Convert f32 degrees to an Angle, normalizing it to the [0, 360) range
     #[must_use]
     pub fn from_degrees(deg: f64) -> Self {
-        Self::Deg((deg / 360.0).fract() * 360.0)
+        Self {
+            value: (deg / 360.0).fract() * 360.0,
+            unit: AngleUnit::Deg,
+        }
     }
 
     /// Convert f32 radians to an Angle, normalizing it to the [0, 2π) range
     #[must_use]
     pub fn from_radians(rad: f64) -> Self {
-        Self::Rad((rad / (2.0 * std::f64::consts::PI)).fract() * (2.0 * std::f64::consts::PI))
+        Self {
+            value: (rad / (2.0 * std::f64::consts::PI)).fract() * (2.0 * std::f64::consts::PI),
+            unit: AngleUnit::Rad,
+        }
     }
 
     /// Convert f32 gradians to an Angle, normalizing it to the [0, 400) range
     #[must_use]
     pub fn from_gradians(grad: f64) -> Self {
-        Self::Grad((grad / 400.0).fract() * 400.0)
+        Self {
+            value: (grad / 400.0).fract() * 400.0,
+            unit: AngleUnit::Grad,
+        }
     }
 
     /// Convert f32 turns to an Angle, normalizing it to the [0, 1) range
     #[must_use]
     pub const fn from_turns(turn: f64) -> Self {
-        Self::Turn((turn).fract())
+        Self {
+            value: turn.fract(),
+            unit: AngleUnit::Turn,
+        }
     }
 }
 
@@ -337,17 +392,13 @@ impl TryFrom<&CssToken> for Angle {
     fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
-                if unit.eq_ignore_ascii_case("deg") {
-                    Ok(Self::from_degrees(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("rad") {
-                    Ok(Self::from_radians(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("grad") {
-                    Ok(Self::from_gradians(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("turn") {
-                    Ok(Self::from_turns(value.to_f64()))
-                } else {
-                    Err(CssValueError::InvalidUnit(unit.clone()))
-                }
+                let angle_unit =
+                    AngleUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
+                Ok(Self {
+                    value: value.to_f64(),
+                    unit: angle_unit,
+                })
             }
             CssTokenKind::Number(value) => Ok(Self::from_degrees(value.to_f64())),
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
@@ -366,18 +417,65 @@ impl CSSParsable for Angle {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+pub enum TimeUnit {
+    S,
+    Ms,
+}
+
 /// The <time> CSS data type represents a time value, which can be specified in seconds or milliseconds. It is commonly used in properties like `animation-duration` and `transition-delay`.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Time {
-    /// Seconds (e.g., "2s")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-1s" would be treated as "0s".
-    Seconds(f64),
+pub struct Time {
+    /// The numeric value of the time
+    value: f64,
 
-    /// Milliseconds (e.g., "500ms")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-500ms" would be treated as "0ms".
-    Milliseconds(f64),
+    /// The unit of the time
+    unit: TimeUnit,
+}
+
+impl Time {
+    /// Creates a new Time with the given value and unit.
+    #[must_use]
+    pub const fn new(value: f64, unit: TimeUnit) -> Self {
+        Self { value, unit }
+    }
+
+    /// A shorthand constructor for creating a Time with the seconds unit, for convenience.
+    #[must_use]
+    pub const fn s(value: f64) -> Self {
+        Self {
+            value,
+            unit: TimeUnit::S,
+        }
+    }
+
+    /// A shorthand constructor for creating a Time with the milliseconds unit, for convenience.
+    #[must_use]
+    pub const fn ms(value: f64) -> Self {
+        Self {
+            value,
+            unit: TimeUnit::Ms,
+        }
+    }
+
+    /// Convert the time to seconds
+    #[must_use]
+    pub const fn to_seconds(self) -> f64 {
+        match self.unit {
+            TimeUnit::S => self.value,
+            TimeUnit::Ms => self.value / 1000.0,
+        }
+    }
+
+    /// Convert the time to milliseconds
+    #[must_use]
+    pub const fn to_milliseconds(self) -> f64 {
+        match self.unit {
+            TimeUnit::S => self.value * 1000.0,
+            TimeUnit::Ms => self.value,
+        }
+    }
 }
 
 impl TryFrom<&CssToken> for Time {
@@ -386,13 +484,13 @@ impl TryFrom<&CssToken> for Time {
     fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
-                if unit.eq_ignore_ascii_case("s") {
-                    Ok(Self::Seconds(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("ms") {
-                    Ok(Self::Milliseconds(value.to_f64()))
-                } else {
-                    Err(CssValueError::InvalidUnit(unit.clone()))
-                }
+                let time_unit =
+                    TimeUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
+                Ok(Self {
+                    value: value.to_f64(),
+                    unit: time_unit,
+                })
             }
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
@@ -410,19 +508,66 @@ impl CSSParsable for Time {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+pub enum FrequencyUnit {
+    Hz,
+    KHz,
+}
+
 /// The <frequency> CSS data type represents a frequency value, which can be specified in hertz or kilohertz.
 /// It is currently unused.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Frequency {
-    /// Hertz (e.g., "440Hz")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-440Hz" would be treated as "0Hz".
-    Hz(f64),
+pub struct Frequency {
+    /// The numeric value of the frequency
+    value: f64,
 
-    /// Kilohertz (e.g., "1.5kHz")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-1.5kHz" would be treated as "0kHz".
-    KHz(f64),
+    /// The unit of the frequency
+    unit: FrequencyUnit,
+}
+
+impl Frequency {
+    /// Creates a new Frequency with the given value and unit.
+    #[must_use]
+    pub const fn new(value: f64, unit: FrequencyUnit) -> Self {
+        Self { value, unit }
+    }
+
+    /// A shorthand constructor for creating a Frequency with the hertz unit, for convenience.
+    #[must_use]
+    pub const fn hz(value: f64) -> Self {
+        Self {
+            value,
+            unit: FrequencyUnit::Hz,
+        }
+    }
+
+    /// A shorthand constructor for creating a Frequency with the kilohertz unit, for convenience.
+    #[must_use]
+    pub const fn khz(value: f64) -> Self {
+        Self {
+            value,
+            unit: FrequencyUnit::KHz,
+        }
+    }
+
+    /// Convert the frequency to hertz
+    #[must_use]
+    pub const fn to_hertz(self) -> f64 {
+        match self.unit {
+            FrequencyUnit::Hz => self.value,
+            FrequencyUnit::KHz => self.value * 1000.0,
+        }
+    }
+
+    /// Convert the frequency to kilohertz
+    #[must_use]
+    pub const fn to_kilohertz(self) -> f64 {
+        match self.unit {
+            FrequencyUnit::Hz => self.value / 1000.0,
+            FrequencyUnit::KHz => self.value,
+        }
+    }
 }
 
 impl TryFrom<&CssToken> for Frequency {
@@ -431,13 +576,13 @@ impl TryFrom<&CssToken> for Frequency {
     fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
-                if unit.eq_ignore_ascii_case("hz") {
-                    Ok(Self::Hz(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("khz") {
-                    Ok(Self::KHz(value.to_f64()))
-                } else {
-                    Err(CssValueError::InvalidUnit(unit.clone()))
-                }
+                let frequency_unit =
+                    FrequencyUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
+                Ok(Self {
+                    value: value.to_f64(),
+                    unit: frequency_unit,
+                })
             }
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
@@ -455,26 +600,90 @@ impl CSSParsable for Frequency {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
+#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
+pub enum ResolutionUnit {
+    Dpi,
+    Dpcm,
+    Dppx,
+}
+
 /// The <resolution> CSS data type
 ///
 /// Represents a resolution value, which can be specified in dots per inch, dots per centimeter, or dots per pixel.
 /// It is commonly used in media queries to specify the resolution of the output device.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Resolution {
-    /// Dots per inch (e.g., "300dpi")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-300dpi" would be treated as "0dpi".
-    Dpi(f64),
+pub struct Resolution {
+    /// The numeric value of the resolution
+    value: f64,
 
-    /// Dots per centimeter (e.g., "118dpcm")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-118dpcm" would be treated as "0dpcm".
-    Dpcm(f64),
+    /// The unit of the resolution
+    unit: ResolutionUnit,
+}
 
-    /// Dots per pixel (e.g., "2dppx")
-    ///
-    /// Note: The value is normalized to a non-negative number, so "-2dppx" would be treated as "0dppx".
-    Dppx(f64),
+impl Resolution {
+    /// Creates a new Resolution with the given value and unit.
+    #[must_use]
+    pub const fn new(value: f64, unit: ResolutionUnit) -> Self {
+        Self { value, unit }
+    }
+
+    /// A shorthand constructor for creating a Resolution with the dots per inch unit, for convenience.
+    #[must_use]
+    pub const fn dpi(value: f64) -> Self {
+        Self {
+            value,
+            unit: ResolutionUnit::Dpi,
+        }
+    }
+
+    /// A shorthand constructor for creating a Resolution with the dots per centimeter unit, for convenience.
+    #[must_use]
+    pub const fn dpcm(value: f64) -> Self {
+        Self {
+            value,
+            unit: ResolutionUnit::Dpcm,
+        }
+    }
+
+    /// A shorthand constructor for creating a Resolution with the dots per pixel unit, for convenience.
+    #[must_use]
+    pub const fn dppx(value: f64) -> Self {
+        Self {
+            value,
+            unit: ResolutionUnit::Dppx,
+        }
+    }
+
+    /// Convert the resolution to dots per inch
+    #[must_use]
+    pub const fn to_dpi(self) -> f64 {
+        match self.unit {
+            ResolutionUnit::Dpi => self.value,
+            ResolutionUnit::Dpcm => self.value * 2.54,
+            ResolutionUnit::Dppx => self.value * 96.0,
+        }
+    }
+
+    /// Convert the resolution to dots per centimeter
+    #[must_use]
+    pub const fn to_dpcm(self) -> f64 {
+        match self.unit {
+            ResolutionUnit::Dpi => self.value / 2.54,
+            ResolutionUnit::Dpcm => self.value,
+            ResolutionUnit::Dppx => self.value * (96.0 / 2.54),
+        }
+    }
+
+    /// Convert the resolution to dots per pixel
+    #[must_use]
+    pub const fn to_dppx(self) -> f64 {
+        match self.unit {
+            ResolutionUnit::Dpi => self.value / 96.0,
+            ResolutionUnit::Dpcm => self.value / (96.0 / 2.54),
+            ResolutionUnit::Dppx => self.value,
+        }
+    }
 }
 
 impl TryFrom<&CssToken> for Resolution {
@@ -483,15 +692,13 @@ impl TryFrom<&CssToken> for Resolution {
     fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
         match &token.kind {
             CssTokenKind::Dimension { value, unit } => {
-                if unit.eq_ignore_ascii_case("dpi") {
-                    Ok(Self::Dpi(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("dpcm") {
-                    Ok(Self::Dpcm(value.to_f64()))
-                } else if unit.eq_ignore_ascii_case("dppx") {
-                    Ok(Self::Dppx(value.to_f64()))
-                } else {
-                    Err(CssValueError::InvalidUnit(unit.clone()))
-                }
+                let resolution_unit =
+                    ResolutionUnit::try_from(unit.as_str()).map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+
+                Ok(Self {
+                    value: value.to_f64(),
+                    unit: resolution_unit,
+                })
             }
             _ => Err(CssValueError::InvalidToken(token.kind.clone())),
         }
@@ -509,22 +716,64 @@ impl CSSParsable for Resolution {
     }
 }
 
+/// The `Dimension` enum represents a CSS dimension value, which can be a length, angle, time, frequency, or resolution.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/dimension>
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Dimension {
+    Length(Length),
+    Angle(Angle),
+    Time(Time),
+    Frequency(Frequency),
+    Resolution(Resolution),
+}
+
+impl Dimension {
+    pub fn parse(value: &NumericValue, unit: &str) -> Result<Self, CssValueError> {
+        if let Ok(length_unit) = LengthUnit::try_from(unit) {
+            Ok(Self::Length(Length::new(value.to_f64(), length_unit)))
+        } else if let Ok(angle_unit) = AngleUnit::try_from(unit) {
+            Ok(Self::Angle(Angle {
+                value: value.to_f64(),
+                unit: angle_unit,
+            }))
+        } else if let Ok(time_unit) = TimeUnit::try_from(unit) {
+            Ok(Self::Time(Time {
+                value: value.to_f64(),
+                unit: time_unit,
+            }))
+        } else if let Ok(frequency_unit) = FrequencyUnit::try_from(unit) {
+            Ok(Self::Frequency(Frequency {
+                value: value.to_f64(),
+                unit: frequency_unit,
+            }))
+        } else if let Ok(resolution_unit) = ResolutionUnit::try_from(unit) {
+            Ok(Self::Resolution(Resolution {
+                value: value.to_f64(),
+                unit: resolution_unit,
+            }))
+        } else {
+            Err(CssValueError::InvalidUnit(unit.to_string()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_to_degrees() {
-        let angle_deg = Angle::Deg(90.0);
+        let angle_deg = Angle::deg(90.0);
         assert_eq!(angle_deg.to_degrees(), 90.0);
 
-        let angle_rad = Angle::Rad(std::f64::consts::PI / 2.0);
+        let angle_rad = Angle::rad(std::f64::consts::PI / 2.0);
         assert!((angle_rad.to_degrees() - 90.0).abs() < 1e-6);
 
-        let angle_grad = Angle::Grad(100.0);
+        let angle_grad = Angle::grad(100.0);
         assert_eq!(angle_grad.to_degrees(), 90.0);
 
-        let angle_turn = Angle::Turn(0.25);
+        let angle_turn = Angle::turn(0.25);
         assert_eq!(angle_turn.to_degrees(), 90.0);
     }
 }

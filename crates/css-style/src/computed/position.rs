@@ -6,7 +6,7 @@ use css_values::{
 };
 
 use crate::{
-    AbsoluteContext, RelativeContext,
+    AbsoluteContext, RelativeContext, RelativeType,
     properties::{PixelRepr, background::BackgroundSize},
 };
 
@@ -17,10 +17,19 @@ pub enum ComputedLengthPercentage {
 }
 
 impl ComputedLengthPercentage {
-    pub fn resolve(len_pct: LengthPercentage, relative_ctx: &RelativeContext, absolute_ctx: &AbsoluteContext) -> Self {
+    pub fn resolve(
+        len_pct: LengthPercentage,
+        relative_type: Option<RelativeType>,
+        relative_ctx: &RelativeContext,
+        absolute_ctx: &AbsoluteContext,
+    ) -> Self {
         match len_pct {
-            LengthPercentage::Length(len) => Self::Length(len.to_px(None, Some(relative_ctx), absolute_ctx)),
+            LengthPercentage::Length(len) => Self::Length(len.to_px(relative_type, Some(relative_ctx), absolute_ctx)),
             LengthPercentage::Percentage(pct) => Self::Percentage(pct.as_fraction()),
+            LengthPercentage::Calc(calc) => {
+                let resolved = calc.to_px(relative_type, Some(relative_ctx), absolute_ctx);
+                Self::Length(resolved)
+            }
         }
     }
 }
@@ -34,13 +43,14 @@ pub enum ComputedWidthHeightSize {
 impl ComputedWidthHeightSize {
     pub fn resolve(
         width_height_size: WidthHeightSize,
+        relative_type: Option<RelativeType>,
         relative_ctx: &RelativeContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         match width_height_size {
             WidthHeightSize::Auto => Self::Auto,
             WidthHeightSize::Length(len_pct) => {
-                Self::Length(ComputedLengthPercentage::resolve(len_pct, relative_ctx, absolute_ctx))
+                Self::Length(ComputedLengthPercentage::resolve(len_pct, relative_type, relative_ctx, absolute_ctx))
             }
         }
     }
@@ -68,6 +78,7 @@ impl Default for ComputedBackgroundSize {
 impl ComputedBackgroundSize {
     pub fn resolve(
         background_size: BackgroundSize,
+        relative_type: Option<RelativeType>,
         relative_ctx: &RelativeContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
@@ -78,8 +89,9 @@ impl ComputedBackgroundSize {
                 Size::Cover => ComputedSize::Cover,
                 Size::Contain => ComputedSize::Contain,
                 Size::WidthHeight(width, height) => {
-                    let width = ComputedWidthHeightSize::resolve(width, relative_ctx, absolute_ctx);
-                    let height = height.map(|h| ComputedWidthHeightSize::resolve(h, relative_ctx, absolute_ctx));
+                    let width = ComputedWidthHeightSize::resolve(width, relative_type, relative_ctx, absolute_ctx);
+                    let height =
+                        height.map(|h| ComputedWidthHeightSize::resolve(h, relative_type, relative_ctx, absolute_ctx));
                     ComputedSize::WidthHeight(width, height)
                 }
             })

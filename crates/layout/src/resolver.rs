@@ -1,4 +1,4 @@
-use css_style::{ComputedDimension, ComputedMaxDimension, ComputedStyle, Position, StyledNode};
+use css_style::{ComputedMaxDimension, ComputedSize, ComputedStyle, Position, StyledNode};
 use css_values::display::{Float, InsideDisplay};
 
 use crate::SideOffset;
@@ -66,13 +66,13 @@ impl PropertyResolver {
             ComputedMaxDimension::Percentage(f) => (width * f).max(0.0),
             ComputedMaxDimension::MaxContent
             | ComputedMaxDimension::MinContent
-            | ComputedMaxDimension::FitContent(_)
+            | ComputedMaxDimension::FitContent
             | ComputedMaxDimension::Stretch => styled_node.style.max_intrinsic_width,
         };
 
         let available_width = f64::min(
             width - (styled_node.style.margin_left + styled_node.style.margin_right),
-            if max_width == 0.0 && styled_node.style.width == ComputedDimension::Auto {
+            if max_width == 0.0 && styled_node.style.width == ComputedSize::Auto {
                 f64::INFINITY
             } else {
                 max_width
@@ -80,13 +80,12 @@ impl PropertyResolver {
         );
 
         let width = match &styled_node.style.width {
-            ComputedDimension::Auto => available_width.max(0.0),
-            ComputedDimension::Fixed => styled_node.style.intrinsic_width,
-            ComputedDimension::Percentage(f) => (width * f).max(0.0),
-            ComputedDimension::MaxContent
-            | ComputedDimension::MinContent
-            | ComputedDimension::FitContent(_)
-            | ComputedDimension::Stretch => styled_node.style.intrinsic_width,
+            ComputedSize::Auto => available_width.max(0.0),
+            ComputedSize::Fixed => styled_node.style.intrinsic_width,
+            ComputedSize::Percentage(f) => (width * f).max(0.0),
+            ComputedSize::MaxContent | ComputedSize::MinContent | ComputedSize::FitContent | ComputedSize::Stretch => {
+                styled_node.style.intrinsic_width
+            }
         };
 
         width.min(available_width)
@@ -94,13 +93,12 @@ impl PropertyResolver {
 
     pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f64, containing_height: f64) -> f64 {
         let height = match &styled_node.style.height {
-            ComputedDimension::Auto => children_height.max(styled_node.style.intrinsic_height),
-            ComputedDimension::Fixed => styled_node.style.intrinsic_height,
-            ComputedDimension::Percentage(f) => (containing_height * f).max(0.0),
-            ComputedDimension::MaxContent
-            | ComputedDimension::MinContent
-            | ComputedDimension::FitContent(_)
-            | ComputedDimension::Stretch => children_height.max(styled_node.style.intrinsic_height),
+            ComputedSize::Auto => children_height.max(styled_node.style.intrinsic_height),
+            ComputedSize::Fixed => styled_node.style.intrinsic_height,
+            ComputedSize::Percentage(f) => (containing_height * f).max(0.0),
+            ComputedSize::MaxContent | ComputedSize::MinContent | ComputedSize::FitContent | ComputedSize::Stretch => {
+                children_height.max(styled_node.style.intrinsic_height)
+            }
         };
 
         if styled_node.style.max_height == ComputedMaxDimension::None {
@@ -114,7 +112,7 @@ impl PropertyResolver {
 
             let available_height = f64::min(
                 containing_height - (styled_node.style.margin_top + styled_node.style.margin_bottom),
-                if max_height == 0.0 && styled_node.style.height == ComputedDimension::Auto {
+                if max_height == 0.0 && styled_node.style.height == ComputedSize::Auto {
                     f64::INFINITY
                 } else {
                     max_height

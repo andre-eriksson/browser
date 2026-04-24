@@ -43,8 +43,7 @@ impl LinearGradientSyntax {
             .collect();
 
         if meaningful.len() == 1
-            && let ComponentValue::Token(token) = meaningful[0]
-            && let Ok(angle) = AngleZero::try_from(token)
+            && let Ok(angle) = AngleZero::try_from(meaningful[0])
         {
             return Ok(LinearDirection::Angle(angle));
         }

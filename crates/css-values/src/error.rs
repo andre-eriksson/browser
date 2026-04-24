@@ -1,6 +1,8 @@
 use css_cssom::{ComponentValue, CssTokenKind};
 use thiserror::Error;
 
+use crate::calc::CalcDomain;
+
 #[derive(Error, Debug, Clone, PartialEq)]
 pub enum CssValueError {
     #[error("Unexpected end of input")]
@@ -17,6 +19,12 @@ pub enum CssValueError {
 
     #[error("Invalid function: {0}")]
     InvalidFunction(String),
+
+    #[error("Invalid calc domain: expected one of {expected:?}, but found {found:?}")]
+    InvalidCalcDomain {
+        expected: Vec<CalcDomain>,
+        found: CalcDomain,
+    },
 
     #[error("Invalid token: {0:?}")]
     InvalidToken(CssTokenKind),

@@ -3,7 +3,7 @@ use strum::EnumString;
 
 use crate::{
     CSSParsable,
-    calc::{CalcExpression, is_math_function},
+    calc::{CalcDomain, CalcExpression, is_math_function},
     error::CssValueError,
     quantity::{Length, LengthUnit},
 };
@@ -120,6 +120,19 @@ impl CSSParsable for BorderWidth {
 
         let width = if let Some(cv) = stream.peek() {
             match cv {
+                ComponentValue::Function(func) if is_math_function(&func.name) => {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_type()?;
+
+                    if !matches!(domain, CalcDomain::Length) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![crate::calc::CalcDomain::Length],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::Calc(expr))
+                }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("thin") {
@@ -141,10 +154,6 @@ impl CSSParsable for BorderWidth {
                     CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64()))),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    Ok(Self::Calc(calc_expr))
-                }
                 cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
         } else {

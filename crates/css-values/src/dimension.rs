@@ -2,7 +2,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     CSSParsable,
-    calc::{CalcExpression, is_math_function},
+    calc::{CalcDomain, CalcExpression, is_math_function},
     error::CssValueError,
     numeric::Percentage,
     quantity::{Length, LengthUnit},
@@ -13,7 +13,7 @@ use crate::{
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/width>
 #[derive(Debug, Clone, Default, PartialEq)]
-pub enum Dimension {
+pub enum Size {
     Percentage(Percentage),
     Length(Length),
     Calc(CalcExpression),
@@ -21,11 +21,11 @@ pub enum Dimension {
     Auto,
     MaxContent,
     MinContent,
-    FitContent(Option<Length>),
+    FitContent,
     Stretch,
 }
 
-impl Dimension {
+impl Size {
     /// Create a Dimension from a pixel value.
     #[must_use]
     pub const fn px(value: f64) -> Self {
@@ -33,7 +33,7 @@ impl Dimension {
     }
 }
 
-impl CSSParsable for Dimension {
+impl CSSParsable for Size {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
@@ -41,7 +41,17 @@ impl CSSParsable for Dimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
+                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let domain = expr.resolve_type()?;
+
+                        if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
+                            return Err(CssValueError::InvalidCalcDomain {
+                                expected: vec![CalcDomain::Length, CalcDomain::Percentage],
+                                found: domain,
+                            });
+                        }
+
+                        Ok(Self::Calc(expr))
                     } else {
                         Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
@@ -55,7 +65,7 @@ impl CSSParsable for Dimension {
                         } else if ident.eq_ignore_ascii_case("min-content") {
                             Ok(Self::MinContent)
                         } else if ident.eq_ignore_ascii_case("fit-content") {
-                            Ok(Self::FitContent(None)) // TODO: Fix?
+                            Ok(Self::FitContent)
                         } else if ident.eq_ignore_ascii_case("stretch") {
                             Ok(Self::Stretch)
                         } else {
@@ -85,7 +95,7 @@ impl CSSParsable for Dimension {
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/max-width>
 #[derive(Debug, Clone, Default, PartialEq)]
-pub enum MaxDimension {
+pub enum MaxSize {
     Length(Length),
     Percentage(Percentage),
     Calc(CalcExpression),
@@ -93,11 +103,11 @@ pub enum MaxDimension {
     None,
     MaxContent,
     MinContent,
-    FitContent(Option<Length>),
+    FitContent,
     Stretch,
 }
 
-impl MaxDimension {
+impl MaxSize {
     /// Create a `MaxDimension` from a pixel value.
     #[must_use]
     pub const fn px(value: f64) -> Self {
@@ -105,7 +115,7 @@ impl MaxDimension {
     }
 }
 
-impl CSSParsable for MaxDimension {
+impl CSSParsable for MaxSize {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream.skip_whitespace();
 
@@ -113,7 +123,17 @@ impl CSSParsable for MaxDimension {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                        let expr = CalcExpression::parse_math_function(&func.name, func.value.as_slice())?;
+                        let domain = expr.resolve_type()?;
+
+                        if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
+                            return Err(CssValueError::InvalidCalcDomain {
+                                expected: vec![CalcDomain::Length, CalcDomain::Percentage],
+                                found: domain,
+                            });
+                        }
+
+                        Ok(Self::Calc(expr))
                     } else {
                         Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
@@ -127,7 +147,7 @@ impl CSSParsable for MaxDimension {
                         } else if ident.eq_ignore_ascii_case("min-content") {
                             Ok(Self::MinContent)
                         } else if ident.eq_ignore_ascii_case("fit-content") {
-                            Ok(Self::FitContent(None)) // TODO: Fix?
+                            Ok(Self::FitContent) // TODO: Fix?
                         } else if ident.eq_ignore_ascii_case("stretch") {
                             Ok(Self::Stretch)
                         } else {
@@ -193,7 +213,20 @@ impl CSSParsable for OffsetValue {
         if let Some(cv) = stream.peek() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?))
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_type()?;
+
+                    if !matches!(domain, crate::calc::CalcDomain::Length | crate::calc::CalcDomain::Percentage) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![
+                                crate::calc::CalcDomain::Length,
+                                crate::calc::CalcDomain::Percentage,
+                            ],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::Calc(expr))
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -223,8 +256,8 @@ mod tests {
 
     #[test]
     fn test_dimension_px() {
-        let dim = Dimension::px(16.0);
-        assert_eq!(dim, Dimension::Length(Length::new(16.0, LengthUnit::Px)));
+        let dim = Size::px(16.0);
+        assert_eq!(dim, Size::Length(Length::new(16.0, LengthUnit::Px)));
     }
 
     #[test]
@@ -236,8 +269,8 @@ mod tests {
             },
             position: None,
         })];
-        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
-        assert_eq!(dim, Dimension::Length(Length::new(16.0, LengthUnit::Px)));
+        let dim = Size::parse(&mut tokens.as_slice().into()).unwrap();
+        assert_eq!(dim, Size::Length(Length::new(16.0, LengthUnit::Px)));
     }
 
     #[test]
@@ -246,8 +279,8 @@ mod tests {
             kind: CssTokenKind::Percentage(NumericValue::from(50.0)),
             position: None,
         })];
-        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
-        assert_eq!(dim, Dimension::Percentage(Percentage::new(50.0)));
+        let dim = Size::parse(&mut tokens.as_slice().into()).unwrap();
+        assert_eq!(dim, Size::Percentage(Percentage::new(50.0)));
     }
 
     #[test]
@@ -256,8 +289,8 @@ mod tests {
             kind: CssTokenKind::Ident("auto".to_string()),
             position: None,
         })];
-        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
-        assert_eq!(dim, Dimension::Auto);
+        let dim = Size::parse(&mut tokens.as_slice().into()).unwrap();
+        assert_eq!(dim, Size::Auto);
     }
 
     /*
@@ -301,8 +334,8 @@ mod tests {
             kind: CssTokenKind::Ident("max-content".to_string()),
             position: None,
         })];
-        let dim = Dimension::parse(&mut tokens.as_slice().into()).unwrap();
-        assert_eq!(dim, Dimension::MaxContent);
+        let dim = Size::parse(&mut tokens.as_slice().into()).unwrap();
+        assert_eq!(dim, Size::MaxContent);
     }
 
     #[test]
@@ -311,7 +344,7 @@ mod tests {
             kind: CssTokenKind::Ident("invalid".to_string()),
             position: None,
         })];
-        let dim = Dimension::parse(&mut tokens.as_slice().into());
+        let dim = Size::parse(&mut tokens.as_slice().into());
         assert!(dim.is_err());
     }
 }

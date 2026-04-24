@@ -16,7 +16,7 @@ mod tree;
 pub use computed::{
     ComputedStyle,
     color::Color4f,
-    dimension::{ComputedDimension, ComputedMaxDimension},
+    dimension::{ComputedSize, ComputedMaxDimension},
 };
 pub use properties::display::*;
 pub use properties::font::*;

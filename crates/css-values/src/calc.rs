@@ -2,11 +2,7 @@ use std::str::FromStr;
 
 use css_cssom::{AssociatedToken, ComponentValue, ComponentValueStream, CssTokenKind};
 
-use crate::{
-    error::CssValueError,
-    numeric::Percentage,
-    quantity::{Length, LengthUnit},
-};
+use crate::{error::CssValueError, numeric::Percentage, quantity::Dimension};
 
 /// The set of CSS Calc function names that can be parsed as calc expressions.
 const MATH_FUNCTION_NAMES: &[&str] = &["calc", "min", "max", "clamp"];
@@ -17,6 +13,18 @@ pub fn is_math_function(name: &str) -> bool {
     MATH_FUNCTION_NAMES
         .iter()
         .any(|n| name.eq_ignore_ascii_case(n))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CalcDomain {
+    Number,
+    Length,
+    Angle,
+    Time,
+    Frequency,
+    Resolution,
+    Percentage,
+    All,
 }
 
 /// Represents the special keywords that can be used in `calc()` expressions.
@@ -69,13 +77,124 @@ pub struct ClampArgs {
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcValue {
     Number(f64),
-    Length(Length),
+    Dimension(Dimension),
     Percentage(Percentage),
     Keyword(CalcKeyword),
     NestedSum(Box<CalcSum>),
     Min(Vec<CalcSum>),
     Max(Vec<CalcSum>),
     Clamp(ClampArgs),
+}
+
+impl CalcDomain {
+    /// Checks if this domain is a dimension (not a number, percentage, or All).
+    pub fn is_dimension(&self) -> bool {
+        !matches!(self, Self::Number | Self::Percentage | Self::All)
+    }
+
+    /// Attempts to combine two domains, returning the resulting domain if they are compatible.
+    /// This is used for addition, subtraction, min, max, and clamp.
+    pub fn combine(&self, other: &Self) -> Option<Self> {
+        if self == other {
+            Some(*self)
+        } else if *self == CalcDomain::Percentage && other.is_dimension() {
+            Some(*other)
+        } else if self.is_dimension() && *other == CalcDomain::Percentage {
+            Some(*self)
+        } else if *self == CalcDomain::All {
+            Some(*other)
+        } else if *other == CalcDomain::All {
+            Some(*self)
+        } else {
+            None
+        }
+    }
+}
+
+impl CalcValue {
+    pub fn evaluate(&self) -> f64 {
+        match self {
+            Self::Number(n) => *n,
+            Self::Keyword(k) => k.to_f64(),
+            Self::Percentage(pct) => pct.as_fraction(),
+            Self::Dimension(dim) => match dim {
+                Dimension::Length(_) => unreachable!("Lengths require PixelRepr context to evaluate!"),
+                Dimension::Angle(a) => a.to_degrees(),
+                Dimension::Time(t) => t.to_seconds(),
+                Dimension::Frequency(f) => f.to_hertz(),
+                Dimension::Resolution(r) => r.to_dppx(),
+            },
+            Self::NestedSum(sum) => sum.evaluate(),
+            Self::Min(args) => args
+                .iter()
+                .map(|s| s.evaluate())
+                .fold(f64::INFINITY, f64::min),
+            Self::Max(args) => args
+                .iter()
+                .map(|s| s.evaluate())
+                .fold(f64::NEG_INFINITY, f64::max),
+            Self::Clamp(args) => {
+                let min_val = args
+                    .min
+                    .as_ref()
+                    .map_or(f64::NEG_INFINITY, |s| s.evaluate());
+                let val_val = args.val.evaluate();
+                let max_val = args.max.as_ref().map_or(f64::INFINITY, |s| s.evaluate());
+                val_val.clamp(min_val, max_val)
+            }
+        }
+    }
+
+    pub fn resolve_type(&self) -> Result<CalcDomain, CssValueError> {
+        match self {
+            CalcValue::Number(_) => Ok(CalcDomain::Number),
+            CalcValue::Dimension(dim) => match dim {
+                Dimension::Length(_) => Ok(CalcDomain::Length),
+                Dimension::Angle(_) => Ok(CalcDomain::Angle),
+                Dimension::Time(_) => Ok(CalcDomain::Time),
+                Dimension::Frequency(_) => Ok(CalcDomain::Frequency),
+                Dimension::Resolution(_) => Ok(CalcDomain::Resolution),
+            },
+            CalcValue::Percentage(_) => Ok(CalcDomain::Percentage),
+            CalcValue::Keyword(_) => Ok(CalcDomain::Number),
+            CalcValue::NestedSum(sum) => sum.resolve_type(),
+            CalcValue::Min(args) | CalcValue::Max(args) => {
+                let mut domain = args[0].resolve_type()?;
+                for arg in args.iter().skip(1) {
+                    let arg_domain = arg.resolve_type()?;
+                    domain = domain.combine(&arg_domain).ok_or_else(|| {
+                        CssValueError::InvalidValue(format!(
+                            "All arguments to min() and max() must be compatible, but got {domain:?} and {arg_domain:?}"
+                        ))
+                    })?;
+                }
+                Ok(domain)
+            }
+            CalcValue::Clamp(args) => {
+                let mut domain = args.val.resolve_type()?;
+
+                if let Some(min) = &args.min {
+                    let min_domain = min.resolve_type()?;
+                    domain = domain.combine(&min_domain).ok_or_else(|| {
+                        CssValueError::InvalidValue(format!(
+                            "clamp() min argument must be compatible with value, but got {min_domain:?} and {domain:?}"
+                        ))
+                    })?;
+                }
+
+                if let Some(max) = &args.max {
+                    let max_domain = max.resolve_type()?;
+                    domain = domain.combine(&max_domain).ok_or_else(|| {
+                        CssValueError::InvalidValue(format!(
+                            "clamp() max argument must be compatible with value, but got {max_domain:?} and {domain:?}"
+                        ))
+                    })?;
+                }
+
+                Ok(domain)
+            }
+        }
+    }
 }
 
 /// Represents a product of values in a `calc()` expression, which can be a single value, a multiplication, or a division.
@@ -86,6 +205,52 @@ pub enum CalcProduct {
     Divide(Box<Self>, Box<Self>),
 }
 
+impl CalcProduct {
+    pub fn evaluate(&self) -> f64 {
+        match self {
+            Self::Value(v) => v.evaluate(),
+            Self::Multiply(l, r) => l.evaluate() * r.evaluate(),
+            Self::Divide(l, r) => {
+                let divisor = r.evaluate();
+                if divisor == 0.0 {
+                    f64::NAN
+                } else {
+                    l.evaluate() / divisor
+                }
+            }
+        }
+    }
+
+    pub fn resolve_type(&self) -> Result<CalcDomain, CssValueError> {
+        match self {
+            CalcProduct::Value(val) => val.resolve_type(),
+            CalcProduct::Multiply(left, right) => {
+                let left_domain = left.resolve_type()?;
+                let right_domain = right.resolve_type()?;
+
+                match (left_domain, right_domain) {
+                    (CalcDomain::Number, CalcDomain::Number) => Ok(CalcDomain::Number),
+                    (d, CalcDomain::Number) | (CalcDomain::Number, d) => Ok(d),
+                    _ => Err(CssValueError::InvalidValue(format!(
+                        "At least one side of a multiplication must be a number, but got {left_domain:?} * {right_domain:?}"
+                    ))),
+                }
+            }
+            CalcProduct::Divide(left, right) => {
+                let left_domain = left.resolve_type()?;
+                let right_domain = right.resolve_type()?;
+
+                if right_domain != CalcDomain::Number {
+                    return Err(CssValueError::InvalidValue(format!(
+                        "The right side of a division must be a number, but got {right_domain:?}"
+                    )));
+                }
+                Ok(left_domain)
+            }
+        }
+    }
+}
+
 /// Represents a sum of products in a `calc()` expression, which can be a single product, an addition, or a subtraction.
 #[derive(Debug, Clone, PartialEq)]
 pub enum CalcSum {
@@ -94,9 +259,35 @@ pub enum CalcSum {
     Subtract(Box<Self>, Box<Self>),
 }
 
+impl CalcSum {
+    pub fn evaluate(&self) -> f64 {
+        match self {
+            Self::Product(p) => p.evaluate(),
+            Self::Add(l, r) => l.evaluate() + r.evaluate(),
+            Self::Subtract(l, r) => l.evaluate() - r.evaluate(),
+        }
+    }
+
+    pub fn resolve_type(&self) -> Result<CalcDomain, CssValueError> {
+        match self {
+            CalcSum::Product(product) => product.resolve_type(),
+            CalcSum::Add(left, right) | CalcSum::Subtract(left, right) => {
+                let left_domain = left.resolve_type()?;
+                let right_domain = right.resolve_type()?;
+
+                left_domain.combine(&right_domain).ok_or_else(|| {
+                    CssValueError::InvalidValue(format!(
+                        "Invalid addition/subtraction between incompatible types: {left_domain:?} and {right_domain:?}"
+                    ))
+                })
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct CalcExpression {
-    pub sum: CalcSum,
+    sum: CalcSum,
 }
 
 impl CalcExpression {
@@ -142,6 +333,24 @@ impl CalcExpression {
         } else {
             Err(CssValueError::InvalidFunction(format!("Math function: {name}")))
         }
+    }
+
+    /// Resolves the type of the calc expression, returning an error if it is invalid (e.g. adding a length to a time).
+    pub fn resolve_type(&self) -> Result<CalcDomain, CssValueError> {
+        self.sum.resolve_type()
+    }
+
+    /// Evaluates a context-free calc expression into a canonical f64 value.
+    /// Returns degrees for Angles, seconds for Time, Hertz for Frequency, etc.
+    ///
+    /// Panics if called on a Length (which requires PixelRepr context).
+    pub fn evaluate(&self) -> f64 {
+        self.sum.evaluate()
+    }
+
+    /// Returns a reference to the root `CalcSum` of this expression, which represents the entire parsed expression tree.
+    pub const fn sum(&self) -> &CalcSum {
+        &self.sum
     }
 
     /// Splits a token slice on `CssTokenKind::Comma`, returning the segments between commas.
@@ -321,12 +530,9 @@ impl CalcExpression {
                 }
 
                 CssTokenKind::Dimension { value, unit } => {
-                    let val = value.to_f64();
-                    let len_unit = unit
-                        .parse::<LengthUnit>()
-                        .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+                    let dimension = Dimension::parse(value, unit)?;
                     stream.next_cv();
-                    Ok(CalcValue::Length(Length::new(val, len_unit)))
+                    Ok(CalcValue::Dimension(dimension))
                 }
 
                 CssTokenKind::Percentage(num) => {
@@ -406,5 +612,81 @@ impl CalcExpression {
         }
 
         Ok(sums)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::quantity::Length;
+
+    use super::*;
+
+    #[test]
+    fn test_is_math_function() {
+        assert!(is_math_function("calc"));
+        assert!(is_math_function("min"));
+        assert!(is_math_function("max"));
+        assert!(is_math_function("clamp"));
+        assert!(is_math_function("CALC"));
+        assert!(!is_math_function("not-a-math-function"));
+    }
+
+    #[test]
+    fn test_calc_keyword_from_str() {
+        assert_eq!(CalcKeyword::from_str("e").unwrap(), CalcKeyword::E);
+        assert_eq!(CalcKeyword::from_str("PI").unwrap(), CalcKeyword::PI);
+        assert_eq!(CalcKeyword::from_str("infinity").unwrap(), CalcKeyword::Infinity);
+        assert_eq!(CalcKeyword::from_str("-infinity").unwrap(), CalcKeyword::NegativeInfinity);
+        assert_eq!(CalcKeyword::from_str("NaN").unwrap(), CalcKeyword::NaN);
+        assert!(CalcKeyword::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_calc_keyword_to_f64() {
+        assert_eq!(CalcKeyword::E.to_f64(), std::f64::consts::E);
+        assert_eq!(CalcKeyword::PI.to_f64(), std::f64::consts::PI);
+        assert_eq!(CalcKeyword::Infinity.to_f64(), f64::INFINITY);
+        assert_eq!(CalcKeyword::NegativeInfinity.to_f64(), f64::NEG_INFINITY);
+        assert!(CalcKeyword::NaN.to_f64().is_nan());
+    }
+
+    #[test]
+    fn test_calc_domain_combine() {
+        assert_eq!(CalcDomain::Number.combine(&CalcDomain::Number), Some(CalcDomain::Number));
+        assert_eq!(CalcDomain::Length.combine(&CalcDomain::Length), Some(CalcDomain::Length));
+        assert_eq!(CalcDomain::Percentage.combine(&CalcDomain::Percentage), Some(CalcDomain::Percentage));
+        assert_eq!(CalcDomain::Length.combine(&CalcDomain::Percentage), Some(CalcDomain::Length));
+        assert_eq!(CalcDomain::Percentage.combine(&CalcDomain::Length), Some(CalcDomain::Length));
+        assert_eq!(CalcDomain::All.combine(&CalcDomain::Length), Some(CalcDomain::Length));
+        assert_eq!(CalcDomain::Length.combine(&CalcDomain::All), Some(CalcDomain::Length));
+        assert_eq!(CalcDomain::Length.combine(&CalcDomain::Angle), None);
+    }
+
+    #[test]
+    fn test_calc_value_resolve_type() {
+        let val = CalcValue::Number(42.0);
+        assert_eq!(val.resolve_type().unwrap(), CalcDomain::Number);
+
+        let val = CalcValue::Dimension(Dimension::Length(Length::px(100.0)));
+        assert_eq!(val.resolve_type().unwrap(), CalcDomain::Length);
+
+        let val = CalcValue::Percentage(Percentage::new(50.0));
+        assert_eq!(val.resolve_type().unwrap(), CalcDomain::Percentage);
+
+        let val = CalcValue::Keyword(CalcKeyword::PI);
+        assert_eq!(val.resolve_type().unwrap(), CalcDomain::Number);
+    }
+
+    #[test]
+    fn test_calc_type() {
+        let expr = CalcExpression {
+            sum: CalcSum::Add(
+                Box::new(CalcSum::Product(CalcProduct::Value(CalcValue::Dimension(Dimension::Length(Length::px(
+                    100.0,
+                )))))),
+                Box::new(CalcSum::Product(CalcProduct::Value(CalcValue::Percentage(Percentage::new(50.0))))),
+            ),
+        };
+        assert_eq!(expr.resolve_type().unwrap(), CalcDomain::Length);
     }
 }

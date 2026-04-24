@@ -10,7 +10,7 @@ use crate::{
         gradient::{interpolation::ColorInterpolationMethod, stops::ColorStopList},
     },
     position::Position,
-    quantity::{Length, LengthUnit},
+    quantity::Length,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumString)]
@@ -50,23 +50,6 @@ pub struct RadialGradientSyntax {
 
 /// Parsing helpers for `RadialGradientSyntax`.
 impl RadialGradientSyntax {
-    /// Try to parse a single `ComponentValue` as a `Length`.
-    fn try_parse_length(cv: &ComponentValue) -> Result<Length, CssValueError> {
-        match cv {
-            ComponentValue::Token(token) => match &token.kind {
-                CssTokenKind::Dimension { value, unit } => {
-                    let len_unit = unit
-                        .parse::<LengthUnit>()
-                        .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                    Ok(Length::new(value.to_f64(), len_unit))
-                }
-                CssTokenKind::Number(value) if value.to_f64() == 0.0 => Ok(Length::new(0.0, LengthUnit::Px)),
-                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
-            },
-            cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-        }
-    }
-
     /// Checks whether the first segment (before the first comma) contains
     /// radial-gradient configuration (shape, size, `at`, or `in`) rather than
     /// being a color stop.
@@ -173,12 +156,12 @@ impl RadialGradientSyntax {
             }
             match length_values.len() {
                 1 => {
-                    let len = Self::try_parse_length(length_values[0])?;
+                    let len = Length::try_from(length_values[0])?;
                     size = Some(RadialSize::Length(len));
                 }
                 2 => {
-                    let lp1 = Gradient::try_parse_length_percentage(length_values[0])?;
-                    let lp2 = Gradient::try_parse_length_percentage(length_values[1])?;
+                    let lp1 = LengthPercentage::try_from(length_values[0])?;
+                    let lp2 = LengthPercentage::try_from(length_values[1])?;
                     size = Some(RadialSize::LengthPercentagePair(lp1, lp2));
                 }
                 n => {

@@ -1,44 +1,41 @@
-use css_values::{
-    dimension::{Dimension, MaxDimension},
-    quantity::Length,
-};
+use css_values::dimension::{MaxSize, Size};
 
 #[derive(Debug, Clone, Default, Copy, PartialEq)]
-pub enum ComputedDimension {
+pub enum ComputedSize {
     #[default]
     Auto,
     Fixed,
     Percentage(f64),
     MaxContent,
     MinContent,
-    FitContent(Option<Length>),
+    FitContent,
     Stretch,
 }
 
-impl From<Dimension> for ComputedDimension {
-    fn from(value: Dimension) -> Self {
+impl From<Size> for ComputedSize {
+    fn from(value: Size) -> Self {
         match value {
-            Dimension::Auto => Self::Auto,
-            Dimension::Length(_) | Dimension::Calc(_) => Self::Fixed,
-            Dimension::Percentage(p) => Self::Percentage(p.as_fraction()),
-            Dimension::MaxContent => Self::MaxContent,
-            Dimension::MinContent => Self::MinContent,
-            Dimension::FitContent(len) => Self::FitContent(len),
-            Dimension::Stretch => Self::Stretch,
+            Size::Auto => Self::Auto,
+            Size::Length(_) | Size::Calc(_) => Self::Fixed,
+            Size::Percentage(p) => Self::Percentage(p.as_fraction()),
+            Size::MaxContent => Self::MaxContent,
+            Size::MinContent => Self::MinContent,
+            Size::FitContent => Self::FitContent,
+            Size::Stretch => Self::Stretch,
         }
     }
 }
 
-impl From<ComputedDimension> for Dimension {
-    fn from(value: ComputedDimension) -> Self {
+impl From<ComputedSize> for Size {
+    fn from(value: ComputedSize) -> Self {
         match value {
-            ComputedDimension::Auto => Self::Auto,
-            ComputedDimension::Fixed => Self::Auto,
-            ComputedDimension::Percentage(_) => Self::Auto,
-            ComputedDimension::MaxContent => Self::MaxContent,
-            ComputedDimension::MinContent => Self::MinContent,
-            ComputedDimension::FitContent(len) => Self::FitContent(len),
-            ComputedDimension::Stretch => Self::Stretch,
+            ComputedSize::Auto => Self::Auto,
+            ComputedSize::Fixed => Self::Auto,
+            ComputedSize::Percentage(_) => Self::Auto,
+            ComputedSize::MaxContent => Self::MaxContent,
+            ComputedSize::MinContent => Self::MinContent,
+            ComputedSize::FitContent => Self::FitContent,
+            ComputedSize::Stretch => Self::Stretch,
         }
     }
 }
@@ -51,25 +48,25 @@ pub enum ComputedMaxDimension {
     Percentage(f64),
     MaxContent,
     MinContent,
-    FitContent(Option<Length>),
+    FitContent,
     Stretch,
 }
 
-impl From<MaxDimension> for ComputedMaxDimension {
-    fn from(value: MaxDimension) -> Self {
+impl From<MaxSize> for ComputedMaxDimension {
+    fn from(value: MaxSize) -> Self {
         match value {
-            MaxDimension::None => Self::None,
-            MaxDimension::Length(_) | MaxDimension::Calc(_) => Self::Fixed,
-            MaxDimension::Percentage(p) => Self::Percentage(p.as_fraction()),
-            MaxDimension::MaxContent => Self::MaxContent,
-            MaxDimension::MinContent => Self::MinContent,
-            MaxDimension::FitContent(len) => Self::FitContent(len),
-            MaxDimension::Stretch => Self::Stretch,
+            MaxSize::None => Self::None,
+            MaxSize::Length(_) | MaxSize::Calc(_) => Self::Fixed,
+            MaxSize::Percentage(p) => Self::Percentage(p.as_fraction()),
+            MaxSize::MaxContent => Self::MaxContent,
+            MaxSize::MinContent => Self::MinContent,
+            MaxSize::FitContent => Self::FitContent,
+            MaxSize::Stretch => Self::Stretch,
         }
     }
 }
 
-impl From<ComputedMaxDimension> for MaxDimension {
+impl From<ComputedMaxDimension> for MaxSize {
     fn from(value: ComputedMaxDimension) -> Self {
         match value {
             ComputedMaxDimension::None => Self::None,
@@ -77,7 +74,7 @@ impl From<ComputedMaxDimension> for MaxDimension {
             ComputedMaxDimension::Percentage(_) => Self::None,
             ComputedMaxDimension::MaxContent => Self::MaxContent,
             ComputedMaxDimension::MinContent => Self::MinContent,
-            ComputedMaxDimension::FitContent(len) => Self::FitContent(len),
+            ComputedMaxDimension::FitContent => Self::FitContent,
             ComputedMaxDimension::Stretch => Self::Stretch,
         }
     }
