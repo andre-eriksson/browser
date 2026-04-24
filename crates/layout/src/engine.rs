@@ -1,5 +1,5 @@
-use css_style::{ComputedStyle, Position, StyleTree, StyledNode};
-use css_values::display::{BoxDisplay, InsideDisplay};
+use css_style::{ComputedStyle, Display, Position, StyleTree, StyledNode};
+use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -17,8 +17,9 @@ use crate::{
 const EPSILON: f64 = 0.1;
 
 /// Layout mode determines how children are positioned
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum LayoutMode {
+    #[default]
     Block,
     Inline,
     Flex, // TODO: implement
@@ -27,7 +28,7 @@ pub(crate) enum LayoutMode {
 
 impl LayoutMode {
     pub fn new(styled_node: &StyledNode) -> Option<Self> {
-        if styled_node.style.display.boxed() == Some(BoxDisplay::None) {
+        if styled_node.style.display.is_none() {
             return None;
         }
 
@@ -35,11 +36,24 @@ impl LayoutMode {
             return Some(Self::Block);
         }
 
-        match styled_node.style.display.inside() {
-            Some(InsideDisplay::Flex) => Some(Self::Flex),
-            Some(InsideDisplay::Grid) => Some(Self::Grid),
-            _ => Some(Self::Block),
+        if let Display::Normal { outside, inside } = styled_node.style.display {
+            if let Some(val) = inside {
+                match val {
+                    InsideDisplay::Flex => return Some(Self::Flex),
+                    InsideDisplay::Grid => return Some(Self::Grid),
+                    _ => {}
+                }
+            }
+
+            if let Some(val) = outside {
+                match val {
+                    OutsideDisplay::Block => return Some(Self::Block),
+                    OutsideDisplay::Inline => return Some(Self::Inline),
+                }
+            }
         }
+
+        Some(Self::Block)
     }
 }
 
@@ -284,7 +298,7 @@ impl LayoutEngine {
 #[cfg(test)]
 mod tests {
     use css_style::{ComputedStyle, Display};
-    use css_values::display::OutsideDisplay;
+    use css_values::display::{BoxDisplay, OutsideDisplay};
     use html_dom::NodeId;
 
     use super::*;
@@ -297,7 +311,7 @@ mod tests {
     fn test_layout_mode_none() {
         let styled_node = StyledNode {
             style: ComputedStyle {
-                display: Display::from(BoxDisplay::None),
+                display: Display::Box(BoxDisplay::None),
                 ..Default::default()
             },
             ..StyledNode::new(NodeId(0))
@@ -317,6 +331,18 @@ mod tests {
         };
 
         assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Block));
+    }
+
+    #[test]
+    fn test_layout_mode_inline() {
+        let styled_node = StyledNode {
+            style: ComputedStyle {
+                display: Display::from(OutsideDisplay::Inline),
+                ..Default::default()
+            },
+            ..StyledNode::new(NodeId(0))
+        };
+        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Inline));
     }
 
     #[test]

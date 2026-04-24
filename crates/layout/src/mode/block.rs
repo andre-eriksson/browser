@@ -1,5 +1,5 @@
 use css_style::{ComputedSize, ComputedStyle, Position, StyledNode};
-use css_values::display::{Clear, Float, OutsideDisplay};
+use css_values::display::{Clear, Float};
 use html_dom::DocumentRoot;
 
 use crate::{
@@ -288,7 +288,7 @@ impl BlockLayout {
     }
 
     fn is_inline(node: &StyledNode) -> bool {
-        node.style.display.outside() == Some(OutsideDisplay::Inline)
+        LayoutMode::new(node) == Some(LayoutMode::Inline)
     }
 
     fn calculate_width(

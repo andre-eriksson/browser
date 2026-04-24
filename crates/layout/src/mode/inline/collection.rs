@@ -1,4 +1,4 @@
-use css_style::{ComputedSize, ComputedStyle, StyledNode};
+use css_style::{ComputedSize, ComputedStyle, Display, StyledNode};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{DocumentRoot, HtmlTag, NodeData, NodeId, Tag};
 
@@ -148,17 +148,17 @@ pub fn collect<'node>(
             _ => {
                 let display = inline_node.style.display;
 
-                if display.outside() == Some(OutsideDisplay::Inline)
-                    && display.inside() == Some(InsideDisplay::FlowRoot)
-                {
-                    items.push(InlineItem::InlineFlowRoot {
-                        node: inline_node,
-                        style: &inline_node.style,
-                    });
+                if let Display::Normal { outside, inside } = display {
+                    if outside == Some(OutsideDisplay::Inline) && inside == Some(InsideDisplay::FlowRoot) {
+                        items.push(InlineItem::InlineFlowRoot {
+                            node: inline_node,
+                            style: &inline_node.style,
+                        });
 
-                    return Ok(());
-                } else if display.outside() != Some(OutsideDisplay::Inline) {
-                    return Err(());
+                        return Ok(());
+                    } else if outside != Some(OutsideDisplay::Inline) {
+                        return Err(());
+                    }
                 }
 
                 items.push(InlineItem::InlineBoxStart {

@@ -1,5 +1,4 @@
-use css_style::{ComputedMaxDimension, ComputedSize, ComputedStyle, Position, StyledNode};
-use css_values::display::{Float, InsideDisplay};
+use css_style::{ComputedMaxDimension, ComputedSize, ComputedStyle, StyledNode};
 
 use crate::SideOffset;
 
@@ -14,13 +13,13 @@ impl PropertyResolver {
         (margins, padding, borders)
     }
 
-    #[allow(dead_code, reason = "TODO: Support all positions")]
-    pub const fn establishes_bfc(style: &ComputedStyle) -> bool {
-        !matches!(style.float, Float::None)
-            || !matches!(style.position, Position::Static | Position::Relative)
-            || matches!(style.display.inside(), Some(InsideDisplay::FlowRoot))
-        //TODO: || style.overflow != Overflow::Visible
-    }
+    // TODO: Support all positions
+    // pub const fn establishes_bfc(style: &ComputedStyle) -> bool {
+    //     !matches!(style.float, Float::None)
+    //         || !matches!(style.position, Position::Static | Position::Relative)
+    //         || matches!(style.display.inside(), Some(InsideDisplay::FlowRoot))
+    //     //TODO: || style.overflow != Overflow::Visible
+    // }
 
     pub fn has_top_fence(style: &ComputedStyle) -> bool {
         style.padding_top > 0.0 || style.border_top_width > 0.0
