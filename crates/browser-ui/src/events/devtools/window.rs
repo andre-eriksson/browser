@@ -64,7 +64,7 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
                 root_color: Color::BLACK,
                 root_line_height_multiplier: 1.2,
             };
-            let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());
+            let style_tree = StyleTree::build(application.config, &abs_ctx, page.document(), page.stylesheets());
 
             let mut tc = ctx.text_context.lock().unwrap();
             let img_ctx = ImageContext::new();

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use browser_config::BrowserConfig;
 use css_cssom::{ComponentValue, Property};
 use css_values::{
     border::{BorderStyle, BorderWidth},
@@ -13,9 +14,7 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     AbsoluteContext, Color4f, ComputedMaxDimension, ComputedSize, Display, FontFamily, Position, RelativeContext,
-    RelativeType,
-    cascade::RuleIndex,
-    clone_compute, compute, compute_parent_px, compute_px,
+    RelativeType, clone_compute, compute, compute_parent_px, compute_px,
     computed::{image::ComputedBackgroundImage, position::ComputedBackgroundSize},
     into_compute,
     properties::{
@@ -25,7 +24,7 @@ use crate::{
             BackgroundPositionY, BackgroundRepeat,
         },
     },
-    rules::GeneratedRule,
+    rules::Rules,
     specified::SpecifiedStyle,
     tree::PropertyRegistry,
 };
@@ -117,18 +116,18 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     /// Computes the `ComputedStyle` for a given node in the DOM.
     pub fn from_node(
+        config: &BrowserConfig,
         absolute_ctx: &AbsoluteContext,
         relative_ctx: &mut RelativeContext,
         node_id: NodeId,
         dom: &DocumentRoot,
-        rules: &[GeneratedRule],
-        rule_index: &RuleIndex,
+        rules: &Rules,
         property_registry: &mut PropertyRegistry,
     ) -> Self {
         let parent = &relative_ctx.parent;
 
         let specified_style =
-            SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, rule_index, property_registry);
+            SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, property_registry);
 
         let margin_top = compute_px!(specified_style, parent, margin_top, OffsetValue);
         let margin_right = compute_px!(specified_style, parent, margin_right, OffsetValue);
@@ -154,7 +153,7 @@ impl ComputedStyle {
 
         relative_ctx.font_size = font_size;
 
-        Self {
+        let mut computed = Self {
             background_attachment: clone_compute!(specified_style, parent, background_attachment),
             background_blend_mode: clone_compute!(specified_style, parent, background_blend_mode),
             background_clip: clone_compute!(specified_style, parent, background_clip),
@@ -305,23 +304,22 @@ impl ComputedStyle {
             max_width: max_width.into(),
             writing_mode: compute!(specified_style, parent, writing_mode),
             variables: Arc::clone(&specified_style.variables),
+        };
+
+        if config.args().preferences.force_dark {
+            computed.apply_dark_heuristic();
         }
+
+        computed
     }
 
-    /// Returns a subset of the `ComputedStyle` containing only inherited properties.
-    #[must_use]
-    pub fn inherited_subset(&self) -> Self {
-        Self {
-            color: self.color,
-            cursor: self.cursor,
-            font_family: Arc::clone(&self.font_family),
-            font_size: self.font_size,
-            line_height: self.line_height,
-            text_align: self.text_align,
-            font_weight: self.font_weight,
-            whitespace: self.whitespace,
-            writing_mode: self.writing_mode,
-            ..Self::default()
+    pub fn apply_dark_heuristic(&mut self) {
+        if self.background_color.is_dark() {
+            self.background_color = self.background_color.invert_dark_mode();
+        }
+
+        if self.color.is_dark() {
+            self.color = self.color.invert_dark_mode();
         }
     }
 }

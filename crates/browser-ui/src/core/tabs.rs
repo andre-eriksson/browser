@@ -4,7 +4,7 @@ use std::{
     sync::MutexGuard,
 };
 
-use browser_config::ThemeCategory;
+use browser_config::BrowserConfig;
 use browser_core::{History, Page, PageMetadata};
 use css_cssom::CSSStyleSheet;
 use css_style::{AbsoluteContext, StyleTree};
@@ -128,7 +128,7 @@ impl UiTab {
         &mut self,
         viewport: Size,
         text_context: &mut MutexGuard<'_, TextContext>,
-        theme_category: ThemeCategory,
+        config: &BrowserConfig,
     ) {
         let Some(page) = self.page_ctx.as_ref().map(|ctx| &ctx.page) else {
             return;
@@ -142,13 +142,13 @@ impl UiTab {
             root_font_size: 16.0,
             viewport_width: f64::from(viewport.width),
             viewport_height: f64::from(viewport.height),
-            theme_category,
+            theme_category: config.preferences().theme().category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,
         };
 
-        let style_tree = StyleTree::build(&absolute_ctx, page.document(), page.stylesheets());
+        let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
         let layout_tree = LayoutEngine::compute_layout(
             page.document(),
             &style_tree,
@@ -167,20 +167,20 @@ impl UiTab {
         text_context: &mut MutexGuard<'_, TextContext>,
         page: Page,
         metadata: PageMetadata,
-        theme_category: ThemeCategory,
+        config: &BrowserConfig,
         scroll_offset: Option<ScrollOffset>,
     ) {
         let absolute_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: f64::from(viewport.width),
             viewport_height: f64::from(viewport.height),
-            theme_category,
+            theme_category: config.preferences().theme().category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,
         };
 
-        let style_tree = StyleTree::build(&absolute_ctx, page.document(), page.stylesheets());
+        let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
         let layout_tree = LayoutEngine::compute_layout(
             page.document(),
             &style_tree,

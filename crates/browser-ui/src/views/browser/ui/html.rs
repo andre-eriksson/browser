@@ -50,11 +50,17 @@ impl<'renderer> BrowserHtml<'renderer> {
         container(shader)
             .width(Length::Fill)
             .height(Length::Fill)
-            .style(move |_| container::Style {
-                background: Some(Background::Color(
-                    Color::from_str(app.config.preferences().theme().colors.background.as_str()).unwrap(),
-                )),
-                ..Default::default()
+            .style(move |_| {
+                let background_color = if app.config.args().preferences.force_dark {
+                    Color::from_str(app.config.preferences().theme().colors.background.as_str()).unwrap()
+                } else {
+                    Color::from_rgb8(255, 255, 255)
+                };
+
+                container::Style {
+                    background: Some(Background::Color(background_color)),
+                    ..Default::default()
+                }
             })
     }
 }

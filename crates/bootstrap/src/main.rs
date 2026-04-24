@@ -32,7 +32,7 @@ fn main() {
     let config = Box::leak(Box::new(BrowserConfig::new()));
     let browser = Browser::new(config);
 
-    if config.args().headless {
+    if config.args().headless.enabled {
         let mut engine = HeadlessEngine::new(browser);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()

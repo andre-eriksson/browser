@@ -1,5 +1,6 @@
 use std::fmt::Write as _;
 
+use browser_config::BrowserConfig;
 use html_dom::{DocumentRoot, DomNode, NodeData, NodeId};
 
 use crate::{HeadlessEngine, commands::layout::print_layout_node};
@@ -61,8 +62,8 @@ pub fn cmd_node_dom(engine: &HeadlessEngine, id: usize, max_depth: Option<usize>
     Ok(())
 }
 
-pub fn cmd_node_style(engine: &mut HeadlessEngine, id: usize) -> Result<(), String> {
-    engine.ensure_layout()?;
+pub fn cmd_node_style(engine: &mut HeadlessEngine, config: &BrowserConfig, id: usize) -> Result<(), String> {
+    engine.ensure_layout(config)?;
 
     let node_id = NodeId(id);
 
@@ -80,8 +81,8 @@ pub fn cmd_node_style(engine: &mut HeadlessEngine, id: usize) -> Result<(), Stri
     Ok(())
 }
 
-pub fn cmd_node_layout(engine: &mut HeadlessEngine, id: usize) -> Result<(), String> {
-    engine.ensure_layout()?;
+pub fn cmd_node_layout(engine: &mut HeadlessEngine, config: &BrowserConfig, id: usize) -> Result<(), String> {
+    engine.ensure_layout(config)?;
 
     let node_id = NodeId(id);
     let Some(layout) = engine.layout_tree.as_ref() else {

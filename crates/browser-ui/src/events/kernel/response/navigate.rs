@@ -41,14 +41,7 @@ pub fn on_navigation_success(
         ctx.current_url = metadata.url.to_string();
 
         let mut text_context = ctx.text_context.lock().unwrap();
-        tab.resolve_page(
-            viewport,
-            &mut text_context,
-            page,
-            metadata,
-            application.config.preferences().theme().category,
-            None,
-        );
+        tab.resolve_page(viewport, &mut text_context, page, metadata, application.config, None);
         drop(text_context);
 
         let image_cache = ImageCache::new();

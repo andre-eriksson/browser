@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+browser-config.workspace = true
 browser-preferences.workspace = true
 css-cssom.workspace = true
 css-selectors.workspace = true

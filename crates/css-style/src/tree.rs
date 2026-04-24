@@ -6,13 +6,14 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use browser_config::BrowserConfig;
 use css_cssom::CSSStyleSheet;
 use css_values::property::PropertyDescriptor;
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::cascade::RuleIndex;
 use crate::properties::AbsoluteContext;
-use crate::rules::GeneratedRule;
+use crate::rules::{GeneratedRule, Rules};
 use crate::{ComputedStyle, RelativeContext};
 
 #[derive(Debug, Default, Clone)]
@@ -61,18 +62,23 @@ impl StyleTree {
     /// Builds the style tree from the given absolute context, DOM tree, and stylesheets. This function computes the styles for each node in the
     /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
     #[must_use]
-    pub fn build(absolute_ctx: &AbsoluteContext, dom: &DocumentRoot, stylesheets: &[CSSStyleSheet]) -> Self {
+    pub fn build(
+        config: &BrowserConfig,
+        absolute_ctx: &AbsoluteContext,
+        dom: &DocumentRoot,
+        stylesheets: &[CSSStyleSheet],
+    ) -> Self {
         fn build_styled_node(
+            config: &BrowserConfig,
             absolute_ctx: &AbsoluteContext,
             rel_ctx: &mut RelativeContext,
             node_id: NodeId,
             dom: &DocumentRoot,
-            rules: &[GeneratedRule],
-            rule_index: &RuleIndex,
+            rules: &Rules,
             property_registry: &mut PropertyRegistry,
         ) -> StyledNode {
             let computed_style =
-                ComputedStyle::from_node(absolute_ctx, rel_ctx, node_id, dom, rules, rule_index, property_registry);
+                ComputedStyle::from_node(config, absolute_ctx, rel_ctx, node_id, dom, rules, property_registry);
 
             rel_ctx.parent = Arc::new(computed_style.clone());
 
@@ -84,7 +90,7 @@ impl StyleTree {
                 .iter()
                 .map(|&child_id| {
                     rel_ctx.parent = Arc::clone(&saved_parent);
-                    build_styled_node(absolute_ctx, rel_ctx, child_id, dom, rules, rule_index, property_registry)
+                    build_styled_node(config, absolute_ctx, rel_ctx, child_id, dom, rules, property_registry)
                 })
                 .collect();
 
@@ -107,12 +113,15 @@ impl StyleTree {
             .iter()
             .map(|&root_id| {
                 build_styled_node(
+                    config,
                     absolute_ctx,
                     &mut relative_ctx,
                     root_id,
                     dom,
-                    &rules,
-                    &rule_index,
+                    &Rules {
+                        generated: &rules,
+                        index: &rule_index,
+                    },
                     &mut property_registry,
                 )
             })

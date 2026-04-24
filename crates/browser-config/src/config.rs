@@ -16,6 +16,7 @@ impl BrowserConfig {
         let args = BrowserArgs::parse();
         let headers = Headers::create_browser_headers(args.ua_compatibility, args.user_agent.clone());
         let preferences = args
+            .preferences
             .theme
             .as_ref()
             .map_or_else(BrowserPreferences::load, |t| BrowserPreferences::new(t.clone()));

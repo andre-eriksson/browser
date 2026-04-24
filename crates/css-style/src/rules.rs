@@ -14,11 +14,17 @@ use css_values::{
 
 use crate::{
     AbsoluteContext,
-    cascade::{CascadeSpecificity, CascadedDeclaration},
+    cascade::{CascadeSpecificity, CascadedDeclaration, RuleIndex},
     properties::PixelRepr,
     specified::SpecifiedStyle,
     tree::PropertyRegistry,
 };
+
+#[derive(Debug)]
+pub struct Rules<'css> {
+    pub generated: &'css [GeneratedRule<'css>],
+    pub index: &'css RuleIndex,
+}
 
 /// A rule that has been generated from the stylesheets, containing the selector sequences, declarations, origin, and specificity for cascade resolution.
 #[derive(Debug)]

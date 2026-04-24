@@ -79,6 +79,7 @@ pub fn on_image_loaded(
     let layout_tree = tab.layout_tree.clone();
     let text_ctx = ctx.text_context.clone();
     let generation = tab.layout_generation;
+    let config = application.config;
 
     Task::perform(
         async move {
@@ -93,7 +94,7 @@ pub fn on_image_loaded(
                     root_line_height_multiplier: 1.2,
                 };
                 let dom_tree = page_ctx.page.document();
-                let style_tree = StyleTree::build(&ctx, dom_tree, page_ctx.page.stylesheets());
+                let style_tree = StyleTree::build(config, &ctx, dom_tree, page_ctx.page.stylesheets());
                 let mut tc = text_ctx.lock().unwrap();
                 let mut layout_tree = layout_tree?;
 

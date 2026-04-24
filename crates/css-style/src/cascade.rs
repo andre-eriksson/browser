@@ -69,6 +69,7 @@ fn extract_key_selector(sequences: &[CompoundSelectorSequence]) -> SelectorKey {
 }
 
 /// An index that groups rules by their rightmost selector key for fast lookup.
+#[derive(Debug)]
 pub struct RuleIndex {
     by_id: HashMap<String, Vec<usize>>,
     by_class: HashMap<String, Vec<usize>>,

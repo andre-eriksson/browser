@@ -63,8 +63,14 @@ impl Color4f {
         absolute_ctx: &AbsoluteContext,
     ) -> Option<&'css Color> {
         let mut resolved = text_color.as_value()?;
+        let mut depth = 0;
 
         loop {
+            if depth > 10 {
+                return None;
+            }
+            depth += 1;
+
             match resolved {
                 Color::Current => return None,
                 Color::LightDark(light, dark) => {
@@ -139,11 +145,23 @@ impl Color4f {
 
     /// Converts a single linear-light component to sRGB gamma-encoded (0.0–1.0).
     #[inline]
-    fn linear_component_to_srgb(c: f64) -> f64 {
+    #[must_use]
+    pub fn linear_to_srgb(c: f64) -> f64 {
         if c <= 0.003_130_8 {
             12.92 * c
         } else {
             1.055f64.mul_add(c.powf(1.0 / 2.4), -0.055)
+        }
+    }
+
+    /// Converts a single sRGB gamma-encoded component (0.0-1.0) to linear-light.
+    #[inline]
+    #[must_use]
+    pub fn srgb_to_linear(c: f64) -> f64 {
+        if c <= 0.04045 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
         }
     }
 
@@ -152,8 +170,102 @@ impl Color4f {
     /// Per the CSS Color Level 4 spec, a bare `<number>` in a hue position is
     /// interpreted as **degrees**, not turns.
     #[inline]
-    fn hue_to_radians(h: Hue) -> f64 {
+    fn hue_to_radians(h: &Hue) -> f64 {
         h.value().to_radians()
+    }
+}
+
+impl Color4f<f64> {
+    /// Converts a color from HSL space to sRGB space, given the HSL components (hue in degrees, saturation and lightness as fractions) and alpha.
+    #[must_use]
+    pub fn from_hsl(h_deg: f64, s_frac: f64, l_frac: f64, alpha: f64) -> Self {
+        let h_deg = ((h_deg % 360.0) + 360.0) % 360.0;
+        let c = (1.0 - 2.0f64.mul_add(l_frac, -1.0).abs()) * s_frac;
+        let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
+        let m = l_frac - c / 2.0;
+
+        let (r1, g1, b1) = if h_deg < 60.0 {
+            (c, x, 0.0)
+        } else if h_deg < 120.0 {
+            (x, c, 0.0)
+        } else if h_deg < 180.0 {
+            (0.0, c, x)
+        } else if h_deg < 240.0 {
+            (0.0, x, c)
+        } else if h_deg < 300.0 {
+            (x, 0.0, c)
+        } else {
+            (c, 0.0, x)
+        };
+
+        Self::rgba((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), alpha)
+    }
+
+    /// Converts a color from Oklab space to sRGB space, given the Oklab components (L, a, b) and alpha.
+    #[must_use]
+    pub fn from_oklab(l_val: f64, a_val: f64, b_val: f64, alpha: f64) -> Self {
+        let l_ = 0.215_803_76f64.mul_add(b_val, 0.396_337_78f64.mul_add(a_val, l_val));
+        let m_ = 0.063_854_17f64.mul_add(-b_val, 0.105_561_346f64.mul_add(-a_val, l_val));
+        let s_ = 1.291_485_5f64.mul_add(-b_val, 0.089_484_18f64.mul_add(-a_val, l_val));
+
+        let l_lin = l_ * l_ * l_;
+        let m_lin = m_ * m_ * m_;
+        let s_lin = s_ * s_ * s_;
+
+        let r_lin = 0.230_969_94f64.mul_add(s_lin, 4.076_741_7f64.mul_add(l_lin, -(3.307_711_6 * m_lin)));
+        let g_lin = 0.341_319_38f64.mul_add(-s_lin, (-1.268_438f64).mul_add(l_lin, 2.609_757_4 * m_lin));
+        let b_lin = 1.707_614_7f64.mul_add(s_lin, (-0.004_196_086_3_f64).mul_add(l_lin, -(0.703_419 * m_lin)));
+
+        Self::rgba(
+            Self::linear_to_srgb(r_lin).clamp(0.0, 1.0),
+            Self::linear_to_srgb(g_lin).clamp(0.0, 1.0),
+            Self::linear_to_srgb(b_lin).clamp(0.0, 1.0),
+            alpha,
+        )
+    }
+
+    /// Converts the color from sRGB space to Oklab space, returning (L, a, b) components.
+    #[must_use]
+    pub fn to_oklab(&self) -> (f64, f64, f64) {
+        let red = Self::srgb_to_linear(self.r);
+        let green = Self::srgb_to_linear(self.g);
+        let blue = Self::srgb_to_linear(self.b);
+
+        let l = 0.412_221_470_8 * red + 0.536_332_536_3 * green + 0.051_445_992_9 * blue;
+        let m = 0.211_903_498_2 * red + 0.680_699_545_1 * green + 0.107_396_956_6 * blue;
+        let s = 0.088_302_461_9 * red + 0.281_718_837_6 * green + 0.629_978_700_5 * blue;
+
+        let l_ = l.cbrt();
+        let m_ = m.cbrt();
+        let s_ = s.cbrt();
+
+        let l_out = 0.210_454_255_3 * l_ + 0.793_617_785_0 * m_ - 0.004_072_046_8 * s_;
+        let a_out = 1.977_998_495_1 * l_ - 2.428_592_205_0 * m_ + 0.450_593_709_9 * s_;
+        let b_out = 0.025_904_037_1 * l_ + 0.782_771_766_2 * m_ - 0.808_675_766_0 * s_;
+
+        (l_out, a_out, b_out)
+    }
+
+    /// Inverts the lightness of the color in Oklab space, keeping the chroma and hue unchanged.
+    #[must_use]
+    pub fn invert_dark_mode(&self) -> Self {
+        let (l, a, b) = self.to_oklab();
+        Self::from_oklab(1.0 - l, a, b, self.a)
+    }
+
+    /// Calculates the relative luminance of the color according to the WCAG definition.
+    fn relative_luminance(&self) -> f64 {
+        let r = Self::srgb_to_linear(self.r);
+        let g = Self::srgb_to_linear(self.g);
+        let b = Self::srgb_to_linear(self.b);
+
+        0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    /// Determines if the color is considered "dark" based on its relative luminance.
+    #[must_use]
+    pub fn is_dark(&self) -> bool {
+        self.relative_luminance() < 0.179
     }
 }
 
@@ -223,29 +335,7 @@ impl From<ColorFunction> for Color4f {
                 alpha.value(),
             ),
             ColorFunction::Hsl(hue, saturation, lightness, alpha) => {
-                let h_deg = ((hue.value() % 360.0) + 360.0) % 360.0;
-                let s_frac = saturation.as_fraction();
-                let l_frac = lightness.as_fraction();
-
-                let c = (1.0 - 2.0f64.mul_add(l_frac, -1.0).abs()) * s_frac;
-                let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
-                let m = l_frac - c / 2.0;
-
-                let (r1, g1, b1) = if h_deg < 60.0 {
-                    (c, x, 0.0)
-                } else if h_deg < 120.0 {
-                    (x, c, 0.0)
-                } else if h_deg < 180.0 {
-                    (0.0, c, x)
-                } else if h_deg < 240.0 {
-                    (0.0, x, c)
-                } else if h_deg < 300.0 {
-                    (x, 0.0, c)
-                } else {
-                    (c, 0.0, x)
-                };
-
-                Self::rgba((r1 + m).clamp(0.0, 1.0), (g1 + m).clamp(0.0, 1.0), (b1 + m).clamp(0.0, 1.0), alpha.value())
+                Self::from_hsl(hue.value(), saturation.as_fraction(), lightness.as_fraction(), alpha.value())
             }
             ColorFunction::Hwb(hue, whiteness, blackness, alpha) => {
                 let h_deg = ((hue.value() % 360.0) + 360.0) % 360.0;
@@ -322,14 +412,14 @@ impl From<ColorFunction> for Color4f {
                 let b = x_final * 0.0557 + y_final * -0.2040 + z_final * 1.0570;
 
                 Self::rgba(
-                    Self::linear_component_to_srgb(r).clamp(0.0, 1.0),
-                    Self::linear_component_to_srgb(g).clamp(0.0, 1.0),
-                    Self::linear_component_to_srgb(b).clamp(0.0, 1.0),
+                    Self::linear_to_srgb(r).clamp(0.0, 1.0),
+                    Self::linear_to_srgb(g).clamp(0.0, 1.0),
+                    Self::linear_to_srgb(b).clamp(0.0, 1.0),
                     alpha.value(),
                 )
             }
             ColorFunction::Lch(brightness, colorfulness, hue, alpha) => {
-                let h_rad = Self::hue_to_radians(hue);
+                let h_rad = Self::hue_to_radians(&hue);
                 let green_red = colorfulness.value(0.0..=150.0, Fraction::Unsigned) * h_rad.cos();
                 let blue_yellow = colorfulness.value(0.0..=150.0, Fraction::Unsigned) * h_rad.sin();
                 Self::from(ColorFunction::Lab(
@@ -339,35 +429,17 @@ impl From<ColorFunction> for Color4f {
                     alpha,
                 ))
             }
-            ColorFunction::Oklab(lightness, green_red, blue_yellow, alpha) => {
-                let l_val = lightness.value(0.0..=1.0, Fraction::Unsigned);
-                let a_val = green_red.value(-0.4..=0.4, Fraction::Signed);
-                let b_val = blue_yellow.value(-0.4..=0.4, Fraction::Signed);
-
-                let l_ = 0.215_803_76f64.mul_add(b_val, 0.396_337_78f64.mul_add(a_val, l_val));
-                let m_ = 0.063_854_17f64.mul_add(-b_val, 0.105_561_346f64.mul_add(-a_val, l_val));
-                let s_ = 1.291_485_5f64.mul_add(-b_val, 0.089_484_18f64.mul_add(-a_val, l_val));
-
-                let l_lin = l_ * l_ * l_;
-                let m_lin = m_ * m_ * m_;
-                let s_lin = s_ * s_ * s_;
-
-                let r_lin = 0.230_969_94f64.mul_add(s_lin, 4.076_741_7f64.mul_add(l_lin, -(3.307_711_6 * m_lin)));
-                let g_lin = 0.341_319_38f64.mul_add(-s_lin, (-1.268_438f64).mul_add(l_lin, 2.609_757_4 * m_lin));
-                let b_lin = 1.707_614_7f64.mul_add(s_lin, (-0.004_196_086_3_f64).mul_add(l_lin, -(0.703_419 * m_lin)));
-
-                Self::rgba(
-                    Self::linear_component_to_srgb(r_lin).clamp(0.0, 1.0),
-                    Self::linear_component_to_srgb(g_lin).clamp(0.0, 1.0),
-                    Self::linear_component_to_srgb(b_lin).clamp(0.0, 1.0),
-                    alpha.value(),
-                )
-            }
+            ColorFunction::Oklab(lightness, green_red, blue_yellow, alpha) => Self::from_oklab(
+                lightness.value(0.0..=1.0, Fraction::Unsigned),
+                green_red.value(-0.4..=0.4, Fraction::Signed),
+                blue_yellow.value(-0.4..=0.4, Fraction::Signed),
+                alpha.value(),
+            ),
             ColorFunction::Oklch(lightness, colorfulness, hue, alpha) => {
-                let h_rad = Self::hue_to_radians(hue);
+                let h_rad = Self::hue_to_radians(&hue);
                 let a = colorfulness.value(0.0..=0.4, Fraction::Unsigned) * h_rad.cos();
                 let b = colorfulness.value(0.0..=0.4, Fraction::Unsigned) * h_rad.sin();
-                Self::from(ColorFunction::Oklab(lightness, ColorValue::from(a), ColorValue::from(b), alpha))
+                Self::from_oklab(lightness.value(0.0..=1.0, Fraction::Unsigned), a, b, alpha.value())
             }
         }
     }

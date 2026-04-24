@@ -51,7 +51,7 @@ impl HeadlessEngine {
     }
 
     /// Handle a single command input
-    async fn handle_command(&mut self, input: &str) -> Result<(), String> {
+    async fn handle_command(&mut self, config: &BrowserConfig, input: &str) -> Result<(), String> {
         let command = match HeadlessCommand::parse(input) {
             Ok(cmd) => cmd,
             Err(e) if e.is_empty() => return Ok(()),
@@ -67,10 +67,10 @@ impl HeadlessEngine {
                 info!("Exiting headless engine.");
                 std::process::exit(0);
             }
-            HeadlessCommand::Navigate { url } => cmd_navigate(self, &url, NavigationType::Normal).await,
-            HeadlessCommand::Back => cmd_back(self).await,
-            HeadlessCommand::Forward => cmd_forward(self).await,
-            HeadlessCommand::Reload => cmd_reload(self).await,
+            HeadlessCommand::Navigate { url } => cmd_navigate(self, config, &url, NavigationType::Normal).await,
+            HeadlessCommand::Back => cmd_back(self, config).await,
+            HeadlessCommand::Forward => cmd_forward(self, config).await,
+            HeadlessCommand::Reload => cmd_reload(self, config).await,
             HeadlessCommand::Title => {
                 cmd_title(self);
                 Ok(())
@@ -93,15 +93,15 @@ impl HeadlessEngine {
             }
             HeadlessCommand::Dom { selector } => cmd_dom(self, &selector),
             HeadlessCommand::Node { command } => match command {
-                NodeCommand::At { x, y } => cmd_node(self, x, y),
+                NodeCommand::At { x, y } => cmd_node(self, config, x, y),
                 NodeCommand::Id { id } => cmd_node_id(self, id),
                 NodeCommand::Dom { id, max_depth } => cmd_node_dom(self, id, max_depth),
-                NodeCommand::Style { id } => cmd_node_style(self, id),
-                NodeCommand::Layout { id } => cmd_node_layout(self, id),
+                NodeCommand::Style { id } => cmd_node_style(self, config, id),
+                NodeCommand::Layout { id } => cmd_node_layout(self, config, id),
                 NodeCommand::Children { id, recursive } => cmd_node_children(self, id, recursive),
             },
-            HeadlessCommand::Resize { width, height } => cmd_resize(self, width, height),
-            HeadlessCommand::Layout => cmd_layout(self),
+            HeadlessCommand::Resize { width, height } => cmd_resize(self, config, width, height),
+            HeadlessCommand::Layout => cmd_layout(self, config),
             HeadlessCommand::Info => {
                 cmd_info(self);
                 Ok(())
@@ -109,18 +109,18 @@ impl HeadlessEngine {
         }
     }
 
-    pub(crate) fn ensure_layout(&mut self) -> Result<(), String> {
+    pub(crate) fn ensure_layout(&mut self, config: &BrowserConfig) -> Result<(), String> {
         if self.layout_tree.is_some() {
             return Ok(());
         }
-        self.recompute_layout();
+        self.recompute_layout(config);
         if self.layout_tree.is_none() {
             return Err("Could not compute layout - no active page".to_string());
         }
         Ok(())
     }
 
-    pub(crate) fn recompute_layout(&mut self) {
+    pub(crate) fn recompute_layout(&mut self, config: &BrowserConfig) {
         let Some(page) = self.page.as_ref() else {
             return;
         };
@@ -140,7 +140,7 @@ impl HeadlessEngine {
             document_url: self.metadata.as_ref().map_or(&localhost, |m| &m.url),
         };
 
-        let style_tree = StyleTree::build(&ctx, document, stylesheets);
+        let style_tree = StyleTree::build(config, &ctx, document, stylesheets);
 
         let viewport = Rect::new(0.0, 0.0, self.viewport_width, self.viewport_height);
         let img_ctx = ImageContext::new();
@@ -157,12 +157,12 @@ impl HeadlessEngine {
     /// * If io operations fail when reading from stdin or writing to stdout
     pub async fn run(&mut self, config: &BrowserConfig) {
         if let Some(ref url) = config.args().url
-            && let Err(e) = cmd_navigate(self, url, NavigationType::Normal).await
+            && let Err(e) = cmd_navigate(self, config, url, NavigationType::Normal).await
         {
             error!("{}", e);
         }
 
-        if let Some(input_path) = config.args().input.as_deref()
+        if let Some(input_path) = config.args().headless.input.as_deref()
             && !input_path.is_empty()
         {
             let content = std::fs::read_to_string(input_path).expect("Failed to read input file");
@@ -171,16 +171,16 @@ impl HeadlessEngine {
                 if line.is_empty() || line.starts_with('#') {
                     continue;
                 }
-                if let Err(e) = self.handle_command(line).await {
+                if let Err(e) = self.handle_command(config, line).await {
                     error!("{}", e);
                 }
             }
             return;
         }
 
-        if !config.args().commands.is_empty() {
-            for cmd in &config.args().commands {
-                if let Err(e) = self.handle_command(cmd).await {
+        if !config.args().headless.commands.is_empty() {
+            for cmd in &config.args().headless.commands {
+                if let Err(e) = self.handle_command(config, cmd).await {
                     error!("{}", e);
                 }
             }
@@ -197,7 +197,7 @@ impl HeadlessEngine {
                 .read_line(&mut input)
                 .expect("Failed to read line");
 
-            if let Err(e) = self.handle_command(&input).await {
+            if let Err(e) = self.handle_command(config, &input).await {
                 error!("{}", e);
             }
         }

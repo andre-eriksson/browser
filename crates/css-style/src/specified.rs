@@ -7,7 +7,7 @@ use tracing::debug;
 
 use crate::{
     RelativeContext,
-    cascade::{CascadedDeclaration, RuleIndex, cascade, cascade_variables},
+    cascade::{CascadedDeclaration, cascade, cascade_variables},
     functions::variables::resolve_css_variables,
     handler::{
         PropertyUpdateContext, handle_background, handle_background_attachment, handle_background_blend_mode,
@@ -36,7 +36,7 @@ use crate::{
         OffsetValueProperty, PositionProperty, TextAlignProperty, WhitespaceProperty, WidthProperty,
         WritingModeProperty,
     },
-    rules::GeneratedRule,
+    rules::Rules,
     tree::PropertyRegistry,
 };
 
@@ -107,8 +107,7 @@ impl SpecifiedStyle {
         relative_ctx: &RelativeContext,
         node_id: NodeId,
         dom: &DocumentRoot,
-        rules: &[GeneratedRule],
-        rule_index: &RuleIndex,
+        rules: &Rules,
         property_registry: &PropertyRegistry,
     ) -> Self {
         let mut specified_style = Self::default();
@@ -127,7 +126,7 @@ impl SpecifiedStyle {
             .unwrap_or_default();
 
         let (declarations, variables) =
-            &mut CascadedDeclaration::collect(node, dom, rules, rule_index, &inline_declarations);
+            &mut CascadedDeclaration::collect(node, dom, rules.generated, rules.index, &inline_declarations);
 
         let properties = cascade(declarations);
 

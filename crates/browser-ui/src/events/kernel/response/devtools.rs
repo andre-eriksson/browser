@@ -38,7 +38,7 @@ pub fn on_devtools_page_ready(application: &mut Application, window_id: Id, tab_
             root_color: Color::BLACK,
         };
 
-        let style_tree = StyleTree::build(&abs_ctx, page.document(), page.stylesheets());
+        let style_tree = StyleTree::build(application.config, &abs_ctx, page.document(), page.stylesheets());
         let mut tc = ctx.text_context.lock().unwrap();
         let img_ctx = ImageContext::new();
         let layout_tree = LayoutEngine::compute_layout(

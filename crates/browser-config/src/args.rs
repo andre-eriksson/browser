@@ -1,6 +1,11 @@
 use clap::{ArgAction, Parser};
 use manifest::{APP_NAME, APP_VERSION};
 
+use crate::args::{headless::HeadlessArgs, preferences::PreferencesArgs};
+
+pub mod headless;
+pub mod preferences;
+
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = APP_NAME,
@@ -11,14 +16,8 @@ pub struct BrowserArgs {
     #[arg(short = 'u', long, help = "The initial URL to load")]
     pub url: Option<String>,
 
-    #[arg(
-        short = 't',
-        long,
-        value_enum,
-        help = "Override the theme for the session.",
-        conflicts_with = "headless"
-    )]
-    pub theme: Option<String>,
+    #[command(flatten)]
+    pub preferences: PreferencesArgs,
 
     #[arg(long = "disable-ua-css", action = ArgAction::SetFalse, help = "Disable user agent stylesheets.")]
     pub enable_ua_css: bool,
@@ -36,37 +35,6 @@ pub struct BrowserArgs {
     )]
     pub user_agent: Option<String>,
 
-    #[arg(
-        short = 'T',
-        long,
-        default_value_t = false,
-        group = "mode",
-        help_heading = "Headless Mode",
-        help = "Run the browser in headless mode."
-    )]
-    pub headless: bool,
-
-    #[arg(
-        short = 'I',
-        long,
-        group = "headless-mode",
-        help_heading = "Headless Mode",
-        help = "Path to a file containing commands to execute in headless mode, one per line. Can't be used with --commands.",
-        requires = "headless",
-        conflicts_with = "command"
-    )]
-    pub input: Option<String>,
-
-    #[arg(
-        name = "command",
-        short = 'C',
-        long,
-        group = "headless-mode",
-        help_heading = "Headless Mode",
-        help = "Commands to execute in headless mode, separated by commas. Can't be used with --input.",
-        requires = "headless",
-        value_delimiter = ',',
-        conflicts_with = "input"
-    )]
-    pub commands: Vec<String>,
+    #[command(flatten)]
+    pub headless: HeadlessArgs,
 }

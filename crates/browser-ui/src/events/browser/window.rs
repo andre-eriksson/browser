@@ -38,7 +38,7 @@ pub fn on_resized(application: &mut Application, window_id: Id, new_viewport: Si
 
         let mut tc = ctx.text_context.lock().unwrap();
 
-        tab.resize_current_page(new_viewport, &mut tc, application.config.preferences().theme().category);
+        tab.resize_current_page(new_viewport, &mut tc, application.config);
     }
 
     Task::none()

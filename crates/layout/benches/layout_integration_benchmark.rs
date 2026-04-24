@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 
+use browser_config::BrowserConfig;
 use browser_preferences::theme::ThemeCategory;
 use browser_ui::load_fallback_fonts;
 use cosmic_text::FontSystem;
@@ -157,7 +158,8 @@ fn parse_html_and_collect_styles(
 
 fn build_style_tree(dom: &DocumentRoot, stylesheets: &[CSSStyleSheet], viewport: Rect) -> StyleTree {
     let absolute_ctx = absolute_context(viewport);
-    StyleTree::build(&absolute_ctx, dom, stylesheets)
+    let config = BrowserConfig::default();
+    StyleTree::build(&config, &absolute_ctx, dom, stylesheets)
 }
 
 fn new_text_context() -> TextContext {

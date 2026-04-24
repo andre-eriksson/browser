@@ -1316,6 +1316,7 @@ dependencies = [
 name = "css-style"
 version = "0.1.0"
 dependencies = [
+ "browser-config",
  "browser-preferences",
  "css-cssom",
  "css-selectors",
@@ -2855,6 +2856,7 @@ dependencies = [
 name = "layout"
 version = "0.1.0"
 dependencies = [
+ "browser-config",
  "browser-core",
  "browser-preferences",
  "browser-ui",
