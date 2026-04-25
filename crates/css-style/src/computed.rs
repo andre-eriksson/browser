@@ -8,6 +8,7 @@ use css_values::{
     cursor::Cursor,
     display::{Clear, Float},
     flex::{FlexDirection, FlexWrap},
+    numeric::NumberOrCalc,
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};

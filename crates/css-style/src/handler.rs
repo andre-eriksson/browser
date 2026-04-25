@@ -272,6 +272,7 @@ simple_property_handler!(handle_margin_right, margin_right, "margin-right");
 simple_property_handler!(handle_margin_top, margin_top, "margin-top");
 simple_property_handler!(handle_max_height, max_height, "max-height");
 simple_property_handler!(handle_max_width, max_width, "max-width");
+simple_property_handler!(handle_order, order, "order");
 simple_property_handler!(handle_padding_bottom, padding_bottom, "padding-bottom");
 simple_property_handler!(handle_padding_left, padding_left, "padding-left");
 simple_property_handler!(handle_padding_right, padding_right, "padding-right");

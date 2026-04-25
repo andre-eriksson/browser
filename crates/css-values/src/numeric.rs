@@ -178,6 +178,27 @@ impl From<f64> for Flex {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Order(pub NumberOrCalc);
+
+impl CSSParsable for Order {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        NumberOrCalc::parse(stream).map(Self)
+    }
+}
+
+impl From<Order> for f64 {
+    fn from(value: Order) -> Self {
+        value.0.into()
+    }
+}
+
+impl From<f64> for Order {
+    fn from(value: f64) -> Self {
+        Self(NumberOrCalc::Number(value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

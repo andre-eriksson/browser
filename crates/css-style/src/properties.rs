@@ -12,7 +12,7 @@ use css_values::{
     error::CssValueError,
     flex::{FlexBasis, FlexDirection, FlexWrap},
     global::Global,
-    numeric::Flex,
+    numeric::{Flex, Order},
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use url::Url;
@@ -236,11 +236,12 @@ pub type ClearProperty = CSSProperty<Clear>;
 pub type DisplayProperty = CSSProperty<Display>;
 pub type FloatProperty = CSSProperty<Float>;
 
-// Flex
+// Flex & Grid
 pub type FlexBasisProperty = CSSProperty<FlexBasis>;
 pub type FlexDirectionProperty = CSSProperty<FlexDirection>;
 pub type FlexValueProperty = CSSProperty<Flex>;
 pub type FlexWrapProperty = CSSProperty<FlexWrap>;
+pub type OrderProperty = CSSProperty<Order>;
 
 // Font
 pub type FontWeightProperty = CSSProperty<FontWeight>;
