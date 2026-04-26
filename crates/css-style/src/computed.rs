@@ -94,6 +94,7 @@ pub struct ComputedStyle {
     pub margin_top: ComputedMargin,
     pub max_height: ComputedMaxSize,
     pub max_width: ComputedMaxSize,
+    pub order: i64,
     pub padding_bottom: ComputedOffset,
     pub padding_left: ComputedOffset,
     pub padding_right: ComputedOffset,
@@ -307,6 +308,13 @@ impl ComputedStyle {
                 absolute_ctx,
             )
             .unwrap_or_default(),
+            order: <NumberOrCalc as Into<f64>>::into(
+                specified_style
+                    .order
+                    .resolve_with_context(&(parent.order as f64).into(), &(0 as f64).into())
+                    .0
+                    .clone(),
+            ) as i64,
             padding_top: ComputedOffset::resolve(
                 padding_top,
                 Some(RelativeType::ParentWidth),
@@ -416,6 +424,7 @@ impl Default for ComputedStyle {
             margin_top: 0.0.into(),
             max_height: ComputedMaxSize::None,
             max_width: ComputedMaxSize::None,
+            order: 0,
             padding_bottom: 0.0.into(),
             padding_left: 0.0.into(),
             padding_right: 0.0.into(),

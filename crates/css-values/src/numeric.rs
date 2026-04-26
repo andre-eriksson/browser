@@ -25,7 +25,15 @@ impl From<NumberOrCalc> for f64 {
     fn from(value: NumberOrCalc) -> Self {
         match value {
             NumberOrCalc::Number(n) => n,
-            NumberOrCalc::Calc(expr) => expr.evaluate(),
+            NumberOrCalc::Calc(expr) => {
+                if let Ok(evaluated) = expr.evaluate()
+                    && evaluated.1 == CalcDomain::Number
+                {
+                    return evaluated.0;
+                }
+
+                unreachable!("Cannot convert a non-number calc expression to f64")
+            }
         }
     }
 }
