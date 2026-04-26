@@ -92,8 +92,8 @@ impl LayoutEngine {
                 continue;
             };
 
-            let top_margin = node.margin.top;
-            let bottom_margin = node.margin.bottom;
+            let top_margin = node.margin.top.to_px();
+            let bottom_margin = node.margin.bottom.to_px();
 
             Self::offset_children_y(&mut node.children, top_margin);
             ctx.position_ctx()
@@ -111,7 +111,7 @@ impl LayoutEngine {
             .position_ctx()
             .resolve_all(dom_tree, image_ctx, text_ctx)
         {
-            Self::offset_children_y(&mut defered_node.children, defered_node.margin.top);
+            Self::offset_children_y(&mut defered_node.children, defered_node.margin.top.to_px());
 
             root_nodes.push(defered_node);
         }
@@ -159,6 +159,7 @@ impl LayoutEngine {
         match mode {
             LayoutMode::Inline => {
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
+                    containing_block,
                     dom_tree,
                     parent_style,
                     styled_nodes,
@@ -213,7 +214,7 @@ impl LayoutEngine {
             return;
         };
 
-        Self::offset_children_y(&mut new_node.children, new_node.margin.top);
+        Self::offset_children_y(&mut new_node.children, new_node.margin.top.to_px());
 
         let new_height = new_node.dimensions.height;
         let delta = new_height - old_height;

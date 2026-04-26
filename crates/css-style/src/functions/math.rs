@@ -7,39 +7,44 @@ use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRep
 
 impl PixelRepr for CalcValue {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
+    ) -> Result<f64, String> {
         match self {
-            Self::Number(n) => *n,
+            Self::Number(n) => Ok(n),
             Self::Dimension(dim) => match dim {
                 Dimension::Length(l) => l.to_px(rel_type, rel_ctx, abs_ctx),
-                _ => 0.0,
+                _ => Err(format!("Unsupported dimension type in calc(): {:?}", dim)),
             },
-            Self::Keyword(k) => k.to_f64(),
+            Self::Keyword(k) => Ok(k.to_f64()),
             Self::NestedSum(sum) => sum.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Percentage(pct) => pct.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Min(args) => args
-                .iter()
+            Self::Min(args) => Ok(args
+                .into_iter()
                 .map(|sum| sum.to_px(rel_type, rel_ctx, abs_ctx))
-                .fold(f64::INFINITY, f64::min),
-            Self::Max(args) => args
-                .iter()
+                .map(|res| res.unwrap_or(f64::INFINITY))
+                .fold(f64::INFINITY, f64::min)),
+            Self::Max(args) => Ok(args
+                .into_iter()
                 .map(|sum| sum.to_px(rel_type, rel_ctx, abs_ctx))
-                .fold(f64::NEG_INFINITY, f64::max),
+                .map(|res| res.unwrap_or(f64::NEG_INFINITY))
+                .fold(f64::NEG_INFINITY, f64::max)),
             Self::Clamp(args) => {
-                let min_val = args
-                    .min
-                    .as_ref()
-                    .map_or(f64::NEG_INFINITY, |s| s.to_px(rel_type, rel_ctx, abs_ctx));
-                let val_val = args.val.to_px(rel_type, rel_ctx, abs_ctx);
-                let max_val = args
-                    .max
-                    .as_ref()
-                    .map_or(f64::INFINITY, |s| s.to_px(rel_type, rel_ctx, abs_ctx));
-                val_val.clamp(min_val, max_val)
+                let min_val = match args.min {
+                    Some(min_sum) => min_sum.to_px(rel_type, rel_ctx, abs_ctx)?,
+                    None => f64::NEG_INFINITY,
+                };
+
+                let val_val = args.val.to_px(rel_type, rel_ctx, abs_ctx)?;
+
+                let max_val = match args.max {
+                    Some(max_sum) => max_sum.to_px(rel_type, rel_ctx, abs_ctx)?,
+                    None => f64::INFINITY,
+                };
+
+                Ok(val_val.clamp(min_val, max_val))
             }
         }
     }
@@ -47,22 +52,22 @@ impl PixelRepr for CalcValue {
 
 impl PixelRepr for CalcProduct {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
+    ) -> Result<f64, String> {
         match self {
             Self::Value(v) => v.to_px(rel_type, rel_ctx, abs_ctx),
             Self::Multiply(left, right) => {
-                left.to_px(rel_type, rel_ctx, abs_ctx) * right.to_px(rel_type, rel_ctx, abs_ctx)
+                Ok(left.to_px(rel_type, rel_ctx, abs_ctx)? * right.to_px(rel_type, rel_ctx, abs_ctx)?)
             }
             Self::Divide(left, right) => {
-                let divisor = right.to_px(rel_type, rel_ctx, abs_ctx);
+                let divisor = right.to_px(rel_type, rel_ctx, abs_ctx)?;
                 if divisor == 0.0 {
-                    f64::NAN
+                    Ok(f64::NAN)
                 } else {
-                    left.to_px(rel_type, rel_ctx, abs_ctx) / divisor
+                    Ok(left.to_px(rel_type, rel_ctx, abs_ctx)? / divisor)
                 }
             }
         }
@@ -71,16 +76,18 @@ impl PixelRepr for CalcProduct {
 
 impl PixelRepr for CalcSum {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
+    ) -> Result<f64, String> {
         match self {
             Self::Product(p) => p.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Add(left, right) => left.to_px(rel_type, rel_ctx, abs_ctx) + right.to_px(rel_type, rel_ctx, abs_ctx),
+            Self::Add(left, right) => {
+                Ok(left.to_px(rel_type, rel_ctx, abs_ctx)? + right.to_px(rel_type, rel_ctx, abs_ctx)?)
+            }
             Self::Subtract(left, right) => {
-                left.to_px(rel_type, rel_ctx, abs_ctx) - right.to_px(rel_type, rel_ctx, abs_ctx)
+                Ok(left.to_px(rel_type, rel_ctx, abs_ctx)? - right.to_px(rel_type, rel_ctx, abs_ctx)?)
             }
         }
     }
@@ -88,12 +95,12 @@ impl PixelRepr for CalcSum {
 
 impl PixelRepr for CalcExpression {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        self.sum().to_px(rel_type, rel_ctx, abs_ctx)
+    ) -> Result<f64, String> {
+        self.into_sum().to_px(rel_type, rel_ctx, abs_ctx)
     }
 }
 
@@ -114,8 +121,8 @@ mod tests {
         let rel_ctx = RelativeContext {
             parent: ComputedStyle {
                 font_size: 16.0,
-                intrinsic_width: 800.0,
-                intrinsic_height: 600.0,
+                width: 800.0.into(),
+                height: 600.0.into(),
                 ..Default::default()
             }
             .into(),
@@ -171,7 +178,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 42.0);
+        assert_eq!(result.unwrap(), 42.0);
     }
 
     #[test]
@@ -180,7 +187,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, -42.0);
+        assert_eq!(result.unwrap(), -42.0);
     }
 
     #[test]
@@ -195,7 +202,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 15.0);
+        assert_eq!(result.unwrap(), 15.0);
     }
 
     #[test]
@@ -210,7 +217,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 5.0);
+        assert_eq!(result.unwrap(), 5.0);
     }
 
     #[test]
@@ -229,7 +236,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 18.0);
+        assert_eq!(result.unwrap(), 18.0);
     }
 
     #[test]
@@ -248,7 +255,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 12.0);
+        assert_eq!(result.unwrap(), 12.0);
     }
 
     #[test]
@@ -263,7 +270,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 50.0);
+        assert_eq!(result.unwrap(), 50.0);
     }
 
     #[test]
@@ -278,7 +285,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 2.0);
+        assert_eq!(result.unwrap(), 2.0);
     }
 
     #[test]
@@ -293,7 +300,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert!(result.is_nan());
+        assert!(result.unwrap().is_nan());
     }
 
     #[test]
@@ -312,7 +319,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 20.0);
+        assert_eq!(result.unwrap(), 20.0);
     }
 
     #[test]
@@ -332,7 +339,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 16.0);
+        assert_eq!(result.unwrap(), 16.0);
     }
 
     #[test]
@@ -359,7 +366,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 18.0);
+        assert_eq!(result.unwrap(), 18.0);
     }
 
     #[test]
@@ -374,7 +381,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 5.0);
+        assert_eq!(result.unwrap(), 5.0);
     }
 
     #[test]
@@ -392,7 +399,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert!((result - (std::f64::consts::PI * 2.0)).abs() < 0.001);
+        assert!((result.unwrap() - (std::f64::consts::PI * 2.0)).abs() < 0.001);
     }
 
     #[test]
@@ -410,7 +417,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert!((result - (std::f64::consts::E * 2.0)).abs() < 0.001);
+        assert!((result.unwrap() - (std::f64::consts::E * 2.0)).abs() < 0.001);
     }
 
     #[test]
@@ -427,7 +434,7 @@ mod tests {
         ];
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
-        let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
+        let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx).unwrap();
         assert!(result.is_infinite() && result.is_sign_positive());
     }
 
@@ -445,7 +452,7 @@ mod tests {
         ];
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
-        let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
+        let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx).unwrap();
         assert!(result.is_infinite() && result.is_sign_negative());
     }
 
@@ -464,7 +471,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert!(result.is_nan());
+        assert!(result.unwrap().is_nan());
     }
 
     #[test]
@@ -483,7 +490,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 24.0);
+        assert_eq!(result.unwrap(), 24.0);
     }
 
     #[test]
@@ -502,7 +509,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 4.0);
+        assert_eq!(result.unwrap(), 4.0);
     }
 
     #[test]
@@ -571,7 +578,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 70.0);
+        assert_eq!(result.unwrap(), 70.0);
     }
 
     #[test]
@@ -590,7 +597,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 110.0);
+        assert_eq!(result.unwrap(), 110.0);
     }
 
     #[test]
@@ -605,7 +612,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, -50.0);
+        assert_eq!(result.unwrap(), -50.0);
     }
 
     #[test]
@@ -614,7 +621,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 50.0);
+        assert_eq!(result.unwrap(), 50.0);
     }
 
     #[test]
@@ -623,7 +630,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 2.0);
+        assert_eq!(result.unwrap(), 2.0);
     }
 
     #[test]
@@ -640,7 +647,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 70.0);
+        assert_eq!(result.unwrap(), 70.0);
     }
 
     #[test]
@@ -684,7 +691,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 20.0);
+        assert_eq!(result.unwrap(), 20.0);
     }
 
     #[test]
@@ -699,7 +706,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::FontSize), Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 10.0 + (2.0 * rel_ctx.parent.font_size));
+        assert_eq!(result.unwrap(), 10.0 + (2.0 * rel_ctx.parent.font_size));
     }
 
     #[test]
@@ -714,7 +721,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::RootFontSize), Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 10.0 + (2.0 * abs_ctx.root_font_size));
+        assert_eq!(result.unwrap(), 10.0 + (2.0 * abs_ctx.root_font_size));
     }
 
     #[test]
@@ -732,8 +739,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::ParentWidth), Some(&rel_ctx), &abs_ctx);
-        let width = rel_ctx.parent.intrinsic_width;
-        assert_eq!(result, 10.0 + (0.5 * width));
+        assert_eq!(result.unwrap(), 10.0 + (0.5 * 800.0));
     }
 
     #[test]
@@ -748,7 +754,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::ViewportWidth), Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 10.0 + (0.02 * abs_ctx.viewport_width));
+        assert_eq!(result.unwrap(), 10.0 + (0.02 * abs_ctx.viewport_width));
     }
 
     #[test]
@@ -763,7 +769,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 176.8);
+        assert_eq!(result.unwrap(), 176.8);
     }
 
     fn comma_token() -> ComponentValue {
@@ -782,7 +788,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -800,7 +806,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -821,7 +827,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -830,7 +836,7 @@ mod tests {
         let expr = CalcExpression::parse_math_function("min", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -842,7 +848,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 200.0);
+        assert_eq!(result.unwrap(), 200.0);
     }
 
     #[test]
@@ -860,7 +866,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 300.0);
+        assert_eq!(result.unwrap(), 300.0);
     }
 
     #[test]
@@ -881,7 +887,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -890,7 +896,7 @@ mod tests {
         let expr = CalcExpression::parse_math_function("max", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 200.0);
+        assert_eq!(result.unwrap(), 200.0);
     }
 
     #[test]
@@ -910,7 +916,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 150.0);
+        assert_eq!(result.unwrap(), 150.0);
     }
 
     #[test]
@@ -930,7 +936,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -950,7 +956,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 200.0);
+        assert_eq!(result.unwrap(), 200.0);
     }
 
     #[test]
@@ -978,7 +984,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 200.0);
+        assert_eq!(result.unwrap(), 200.0);
     }
 
     #[test]
@@ -995,7 +1001,7 @@ mod tests {
         let expr = CalcExpression::parse_math_function("clamp", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 150.0);
+        assert_eq!(result.unwrap(), 150.0);
     }
 
     #[test]
@@ -1048,7 +1054,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 50.0);
+        assert_eq!(result.unwrap(), 50.0);
     }
 
     #[test]
@@ -1071,7 +1077,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 300.0);
+        assert_eq!(result.unwrap(), 300.0);
     }
 
     #[test]
@@ -1097,7 +1103,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 42.0);
+        assert_eq!(result.unwrap(), 42.0);
     }
 
     #[test]
@@ -1120,7 +1126,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 30.0);
+        assert_eq!(result.unwrap(), 30.0);
     }
 
     #[test]
@@ -1140,7 +1146,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 150.0);
+        assert_eq!(result.unwrap(), 150.0);
     }
 
     #[test]
@@ -1166,7 +1172,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 100.0);
+        assert_eq!(result.unwrap(), 100.0);
     }
 
     #[test]
@@ -1183,7 +1189,7 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 102.4);
+        assert_eq!(result.unwrap(), 102.4);
     }
 
     #[test]
@@ -1201,6 +1207,6 @@ mod tests {
         let expr = CalcExpression::parse(&input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result, 150.0);
+        assert_eq!(result.unwrap(), 150.0);
     }
 }

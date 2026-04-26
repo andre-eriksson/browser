@@ -122,7 +122,7 @@ impl CSSParsable for BorderWidth {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    let domain = expr.resolve_type()?;
+                    let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Length) {
                         return Err(CssValueError::InvalidCalcDomain {

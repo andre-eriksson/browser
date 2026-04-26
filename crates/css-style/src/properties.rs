@@ -7,7 +7,7 @@ use css_values::{
     border::{BorderStyle, BorderWidth},
     color::Color,
     cursor::Cursor,
-    dimension::{MaxSize, OffsetValue, Size},
+    dimension::{MarginValue, MaxSize, OffsetValue, Size},
     display::{Clear, Float},
     error::CssValueError,
     global::Global,
@@ -26,7 +26,6 @@ use crate::{
 pub mod background;
 pub mod border;
 pub mod color;
-pub mod dimension;
 pub mod display;
 pub mod font;
 pub mod length;
@@ -39,17 +38,27 @@ pub mod text;
 /// specified in various units (e.g., 'em', '%', 'vw') and need to be converted to pixels for
 /// layout calculations. The `to_px` method takes into account the context of the property, such
 /// as the parent font size for 'em' units or the viewport dimensions for 'vw' units.
-pub trait PixelRepr {
+pub trait PixelRepr: Sized {
     /// Converts the value to pixels based on the provided context. The `rel_type` parameter indicates
     /// the type of relative measurement (e.g., font size, parent width) that may be needed for the conversion.
     /// The `rel_ctx` provides access to the parent style for inheritance and percentage calculations, while
     /// the `abs_ctx` provides access to absolute context values like root font size and viewport dimensions.
-    fn to_px(
-        &self,
+    fn to_px_unchecked(
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64;
+    ) -> f64 {
+        self.to_px(rel_type, rel_ctx, abs_ctx)
+            .expect("Failed to convert to pixels")
+    }
+
+    fn to_px(
+        self,
+        rel_type: Option<RelativeType>,
+        rel_ctx: Option<&RelativeContext>,
+        abs_ctx: &AbsoluteContext,
+    ) -> Result<f64, String>;
 }
 
 /// Global CSS values that can be applied to any property, affecting how the property is resolved in relation to its initial value, inheritance, and user styles.
@@ -217,10 +226,8 @@ pub type BorderStyleValueProperty = CSSProperty<BorderStyle>;
 pub type ColorProperty = CSSProperty<Color>;
 
 // Dimensions
-pub type HeightProperty = CSSProperty<Size>;
-pub type MaxHeightProperty = CSSProperty<MaxSize>;
-pub type WidthProperty = CSSProperty<Size>;
-pub type MaxWidthProperty = CSSProperty<MaxSize>;
+pub type SizeProperty = CSSProperty<Size>;
+pub type MaxSizeProperty = CSSProperty<MaxSize>;
 
 // Display
 pub type ClearProperty = CSSProperty<Clear>;
@@ -233,7 +240,8 @@ pub type FontFamilyProperty = CSSProperty<FontFamily>;
 pub type FontSizeProperty = CSSProperty<FontSize>;
 
 // Margin & Padding
-pub type OffsetValueProperty = CSSProperty<OffsetValue>;
+pub type MarginProperty = CSSProperty<MarginValue>;
+pub type OffsetProperty = CSSProperty<OffsetValue>;
 
 // Position
 pub type PositionProperty = CSSProperty<Position>;

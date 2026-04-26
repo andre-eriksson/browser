@@ -1,5 +1,6 @@
 use css_values::{
     background::{Size, WidthHeightSize},
+    calc::CalcKind,
     combination::LengthPercentage,
     numeric::Percentage,
     quantity::Length,
@@ -12,7 +13,7 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComputedLengthPercentage {
-    Length(f64),
+    Px(f64),
     Percentage(f64),
 }
 
@@ -22,13 +23,23 @@ impl ComputedLengthPercentage {
         relative_type: Option<RelativeType>,
         relative_ctx: &RelativeContext,
         absolute_ctx: &AbsoluteContext,
-    ) -> Self {
+    ) -> Result<Self, String> {
         match len_pct {
-            LengthPercentage::Length(len) => Self::Length(len.to_px(relative_type, Some(relative_ctx), absolute_ctx)),
-            LengthPercentage::Percentage(pct) => Self::Percentage(pct.as_fraction()),
-            LengthPercentage::Calc(calc) => {
-                let resolved = calc.to_px(relative_type, Some(relative_ctx), absolute_ctx);
-                Self::Length(resolved)
+            LengthPercentage::Length(len) => {
+                Ok(Self::Px(len.to_px(relative_type, Some(relative_ctx), absolute_ctx)?))
+            }
+            LengthPercentage::Percentage(pct) => Ok(Self::Percentage(pct.as_fraction())),
+            LengthPercentage::Calc(expr) => {
+                let sum = expr.into_sum();
+
+                match sum.kind() {
+                    Ok(CalcKind::Length(len)) => {
+                        let px = len.to_px(relative_type, Some(relative_ctx), absolute_ctx)?;
+                        Ok(Self::Px(px))
+                    }
+                    Ok(CalcKind::Percentage(p)) => Ok(Self::Percentage(p.as_fraction())),
+                    _ => Err("Unsupported calc expression for LengthPercentage".to_string()),
+                }
             }
         }
     }
@@ -50,7 +61,10 @@ impl ComputedWidthHeightSize {
         match width_height_size {
             WidthHeightSize::Auto => Self::Auto,
             WidthHeightSize::Length(len_pct) => {
-                Self::Length(ComputedLengthPercentage::resolve(len_pct, relative_type, relative_ctx, absolute_ctx))
+                match ComputedLengthPercentage::resolve(len_pct, relative_type, relative_ctx, absolute_ctx) {
+                    Ok(resolved) => Self::Length(resolved),
+                    Err(_) => Self::Auto,
+                }
             }
         }
     }
@@ -106,7 +120,7 @@ impl From<ComputedBackgroundSize> for BackgroundSize {
             match computed {
                 ComputedWidthHeightSize::Auto => WidthHeightSize::Auto,
                 ComputedWidthHeightSize::Length(len_pct) => WidthHeightSize::Length(match len_pct {
-                    ComputedLengthPercentage::Length(px) => LengthPercentage::Length(Length::px(px)),
+                    ComputedLengthPercentage::Px(px) => LengthPercentage::Length(Length::px(px)),
                     ComputedLengthPercentage::Percentage(frac) => {
                         LengthPercentage::Percentage(Percentage::from_fraction(frac))
                     }

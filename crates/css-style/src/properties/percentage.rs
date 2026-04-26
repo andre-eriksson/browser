@@ -1,36 +1,67 @@
 use css_values::numeric::Percentage;
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, ComputedSize, RelativeContext, RelativeType, properties::PixelRepr};
 
 impl PixelRepr for Percentage {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        match rel_type {
+    ) -> Result<f64, String> {
+        Ok(match rel_type {
             Some(val) => match val {
                 RelativeType::FontSize => rel_ctx
                     .map_or(abs_ctx.root_font_size * self.as_fraction(), |ctx| ctx.font_size * self.as_fraction()),
-                RelativeType::ParentHeight => rel_ctx.map_or(abs_ctx.viewport_height * self.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_height * self.as_fraction()
-                }),
-                RelativeType::ParentWidth => rel_ctx.map_or(abs_ctx.viewport_width * self.as_fraction(), |ctx| {
-                    ctx.parent.intrinsic_width * self.as_fraction()
-                }),
+                RelativeType::ParentHeight => {
+                    let Some(rel) = rel_ctx else {
+                        return Err("Percentage with ParentHeight relative type requires a RelativeContext".to_string());
+                    };
+
+                    match rel.parent.height {
+                        ComputedSize::Px(px) => px * self.as_fraction(),
+                        _ => Err("Parent height is not a fixed pixel value, cannot resolve percentage".to_string())?,
+                    }
+                }
+                RelativeType::ParentWidth => {
+                    let Some(rel) = rel_ctx else {
+                        return Err("Percentage with ParentWidth relative type requires a RelativeContext".to_string());
+                    };
+
+                    match rel.parent.width {
+                        ComputedSize::Px(px) => px * self.as_fraction(),
+                        _ => Err("Parent width is not a fixed pixel value, cannot resolve percentage".to_string())?,
+                    }
+                }
                 RelativeType::RootFontSize => abs_ctx.root_font_size * self.as_fraction(),
                 RelativeType::ViewportHeight => abs_ctx.viewport_height * self.as_fraction(),
                 RelativeType::ViewportWidth => abs_ctx.viewport_width * self.as_fraction(),
                 RelativeType::BackgroundArea => {
-                    let bg_area = rel_ctx.map_or_else(
-                        || abs_ctx.viewport_width * abs_ctx.viewport_height,
-                        |ctx| ctx.parent.intrinsic_width * ctx.parent.intrinsic_height,
-                    );
+                    let Some(rel) = rel_ctx else {
+                        return Err(
+                            "Percentage with BackgroundArea relative type requires a RelativeContext".to_string()
+                        );
+                    };
+
+                    let width = match rel.parent.width {
+                        ComputedSize::Px(px) => px,
+                        _ => Err("Parent width is not a fixed pixel value, cannot resolve background area percentage"
+                            .to_string())?,
+                    };
+
+                    let height = match rel.parent.height {
+                        ComputedSize::Px(px) => px,
+                        _ => {
+                            Err("Parent height is not a fixed pixel value, cannot resolve background area percentage"
+                                .to_string())?
+                        }
+                    };
+
+                    let bg_area = width * height;
                     bg_area.sqrt() * self.as_fraction()
                 }
             },
             None => 0.0,
-        }
+        })
     }
 }

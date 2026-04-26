@@ -1,8 +1,8 @@
-use css_style::{ComputedSize, ComputedStyle, Display, StyledNode};
+use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle, Display, StyledNode};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{DocumentRoot, HtmlTag, NodeData, NodeId, Tag};
 
-use crate::ImageContext;
+use crate::{ImageContext, Rect};
 
 #[derive(Debug, Clone)]
 pub struct TextRun<'node> {
@@ -58,6 +58,7 @@ pub enum InlineItem<'node> {
 /// Recursively collects inline items from the given styled node and its children,
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
 pub fn collect<'node>(
+    containing_rect: Rect,
     dom_tree: &DocumentRoot,
     style: &'node ComputedStyle,
     inline_node: &'node StyledNode,
@@ -104,7 +105,11 @@ pub fn collect<'node>(
 
                 let (width, height, needs_intrinsic_size) = {
                     let w = if css_width {
-                        inline_node.style.intrinsic_width
+                        match inline_node.style.width {
+                            ComputedSize::Px(px) => px,
+                            ComputedSize::Percentage(frac) => frac * containing_rect.width,
+                            _ => known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.0), // TODO: Handle other types of computed size
+                        }
                     } else if let Some(attr_w) = attr_width {
                         attr_w
                     } else {
@@ -112,21 +117,32 @@ pub fn collect<'node>(
                     };
 
                     let h = if css_height {
-                        inline_node.style.intrinsic_height
+                        match inline_node.style.height {
+                            ComputedSize::Px(px) => px,
+                            ComputedSize::Percentage(frac) => frac * containing_rect.height,
+                            _ => known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1), // TODO: Handle other types of computed size
+                        }
                     } else if let Some(attr_h) = attr_height {
                         attr_h
                     } else {
                         known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1)
                     };
 
+                    let max_width = match inline_node.style.max_width {
+                        ComputedMaxSize::Px(px) => px,
+                        ComputedMaxSize::Percentage(f) => f * containing_rect.width,
+                        _ => f64::INFINITY,
+                    };
+
+                    let max_height = match inline_node.style.max_height {
+                        ComputedMaxSize::Px(px) => px,
+                        _ => f64::INFINITY,
+                    };
+
                     (
-                        if inline_node.style.max_intrinsic_width > 0.0 {
-                            w.min(inline_node.style.max_intrinsic_width)
-                        } else {
-                            w
-                        },
-                        if inline_node.style.max_intrinsic_height > 0.0 {
-                            h.min(inline_node.style.max_intrinsic_height)
+                        if max_width > 0.0 { w.min(max_width) } else { w },
+                        if max_height > 0.0 {
+                            h.min(max_height)
                         } else {
                             h
                         },
@@ -167,7 +183,7 @@ pub fn collect<'node>(
                 });
 
                 for child in &inline_node.children {
-                    collect(dom_tree, &inline_node.style, child, items, image_ctx)?;
+                    collect(containing_rect, dom_tree, &inline_node.style, child, items, image_ctx)?;
                 }
 
                 items.push(InlineItem::InlineBoxEnd {

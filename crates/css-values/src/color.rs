@@ -4,6 +4,7 @@ use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 
 use crate::{
     CSSParsable,
+    calc::{CalcDomain, CalcExpression},
     color::{
         base::{ColorBase, HexColor},
         function::ColorFunction,
@@ -11,7 +12,8 @@ use crate::{
         system::SystemColor,
     },
     error::CssValueError,
-    numeric::{NumberOrCalc, Percentage},
+    numeric::Percentage,
+    quantity::Angle,
 };
 
 pub mod base;
@@ -23,40 +25,55 @@ pub mod system;
 ///
 /// Always in the range [0.0, 1.0]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Alpha(NumberOrCalc);
+pub enum Alpha {
+    Number(f64),
+    Percentage(Percentage),
+    Calc(CalcExpression),
+}
 
 impl Alpha {
     /// Create a new Alpha value from a floating-point number, which is clamped to the range [0.0, 1.0].
     #[must_use]
     pub const fn new(value: f64) -> Self {
-        Self(NumberOrCalc::Number(value.clamp(0.0, 1.0)))
+        Self::Number(value.clamp(0.0, 1.0))
     }
 
     /// Get the alpha value as a floating-point number in the range [0.0, 1.0].
     #[must_use]
     pub fn value(&self) -> f64 {
-        match &self.0 {
-            NumberOrCalc::Number(n) => *n,
-            NumberOrCalc::Calc(expr) => expr.evaluate().clamp(0.0, 1.0),
-        }
-    }
-}
+        match self {
+            Self::Number(n) => *n,
+            Self::Percentage(p) => p.as_fraction(),
+            Self::Calc(expr) => {
+                if let Ok(evaluated) = expr.evaluate() {
+                    if evaluated.1 == CalcDomain::Number {
+                        return evaluated.0.clamp(0.0, 1.0);
+                    } else if evaluated.1 == CalcDomain::Percentage {
+                        return evaluated.0;
+                    }
+                }
 
-impl From<ColorValue> for Alpha {
-    fn from(value: ColorValue) -> Self {
-        match value {
-            ColorValue::Number(noc) => match noc {
-                NumberOrCalc::Number(n) => Self::new(n),
-                NumberOrCalc::Calc(expr) => Self(NumberOrCalc::Calc(expr)),
-            },
-            ColorValue::Percentage(p) => Self(NumberOrCalc::Number(p.as_fraction().clamp(0.0, 1.0))),
+                unreachable!(
+                    "`Alpha` value must evaluate to a number, ensure `CSSParsable` only allows Number domains for calc() expressions in `Alpha`"
+                )
+            }
         }
     }
 }
 
 impl From<Percentage> for Alpha {
     fn from(value: Percentage) -> Self {
-        Self(NumberOrCalc::Number((value.as_fraction()).clamp(0.0, 1.0)))
+        Self::Percentage(value)
+    }
+}
+
+impl From<ColorValue> for Alpha {
+    fn from(value: ColorValue) -> Self {
+        match value {
+            ColorValue::Number(n) => Self::new(n),
+            ColorValue::Percentage(p) => Self::Percentage(p),
+            ColorValue::Calc(expr) => Self::Calc(expr),
+        }
     }
 }
 
@@ -64,29 +81,69 @@ impl From<Percentage> for Alpha {
 ///
 /// Is represented as a floating-point number in degrees, normalized to the range [0, 360).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Hue(NumberOrCalc);
+pub enum Hue {
+    Number(f64),
+    Angle(Angle),
+    Calc(CalcExpression),
+}
 
 impl Hue {
     #[must_use]
     pub const fn new(value: f64) -> Self {
-        Self(NumberOrCalc::Number(value))
+        Self::Number(value)
     }
 
     /// Get the hue value as a floating-point number in degrees, normalized to the range [0, 360).
     #[must_use]
     pub fn value(&self) -> f64 {
-        match &self.0 {
-            NumberOrCalc::Number(n) => n.rem_euclid(360.0),
-            NumberOrCalc::Calc(expr) => expr.evaluate().rem_euclid(360.0),
+        match self {
+            Self::Number(n) => n.rem_euclid(360.0),
+            Self::Angle(angle) => angle.to_degrees().rem_euclid(360.0),
+            Self::Calc(expr) => {
+                if let Ok(evaluated) = expr.evaluate() {
+                    if evaluated.1 == CalcDomain::Number {
+                        return evaluated.0.rem_euclid(360.0);
+                    } else if evaluated.1 == CalcDomain::Angle {
+                        return Angle::from_degrees(evaluated.0)
+                            .to_degrees()
+                            .rem_euclid(360.0);
+                    }
+                }
+
+                unreachable!(
+                    "`Hue` value must evaluate to a number, ensure `CSSParsable` only allows Number domains for calc() expressions in `Hue`"
+                )
+            }
         }
     }
 }
 
-impl From<ColorValue> for Hue {
-    fn from(value: ColorValue) -> Self {
+impl From<Angle> for Hue {
+    fn from(value: Angle) -> Self {
+        Self::Angle(value)
+    }
+}
+
+impl TryFrom<ColorValue> for Hue {
+    type Error = CssValueError;
+
+    fn try_from(value: ColorValue) -> Result<Self, Self::Error> {
         match value {
-            ColorValue::Number(n) => Self(n),
-            ColorValue::Percentage(p) => Self(NumberOrCalc::Number(p.as_fraction() * 360.0)),
+            ColorValue::Number(n) => Ok(Self::new(n)),
+            ColorValue::Calc(expr) => {
+                if let Ok(evaluated) = expr.evaluate()
+                    && evaluated.1 == CalcDomain::Number
+                {
+                    return Ok(Self::new(evaluated.0));
+                }
+
+                Err(CssValueError::InvalidValue(
+                    "calc() expressions for hue components must evaluate to a number".into(),
+                ))
+            }
+            ColorValue::Percentage(p) => {
+                Err(CssValueError::InvalidValue(format!("Percentage values are not valid for hue components: {p}")))
+            }
         }
     }
 }
@@ -106,10 +163,13 @@ pub enum Fraction {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ColorValue {
     /// A number, which is clamped to the specified range (e.g., 0-255 for RGB components).
-    Number(NumberOrCalc),
+    Number(f64),
 
     /// A percentage, which is converted to a number based on the specified range (e.g., 100% would be 255 for RGB components).
     Percentage(Percentage),
+
+    /// A calc() expression that evaluates to a number, which is clamped to the specified range.
+    Calc(CalcExpression),
 }
 
 impl ColorValue {
@@ -133,14 +193,28 @@ impl ColorValue {
     #[must_use]
     pub fn value(&self, range: RangeInclusive<f64>, fraction: Fraction) -> f64 {
         match self {
-            Self::Number(noc) => match noc {
-                NumberOrCalc::Number(n) => n.clamp(*range.start(), *range.end()),
-                NumberOrCalc::Calc(expr) => expr.evaluate().clamp(*range.start(), *range.end()),
-            },
+            Self::Number(n) => n.clamp(*range.start(), *range.end()),
             Self::Percentage(p) => match fraction {
                 Fraction::Unsigned => Self::lerp(p.as_fraction(), range),
                 Fraction::Signed => Self::signed_lerp(p.as_fraction(), range),
             },
+            Self::Calc(expr) => {
+                if let Ok(evaluated) = expr.evaluate() {
+                    if evaluated.1 == CalcDomain::Number {
+                        return evaluated.0.clamp(*range.start(), *range.end());
+                    } else if evaluated.1 == CalcDomain::Percentage {
+                        let value = evaluated.0;
+                        return match fraction {
+                            Fraction::Signed => Self::signed_lerp(value, range),
+                            Fraction::Unsigned => Self::lerp(value, range),
+                        };
+                    }
+                }
+
+                unreachable!(
+                    "`ColorValue::Calc` must evaluate to either a number or a percentage, ensure `CSSParsable` only allows Number or Percentage domains for calc() expressions in `ColorValue`"
+                )
+            }
         }
     }
 
@@ -160,7 +234,7 @@ impl ColorValue {
 
 impl From<f64> for ColorValue {
     fn from(value: f64) -> Self {
-        Self::Number(NumberOrCalc::Number(value))
+        Self::Number(value)
     }
 }
 

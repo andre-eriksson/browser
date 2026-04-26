@@ -3,6 +3,7 @@ use css_values::{
     CSSParsable,
     background::{Attachment, BgClip, RepeatStyle, Size, VisualBox, WidthHeightSize},
     border::{BorderStyle, BorderWidth},
+    calc::CalcKind,
     color::{Color, base::ColorBase},
     combination::LengthPercentage,
     error::CssValueError,
@@ -11,19 +12,19 @@ use css_values::{
     numeric::Percentage,
     position::BgPosition,
     quantity::{Length, LengthUnit},
-    text::{FontWeight, WritingMode},
+    text::{FontSize, FontWeight, WritingMode},
 };
 use tracing::trace;
 
 use crate::{
-    AbsoluteContext, RelativeContext, RelativeType,
+    AbsoluteContext, Offset, RelativeContext, RelativeType,
     properties::{
         CSSProperty, PixelRepr,
         background::{
             BackgroundAttachment, BackgroundClip, BackgroundImage, BackgroundOrigin, BackgroundPosition,
             BackgroundPositionX, BackgroundPositionY, BackgroundRepeat, BackgroundSize,
         },
-        offset::Offset,
+        offset::Margin,
     },
     specified::SpecifiedStyle,
 };
@@ -118,7 +119,7 @@ macro_rules! simple_property_handler {
 /// A macro to generate shorthand property handlers for 4-side offset properties (e.g. `margin`, `padding`).
 /// Parses the value once as either a `Global` or an `Offset`, then assigns to all four physical side fields.
 macro_rules! offset_shorthand_handler {
-    ($fn_name:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
+    ($fn_name:ident, $offset_type:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
         pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
             let checkpoint = stream.checkpoint();
 
@@ -129,7 +130,7 @@ macro_rules! offset_shorthand_handler {
                 ctx.specified_style.$left = CSSProperty::Global(global);
             } else {
                 stream.restore(checkpoint);
-                if let Ok(offset) = Offset::parse(stream) {
+                if let Ok(offset) = $offset_type::parse(stream) {
                     ctx.specified_style.$top = offset.top.into();
                     ctx.specified_style.$right = offset.right.into();
                     ctx.specified_style.$bottom = offset.bottom.into();
@@ -154,7 +155,7 @@ macro_rules! offset_shorthand_handler {
 /// Arguments: `(fn_name, prop_name, htb_start, htb_end, vrl_start, vrl_end, vlr_start, vlr_end)`
 /// where each `*_start`/`*_end` is a field on `SpecifiedStyle`.
 macro_rules! logical_pair_handler {
-    ($fn_name:ident, $prop_name:expr,
+    ($fn_name:ident, $offset_type:ident, $prop_name:expr,
      $htb_start:ident, $htb_end:ident,
      $vrl_start:ident, $vrl_end:ident,
      $vlr_start:ident, $vlr_end:ident) => {
@@ -164,7 +165,7 @@ macro_rules! logical_pair_handler {
 
             let offset = if global.is_none() {
                 stream.restore(checkpoint);
-                Offset::parse(stream).ok()
+                $offset_type::parse(stream).ok()
             } else {
                 None
             };
@@ -225,8 +226,8 @@ macro_rules! logical_edge_handler {
     };
 }
 
-offset_shorthand_handler!(handle_margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
-offset_shorthand_handler!(handle_padding, "padding", padding_top, padding_right, padding_bottom, padding_left);
+offset_shorthand_handler!(handle_margin, Margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
+offset_shorthand_handler!(handle_padding, Offset, "padding", padding_top, padding_right, padding_bottom, padding_left);
 simple_property_handler!(handle_background_attachment, background_attachment, "background-attachment");
 simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
@@ -278,6 +279,7 @@ simple_property_handler!(handle_width, width, "width");
 simple_property_handler!(handle_writing_mode, writing_mode, "writing-mode");
 logical_pair_handler!(
     handle_margin_block,
+    Margin,
     "margin-block",
     margin_top,
     margin_bottom,
@@ -288,6 +290,7 @@ logical_pair_handler!(
 );
 logical_pair_handler!(
     handle_padding_block,
+    Offset,
     "padding-block",
     padding_top,
     padding_bottom,
@@ -298,6 +301,7 @@ logical_pair_handler!(
 );
 logical_pair_handler!(
     handle_margin_inline,
+    Margin,
     "margin-inline",
     margin_left,
     margin_right,
@@ -308,6 +312,7 @@ logical_pair_handler!(
 );
 logical_pair_handler!(
     handle_padding_inline,
+    Offset,
     "padding-inline",
     padding_left,
     padding_right,
@@ -1056,8 +1061,90 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
     CSSProperty::update_property(&mut ctx.specified_style.font_size, stream).unwrap_or(());
 
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
-        ctx.specified_style.computed_font_size_px =
-            font_size.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx);
+        ctx.specified_style.computed_font_size_px = match font_size {
+            FontSize::Absolute(abs) => {
+                let Ok(px) = abs.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx) else {
+                    ctx.record_error_from_stream(
+                        "font-size",
+                        stream,
+                        CssValueError::InvalidValue("Invalid absolute font size".to_string()),
+                    );
+                    return;
+                };
+
+                px
+            }
+            FontSize::Relative(rel) => {
+                let Ok(px) = rel.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx) else {
+                    ctx.record_error_from_stream(
+                        "font-size",
+                        stream,
+                        CssValueError::InvalidValue("Invalid relative font size".to_string()),
+                    );
+                    return;
+                };
+
+                px
+            }
+            FontSize::Length(len) => {
+                let Ok(px) = len.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx) else {
+                    ctx.record_error_from_stream(
+                        "font-size",
+                        stream,
+                        CssValueError::InvalidValue("Invalid length for font-size".to_string()),
+                    );
+                    return;
+                };
+
+                px
+            }
+            FontSize::Percentage(pct) => {
+                let parent_font_size = ctx.relative_ctx.parent.font_size;
+
+                pct.as_fraction() * parent_font_size
+            }
+            FontSize::Calc(expr) => {
+                let Ok(kind) = expr.clone().into_sum().kind() else {
+                    ctx.record_error_from_stream(
+                        "font-size",
+                        stream,
+                        CssValueError::InvalidValue("Invalid calc() expression for font-size".to_string()),
+                    );
+                    return;
+                };
+
+                match kind {
+                    CalcKind::Length(len) => {
+                        let Ok(px) = len.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx)
+                        else {
+                            ctx.record_error_from_stream(
+                                "font-size",
+                                stream,
+                                CssValueError::InvalidValue(
+                                    "Invalid length in calc() expression for font-size".to_string(),
+                                ),
+                            );
+                            return;
+                        };
+
+                        px
+                    }
+                    CalcKind::Percentage(pct) => {
+                        let parent_font_size = ctx.relative_ctx.parent.font_size;
+
+                        pct.as_fraction() * parent_font_size
+                    }
+                    _ => {
+                        ctx.record_error_from_stream(
+                            "font-size",
+                            stream,
+                            CssValueError::InvalidValue("Invalid calc() expression for font-size".to_string()),
+                        );
+                        return;
+                    }
+                }
+            }
+        }
     }
 }
 

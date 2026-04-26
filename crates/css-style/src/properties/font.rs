@@ -5,6 +5,7 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
 use css_values::{
     CSSParsable,
+    calc::CalcKind,
     error::CssValueError,
     text::{AbsoluteSize, FontFamilyName, FontSize, GenericName, RelativeSize},
 };
@@ -16,12 +17,12 @@ use crate::{
 
 impl PixelRepr for AbsoluteSize {
     fn to_px(
-        &self,
+        self,
         _rel_type: Option<RelativeType>,
         _rel_ctx: Option<&RelativeContext>,
         _abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        match self {
+    ) -> Result<f64, String> {
+        Ok(match self {
             Self::XxSmall => 9.0,
             Self::XSmall => 10.0,
             Self::Small => 13.0,
@@ -30,21 +31,21 @@ impl PixelRepr for AbsoluteSize {
             Self::XLarge => 24.0,
             Self::XxLarge => 32.0,
             Self::XxxLarge => 48.0,
-        }
+        })
     }
 }
 
 impl PixelRepr for RelativeSize {
     fn to_px(
-        &self,
+        self,
         _rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        match self {
+    ) -> Result<f64, String> {
+        Ok(match self {
             Self::Smaller => rel_ctx.map_or(abs_ctx.root_font_size * 0.833, |ctx| ctx.parent.font_size * 0.833),
             Self::Larger => rel_ctx.map_or(abs_ctx.root_font_size * 1.2, |ctx| ctx.parent.font_size * 1.2),
-        }
+        })
     }
 }
 
@@ -132,20 +133,30 @@ impl CSSParsable for FontFamily {
 
 impl PixelRepr for FontSize {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        match self {
-            Self::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx),
+    ) -> Result<f64, String> {
+        Ok(match self {
+            Self::Absolute(abs) => abs.to_px(rel_type, rel_ctx, abs_ctx)?,
+            Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx)?,
             Self::Percentage(pct) => {
                 pct.as_fraction() * rel_ctx.map_or(abs_ctx.root_font_size, |ctx| ctx.parent.font_size)
             }
-            Self::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx),
-            Self::Calc(calc) => calc.to_px(Some(RelativeType::FontSize), rel_ctx, abs_ctx),
-        }
+            Self::Relative(rel) => rel.to_px(rel_type, rel_ctx, abs_ctx)?,
+            Self::Calc(expr) => {
+                let kind = expr.into_sum().kind();
+
+                match kind {
+                    Ok(CalcKind::Length(len)) => len.to_px(rel_type, rel_ctx, abs_ctx)?,
+                    Ok(CalcKind::Percentage(pct)) => {
+                        pct.as_fraction() * rel_ctx.map_or(abs_ctx.root_font_size, |ctx| ctx.parent.font_size)
+                    }
+                    _ => FontSize::Absolute(AbsoluteSize::Medium).to_px(rel_type, rel_ctx, abs_ctx)?,
+                }
+            }
+        })
     }
 }
 

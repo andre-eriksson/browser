@@ -46,6 +46,18 @@ impl BrowserConfig {
 
 impl Default for BrowserConfig {
     fn default() -> Self {
-        Self::new()
+        let args = BrowserArgs::parse_from(std::iter::empty::<String>());
+        let headers = Headers::create_browser_headers(args.ua_compatibility, args.user_agent.clone());
+        let preferences = args
+            .preferences
+            .theme
+            .as_ref()
+            .map_or_else(BrowserPreferences::load, |t| BrowserPreferences::new(t.clone()));
+
+        Self {
+            args,
+            headers,
+            preferences,
+        }
     }
 }

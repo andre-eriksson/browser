@@ -1344,6 +1344,7 @@ dependencies = [
  "css-cssom",
  "strum",
  "thiserror 2.0.17",
+ "tracing",
 ]
 
 [[package]]

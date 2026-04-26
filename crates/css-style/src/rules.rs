@@ -540,15 +540,18 @@ impl<'css> GeneratedRule<'css> {
                     };
 
                     let length = Length::new(value.to_f64(), length_unit);
+                    let Ok(px) = length.to_px(None, None, absolute_ctx) else {
+                        return false;
+                    };
 
                     match media_condition {
                         MediaCondition::Width | MediaCondition::DeviceWidth => {
                             let viewport_width = absolute_ctx.viewport_width;
-                            return viewport_width <= length.to_px(None, None, absolute_ctx);
+                            return viewport_width <= px;
                         }
                         MediaCondition::Height | MediaCondition::DeviceHeight => {
                             let viewport_height = absolute_ctx.viewport_height;
-                            return viewport_height <= length.to_px(None, None, absolute_ctx);
+                            return viewport_height <= px;
                         }
                         _ => return false,
                     }
@@ -577,15 +580,18 @@ impl<'css> GeneratedRule<'css> {
                     };
 
                     let length = Length::new(value.to_f64(), length_unit);
+                    let Ok(px) = length.to_px(None, None, absolute_ctx) else {
+                        return false;
+                    };
 
                     match media_condition {
                         MediaCondition::Width | MediaCondition::DeviceWidth => {
                             let viewport_width = absolute_ctx.viewport_width;
-                            return viewport_width >= length.to_px(None, None, absolute_ctx);
+                            return viewport_width >= px;
                         }
                         MediaCondition::Height | MediaCondition::DeviceHeight => {
                             let viewport_height = absolute_ctx.viewport_height;
-                            return viewport_height >= length.to_px(None, None, absolute_ctx);
+                            return viewport_height >= px;
                         }
                         _ => return false,
                     }
@@ -611,18 +617,26 @@ impl<'css> GeneratedRule<'css> {
             return false;
         }
 
+        let Ok(first_px) = first_length.to_px(None, None, absolute_ctx) else {
+            return false;
+        };
+
+        let Ok(second_px) = second_length.to_px(None, None, absolute_ctx) else {
+            return false;
+        };
+
         let first_condition = match first_comparison {
-            RangeOperator::LessThan => value > first_length.to_px(None, None, absolute_ctx),
-            RangeOperator::LessThanOrEqual => value >= first_length.to_px(None, None, absolute_ctx),
-            RangeOperator::GreaterThan => value < first_length.to_px(None, None, absolute_ctx),
-            RangeOperator::GreaterThanOrEqual => value <= first_length.to_px(None, None, absolute_ctx),
+            RangeOperator::LessThan => value > first_px,
+            RangeOperator::LessThanOrEqual => value >= first_px,
+            RangeOperator::GreaterThan => value < first_px,
+            RangeOperator::GreaterThanOrEqual => value <= first_px,
             RangeOperator::Equal => return false,
         };
         let second_condition = match second_comparison {
-            RangeOperator::LessThan => value < second_length.to_px(None, None, absolute_ctx),
-            RangeOperator::LessThanOrEqual => value <= second_length.to_px(None, None, absolute_ctx),
-            RangeOperator::GreaterThan => value > second_length.to_px(None, None, absolute_ctx),
-            RangeOperator::GreaterThanOrEqual => value >= second_length.to_px(None, None, absolute_ctx),
+            RangeOperator::LessThan => value < second_px,
+            RangeOperator::LessThanOrEqual => value <= second_px,
+            RangeOperator::GreaterThan => value > second_px,
+            RangeOperator::GreaterThanOrEqual => value >= second_px,
             RangeOperator::Equal => return false,
         };
         first_condition && second_condition

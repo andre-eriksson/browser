@@ -6,16 +6,19 @@ use css_values::{
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
-    dimension::{MaxSize, OffsetValue},
     display::{Clear, Float},
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    AbsoluteContext, Color4f, ComputedMaxDimension, ComputedSize, Display, FontFamily, Position, RelativeContext,
-    RelativeType, clone_compute, compute, compute_parent_px, compute_px,
-    computed::{image::ComputedBackgroundImage, position::ComputedBackgroundSize},
+    AbsoluteContext, Color4f, ComputedMaxSize, ComputedSize, Display, FontFamily, Position, RelativeContext,
+    RelativeType, clone_compute, compute, compute_px,
+    computed::{
+        image::ComputedBackgroundImage,
+        offset::{ComputedMargin, ComputedOffset},
+        position::ComputedBackgroundSize,
+    },
     into_compute,
     properties::{
         CSSProperty, PixelRepr,
@@ -33,6 +36,7 @@ pub mod color;
 pub mod dimension;
 mod handler;
 pub mod image;
+pub mod offset;
 pub mod position;
 
 /// The final style resolution for a DOM node.
@@ -64,8 +68,7 @@ pub struct ComputedStyle {
     pub border_top_color: Color4f,
     pub border_top_style: BorderStyle,
     pub border_top_width: f64,
-    pub bottom: f64,
-    pub bottom_auto: bool,
+    pub bottom: ComputedMargin,
     pub clear: Clear,
     pub color: Color4f,
     pub cursor: Cursor,
@@ -75,37 +78,22 @@ pub struct ComputedStyle {
     pub font_size: f64,
     pub font_weight: u16,
     pub height: ComputedSize,
-    pub intrinsic_height: f64,
-    pub intrinsic_width: f64,
-    pub left: f64,
-    pub left_auto: bool,
+    pub left: ComputedMargin,
     pub line_height: f64,
-    pub margin_bottom: f64,
-    pub margin_bottom_auto: bool,
-    pub margin_left: f64,
-    pub margin_left_auto: bool,
-    pub margin_right: f64,
-    pub margin_right_auto: bool,
-    pub margin_top: f64,
-    pub margin_top_auto: bool,
-    pub max_height: ComputedMaxDimension,
-    pub max_intrinsic_height: f64,
-    pub max_intrinsic_width: f64,
-    pub max_width: ComputedMaxDimension,
-    pub padding_bottom: f64,
-    pub padding_bottom_auto: bool,
-    pub padding_left: f64,
-    pub padding_left_auto: bool,
-    pub padding_right: f64,
-    pub padding_right_auto: bool,
-    pub padding_top: f64,
-    pub padding_top_auto: bool,
+    pub margin_bottom: ComputedMargin,
+    pub margin_left: ComputedMargin,
+    pub margin_right: ComputedMargin,
+    pub margin_top: ComputedMargin,
+    pub max_height: ComputedMaxSize,
+    pub max_width: ComputedMaxSize,
+    pub padding_bottom: ComputedOffset,
+    pub padding_left: ComputedOffset,
+    pub padding_right: ComputedOffset,
+    pub padding_top: ComputedOffset,
     pub position: Position,
-    pub right: f64,
-    pub right_auto: bool,
+    pub right: ComputedMargin,
     pub text_align: TextAlign,
-    pub top: f64,
-    pub top_auto: bool,
+    pub top: ComputedMargin,
     pub whitespace: Whitespace,
     pub width: ComputedSize,
     pub writing_mode: WritingMode,
@@ -129,26 +117,27 @@ impl ComputedStyle {
         let specified_style =
             SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, property_registry);
 
-        let margin_top = compute_px!(specified_style, parent, margin_top, OffsetValue);
-        let margin_right = compute_px!(specified_style, parent, margin_right, OffsetValue);
-        let margin_bottom = compute_px!(specified_style, parent, margin_bottom, OffsetValue);
-        let margin_left = compute_px!(specified_style, parent, margin_left, OffsetValue);
-        let padding_top = compute_px!(specified_style, parent, padding_top, OffsetValue);
-        let padding_right = compute_px!(specified_style, parent, padding_right, OffsetValue);
-        let padding_bottom = compute_px!(specified_style, parent, padding_bottom, OffsetValue);
-        let padding_left = compute_px!(specified_style, parent, padding_left, OffsetValue);
-        let bottom = compute_px!(specified_style, parent, bottom, OffsetValue);
-        let left = compute_px!(specified_style, parent, left, OffsetValue);
-        let right = compute_px!(specified_style, parent, right, OffsetValue);
-        let top = compute_px!(specified_style, parent, top, OffsetValue);
+        let margin_top = into_compute!(specified_style, parent, margin_top);
+        let margin_right = into_compute!(specified_style, parent, margin_right);
+        let margin_bottom = into_compute!(specified_style, parent, margin_bottom);
+        let margin_left = into_compute!(specified_style, parent, margin_left);
+        let padding_top = into_compute!(specified_style, parent, padding_top);
+        let padding_right = into_compute!(specified_style, parent, padding_right);
+        let padding_bottom = into_compute!(specified_style, parent, padding_bottom);
+        let padding_left = into_compute!(specified_style, parent, padding_left);
+        let top = into_compute!(specified_style, parent, top);
+        let right = into_compute!(specified_style, parent, right);
+        let bottom = into_compute!(specified_style, parent, bottom);
+        let left = into_compute!(specified_style, parent, left);
         let height = into_compute!(specified_style, parent, height);
-        let max_height = compute_parent_px!(specified_style, parent, max_height, max_intrinsic_height, MaxSize);
+        let max_height = into_compute!(specified_style, parent, max_height);
         let width = into_compute!(specified_style, parent, width);
-        let max_width = compute_parent_px!(specified_style, parent, max_width, max_intrinsic_width, MaxSize);
+        let max_width = into_compute!(specified_style, parent, max_width);
         let font_size = specified_style
             .font_size
             .compute(FontSize::px(parent.font_size))
-            .to_px(Some(RelativeType::FontSize), Some(relative_ctx), absolute_ctx);
+            .to_px(Some(RelativeType::FontSize), Some(relative_ctx), absolute_ctx)
+            .unwrap_or(parent.font_size);
         let float = compute!(specified_style, parent, float);
 
         relative_ctx.font_size = font_size;
@@ -221,28 +210,20 @@ impl ComputedStyle {
             border_right_style: compute!(specified_style, parent, border_right_style),
             border_bottom_style: compute!(specified_style, parent, border_bottom_style),
             border_left_style: compute!(specified_style, parent, border_left_style),
-            border_top_width: compute_px!(specified_style, parent, border_top_width, BorderWidth).to_px(
-                None,
-                Some(relative_ctx),
-                absolute_ctx,
-            ),
-            border_right_width: compute_px!(specified_style, parent, border_right_width, BorderWidth).to_px(
-                None,
-                Some(relative_ctx),
-                absolute_ctx,
-            ),
-            border_bottom_width: compute_px!(specified_style, parent, border_bottom_width, BorderWidth).to_px(
-                None,
-                Some(relative_ctx),
-                absolute_ctx,
-            ),
-            border_left_width: compute_px!(specified_style, parent, border_left_width, BorderWidth).to_px(
-                None,
-                Some(relative_ctx),
-                absolute_ctx,
-            ),
-            bottom: bottom.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
-            bottom_auto: bottom.is_auto(),
+            border_top_width: compute_px!(specified_style, parent, border_top_width, BorderWidth)
+                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .unwrap_or(0.0),
+            border_right_width: compute_px!(specified_style, parent, border_right_width, BorderWidth)
+                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .unwrap_or(0.0),
+            border_bottom_width: compute_px!(specified_style, parent, border_bottom_width, BorderWidth)
+                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .unwrap_or(0.0),
+            border_left_width: compute_px!(specified_style, parent, border_left_width, BorderWidth)
+                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .unwrap_or(0.0),
+            bottom: ComputedMargin::resolve(bottom, Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
+                .unwrap_or_default(),
             clear: compute!(specified_style, parent, clear),
             color: Color4f::from_css_color_property(
                 &specified_style.color,
@@ -264,44 +245,84 @@ impl ComputedStyle {
             font_weight: specified_style
                 .font_weight
                 .compute(parent.font_weight.into()) as u16,
-            intrinsic_height: height.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
-            height: height.into(),
-            left: left.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            left_auto: left.is_auto(),
-            max_intrinsic_height: max_height.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
-            max_height: max_height.into(),
-            line_height: compute_px!(specified_style, parent, line_height, LineHeight).to_px(
+            height: ComputedSize::resolve(height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
+                .unwrap_or_default(),
+            left: ComputedMargin::resolve(left, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
+                .unwrap_or(ComputedMargin::Auto),
+            max_height: ComputedMaxSize::resolve(max_height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
+                .unwrap_or_default(),
+            line_height: compute_px!(specified_style, parent, line_height, LineHeight).to_px_unchecked(
                 None,
                 Some(relative_ctx),
                 absolute_ctx,
             ),
-            margin_top: margin_top.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            margin_right: margin_right.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            margin_bottom: margin_bottom.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            margin_left: margin_left.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            margin_top_auto: margin_top.is_auto(),
-            margin_right_auto: margin_right.is_auto(),
-            margin_bottom_auto: margin_bottom.is_auto(),
-            margin_left_auto: margin_left.is_auto(),
-            padding_top: padding_top.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            padding_right: padding_right.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            padding_bottom: padding_bottom.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            padding_left: padding_left.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            padding_top_auto: padding_top.is_auto(),
-            padding_right_auto: padding_right.is_auto(),
-            padding_bottom_auto: padding_bottom.is_auto(),
-            padding_left_auto: padding_left.is_auto(),
+            margin_top: ComputedMargin::resolve(
+                margin_top,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            margin_right: ComputedMargin::resolve(
+                margin_right,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            margin_bottom: ComputedMargin::resolve(
+                margin_bottom,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            margin_left: ComputedMargin::resolve(
+                margin_left,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            padding_top: ComputedOffset::resolve(
+                padding_top,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            padding_right: ComputedOffset::resolve(
+                padding_right,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            padding_bottom: ComputedOffset::resolve(
+                padding_bottom,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            padding_left: ComputedOffset::resolve(
+                padding_left,
+                Some(RelativeType::ParentWidth),
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
             position: compute!(specified_style, parent, position),
-            right: right.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            right_auto: right.is_auto(),
+            right: ComputedMargin::resolve(right, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
+                .unwrap_or(ComputedMargin::Auto),
             text_align: compute!(specified_style, parent, text_align),
-            top: top.to_px(Some(RelativeType::ParentHeight), Some(relative_ctx), absolute_ctx),
-            top_auto: top.is_auto(),
+            top: ComputedMargin::resolve(top, Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
+                .unwrap_or(ComputedMargin::Auto),
             whitespace: compute!(specified_style, parent, whitespace),
-            intrinsic_width: width.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            width: width.into(),
-            max_intrinsic_width: max_width.to_px(Some(RelativeType::ParentWidth), Some(relative_ctx), absolute_ctx),
-            max_width: max_width.into(),
+            width: ComputedSize::resolve(width, RelativeType::ParentWidth, relative_ctx, absolute_ctx)
+                .unwrap_or_default(),
+            max_width: ComputedMaxSize::resolve(max_width, RelativeType::ParentWidth, relative_ctx, absolute_ctx)
+                .unwrap_or_default(),
             writing_mode: compute!(specified_style, parent, writing_mode),
             variables: Arc::clone(&specified_style.variables),
         };
@@ -349,8 +370,7 @@ impl Default for ComputedStyle {
             border_top_color: Color4f::BLACK,
             border_top_style: BorderStyle::None,
             border_top_width: 0.0,
-            bottom: 0.0,
-            bottom_auto: true,
+            bottom: 0.0.into(),
             clear: Clear::default(),
             color: Color4f::BLACK,
             cursor: Cursor::default(),
@@ -360,37 +380,22 @@ impl Default for ComputedStyle {
             font_size: 16.0,
             font_weight: 500,
             height: ComputedSize::Auto,
-            intrinsic_height: 0.0,
-            intrinsic_width: 0.0,
-            left: 0.0,
-            left_auto: true,
+            left: 0.0.into(),
             line_height: 1.5 * 16.0,
-            margin_bottom: 0.0,
-            margin_bottom_auto: false,
-            margin_left: 0.0,
-            margin_left_auto: false,
-            margin_right: 0.0,
-            margin_right_auto: false,
-            margin_top: 0.0,
-            margin_top_auto: false,
-            max_height: ComputedMaxDimension::None,
-            max_intrinsic_height: f64::INFINITY,
-            max_intrinsic_width: f64::INFINITY,
-            max_width: ComputedMaxDimension::None,
-            padding_bottom: 0.0,
-            padding_bottom_auto: false,
-            padding_left: 0.0,
-            padding_left_auto: false,
-            padding_right: 0.0,
-            padding_right_auto: false,
-            padding_top: 0.0,
-            padding_top_auto: false,
+            margin_bottom: 0.0.into(),
+            margin_left: 0.0.into(),
+            margin_right: 0.0.into(),
+            margin_top: 0.0.into(),
+            max_height: ComputedMaxSize::None,
+            max_width: ComputedMaxSize::None,
+            padding_bottom: 0.0.into(),
+            padding_left: 0.0.into(),
+            padding_right: 0.0.into(),
+            padding_top: 0.0.into(),
             position: Position::Static,
-            right: 0.0,
-            right_auto: true,
+            right: 0.0.into(),
             text_align: TextAlign::Start,
-            top: 0.0,
-            top_auto: true,
+            top: 0.0.into(),
             whitespace: Whitespace::Normal,
             width: ComputedSize::Auto,
             writing_mode: WritingMode::HorizontalTb,

@@ -40,7 +40,7 @@ impl TryFrom<&ComponentValue> for LengthPercentage {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
                     let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    let domain = calc_expr.resolve_type()?;
+                    let domain = calc_expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
                         return Err(CssValueError::InvalidCalcDomain {
@@ -114,7 +114,7 @@ impl CSSParsable for FrequencyPercentage {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
                         let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = calc_expr.resolve_type()?;
+                        let domain = calc_expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Frequency | CalcDomain::Percentage) {
                             return Err(CssValueError::InvalidCalcDomain {
@@ -185,7 +185,7 @@ impl TryFrom<&ComponentValue> for AnglePercentage {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
                     let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    let domain = calc_expr.resolve_type()?;
+                    let domain = calc_expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Angle | CalcDomain::Percentage) {
                         return Err(CssValueError::InvalidCalcDomain {
@@ -257,7 +257,7 @@ impl CSSParsable for TimePercentage {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
                         let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = calc_expr.resolve_type()?;
+                        let domain = calc_expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Time | CalcDomain::Percentage) {
                             return Err(CssValueError::InvalidCalcDomain {
@@ -312,7 +312,7 @@ impl TryFrom<&ComponentValue> for AngleZero {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
                     let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    let domain = calc_expr.resolve_type()?;
+                    let domain = calc_expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Angle) {
                         return Err(CssValueError::InvalidCalcDomain {
@@ -435,7 +435,7 @@ mod tests {
         let result = LengthPercentage::parse(&mut stream).unwrap();
         assert!(matches!(result, LengthPercentage::Calc(_)));
         assert!(
-            matches!(result, LengthPercentage::Calc(expr) if matches!(expr.resolve_type().unwrap(), CalcDomain::Length | CalcDomain::Percentage))
+            matches!(result, LengthPercentage::Calc(expr) if matches!(expr.resolve_domain().unwrap(), CalcDomain::Length | CalcDomain::Percentage))
         );
 
         let cvs = vec![ComponentValue::Function(Function {

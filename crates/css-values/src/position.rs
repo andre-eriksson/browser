@@ -28,7 +28,7 @@ impl PosToken {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
                     let expr = CalcExpression::parse_math_function(&func.name, &func.value).ok()?;
-                    let domain = expr.resolve_type().ok()?;
+                    let domain = expr.resolve_domain().ok()?;
 
                     if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
                         return None;
@@ -389,7 +389,7 @@ impl CSSParsable for PositionOne {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
                         let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = expr.resolve_type()?;
+                        let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
                             return Err(CssValueError::InvalidValue(format!(

@@ -5,7 +5,7 @@ use css_style::Position;
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
-use crate::{ImageData, LayoutColors, LayoutNode, Rect, SideOffset};
+use crate::{ImageData, LayoutColors, LayoutNode, Margin, Rect, primitives::SideOffset};
 
 /// Builder pattern for constructing a `LayoutNode`.
 #[derive(Debug, Clone)]
@@ -21,7 +21,7 @@ impl NodeBuilder {
                 dimensions: Rect::default(),
                 colors: LayoutColors::default(),
                 cursor: Cursor::default(),
-                margin: SideOffset::default(),
+                margin: Margin::default(),
                 padding: SideOffset::default(),
                 border: SideOffset::default(),
                 position: Position::Static,
@@ -68,7 +68,7 @@ impl NodeBuilder {
         self
     }
 
-    pub const fn margin(mut self, margin: SideOffset) -> Self {
+    pub const fn margin(mut self, margin: Margin) -> Self {
         self.layout_node.margin = margin;
         self
     }

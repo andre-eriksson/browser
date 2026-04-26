@@ -203,7 +203,7 @@ impl CSSParsable for AngularColorHint {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
                     let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    let domain = expr.resolve_type()?;
+                    let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Angle | CalcDomain::Percentage) {
                         return Err(CssValueError::InvalidCalcDomain {

@@ -8,3 +8,4 @@ license.workspace = true
 css-cssom.workspace = true
 strum.workspace = true
 thiserror.workspace = true
+tracing.workspace = true

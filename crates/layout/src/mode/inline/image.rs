@@ -1,4 +1,4 @@
-use css_style::{ComputedSize, ComputedMaxDimension, ComputedStyle};
+use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
     ImageData, LayoutColors, LayoutNode, Rect, TextContext,
@@ -64,10 +64,18 @@ fn resolve_image_size(
     intrinsic_size: Option<(f64, f64)>,
 ) -> (f64, f64) {
     let max_width = match style.max_width {
-        ComputedMaxDimension::Percentage(f) => (available_width * f).max(0.0),
-        _ => style.max_intrinsic_width,
+        ComputedMaxSize::Px(px) => px,
+        ComputedMaxSize::Percentage(f) => (available_width * f).max(0.0),
+        _ => available_width.max(0.0),
     };
+    let max_height = match style.max_height {
+        ComputedMaxSize::Px(px) => px,
+        ComputedMaxSize::Percentage(f) => (available_width * f).max(0.0),
+        _ => f64::INFINITY,
+    };
+
     let mut used_width = match style.width {
+        ComputedSize::Px(px) => px,
         ComputedSize::Percentage(f) => (available_width * f).max(0.0),
         _ => width.max(0.0),
     };
@@ -85,15 +93,15 @@ fn resolve_image_size(
 
         if has_explicit_width && has_explicit_height {
             used_width = used_width.min(max_width);
-            used_height = used_height.min(style.max_intrinsic_height);
+            used_height = used_height.min(max_height);
         } else {
             let width_scale = if used_width > max_width {
                 max_width / used_width
             } else {
                 1.0
             };
-            let height_scale = if used_height > style.max_intrinsic_height {
-                style.max_intrinsic_height / used_height
+            let height_scale = if used_height > max_height {
+                max_height / used_height
             } else {
                 1.0
             };
@@ -106,7 +114,7 @@ fn resolve_image_size(
         }
     } else {
         used_width = used_width.min(max_width);
-        used_height = used_height.min(style.max_intrinsic_height);
+        used_height = used_height.min(max_height);
     }
 
     (used_width.max(0.0), used_height.max(0.0))

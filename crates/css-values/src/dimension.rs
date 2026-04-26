@@ -35,14 +35,12 @@ impl Size {
 
 impl CSSParsable for Size {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
                         let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = expr.resolve_type()?;
+                        let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
                             return Err(CssValueError::InvalidCalcDomain {
@@ -124,7 +122,7 @@ impl CSSParsable for MaxSize {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
                         let expr = CalcExpression::parse_math_function(&func.name, func.value.as_slice())?;
-                        let domain = expr.resolve_type()?;
+                        let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
                             return Err(CssValueError::InvalidCalcDomain {
@@ -172,15 +170,12 @@ impl CSSParsable for MaxSize {
     }
 }
 
-/// Represents a CSS offset value, used for specific margin and padding values. It can be a length, percentage, calc expression, or auto.
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/padding-top>
+/// Represents a CSS offset value, used for border & padding offsets. It can be a length, percentage, or calc expression.
 #[derive(Debug, Clone, PartialEq)]
 pub enum OffsetValue {
-    Percentage(Percentage),
     Length(Length),
+    Percentage(Percentage),
     Calc(CalcExpression),
-    Auto,
 }
 
 impl OffsetValue {
@@ -193,28 +188,15 @@ impl OffsetValue {
     pub const fn px(value: f64) -> Self {
         Self::Length(Length::px(value))
     }
-
-    #[must_use]
-    pub const fn is_auto(&self) -> bool {
-        matches!(self, Self::Auto)
-    }
-}
-
-impl Default for OffsetValue {
-    fn default() -> Self {
-        Self::zero()
-    }
 }
 
 impl CSSParsable for OffsetValue {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                    let domain = expr.resolve_type()?;
+                    let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, crate::calc::CalcDomain::Length | crate::calc::CalcDomain::Percentage) {
                         return Err(CssValueError::InvalidCalcDomain {
@@ -236,7 +218,84 @@ impl CSSParsable for OffsetValue {
                         Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
                     }
                     CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64()))),
-                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64()))),
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+                },
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+            }
+        } else {
+            Err(CssValueError::ExpectedComponentValue)
+        }
+    }
+}
+
+impl Default for OffsetValue {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+/// Represents a CSS margin value, used for specific margin values. It can be a length, percentage, calc expression, or auto.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/margin-top>
+#[derive(Debug, Clone, PartialEq)]
+pub enum MarginValue {
+    Percentage(Percentage),
+    Length(Length),
+    Calc(CalcExpression),
+    Auto,
+}
+
+impl MarginValue {
+    #[must_use]
+    pub const fn zero() -> Self {
+        Self::Length(Length::zero())
+    }
+
+    #[must_use]
+    pub const fn px(value: f64) -> Self {
+        Self::Length(Length::px(value))
+    }
+
+    #[must_use]
+    pub const fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+}
+
+impl Default for MarginValue {
+    fn default() -> Self {
+        Self::zero()
+    }
+}
+
+impl CSSParsable for MarginValue {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace() {
+            match cv {
+                ComponentValue::Function(func) if is_math_function(&func.name) => {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_domain()?;
+
+                    if !matches!(domain, crate::calc::CalcDomain::Length | crate::calc::CalcDomain::Percentage) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![
+                                crate::calc::CalcDomain::Length,
+                                crate::calc::CalcDomain::Percentage,
+                            ],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::Calc(expr))
+                }
+                ComponentValue::Token(token) => match &token.kind {
+                    CssTokenKind::Dimension { value, unit } => {
+                        let len_unit = unit
+                            .parse::<LengthUnit>()
+                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+                        Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
+                    }
+                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64()))),
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => Ok(Self::Auto),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },

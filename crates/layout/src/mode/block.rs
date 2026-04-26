@@ -3,8 +3,8 @@ use css_values::display::{Clear, Float};
 use html_dom::DocumentRoot;
 
 use crate::{
-    LayoutColors, LayoutEngine, LayoutNode, Rect, SideOffset, TextContext, engine::LayoutMode, layout::LayoutContext,
-    resolver::PropertyResolver,
+    LayoutColors, LayoutEngine, LayoutNode, Margin, Rect, TextContext, engine::LayoutMode, layout::LayoutContext,
+    primitives::SideOffset, resolver::PropertyResolver,
 };
 
 #[derive(Debug, Clone, Default, Copy)]
@@ -27,11 +27,11 @@ pub struct BlockFlow {
 }
 
 impl BlockFlow {
-    pub fn new(style: &ComputedStyle) -> Self {
+    pub fn new(style: &ComputedStyle, containing_width: f64) -> Self {
         Self {
             current_y: 0.0,
             previous_margin_bottom: 0.0,
-            parent_has_top_fence: PropertyResolver::has_top_fence(style),
+            parent_has_top_fence: PropertyResolver::has_top_fence(style, containing_width),
             is_first_child: true,
         }
     }
@@ -107,14 +107,14 @@ impl BlockLayout {
 
         let container_width = ctx.containing_block().width;
 
-        let (margin, padding, border) = PropertyResolver::resolve_box_model(&styled_node.style);
+        let (margin, padding, border) = PropertyResolver::resolve_box_model(&styled_node.style, container_width);
 
         let width = Self::calculate_width(styled_node, container_width, &padding, &border);
         let x = Self::calculate_x(styled_node, ctx, &margin, &padding, &border, width);
         let y = Self::calculate_y(styled_node, ctx);
 
         let mut children = Vec::with_capacity(styled_node.children.len());
-        let mut flow = BlockFlow::new(&styled_node.style);
+        let mut flow = BlockFlow::new(&styled_node.style, container_width);
         let child_containing_height = Self::calculate_height(styled_node, ctx.containing_block().height);
 
         let parent_positioned_cb = ctx.positioned_containing_block();
@@ -164,16 +164,16 @@ impl BlockLayout {
                 continue;
             }
 
-            let child_margin = PropertyResolver::resolve_margin(&child_style_node.style);
+            let child_margin = PropertyResolver::resolve_margin(&child_style_node.style, container_width);
 
             let temp_clearance = if flow.is_first_child {
                 if flow.parent_has_top_fence {
-                    child_margin.top
+                    child_margin.top.to_px()
                 } else {
                     0.0
                 }
             } else {
-                BlockFlow::collapse_margins(flow.previous_margin_bottom, child_margin.top)
+                BlockFlow::collapse_margins(flow.previous_margin_bottom, child_margin.top.to_px())
             };
 
             let mut child_y_offset = flow.current_y + temp_clearance;
@@ -209,14 +209,14 @@ impl BlockLayout {
                     flow.advance_to(
                         child_y_offset,
                         child_node.dimensions.height,
-                        child_node.margin.bottom,
+                        child_node.margin.bottom.to_px(),
                         child_style_node.style.float != Float::None,
                     );
                 } else {
                     flow.advance(
-                        child_node.margin.top,
+                        child_node.margin.top.to_px(),
                         child_node.dimensions.height,
-                        child_node.margin.bottom,
+                        child_node.margin.bottom.to_px(),
                         child_style_node.style.float != Float::None,
                     );
                 }
@@ -240,7 +240,7 @@ impl BlockLayout {
             child_idx += 1;
         }
 
-        let has_bottom_fence = PropertyResolver::has_bottom_fence(&styled_node.style);
+        let has_bottom_fence = PropertyResolver::has_bottom_fence(&styled_node.style, container_width);
 
         let content_height_from_children = if !has_bottom_fence && !children.is_empty() {
             flow.current_y
@@ -264,10 +264,10 @@ impl BlockLayout {
 
         let mut margin = margin;
         if !flow.parent_has_top_fence && !children.is_empty() {
-            margin.top = f64::max(margin.top, children[0].margin.top);
+            margin.top = f64::max(margin.top.to_px(), children[0].margin.top.to_px()).into();
         }
         if !has_bottom_fence && !children.is_empty() {
-            margin.bottom = f64::max(margin.bottom, children.last().unwrap().margin.bottom);
+            margin.bottom = f64::max(margin.bottom.to_px(), children.last().unwrap().margin.bottom.to_px()).into();
         }
 
         let colors = LayoutColors::from(styled_node);
@@ -299,12 +299,12 @@ impl BlockLayout {
     ) -> f64 {
         let style = &styled_node.style;
         if style.position.is_out_of_flow() {
-            let has_left = !style.left_auto;
-            let has_right = !style.right_auto;
+            let has_left = !style.left.is_auto() && style.left.to_px(container_width) > 0.0;
+            let has_right = !style.right.is_auto() && style.right.to_px(container_width) > 0.0;
             let width_is_auto = style.width == ComputedSize::Auto;
 
             if has_left && has_right && width_is_auto {
-                return container_width - style.left - style.right;
+                return container_width - style.left.to_px(container_width) - style.right.to_px(container_width);
             }
         }
 
@@ -319,40 +319,44 @@ impl BlockLayout {
     fn calculate_x(
         styled_node: &StyledNode,
         ctx: &LayoutContext,
-        margin: &SideOffset,
+        margin: &Margin,
         padding: &SideOffset,
         border: &SideOffset,
         content_width: f64,
     ) -> f64 {
         let style = &styled_node.style;
         let container_width = ctx.containing_block().width;
-        let has_left = !style.left_auto;
-        let has_right = !style.right_auto;
+        let has_left = !style.left.is_auto() && style.left.to_px(container_width) > 0.0;
+        let has_right = !style.right.is_auto() && style.right.to_px(container_width) > 0.0;
+        let margin_left_px = margin.left.to_px();
+        let margin_right_px = margin.right.to_px();
+        let left_px = style.left.to_px(container_width);
+        let right_px = style.right.to_px(container_width);
 
         let total_width = content_width + padding.horizontal() + border.horizontal();
         let normal_x = if styled_node.style.float == Float::Left {
-            ctx.containing_block().x + margin.left
+            ctx.containing_block().x + margin_left_px
         } else if styled_node.style.float == Float::Right {
-            ctx.containing_block().x + container_width - margin.right - total_width
-        } else if styled_node.style.margin_left_auto && styled_node.style.margin_right_auto {
+            ctx.containing_block().x + container_width - margin_right_px - total_width
+        } else if styled_node.style.margin_left.is_auto() && styled_node.style.margin_right.is_auto() {
             ctx.containing_block().x + (container_width - total_width) / 2.0
-        } else if styled_node.style.margin_left_auto {
-            ctx.containing_block().x + container_width - margin.right - total_width
+        } else if styled_node.style.margin_left.is_auto() {
+            ctx.containing_block().x + container_width - margin_right_px - total_width
         } else {
-            ctx.containing_block().x + margin.left
+            ctx.containing_block().x + margin_left_px
         };
 
         if style.position.is_out_of_flow() {
             if has_left {
-                return ctx.containing_block().x + style.left;
+                return ctx.containing_block().x + left_px;
             } else if has_right {
-                return ctx.containing_block().x + container_width - style.right - total_width;
+                return ctx.containing_block().x + container_width - right_px - total_width;
             }
         } else if style.position == Position::Relative {
             if has_left {
-                return normal_x + style.left;
+                return normal_x + left_px;
             } else if has_right {
-                return normal_x - style.right;
+                return normal_x - right_px;
             }
         }
 
@@ -361,17 +365,19 @@ impl BlockLayout {
 
     fn calculate_y(styled_node: &StyledNode, ctx: &LayoutContext) -> f64 {
         let style = &styled_node.style;
-        let has_top = !style.top_auto;
-        let has_bottom = !style.bottom_auto;
+        let has_top = !style.top.is_auto() && style.top.to_px(ctx.containing_block().width) > 0.0;
+        let has_bottom = !style.bottom.is_auto() && style.bottom.to_px(ctx.containing_block().width) > 0.0;
         let normal_y = ctx.containing_block().y + ctx.block_cursor.y;
 
         if style.position.is_out_of_flow() && has_top {
-            return ctx.containing_block().y + style.top + style.margin_top;
+            return ctx.containing_block().y
+                + style.top.to_px(ctx.containing_block().width)
+                + style.margin_top.to_px(ctx.containing_block().width);
         } else if style.position == Position::Relative {
             if has_top {
-                return normal_y + style.top;
+                return normal_y + style.top.to_px(ctx.containing_block().width);
             } else if has_bottom {
-                return normal_y - style.bottom;
+                return normal_y - style.bottom.to_px(ctx.containing_block().width);
             }
         }
 
@@ -382,11 +388,14 @@ impl BlockLayout {
         let style = &styled_node.style;
         let height_is_unconstrained =
             style.height == ComputedSize::Auto || style.height == ComputedSize::Percentage(100.0);
-        let has_top = !style.top_auto;
-        let has_bottom = !style.bottom_auto;
+        let has_top = !style.top.is_auto() && style.top.to_px(containing_block_height) > 0.0;
+        let has_bottom = !style.bottom.is_auto() && style.bottom.to_px(containing_block_height) > 0.0;
 
         if style.position.is_out_of_flow() && has_top && has_bottom && height_is_unconstrained {
-            (containing_block_height - style.top - style.bottom).max(0.0)
+            let top_px = style.top.to_px(containing_block_height);
+            let bottom_px = style.bottom.to_px(containing_block_height);
+
+            (containing_block_height - top_px - bottom_px).max(0.0)
         } else {
             match styled_node.style.height {
                 ComputedSize::Auto => 0.0,
@@ -399,7 +408,7 @@ impl BlockLayout {
 #[cfg(test)]
 mod tests {
     use crate::{ImageContext, position::PositionContext};
-    use css_style::ComputedStyle;
+    use css_style::{ComputedMargin, ComputedStyle};
     use html_dom::NodeId;
 
     use super::*;
@@ -420,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_advance_flow() {
-        let mut flow = BlockFlow::new(&ComputedStyle::default());
+        let mut flow = BlockFlow::new(&ComputedStyle::default(), viewport().width);
 
         let y1 = flow.advance(10.0, 50.0, 15.0, false);
         assert_eq!(y1, 0.0);
@@ -438,8 +447,8 @@ mod tests {
     #[test]
     fn test_calculate_x_static() {
         let style = ComputedStyle {
-            margin_left_auto: true,
-            margin_right_auto: true,
+            margin_left: ComputedMargin::Auto,
+            margin_right: ComputedMargin::Auto,
             ..Default::default()
         };
 
@@ -452,7 +461,7 @@ mod tests {
         let mut position_ctx = PositionContext::new(viewport());
         let ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
-        let margin = SideOffset::zero();
+        let margin = Margin::zero();
         let padding = SideOffset::zero();
         let border = SideOffset::zero();
         let content_width = 400.0;
@@ -478,7 +487,7 @@ mod tests {
         let mut position_ctx = PositionContext::new(viewport());
         let ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
-        let margin = SideOffset::zero();
+        let margin = Margin::zero();
         let padding = SideOffset::zero();
         let border = SideOffset::zero();
         let content_width = 200.0;
@@ -504,7 +513,7 @@ mod tests {
         let mut position_ctx = PositionContext::new(viewport());
         let ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
-        let margin = SideOffset::zero();
+        let margin = Margin::zero();
         let padding = SideOffset::zero();
         let border = SideOffset::zero();
         let content_width = 200.0;
@@ -518,10 +527,8 @@ mod tests {
     fn test_calculate_x_absolute_left_precedence_over_right() {
         let style = ComputedStyle {
             position: Position::Absolute,
-            left: 50.0,
-            left_auto: false,
-            right: 30.0,
-            right_auto: false,
+            left: 50.0.into(),
+            right: 30.0.into(),
             ..Default::default()
         };
 
@@ -537,7 +544,7 @@ mod tests {
         let x = BlockLayout::calculate_x(
             &styled_node,
             &ctx,
-            &SideOffset::zero(),
+            &Margin::zero(),
             &SideOffset::zero(),
             &SideOffset::zero(),
             200.0,
@@ -550,8 +557,8 @@ mod tests {
     fn test_calculate_x_fixed_right_when_left_auto() {
         let style = ComputedStyle {
             position: Position::Fixed,
-            right: 30.0,
-            right_auto: false,
+            right: 30.0.into(),
+            left: ComputedMargin::Auto,
             ..Default::default()
         };
 
@@ -567,7 +574,7 @@ mod tests {
         let x = BlockLayout::calculate_x(
             &styled_node,
             &ctx,
-            &SideOffset::zero(),
+            &Margin::zero(),
             &SideOffset::zero(),
             &SideOffset::zero(),
             200.0,
@@ -580,8 +587,7 @@ mod tests {
     fn test_calculate_x_relative_left_offsets_from_normal_position() {
         let style = ComputedStyle {
             position: Position::Relative,
-            left: 25.0,
-            left_auto: false,
+            left: 25.0.into(),
             ..Default::default()
         };
 
@@ -594,9 +600,9 @@ mod tests {
         let mut position_ctx = PositionContext::new(viewport());
         let ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
-        let margin = SideOffset {
-            left: 40.0,
-            ..SideOffset::zero()
+        let margin = Margin {
+            left: 40.0.into(),
+            ..Margin::zero()
         };
         let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &SideOffset::zero(), &SideOffset::zero(), 200.0);
 
@@ -607,8 +613,7 @@ mod tests {
     fn test_calculate_x_relative_right_offsets_from_normal_position() {
         let style = ComputedStyle {
             position: Position::Relative,
-            right: 30.0,
-            right_auto: false,
+            right: 30.0.into(),
             ..Default::default()
         };
 
@@ -621,9 +626,9 @@ mod tests {
         let mut position_ctx = PositionContext::new(viewport());
         let ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
-        let margin = SideOffset {
-            left: 40.0,
-            ..SideOffset::zero()
+        let margin = Margin {
+            left: 40.0.into(),
+            ..Margin::zero()
         };
         let x = BlockLayout::calculate_x(&styled_node, &ctx, &margin, &SideOffset::zero(), &SideOffset::zero(), 200.0);
 
@@ -634,8 +639,7 @@ mod tests {
     fn test_calculate_y_absolute_top_uses_containing_block() {
         let style = ComputedStyle {
             position: Position::Absolute,
-            top: 20.0,
-            top_auto: false,
+            top: 20.0.into(),
             ..Default::default()
         };
 
@@ -658,9 +662,8 @@ mod tests {
     fn test_calculate_y_absolute_top_includes_margin_top() {
         let style = ComputedStyle {
             position: Position::Absolute,
-            top: 20.0,
-            top_auto: false,
-            margin_top: 12.0,
+            top: 20.0.into(),
+            margin_top: 12.0.into(),
             ..Default::default()
         };
 
@@ -681,8 +684,7 @@ mod tests {
     fn test_calculate_y_relative_top_offsets_from_flow_position() {
         let style = ComputedStyle {
             position: Position::Relative,
-            top: 15.0,
-            top_auto: false,
+            top: 15.0.into(),
             ..Default::default()
         };
 
@@ -705,8 +707,7 @@ mod tests {
     fn test_calculate_y_relative_bottom_offsets_up_from_flow_position() {
         let style = ComputedStyle {
             position: Position::Relative,
-            bottom: 18.0,
-            bottom_auto: false,
+            bottom: 18.0.into(),
             ..Default::default()
         };
 
@@ -729,10 +730,8 @@ mod tests {
     fn test_calculate_height_absolute_auto_with_top_and_bottom() {
         let style = ComputedStyle {
             position: Position::Absolute,
-            top: 20.0,
-            top_auto: false,
-            bottom: 30.0,
-            bottom_auto: false,
+            top: 20.0.into(),
+            bottom: 30.0.into(),
             height: ComputedSize::Auto,
             ..Default::default()
         };
@@ -750,10 +749,8 @@ mod tests {
     fn test_calculate_height_fixed_100_percent_with_top_and_bottom() {
         let style = ComputedStyle {
             position: Position::Fixed,
-            top: 10.0,
-            top_auto: false,
-            bottom: 40.0,
-            bottom_auto: false,
+            top: 10.0.into(),
+            bottom: 40.0.into(),
             height: ComputedSize::Percentage(100.0),
             ..Default::default()
         };
@@ -771,10 +768,8 @@ mod tests {
     fn test_calculate_height_relative_auto_ignores_top_and_bottom() {
         let style = ComputedStyle {
             position: Position::Relative,
-            top: 30.0,
-            top_auto: false,
-            bottom: 20.0,
-            bottom_auto: false,
+            top: 30.0.into(),
+            bottom: 20.0.into(),
             height: ComputedSize::Auto,
             ..Default::default()
         };

@@ -2,7 +2,7 @@ use css_style::{ComputedSize, ComputedStyle, StyledNode};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    LayoutEngine, LayoutNode, Rect, SideOffset, TextContext,
+    LayoutEngine, LayoutNode, Margin, Rect, TextContext,
     context::ImageContext,
     layout::LayoutContext,
     mode::inline::{
@@ -12,6 +12,7 @@ use crate::{
         text::layout_text,
         whitespace::canonicalize_whitespace,
     },
+    primitives::SideOffset,
     resolver::PropertyResolver,
 };
 
@@ -40,7 +41,7 @@ pub struct ActiveInlineBox<'node> {
     id: NodeId,
     style: &'node ComputedStyle,
     start_x: f64,
-    margin: SideOffset,
+    margin: Margin,
     padding: SideOffset,
     border: SideOffset,
 }
@@ -74,6 +75,7 @@ impl InlineLayout {
     /// The resulting flat list of inline items is then canonicalised by collapsing whitespace
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
     pub fn collect_inline_items_from_nodes<'node>(
+        containing_rect: Rect,
         dom_tree: &DocumentRoot,
         parent_style: &'node ComputedStyle,
         nodes: &'node [&StyledNode],
@@ -82,7 +84,7 @@ impl InlineLayout {
         let mut raw_items = Vec::with_capacity(nodes.len() * 2);
 
         for node in nodes {
-            if collect(dom_tree, parent_style, node, &mut raw_items, image_ctx).is_err() {
+            if collect(containing_rect, dom_tree, parent_style, node, &mut raw_items, image_ctx).is_err() {
                 break;
             }
         }
@@ -103,7 +105,11 @@ impl InlineLayout {
         text_ctx: &mut TextContext,
         inline_ctx: InlineContext,
     ) -> (Vec<LayoutNode>, Rect) {
-        let mut line = LineBoxBuilder::new(inline_ctx.containing_block.x, inline_ctx.containing_block.y);
+        let mut line = LineBoxBuilder::new(
+            inline_ctx.containing_block.width,
+            inline_ctx.containing_block.x,
+            inline_ctx.containing_block.y,
+        );
 
         let mut inline_layout_ctx = InlineLayoutContext {
             available_width: inline_ctx.containing_block.width,
@@ -125,7 +131,8 @@ impl InlineLayout {
                     line.close_inline_box(&mut inline_layout_ctx.inline_box_stack, *id);
                 }
                 InlineItem::InlineFlowRoot { node, style } => {
-                    let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
+                    let (margin, padding, border) =
+                        PropertyResolver::resolve_box_model(style, inline_layout_ctx.available_width);
 
                     let img_ctx = ctx.image_ctx().clone();
                     let mut block_ctx = LayoutContext::new(
@@ -146,7 +153,7 @@ impl InlineLayout {
                                     .min(layout_node.dimensions.width);
                         }
 
-                        let total_width = layout_node.dimensions.width + margin.horizontal();
+                        let total_width = layout_node.dimensions.width + margin.left.to_px() + margin.right.to_px();
                         let available_line_width = line
                             .line_box
                             .available_width(ctx.float_ctx_ref(), inline_layout_ctx.available_width);
@@ -160,7 +167,7 @@ impl InlineLayout {
                             line.finish_line_with_decorations(&mut inline_layout_ctx, text_ctx, ctx.float_ctx(), None);
                         }
 
-                        let ascent = layout_node.dimensions.height + margin.vertical();
+                        let ascent = layout_node.dimensions.height + margin.top.to_px() + margin.bottom.to_px();
 
                         layout_node.margin = margin;
 

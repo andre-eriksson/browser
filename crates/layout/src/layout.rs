@@ -11,7 +11,7 @@ use crate::{
     float::FloatContext,
     mode::block::BlockContext,
     position::PositionContext,
-    primitives::{Rect, SideOffset},
+    primitives::{Margin, Rect, SideOffset},
 };
 
 #[derive(Debug, Clone)]
@@ -122,7 +122,7 @@ pub struct LayoutNode {
     pub dimensions: Rect,
     pub image_data: Option<ImageData>,
     pub is_height_auto: bool,
-    pub margin: SideOffset,
+    pub margin: Margin,
     pub padding: SideOffset,
     pub position: Position,
     pub text_buffer: Option<Arc<Buffer>>,

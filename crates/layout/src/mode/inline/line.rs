@@ -42,7 +42,7 @@ impl LineBox<'_> {
     }
 
     pub fn add(&mut self, mut node: LayoutNode, ascent: f64, descent: f64) {
-        let new_x = self.x + self.width + node.margin.left;
+        let new_x = self.x + self.width + node.margin.left.to_px();
         let delta_x = new_x - node.dimensions.x;
         node.dimensions.x = new_x;
 
@@ -50,7 +50,7 @@ impl LineBox<'_> {
             LineBox::shift_descendants(&mut node.children, delta_x, 0.0);
         }
 
-        self.width += node.dimensions.width + node.margin.horizontal();
+        self.width += node.dimensions.width + node.margin.left.to_px() + node.margin.right.to_px();
 
         self.max_ascent = self.max_ascent.max(ascent);
         self.max_descent = self.max_descent.max(descent);
@@ -158,12 +158,14 @@ impl LineBox<'_> {
 }
 
 pub struct LineBoxBuilder<'node> {
+    pub available_width: f64,
     pub line_box: LineBox<'node>,
 }
 
 impl<'node> LineBoxBuilder<'node> {
-    pub fn new(start_x: f64, start_y: f64) -> Self {
+    pub fn new(available_width: f64, start_x: f64, start_y: f64) -> Self {
         Self {
+            available_width,
             line_box: LineBox::new(start_x, start_y),
         }
     }
@@ -175,15 +177,15 @@ impl<'node> LineBoxBuilder<'node> {
         id: NodeId,
         style: &'node ComputedStyle,
     ) {
-        let (margin, padding, border) = PropertyResolver::resolve_box_model(style);
+        let (margin, padding, border) = PropertyResolver::resolve_box_model(style, self.available_width);
 
-        let left_edge = margin.left + border.left + padding.left;
+        let left_edge = margin.left.to_px() + border.left + padding.left;
         self.line_box.advance(left_edge);
 
         inline_box_stack.push(ActiveInlineBox {
             id,
             style,
-            start_x: self.line_box.width - left_edge + margin.left,
+            start_x: self.line_box.width - left_edge + margin.left.to_px(),
             margin,
             padding,
             border,
@@ -197,13 +199,13 @@ impl<'node> LineBoxBuilder<'node> {
         if let Some(pos) = inline_box_stack.iter().rposition(|b| b.id == id) {
             let active = inline_box_stack.remove(pos);
 
-            let right_edge = active.padding.right + active.border.right + active.margin.right;
+            let right_edge = active.padding.right + active.border.right + active.margin.right.to_px();
             self.line_box.advance(right_edge);
 
             self.line_box.decorations.push(InlineDecoration {
                 id: active.id,
                 start_x: active.start_x,
-                end_x: self.line_box.width - active.margin.right,
+                end_x: self.line_box.width - active.margin.right.to_px(),
                 style: active.style,
                 padding: active.padding,
                 border: active.border,
@@ -245,13 +247,13 @@ impl<'node> LineBoxBuilder<'node> {
     /// current line box and clearing the stack.
     pub(crate) fn close_active_decorations(&mut self, inline_box_stack: &mut Vec<ActiveInlineBox<'node>>) {
         while let Some(active) = inline_box_stack.pop() {
-            let right_edge = active.padding.right + active.border.right + active.margin.right;
+            let right_edge = active.padding.right + active.border.right + active.margin.right.to_px();
             self.line_box.advance(right_edge);
 
             self.line_box.decorations.push(InlineDecoration {
                 id: active.id,
                 start_x: active.start_x,
-                end_x: self.line_box.width - active.margin.right,
+                end_x: self.line_box.width - active.margin.right.to_px(),
                 style: active.style,
                 padding: active.padding,
                 border: active.border,
@@ -265,18 +267,18 @@ mod tests {
     use html_dom::NodeId;
 
     use super::*;
-    use crate::{Rect, SideOffset};
+    use crate::{Margin, Rect};
 
     #[test]
     fn add_accounts_for_horizontal_margins() {
         let mut line = LineBox::new(0.0, 0.0);
         let node = LayoutNode::builder(NodeId(1))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
-            .margin(SideOffset {
-                top: 0.0,
-                right: 3.0,
-                bottom: 0.0,
-                left: 2.0,
+            .margin(Margin {
+                top: 0.0.into(),
+                right: 3.0.into(),
+                bottom: 0.0.into(),
+                left: 2.0.into(),
             })
             .build();
 

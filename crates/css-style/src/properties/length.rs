@@ -9,12 +9,12 @@ use crate::{
 
 impl PixelRepr for Length {
     fn to_px(
-        &self,
+        self,
         rel_type: Option<RelativeType>,
         rel_ctx: Option<&RelativeContext>,
         abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        match self.unit() {
+    ) -> Result<f64, String> {
+        Ok(match self.unit() {
             LengthUnit::Px => self.value(),
             LengthUnit::Cm => self.value() * 96.0 / 2.54,
             LengthUnit::Mm => self.value() * 96.0 / 25.4,
@@ -36,6 +36,6 @@ impl PixelRepr for Length {
                 _ => rel_ctx.map_or_else(|| abs_ctx.root_font_size * self.value(), |ctx| ctx.font_size * self.value()),
             },
             _ => self.value(), // TODO: Handle other units properly
-        }
+        })
     }
 }

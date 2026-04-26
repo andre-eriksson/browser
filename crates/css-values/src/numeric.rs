@@ -1,4 +1,6 @@
-use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind};
+use std::fmt::Display;
+
+use css_cssom::{ComponentValue, ComponentValueStream, CssToken, CssTokenKind};
 
 use crate::{
     CSSParsable,
@@ -31,7 +33,7 @@ impl CSSParsable for NumberOrCalc {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
                         let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = expr.resolve_type()?;
+                        let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Number) {
                             return Err(CssValueError::InvalidCalcDomain {
@@ -83,16 +85,30 @@ impl Percentage {
     }
 }
 
+impl Display for Percentage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}%", self.0)
+    }
+}
+
+impl TryFrom<&CssToken> for Percentage {
+    type Error = CssValueError;
+
+    fn try_from(token: &CssToken) -> Result<Self, Self::Error> {
+        match &token.kind {
+            CssTokenKind::Percentage(numeric) => Ok(Self::new(numeric.to_f64())),
+            CssTokenKind::Number(numeric) => Ok(Self::from_fraction(numeric.to_f64() / 100.0)),
+            kind => Err(CssValueError::InvalidToken(kind.clone())),
+        }
+    }
+}
+
 impl CSSParsable for Percentage {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream
             .next_non_whitespace()
             .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Percentage(numeric) => Ok(Self::new(numeric.to_f64())),
-                    CssTokenKind::Number(numeric) => Ok(Self::from_fraction(numeric.to_f64() / 100.0)),
-                    kind => Err(CssValueError::InvalidToken(kind.clone())),
-                },
+                ComponentValue::Token(token) => Self::try_from(token),
                 _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
             })
     }

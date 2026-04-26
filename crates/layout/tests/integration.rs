@@ -221,7 +221,7 @@ mod tests {
         assert_eq!(first_div.dimensions.y, 20.0);
         assert_eq!(first_div.dimensions.height, 30.0);
         assert_eq!(first_div.dimensions.width, 744.0);
-        assert_eq!(first_div.margin.top, 20.0);
+        assert_eq!(first_div.margin.top.to_px(), 20.0);
         assert_eq!(first_div.margin.top, first_div.margin.bottom);
 
         let second_div = &body.children[1];
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(second_div.dimensions.width, 744.0);
         assert_eq!(second_div.padding.top, 10.0);
         assert_eq!(second_div.padding.bottom, 10.0);
-        assert_eq!(second_div.margin.top, 20.0);
+        assert_eq!(second_div.margin.top.to_px(), 20.0);
         assert_eq!(second_div.margin.top, first_div.margin.bottom);
 
         let third_div = &body.children[2];
@@ -239,7 +239,7 @@ mod tests {
         assert_eq!(third_div.dimensions.y, 140.0);
         assert_eq!(third_div.dimensions.height, 30.0);
         assert_eq!(third_div.dimensions.width, 744.0);
-        assert_eq!(third_div.margin.top, 20.0);
+        assert_eq!(third_div.margin.top.to_px(), 20.0);
         assert_eq!(third_div.margin.top, second_div.margin.bottom);
 
         let fourth_div = &body.children[3];
@@ -247,7 +247,7 @@ mod tests {
         assert_eq!(fourth_div.dimensions.y, 270.0);
         assert_eq!(fourth_div.dimensions.height, 30.0);
         assert_eq!(fourth_div.dimensions.width, 584.0);
-        assert_eq!(fourth_div.margin.top, 100.0);
+        assert_eq!(fourth_div.margin.top.to_px(), 100.0);
         assert_eq!(fourth_div.margin.top, fourth_div.margin.bottom);
     }
 
@@ -273,7 +273,7 @@ mod tests {
         assert_eq!(first_div.dimensions.y, 38.0);
         assert_eq!(first_div.dimensions.height, 30.0);
         assert_eq!(first_div.dimensions.width, 724.0);
-        assert_eq!(first_div.margin.top, 20.0);
+        assert_eq!(first_div.margin.top.to_px(), 20.0);
         assert_eq!(first_div.margin.top, first_div.margin.bottom);
 
         let second_div = &body.children[1];
@@ -283,7 +283,7 @@ mod tests {
         assert_eq!(second_div.dimensions.width, 724.0);
         assert_eq!(second_div.padding.top, 10.0);
         assert_eq!(second_div.padding.bottom, 10.0);
-        assert_eq!(second_div.margin.top, 20.0);
+        assert_eq!(second_div.margin.top.to_px(), 20.0);
         assert_eq!(second_div.margin.top, first_div.margin.bottom);
 
         let third_div = &body.children[2];
@@ -291,7 +291,7 @@ mod tests {
         assert_eq!(third_div.dimensions.y, 158.0);
         assert_eq!(third_div.dimensions.height, 30.0);
         assert_eq!(third_div.dimensions.width, 724.0);
-        assert_eq!(third_div.margin.top, 20.0);
+        assert_eq!(third_div.margin.top.to_px(), 20.0);
         assert_eq!(third_div.margin.top, second_div.margin.bottom);
 
         let fourth_div = &body.children[3];
@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(fourth_div.dimensions.y, 288.0);
         assert_eq!(fourth_div.dimensions.height, 30.0);
         assert_eq!(fourth_div.dimensions.width, 564.0);
-        assert_eq!(fourth_div.margin.top, 100.0);
+        assert_eq!(fourth_div.margin.top.to_px(), 100.0);
         assert_eq!(fourth_div.margin.top, fourth_div.margin.bottom);
     }
 
