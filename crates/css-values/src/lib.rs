@@ -13,9 +13,9 @@ pub mod cursor;
 pub mod dimension;
 pub mod display;
 pub mod error;
-pub mod flex;
 pub mod global;
 pub mod image;
+mod layout;
 pub mod media;
 pub mod numeric;
 pub mod position;
@@ -35,3 +35,5 @@ pub trait CSSParsable: Sized {
     /// Parse a value from a `ComponentValueStream`.
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError>;
 }
+
+pub use layout::*;

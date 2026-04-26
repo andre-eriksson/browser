@@ -1,13 +1,12 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, HashType};
 use css_values::{
-    CSSParsable,
+    CSSParsable, FlexDirection, FlexWrap, Gap,
     background::{Attachment, BgClip, RepeatStyle, Size, VisualBox, WidthHeightSize},
     border::{BorderStyle, BorderWidth},
     calc::CalcKind,
     color::{Color, base::ColorBase},
     combination::LengthPercentage,
     error::CssValueError,
-    flex::{FlexDirection, FlexWrap},
     global::Global,
     image::Image,
     numeric::Percentage,
@@ -254,6 +253,7 @@ simple_property_handler!(handle_border_top_width, border_top_width, "border-top-
 simple_property_handler!(handle_bottom, bottom, "bottom");
 simple_property_handler!(handle_clear, clear, "clear");
 simple_property_handler!(handle_color, color, "color");
+simple_property_handler!(handle_column_gap, column_gap, "column-gap");
 simple_property_handler!(handle_cursor, cursor, "cursor");
 simple_property_handler!(handle_display, display, "display");
 simple_property_handler!(handle_flex_basis, flex_basis, "flex-basis");
@@ -279,6 +279,7 @@ simple_property_handler!(handle_padding_right, padding_right, "padding-right");
 simple_property_handler!(handle_padding_top, padding_top, "padding-top");
 simple_property_handler!(handle_position, position, "position");
 simple_property_handler!(handle_right, right, "right");
+simple_property_handler!(handle_row_gap, row_gap, "row-gap");
 simple_property_handler!(handle_text_align, text_align, "text-align");
 simple_property_handler!(handle_top, top, "top");
 simple_property_handler!(handle_whitespace, whitespace, "white-space");
@@ -1223,6 +1224,38 @@ pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut Componen
 
     if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, stream) {
         ctx.record_error_from_stream("font-weight", stream, e);
+    }
+}
+
+pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.row_gap = CSSProperty::Global(global);
+        ctx.specified_style.column_gap = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+
+    let row_gap = Gap::parse(stream);
+    stream.skip_whitespace();
+
+    if stream.peek().is_none() {
+        if let Ok(rg) = row_gap {
+            ctx.specified_style.row_gap = CSSProperty::Value(rg.clone());
+            ctx.specified_style.column_gap = CSSProperty::Value(rg);
+        }
+        return;
+    }
+
+    let column_gap = Gap::parse(stream);
+
+    if let (Ok(rg), Ok(cg)) = (row_gap, column_gap) {
+        ctx.specified_style.row_gap = CSSProperty::Value(rg);
+        ctx.specified_style.column_gap = CSSProperty::Value(cg);
+    } else {
+        ctx.record_error_from_stream("gap", stream, CssValueError::InvalidValue("Invalid gap values".to_string()));
     }
 }
 

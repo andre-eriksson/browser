@@ -7,9 +7,9 @@ use css_values::{
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
     display::{Clear, Float},
-    flex::{FlexDirection, FlexWrap},
     numeric::NumberOrCalc,
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
+    {FlexDirection, FlexWrap},
 };
 use html_dom::{DocumentRoot, NodeId};
 
@@ -18,6 +18,7 @@ use crate::{
     RelativeType, clone_compute, compute, compute_px,
     computed::{
         image::ComputedBackgroundImage,
+        layout::{ComputedFlexBasis, ComputedGap},
         offset::{ComputedMargin, ComputedOffset},
         position::ComputedBackgroundSize,
     },
@@ -36,9 +37,9 @@ use crate::{
 
 pub mod color;
 pub mod dimension;
-pub mod flex;
 mod handler;
 pub mod image;
+pub mod layout;
 pub mod offset;
 pub mod position;
 
@@ -74,6 +75,7 @@ pub struct ComputedStyle {
     pub bottom: ComputedMargin,
     pub clear: Clear,
     pub color: Color4f,
+    pub column_gap: ComputedGap,
     pub cursor: Cursor,
     pub display: Display,
     pub flex_basis: ComputedFlexBasis,
@@ -101,6 +103,7 @@ pub struct ComputedStyle {
     pub padding_top: ComputedOffset,
     pub position: Position,
     pub right: ComputedMargin,
+    pub row_gap: ComputedGap,
     pub text_align: TextAlign,
     pub top: ComputedMargin,
     pub whitespace: Whitespace,
@@ -242,9 +245,22 @@ impl ComputedStyle {
                 relative_ctx,
                 absolute_ctx,
             ),
+            column_gap: ComputedGap::resolve(
+                specified_style.column_gap.compute(parent.column_gap.into()),
+                RelativeType::BackgroundArea,
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
             cursor: compute!(specified_style, parent, cursor),
             display: compute!(specified_style, parent, display).adjust_float(float),
-            flex_basis: into_compute!(specified_style, parent, flex_basis).into(),
+            flex_basis: ComputedFlexBasis::resolve(
+                specified_style.flex_basis.compute(parent.flex_basis.into()),
+                RelativeType::BackgroundArea, // TODO: flex container's inner main size
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
             flex_direction: compute!(specified_style, parent, flex_direction),
             flex_grow: specified_style
                 .flex_grow
@@ -346,6 +362,13 @@ impl ComputedStyle {
             position: compute!(specified_style, parent, position),
             right: ComputedMargin::resolve(right, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
+            row_gap: ComputedGap::resolve(
+                specified_style.row_gap.compute(parent.row_gap.into()),
+                RelativeType::BackgroundArea,
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
             text_align: compute!(specified_style, parent, text_align),
             top: ComputedMargin::resolve(top, Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
@@ -404,6 +427,7 @@ impl Default for ComputedStyle {
             bottom: 0.0.into(),
             clear: Clear::default(),
             color: Color4f::BLACK,
+            column_gap: ComputedGap::default(),
             cursor: Cursor::default(),
             display: Display::default(),
             flex_basis: ComputedFlexBasis::default(),
@@ -431,6 +455,7 @@ impl Default for ComputedStyle {
             padding_top: 0.0.into(),
             position: Position::Static,
             right: 0.0.into(),
+            row_gap: ComputedGap::default(),
             text_align: TextAlign::Start,
             top: 0.0.into(),
             whitespace: Whitespace::Normal,

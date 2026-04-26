@@ -3,14 +3,13 @@ use std::{fmt::Debug, sync::Arc};
 use browser_preferences::theme::ThemeCategory;
 use css_cssom::ComponentValueStream;
 use css_values::{
-    CSSParsable,
+    CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap,
     border::{BorderStyle, BorderWidth},
     color::Color,
     cursor::Cursor,
     dimension::{MarginValue, MaxSize, OffsetValue, Size},
     display::{Clear, Float},
     error::CssValueError,
-    flex::{FlexBasis, FlexDirection, FlexWrap},
     global::Global,
     numeric::{Flex, Order},
     text::{FontSize, FontWeight, LineHeight, TextAlign, Whitespace, WritingMode},
@@ -73,6 +72,7 @@ pub enum RelativeType {
     ViewportWidth,
     ViewportHeight,
     BackgroundArea,
+    // TODO: flex container's inner main size
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -241,6 +241,7 @@ pub type FlexBasisProperty = CSSProperty<FlexBasis>;
 pub type FlexDirectionProperty = CSSProperty<FlexDirection>;
 pub type FlexValueProperty = CSSProperty<Flex>;
 pub type FlexWrapProperty = CSSProperty<FlexWrap>;
+pub type GapProperty = CSSProperty<Gap>;
 pub type OrderProperty = CSSProperty<Order>;
 
 // Font
