@@ -3,7 +3,8 @@ use std::{fmt::Debug, sync::Arc};
 use browser_preferences::theme::ThemeCategory;
 use css_cssom::ComponentValueStream;
 use css_values::{
-    CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap,
+    AlignContent, AlignItems, AlignSelf, CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap, JustifyContent,
+    JustifyItems, JustifySelf,
     border::{BorderStyle, BorderWidth},
     color::Color,
     cursor::Cursor,
@@ -44,16 +45,6 @@ pub trait PixelRepr: Sized {
     /// the type of relative measurement (e.g., font size, parent width) that may be needed for the conversion.
     /// The `rel_ctx` provides access to the parent style for inheritance and percentage calculations, while
     /// the `abs_ctx` provides access to absolute context values like root font size and viewport dimensions.
-    fn to_px_unchecked(
-        self,
-        rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
-        abs_ctx: &AbsoluteContext,
-    ) -> f64 {
-        self.to_px(rel_type, rel_ctx, abs_ctx)
-            .expect("Failed to convert to pixels")
-    }
-
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
@@ -237,11 +228,17 @@ pub type DisplayProperty = CSSProperty<Display>;
 pub type FloatProperty = CSSProperty<Float>;
 
 // Flex & Grid
+pub type AlignContentProperty = CSSProperty<AlignContent>;
+pub type AlignItemsProperty = CSSProperty<AlignItems>;
+pub type AlignSelfProperty = CSSProperty<AlignSelf>;
 pub type FlexBasisProperty = CSSProperty<FlexBasis>;
 pub type FlexDirectionProperty = CSSProperty<FlexDirection>;
 pub type FlexValueProperty = CSSProperty<Flex>;
 pub type FlexWrapProperty = CSSProperty<FlexWrap>;
 pub type GapProperty = CSSProperty<Gap>;
+pub type JustifyContentProperty = CSSProperty<JustifyContent>;
+pub type JustifyItemsProperty = CSSProperty<JustifyItems>;
+pub type JustifySelfProperty = CSSProperty<JustifySelf>;
 pub type OrderProperty = CSSProperty<Order>;
 
 // Font

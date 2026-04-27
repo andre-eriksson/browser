@@ -228,6 +228,9 @@ macro_rules! logical_edge_handler {
 
 offset_shorthand_handler!(handle_margin, Margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
 offset_shorthand_handler!(handle_padding, Offset, "padding", padding_top, padding_right, padding_bottom, padding_left);
+simple_property_handler!(handle_align_content, align_content, "align-content");
+simple_property_handler!(handle_align_items, align_items, "align-items");
+simple_property_handler!(handle_align_self, align_self, "align-self");
 simple_property_handler!(handle_background_attachment, background_attachment, "background-attachment");
 simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
@@ -264,6 +267,9 @@ simple_property_handler!(handle_flex_wrap, flex_wrap, "flex-wrap");
 simple_property_handler!(handle_float, float, "float");
 simple_property_handler!(handle_font_family, font_family, "font-family");
 simple_property_handler!(handle_height, height, "height");
+simple_property_handler!(handle_justify_content, justify_content, "justify-content");
+simple_property_handler!(handle_justify_items, justify_items, "justify-items");
+simple_property_handler!(handle_justify_self, justify_self, "justify-self");
 simple_property_handler!(handle_left, left, "left");
 simple_property_handler!(handle_line_height, line_height, "line-height");
 simple_property_handler!(handle_margin_bottom, margin_bottom, "margin-bottom");

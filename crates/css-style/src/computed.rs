@@ -3,13 +3,13 @@ use std::sync::Arc;
 use browser_config::BrowserConfig;
 use css_cssom::{ComponentValue, Property};
 use css_values::{
+    AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent, JustifyItems, JustifySelf,
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
     display::{Clear, Float},
     numeric::NumberOrCalc,
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
-    {FlexDirection, FlexWrap},
 };
 use html_dom::{DocumentRoot, NodeId};
 
@@ -50,6 +50,9 @@ pub mod position;
 /// with all values resolved to their final forms (e.g., colors as RGBA, lengths in pixels, etc.).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
+    pub align_content: AlignContent,
+    pub align_items: AlignItems,
+    pub align_self: AlignSelf,
     pub background_attachment: BackgroundAttachment,
     pub background_blend_mode: BackgroundBlendMode,
     pub background_clip: BackgroundClip,
@@ -88,6 +91,9 @@ pub struct ComputedStyle {
     pub font_size: f64,
     pub font_weight: u16,
     pub height: ComputedSize,
+    pub justify_content: JustifyContent,
+    pub justify_items: JustifyItems,
+    pub justify_self: JustifySelf,
     pub left: ComputedMargin,
     pub line_height: f64,
     pub margin_bottom: ComputedMargin,
@@ -155,6 +161,9 @@ impl ComputedStyle {
         relative_ctx.font_size = font_size;
 
         let mut computed = Self {
+            align_content: compute!(specified_style, parent, align_content),
+            align_items: compute!(specified_style, parent, align_items),
+            align_self: compute!(specified_style, parent, align_self),
             background_attachment: clone_compute!(specified_style, parent, background_attachment),
             background_blend_mode: clone_compute!(specified_style, parent, background_blend_mode),
             background_clip: clone_compute!(specified_style, parent, background_clip),
@@ -287,15 +296,16 @@ impl ComputedStyle {
                 .compute(parent.font_weight.into()) as u16,
             height: ComputedSize::resolve(height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
                 .unwrap_or_default(),
+            justify_content: compute!(specified_style, parent, justify_content),
+            justify_items: compute!(specified_style, parent, justify_items),
+            justify_self: compute!(specified_style, parent, justify_self),
             left: ComputedMargin::resolve(left, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
             max_height: ComputedMaxSize::resolve(max_height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
                 .unwrap_or_default(),
-            line_height: compute_px!(specified_style, parent, line_height, LineHeight).to_px_unchecked(
-                None,
-                Some(relative_ctx),
-                absolute_ctx,
-            ),
+            line_height: compute_px!(specified_style, parent, line_height, LineHeight)
+                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .unwrap(),
             margin_top: ComputedMargin::resolve(
                 margin_top,
                 Some(RelativeType::ParentWidth),
@@ -402,6 +412,9 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
+            align_content: AlignContent::default(),
+            align_items: AlignItems::default(),
+            align_self: AlignSelf::default(),
             background_attachment: BackgroundAttachment::default(),
             background_blend_mode: BackgroundBlendMode::default(),
             background_clip: BackgroundClip::default(),
@@ -440,6 +453,9 @@ impl Default for ComputedStyle {
             font_size: 16.0,
             font_weight: 500,
             height: ComputedSize::Auto,
+            justify_content: JustifyContent::default(),
+            justify_items: JustifyItems::default(),
+            justify_self: JustifySelf::default(),
             left: 0.0.into(),
             line_height: 1.5 * 16.0,
             margin_bottom: 0.0.into(),
