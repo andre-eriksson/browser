@@ -236,6 +236,7 @@ impl SpecifiedStyle {
                 KnownProperty::ColumnGap => handle_column_gap(ctx, &mut stream),
                 KnownProperty::Cursor => handle_cursor(ctx, &mut stream),
                 KnownProperty::Display => handle_display(ctx, &mut stream),
+                KnownProperty::Flex => handle_flex(ctx, &mut stream),
                 KnownProperty::FlexBasis => handle_flex_basis(ctx, &mut stream),
                 KnownProperty::FlexDirection => handle_flex_direction(ctx, &mut stream),
                 KnownProperty::FlexFlow => handle_flex_flow(ctx, &mut stream),

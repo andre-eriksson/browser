@@ -38,34 +38,42 @@ impl From<NumberOrCalc> for f64 {
     }
 }
 
+impl TryFrom<&ComponentValue> for NumberOrCalc {
+    type Error = CssValueError;
+
+    fn try_from(cv: &ComponentValue) -> Result<Self, Self::Error> {
+        match cv {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Number(numeric) => Ok(Self::Number(numeric.to_f64())),
+                kind => Err(CssValueError::InvalidToken(kind.clone())),
+            },
+            ComponentValue::Function(func) => {
+                if is_math_function(&func.name) {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_domain()?;
+
+                    if !matches!(domain, CalcDomain::Number) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![CalcDomain::Number],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::Calc(expr))
+                } else {
+                    Err(CssValueError::InvalidFunction(func.name.clone()))
+                }
+            }
+            _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
+        }
+    }
+}
+
 impl CSSParsable for NumberOrCalc {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream
             .next_non_whitespace()
-            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Number(numeric) => Ok(Self::Number(numeric.to_f64())),
-                    kind => Err(CssValueError::InvalidToken(kind.clone())),
-                },
-                ComponentValue::Function(func) => {
-                    if is_math_function(&func.name) {
-                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = expr.resolve_domain()?;
-
-                        if !matches!(domain, CalcDomain::Number) {
-                            return Err(CssValueError::InvalidCalcDomain {
-                                expected: vec![CalcDomain::Number],
-                                found: domain,
-                            });
-                        }
-
-                        Ok(Self::Calc(expr))
-                    } else {
-                        Err(CssValueError::InvalidFunction(func.name.clone()))
-                    }
-                }
-                _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
-            })
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), Self::try_from)
     }
 }
 
@@ -167,6 +175,14 @@ impl CSSParsable for Ratio {
 /// Flex representation for CSS properties that accept flex values, such as flex-grow, flex-shrink, etc.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flex(pub NumberOrCalc);
+
+impl TryFrom<&ComponentValue> for Flex {
+    type Error = CssValueError;
+
+    fn try_from(cv: &ComponentValue) -> Result<Self, Self::Error> {
+        NumberOrCalc::try_from(cv).map(Self)
+    }
+}
 
 impl CSSParsable for Flex {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {

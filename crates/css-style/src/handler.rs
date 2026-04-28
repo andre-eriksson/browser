@@ -1,6 +1,6 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, HashType};
 use css_values::{
-    CSSParsable, FlexDirection, FlexWrap, Gap,
+    CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap,
     background::{Attachment, BgClip, RepeatStyle, Size, VisualBox, WidthHeightSize},
     border::{BorderStyle, BorderWidth},
     calc::CalcKind,
@@ -9,7 +9,7 @@ use css_values::{
     error::CssValueError,
     global::Global,
     image::Image,
-    numeric::Percentage,
+    numeric::{Flex, NumberOrCalc, Percentage},
     position::BgPosition,
     quantity::{Length, LengthUnit},
     text::{FontSize, FontWeight, WritingMode},
@@ -1066,6 +1066,122 @@ pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut Compone
                 CssValueError::InvalidValue("Invalid number of width values".to_string()),
             );
         }
+    }
+}
+
+pub fn handle_flex(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.flex_grow = CSSProperty::Global(global);
+        ctx.specified_style.flex_shrink = CSSProperty::Global(global);
+        ctx.specified_style.flex_basis = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+
+    let mut grow = None;
+    let mut shrink = None;
+    let mut basis = None;
+
+    while let Some(cv) = stream.next_non_whitespace() {
+        if grow.is_some() && shrink.is_some() && basis.is_some() {
+            ctx.record_error_from_stream(
+                "flex",
+                stream,
+                CssValueError::InvalidValue("Too many values for flex property".to_string()),
+            );
+            return;
+        }
+
+        if let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+            && ident.eq_ignore_ascii_case("none")
+        {
+            if grow.is_some() || shrink.is_some() || basis.is_some() {
+                ctx.record_error_from_stream(
+                    "flex",
+                    stream,
+                    CssValueError::InvalidValue(
+                        "'none' cannot be combined with other values in flex property".to_string(),
+                    ),
+                );
+                return;
+            }
+
+            if stream.next_non_whitespace().is_some() {
+                ctx.record_error_from_stream(
+                    "flex",
+                    stream,
+                    CssValueError::InvalidValue("Unexpected token after 'none'".to_string()),
+                );
+                return;
+            }
+
+            grow = Some(Flex(NumberOrCalc::Number(0.0)));
+            shrink = Some(Flex(NumberOrCalc::Number(0.0)));
+            basis = Some(FlexBasis::Size(css_values::dimension::Size::Auto));
+
+            break;
+        }
+
+        if grow.is_none()
+            && let Ok(g) = Flex::try_from(cv)
+        {
+            grow = Some(g);
+            continue;
+        }
+
+        if shrink.is_none()
+            && grow.is_some()
+            && let Ok(s) = Flex::try_from(cv)
+        {
+            shrink = Some(s);
+            continue;
+        }
+
+        if basis.is_none() {
+            if let Ok(size) = css_values::dimension::Size::try_from(cv) {
+                basis = Some(FlexBasis::Size(size));
+                continue;
+            } else if let ComponentValue::Token(token) = cv
+                && let CssTokenKind::Ident(ident) = &token.kind
+                && ident.eq_ignore_ascii_case("content")
+            {
+                basis = Some(FlexBasis::Content);
+                continue;
+            }
+        }
+
+        ctx.record_error_from_stream(
+            "flex",
+            stream,
+            CssValueError::InvalidValue("Invalid value in flex property".to_string()),
+        );
+        return;
+    }
+
+    if grow.is_some() && shrink.is_none() && basis.is_none() {
+        shrink = Some(Flex(NumberOrCalc::Number(1.0)));
+        basis = Some(FlexBasis::Size(css_values::dimension::Size::Percentage(Percentage::new(0.0))))
+    } else if grow.is_none() && shrink.is_none() && basis.is_some() {
+        grow = Some(Flex(NumberOrCalc::Number(1.0)));
+        shrink = Some(Flex(NumberOrCalc::Number(1.0)));
+    } else if grow.is_some() && shrink.is_some() && basis.is_none() {
+        basis = Some(FlexBasis::Size(css_values::dimension::Size::Percentage(Percentage::new(0.0))));
+    }
+
+    if let Some(g) = grow {
+        ctx.specified_style.flex_grow = CSSProperty::Value(g);
+    }
+
+    if let Some(s) = shrink {
+        ctx.specified_style.flex_shrink = CSSProperty::Value(s);
+    }
+
+    if let Some(b) = basis {
+        ctx.specified_style.flex_basis = CSSProperty::Value(b);
     }
 }
 

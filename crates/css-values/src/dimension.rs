@@ -33,57 +33,67 @@ impl Size {
     }
 }
 
-impl CSSParsable for Size {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace() {
-            match cv {
-                ComponentValue::Function(func) => {
-                    if is_math_function(&func.name) {
-                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = expr.resolve_domain()?;
+impl TryFrom<&ComponentValue> for Size {
+    type Error = CssValueError;
 
-                        if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
-                            return Err(CssValueError::InvalidCalcDomain {
-                                expected: vec![CalcDomain::Length, CalcDomain::Percentage],
-                                found: domain,
-                            });
-                        }
+    fn try_from(cv: &ComponentValue) -> Result<Self, Self::Error> {
+        match cv {
+            ComponentValue::Function(func) => {
+                if is_math_function(&func.name) {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_domain()?;
 
-                        Ok(Self::Calc(expr))
+                    if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![CalcDomain::Length, CalcDomain::Percentage],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::Calc(expr))
+                } else {
+                    Err(CssValueError::InvalidFunction(func.name.clone()))
+                }
+            }
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Ident(ident) => {
+                    if ident.eq_ignore_ascii_case("auto") {
+                        Ok(Self::Auto)
+                    } else if ident.eq_ignore_ascii_case("max-content") {
+                        Ok(Self::MaxContent)
+                    } else if ident.eq_ignore_ascii_case("min-content") {
+                        Ok(Self::MinContent)
+                    } else if ident.eq_ignore_ascii_case("fit-content") {
+                        Ok(Self::FitContent)
+                    } else if ident.eq_ignore_ascii_case("stretch") {
+                        Ok(Self::Stretch)
                     } else {
-                        Err(CssValueError::InvalidFunction(func.name.clone()))
+                        Err(CssValueError::InvalidValue(format!("Invalid identifier: {ident}")))
                     }
                 }
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(ident) => {
-                        if ident.eq_ignore_ascii_case("auto") {
-                            Ok(Self::Auto)
-                        } else if ident.eq_ignore_ascii_case("max-content") {
-                            Ok(Self::MaxContent)
-                        } else if ident.eq_ignore_ascii_case("min-content") {
-                            Ok(Self::MinContent)
-                        } else if ident.eq_ignore_ascii_case("fit-content") {
-                            Ok(Self::FitContent)
-                        } else if ident.eq_ignore_ascii_case("stretch") {
-                            Ok(Self::Stretch)
-                        } else {
-                            Err(CssValueError::InvalidValue(format!("Invalid identifier: {ident}")))
-                        }
-                    }
-                    CssTokenKind::Dimension { value, unit } => {
-                        let len_unit = unit
-                            .parse::<LengthUnit>()
-                            .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
-                        Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
-                    }
-                    CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64()))),
-                    CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64()))),
-                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
-                },
-                cvs @ ComponentValue::SimpleBlock(_) => Err(CssValueError::InvalidComponentValue(cvs.clone())),
-            }
+                CssTokenKind::Dimension { value, unit } => {
+                    let len_unit = unit
+                        .parse::<LengthUnit>()
+                        .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
+                    Ok(Self::Length(Length::new(value.to_f64(), len_unit)))
+                }
+                CssTokenKind::Number(num) => Ok(Self::Length(Length::px(num.to_f64()))),
+                CssTokenKind::Percentage(pct) => Ok(Self::Percentage(Percentage::new(pct.to_f64()))),
+                _ => Err(CssValueError::InvalidToken(token.kind.clone())),
+            },
+            cvs @ ComponentValue::SimpleBlock(_) => Err(CssValueError::InvalidComponentValue(cvs.clone())),
+        }
+    }
+}
+
+impl CSSParsable for Size {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        if let Some(cv) = stream.next_non_whitespace()
+            && let Ok(size) = Self::try_from(cv)
+        {
+            Ok(size)
         } else {
-            Err(CssValueError::UnexpectedEndOfInput)
+            Err(CssValueError::ExpectedComponentValue)
         }
     }
 }
