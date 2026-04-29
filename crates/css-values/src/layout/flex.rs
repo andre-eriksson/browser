@@ -25,15 +25,23 @@ impl CSSParsable for FlexBasis {
 
         stream.restore(checkpoint);
 
-        if let Some(cv) = stream.next_non_whitespace()
-            && let Some(token) = cv.as_token()
-            && let CssTokenKind::Ident(ident) = &token.kind
-            && ident.eq_ignore_ascii_case("content")
-        {
-            return Ok(Self::Content);
-        }
-
-        Err(CssValueError::InvalidValue(format!("Invalid flex-basis value: {:?}", stream.next_non_whitespace())))
+        stream
+            .next_non_whitespace()
+            .ok_or(CssValueError::ExpectedComponentValue)
+            .and_then(|cv| {
+                cv.as_token()
+                    .ok_or_else(|| CssValueError::InvalidComponentValue(cv.clone()))
+            })
+            .and_then(|token| {
+                if let CssTokenKind::Ident(ident) = &token.kind {
+                    if ident.eq_ignore_ascii_case("content") {
+                        return Ok(Self::Content);
+                    }
+                    Err(CssValueError::InvalidValue(format!("Invalid flex-basis value: {}", ident)))
+                } else {
+                    Err(CssValueError::InvalidToken(token.kind.clone()))
+                }
+            })
     }
 }
 
