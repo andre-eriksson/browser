@@ -1364,10 +1364,16 @@ pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueSt
     stream.skip_whitespace();
 
     if stream.peek().is_none() {
-        if let Ok(rg) = row_gap {
-            ctx.specified_style.row_gap = CSSProperty::Value(rg.clone());
-            ctx.specified_style.column_gap = CSSProperty::Value(rg);
+        match row_gap {
+            Ok(rg) => {
+                ctx.specified_style.row_gap = CSSProperty::Value(rg.clone());
+                ctx.specified_style.column_gap = CSSProperty::Value(rg);
+            }
+            Err(e) => {
+                ctx.record_error_from_stream("gap", stream, e);
+            }
         }
+
         return;
     }
 
