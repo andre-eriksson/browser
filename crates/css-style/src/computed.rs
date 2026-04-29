@@ -8,7 +8,6 @@ use css_values::{
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
     display::{Clear, Float},
-    numeric::NumberOrCalc,
     text::{FontSize, LineHeight, TextAlign, Whitespace, WritingMode},
 };
 use html_dom::{DocumentRoot, NodeId};
@@ -276,13 +275,15 @@ impl ComputedStyle {
                 .resolve_with_context(&parent.flex_grow.into(), &0.0f64.into())
                 .0
                 .clone()
-                .into(),
+                .try_into()
+                .unwrap_or(0.0),
             flex_shrink: specified_style
                 .flex_shrink
                 .resolve_with_context(&parent.flex_shrink.into(), &1.0f64.into())
                 .0
                 .clone()
-                .into(),
+                .try_into()
+                .unwrap_or(1.0),
             flex_wrap: compute!(specified_style, parent, flex_wrap),
             float,
             font_family: Arc::new(
@@ -334,13 +335,13 @@ impl ComputedStyle {
                 absolute_ctx,
             )
             .unwrap_or_default(),
-            order: <NumberOrCalc as Into<f64>>::into(
-                specified_style
-                    .order
-                    .resolve_with_context(&(parent.order as f64).into(), &(0 as f64).into())
-                    .0
-                    .clone(),
-            ) as i64,
+            order: specified_style
+                .order
+                .resolve_with_context(&(parent.order as f64).into(), &(0 as f64).into())
+                .0
+                .clone()
+                .try_into()
+                .unwrap_or(0.0) as i64,
             padding_top: ComputedOffset::resolve(
                 padding_top,
                 Some(RelativeType::ParentWidth),

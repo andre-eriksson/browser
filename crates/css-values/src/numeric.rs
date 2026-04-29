@@ -21,18 +21,23 @@ impl From<f64> for NumberOrCalc {
     }
 }
 
-impl From<NumberOrCalc> for f64 {
-    fn from(value: NumberOrCalc) -> Self {
+impl TryFrom<NumberOrCalc> for f64 {
+    type Error = CssValueError;
+
+    fn try_from(value: NumberOrCalc) -> Result<Self, Self::Error> {
         match value {
-            NumberOrCalc::Number(n) => n,
+            NumberOrCalc::Number(n) => Ok(n),
             NumberOrCalc::Calc(expr) => {
                 if let Ok(evaluated) = expr.evaluate()
                     && evaluated.1 == CalcDomain::Number
                 {
-                    return evaluated.0;
+                    return Ok(evaluated.0);
                 }
 
-                unreachable!("Cannot convert a non-number calc expression to f64")
+                Err(CssValueError::InvalidCalcDomain {
+                    expected: vec![CalcDomain::Number],
+                    found: expr.resolve_domain()?,
+                })
             }
         }
     }
@@ -190,9 +195,11 @@ impl CSSParsable for Flex {
     }
 }
 
-impl From<Flex> for f64 {
-    fn from(value: Flex) -> Self {
-        value.0.into()
+impl TryFrom<Flex> for f64 {
+    type Error = CssValueError;
+
+    fn try_from(value: Flex) -> Result<Self, Self::Error> {
+        value.0.try_into()
     }
 }
 
@@ -211,9 +218,11 @@ impl CSSParsable for Order {
     }
 }
 
-impl From<Order> for f64 {
-    fn from(value: Order) -> Self {
-        value.0.into()
+impl TryFrom<Order> for f64 {
+    type Error = CssValueError;
+
+    fn try_from(value: Order) -> Result<Self, Self::Error> {
+        value.0.try_into()
     }
 }
 
