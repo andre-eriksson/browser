@@ -88,10 +88,8 @@ impl TryFrom<&ComponentValue> for Size {
 
 impl CSSParsable for Size {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        if let Some(cv) = stream.next_non_whitespace()
-            && let Ok(size) = Self::try_from(cv)
-        {
-            Ok(size)
+        if let Some(cv) = stream.next_non_whitespace() {
+            Ok(Self::try_from(cv)?)
         } else {
             Err(CssValueError::ExpectedComponentValue)
         }
