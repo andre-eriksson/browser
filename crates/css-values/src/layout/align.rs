@@ -366,10 +366,10 @@ impl CSSParsable for AlignSelf {
                             }
 
                             align_self = Some(Self::Stretch);
-                        } else if ident.eq_ignore_ascii_case("anchor-stretch") {
+                        } else if ident.eq_ignore_ascii_case("anchor-center") {
                             if !ensure_free(idx, align_self) {
                                 return Err(CssValueError::InvalidValue(
-                                    "Unexpected 'anchor-stretch' after other values".to_string(),
+                                    "Unexpected 'anchor-center' after other values".to_string(),
                                 ));
                             }
 
