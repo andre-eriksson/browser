@@ -31,7 +31,7 @@ pub enum AlignContent {
 
 impl CSSParsable for AlignContent {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn ensure_free(idk: u8, align_content: Option<AlignContent>) -> bool {
+        fn can_assign(idk: u8, align_content: Option<AlignContent>) -> bool {
             if align_content.is_some() {
                 return false;
             }
@@ -53,7 +53,7 @@ impl CSSParsable for AlignContent {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("normal") {
-                            if !ensure_free(idx, align_content) {
+                            if !can_assign(idx, align_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'normal' after other values".to_string(),
                                 ));
@@ -97,7 +97,7 @@ impl CSSParsable for AlignContent {
 
                             safe = Some(false);
                         } else if let Ok(baseline) = ident.parse::<BaselinePosition>() {
-                            if !ensure_free(idx, align_content) {
+                            if !can_assign(idx, align_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected baseline position after other values".to_string(),
                                 ));
@@ -112,7 +112,7 @@ impl CSSParsable for AlignContent {
                                 )));
                             }
                         } else if let Ok(distribution) = ident.parse::<ContentDistribution>() {
-                            if !ensure_free(idx, align_content) {
+                            if !can_assign(idx, align_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected content distribution after other values".to_string(),
                                 ));
@@ -179,7 +179,7 @@ pub enum AlignItems {
 
 impl CSSParsable for AlignItems {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn ensure_free(idk: u8, align_items: Option<AlignItems>) -> bool {
+        fn can_assign(idk: u8, align_items: Option<AlignItems>) -> bool {
             if align_items.is_some() {
                 return false;
             }
@@ -201,7 +201,7 @@ impl CSSParsable for AlignItems {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("normal") {
-                            if !ensure_free(idx, align_items) {
+                            if !can_assign(idx, align_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'normal' after other values".to_string(),
                                 ));
@@ -209,7 +209,7 @@ impl CSSParsable for AlignItems {
 
                             align_items = Some(Self::Normal);
                         } else if ident.eq_ignore_ascii_case("stretch") {
-                            if !ensure_free(idx, align_items) {
+                            if !can_assign(idx, align_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'stretch' after other values".to_string(),
                                 ));
@@ -217,7 +217,7 @@ impl CSSParsable for AlignItems {
 
                             align_items = Some(Self::Stretch);
                         } else if ident.eq_ignore_ascii_case("safe") {
-                            if !ensure_free(idx, align_items) {
+                            if !can_assign(idx, align_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'safe' after other values".to_string(),
                                 ));
@@ -231,7 +231,7 @@ impl CSSParsable for AlignItems {
 
                             safe = Some(true);
                         } else if ident.eq_ignore_ascii_case("unsafe") {
-                            if !ensure_free(idx, align_items) {
+                            if !can_assign(idx, align_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'unsafe' after other values".to_string(),
                                 ));
@@ -329,7 +329,7 @@ pub enum AlignSelf {
 
 impl CSSParsable for AlignSelf {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn ensure_free(idk: u8, align_self: Option<AlignSelf>) -> bool {
+        fn can_assign(idk: u8, align_self: Option<AlignSelf>) -> bool {
             if align_self.is_some() {
                 return false;
             }
@@ -351,7 +351,7 @@ impl CSSParsable for AlignSelf {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("auto") {
-                            if !ensure_free(idx, align_self) {
+                            if !can_assign(idx, align_self) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'auto' after other values".to_string(),
                                 ));
@@ -359,7 +359,7 @@ impl CSSParsable for AlignSelf {
 
                             align_self = Some(Self::Auto);
                         } else if ident.eq_ignore_ascii_case("stretch") {
-                            if !ensure_free(idx, align_self) {
+                            if !can_assign(idx, align_self) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'stretch' after other values".to_string(),
                                 ));
@@ -367,7 +367,7 @@ impl CSSParsable for AlignSelf {
 
                             align_self = Some(Self::Stretch);
                         } else if ident.eq_ignore_ascii_case("anchor-center") {
-                            if !ensure_free(idx, align_self) {
+                            if !can_assign(idx, align_self) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'anchor-center' after other values".to_string(),
                                 ));
@@ -375,7 +375,7 @@ impl CSSParsable for AlignSelf {
 
                             align_self = Some(Self::AnchorCenter);
                         } else if ident.eq_ignore_ascii_case("safe") {
-                            if !ensure_free(idx, align_self) {
+                            if !can_assign(idx, align_self) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'safe' after other values".to_string(),
                                 ));
@@ -389,7 +389,7 @@ impl CSSParsable for AlignSelf {
 
                             safe = Some(true);
                         } else if ident.eq_ignore_ascii_case("unsafe") {
-                            if !ensure_free(idx, align_self) {
+                            if !can_assign(idx, align_self) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'unsafe' after other values".to_string(),
                                 ));

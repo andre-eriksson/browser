@@ -29,7 +29,7 @@ pub enum JustifyContent {
 
 impl CSSParsable for JustifyContent {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn ensure_free(idk: u8, justify_content: Option<JustifyContent>) -> bool {
+        fn can_assign(idk: u8, justify_content: Option<JustifyContent>) -> bool {
             if justify_content.is_some() {
                 return false;
             }
@@ -50,7 +50,7 @@ impl CSSParsable for JustifyContent {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
                         if ident.eq_ignore_ascii_case("normal") {
-                            if !ensure_free(idx, justify_content) {
+                            if !can_assign(idx, justify_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'normal' after other values".to_string(),
                                 ));
@@ -58,7 +58,7 @@ impl CSSParsable for JustifyContent {
 
                             justify_content = Some(Self::Normal);
                         } else if ident.eq_ignore_ascii_case("safe") {
-                            if !ensure_free(idx, justify_content) {
+                            if !can_assign(idx, justify_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'safe' after other values".to_string(),
                                 ));
@@ -72,7 +72,7 @@ impl CSSParsable for JustifyContent {
 
                             safe = Some(true);
                         } else if ident.eq_ignore_ascii_case("unsafe") {
-                            if !ensure_free(idx, justify_content) {
+                            if !can_assign(idx, justify_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'unsafe' after other values".to_string(),
                                 ));
@@ -86,7 +86,7 @@ impl CSSParsable for JustifyContent {
 
                             safe = Some(false);
                         } else if let Ok(distribution) = ident.parse::<ContentDistribution>() {
-                            if !ensure_free(idx, justify_content) {
+                            if !can_assign(idx, justify_content) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected content distribution after other values".to_string(),
                                 ));
@@ -155,7 +155,7 @@ pub enum JustifyItems {
 
 impl CSSParsable for JustifyItems {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn ensure_free(idk: u8, justify_items: Option<JustifyItems>) -> bool {
+        fn can_assign(idk: u8, justify_items: Option<JustifyItems>) -> bool {
             if justify_items.is_some() {
                 return false;
             }
@@ -187,7 +187,7 @@ impl CSSParsable for JustifyItems {
 
                             is_legacy = true;
                         } else if ident.eq_ignore_ascii_case("normal") {
-                            if !ensure_free(idx, justify_items) {
+                            if !can_assign(idx, justify_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'normal' after other values".to_string(),
                                 ));
@@ -195,7 +195,7 @@ impl CSSParsable for JustifyItems {
 
                             justify_items = Some(Self::Normal);
                         } else if ident.eq_ignore_ascii_case("stretch") {
-                            if !ensure_free(idx, justify_items) {
+                            if !can_assign(idx, justify_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'stretch' after other values".to_string(),
                                 ));
@@ -203,7 +203,7 @@ impl CSSParsable for JustifyItems {
 
                             justify_items = Some(Self::Stretch);
                         } else if ident.eq_ignore_ascii_case("safe") {
-                            if !ensure_free(idx, justify_items) {
+                            if !can_assign(idx, justify_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'safe' after other values".to_string(),
                                 ));
@@ -217,7 +217,7 @@ impl CSSParsable for JustifyItems {
 
                             safe = Some(true);
                         } else if ident.eq_ignore_ascii_case("unsafe") {
-                            if !ensure_free(idx, justify_items) {
+                            if !can_assign(idx, justify_items) {
                                 return Err(CssValueError::InvalidValue(
                                     "Unexpected 'unsafe' after other values".to_string(),
                                 ));
