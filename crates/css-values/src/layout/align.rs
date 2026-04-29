@@ -31,12 +31,12 @@ pub enum AlignContent {
 
 impl CSSParsable for AlignContent {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn can_assign(idk: u8, align_content: Option<AlignContent>) -> bool {
+        fn can_assign(idx: u8, align_content: Option<AlignContent>) -> bool {
             if align_content.is_some() {
                 return false;
             }
 
-            if idk > 0 {
+            if idx > 0 {
                 return false;
             }
 
@@ -179,12 +179,12 @@ pub enum AlignItems {
 
 impl CSSParsable for AlignItems {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn can_assign(idk: u8, align_items: Option<AlignItems>) -> bool {
+        fn can_assign(idx: u8, align_items: Option<AlignItems>) -> bool {
             if align_items.is_some() {
                 return false;
             }
 
-            if idk > 0 {
+            if idx > 0 {
                 return false;
             }
 
@@ -329,12 +329,12 @@ pub enum AlignSelf {
 
 impl CSSParsable for AlignSelf {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn can_assign(idk: u8, align_self: Option<AlignSelf>) -> bool {
+        fn can_assign(idx: u8, align_self: Option<AlignSelf>) -> bool {
             if align_self.is_some() {
                 return false;
             }
 
-            if idk > 0 {
+            if idx > 0 {
                 return false;
             }
 

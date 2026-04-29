@@ -29,12 +29,12 @@ pub enum JustifyContent {
 
 impl CSSParsable for JustifyContent {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn can_assign(idk: u8, justify_content: Option<JustifyContent>) -> bool {
+        fn can_assign(idx: u8, justify_content: Option<JustifyContent>) -> bool {
             if justify_content.is_some() {
                 return false;
             }
 
-            if idk > 0 {
+            if idx > 0 {
                 return false;
             }
 
@@ -155,12 +155,12 @@ pub enum JustifyItems {
 
 impl CSSParsable for JustifyItems {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn can_assign(idk: u8, justify_items: Option<JustifyItems>) -> bool {
+        fn can_assign(idx: u8, justify_items: Option<JustifyItems>) -> bool {
             if justify_items.is_some() {
                 return false;
             }
 
-            if idk > 0 {
+            if idx > 0 {
                 return false;
             }
 
@@ -339,12 +339,12 @@ pub enum JustifySelf {
 
 impl CSSParsable for JustifySelf {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        fn can_assign(idk: u8, justify_self: Option<JustifySelf>) -> bool {
+        fn can_assign(idx: u8, justify_self: Option<JustifySelf>) -> bool {
             if justify_self.is_some() {
                 return false;
             }
 
-            if idk > 0 {
+            if idx > 0 {
                 return false;
             }
 
