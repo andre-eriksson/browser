@@ -150,6 +150,23 @@ impl ComputedStyle {
         let max_height = into_compute!(specified_style, parent, max_height);
         let width = into_compute!(specified_style, parent, width);
         let max_width = into_compute!(specified_style, parent, max_width);
+        let order = {
+            let order = specified_style
+                .order
+                .resolve_with_context(&(parent.order as f64).into(), &(0 as f64).into())
+                .0
+                .clone()
+                .try_into()
+                .unwrap_or(0.0)
+                .round();
+
+            if (order.is_finite() && order <= i64::MAX as f64 && order >= i64::MIN as f64) || order.is_infinite() {
+                order as i64
+            } else {
+                0
+            }
+        };
+
         let font_size = specified_style
             .font_size
             .compute(FontSize::px(parent.font_size))
@@ -335,13 +352,7 @@ impl ComputedStyle {
                 absolute_ctx,
             )
             .unwrap_or_default(),
-            order: specified_style
-                .order
-                .resolve_with_context(&(parent.order as f64).into(), &(0 as f64).into())
-                .0
-                .clone()
-                .try_into()
-                .unwrap_or(0.0) as i64,
+            order,
             padding_top: ComputedOffset::resolve(
                 padding_top,
                 Some(RelativeType::ParentWidth),
