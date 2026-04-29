@@ -22,7 +22,7 @@ pub enum Gap {
 }
 
 impl CSSParsable for Gap {
-    fn parse(stream: &mut ComponentValueStream) -> Result<Self, crate::error::CssValueError> {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) => {

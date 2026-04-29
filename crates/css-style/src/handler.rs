@@ -1384,6 +1384,7 @@ pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueSt
     stream.restore(checkpoint);
 
     let row_gap = Gap::parse(stream);
+    stream.next_cv();
     stream.skip_whitespace();
 
     if stream.peek().is_none() {
@@ -1401,6 +1402,18 @@ pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueSt
     }
 
     let column_gap = Gap::parse(stream);
+    stream.next_cv();
+    stream.skip_whitespace();
+
+    if let Some(cv) = stream.peek() {
+        ctx.record_error_from_stream(
+            "gap",
+            stream,
+            CssValueError::InvalidValue(format!("Unexpected token after gap values: {:?}", cv)),
+        );
+
+        return;
+    }
 
     if let (Ok(rg), Ok(cg)) = (row_gap, column_gap) {
         ctx.specified_style.row_gap = CSSProperty::Value(rg);
@@ -1700,5 +1713,117 @@ mod tests {
             }
             _ => panic!("expected background-position-y value"),
         }
+    }
+
+    #[test]
+    fn test_flex() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex: 1 0 auto;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.flex_grow, CSSProperty::Value(Flex(NumberOrCalc::Number(1.0))));
+        assert_eq!(specified.flex_shrink, CSSProperty::Value(Flex(NumberOrCalc::Number(0.0))));
+        assert_eq!(specified.flex_basis, CSSProperty::Value(FlexBasis::Size(css_values::dimension::Size::Auto)));
+    }
+
+    #[test]
+    fn test_flex_flow() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex-flow: column-reverse wrap;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex_flow(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.flex_direction, CSSProperty::Value(FlexDirection::ColumnReverse));
+        assert_eq!(specified.flex_wrap, CSSProperty::Value(FlexWrap::Wrap));
+    }
+
+    #[test]
+    fn test_gap() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("gap: 10px 20px;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_gap(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.row_gap, CSSProperty::Value(Gap::Length(Length::new(10.0, LengthUnit::Px))));
+        assert_eq!(specified.column_gap, CSSProperty::Value(Gap::Length(Length::new(20.0, LengthUnit::Px))));
+    }
+
+    #[test]
+    fn test_flex_invalid() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex: 1 1 1 1;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+    }
+
+    #[test]
+    fn test_flex_flow_invalid() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex-flow: row unknown-wrap;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex_flow(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+    }
+
+    #[test]
+    fn test_gap_invalid() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("gap: invalid-gap;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_gap(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+
+        let decls = CSSStyleSheet::from_inline("gap: 10px 20px 30px;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_gap(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
     }
 }
