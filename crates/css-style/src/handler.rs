@@ -1199,24 +1199,47 @@ pub fn handle_flex_flow(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
     let mut direction = None;
     let mut wrap = None;
 
-    while let Some(cv) = stream.next_cv() {
-        if let ComponentValue::Token(token) = cv
-            && let CssTokenKind::Ident(ident) = &token.kind
-        {
-            if direction.is_none()
-                && let Ok(d) = ident.parse::<FlexDirection>()
-            {
-                direction = Some(d);
-                continue;
-            }
+    let mut parsed_any = false;
+    let mut invalid = false;
 
-            if wrap.is_none()
-                && let Ok(w) = ident.parse::<FlexWrap>()
-            {
-                wrap = Some(w);
-                continue;
-            }
+    while let Some(cv) = stream.next_non_whitespace() {
+        let ComponentValue::Token(token) = cv else {
+            invalid = true;
+            break;
+        };
+
+        let CssTokenKind::Ident(ident) = &token.kind else {
+            invalid = true;
+            break;
+        };
+
+        if direction.is_none()
+            && let Ok(d) = ident.parse::<FlexDirection>()
+        {
+            direction = Some(d);
+            parsed_any = true;
+            continue;
         }
+
+        if wrap.is_none()
+            && let Ok(w) = ident.parse::<FlexWrap>()
+        {
+            wrap = Some(w);
+            parsed_any = true;
+            continue;
+        }
+
+        invalid = true;
+        break;
+    }
+
+    if invalid || !parsed_any {
+        ctx.record_error_from_stream(
+            "flex-flow",
+            stream,
+            CssValueError::InvalidValue("Invalid value in flex-flow property".to_string()),
+        );
+        return;
     }
 
     if let Some(d) = direction {
