@@ -11,9 +11,9 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 ## A
 
 - [ ] accent-color
-- [ ] align-content
-- [ ] align-items
-- [ ] align-self
+- [x] align-content
+- [x] align-items
+- [x] align-self
 - [ ] alignment-baseline
 - [ ] all (shorthand)
 - [ ] anchor-name
@@ -150,7 +150,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [x] color
 - [ ] column-count
 - [ ] column-fill
-- [ ] column-gap
+- [x] column-gap
 - [ ] column-rule-color
 - [ ] column-rule-style
 - [ ] column-rule-width
@@ -206,13 +206,13 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] fill-rule
 - [ ] fill
 - [ ] filter
-- [ ] flex-basis
-- [ ] flex-direction
-- [ ] flex-flow (shorthand)
-- [ ] flex-grow
-- [ ] flex-shrink
-- [ ] flex-wrap
-- [ ] flex (shorthand)
+- [x] flex-basis
+- [x] flex-direction
+- [x] flex-flow (shorthand)
+- [x] flex-grow
+- [x] flex-shrink
+- [x] flex-wrap
+- [x] flex (shorthand)
 - [ ] float
 - [ ] flood-color
 - [ ] flood-opacity
@@ -247,7 +247,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 
 ## G - I
 
-- [ ] gap (shorthand)
+- [x] gap (shorthand)
 - [ ] grid-area (shorthand)
 - [ ] grid-auto-columns
 - [ ] grid-auto-flow
@@ -292,9 +292,9 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 
 ## J - M
 
-- [ ] justify-content
-- [ ] justify-items
-- [ ] justify-self
+- [x] justify-content
+- [x] justify-items
+- [x] justify-self
 - [x] left
 - [ ] letter-spacing
 - [ ] lighting-color
@@ -365,7 +365,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] offset-rotate
 - [ ] offset (shorthand)
 - [ ] opacity
-- [ ] order
+- [x] order
 - [ ] orphans
 - [ ] outline-color
 - [ ] outline-offset
@@ -426,7 +426,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] resize
 - [x] right
 - [ ] rotate
-- [ ] row-gap
+- [x] row-gap
 - [ ] ruby-align
 - [ ] ruby-overhang
 - [ ] ruby-position
