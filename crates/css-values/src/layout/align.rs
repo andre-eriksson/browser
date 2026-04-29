@@ -144,10 +144,7 @@ impl CSSParsable for AlignContent {
             }
         }
 
-        stream.skip_whitespace();
-        if align_content.is_some() && stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
-        } else if let Some(value) = align_content {
+        if let Some(value) = align_content {
             Ok(value)
         } else {
             Err(CssValueError::UnexpectedEndOfInput)
@@ -292,10 +289,7 @@ impl CSSParsable for AlignItems {
             }
         }
 
-        stream.skip_whitespace();
-        if align_items.is_some() && stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
-        } else if let Some(value) = align_items {
+        if let Some(value) = align_items {
             Ok(value)
         } else {
             Err(CssValueError::UnexpectedEndOfInput)
@@ -450,11 +444,7 @@ impl CSSParsable for AlignSelf {
             }
         }
 
-        stream.skip_whitespace();
-
-        if align_self.is_some() && stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
-        } else if let Some(value) = align_self {
+        if let Some(value) = align_self {
             Ok(value)
         } else {
             Err(CssValueError::UnexpectedEndOfInput)
@@ -689,7 +679,7 @@ mod tests {
         let green_cases = vec![
             ("auto", AlignSelf::Auto),
             ("stretch", AlignSelf::Stretch),
-            ("anchor-stretch", AlignSelf::AnchorCenter),
+            ("anchor-center", AlignSelf::AnchorCenter),
             (
                 "safe normal",
                 AlignSelf::Alignment {

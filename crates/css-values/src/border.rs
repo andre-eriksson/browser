@@ -116,12 +116,10 @@ impl TryFrom<&ComponentValue> for BorderWidth {
 
 impl CSSParsable for BorderWidth {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        let width = if let Some(cv) = stream.peek() {
+        let width = if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Length) {
@@ -160,7 +158,6 @@ impl CSSParsable for BorderWidth {
             Err(CssValueError::ExpectedComponentValue)
         }?;
 
-        stream.next_cv();
         Ok(width)
     }
 }

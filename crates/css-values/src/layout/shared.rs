@@ -27,7 +27,7 @@ impl CSSParsable for Gap {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let expr = CalcExpression::parse(&func.name, &func.value)?;
                         let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {

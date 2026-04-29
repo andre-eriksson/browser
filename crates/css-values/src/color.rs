@@ -276,7 +276,7 @@ impl TryFrom<&ComponentValue> for Color {
 
 impl CSSParsable for Color {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        let color = if let Some(cv) = stream.next_non_whitespace() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
@@ -326,14 +326,6 @@ impl CSSParsable for Color {
             }
         } else {
             Err(CssValueError::ExpectedComponentValue)
-        };
-
-        stream.skip_whitespace();
-
-        if stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
-        } else {
-            color
         }
     }
 }

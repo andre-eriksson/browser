@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn test_simple_number() {
         let input = vec![number_token(42.0)];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 42.0);
@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn test_simple_negative_number() {
         let input = vec![number_token(-42.0)];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), -42.0);
@@ -199,7 +199,7 @@ mod tests {
             whitespace_token(),
             number_token(5.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 15.0);
@@ -214,7 +214,7 @@ mod tests {
             whitespace_token(),
             number_token(5.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 5.0);
@@ -233,7 +233,7 @@ mod tests {
             whitespace_token(),
             number_token(3.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 18.0);
@@ -252,7 +252,7 @@ mod tests {
             whitespace_token(),
             number_token(3.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 12.0);
@@ -267,7 +267,7 @@ mod tests {
             whitespace_token(),
             number_token(5.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 50.0);
@@ -282,7 +282,7 @@ mod tests {
             whitespace_token(),
             number_token(5.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 2.0);
@@ -297,7 +297,7 @@ mod tests {
             whitespace_token(),
             number_token(0.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert!(result.unwrap().is_nan());
@@ -316,7 +316,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 20.0);
@@ -336,7 +336,7 @@ mod tests {
             number_token(2.0),
         ];
 
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 16.0);
@@ -363,7 +363,7 @@ mod tests {
             whitespace_token(),
             number_token(4.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 18.0);
@@ -378,7 +378,7 @@ mod tests {
             whitespace_token(),
             number_token(-5.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 5.0);
@@ -396,7 +396,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert!((result.unwrap() - (std::f64::consts::PI * 2.0)).abs() < 0.001);
@@ -414,7 +414,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert!((result.unwrap() - (std::f64::consts::E * 2.0)).abs() < 0.001);
@@ -432,7 +432,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx).unwrap();
         assert!(result.is_infinite() && result.is_sign_positive());
@@ -450,7 +450,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx).unwrap();
         assert!(result.is_infinite() && result.is_sign_negative());
@@ -468,7 +468,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert!(result.unwrap().is_nan());
@@ -487,7 +487,7 @@ mod tests {
             whitespace_token(),
             number_token(4.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 24.0);
@@ -506,7 +506,7 @@ mod tests {
             whitespace_token(),
             number_token(2.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 4.0);
@@ -515,7 +515,7 @@ mod tests {
     #[test]
     fn test_whitespace_required_around_plus() {
         let input = vec![number_token(10.0), delim_token('+'), number_token(5.0)];
-        let result = CalcExpression::parse(&input);
+        let result = CalcExpression::parse("calc", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -526,7 +526,7 @@ mod tests {
     #[test]
     fn test_whitespace_required_around_minus() {
         let input = vec![number_token(10.0), delim_token('-'), number_token(5.0)];
-        let result = CalcExpression::parse(&input);
+        let result = CalcExpression::parse("calc", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -542,7 +542,7 @@ mod tests {
             delim_token('+'),
             number_token(5.0),
         ];
-        let result = CalcExpression::parse(&input);
+        let result = CalcExpression::parse("calc", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -558,7 +558,7 @@ mod tests {
             delim_token('-'),
             number_token(5.0),
         ];
-        let result = CalcExpression::parse(&input);
+        let result = CalcExpression::parse("calc", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -575,7 +575,7 @@ mod tests {
             whitespace_token(),
             number_token(-20.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 70.0);
@@ -594,7 +594,7 @@ mod tests {
             whitespace_token(),
             number_token(-10.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 110.0);
@@ -609,7 +609,7 @@ mod tests {
             whitespace_token(),
             number_token(-5.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), -50.0);
@@ -618,7 +618,7 @@ mod tests {
     #[test]
     fn test_no_whitespace_required_for_multiply() {
         let input = vec![number_token(10.0), delim_token('*'), number_token(5.0)];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 50.0);
@@ -627,7 +627,7 @@ mod tests {
     #[test]
     fn test_no_whitespace_required_for_divide() {
         let input = vec![number_token(10.0), delim_token('/'), number_token(5.0)];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 2.0);
@@ -644,7 +644,7 @@ mod tests {
             whitespace_token(),
             number_token(20.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 70.0);
@@ -659,7 +659,7 @@ mod tests {
             delim_token('+'),
             number_token(20.0),
         ];
-        let result = CalcExpression::parse(&input);
+        let result = CalcExpression::parse("calc", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -688,7 +688,7 @@ mod tests {
                 }),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 20.0);
@@ -703,7 +703,7 @@ mod tests {
             whitespace_token(),
             dimension_token(2.0, "em"),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::FontSize), Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 10.0 + (2.0 * rel_ctx.parent.font_size));
@@ -718,7 +718,7 @@ mod tests {
             whitespace_token(),
             dimension_token(2.0, "rem"),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::RootFontSize), Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 10.0 + (2.0 * abs_ctx.root_font_size));
@@ -736,7 +736,7 @@ mod tests {
                 position: None,
             }),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::ParentWidth), Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 10.0 + (0.5 * 800.0));
@@ -751,7 +751,7 @@ mod tests {
             whitespace_token(),
             dimension_token(2.0, "vw"),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::ViewportWidth), Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 10.0 + (0.02 * abs_ctx.viewport_width));
@@ -766,7 +766,7 @@ mod tests {
             whitespace_token(),
             dimension_token(10.0, "vh"),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 176.8);
@@ -785,7 +785,7 @@ mod tests {
             name: "min".to_string(),
             value: vec![number_token(100.0), comma_token(), number_token(200.0)],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -803,7 +803,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -824,7 +824,7 @@ mod tests {
                 dimension_token(100.0, "px"),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -833,7 +833,7 @@ mod tests {
     #[test]
     fn test_min_expression_standalone() {
         let input = vec![number_token(100.0), comma_token(), number_token(200.0)];
-        let expr = CalcExpression::parse_math_function("min", &input).unwrap();
+        let expr = CalcExpression::parse("min", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -845,7 +845,7 @@ mod tests {
             name: "max".to_string(),
             value: vec![number_token(100.0), comma_token(), number_token(200.0)],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 200.0);
@@ -863,7 +863,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 300.0);
@@ -884,7 +884,7 @@ mod tests {
                 dimension_token(100.0, "px"),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -893,7 +893,7 @@ mod tests {
     #[test]
     fn test_max_expression_standalone() {
         let input = vec![number_token(100.0), comma_token(), number_token(200.0)];
-        let expr = CalcExpression::parse_math_function("max", &input).unwrap();
+        let expr = CalcExpression::parse("max", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 200.0);
@@ -913,7 +913,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 150.0);
@@ -933,7 +933,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -953,7 +953,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 200.0);
@@ -981,7 +981,7 @@ mod tests {
                 dimension_token(50.0, "px"),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 200.0);
@@ -998,7 +998,7 @@ mod tests {
             whitespace_token(),
             number_token(200.0),
         ];
-        let expr = CalcExpression::parse_math_function("clamp", &input).unwrap();
+        let expr = CalcExpression::parse("clamp", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 150.0);
@@ -1007,7 +1007,7 @@ mod tests {
     #[test]
     fn test_clamp_wrong_arg_count_two() {
         let input = vec![number_token(100.0), comma_token(), number_token(200.0)];
-        let result = CalcExpression::parse_math_function("clamp", &input);
+        let result = CalcExpression::parse("clamp", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -1026,7 +1026,7 @@ mod tests {
             comma_token(),
             number_token(250.0),
         ];
-        let result = CalcExpression::parse_math_function("clamp", &input);
+        let result = CalcExpression::parse("clamp", &input);
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
@@ -1051,7 +1051,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 50.0);
@@ -1074,7 +1074,7 @@ mod tests {
                 }),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 300.0);
@@ -1100,7 +1100,7 @@ mod tests {
                 }),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 42.0);
@@ -1123,7 +1123,7 @@ mod tests {
                 number_token(30.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 30.0);
@@ -1143,7 +1143,7 @@ mod tests {
                 number_token(200.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 150.0);
@@ -1169,7 +1169,7 @@ mod tests {
                 number_token(80.0),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 100.0);
@@ -1186,7 +1186,7 @@ mod tests {
                 dimension_token(10.0, "vw"),
             ],
         })];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 102.4);
@@ -1204,7 +1204,7 @@ mod tests {
             whitespace_token(),
             number_token(50.0),
         ];
-        let expr = CalcExpression::parse(&input).unwrap();
+        let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(None, Some(&rel_ctx), &abs_ctx);
         assert_eq!(result.unwrap(), 150.0);

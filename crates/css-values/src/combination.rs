@@ -39,7 +39,7 @@ impl TryFrom<&ComponentValue> for LengthPercentage {
         match value {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
-                    let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let calc_expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = calc_expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
@@ -113,7 +113,7 @@ impl CSSParsable for FrequencyPercentage {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let calc_expr = CalcExpression::parse(&func.name, &func.value)?;
                         let domain = calc_expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Frequency | CalcDomain::Percentage) {
@@ -184,7 +184,7 @@ impl TryFrom<&ComponentValue> for AnglePercentage {
         match value {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
-                    let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let calc_expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = calc_expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Angle | CalcDomain::Percentage) {
@@ -256,7 +256,7 @@ impl CSSParsable for TimePercentage {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let calc_expr = CalcExpression::parse(&func.name, &func.value)?;
                         let domain = calc_expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Time | CalcDomain::Percentage) {
@@ -311,7 +311,7 @@ impl TryFrom<&ComponentValue> for AngleZero {
         match value {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
-                    let calc_expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let calc_expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = calc_expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Angle) {

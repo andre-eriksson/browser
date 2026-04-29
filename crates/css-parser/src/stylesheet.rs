@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use css_tokenizer::CssToken;
+use css_tokenizer::{CssToken, CssTokenKind};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -115,7 +115,7 @@ impl ComponentValue {
     #[must_use]
     pub const fn is_whitespace(&self) -> bool {
         match self {
-            Self::Token(t) => matches!(t.kind, css_tokenizer::CssTokenKind::Whitespace),
+            Self::Token(t) => matches!(t.kind, CssTokenKind::Whitespace),
             _ => false,
         }
     }
@@ -127,7 +127,7 @@ impl Display for ComponentValue {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ComponentValueStream<'css> {
     values: &'css [ComponentValue],
     position: usize,
@@ -194,6 +194,11 @@ impl<'css> ComponentValueStream<'css> {
                 break;
             }
         }
+    }
+
+    pub fn has_remaining_tokens(&mut self) -> bool {
+        self.skip_whitespace();
+        self.peek().is_some()
     }
 
     /// Skip whitespace and return the next non-whitespace component value

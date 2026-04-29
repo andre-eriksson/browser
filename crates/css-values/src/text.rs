@@ -92,13 +92,11 @@ impl Default for FontSize {
 
 impl CSSParsable for FontSize {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        let font_size = if let Some(cv) = stream.peek() {
+        let font_size = if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                        Ok(Self::Calc(CalcExpression::parse(&func.name, func.value.as_slice())?))
                     } else {
                         Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
@@ -128,7 +126,6 @@ impl CSSParsable for FontSize {
             Err(CssValueError::ExpectedComponentValue)
         }?;
 
-        stream.next_cv();
         Ok(font_size)
     }
 }
@@ -265,12 +262,10 @@ impl LineHeight {
 
 impl CSSParsable for LineHeight {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    Ok(Self::Calc(CalcExpression::parse_math_function(&func.name, func.value.as_slice())?))
+                    Ok(Self::Calc(CalcExpression::parse(&func.name, func.value.as_slice())?))
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("normal") => Ok(Self::Normal),

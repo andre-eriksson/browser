@@ -121,22 +121,36 @@ macro_rules! simple_property_handler {
 macro_rules! offset_shorthand_handler {
     ($fn_name:ident, $offset_type:ident, $prop_name:expr, $top:ident, $right:ident, $bottom:ident, $left:ident) => {
         pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-            let checkpoint = stream.checkpoint();
-
             if let Ok(global) = Global::parse(stream) {
+                if stream.has_remaining_tokens() {
+                    ctx.record_error_from_stream(
+                        $prop_name,
+                        stream,
+                        CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+                    );
+                    return;
+                }
+
                 ctx.specified_style.$top = CSSProperty::Global(global);
                 ctx.specified_style.$right = CSSProperty::Global(global);
                 ctx.specified_style.$bottom = CSSProperty::Global(global);
                 ctx.specified_style.$left = CSSProperty::Global(global);
             } else {
-                stream.restore(checkpoint);
                 if let Ok(offset) = $offset_type::parse(stream) {
+                    if stream.has_remaining_tokens() {
+                        ctx.record_error_from_stream(
+                            $prop_name,
+                            stream,
+                            CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+                        );
+                        return;
+                    }
+
                     ctx.specified_style.$top = offset.top.into();
                     ctx.specified_style.$right = offset.right.into();
                     ctx.specified_style.$bottom = offset.bottom.into();
                     ctx.specified_style.$left = offset.left.into();
                 } else {
-                    stream.restore(checkpoint);
                     ctx.record_error_from_stream(
                         $prop_name,
                         stream,
@@ -160,22 +174,11 @@ macro_rules! logical_pair_handler {
      $vrl_start:ident, $vrl_end:ident,
      $vlr_start:ident, $vlr_end:ident) => {
         pub fn $fn_name(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-            let checkpoint = stream.checkpoint();
-            let global = Global::parse(stream).ok();
-
-            let offset = if global.is_none() {
-                stream.restore(checkpoint);
-                $offset_type::parse(stream).ok()
-            } else {
-                None
-            };
-
             let (start, end) = match ctx.resolve_writing_mode() {
                 WritingMode::HorizontalTb => (&mut ctx.specified_style.$htb_start, &mut ctx.specified_style.$htb_end),
                 WritingMode::VerticalRl => (&mut ctx.specified_style.$vrl_start, &mut ctx.specified_style.$vrl_end),
                 WritingMode::VerticalLr => (&mut ctx.specified_style.$vlr_start, &mut ctx.specified_style.$vlr_end),
                 _ => {
-                    stream.restore(checkpoint);
                     ctx.record_error_from_stream(
                         $prop_name,
                         stream,
@@ -185,10 +188,28 @@ macro_rules! logical_pair_handler {
                 }
             };
 
-            if let Some(global) = global {
+            if let Ok(global) = Global::parse(stream) {
+                if stream.has_remaining_tokens() {
+                    ctx.record_error_from_stream(
+                        $prop_name,
+                        stream,
+                        CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+                    );
+                    return;
+                }
+
                 *start = CSSProperty::Global(global);
                 *end = CSSProperty::Global(global);
-            } else if let Some(offset) = offset {
+            } else if let Ok(offset) = $offset_type::parse(stream) {
+                if stream.has_remaining_tokens() {
+                    ctx.record_error_from_stream(
+                        $prop_name,
+                        stream,
+                        CssValueError::InvalidValue("Unexpected extra tokens after offset value".into()),
+                    );
+                    return;
+                }
+
                 *start = offset.top.into();
                 *end = offset.bottom.into();
             }
@@ -409,9 +430,16 @@ pub fn handle_background_position(ctx: &mut PropertyUpdateContext, stream: &mut 
 ///   <visual-box>                    ||
 ///   <'background-color'>
 pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "background",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
+            return;
+        }
+
         ctx.specified_style.background_attachment = CSSProperty::Global(global);
         ctx.specified_style.background_clip = CSSProperty::Global(global);
         ctx.specified_style.background_color = CSSProperty::Global(global);
@@ -424,28 +452,24 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
         return;
     }
 
-    stream.restore(checkpoint);
-
-    let cp = stream.checkpoint();
     stream.skip_whitespace();
-    if let Some(ComponentValue::Token(t)) = stream.next_non_whitespace()
+    if let Some(ComponentValue::Token(t)) = stream.peek()
         && matches!(&t.kind, CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none"))
     {
-        stream.skip_whitespace();
-        if stream.peek().is_none() {
+        stream.next_cv();
+        if !stream.has_remaining_tokens() {
             ctx.specified_style.background_attachment = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_clip = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_color = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_image = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_origin = CSSProperty::Global(Global::Initial);
-            ctx.specified_style.background_repeat = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_position_x = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_position_y = CSSProperty::Global(Global::Initial);
+            ctx.specified_style.background_repeat = CSSProperty::Global(Global::Initial);
             ctx.specified_style.background_size = CSSProperty::Global(Global::Initial);
             return;
         }
     }
-    stream.restore(cp);
 
     let writing_mode = ctx.resolve_writing_mode();
 
@@ -462,7 +486,7 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
     /// Try to parse a single `Size` value (1–2 tokens: cover | contain | auto | <length-percentage> ){1,2}
     /// directly from the stream. Returns `None` and restores on failure.
     fn try_parse_single_size(stream: &mut ComponentValueStream) -> Option<Size> {
-        let cp = stream.checkpoint();
+        let checkpoint = stream.checkpoint();
 
         fn parse_width_height_token(kind: &CssTokenKind) -> Option<WidthHeightSize> {
             match kind {
@@ -491,18 +515,18 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
                 }
             }
             if let Some(w) = parse_width_height_token(&t.kind) {
-                let cp2 = stream.checkpoint();
+                let checkpoint2 = stream.checkpoint();
                 if let Some(ComponentValue::Token(t2)) = stream.next_non_whitespace()
                     && let Some(h) = parse_width_height_token(&t2.kind)
                 {
                     return Some(Size::WidthHeight(w, Some(h)));
                 }
-                stream.restore(cp2);
+                stream.restore(checkpoint2);
                 return Some(Size::WidthHeight(w, None));
             }
         }
 
-        stream.restore(cp);
+        stream.restore(checkpoint);
         None
     }
 
@@ -520,8 +544,7 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
         let mut layer_color: Option<Color> = None;
 
         loop {
-            stream.skip_whitespace();
-            if stream.peek().is_none() {
+            if !stream.has_remaining_tokens() {
                 done = true;
                 break;
             }
@@ -534,7 +557,7 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
             }
 
             if layer_position.is_none() {
-                let cp = stream.checkpoint();
+                let checkpoint = stream.checkpoint();
                 if let Ok(pos) = BgPosition::parse(stream) {
                     layer_position = Some(pos);
 
@@ -552,7 +575,7 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
                     }
                     continue;
                 }
-                stream.restore(cp);
+                stream.restore(checkpoint);
             }
 
             enum BgToken {
@@ -783,28 +806,30 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
         ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
     }
 
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
-        stream.skip_whitespace();
-        if stream.peek().is_none() {
-            ctx.specified_style.border_top_style = CSSProperty::Global(global);
-            ctx.specified_style.border_right_style = CSSProperty::Global(global);
-            ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
-            ctx.specified_style.border_left_style = CSSProperty::Global(global);
-            ctx.specified_style.border_top_width = CSSProperty::Global(global);
-            ctx.specified_style.border_right_width = CSSProperty::Global(global);
-            ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
-            ctx.specified_style.border_left_width = CSSProperty::Global(global);
-            ctx.specified_style.border_top_color = CSSProperty::Global(global);
-            ctx.specified_style.border_right_color = CSSProperty::Global(global);
-            ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
-            ctx.specified_style.border_left_color = CSSProperty::Global(global);
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "border",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
             return;
         }
-    }
 
-    stream.restore(checkpoint);
+        ctx.specified_style.border_top_style = CSSProperty::Global(global);
+        ctx.specified_style.border_right_style = CSSProperty::Global(global);
+        ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+        ctx.specified_style.border_left_style = CSSProperty::Global(global);
+        ctx.specified_style.border_top_width = CSSProperty::Global(global);
+        ctx.specified_style.border_right_width = CSSProperty::Global(global);
+        ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+        ctx.specified_style.border_left_width = CSSProperty::Global(global);
+        ctx.specified_style.border_top_color = CSSProperty::Global(global);
+        ctx.specified_style.border_right_color = CSSProperty::Global(global);
+        ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+        ctx.specified_style.border_left_color = CSSProperty::Global(global);
+        return;
+    }
 
     let mut style = None;
     let mut width = None;
@@ -850,13 +875,11 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             }
         }
 
-        stream.restore(checkpoint);
         ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Border property".to_string()));
         return;
     }
 
     if !parsed_any {
-        stream.restore(checkpoint);
         ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Border property".to_string()));
         return;
     }
@@ -895,10 +918,16 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
 /// Handles the `border-color` shorthand property by parsing the provided component values and updating the corresponding border color properties in the specified style.
 /// The function supports both global values and individual color values for each side of the border.
 pub fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    stream.skip_whitespace();
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "border-color",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
+            return;
+        }
+
         ctx.specified_style.border_top_color = CSSProperty::Global(global);
         ctx.specified_style.border_right_color = CSSProperty::Global(global);
         ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
@@ -906,7 +935,6 @@ pub fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut Compone
         return;
     }
 
-    stream.restore(checkpoint);
     let mut colors = Vec::new();
 
     while let Some(cv) = stream.next_non_whitespace() {
@@ -953,10 +981,16 @@ pub fn handle_border_color(ctx: &mut PropertyUpdateContext, stream: &mut Compone
 /// Handles the `border-style` shorthand property by parsing the provided component values and updating the corresponding border style properties in the specified style.
 /// The function supports both global values and individual style values for each side of the border.
 pub fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    stream.skip_whitespace();
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "border-style",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
+            return;
+        }
+
         ctx.specified_style.border_top_style = CSSProperty::Global(global);
         ctx.specified_style.border_right_style = CSSProperty::Global(global);
         ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
@@ -964,7 +998,6 @@ pub fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut Compone
         return;
     }
 
-    stream.restore(checkpoint);
     let mut styles = Vec::new();
 
     while let Some(cv) = stream.next_non_whitespace() {
@@ -1014,10 +1047,16 @@ pub fn handle_border_style(ctx: &mut PropertyUpdateContext, stream: &mut Compone
 /// Handles the `border-width` shorthand property by parsing the provided component values and updating the corresponding border width properties in the specified style.
 /// The function supports both global values and individual width values for each side of the border.
 pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    stream.skip_whitespace();
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "border-width",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
+            return;
+        }
+
         ctx.specified_style.border_top_width = CSSProperty::Global(global);
         ctx.specified_style.border_right_width = CSSProperty::Global(global);
         ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
@@ -1025,7 +1064,6 @@ pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut Compone
         return;
     }
 
-    stream.restore(checkpoint);
     let mut widths = Vec::new();
 
     while let Some(cv) = stream.next_non_whitespace() {
@@ -1070,16 +1108,21 @@ pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut Compone
 }
 
 pub fn handle_flex(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "flex",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
+            return;
+        }
+
         ctx.specified_style.flex_grow = CSSProperty::Global(global);
         ctx.specified_style.flex_shrink = CSSProperty::Global(global);
         ctx.specified_style.flex_basis = CSSProperty::Global(global);
         return;
     }
-
-    stream.restore(checkpoint);
 
     let mut grow = None;
     let mut shrink = None;
@@ -1186,15 +1229,20 @@ pub fn handle_flex(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueS
 }
 
 pub fn handle_flex_flow(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    let checkpoint = stream.checkpoint();
-
     if let Ok(global) = Global::parse(stream) {
+        if stream.has_remaining_tokens() {
+            ctx.record_error_from_stream(
+                "flex-flow",
+                stream,
+                CssValueError::InvalidValue("Unexpected extra tokens after global value".into()),
+            );
+            return;
+        }
+
         ctx.specified_style.flex_direction = CSSProperty::Global(global);
         ctx.specified_style.flex_wrap = CSSProperty::Global(global);
         return;
     }
-
-    stream.restore(checkpoint);
 
     let mut direction = None;
     let mut wrap = None;
@@ -1628,7 +1676,7 @@ mod tests {
 
         handle_background(&mut ctx, &mut stream);
 
-        assert!(ctx.errors.is_empty());
+        assert!(ctx.errors.is_empty(), "Expected no errors, got: {:?}", ctx.errors);
 
         match &specified.background_repeat {
             CSSProperty::Value(BackgroundRepeat(r)) => {
@@ -1701,7 +1749,7 @@ mod tests {
                     PositionX::Relative((None, Some(LengthPercentage::Length(Length::new(0.0, LengthUnit::Px)))))
                 );
             }
-            _ => panic!("expected background-position-x value"),
+            CSSProperty::Global(g) => panic!("unexpected global value for background-position-x: {:?}", g),
         }
         match &specified.background_position_y {
             CSSProperty::Value(BackgroundPositionY(ys)) => {
@@ -1713,6 +1761,31 @@ mod tests {
             }
             _ => panic!("expected background-position-y value"),
         }
+    }
+
+    #[test]
+    fn test_background_none() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("background: none;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_background(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.background_attachment, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_clip, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_color, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_image, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_origin, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_position_x, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_position_y, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_repeat, CSSProperty::Global(Global::Initial));
+        assert_eq!(specified.background_size, CSSProperty::Global(Global::Initial));
     }
 
     #[test]

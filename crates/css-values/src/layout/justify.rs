@@ -118,10 +118,7 @@ impl CSSParsable for JustifyContent {
             }
         }
 
-        stream.skip_whitespace();
-        if justify_content.is_some() && stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
-        } else if let Some(value) = justify_content {
+        if let Some(value) = justify_content {
             Ok(value)
         } else {
             Err(CssValueError::UnexpectedEndOfInput)
@@ -295,16 +292,12 @@ impl CSSParsable for JustifyItems {
             }
         }
 
-        stream.skip_whitespace();
-
         if is_legacy {
             if justify_items.is_some() {
                 return Err(CssValueError::InvalidValue("(end) Unexpected 'legacy' with other values".to_string()));
             }
 
             Ok(Self::Legacy(legacy_side))
-        } else if justify_items.is_some() && stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
         } else if let Some(value) = justify_items {
             Ok(value)
         } else {
@@ -460,10 +453,7 @@ impl CSSParsable for JustifySelf {
             }
         }
 
-        stream.skip_whitespace();
-        if justify_self.is_some() && stream.peek().is_some() {
-            Err(CssValueError::UnexpectedRemainingInput)
-        } else if let Some(value) = justify_self {
+        if let Some(value) = justify_self {
             Ok(value)
         } else {
             Err(CssValueError::UnexpectedEndOfInput)
@@ -681,7 +671,7 @@ mod tests {
         let green_cases = vec![
             ("auto", JustifySelf::Auto),
             ("stretch", JustifySelf::Stretch),
-            ("anchor-stretch", JustifySelf::AnchorCenter),
+            ("anchor-center", JustifySelf::AnchorCenter),
             (
                 "safe normal",
                 JustifySelf::Alignment {

@@ -219,13 +219,10 @@ impl CSSParsable for Gradient {
     /// Expects the stream to contain a gradient function
     /// (`linear-gradient(…)`, `radial-gradient(…)`, etc.).
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek()
+        if let Some(cv) = stream.next_non_whitespace()
             && let ComponentValue::Function(func) = cv
         {
             let result = Self::parse_function(func)?;
-            stream.next_cv();
             return Ok(result);
         }
 
@@ -277,15 +274,10 @@ impl TryFrom<&Function> for Image {
 impl CSSParsable for Image {
     #[allow(clippy::option_if_let_else)]
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none") => {
-                        stream.next_cv();
-                        Ok(Self::None)
-                    }
+                    CssTokenKind::Ident(s) if s.eq_ignore_ascii_case("none") => Ok(Self::None),
                     _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 ComponentValue::Function(func) => Self::try_from(func).map_err(CssValueError::InvalidValue),

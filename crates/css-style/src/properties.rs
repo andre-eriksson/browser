@@ -181,15 +181,22 @@ impl<T: CSSParsable> CSSProperty<T> {
     /// If not, it tries to parse the stream into the specific type T and updates
     /// the property with the parsed value.
     pub(crate) fn update_property(property: &mut Self, stream: &mut ComponentValueStream) -> Result<(), CssValueError> {
-        let checkpoint = stream.checkpoint();
-
         if let Ok(global) = Global::parse(stream) {
+            if stream.has_remaining_tokens() {
+                return Err(CssValueError::InvalidValue("Unexpected extra tokens after global value".into()));
+            }
+
             *property = Self::Global(global);
             return Ok(());
         }
 
-        stream.restore(checkpoint);
-        *property = Self::from(T::parse(stream)?);
+        let val = T::parse(stream)?;
+
+        if stream.has_remaining_tokens() {
+            return Err(CssValueError::InvalidValue("Unexpected extra tokens after property value".into()));
+        }
+
+        *property = Self::from(val);
         Ok(())
     }
 }

@@ -485,24 +485,11 @@ pub struct CalcExpression {
 }
 
 impl CalcExpression {
-    /// Parse a `<calc-sum>` from a flat list of component values (i.e. the contents inside a `calc()` function).
-    pub fn parse(input: &[ComponentValue]) -> Result<Self, CssValueError> {
-        let mut stream = ComponentValueStream::new(input);
-        let sum = Self::parse_sum(&mut stream)?;
-
-        stream.skip_whitespace();
-        if stream.peek().is_some() {
-            return Err(CssValueError::UnexpectedRemainingInput);
-        }
-
-        Ok(Self { sum })
-    }
-
     /// Parse any CSS Calc function (calc, min, max, clamp) from its inner component values and function name.
     /// This dispatches to the appropriate parser based on the function name.
-    pub fn parse_math_function(name: &str, value: &[ComponentValue]) -> Result<Self, CssValueError> {
+    pub fn parse(name: &str, value: &[ComponentValue]) -> Result<Self, CssValueError> {
         if name.eq_ignore_ascii_case("calc") {
-            Self::parse(value)
+            Self::parse_calc(value)
         } else if name.eq_ignore_ascii_case("min") {
             let args = Self::parse_comma_separated_sums(value)?;
             if args.is_empty() {
@@ -671,24 +658,33 @@ impl CalcExpression {
         Ok(left)
     }
 
-    fn parse_value(stream: &mut ComponentValueStream) -> Result<CalcValue, CssValueError> {
-        stream.skip_whitespace();
+    /// Parse a `<calc-sum>` from a flat list of component values (i.e. the contents inside a `calc()` function).
+    fn parse_calc(input: &[ComponentValue]) -> Result<Self, CssValueError> {
+        let mut stream = ComponentValueStream::new(input);
+        let sum = Self::parse_sum(&mut stream)?;
 
-        let Some(cv) = stream.peek() else {
+        stream.skip_whitespace();
+        if stream.peek().is_some() {
+            return Err(CssValueError::UnexpectedRemainingInput);
+        }
+
+        Ok(Self { sum })
+    }
+
+    fn parse_value(stream: &mut ComponentValueStream) -> Result<CalcValue, CssValueError> {
+        let Some(cv) = stream.next_non_whitespace() else {
             return Err(CssValueError::UnexpectedEndOfInput);
         };
 
         match cv {
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("calc") => {
                 let func = func.clone();
-                stream.next_cv();
-                let nested = Self::parse(&func.value)?;
+                let nested = Self::parse_calc(&func.value)?;
                 Ok(CalcValue::NestedSum(Box::new(nested.sum)))
             }
 
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("min") => {
                 let func = func.clone();
-                stream.next_cv();
                 let args = Self::parse_comma_separated_sums(&func.value)?;
                 if args.is_empty() {
                     return Err(CssValueError::InvalidValue("min() requires at least one argument".into()));
@@ -698,7 +694,6 @@ impl CalcExpression {
 
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("max") => {
                 let func = func.clone();
-                stream.next_cv();
                 let args = Self::parse_comma_separated_sums(&func.value)?;
                 if args.is_empty() {
                     return Err(CssValueError::InvalidValue("max() requires at least one argument".into()));
@@ -708,46 +703,35 @@ impl CalcExpression {
 
             ComponentValue::Function(func) if func.name.eq_ignore_ascii_case("clamp") => {
                 let func = func.clone();
-                stream.next_cv();
                 let args = Self::parse_clamp_args(&func.value)?;
                 Ok(CalcValue::Clamp(args))
             }
 
             ComponentValue::SimpleBlock(block) if matches!(block.associated_token, AssociatedToken::Parenthesis) => {
                 let block = block.clone();
-                stream.next_cv();
-                let nested = Self::parse(&block.value)?;
+                let nested = Self::parse_calc(&block.value)?;
                 Ok(CalcValue::NestedSum(Box::new(nested.sum)))
             }
 
             ComponentValue::Token(token) => match &token.kind {
                 CssTokenKind::Number(num) => {
                     let val = num.to_f64();
-                    stream.next_cv();
                     Ok(CalcValue::Number(val))
                 }
 
                 CssTokenKind::Dimension { value, unit } => {
                     let dimension = Dimension::parse(value, unit)?;
-                    stream.next_cv();
                     Ok(CalcValue::Dimension(dimension))
                 }
 
                 CssTokenKind::Percentage(num) => {
                     let val = num.to_f64();
-                    stream.next_cv();
                     Ok(CalcValue::Percentage(Percentage::new(val)))
                 }
 
-                CssTokenKind::Ident(ident) => {
-                    let result = CalcKeyword::from_str(ident)
-                        .map(CalcValue::Keyword)
-                        .map_err(|_| CssValueError::InvalidValue(format!("Invalid calc() keyword: {ident}")));
-                    if result.is_ok() {
-                        stream.next_cv();
-                    }
-                    result
-                }
+                CssTokenKind::Ident(ident) => CalcKeyword::from_str(ident)
+                    .map(CalcValue::Keyword)
+                    .map_err(|_| CssValueError::InvalidValue(format!("Invalid calc() keyword: {ident}"))),
 
                 _ => Err(CssValueError::InvalidToken(token.kind.clone())),
             },
@@ -769,7 +753,7 @@ impl CalcExpression {
         }
 
         let min = Self::parse_clamp_bound(&segments[0])?;
-        let val = Self::parse(&segments[1])
+        let val = Self::parse_calc(&segments[1])
             .map(|e| Box::new(e.sum))
             .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() value argument: {e}")))?;
         let max = Self::parse_clamp_bound(&segments[2])?;
@@ -787,13 +771,12 @@ impl CalcExpression {
             && ident.eq_ignore_ascii_case("none")
         {
             stream.next_cv();
-            stream.skip_whitespace();
-            if stream.peek().is_none() {
+            if !stream.has_remaining_tokens() {
                 return Ok(None);
             }
         }
 
-        Self::parse(segment)
+        Self::parse_calc(segment)
             .map(|e| Some(Box::new(e.sum)))
             .map_err(|e| CssValueError::InvalidValue(format!("Invalid clamp() bound argument: {e}")))
     }
@@ -805,7 +788,7 @@ impl CalcExpression {
 
         let mut sums = Vec::with_capacity(segments.len());
         for segment in &segments {
-            let expr = Self::parse(segment)?;
+            let expr = Self::parse_calc(segment)?;
             sums.push(expr.sum);
         }
 

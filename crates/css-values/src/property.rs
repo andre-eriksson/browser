@@ -93,32 +93,32 @@ impl PropertySyntax {
         match self {
             Self::Universal => true,
             Self::Typed(components) => {
-                let stream = ComponentValueStream::new(values);
+                let mut stream = ComponentValueStream::new(values);
 
                 components.iter().any(|comp| match comp {
-                    SyntaxComponent::Angle => Angle::parse(&mut stream.clone()).is_ok(),
-                    SyntaxComponent::Color => Color::parse(&mut stream.clone()).is_ok(),
+                    SyntaxComponent::Angle => Angle::parse(&mut stream).is_ok(),
+                    SyntaxComponent::Color => Color::parse(&mut stream).is_ok(),
                     SyntaxComponent::CustomIdent => {
-                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(_))))
+                        stream.next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(_))))
                     }
                     SyntaxComponent::Ident(ident) => {
-                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(idt) if idt.eq_ignore_ascii_case(ident))))
+                        stream.next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Ident(idt) if idt.eq_ignore_ascii_case(ident))))
                     }
-                    SyntaxComponent::Image => Image::parse(&mut stream.clone()).is_ok(),
+                    SyntaxComponent::Image => Image::parse(&mut stream).is_ok(),
                     SyntaxComponent::Url => {
-                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Url(_))))
+                        stream.next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Url(_))))
                     }
                     SyntaxComponent::Integer => {
-                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(n) if n.is_integer())))
+                        stream.next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(n) if n.is_integer())))
                     }
-                    SyntaxComponent::Length => Length::parse(&mut stream.clone()).is_ok(),
-                    SyntaxComponent::LengthPercentage => LengthPercentage::parse(&mut stream.clone()).is_ok(),
+                    SyntaxComponent::Length => Length::parse(&mut stream).is_ok(),
+                    SyntaxComponent::LengthPercentage => LengthPercentage::parse(&mut stream).is_ok(),
                     SyntaxComponent::Number => {
-                        stream.clone().next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(_))))
+                        stream.next_non_whitespace().is_some_and(|cv| matches!(cv, ComponentValue::Token(token) if matches!(&token.kind, CssTokenKind::Number(_))))
                     }
-                    SyntaxComponent::Percentage => Percentage::parse(&mut stream.clone()).is_ok(),
-                    SyntaxComponent::Resolution => Resolution::parse(&mut stream.clone()).is_ok(),
-                    SyntaxComponent::Time => Time::parse(&mut stream.clone()).is_ok(),
+                    SyntaxComponent::Percentage => Percentage::parse(&mut stream).is_ok(),
+                    SyntaxComponent::Resolution => Resolution::parse(&mut stream).is_ok(),
+                    SyntaxComponent::Time => Time::parse(&mut stream).is_ok(),
                     SyntaxComponent::TransformFunction => false, // TODO: Support transform functions
                     SyntaxComponent::TransformList => false,     // TODO: Support transform functions
                 })

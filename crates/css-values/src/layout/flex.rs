@@ -17,16 +17,12 @@ impl Default for FlexBasis {
 
 impl CSSParsable for FlexBasis {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        let checkpoint = stream.checkpoint();
-
         if let Ok(size) = Size::parse(stream) {
             return Ok(Self::Size(size));
         }
 
-        stream.restore(checkpoint);
-
         stream
-            .next_non_whitespace()
+            .peek()
             .ok_or(CssValueError::ExpectedComponentValue)
             .and_then(|cv| {
                 cv.as_token()

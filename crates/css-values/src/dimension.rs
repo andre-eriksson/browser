@@ -40,7 +40,7 @@ impl TryFrom<&ComponentValue> for Size {
         match cv {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
-                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
@@ -123,13 +123,11 @@ impl MaxSize {
 
 impl CSSParsable for MaxSize {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
-
-        if let Some(cv) = stream.peek() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        let expr = CalcExpression::parse_math_function(&func.name, func.value.as_slice())?;
+                        let expr = CalcExpression::parse(&func.name, func.value.as_slice())?;
                         let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
@@ -203,7 +201,7 @@ impl CSSParsable for OffsetValue {
         if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, crate::calc::CalcDomain::Length | crate::calc::CalcDomain::Percentage) {
@@ -281,7 +279,7 @@ impl CSSParsable for MarginValue {
         if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let expr = CalcExpression::parse(&func.name, &func.value)?;
                     let domain = expr.resolve_domain()?;
 
                     if !matches!(domain, crate::calc::CalcDomain::Length | crate::calc::CalcDomain::Percentage) {

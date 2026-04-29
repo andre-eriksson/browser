@@ -34,7 +34,6 @@ impl CSSParsable for Global {
             && let CssTokenKind::Ident(ident) = &token.kind
             && let Ok(global) = ident.parse()
         {
-            stream.next_cv();
             return Ok(global);
         }
 

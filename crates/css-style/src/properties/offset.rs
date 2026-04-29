@@ -86,7 +86,7 @@ impl CSSParsable for Offset {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     offset_values
-                        .push(OffsetValue::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?));
+                        .push(OffsetValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -191,7 +191,7 @@ impl CSSParsable for Margin {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     offset_values
-                        .push(MarginValue::Calc(CalcExpression::parse_math_function(&func.name, &func.value)?));
+                        .push(MarginValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {

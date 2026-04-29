@@ -27,7 +27,7 @@ impl PosToken {
         match stream.next_non_whitespace()? {
             ComponentValue::Function(func) => {
                 if is_math_function(&func.name) {
-                    let expr = CalcExpression::parse_math_function(&func.name, &func.value).ok()?;
+                    let expr = CalcExpression::parse(&func.name, &func.value).ok()?;
                     let domain = expr.resolve_domain().ok()?;
 
                     if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
@@ -328,7 +328,7 @@ impl CSSParsable for SideOrCorner {
         let mut horizontal: Option<HorizontalSide> = None;
         let mut vertical: Option<VerticalSide> = None;
 
-        while let Some(cv) = stream.next_cv() {
+        while let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Ident(ident) => {
@@ -350,7 +350,6 @@ impl CSSParsable for SideOrCorner {
                             )));
                         }
                     }
-                    CssTokenKind::Whitespace => {}
                     _ => return Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
                 cvs => return Err(CssValueError::InvalidComponentValue(cvs.clone())),
@@ -384,22 +383,22 @@ pub enum PositionOne {
 
 impl CSSParsable for PositionOne {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        while let Some(cv) = stream.next_cv() {
+        if let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) => {
                     if is_math_function(&func.name) {
-                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                        let expr = CalcExpression::parse(&func.name, &func.value)?;
                         let domain = expr.resolve_domain()?;
 
                         if !matches!(domain, CalcDomain::Length | CalcDomain::Percentage) {
-                            return Err(CssValueError::InvalidValue(format!(
+                            Err(CssValueError::InvalidValue(format!(
                                 "Expected length or percentage math function for <position-one>, got {domain:?}"
-                            )));
+                            )))
+                        } else {
+                            Ok(Self::LengthPercentage(LengthPercentage::Calc(expr)))
                         }
-
-                        return Ok(Self::LengthPercentage(LengthPercentage::Calc(expr)));
                     } else {
-                        return Err(CssValueError::InvalidFunction(func.name.clone()));
+                        Err(CssValueError::InvalidFunction(func.name.clone()))
                     }
                 }
                 ComponentValue::Token(token) => match &token.kind {
@@ -415,26 +414,26 @@ impl CSSParsable for PositionOne {
                         } else if let Ok(i) = ident.parse() {
                             return Ok(Self::InlineAxis(i));
                         }
-                        return Err(CssValueError::InvalidValue(format!("Unknown position keyword: '{ident}'")));
+                        Err(CssValueError::InvalidValue(format!("Unknown position keyword: '{ident}'")))
                     }
                     CssTokenKind::Dimension { value, unit } => {
                         let len_unit = unit
                             .parse::<LengthUnit>()
                             .map_err(|_| CssValueError::InvalidUnit(unit.clone()))?;
                         let len = Length::new(value.to_f64(), len_unit);
-                        return Ok(Self::LengthPercentage(LengthPercentage::Length(len)));
+                        Ok(Self::LengthPercentage(LengthPercentage::Length(len)))
                     }
                     CssTokenKind::Percentage(pct) => {
                         let percentage = Percentage::new(pct.to_f64());
-                        return Ok(Self::LengthPercentage(LengthPercentage::Percentage(percentage)));
+                        Ok(Self::LengthPercentage(LengthPercentage::Percentage(percentage)))
                     }
-                    _ => {}
+                    _ => Err(CssValueError::InvalidToken(token.kind.clone())),
                 },
-                cvs => return Err(CssValueError::InvalidComponentValue(cvs.clone())),
+                cvs => Err(CssValueError::InvalidComponentValue(cvs.clone())),
             }
+        } else {
+            Err(CssValueError::InvalidValue("Expected a position keyword or length/percentage".into()))
         }
-
-        Err(CssValueError::InvalidValue("Expected a position keyword or length/percentage".into()))
     }
 }
 
@@ -741,11 +740,10 @@ impl CSSParsable for Position {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         let checkpoint = stream.checkpoint();
 
-        if let Ok(v) = PositionFour::parse(stream) {
-            stream.skip_whitespace();
-            if stream.peek().is_none() {
-                return Ok(Self::Four(v));
-            }
+        if let Ok(v) = PositionFour::parse(stream)
+            && !stream.has_remaining_tokens()
+        {
+            return Ok(Self::Four(v));
         }
         stream.restore(checkpoint);
 
@@ -754,19 +752,17 @@ impl CSSParsable for Position {
         }
         stream.restore(checkpoint);
 
-        if let Ok(v) = PositionTwo::parse(stream) {
-            stream.skip_whitespace();
-            if stream.peek().is_none() {
-                return Ok(Self::Two(v));
-            }
+        if let Ok(v) = PositionTwo::parse(stream)
+            && !stream.has_remaining_tokens()
+        {
+            return Ok(Self::Two(v));
         }
         stream.restore(checkpoint);
 
-        if let Ok(v) = PositionOne::parse(stream) {
-            stream.skip_whitespace();
-            if stream.peek().is_none() {
-                return Ok(Self::One(v));
-            }
+        if let Ok(v) = PositionOne::parse(stream)
+            && !stream.has_remaining_tokens()
+        {
+            return Ok(Self::One(v));
         }
 
         Err(CssValueError::InvalidValue(
