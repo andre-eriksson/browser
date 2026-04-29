@@ -21,34 +21,64 @@ impl From<f64> for NumberOrCalc {
     }
 }
 
+impl TryFrom<NumberOrCalc> for f64 {
+    type Error = CssValueError;
+
+    fn try_from(value: NumberOrCalc) -> Result<Self, Self::Error> {
+        match value {
+            NumberOrCalc::Number(n) => Ok(n),
+            NumberOrCalc::Calc(expr) => {
+                if let Ok(evaluated) = expr.evaluate()
+                    && evaluated.1 == CalcDomain::Number
+                {
+                    return Ok(evaluated.0);
+                }
+
+                Err(CssValueError::InvalidCalcDomain {
+                    expected: vec![CalcDomain::Number],
+                    found: expr.resolve_domain()?,
+                })
+            }
+        }
+    }
+}
+
+impl TryFrom<&ComponentValue> for NumberOrCalc {
+    type Error = CssValueError;
+
+    fn try_from(cv: &ComponentValue) -> Result<Self, Self::Error> {
+        match cv {
+            ComponentValue::Token(token) => match &token.kind {
+                CssTokenKind::Number(numeric) => Ok(Self::Number(numeric.to_f64())),
+                kind => Err(CssValueError::InvalidToken(kind.clone())),
+            },
+            ComponentValue::Function(func) => {
+                if is_math_function(&func.name) {
+                    let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
+                    let domain = expr.resolve_domain()?;
+
+                    if !matches!(domain, CalcDomain::Number) {
+                        return Err(CssValueError::InvalidCalcDomain {
+                            expected: vec![CalcDomain::Number],
+                            found: domain,
+                        });
+                    }
+
+                    Ok(Self::Calc(expr))
+                } else {
+                    Err(CssValueError::InvalidFunction(func.name.clone()))
+                }
+            }
+            _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
+        }
+    }
+}
+
 impl CSSParsable for NumberOrCalc {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         stream
             .next_non_whitespace()
-            .map_or(Err(CssValueError::UnexpectedEndOfInput), |cv| match cv {
-                ComponentValue::Token(token) => match &token.kind {
-                    CssTokenKind::Number(numeric) => Ok(Self::Number(numeric.to_f64())),
-                    kind => Err(CssValueError::InvalidToken(kind.clone())),
-                },
-                ComponentValue::Function(func) => {
-                    if is_math_function(&func.name) {
-                        let expr = CalcExpression::parse_math_function(&func.name, &func.value)?;
-                        let domain = expr.resolve_domain()?;
-
-                        if !matches!(domain, CalcDomain::Number) {
-                            return Err(CssValueError::InvalidCalcDomain {
-                                expected: vec![CalcDomain::Number],
-                                found: domain,
-                            });
-                        }
-
-                        Ok(Self::Calc(expr))
-                    } else {
-                        Err(CssValueError::InvalidFunction(func.name.clone()))
-                    }
-                }
-                _ => Err(CssValueError::InvalidComponentValue(cv.clone())),
-            })
+            .map_or(Err(CssValueError::UnexpectedEndOfInput), Self::try_from)
     }
 }
 
@@ -151,9 +181,54 @@ impl CSSParsable for Ratio {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flex(pub NumberOrCalc);
 
+impl TryFrom<&ComponentValue> for Flex {
+    type Error = CssValueError;
+
+    fn try_from(cv: &ComponentValue) -> Result<Self, Self::Error> {
+        NumberOrCalc::try_from(cv).map(Self)
+    }
+}
+
 impl CSSParsable for Flex {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
         NumberOrCalc::parse(stream).map(Self)
+    }
+}
+
+impl TryFrom<Flex> for f64 {
+    type Error = CssValueError;
+
+    fn try_from(value: Flex) -> Result<Self, Self::Error> {
+        value.0.try_into()
+    }
+}
+
+impl From<f64> for Flex {
+    fn from(value: f64) -> Self {
+        Self(NumberOrCalc::Number(value))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Order(pub NumberOrCalc);
+
+impl CSSParsable for Order {
+    fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
+        NumberOrCalc::parse(stream).map(Self)
+    }
+}
+
+impl TryFrom<Order> for f64 {
+    type Error = CssValueError;
+
+    fn try_from(value: Order) -> Result<Self, Self::Error> {
+        value.0.try_into()
+    }
+}
+
+impl From<f64> for Order {
+    fn from(value: f64) -> Self {
+        Self(NumberOrCalc::Number(value))
     }
 }
 

@@ -3,6 +3,7 @@ use std::sync::Arc;
 use browser_config::BrowserConfig;
 use css_cssom::{ComponentValue, Property};
 use css_values::{
+    AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent, JustifyItems, JustifySelf,
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
@@ -16,6 +17,7 @@ use crate::{
     RelativeType, clone_compute, compute, compute_px,
     computed::{
         image::ComputedBackgroundImage,
+        layout::{ComputedFlexBasis, ComputedGap},
         offset::{ComputedMargin, ComputedOffset},
         position::ComputedBackgroundSize,
     },
@@ -36,6 +38,7 @@ pub mod color;
 pub mod dimension;
 mod handler;
 pub mod image;
+pub mod layout;
 pub mod offset;
 pub mod position;
 
@@ -46,6 +49,9 @@ pub mod position;
 /// with all values resolved to their final forms (e.g., colors as RGBA, lengths in pixels, etc.).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComputedStyle {
+    pub align_content: AlignContent,
+    pub align_items: AlignItems,
+    pub align_self: AlignSelf,
     pub background_attachment: BackgroundAttachment,
     pub background_blend_mode: BackgroundBlendMode,
     pub background_clip: BackgroundClip,
@@ -71,13 +77,22 @@ pub struct ComputedStyle {
     pub bottom: ComputedMargin,
     pub clear: Clear,
     pub color: Color4f,
+    pub column_gap: ComputedGap,
     pub cursor: Cursor,
     pub display: Display,
+    pub flex_basis: ComputedFlexBasis,
+    pub flex_direction: FlexDirection,
+    pub flex_grow: f64,
+    pub flex_shrink: f64,
+    pub flex_wrap: FlexWrap,
     pub float: Float,
     pub font_family: Arc<FontFamily>,
     pub font_size: f64,
     pub font_weight: u16,
     pub height: ComputedSize,
+    pub justify_content: JustifyContent,
+    pub justify_items: JustifyItems,
+    pub justify_self: JustifySelf,
     pub left: ComputedMargin,
     pub line_height: f64,
     pub margin_bottom: ComputedMargin,
@@ -86,12 +101,14 @@ pub struct ComputedStyle {
     pub margin_top: ComputedMargin,
     pub max_height: ComputedMaxSize,
     pub max_width: ComputedMaxSize,
+    pub order: i64,
     pub padding_bottom: ComputedOffset,
     pub padding_left: ComputedOffset,
     pub padding_right: ComputedOffset,
     pub padding_top: ComputedOffset,
     pub position: Position,
     pub right: ComputedMargin,
+    pub row_gap: ComputedGap,
     pub text_align: TextAlign,
     pub top: ComputedMargin,
     pub whitespace: Whitespace,
@@ -133,6 +150,23 @@ impl ComputedStyle {
         let max_height = into_compute!(specified_style, parent, max_height);
         let width = into_compute!(specified_style, parent, width);
         let max_width = into_compute!(specified_style, parent, max_width);
+        let order = {
+            let order = specified_style
+                .order
+                .resolve_with_context(&(parent.order as f64).into(), &(0 as f64).into())
+                .0
+                .clone()
+                .try_into()
+                .unwrap_or(0.0)
+                .round();
+
+            if (order.is_finite() && order <= i64::MAX as f64 && order >= i64::MIN as f64) || order.is_infinite() {
+                order as i64
+            } else {
+                0
+            }
+        };
+
         let font_size = specified_style
             .font_size
             .compute(FontSize::px(parent.font_size))
@@ -143,6 +177,9 @@ impl ComputedStyle {
         relative_ctx.font_size = font_size;
 
         let mut computed = Self {
+            align_content: compute!(specified_style, parent, align_content),
+            align_items: compute!(specified_style, parent, align_items),
+            align_self: compute!(specified_style, parent, align_self),
             background_attachment: clone_compute!(specified_style, parent, background_attachment),
             background_blend_mode: clone_compute!(specified_style, parent, background_blend_mode),
             background_clip: clone_compute!(specified_style, parent, background_clip),
@@ -233,8 +270,38 @@ impl ComputedStyle {
                 relative_ctx,
                 absolute_ctx,
             ),
+            column_gap: ComputedGap::resolve(
+                specified_style.column_gap.compute(parent.column_gap.into()),
+                RelativeType::BackgroundArea,
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
             cursor: compute!(specified_style, parent, cursor),
             display: compute!(specified_style, parent, display).adjust_float(float),
+            flex_basis: ComputedFlexBasis::resolve(
+                specified_style.flex_basis.compute(parent.flex_basis.into()),
+                RelativeType::BackgroundArea, // TODO: flex container's inner main size
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
+            flex_direction: compute!(specified_style, parent, flex_direction),
+            flex_grow: specified_style
+                .flex_grow
+                .resolve_with_context(&parent.flex_grow.into(), &0.0f64.into())
+                .0
+                .clone()
+                .try_into()
+                .unwrap_or(0.0),
+            flex_shrink: specified_style
+                .flex_shrink
+                .resolve_with_context(&parent.flex_shrink.into(), &1.0f64.into())
+                .0
+                .clone()
+                .try_into()
+                .unwrap_or(1.0),
+            flex_wrap: compute!(specified_style, parent, flex_wrap),
             float,
             font_family: Arc::new(
                 specified_style
@@ -247,15 +314,16 @@ impl ComputedStyle {
                 .compute(parent.font_weight.into()) as u16,
             height: ComputedSize::resolve(height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
                 .unwrap_or_default(),
+            justify_content: compute!(specified_style, parent, justify_content),
+            justify_items: compute!(specified_style, parent, justify_items),
+            justify_self: compute!(specified_style, parent, justify_self),
             left: ComputedMargin::resolve(left, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
             max_height: ComputedMaxSize::resolve(max_height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
                 .unwrap_or_default(),
-            line_height: compute_px!(specified_style, parent, line_height, LineHeight).to_px_unchecked(
-                None,
-                Some(relative_ctx),
-                absolute_ctx,
-            ),
+            line_height: compute_px!(specified_style, parent, line_height, LineHeight)
+                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .unwrap(),
             margin_top: ComputedMargin::resolve(
                 margin_top,
                 Some(RelativeType::ParentWidth),
@@ -284,6 +352,7 @@ impl ComputedStyle {
                 absolute_ctx,
             )
             .unwrap_or_default(),
+            order,
             padding_top: ComputedOffset::resolve(
                 padding_top,
                 Some(RelativeType::ParentWidth),
@@ -315,6 +384,13 @@ impl ComputedStyle {
             position: compute!(specified_style, parent, position),
             right: ComputedMargin::resolve(right, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
+            row_gap: ComputedGap::resolve(
+                specified_style.row_gap.compute(parent.row_gap.into()),
+                RelativeType::BackgroundArea,
+                relative_ctx,
+                absolute_ctx,
+            )
+            .unwrap_or_default(),
             text_align: compute!(specified_style, parent, text_align),
             top: ComputedMargin::resolve(top, Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
@@ -348,6 +424,9 @@ impl ComputedStyle {
 impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
+            align_content: AlignContent::default(),
+            align_items: AlignItems::default(),
+            align_self: AlignSelf::default(),
             background_attachment: BackgroundAttachment::default(),
             background_blend_mode: BackgroundBlendMode::default(),
             background_clip: BackgroundClip::default(),
@@ -373,13 +452,22 @@ impl Default for ComputedStyle {
             bottom: 0.0.into(),
             clear: Clear::default(),
             color: Color4f::BLACK,
+            column_gap: ComputedGap::default(),
             cursor: Cursor::default(),
             display: Display::default(),
+            flex_basis: ComputedFlexBasis::default(),
+            flex_direction: FlexDirection::default(),
+            flex_grow: 0.0,
+            flex_shrink: 1.0,
+            flex_wrap: FlexWrap::default(),
             float: Float::default(),
             font_family: Arc::new(FontFamily::default()),
             font_size: 16.0,
             font_weight: 500,
             height: ComputedSize::Auto,
+            justify_content: JustifyContent::default(),
+            justify_items: JustifyItems::default(),
+            justify_self: JustifySelf::default(),
             left: 0.0.into(),
             line_height: 1.5 * 16.0,
             margin_bottom: 0.0.into(),
@@ -388,12 +476,14 @@ impl Default for ComputedStyle {
             margin_top: 0.0.into(),
             max_height: ComputedMaxSize::None,
             max_width: ComputedMaxSize::None,
+            order: 0,
             padding_bottom: 0.0.into(),
             padding_left: 0.0.into(),
             padding_right: 0.0.into(),
             padding_top: 0.0.into(),
             position: Position::Static,
             right: 0.0.into(),
+            row_gap: ComputedGap::default(),
             text_align: TextAlign::Start,
             top: 0.0.into(),
             whitespace: Whitespace::Normal,

@@ -1,6 +1,6 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, HashType};
 use css_values::{
-    CSSParsable,
+    CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap,
     background::{Attachment, BgClip, RepeatStyle, Size, VisualBox, WidthHeightSize},
     border::{BorderStyle, BorderWidth},
     calc::CalcKind,
@@ -9,7 +9,7 @@ use css_values::{
     error::CssValueError,
     global::Global,
     image::Image,
-    numeric::Percentage,
+    numeric::{Flex, NumberOrCalc, Percentage},
     position::BgPosition,
     quantity::{Length, LengthUnit},
     text::{FontSize, FontWeight, WritingMode},
@@ -228,6 +228,9 @@ macro_rules! logical_edge_handler {
 
 offset_shorthand_handler!(handle_margin, Margin, "margin", margin_top, margin_right, margin_bottom, margin_left);
 offset_shorthand_handler!(handle_padding, Offset, "padding", padding_top, padding_right, padding_bottom, padding_left);
+simple_property_handler!(handle_align_content, align_content, "align-content");
+simple_property_handler!(handle_align_items, align_items, "align-items");
+simple_property_handler!(handle_align_self, align_self, "align-self");
 simple_property_handler!(handle_background_attachment, background_attachment, "background-attachment");
 simple_property_handler!(handle_background_blend_mode, background_blend_mode, "background-blend-mode");
 simple_property_handler!(handle_background_clip, background_clip, "background-clip");
@@ -253,11 +256,20 @@ simple_property_handler!(handle_border_top_width, border_top_width, "border-top-
 simple_property_handler!(handle_bottom, bottom, "bottom");
 simple_property_handler!(handle_clear, clear, "clear");
 simple_property_handler!(handle_color, color, "color");
+simple_property_handler!(handle_column_gap, column_gap, "column-gap");
 simple_property_handler!(handle_cursor, cursor, "cursor");
 simple_property_handler!(handle_display, display, "display");
+simple_property_handler!(handle_flex_basis, flex_basis, "flex-basis");
+simple_property_handler!(handle_flex_direction, flex_direction, "flex-direction");
+simple_property_handler!(handle_flex_grow, flex_grow, "flex-grow");
+simple_property_handler!(handle_flex_shrink, flex_shrink, "flex-shrink");
+simple_property_handler!(handle_flex_wrap, flex_wrap, "flex-wrap");
 simple_property_handler!(handle_float, float, "float");
 simple_property_handler!(handle_font_family, font_family, "font-family");
 simple_property_handler!(handle_height, height, "height");
+simple_property_handler!(handle_justify_content, justify_content, "justify-content");
+simple_property_handler!(handle_justify_items, justify_items, "justify-items");
+simple_property_handler!(handle_justify_self, justify_self, "justify-self");
 simple_property_handler!(handle_left, left, "left");
 simple_property_handler!(handle_line_height, line_height, "line-height");
 simple_property_handler!(handle_margin_bottom, margin_bottom, "margin-bottom");
@@ -266,12 +278,14 @@ simple_property_handler!(handle_margin_right, margin_right, "margin-right");
 simple_property_handler!(handle_margin_top, margin_top, "margin-top");
 simple_property_handler!(handle_max_height, max_height, "max-height");
 simple_property_handler!(handle_max_width, max_width, "max-width");
+simple_property_handler!(handle_order, order, "order");
 simple_property_handler!(handle_padding_bottom, padding_bottom, "padding-bottom");
 simple_property_handler!(handle_padding_left, padding_left, "padding-left");
 simple_property_handler!(handle_padding_right, padding_right, "padding-right");
 simple_property_handler!(handle_padding_top, padding_top, "padding-top");
 simple_property_handler!(handle_position, position, "position");
 simple_property_handler!(handle_right, right, "right");
+simple_property_handler!(handle_row_gap, row_gap, "row-gap");
 simple_property_handler!(handle_text_align, text_align, "text-align");
 simple_property_handler!(handle_top, top, "top");
 simple_property_handler!(handle_whitespace, whitespace, "white-space");
@@ -1055,6 +1069,188 @@ pub fn handle_border_width(ctx: &mut PropertyUpdateContext, stream: &mut Compone
     }
 }
 
+pub fn handle_flex(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.flex_grow = CSSProperty::Global(global);
+        ctx.specified_style.flex_shrink = CSSProperty::Global(global);
+        ctx.specified_style.flex_basis = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+
+    let mut grow = None;
+    let mut shrink = None;
+    let mut basis = None;
+
+    while let Some(cv) = stream.next_non_whitespace() {
+        if grow.is_some() && shrink.is_some() && basis.is_some() {
+            ctx.record_error_from_stream(
+                "flex",
+                stream,
+                CssValueError::InvalidValue("Too many values for flex property".to_string()),
+            );
+            return;
+        }
+
+        if let ComponentValue::Token(token) = cv
+            && let CssTokenKind::Ident(ident) = &token.kind
+            && ident.eq_ignore_ascii_case("none")
+        {
+            if grow.is_some() || shrink.is_some() || basis.is_some() {
+                ctx.record_error_from_stream(
+                    "flex",
+                    stream,
+                    CssValueError::InvalidValue(
+                        "'none' cannot be combined with other values in flex property".to_string(),
+                    ),
+                );
+                return;
+            }
+
+            if stream.next_non_whitespace().is_some() {
+                ctx.record_error_from_stream(
+                    "flex",
+                    stream,
+                    CssValueError::InvalidValue("Unexpected token after 'none'".to_string()),
+                );
+                return;
+            }
+
+            grow = Some(Flex(NumberOrCalc::Number(0.0)));
+            shrink = Some(Flex(NumberOrCalc::Number(0.0)));
+            basis = Some(FlexBasis::Size(css_values::dimension::Size::Auto));
+
+            break;
+        }
+
+        if grow.is_none()
+            && let Ok(g) = Flex::try_from(cv)
+        {
+            grow = Some(g);
+            continue;
+        }
+
+        if shrink.is_none()
+            && grow.is_some()
+            && let Ok(s) = Flex::try_from(cv)
+        {
+            shrink = Some(s);
+            continue;
+        }
+
+        if basis.is_none() {
+            if let Ok(size) = css_values::dimension::Size::try_from(cv) {
+                basis = Some(FlexBasis::Size(size));
+                continue;
+            } else if let ComponentValue::Token(token) = cv
+                && let CssTokenKind::Ident(ident) = &token.kind
+                && ident.eq_ignore_ascii_case("content")
+            {
+                basis = Some(FlexBasis::Content);
+                continue;
+            }
+        }
+
+        ctx.record_error_from_stream(
+            "flex",
+            stream,
+            CssValueError::InvalidValue("Invalid value in flex property".to_string()),
+        );
+        return;
+    }
+
+    if grow.is_some() && shrink.is_none() && basis.is_none() {
+        shrink = Some(Flex(NumberOrCalc::Number(1.0)));
+        basis = Some(FlexBasis::Size(css_values::dimension::Size::Percentage(Percentage::new(0.0))))
+    } else if grow.is_none() && shrink.is_none() && basis.is_some() {
+        grow = Some(Flex(NumberOrCalc::Number(1.0)));
+        shrink = Some(Flex(NumberOrCalc::Number(1.0)));
+    } else if grow.is_some() && shrink.is_some() && basis.is_none() {
+        basis = Some(FlexBasis::Size(css_values::dimension::Size::Percentage(Percentage::new(0.0))));
+    }
+
+    if let Some(g) = grow {
+        ctx.specified_style.flex_grow = CSSProperty::Value(g);
+    }
+
+    if let Some(s) = shrink {
+        ctx.specified_style.flex_shrink = CSSProperty::Value(s);
+    }
+
+    if let Some(b) = basis {
+        ctx.specified_style.flex_basis = CSSProperty::Value(b);
+    }
+}
+
+pub fn handle_flex_flow(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.flex_direction = CSSProperty::Global(global);
+        ctx.specified_style.flex_wrap = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+
+    let mut direction = None;
+    let mut wrap = None;
+
+    let mut parsed_any = false;
+    let mut invalid = false;
+
+    while let Some(cv) = stream.next_non_whitespace() {
+        let ComponentValue::Token(token) = cv else {
+            invalid = true;
+            break;
+        };
+
+        let CssTokenKind::Ident(ident) = &token.kind else {
+            invalid = true;
+            break;
+        };
+
+        if direction.is_none()
+            && let Ok(d) = ident.parse::<FlexDirection>()
+        {
+            direction = Some(d);
+            parsed_any = true;
+            continue;
+        }
+
+        if wrap.is_none()
+            && let Ok(w) = ident.parse::<FlexWrap>()
+        {
+            wrap = Some(w);
+            parsed_any = true;
+            continue;
+        }
+
+        invalid = true;
+        break;
+    }
+
+    if invalid || !parsed_any {
+        ctx.record_error_from_stream(
+            "flex-flow",
+            stream,
+            CssValueError::InvalidValue("Invalid value in flex-flow property".to_string()),
+        );
+        return;
+    }
+
+    if let Some(d) = direction {
+        ctx.specified_style.flex_direction = CSSProperty::Value(d);
+    }
+
+    if let Some(w) = wrap {
+        ctx.specified_style.flex_wrap = CSSProperty::Value(w);
+    }
+}
+
 /// Handles the `font-size` property by updating the specified style's font size based on the provided component values. The function first attempts to update the font size
 /// using the `CSSProperty::update_property` method.
 pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
@@ -1173,6 +1369,57 @@ pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut Componen
 
     if let Err(e) = CSSProperty::update_property(&mut ctx.specified_style.font_weight, stream) {
         ctx.record_error_from_stream("font-weight", stream, e);
+    }
+}
+
+pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
+    let checkpoint = stream.checkpoint();
+
+    if let Ok(global) = Global::parse(stream) {
+        ctx.specified_style.row_gap = CSSProperty::Global(global);
+        ctx.specified_style.column_gap = CSSProperty::Global(global);
+        return;
+    }
+
+    stream.restore(checkpoint);
+
+    let row_gap = Gap::parse(stream);
+    stream.next_cv();
+    stream.skip_whitespace();
+
+    if stream.peek().is_none() {
+        match row_gap {
+            Ok(rg) => {
+                ctx.specified_style.row_gap = CSSProperty::Value(rg.clone());
+                ctx.specified_style.column_gap = CSSProperty::Value(rg);
+            }
+            Err(e) => {
+                ctx.record_error_from_stream("gap", stream, e);
+            }
+        }
+
+        return;
+    }
+
+    let column_gap = Gap::parse(stream);
+    stream.next_cv();
+    stream.skip_whitespace();
+
+    if let Some(cv) = stream.peek() {
+        ctx.record_error_from_stream(
+            "gap",
+            stream,
+            CssValueError::InvalidValue(format!("Unexpected token after gap values: {:?}", cv)),
+        );
+
+        return;
+    }
+
+    if let (Ok(rg), Ok(cg)) = (row_gap, column_gap) {
+        ctx.specified_style.row_gap = CSSProperty::Value(rg);
+        ctx.specified_style.column_gap = CSSProperty::Value(cg);
+    } else {
+        ctx.record_error_from_stream("gap", stream, CssValueError::InvalidValue("Invalid gap values".to_string()));
     }
 }
 
@@ -1466,5 +1713,117 @@ mod tests {
             }
             _ => panic!("expected background-position-y value"),
         }
+    }
+
+    #[test]
+    fn test_flex() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex: 1 0 auto;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.flex_grow, CSSProperty::Value(Flex(NumberOrCalc::Number(1.0))));
+        assert_eq!(specified.flex_shrink, CSSProperty::Value(Flex(NumberOrCalc::Number(0.0))));
+        assert_eq!(specified.flex_basis, CSSProperty::Value(FlexBasis::Size(css_values::dimension::Size::Auto)));
+    }
+
+    #[test]
+    fn test_flex_flow() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex-flow: column-reverse wrap;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex_flow(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.flex_direction, CSSProperty::Value(FlexDirection::ColumnReverse));
+        assert_eq!(specified.flex_wrap, CSSProperty::Value(FlexWrap::Wrap));
+    }
+
+    #[test]
+    fn test_gap() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("gap: 10px 20px;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_gap(&mut ctx, &mut stream);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.row_gap, CSSProperty::Value(Gap::Length(Length::new(10.0, LengthUnit::Px))));
+        assert_eq!(specified.column_gap, CSSProperty::Value(Gap::Length(Length::new(20.0, LengthUnit::Px))));
+    }
+
+    #[test]
+    fn test_flex_invalid() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex: 1 1 1 1;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+    }
+
+    #[test]
+    fn test_flex_flow_invalid() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("flex-flow: row unknown-wrap;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_flex_flow(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+    }
+
+    #[test]
+    fn test_gap_invalid() {
+        let abs = absoulte_ctx();
+        let rel = RelativeContext::default();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("gap: invalid-gap;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_gap(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+
+        let decls = CSSStyleSheet::from_inline("gap: 10px 20px 30px;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+
+        handle_gap(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
     }
 }
