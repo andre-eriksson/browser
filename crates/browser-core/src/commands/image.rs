@@ -1,4 +1,4 @@
-use html_dom::Decoder;
+use html_escape::decode_html_entities;
 use io::DocumentPolicy;
 use network::errors::{NetworkError, RequestError};
 use tracing::debug;
@@ -27,11 +27,7 @@ pub async fn load_image(
         .cookies()
         .clone();
 
-    let decoder = Decoder::new(image_url);
-    let decoded_url = decoder.decode().map_err(|error| NavigationError::Request {
-        source: RequestError::Network(NetworkError::Decode(error)),
-        url: image_url.to_string(),
-    })?;
+    let decoded_url = decode_html_entities(image_url);
 
     let absolute_url = url
         .join(&decoded_url)

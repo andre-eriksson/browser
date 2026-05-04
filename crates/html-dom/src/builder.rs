@@ -1,8 +1,8 @@
+use html_escape::decode_html_entities;
 use html_tokenizer::{Token, TokenKind};
 
 use crate::{
     collector::{Collector, TagInfo},
-    decode::Decoder,
     dom::{DocumentRoot, Element, NodeData, NodeId},
     tag::Tag,
 };
@@ -188,16 +188,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `token` - A reference to the `Token` containing the text content to be processed.
     fn handle_text_content(&mut self, token: Token) {
-        let mut text_content = token.data;
-
-        if text_content.contains('&') {
-            let decoder = Decoder::new(&text_content);
-            let result = decoder.decode();
-
-            if let Ok(decoded) = result {
-                text_content = decoded;
-            }
-        }
+        let text_content = decode_html_entities(&token.data);
 
         if let Some(last_id) = self.open_elements.last()
             && let Some(parent_node) = self.dom_tree.get_node(last_id)
@@ -205,7 +196,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
         {
             let tag = &parent_elem.tag.clone();
             let attributes = &parent_elem.attributes.clone();
-            let text_data = NodeData::Text(text_content);
+            let text_data = NodeData::Text(text_content.trim().to_string());
             let new_id = self.insert_node(&text_data);
 
             self.collector.collect(&TagInfo {

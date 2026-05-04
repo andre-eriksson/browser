@@ -12,6 +12,7 @@ cookies.workspace = true
 css-cssom.workspace = true
 css-style.workspace = true
 html-dom.workspace = true
+html-escape.workspace = true
 html-parser.workspace = true
 io = { workspace = true, features = ["network"] }
 network.workspace = true

@@ -587,6 +587,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bootstrap-fuzz"
+version = "0.0.0"
+dependencies = [
+ "css-cssom",
+ "html-parser",
+ "html-tokenizer",
+ "libfuzzer-sys",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -630,6 +640,7 @@ dependencies = [
  "css-cssom",
  "css-style",
  "html-dom",
+ "html-escape",
  "html-parser",
  "io",
  "manifest",
@@ -2205,9 +2216,19 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 name = "html-dom"
 version = "0.1.0"
 dependencies = [
+ "html-escape",
  "html-tokenizer",
  "strum",
  "tracing",
+]
+
+[[package]]
+name = "html-escape"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d1ad449764d627e22bfd7cd5e8868264fc9236e07c752972b4080cd351cb476"
+dependencies = [
+ "utf8-width",
 ]
 
 [[package]]
@@ -5838,6 +5859,12 @@ dependencies = [
  "unicode-vo",
  "xmlwriter",
 ]
+
+[[package]]
+name = "utf8-width"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1292c0d970b54115d14f2492fe0170adf21d68a1de108eebc51c1df4f346a091"
 
 [[package]]
 name = "utf8_iter"

@@ -6,7 +6,7 @@ use crate::{
 };
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use html_dom::Decoder;
+use html_escape::decode_html_entities;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
 use io::{CookieMiddleware, DocumentPolicy, Resource};
 use network::{
@@ -350,11 +350,7 @@ async fn resolve_navigation_request(
         return Ok((url, resp));
     }
 
-    let decoder = Decoder::new(raw_url);
-    let decoded_url = decoder.decode().map_err(|error| NavigationError::Request {
-        source: RequestError::Network(NetworkError::Decode(error)),
-        url: raw_url.to_string(),
-    })?;
+    let decoded_url = decode_html_entities(raw_url);
 
     let url = page_url
         .as_ref()

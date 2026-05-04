@@ -1,0 +1,35 @@
+[package]
+name = "bootstrap-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+css-cssom.workspace = true
+html-parser.workspace = true
+html-tokenizer.workspace = true
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "html_tokenizer"
+path = "fuzz_targets/html_tokenizer.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "html_parser"
+path = "fuzz_targets/html_parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "css_cssom"
+path = "fuzz_targets/css_cssom.rs"
+test = false
+doc = false
+bench = false
