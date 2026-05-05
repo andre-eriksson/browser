@@ -2,12 +2,6 @@ use thiserror::Error;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum HtmlParsingError {
-    #[error("parser has already finished")]
-    AlreadyFinished,
-
-    #[error("parser is not blocked waiting for {0}")]
-    InvalidBlockReason(String),
-
     #[error("unable to read from stream: {0}")]
     UnableToReadStream(String),
 

@@ -3,7 +3,7 @@ use std::io::Read;
 use std::time::Duration;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
+use html_parser::{BlockedReason, HtmlStreamParser, ParserState, Script};
 use tracing::{error, info};
 
 fn load_fixture(path: &str) -> String {
@@ -34,65 +34,66 @@ fn criterion_benchmark(c: &mut Criterion) {
         c.bench_function(&format!("streaming_html_parse_{}", file), |b| {
             b.iter(|| {
                 let mut parser = HtmlStreamParser::simple(std::io::Cursor::new(html_content.clone()));
-                let mut success = false;
 
-                loop {
-                    let step = parser.step();
+                let result = loop {
+                    let Ok(state) = parser.step() else {
+                        error!("Error during parsing step: {}", parser.step().err().unwrap());
+                        break None;
+                    };
 
-                    if let Err(e) = step {
-                        error!("Error during parsing step: {}", e);
-                        break;
-                    }
-
-                    match parser.get_state() {
+                    match state {
                         ParserState::Running => continue,
-                        ParserState::Completed => {
-                            success = true;
-                            break;
+                        ParserState::Completed(result) => {
+                            break Some(result);
                         }
                         ParserState::Blocked(reason) => match reason {
-                            BlockedReason::WaitingForScript(_) => {
-                                let script_content = parser.extract_script_content();
-
-                                if let Err(e) = script_content {
-                                    error!("Error extracting script content: {}", e);
-                                    break;
+                            BlockedReason::WaitingForScript { script, .. } => match script {
+                                Script::External { src, .. } => {
+                                    info!("Parser blocked waiting for external script: src={}", src);
                                 }
+                                Script::Inline {
+                                    data,
+                                    type_attr: mime_type,
+                                } => {
+                                    let Ok(script_content) = data else {
+                                        error!("Error extracting inline script content: {}", data.err().unwrap());
+                                        break None;
+                                    };
 
-                                info!("Extracted Script Content: {}", script_content.unwrap());
-                                let _ = parser.resume();
+                                    info!(
+                                        "Extracted Inline Script Content (mime_type={}): {}",
+                                        mime_type, script_content
+                                    );
+                                }
+                            },
+                            BlockedReason::WaitingForStyle {
+                                data,
+                                attributes: _,
+                            } => {
+                                let Ok(css) = data else {
+                                    error!("Error extracting style content: {}", data.err().unwrap());
+                                    break None;
+                                };
+
+                                info!("Extracted Style Content: {}", css);
                             }
-                            BlockedReason::WaitingForStyle(_) => {
-                                let style_content = parser.extract_style_content();
+                            BlockedReason::SVGContent { data } => {
+                                let Ok(svg) = data else {
+                                    error!("Error extracting SVG content: {}", data.err().unwrap());
+                                    break None;
+                                };
 
-                                if let Err(e) = style_content {
-                                    error!("Error extracting style content: {}", e);
-                                    break;
-                                }
-
-                                info!("Extracted Style Content: {}", style_content.unwrap());
-                                let _ = parser.resume();
-                            }
-                            BlockedReason::SVGContent => {
-                                let svg_content = parser.extract_svg_content();
-
-                                if let Err(e) = svg_content {
-                                    error!("Error extracting SVG content: {}", e);
-                                    break;
-                                }
-
-                                info!("Extracted SVG Content: {}", svg_content.unwrap());
-                                let _ = parser.resume();
+                                info!("Extracted SVG Content: {}", svg);
                             }
                             _ => {
                                 error!("Parser blocked for unhandled reason: {:?}", reason);
-                                break;
+                                break None;
                             }
                         },
                     }
-                }
+                };
 
-                assert!(success, "HTML parsing did not complete successfully.");
+                assert!(result.is_some(), "HTML parsing did not complete successfully.");
             });
         });
     }

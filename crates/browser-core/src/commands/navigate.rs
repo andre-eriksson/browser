@@ -7,7 +7,7 @@ use crate::{
 use cookies::{Cookie, CookieJar};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_escape::decode_html_entities;
-use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType};
+use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType, Script};
 use io::{CookieMiddleware, DocumentPolicy, Resource};
 use network::{
     HeaderMap, SET_COOKIE,
@@ -66,85 +66,38 @@ pub async fn navigate(
     let mut favicon_handle: Option<JoinHandle<Option<Vec<u8>>>> = None;
     let mut parser = HtmlStreamParser::new(body.as_slice(), None, Some(TabCollector::default()));
 
-    loop {
-        parser.step().map_err(|e| NavigationError::Parsing {
+    let result = loop {
+        let state = parser.step().map_err(|e| NavigationError::Parsing {
             url: url.to_string(),
             source: e,
         })?;
 
-        match parser.get_state() {
+        match state {
             ParserState::Running => {}
             ParserState::Blocked(reason) => match reason {
-                BlockedReason::WaitingForScript(attributes) => {
-                    if let Some(src) = attributes.as_ref().and_then(|attrs| attrs.get("src")) {
-                        match url.join(src) {
-                            Ok(_url) => {
-                                // TODO: Uncomment when we have script execution implemented
-                                //
-                                // let script_request = RequestBuilder::from(url).build();
-                                // let script_resp =
-                                //     ctx.network_service().fetch(&mut page, script_request);
-                                // let script_response = match script_resp.await {
-                                //     RequestResult::Failed(err) => {
-                                //         return Err(NavigationError::RequestError(err));
-                                //     }
-                                //     RequestResult::ClientError(resp)
-                                //     | RequestResult::ServerError(resp)
-                                //     | RequestResult::Success(resp) => resp,
-                                // };
-                                // let script_body = match script_response.body().await {
-                                //     Ok(resp) => match resp.body {
-                                //         Some(b) => b,
-                                //         None => {
-                                //             return Err(NavigationError::RequestError(
-                                //                 RequestError::EmptyBody,
-                                //             ));
-                                //         }
-                                //     },
-                                //     Err(e) => {
-                                //         return Err(NavigationError::RequestError(
-                                //             RequestError::Network(e),
-                                //         ));
-                                //     }
-                                // };
-                                //
-                                // let script_text =
-                                //     String::from_utf8_lossy(script_body.as_slice()).to_string();
-                                // let _ = parser.extract_script_content()?;
-                                // ctx.script_executor().execute_script(&script_text);
-                            }
-                            Err(error) => {
-                                warn!(
-                                    "{}",
-                                    NavigationError::Request {
-                                        source: RequestError::Network(NetworkError::InvalidUrl(error)),
-                                        url: src.clone(),
-                                    }
-                                );
-                            }
-                        }
-                    } else {
-                        let script_content = parser
-                            .extract_script_content()
-                            .map_err(|e| NavigationError::Parsing {
+                BlockedReason::WaitingForScript { script } => {
+                    match script {
+                        Script::Inline { data, type_attr: _ } => {
+                            let script_content = data.map_err(|e| NavigationError::Parsing {
                                 url: url.to_string(),
                                 source: e,
                             })?;
-                        ctx.script_executor().execute_script(&script_content);
-                    }
 
-                    parser.resume().map_err(|e| NavigationError::Parsing {
+                            ctx.script_executor().execute_script(&script_content);
+                        }
+                        Script::External { .. } => {
+                            // TODO: external script and async/defer handling
+                        }
+                    }
+                }
+                BlockedReason::WaitingForStyle {
+                    data,
+                    attributes: _attributes,
+                } => {
+                    let css_content = data.map_err(|e| NavigationError::Parsing {
                         url: url.to_string(),
                         source: e,
                     })?;
-                }
-                BlockedReason::WaitingForStyle(_attributes) => {
-                    let css_content = parser
-                        .extract_style_content()
-                        .map_err(|e| NavigationError::Parsing {
-                            url: url.to_string(),
-                            source: e,
-                        })?;
 
                     let current_span = tracing::Span::current();
                     let handle = tokio::task::spawn_blocking(move || {
@@ -152,15 +105,10 @@ pub async fn navigate(
                         Some(CSSStyleSheet::from_css(&css_content, StylesheetOrigin::Author, true))
                     });
                     style_handles.push(handle);
-
-                    parser.resume().map_err(|e| NavigationError::Parsing {
-                        url: url.to_string(),
-                        source: e,
-                    })?;
                 }
                 BlockedReason::WaitingForResource(resource_type, href, metadata) => match resource_type {
                     ResourceType::Style => {
-                        let relative_url = url.join(href).map_err(|error| NavigationError::Request {
+                        let relative_url = url.join(&href).map_err(|error| NavigationError::Request {
                             source: RequestError::Network(NetworkError::InvalidUrl(error)),
                             url: href.clone(),
                         })?;
@@ -174,19 +122,14 @@ pub async fn navigate(
                             Arc::clone(&cookie_jar),
                         );
                         style_handles.push(handle);
-
-                        parser.resume().map_err(|e| NavigationError::Parsing {
-                            url: url.to_string(),
-                            source: e,
-                        })?;
                     }
                     ResourceType::Favicon => {
-                        let relative_url = url.join(href).map_err(|error| NavigationError::Request {
+                        let relative_url = url.join(&href).map_err(|error| NavigationError::Request {
                             source: RequestError::Network(NetworkError::InvalidUrl(error)),
                             url: href.clone(),
                         })?;
 
-                        favicon.content_type = metadata.content_type.clone();
+                        favicon.content_type = metadata.content_type;
                         favicon.size = metadata.sizes;
 
                         let page_url = url.clone();
@@ -240,36 +183,22 @@ pub async fn navigate(
                         );
 
                         favicon_handle = Some(handle);
-
-                        parser.resume().map_err(|e| NavigationError::Parsing {
-                            url: url.to_string(),
-                            source: e,
-                        })?;
                     }
                 },
-                BlockedReason::SVGContent => {
-                    let _svg_content = parser
-                        .extract_svg_content()
-                        .map_err(|e| NavigationError::Parsing {
-                            url: url.to_string(),
-                            source: e,
-                        })?;
-
-                    // TODO: Process SVG content
-
-                    parser.resume().map_err(|e| NavigationError::Parsing {
+                BlockedReason::SVGContent { data } => {
+                    let _svg_content = data.map_err(|e| NavigationError::Parsing {
                         url: url.to_string(),
                         source: e,
                     })?;
+
+                    // TODO: Process SVG content
                 }
             },
-            ParserState::Completed => {
-                break;
+            ParserState::Completed(build_result) => {
+                break build_result;
             }
         }
-    }
-
-    let result = parser.finalize();
+    };
 
     for handle in style_handles {
         match handle.await {

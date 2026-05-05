@@ -26,12 +26,14 @@ members = [
     "crates/storage",
     "fuzz",
 ]
+default-members = [
+    "crates/bootstrap",
+]
 
 [workspace.package]
 edition = "2024"
 license = "MIT"
 version = "0.1.0"
-
 
 [workspace.dependencies]
 browser-config      = { path = "crates/browser-config" }

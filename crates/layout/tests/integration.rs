@@ -65,30 +65,32 @@ mod tests {
 
             let mut parser = HtmlStreamParser::simple(reader);
 
-            loop {
-                match parser.step() {
-                    Ok(_) => match parser.get_state() {
-                        ParserState::Running => continue,
-                        ParserState::Blocked(reason) => match reason {
-                            BlockedReason::WaitingForStyle(_attributes) => {
-                                if let Ok(css) = parser.extract_style_content() {
-                                    let stylesheet = CSSStyleSheet::from_css(&css, StylesheetOrigin::Author, true);
-                                    stylesheets.push(stylesheet);
-                                }
+            let result = loop {
+                let Ok(state) = parser.step() else {
+                    panic!("Parser error: {:?}", parser.step().err());
+                };
 
-                                parser.resume().unwrap();
+                match state {
+                    ParserState::Running => continue,
+                    ParserState::Blocked(reason) => match reason {
+                        BlockedReason::WaitingForStyle {
+                            data,
+                            attributes: _,
+                        } => {
+                            if let Ok(css) = data {
+                                let stylesheet = CSSStyleSheet::from_css(&css, StylesheetOrigin::Author, true);
+                                stylesheets.push(stylesheet);
                             }
-                            _ => {
-                                panic!("Test files will only block on styles.");
-                            }
-                        },
-                        ParserState::Completed => {
-                            break;
+                        }
+                        _ => {
+                            panic!("Test files will only block on styles.");
                         }
                     },
-                    Err(e) => panic!("Parser error: {:?}", e),
+                    ParserState::Completed(result) => {
+                        break result;
+                    }
                 }
-            }
+            };
 
             let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
 
@@ -102,7 +104,6 @@ mod tests {
                 root_color: Color::BLACK,
             };
 
-            let result = parser.finalize();
             let document = result.dom_tree;
             let style_tree = StyleTree::build(&config, &absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());

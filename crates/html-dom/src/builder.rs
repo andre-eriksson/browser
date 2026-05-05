@@ -8,6 +8,7 @@ use crate::{
 };
 
 /// Represents the result of building a DOM tree.
+#[derive(Debug)]
 pub struct BuildResult<M> {
     /// A vector of shared DOM nodes representing the parsed document structure.
     pub dom_tree: DocumentRoot,

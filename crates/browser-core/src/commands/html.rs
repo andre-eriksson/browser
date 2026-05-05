@@ -8,14 +8,11 @@ pub fn parse_devtools_html(document: &DocumentRoot) -> Result<DocumentRoot, Html
     let html = document.to_html();
     let mut parser = HtmlStreamParser::simple(Cursor::new(html));
 
-    loop {
-        parser.step()?;
-
-        if let ParserState::Completed = parser.get_state() {
-            break;
+    let result = loop {
+        if let ParserState::Completed(result) = parser.step()? {
+            break result;
         }
-    }
+    };
 
-    let result = parser.finalize();
     Ok(result.dom_tree)
 }

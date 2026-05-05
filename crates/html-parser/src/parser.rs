@@ -1,10 +1,11 @@
 use std::io::BufRead;
 use std::mem;
 
-use crate::{errors::HtmlParsingError, state::ResourceMetadata};
-use html_dom::{
-    BuildResult, Collector, DefaultCollector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState,
+use crate::{
+    errors::HtmlParsingError,
+    state::{BlockingCause, ResourceMetadata, Script},
 };
+use html_dom::{Collector, DefaultCollector, DomTreeBuilder, HtmlTokenizer, Token, TokenState, TokenizerState};
 use tracing::trace;
 
 use crate::{
@@ -27,10 +28,10 @@ pub struct HtmlStreamParser<R: BufRead, C: Collector + Default> {
     tokenizer_state: TokenizerState,
 
     /// The DOM tree builder that constructs the DOM from tokens.
-    builder: DomTreeBuilder<C>,
+    builder: Option<DomTreeBuilder<C>>,
 
     /// The current state of the parser.
-    state: ParserState,
+    state: ParserState<C>,
 
     /// The state of the previous token processed.
     previous_token_state: TokenState,
@@ -47,49 +48,24 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
             buffer: String::with_capacity(buffer_size),
             byte_buffer: Vec::new(),
             tokenizer_state: TokenizerState::default(),
-            builder: DomTreeBuilder::new(collector),
+            builder: Some(DomTreeBuilder::new(collector)),
             state: ParserState::default(),
             previous_token_state: TokenState::Data,
             read_buffer: vec![0u8; buffer_size],
         }
     }
 
-    /// Returns a reference to the current state of the parser.
-    pub const fn get_state(&self) -> &ParserState {
-        &self.state
-    }
-
-    /// Resumes the parser if it is currently blocked.
-    ///
-    /// Assumes that the conditions for resuming have been met (e.g., scripts/styles have been handled).
-    ///
-    /// # Returns
-    /// A `Result` containing a reference to the current parser state if the parser was successfully resumed, or an error message if the parser is already completed.
-    ///
-    /// # Errors
-    /// * `HtmlParsingError::AlreadyFinished` - If the parser is already in the completed state and cannot be resumed.
-    pub fn resume(&mut self) -> Result<&ParserState, HtmlParsingError> {
-        match &self.state {
-            ParserState::Blocked(_) => {
-                self.state = ParserState::Running;
-                Ok(&self.state)
-            }
-            ParserState::Completed => Err(HtmlParsingError::AlreadyFinished),
-            ParserState::Running => Ok(&self.state),
-        }
-    }
-
     /// Processes the next chunk of HTML content from the input stream.
     ///
     /// # Returns
-    /// A `Result` containing a reference to the current parser state after processing the chunk, or an error message if an error occurs while reading from the stream.
+    /// A `Result` containing the current parser state after processing the chunk, or an error message if an error occurs while reading from the stream.
     ///
     /// # Errors
     /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the input stream.
     /// * `HtmlParsingError::UnexpectedUtf8Error` - If an unexpected UTF-8 decoding error occurs while processing the input stream.
-    pub fn step(&mut self) -> Result<&ParserState, HtmlParsingError> {
+    pub fn step(&mut self) -> Result<ParserState<C>, HtmlParsingError> {
         match &self.state {
-            ParserState::Blocked(_) | ParserState::Completed => return Ok(&self.state),
+            ParserState::Blocked(_) | ParserState::Completed(_) => return Ok(std::mem::take(&mut self.state)),
             ParserState::Running => {}
         }
 
@@ -97,7 +73,7 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
             let full_chunk = mem::take(&mut self.buffer);
             self.process_chunk(&full_chunk);
             if !matches!(self.state, ParserState::Running) {
-                return Ok(&self.state);
+                return Ok(std::mem::take(&mut self.state));
             }
         }
 
@@ -116,17 +92,19 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
                         if !matches!(self.state, ParserState::Running) {
                             self.byte_buffer.clear();
-                            return Ok(&self.state);
+                            return Ok(std::mem::take(&mut self.state));
                         }
                     }
 
                     self.byte_buffer.clear();
                 }
 
-                if !matches!(self.state, ParserState::Blocked(_)) {
-                    self.state = ParserState::Completed;
+                if !matches!(self.state, ParserState::Blocked(_))
+                    && let Some(builder) = self.builder.take()
+                {
+                    self.state = ParserState::Completed(builder.finalize());
                 }
-                Ok(&self.state)
+                Ok(std::mem::take(&mut self.state))
             }
             Ok(bytes_read) => {
                 let mut combined_bytes = self.byte_buffer.clone();
@@ -145,65 +123,14 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                     }
 
                     if !matches!(self.state, ParserState::Running) {
-                        return Ok(&self.state);
+                        return Ok(std::mem::take(&mut self.state));
                     }
                 }
 
-                Ok(&self.state)
+                Ok(std::mem::take(&mut self.state))
             }
             Err(e) => Err(HtmlParsingError::UnableToReadStream(e.to_string())),
         }
-    }
-
-    /// Extracts the content of a `<script>` tag when the parser is blocked waiting for a script.
-    ///
-    /// # Returns
-    /// A `Result` containing the content of the `<script>` tag if successful, or an error message if the parser is not blocked waiting for a script or if extraction fails.
-    ///
-    /// # Errors
-    /// * `HtmlParsingError::InvalidBlockReason` - If the parser is not blocked waiting for a script.
-    /// * `HtmlParsingError::MalformedDocument` - If the end tag `</script>` is not found before the end of the stream.
-    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
-    pub fn extract_script_content(&mut self) -> Result<String, HtmlParsingError> {
-        if !matches!(self.state, ParserState::Blocked(BlockedReason::WaitingForScript(_)),) {
-            return Err(HtmlParsingError::InvalidBlockReason("script".to_string()));
-        }
-
-        self.extract_content_until_end_tag("</script>")
-    }
-
-    /// Extracts the content of a `<style>` tag when the parser is blocked waiting for a style.
-    ///
-    /// # Returns
-    /// A `Result` containing the content of the `<style>` tag if successful, or an error message if the parser is not blocked waiting for a style or if extraction fails.
-    ///
-    /// # Errors
-    /// * `HtmlParsingError::InvalidBlockReason` - If the parser is not blocked waiting for a style.
-    /// * `HtmlParsingError::MalformedDocument` - If the end tag `</style>` is not found before the end of the stream.
-    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
-    pub fn extract_style_content(&mut self) -> Result<String, HtmlParsingError> {
-        if !matches!(self.state, ParserState::Blocked(BlockedReason::WaitingForStyle(_)),) {
-            return Err(HtmlParsingError::InvalidBlockReason("style".to_string()));
-        }
-
-        self.extract_content_until_end_tag("</style>")
-    }
-
-    /// Extracts the content of an `<svg>` tag when the parser is blocked parsing SVG.
-    ///
-    /// # Returns
-    /// A `Result` containing the content of the `<svg>` tag if successful, or an error message if the parser is not blocked parsing SVG or if extraction fails.
-    ///
-    /// # Errors
-    /// * `HtmlParsingError::InvalidBlockReason` - If the parser is not blocked parsing SVG.
-    /// * `HtmlParsingError::MalformedDocument` - If the end tag `</svg>` is not found before the end of the stream.
-    /// * `HtmlParsingError::UnableToReadStream` - If an error occurs while reading from the stream.
-    pub fn extract_svg_content(&mut self) -> Result<String, HtmlParsingError> {
-        if !matches!(self.state, ParserState::Blocked(BlockedReason::SVGContent),) {
-            return Err(HtmlParsingError::InvalidBlockReason("svg".to_string()));
-        }
-
-        self.extract_content_until_end_tag("</svg>")
     }
 
     /// Extracts content from the input stream until the specified end tag is found.
@@ -267,14 +194,6 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
         }
     }
 
-    /// Finalizes the parsing process and returns the built DOM tree.
-    ///
-    /// # Returns
-    /// A `BuildResult` containing the final output of the DOM tree.
-    pub fn finalize(self) -> BuildResult<C> {
-        self.builder.finalize()
-    }
-
     /// Processes a chunk of HTML content, tokenizing it and updating the parser state.
     ///
     /// # Arguments
@@ -284,101 +203,114 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
         for (idx, ch) in chunk.char_indices() {
             HtmlTokenizer::process_char(&mut self.tokenizer_state, ch, &mut tokens);
-
-            if self.previous_token_state != self.tokenizer_state.state {
-                let current_state = self.tokenizer_state.state;
-
-                let blocked_reason = match current_state {
-                    TokenState::ScriptData => {
-                        trace!("Blocking parser for script content at token: {:?}", tokens.last());
-
-                        let attributes = tokens.last().and_then(|t| t.attributes.clone());
-
-                        Some(BlockedReason::WaitingForScript(attributes))
-                    }
-                    TokenState::StyleData => {
-                        trace!("Blocking parser for style content at token: {:?}", tokens.last());
-
-                        let attributes = tokens.last().and_then(|t| t.attributes.clone());
-
-                        Some(BlockedReason::WaitingForStyle(attributes))
-                    }
-                    TokenState::SvgData => {
-                        trace!("Blocking parser for SVG content at token: {:?}", tokens.last());
-
-                        Some(BlockedReason::SVGContent)
-                    }
-                    TokenState::Data => {
-                        if let Some(last_token) = tokens.last()
-                            && last_token.data.eq_ignore_ascii_case("link")
-                            && let Some(attr) = &last_token.attributes
-                            && let Some(rel_value) = attr.get("rel")
-                        {
-                            if rel_value.trim().eq_ignore_ascii_case("stylesheet") {
-                                attr.get("href").map(|href| {
-                                    trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
-
-                                    BlockedReason::WaitingForResource(
-                                        ResourceType::Style,
-                                        href.clone(),
-                                        ResourceMetadata::default(),
-                                    )
-                                })
-                            } else if rel_value.trim().eq_ignore_ascii_case("icon")
-                                || rel_value.trim().eq_ignore_ascii_case("shortcut icon")
-                            {
-                                attr.get("href").map(|href| {
-                                    trace!("Blocking parser for favicon resource at token: {:?}", last_token);
-
-                                    let content_type = attr.get("type").cloned();
-                                    let sizes = attr.get("sizes").and_then(|s| {
-                                        let parts: Vec<&str> = s.split('x').collect();
-                                        if parts.len() == 2
-                                            && let (Ok(width), Ok(height)) = (parts[0].parse(), parts[1].parse())
-                                        {
-                                            return Some((width, height));
-                                        }
-                                        None
-                                    });
-
-                                    BlockedReason::WaitingForResource(
-                                        ResourceType::Favicon,
-                                        href.clone(),
-                                        ResourceMetadata {
-                                            content_type,
-                                            sizes,
-                                        },
-                                    )
-                                })
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    }
-                    _ => None,
-                };
-
-                if let Some(reason) = blocked_reason {
-                    self.builder.build_from_tokens(mem::take(&mut tokens));
-
-                    let next_idx = idx + ch.len_utf8();
-                    if next_idx < chunk.len() {
-                        self.buffer.push_str(&chunk[next_idx..]);
-                    }
-
-                    self.state = ParserState::Blocked(reason);
-
-                    self.previous_token_state = current_state;
-                    return;
-                }
-
-                self.previous_token_state = current_state;
+            let current_state = self.tokenizer_state.state;
+            if current_state == self.previous_token_state {
+                continue;
             }
+            self.previous_token_state = current_state;
+
+            let Some(cause) = BlockingCause::classify_cause(current_state, tokens.last()) else {
+                continue;
+            };
+
+            let last_token = tokens.last().cloned();
+            self.builder
+                .as_mut()
+                .unwrap()
+                .build_from_tokens(mem::take(&mut tokens));
+
+            let next_idx = idx + ch.len_utf8();
+            if next_idx < chunk.len() {
+                self.buffer.push_str(&chunk[next_idx..]);
+            }
+
+            let reason = match cause {
+                BlockingCause::Script => {
+                    trace!("Blocking parser for script content at token: {:?}", last_token);
+
+                    let attributes = last_token.and_then(|t| t.attributes);
+
+                    let src = attributes
+                        .as_ref()
+                        .and_then(|attrs| attrs.get("src").cloned());
+
+                    let script = match src {
+                        Some(src) => {
+                            let is_async = attributes
+                                .as_ref()
+                                .and_then(|attrs| attrs.get("async").cloned())
+                                .is_some_and(|value| {
+                                    value.eq_ignore_ascii_case("true") || value.eq_ignore_ascii_case("")
+                                });
+
+                            let is_deferred = attributes
+                                .as_ref()
+                                .and_then(|attrs| attrs.get("defer").cloned())
+                                .is_some_and(|value| {
+                                    value.eq_ignore_ascii_case("true") || value.eq_ignore_ascii_case("")
+                                });
+
+                            Script::External {
+                                src,
+                                is_async,
+                                is_deferred,
+                            }
+                        }
+                        None => {
+                            let data = self.extract_content_until_end_tag("</script>");
+
+                            let type_attr = attributes
+                                .as_ref()
+                                .and_then(|attrs| attrs.get("type").cloned())
+                                .unwrap_or_else(|| "text/javascript".to_string());
+
+                            Script::Inline { data, type_attr }
+                        }
+                    };
+
+                    BlockedReason::WaitingForScript { script }
+                }
+                BlockingCause::Style => {
+                    trace!("Blocking parser for style content at token: {:?}", last_token);
+
+                    let data = self.extract_content_until_end_tag("</style>");
+                    let attributes = last_token.and_then(|t| t.attributes);
+                    BlockedReason::WaitingForStyle { data, attributes }
+                }
+                BlockingCause::Svg => {
+                    trace!("Blocking parser for SVG content at token: {:?}", last_token);
+
+                    let data = self.extract_content_until_end_tag("</svg>");
+                    BlockedReason::SVGContent { data }
+                }
+                BlockingCause::Stylesheet { href } => {
+                    trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
+
+                    BlockedReason::WaitingForResource(ResourceType::Style, href, ResourceMetadata::default())
+                }
+                BlockingCause::Favicon {
+                    href,
+                    content_type,
+                    sizes,
+                } => {
+                    trace!("Blocking parser for favicon resource at token: {:?}", last_token);
+
+                    BlockedReason::WaitingForResource(
+                        ResourceType::Favicon,
+                        href,
+                        ResourceMetadata {
+                            content_type,
+                            sizes,
+                        },
+                    )
+                }
+            };
+
+            self.state = ParserState::Blocked(reason);
+            return;
         }
 
-        self.builder.build_from_tokens(tokens);
+        self.builder.as_mut().unwrap().build_from_tokens(tokens);
     }
 
     /// Attempts to decode a byte slice as UTF-8, handling incomplete sequences and invalid bytes.

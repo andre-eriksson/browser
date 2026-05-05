@@ -19,7 +19,7 @@ use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use html_dom::DocumentRoot;
-use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
+use html_parser::{BlockedReason, HtmlStreamParser, ParserState, Script};
 use io::{Resource, embeded::DEFAULT_CSS};
 use layout::{ImageContext, LayoutEngine, Rect, TextContext};
 use url::Url;
@@ -110,49 +110,43 @@ fn parse_html_and_collect_styles(
     let reader = BufReader::new(cursor);
     let mut parser = HtmlStreamParser::simple(reader);
 
-    loop {
-        match parser.step() {
-            Ok(_) => match parser.get_state() {
-                ParserState::Running => continue,
-                ParserState::Blocked(reason) => match reason {
-                    BlockedReason::WaitingForStyle(_) => {
-                        let css = parser
-                            .extract_style_content()
-                            .expect("failed to extract inline style content");
-                        stylesheets.push(CSSStyleSheet::from_css(&css, StylesheetOrigin::Author, true));
-                        parser
-                            .resume()
-                            .expect("failed to resume HTML parser after style");
+    let result = loop {
+        let Ok(state) = parser.step() else {
+            panic!("HTML parser error: {:?}", parser.step().err());
+        };
+
+        match state {
+            ParserState::Running => continue,
+            ParserState::Blocked(reason) => match reason {
+                BlockedReason::WaitingForStyle {
+                    data,
+                    attributes: _,
+                } => {
+                    let css = data.expect("failed to extract inline style content");
+                    stylesheets.push(CSSStyleSheet::from_css(&css, StylesheetOrigin::Author, true));
+                }
+                BlockedReason::WaitingForScript { script } => match script {
+                    // TODO: When JS is supported, fix this.
+                    Script::External { src, .. } => {
+                        panic!("parser blocked on external script: {}", src);
                     }
-                    BlockedReason::WaitingForScript(_) => {
-                        parser
-                            .extract_script_content()
-                            .expect("failed to extract script content");
-                        parser
-                            .resume()
-                            .expect("failed to resume HTML parser after script");
-                    }
-                    BlockedReason::WaitingForResource(_, _, _) => {
-                        parser
-                            .resume()
-                            .expect("failed to resume HTML parser after resource");
-                    }
-                    BlockedReason::SVGContent => {
-                        parser
-                            .extract_svg_content()
-                            .expect("failed to extract SVG content");
-                        parser
-                            .resume()
-                            .expect("failed to resume HTML parser after SVG content");
+                    Script::Inline {
+                        data,
+                        type_attr: mime_type,
+                    } => {
+                        let script_content = data.expect("failed to extract inline script content");
+                        panic!("parser blocked on inline script (mime_type={}): {}", mime_type, script_content);
                     }
                 },
-                ParserState::Completed => break,
+                BlockedReason::WaitingForResource(_, _, _) => {}
+                BlockedReason::SVGContent { data } => {
+                    data.expect("failed to extract SVG content");
+                }
             },
-            Err(error) => panic!("benchmark fixture failed to parse: {error}"),
+            ParserState::Completed(result) => break result,
         }
-    }
+    };
 
-    let result = parser.finalize();
     (result.dom_tree, stylesheets)
 }
 
