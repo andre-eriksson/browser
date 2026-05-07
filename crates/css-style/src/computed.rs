@@ -13,8 +13,8 @@ use css_values::{
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    AbsoluteContext, Color4f, ComputedMaxSize, ComputedSize, Display, FontFamily, Position, RelativeContext,
-    RelativeType, clone_compute, compute, compute_px,
+    AbsoluteContext, Color4f, ComputedMaxSize, ComputedSize, Display, FontFamily, Position, RelativeType, StyleContext,
+    clone_compute, compute, compute_px,
     computed::{
         image::ComputedBackgroundImage,
         layout::{ComputedFlexBasis, ComputedGap},
@@ -123,16 +123,22 @@ impl ComputedStyle {
     pub fn from_node(
         config: &BrowserConfig,
         absolute_ctx: &AbsoluteContext,
-        relative_ctx: &mut RelativeContext,
         node_id: NodeId,
         dom: &DocumentRoot,
         rules: &Rules,
         property_registry: &mut PropertyRegistry,
+        styles: &[ComputedStyle],
     ) -> Self {
-        let parent = &relative_ctx.parent;
+        let parent_id = dom
+            .get_node(&node_id)
+            .and_then(|n| n.parent)
+            .map(|pid| pid.0)
+            .unwrap_or(0);
+        let parent = styles.get(parent_id).cloned().unwrap_or_default();
+        let mut style_ctx = StyleContext::new(&parent);
 
         let specified_style =
-            SpecifiedStyle::from_node(absolute_ctx, relative_ctx, node_id, dom, rules, property_registry);
+            SpecifiedStyle::from_node(absolute_ctx, &style_ctx, &parent, node_id, dom, rules, property_registry);
 
         let margin_top = into_compute!(specified_style, parent, margin_top);
         let margin_right = into_compute!(specified_style, parent, margin_right);
@@ -170,11 +176,11 @@ impl ComputedStyle {
         let font_size = specified_style
             .font_size
             .compute(FontSize::px(parent.font_size))
-            .to_px(Some(RelativeType::FontSize), Some(relative_ctx), absolute_ctx)
+            .to_px(Some(RelativeType::FontSize), Some(&style_ctx), absolute_ctx)
             .unwrap_or(parent.font_size);
         let float = compute!(specified_style, parent, float);
 
-        relative_ctx.font_size = font_size;
+        style_ctx.font_size = font_size;
 
         let mut computed = Self {
             align_content: compute!(specified_style, parent, align_content),
@@ -187,8 +193,8 @@ impl ComputedStyle {
                 &specified_style.background_color,
                 &specified_style.color,
                 &Color::Base(ColorBase::Transparent),
-                &relative_ctx.parent.background_color.into(),
-                relative_ctx,
+                &parent.background_color.into(),
+                &style_ctx,
                 absolute_ctx,
             ),
             background_origin: clone_compute!(specified_style, parent, background_origin),
@@ -208,39 +214,39 @@ impl ComputedStyle {
                     .background_size
                     .compute(parent.background_size.clone().into()),
                 Some(RelativeType::BackgroundArea),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             ),
             border_top_color: Color4f::from_css_color_property(
                 &specified_style.border_top_color,
                 &specified_style.color,
                 &Color::Current,
-                &relative_ctx.parent.border_top_color.into(),
-                relative_ctx,
+                &parent.border_top_color.into(),
+                &style_ctx,
                 absolute_ctx,
             ),
             border_right_color: Color4f::from_css_color_property(
                 &specified_style.border_right_color,
                 &specified_style.color,
                 &Color::Current,
-                &relative_ctx.parent.border_right_color.into(),
-                relative_ctx,
+                &parent.border_right_color.into(),
+                &style_ctx,
                 absolute_ctx,
             ),
             border_bottom_color: Color4f::from_css_color_property(
                 &specified_style.border_bottom_color,
                 &specified_style.color,
                 &Color::Current,
-                &relative_ctx.parent.border_bottom_color.into(),
-                relative_ctx,
+                &parent.border_bottom_color.into(),
+                &style_ctx,
                 absolute_ctx,
             ),
             border_left_color: Color4f::from_css_color_property(
                 &specified_style.border_left_color,
                 &specified_style.color,
                 &Color::Current,
-                &relative_ctx.parent.border_left_color.into(),
-                relative_ctx,
+                &parent.border_left_color.into(),
+                &style_ctx,
                 absolute_ctx,
             ),
             border_top_style: compute!(specified_style, parent, border_top_style),
@@ -248,32 +254,32 @@ impl ComputedStyle {
             border_bottom_style: compute!(specified_style, parent, border_bottom_style),
             border_left_style: compute!(specified_style, parent, border_left_style),
             border_top_width: compute_px!(specified_style, parent, border_top_width, BorderWidth)
-                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .to_px(None, Some(&style_ctx), absolute_ctx)
                 .unwrap_or(0.0),
             border_right_width: compute_px!(specified_style, parent, border_right_width, BorderWidth)
-                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .to_px(None, Some(&style_ctx), absolute_ctx)
                 .unwrap_or(0.0),
             border_bottom_width: compute_px!(specified_style, parent, border_bottom_width, BorderWidth)
-                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .to_px(None, Some(&style_ctx), absolute_ctx)
                 .unwrap_or(0.0),
             border_left_width: compute_px!(specified_style, parent, border_left_width, BorderWidth)
-                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .to_px(None, Some(&style_ctx), absolute_ctx)
                 .unwrap_or(0.0),
-            bottom: ComputedMargin::resolve(bottom, Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
+            bottom: ComputedMargin::resolve(bottom, Some(RelativeType::ParentHeight), &style_ctx, absolute_ctx)
                 .unwrap_or_default(),
             clear: compute!(specified_style, parent, clear),
             color: Color4f::from_css_color_property(
                 &specified_style.color,
                 &CSSProperty::Value(Color::BLACK),
                 &Color::Base(ColorBase::Named(NamedColor::Black)),
-                &relative_ctx.parent.color.into(),
-                relative_ctx,
+                &parent.color.into(),
+                &style_ctx,
                 absolute_ctx,
             ),
             column_gap: ComputedGap::resolve(
                 specified_style.column_gap.compute(parent.column_gap.into()),
                 RelativeType::BackgroundArea,
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
@@ -282,7 +288,7 @@ impl ComputedStyle {
             flex_basis: ComputedFlexBasis::resolve(
                 specified_style.flex_basis.compute(parent.flex_basis.into()),
                 RelativeType::BackgroundArea, // TODO: flex container's inner main size
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
@@ -312,43 +318,38 @@ impl ComputedStyle {
             font_weight: specified_style
                 .font_weight
                 .compute(parent.font_weight.into()) as u16,
-            height: ComputedSize::resolve(height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
+            height: ComputedSize::resolve(height, RelativeType::ParentHeight, &style_ctx, absolute_ctx)
                 .unwrap_or_default(),
             justify_content: compute!(specified_style, parent, justify_content),
             justify_items: compute!(specified_style, parent, justify_items),
             justify_self: compute!(specified_style, parent, justify_self),
-            left: ComputedMargin::resolve(left, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
+            left: ComputedMargin::resolve(left, Some(RelativeType::ParentWidth), &style_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
-            max_height: ComputedMaxSize::resolve(max_height, RelativeType::ParentHeight, relative_ctx, absolute_ctx)
+            max_height: ComputedMaxSize::resolve(max_height, RelativeType::ParentHeight, &style_ctx, absolute_ctx)
                 .unwrap_or_default(),
             line_height: compute_px!(specified_style, parent, line_height, LineHeight)
-                .to_px(None, Some(relative_ctx), absolute_ctx)
+                .to_px(None, Some(&style_ctx), absolute_ctx)
                 .unwrap(),
-            margin_top: ComputedMargin::resolve(
-                margin_top,
-                Some(RelativeType::ParentWidth),
-                relative_ctx,
-                absolute_ctx,
-            )
-            .unwrap_or_default(),
+            margin_top: ComputedMargin::resolve(margin_top, Some(RelativeType::ParentWidth), &style_ctx, absolute_ctx)
+                .unwrap_or_default(),
             margin_right: ComputedMargin::resolve(
                 margin_right,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             margin_bottom: ComputedMargin::resolve(
                 margin_bottom,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             margin_left: ComputedMargin::resolve(
                 margin_left,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
@@ -356,48 +357,48 @@ impl ComputedStyle {
             padding_top: ComputedOffset::resolve(
                 padding_top,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             padding_right: ComputedOffset::resolve(
                 padding_right,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             padding_bottom: ComputedOffset::resolve(
                 padding_bottom,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             padding_left: ComputedOffset::resolve(
                 padding_left,
                 Some(RelativeType::ParentWidth),
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             position: compute!(specified_style, parent, position),
-            right: ComputedMargin::resolve(right, Some(RelativeType::ParentWidth), relative_ctx, absolute_ctx)
+            right: ComputedMargin::resolve(right, Some(RelativeType::ParentWidth), &style_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
             row_gap: ComputedGap::resolve(
                 specified_style.row_gap.compute(parent.row_gap.into()),
                 RelativeType::BackgroundArea,
-                relative_ctx,
+                &style_ctx,
                 absolute_ctx,
             )
             .unwrap_or_default(),
             text_align: compute!(specified_style, parent, text_align),
-            top: ComputedMargin::resolve(top, Some(RelativeType::ParentHeight), relative_ctx, absolute_ctx)
+            top: ComputedMargin::resolve(top, Some(RelativeType::ParentHeight), &style_ctx, absolute_ctx)
                 .unwrap_or(ComputedMargin::Auto),
             whitespace: compute!(specified_style, parent, whitespace),
-            width: ComputedSize::resolve(width, RelativeType::ParentWidth, relative_ctx, absolute_ctx)
+            width: ComputedSize::resolve(width, RelativeType::ParentWidth, &style_ctx, absolute_ctx)
                 .unwrap_or_default(),
-            max_width: ComputedMaxSize::resolve(max_width, RelativeType::ParentWidth, relative_ctx, absolute_ctx)
+            max_width: ComputedMaxSize::resolve(max_width, RelativeType::ParentWidth, &style_ctx, absolute_ctx)
                 .unwrap_or_default(),
             writing_mode: compute!(specified_style, parent, writing_mode),
             variables: Arc::clone(&specified_style.variables),

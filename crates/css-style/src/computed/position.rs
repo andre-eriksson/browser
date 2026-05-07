@@ -7,7 +7,7 @@ use css_values::{
 };
 
 use crate::{
-    AbsoluteContext, RelativeContext, RelativeType,
+    AbsoluteContext, RelativeType, StyleContext,
     properties::{PixelRepr, background::BackgroundSize},
 };
 
@@ -21,7 +21,7 @@ impl ComputedLengthPercentage {
     pub fn resolve(
         len_pct: LengthPercentage,
         relative_type: Option<RelativeType>,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         match len_pct {
@@ -55,7 +55,7 @@ impl ComputedWidthHeightSize {
     pub fn resolve(
         width_height_size: WidthHeightSize,
         relative_type: Option<RelativeType>,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         match width_height_size {
@@ -93,7 +93,7 @@ impl ComputedBackgroundSize {
     pub fn resolve(
         background_size: BackgroundSize,
         relative_type: Option<RelativeType>,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         let sizes = background_size

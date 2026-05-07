@@ -2,13 +2,13 @@
 
 use css_values::{calc::CalcKind, text::LineHeight};
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, RelativeType, StyleContext, properties::PixelRepr};
 
 impl PixelRepr for LineHeight {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        rel_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         Ok(match self {

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
 use browser_preferences::theme::ThemeCategory;
 use css_cssom::ComponentValueStream;
@@ -48,8 +48,8 @@ pub trait PixelRepr: Sized {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
-        abs_ctx: &AbsoluteContext,
+        style_ctx: Option<&StyleContext>,
+        absolute_ctx: &AbsoluteContext,
     ) -> Result<f64, String>;
 }
 
@@ -120,10 +120,20 @@ impl<'page> AbsoluteContext<'page> {
 }
 
 /// Context for resolving relative CSS properties, such as percentages or 'em' units. It provides access to the parent style for inheritance and percentage calculations.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct RelativeContext {
-    pub parent: Arc<ComputedStyle>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct StyleContext<'css> {
+    pub parent_style: &'css ComputedStyle,
     pub font_size: f64,
+}
+
+impl<'css> StyleContext<'css> {
+    #[must_use]
+    pub fn new(parent_style: &'css ComputedStyle) -> StyleContext<'css> {
+        Self {
+            parent_style,
+            font_size: parent_style.font_size,
+        }
+    }
 }
 
 /// A CSS property that can either be a specific value or a global value (initial, inherit, unset, revert, revert-layer).

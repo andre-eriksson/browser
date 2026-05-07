@@ -5,7 +5,7 @@ use css_values::{
     quantity::Length,
 };
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, RelativeType, StyleContext, properties::PixelRepr};
 
 #[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum ComputedSize {
@@ -23,7 +23,7 @@ impl ComputedSize {
     pub fn resolve(
         size: Size,
         relative_type: RelativeType,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match size {
@@ -92,7 +92,7 @@ impl ComputedMaxSize {
     pub fn resolve(
         max_size: MaxSize,
         relative_type: RelativeType,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match max_size {

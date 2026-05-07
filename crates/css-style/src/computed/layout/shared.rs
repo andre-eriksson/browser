@@ -1,6 +1,6 @@
 use css_values::{Gap, calc::CalcKind, numeric::Percentage, quantity::Length};
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, RelativeType, StyleContext, properties::PixelRepr};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub enum ComputedGap {
@@ -14,7 +14,7 @@ impl ComputedGap {
     pub fn resolve(
         gap: Gap,
         relative_type: RelativeType,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match gap {

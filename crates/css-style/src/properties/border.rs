@@ -5,14 +5,14 @@ use css_values::{border::BorderWidth, calc::CalcKind};
 
 use crate::{
     RelativeType,
-    properties::{AbsoluteContext, PixelRepr, RelativeContext},
+    properties::{AbsoluteContext, PixelRepr, StyleContext},
 };
 
 impl PixelRepr for BorderWidth {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        rel_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         Ok(match self {

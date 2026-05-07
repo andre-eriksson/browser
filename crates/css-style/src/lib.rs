@@ -23,5 +23,5 @@ pub use properties::display::*;
 pub use properties::font::*;
 pub use properties::offset::*;
 pub use properties::position::*;
-pub use properties::{AbsoluteContext, RelativeContext, RelativeType};
-pub use tree::{StyleTree, StyledNode};
+pub use properties::{AbsoluteContext, RelativeType, StyleContext};
+pub use tree::StyleTree;

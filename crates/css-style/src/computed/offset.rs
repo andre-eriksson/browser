@@ -4,7 +4,7 @@ use css_values::{
     numeric::Percentage,
 };
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, RelativeType, StyleContext, properties::PixelRepr};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComputedOffset {
@@ -16,7 +16,7 @@ impl ComputedOffset {
     pub fn resolve(
         offset_value: OffsetValue,
         relative_type: Option<RelativeType>,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match offset_value {
@@ -81,7 +81,7 @@ impl ComputedMargin {
     pub fn resolve(
         offset_value: MarginValue,
         relative_type: Option<RelativeType>,
-        relative_ctx: &RelativeContext,
+        relative_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         match offset_value {

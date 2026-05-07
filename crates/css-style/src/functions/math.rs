@@ -3,13 +3,13 @@ use css_values::{
     quantity::Dimension,
 };
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, RelativeType, StyleContext, properties::PixelRepr};
 
 impl PixelRepr for CalcValue {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        rel_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         match self {
@@ -54,7 +54,7 @@ impl PixelRepr for CalcProduct {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        rel_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         match self {
@@ -78,7 +78,7 @@ impl PixelRepr for CalcSum {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        rel_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         match self {
@@ -97,7 +97,7 @@ impl PixelRepr for CalcExpression {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        rel_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         self.into_sum().to_px(rel_type, rel_ctx, abs_ctx)
@@ -116,25 +116,26 @@ mod tests {
     use url::Url;
 
     /// Helper function to create test contexts
-    fn create_test_contexts() -> (RelativeContext, AbsoluteContext<'static>) {
+    fn create_test_contexts() -> (StyleContext<'static>, AbsoluteContext<'static>) {
         let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
-        let rel_ctx = RelativeContext {
-            parent: ComputedStyle {
-                font_size: 16.0,
-                width: 800.0.into(),
-                height: 600.0.into(),
-                ..Default::default()
-            }
-            .into(),
+        let style = ComputedStyle {
             font_size: 16.0,
+            width: 800.0.into(),
+            height: 600.0.into(),
+            ..Default::default()
         };
+
+        let style = Box::leak(Box::new(style));
+
+        let style_ctx = StyleContext::new(style);
+
         let abs_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: 1024.0,
             viewport_height: 768.0,
             ..AbsoluteContext::default_url(url)
         };
-        (rel_ctx, abs_ctx)
+        (style_ctx, abs_ctx)
     }
 
     /// Helper function to create a number token
@@ -706,7 +707,7 @@ mod tests {
         let expr = CalcExpression::parse("calc", &input).unwrap();
         let (rel_ctx, abs_ctx) = create_test_contexts();
         let result = expr.to_px(Some(RelativeType::FontSize), Some(&rel_ctx), &abs_ctx);
-        assert_eq!(result.unwrap(), 10.0 + (2.0 * rel_ctx.parent.font_size));
+        assert_eq!(result.unwrap(), 10.0 + (2.0 * rel_ctx.parent_style.font_size));
     }
 
     #[test]

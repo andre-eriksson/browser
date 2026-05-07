@@ -6,7 +6,7 @@ use html_dom::{DocumentRoot, NodeId};
 use tracing::debug;
 
 use crate::{
-    RelativeContext,
+    ComputedStyle, StyleContext,
     cascade::{CascadedDeclaration, cascade, cascade_variables},
     functions::variables::resolve_css_variables,
     handler::*,
@@ -93,7 +93,8 @@ impl SpecifiedStyle {
     /// Computes the `ComputedStyle` for a given node in the DOM.
     pub fn from_node(
         absolute_ctx: &AbsoluteContext,
-        relative_ctx: &RelativeContext,
+        style_ctx: &StyleContext,
+        parent_style: &ComputedStyle,
         node_id: NodeId,
         dom: &DocumentRoot,
         rules: &Rules,
@@ -101,7 +102,7 @@ impl SpecifiedStyle {
     ) -> Self {
         let mut specified_style = Self::default();
 
-        let parent_variables = Arc::clone(&relative_ctx.parent.variables);
+        let parent_variables = Arc::clone(&parent_style.variables);
 
         let Some(node) = dom.get_node(&node_id) else {
             return specified_style;
@@ -140,7 +141,7 @@ impl SpecifiedStyle {
             specified_style.variables = parent_variables;
         }
 
-        let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut specified_style, relative_ctx);
+        let mut ctx = PropertyUpdateContext::new(absolute_ctx, style_ctx, &mut specified_style);
 
         for (property, value) in properties {
             Self::resolve_property(property, value, property_registry, &mut ctx);
@@ -160,9 +161,10 @@ impl SpecifiedStyle {
         let mut declarations = vec![declaration];
 
         let mut default_style = Self::default();
-        let default_relative_ctx = RelativeContext::default();
+        let default_computed_style = ComputedStyle::default();
+        let default_style_ctx = StyleContext::new(&default_computed_style);
 
-        let mut ctx = PropertyUpdateContext::new(absolute_ctx, &mut default_style, &default_relative_ctx);
+        let mut ctx = PropertyUpdateContext::new(absolute_ctx, &default_style_ctx, &mut default_style);
 
         let properties = cascade(&mut declarations);
 
