@@ -16,11 +16,11 @@ impl ComputedOffset {
     pub fn resolve(
         offset_value: OffsetValue,
         relative_type: Option<RelativeType>,
-        relative_ctx: &StyleContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match offset_value {
-            OffsetValue::Length(len) => Self::Px(len.to_px(relative_type, Some(relative_ctx), absolute_ctx)?),
+            OffsetValue::Length(len) => Self::Px(len.to_px(relative_type, Some(style_ctx), absolute_ctx)?),
             OffsetValue::Percentage(pct) => Self::Percentage(pct.as_fraction()),
             OffsetValue::Calc(expr) => {
                 if expr.evaluate().is_ok() {
@@ -33,7 +33,7 @@ impl ComputedOffset {
                         Self::default()
                     }
                 } else {
-                    let sum = expr.to_px(relative_type, Some(relative_ctx), absolute_ctx)?;
+                    let sum = expr.to_px(relative_type, Some(style_ctx), absolute_ctx)?;
 
                     Self::Px(sum)
                 }
@@ -81,20 +81,18 @@ impl ComputedMargin {
     pub fn resolve(
         offset_value: MarginValue,
         relative_type: Option<RelativeType>,
-        relative_ctx: &StyleContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         match offset_value {
             MarginValue::Auto => Ok(Self::Auto),
-            MarginValue::Length(len) => Ok(Self::Px(len.to_px(relative_type, Some(relative_ctx), absolute_ctx)?)),
+            MarginValue::Length(len) => Ok(Self::Px(len.to_px(relative_type, Some(style_ctx), absolute_ctx)?)),
             MarginValue::Percentage(pct) => Ok(Self::Percentage(pct.as_fraction())),
             MarginValue::Calc(expr) => {
                 let sum = expr.into_sum();
 
                 Ok(match sum.kind() {
-                    Ok(CalcKind::Length(len)) => {
-                        Self::Px(len.to_px(relative_type, Some(relative_ctx), absolute_ctx)?)
-                    }
+                    Ok(CalcKind::Length(len)) => Self::Px(len.to_px(relative_type, Some(style_ctx), absolute_ctx)?),
                     Ok(CalcKind::Percentage(p)) => Self::Percentage(p.as_fraction()),
                     _ => Self::Auto,
                 })

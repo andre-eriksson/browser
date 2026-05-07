@@ -117,7 +117,7 @@ impl Color4f {
         text_color: &CSSProperty<Color>,
         initial: &Color,
         parent: &Color,
-        relative_ctx: &StyleContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Self {
         let initial = match initial {
@@ -126,7 +126,7 @@ impl Color4f {
         };
         let resolved_color = color.resolve_with_context(parent, initial);
 
-        Self::from_css_color(resolved_color, text_color, relative_ctx, absolute_ctx)
+        Self::from_css_color(resolved_color, text_color, style_ctx, absolute_ctx)
     }
 
     /// Parses a hex color string (e.g. "#RRGGBB") into an (r, g, b) tuple.
@@ -465,7 +465,7 @@ mod tests {
     use super::*;
     use crate::ComputedStyle;
 
-    fn relative_ctx_with_parent_color(color: Color4f) -> StyleContext<'static> {
+    fn style_ctx_with_parent_color(color: Color4f) -> StyleContext<'static> {
         let parent = ComputedStyle {
             color,
             ..Default::default()
@@ -480,7 +480,7 @@ mod tests {
     fn current_color_self_reference_falls_back_to_parent_color() {
         let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let parent_color = [0.2, 0.3, 0.4, 1.0].into();
-        let relative_ctx = relative_ctx_with_parent_color(parent_color);
+        let style_ctx = style_ctx_with_parent_color(parent_color);
         let absolute_ctx = AbsoluteContext::default_url(url);
 
         let text_color = CSSProperty::Value(Color::Current);
@@ -489,7 +489,7 @@ mod tests {
             &text_color,
             &Color::Current,
             &Color::Current,
-            &relative_ctx,
+            &style_ctx,
             &absolute_ctx,
         );
 
@@ -500,7 +500,7 @@ mod tests {
     fn light_dark_current_in_light_theme_falls_back_to_parent_color() {
         let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
         let parent_color = [0.1, 0.2, 0.3, 1.0].into();
-        let relative_ctx = relative_ctx_with_parent_color(parent_color);
+        let style_ctx = style_ctx_with_parent_color(parent_color);
         let absolute_ctx = AbsoluteContext {
             theme_category: ThemeCategory::Light,
             ..AbsoluteContext::default_url(url)
@@ -516,7 +516,7 @@ mod tests {
             &text_color,
             &Color::Current,
             &Color::Current,
-            &relative_ctx,
+            &style_ctx,
             &absolute_ctx,
         );
 
@@ -526,7 +526,7 @@ mod tests {
     #[test]
     fn light_dark_current_in_dark_theme_uses_dark_branch() {
         let url = Box::leak(Box::new(Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap()));
-        let relative_ctx = relative_ctx_with_parent_color([0.1, 0.2, 0.3, 1.0].into());
+        let style_ctx = style_ctx_with_parent_color([0.1, 0.2, 0.3, 1.0].into());
         let absolute_ctx = AbsoluteContext {
             theme_category: ThemeCategory::Dark,
             ..AbsoluteContext::default_url(url)
@@ -542,7 +542,7 @@ mod tests {
             &text_color,
             &Color::Current,
             &Color::Current,
-            &relative_ctx,
+            &style_ctx,
             &absolute_ctx,
         );
 

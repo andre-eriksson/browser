@@ -43,7 +43,7 @@ pub mod text;
 pub trait PixelRepr: Sized {
     /// Converts the value to pixels based on the provided context. The `rel_type` parameter indicates
     /// the type of relative measurement (e.g., font size, parent width) that may be needed for the conversion.
-    /// The `rel_ctx` provides access to the parent style for inheritance and percentage calculations, while
+    /// The `style_ctx` provides access to the parent style for inheritance and percentage calculations, while
     /// the `abs_ctx` provides access to absolute context values like root font size and viewport dimensions.
     fn to_px(
         self,

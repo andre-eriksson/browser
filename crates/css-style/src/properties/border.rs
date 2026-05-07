@@ -12,16 +12,16 @@ impl PixelRepr for BorderWidth {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&StyleContext>,
+        style_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         Ok(match self {
-            Self::Length(len) => len.to_px(rel_type, rel_ctx, abs_ctx)?,
+            Self::Length(len) => len.to_px(rel_type, style_ctx, abs_ctx)?,
             Self::Calc(expr) => {
                 let kind = expr.into_sum().kind();
 
                 match kind {
-                    Ok(CalcKind::Length(len)) => len.to_px(rel_type, rel_ctx, abs_ctx)?,
+                    Ok(CalcKind::Length(len)) => len.to_px(rel_type, style_ctx, abs_ctx)?,
                     _ => 0.0,
                 }
             }

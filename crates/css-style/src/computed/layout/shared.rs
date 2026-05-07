@@ -14,12 +14,12 @@ impl ComputedGap {
     pub fn resolve(
         gap: Gap,
         relative_type: RelativeType,
-        relative_ctx: &StyleContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match gap {
             Gap::Normal => Self::Normal,
-            Gap::Length(length) => Self::Length(length.to_px(Some(relative_type), Some(relative_ctx), absolute_ctx)?),
+            Gap::Length(length) => Self::Length(length.to_px(Some(relative_type), Some(style_ctx), absolute_ctx)?),
             Gap::Percentage(p) => Self::Percentage(p.as_fraction()),
             Gap::Calc(expr) => {
                 if expr.evaluate().is_ok() {
@@ -32,7 +32,7 @@ impl ComputedGap {
                         Self::Normal
                     }
                 } else {
-                    let sum = expr.to_px(Some(relative_type), Some(relative_ctx), absolute_ctx)?;
+                    let sum = expr.to_px(Some(relative_type), Some(style_ctx), absolute_ctx)?;
                     Self::Length(sum)
                 }
             }

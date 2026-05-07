@@ -19,7 +19,7 @@ impl PixelRepr for AbsoluteSize {
     fn to_px(
         self,
         _rel_type: Option<RelativeType>,
-        _rel_ctx: Option<&StyleContext>,
+        _style_ctx: Option<&StyleContext>,
         _abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         Ok(match self {
