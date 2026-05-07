@@ -177,9 +177,7 @@ pub fn collect<'dom>(
                 items.push(InlineItem::InlineBoxStart { id: node_id, style });
 
                 for child_id in &node.children {
-                    let child_style = &style_tree[child_id];
-
-                    collect(containing_rect, dom_tree, style_tree, child_style, child_id, items, image_ctx)?;
+                    collect(containing_rect, dom_tree, style_tree, style, child_id, items, image_ctx)?;
                 }
 
                 items.push(InlineItem::InlineBoxEnd { id: node_id });
