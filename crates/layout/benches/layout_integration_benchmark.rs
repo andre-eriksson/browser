@@ -192,7 +192,7 @@ fn bench_layout_pipeline(c: &mut Criterion) {
         |b, (dom, stylesheets)| {
             b.iter(|| {
                 let style_tree = build_style_tree(black_box(dom), black_box(stylesheets), viewport);
-                black_box(style_tree.root_nodes.len());
+                black_box(style_tree.total_nodes());
             })
         },
     );
@@ -200,9 +200,9 @@ fn bench_layout_pipeline(c: &mut Criterion) {
 
     let mut layout_text_context = new_text_context();
     let mut layout_group = c.benchmark_group(format!("layout/compute_layout/{fixture_name}"));
-    layout_group.throughput(Throughput::Elements(style_tree.root_nodes.len() as u64));
+    layout_group.throughput(Throughput::Elements(style_tree.total_nodes() as u64));
     layout_group.bench_with_input(
-        BenchmarkId::new("root_nodes", style_tree.root_nodes.len()),
+        BenchmarkId::new("root_nodes", style_tree.total_nodes()),
         &style_tree,
         |b, style_tree| {
             b.iter(|| {

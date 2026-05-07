@@ -1,4 +1,4 @@
-use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle, StyledNode};
+use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
     Margin,
@@ -71,8 +71,8 @@ impl PropertyResolver {
     }
 
     /// Calculate content width (top-down from containing block)
-    pub(crate) fn calculate_width(styled_node: &StyledNode, containing_width: f64) -> f64 {
-        let max_width = match &styled_node.style.max_width {
+    pub(crate) fn calculate_width(style: &ComputedStyle, containing_width: f64) -> f64 {
+        let max_width = match &style.max_width {
             ComputedMaxSize::None => f64::INFINITY,
             ComputedMaxSize::Px(px) => *px,
             ComputedMaxSize::Percentage(f) => (containing_width * f).max(0.0),
@@ -82,8 +82,8 @@ impl PropertyResolver {
             | ComputedMaxSize::Stretch => containing_width, // TODO: Fix
         };
 
-        let left = MarginValue::resolve(styled_node.style.margin_left, containing_width);
-        let right = MarginValue::resolve(styled_node.style.margin_right, containing_width);
+        let left = MarginValue::resolve(style.margin_left, containing_width);
+        let right = MarginValue::resolve(style.margin_right, containing_width);
 
         let available_width = f64::min(
             match (left, right) {
@@ -92,14 +92,14 @@ impl PropertyResolver {
                 (MarginValue::Px(px), MarginValue::Auto) => containing_width - px,
                 (MarginValue::Px(left_px), MarginValue::Px(right_px)) => containing_width - left_px - right_px,
             },
-            if max_width == 0.0 && styled_node.style.width == ComputedSize::Auto {
+            if max_width == 0.0 && style.width == ComputedSize::Auto {
                 f64::INFINITY
             } else {
                 max_width
             },
         );
 
-        let width = match &styled_node.style.width {
+        let width = match &style.width {
             ComputedSize::Auto => available_width.max(0.0),
             ComputedSize::Px(px) => *px,
             ComputedSize::Percentage(f) => (containing_width * f).max(0.0),
@@ -111,8 +111,8 @@ impl PropertyResolver {
         width.min(available_width)
     }
 
-    pub(crate) fn calculate_height(styled_node: &StyledNode, children_height: f64, containing_height: f64) -> f64 {
-        let height = match &styled_node.style.height {
+    pub(crate) fn calculate_height(style: &ComputedStyle, children_height: f64, containing_height: f64) -> f64 {
+        let height = match &style.height {
             ComputedSize::Auto => children_height,
             ComputedSize::Px(px) => *px,
             ComputedSize::Percentage(f) => (containing_height * f).max(0.0),
@@ -121,17 +121,17 @@ impl PropertyResolver {
             }
         };
 
-        if styled_node.style.max_height == ComputedMaxSize::None {
+        if style.max_height == ComputedMaxSize::None {
             height
         } else {
-            let max_height = match &styled_node.style.max_height {
+            let max_height = match &style.max_height {
                 ComputedMaxSize::Px(px) => *px,
                 ComputedMaxSize::Percentage(f) => (containing_height * f).max(0.0),
                 _ => f64::INFINITY,
             };
 
-            let top = MarginValue::resolve(styled_node.style.margin_top, containing_height);
-            let bottom = MarginValue::resolve(styled_node.style.margin_bottom, containing_height);
+            let top = MarginValue::resolve(style.margin_top, containing_height);
+            let bottom = MarginValue::resolve(style.margin_bottom, containing_height);
 
             let available_height = f64::min(
                 match (top, bottom) {
@@ -140,7 +140,7 @@ impl PropertyResolver {
                     (MarginValue::Px(px), MarginValue::Auto) => containing_height - px,
                     (MarginValue::Px(top_px), MarginValue::Px(bottom_px)) => containing_height - top_px - bottom_px,
                 },
-                if max_height == 0.0 && styled_node.style.height == ComputedSize::Auto {
+                if max_height == 0.0 && style.height == ComputedSize::Auto {
                     f64::INFINITY
                 } else {
                     max_height

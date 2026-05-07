@@ -36,7 +36,7 @@ pub fn layout_image<'node>(
         line.finish_line_with_decorations(ctx, text_ctx, layout_ctx.float_ctx_ref(), None);
     }
 
-    let node = LayoutNode::builder(img.id)
+    let node = LayoutNode::builder(*img.id)
         .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
         .colors(LayoutColors::from(img.style))
         .image_data(ImageData {

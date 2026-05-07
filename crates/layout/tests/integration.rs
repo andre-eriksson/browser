@@ -343,7 +343,9 @@ mod tests {
 
     #[test]
     fn test_child_calc_percentage_resolves_against_parent_size() {
-        let layout = process_html!("calc_percent_child.html.zst", true);
+        let (dom, style_tree, mut text_ctx) = process_html_raw!("calc_percent_child.html.zst", true);
+
+        let layout = layout_from!(dom, style_tree, &mut text_ctx);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];

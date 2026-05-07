@@ -57,7 +57,7 @@ pub fn layout_text<'node>(
                     float_ctx,
                     &Text {
                         content: segment,
-                        node_id: text.id,
+                        node_id: *text.id,
                         style: text.style,
                         desc: &text_desc,
                     },
@@ -76,7 +76,7 @@ pub fn layout_text<'node>(
             float_ctx,
             &Text {
                 content: &text.content,
-                node_id: text.id,
+                node_id: *text.id,
                 style: text.style,
                 desc: &text_desc,
             },
