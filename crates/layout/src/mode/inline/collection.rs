@@ -105,7 +105,7 @@ pub fn collect<'dom>(
 
                 let (width, height, needs_intrinsic_size) = {
                     let w = if css_width {
-                        match parent_style.width {
+                        match style.width {
                             ComputedSize::Px(px) => px,
                             ComputedSize::Percentage(frac) => frac * containing_rect.width,
                             _ => known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.0), // TODO: Handle other types of computed size
@@ -117,7 +117,7 @@ pub fn collect<'dom>(
                     };
 
                     let h = if css_height {
-                        match parent_style.height {
+                        match style.height {
                             ComputedSize::Px(px) => px,
                             ComputedSize::Percentage(frac) => frac * containing_rect.height,
                             _ => known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1), // TODO: Handle other types of computed size
@@ -128,13 +128,13 @@ pub fn collect<'dom>(
                         known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1)
                     };
 
-                    let max_width = match parent_style.max_width {
+                    let max_width = match style.max_width {
                         ComputedMaxSize::Px(px) => px,
                         ComputedMaxSize::Percentage(f) => f * containing_rect.width,
                         _ => f64::INFINITY,
                     };
 
-                    let max_height = match parent_style.max_height {
+                    let max_height = match style.max_height {
                         ComputedMaxSize::Px(px) => px,
                         _ => f64::INFINITY,
                     };
