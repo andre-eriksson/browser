@@ -88,9 +88,7 @@ impl<'html> HtmlRenderer<'html> {
         let nodes = self.layout_tree.resolve(f64::from(x), f64::from(y));
 
         for node in nodes {
-            let Some(dom_node) = self.dom_tree.get_node(&node.node_id) else {
-                continue;
-            };
+            let dom_node = &self.dom_tree[node.node_id];
 
             if let Some(n) = dom_node.data.as_element()
                 && n.tag == Tag::Html(HtmlTag::A)
@@ -103,7 +101,7 @@ impl<'html> HtmlRenderer<'html> {
                 );
             }
 
-            for ancestor in self.dom_tree.ancestors(&node.node_id) {
+            for ancestor in self.dom_tree.ancestors(dom_node) {
                 if let Some(n) = ancestor.data.as_element()
                     && n.tag == Tag::Html(HtmlTag::A)
                     && let Some(href) = n.attributes.as_ref().and_then(|attrs| attrs.get("href"))

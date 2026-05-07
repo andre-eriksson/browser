@@ -2,12 +2,27 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
     io::Write,
+    ops::{Deref, Index, IndexMut},
 };
 
 use crate::tag::Tag;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
+
+impl From<usize> for NodeId {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl Deref for NodeId {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl Display for NodeId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -169,25 +184,20 @@ impl DocumentRoot {
         self.nodes.get(node_id.0)
     }
 
-    #[must_use]
-    pub fn get_node_mut(&mut self, node_id: &NodeId) -> Option<&mut DomNode> {
-        self.nodes.get_mut(node_id.0)
-    }
-
     /// Walk up the DOM tree from the given node, returning all ancestor nodes
     /// (parent, grandparent, etc.) in order from nearest to farthest.
     #[must_use]
-    pub fn ancestors(&self, node_id: &NodeId) -> Vec<&DomNode> {
+    pub fn ancestors(&self, node: &DomNode) -> Vec<&DomNode> {
         let mut result = Vec::new();
-        let mut current = self.get_node(node_id).and_then(|n| n.parent);
+        let mut current = node.parent;
+
         while let Some(pid) = current {
-            if let Some(parent_node) = self.get_node(&pid) {
-                result.push(parent_node);
-                current = parent_node.parent;
-            } else {
-                break;
-            }
+            let parent_node = &self[pid];
+
+            result.push(parent_node);
+            current = parent_node.parent;
         }
+
         result
     }
 
@@ -203,9 +213,8 @@ impl DocumentRoot {
         self.nodes.push(new_node);
 
         if let Some(parent_id) = parent {
-            if let Some(parent_node) = self.get_node_mut(&parent_id) {
-                parent_node.children.push(node_id);
-            }
+            let parent_node = &mut self[&parent_id];
+            parent_node.children.push(node_id);
         } else {
             self.root_nodes.push(node_id);
         }
@@ -222,7 +231,7 @@ impl DocumentRoot {
     /// Used for debugging and visualization purposes.
     #[must_use]
     pub fn to_html(&self) -> Vec<u8> {
-        fn node_to_html(mut html: &mut Vec<u8>, node: &DomNode, dom: &DocumentRoot, depth: usize) {
+        fn node_to_html(mut html: &mut Vec<u8>, node: &DomNode, dom_tree: &DocumentRoot, depth: usize) {
             if node.data.as_text().is_some_and(|t| t.trim().is_empty()) {
                 return; // Skip empty text nodes
             }
@@ -259,9 +268,7 @@ impl DocumentRoot {
                     let has_child = !node.children.is_empty();
 
                     for child_id in &node.children {
-                        if let Some(child_node) = dom.get_node(child_id) {
-                            node_to_html(html, child_node, dom, depth + 1);
-                        }
+                        node_to_html(html, &dom_tree[child_id], dom_tree, depth + 1);
                     }
 
                     if has_child {
@@ -289,9 +296,7 @@ impl DocumentRoot {
         writeln!(&mut html, "<html><head></head><body>").unwrap();
 
         for root_id in &self.root_nodes {
-            if let Some(root_node) = self.get_node(root_id) {
-                node_to_html(&mut html, root_node, self, 0);
-            }
+            node_to_html(&mut html, &self[root_id], self, 0);
         }
 
         writeln!(&mut html, "</body></html>").unwrap();
@@ -299,9 +304,31 @@ impl DocumentRoot {
     }
 }
 
+impl Index<NodeId> for DocumentRoot {
+    type Output = DomNode;
+
+    fn index(&self, index: NodeId) -> &Self::Output {
+        &self.nodes[*index]
+    }
+}
+
+impl Index<&NodeId> for DocumentRoot {
+    type Output = DomNode;
+
+    fn index(&self, index: &NodeId) -> &Self::Output {
+        &self.nodes[**index]
+    }
+}
+
+impl IndexMut<&NodeId> for DocumentRoot {
+    fn index_mut(&mut self, index: &NodeId) -> &mut Self::Output {
+        &mut self.nodes[**index]
+    }
+}
+
 impl Display for DocumentRoot {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        fn fmt_node(node: &DomNode, doc: &DocumentRoot, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
+        fn fmt_node(node: &DomNode, dom_tree: &DocumentRoot, f: &mut Formatter<'_>, indent: usize) -> std::fmt::Result {
             match &node.data {
                 NodeData::Element(elem) => {
                     for _ in 0..indent {
@@ -324,9 +351,7 @@ impl Display for DocumentRoot {
                     }
 
                     for child_id in &node.children {
-                        if let Some(child_node) = doc.get_node(child_id) {
-                            fmt_node(child_node, doc, f, indent + 1)?;
-                        }
+                        fmt_node(&dom_tree[child_id], dom_tree, f, indent + 1)?;
                     }
 
                     for _ in 0..indent {
@@ -351,9 +376,7 @@ impl Display for DocumentRoot {
         }
 
         for root_id in &self.root_nodes {
-            if let Some(root_node) = self.get_node(root_id) {
-                fmt_node(root_node, self, f, 0)?;
-            }
+            fmt_node(&self[root_id], self, f, 0)?;
         }
 
         Ok(())

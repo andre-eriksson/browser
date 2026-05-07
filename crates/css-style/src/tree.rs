@@ -4,11 +4,12 @@
 //! based on the cascade rules and the provided stylesheets.
 
 use std::collections::HashMap;
+use std::ops::Index;
 
 use browser_config::BrowserConfig;
 use css_cssom::CSSStyleSheet;
 use css_values::property::PropertyDescriptor;
-use html_dom::DocumentRoot;
+use html_dom::{DocumentRoot, NodeId};
 
 use crate::ComputedStyle;
 use crate::cascade::RuleIndex;
@@ -29,10 +30,7 @@ pub struct PropertyRegistry {
 #[derive(Debug, Clone, Default)]
 pub struct StyleTree {
     /// The styled nodes corresponding to the DOM nodes. Accessed via the `NodeId` as the index.
-    pub nodes: Vec<ComputedStyle>,
-
-    /// A registry of CSS properties, which contains the descriptors for all known CSS properties. This is used to validate and compute styles for each node in the style tree.
-    pub property_registry: PropertyRegistry,
+    nodes: Vec<ComputedStyle>,
 }
 
 impl StyleTree {
@@ -68,9 +66,36 @@ impl StyleTree {
             nodes.push(computed_style);
         }
 
-        Self {
-            nodes,
-            property_registry,
-        }
+        Self { nodes }
+    }
+
+    pub fn total_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn get(&self, node_id: NodeId) -> Option<&ComputedStyle> {
+        self.nodes.get(*node_id)
+    }
+}
+
+impl From<Vec<ComputedStyle>> for StyleTree {
+    fn from(nodes: Vec<ComputedStyle>) -> Self {
+        Self { nodes }
+    }
+}
+
+impl Index<NodeId> for StyleTree {
+    type Output = ComputedStyle;
+
+    fn index(&self, index: NodeId) -> &Self::Output {
+        &self.nodes[*index]
+    }
+}
+
+impl Index<&NodeId> for StyleTree {
+    type Output = ComputedStyle;
+
+    fn index(&self, index: &NodeId) -> &Self::Output {
+        &self.nodes[**index]
     }
 }

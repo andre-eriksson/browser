@@ -98,13 +98,13 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// * `new_tag` - A reference to the `HtmlTag` representing the new tag being processed.
     fn handle_auto_close(&mut self, new_tag: &Tag) {
         let should_pop = if let Some(last_id) = self.open_elements.last() {
-            self.dom_tree.get_node(last_id).is_some_and(|node| {
-                if let NodeData::Element(elem) = &node.data {
-                    elem.tag.should_auto_close(new_tag)
-                } else {
-                    false
-                }
-            })
+            let last_node = &self.dom_tree[last_id];
+
+            if let NodeData::Element(elem) = &last_node.data {
+                elem.tag.should_auto_close(new_tag)
+            } else {
+                false
+            }
         } else {
             false
         };
@@ -167,14 +167,14 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     fn handle_end_tag(&mut self, token: &Token) {
         let target_tag = Tag::from_str_insensitive(&token.data);
 
-        let should_close = if let Some(last) = self.open_elements.last() {
-            self.dom_tree.get_node(last).is_some_and(|node| {
-                if let NodeData::Element(elem) = &node.data {
-                    elem.tag == target_tag
-                } else {
-                    false
-                }
-            })
+        let should_close = if let Some(last_id) = self.open_elements.last() {
+            let last_node = &self.dom_tree[last_id];
+
+            if let NodeData::Element(elem) = &last_node.data {
+                elem.tag == target_tag
+            } else {
+                false
+            }
         } else {
             false
         };
@@ -191,21 +191,22 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     fn handle_text_content(&mut self, token: Token) {
         let text_content = decode_html_entities(&token.data);
 
-        if let Some(last_id) = self.open_elements.last()
-            && let Some(parent_node) = self.dom_tree.get_node(last_id)
-            && let NodeData::Element(parent_elem) = &parent_node.data
-        {
-            let tag = &parent_elem.tag.clone();
-            let attributes = &parent_elem.attributes.clone();
-            let text_data = NodeData::Text(text_content.trim().to_string());
-            let new_id = self.insert_node(&text_data);
+        if let Some(last_id) = self.open_elements.last() {
+            let parent_node = &self.dom_tree[last_id];
 
-            self.collector.collect(&TagInfo {
-                tag,
-                attributes,
-                node_id: new_id,
-                data: text_data.as_text(),
-            });
+            if let NodeData::Element(parent_elem) = &parent_node.data {
+                let tag = &parent_elem.tag.clone();
+                let attributes = &parent_elem.attributes.clone();
+                let text_data = NodeData::Text(text_content.trim().to_string());
+                let new_id = self.insert_node(&text_data);
+
+                self.collector.collect(&TagInfo {
+                    tag,
+                    attributes,
+                    node_id: new_id,
+                    data: text_data.as_text(),
+                });
+            }
         }
     }
 }

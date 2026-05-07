@@ -129,11 +129,8 @@ impl ComputedStyle {
         property_registry: &mut PropertyRegistry,
         styles: &[ComputedStyle],
     ) -> Self {
-        let parent_id = dom
-            .get_node(&node_id)
-            .and_then(|n| n.parent)
-            .map(|pid| pid.0)
-            .unwrap_or(0);
+        let parent_id = dom[&node_id].parent.map(|pid| pid.0).unwrap_or(0);
+
         let parent = styles.get(parent_id).cloned().unwrap_or_default();
         let mut style_ctx = StyleContext::new(&parent);
 

@@ -104,9 +104,7 @@ impl SpecifiedStyle {
 
         let parent_variables = Arc::clone(&parent_style.variables);
 
-        let Some(node) = dom.get_node(&node_id) else {
-            return specified_style;
-        };
+        let node = &dom[node_id];
 
         let inline_declarations = node
             .data

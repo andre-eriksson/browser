@@ -11,9 +11,8 @@ pub fn cmd_node_id(engine: &HeadlessEngine, id: usize) -> Result<(), String> {
     };
 
     let document = page.document();
-    let node_id = NodeId(id);
     let node = document
-        .get_node(&node_id)
+        .get_node(&id.into())
         .ok_or_else(|| format!("Node {id} not found in DOM"))?;
 
     println!("Node {id}");
@@ -45,13 +44,12 @@ pub fn cmd_node_dom(engine: &HeadlessEngine, id: usize, max_depth: Option<usize>
     };
 
     let document = page.document();
-    let node_id = NodeId(id);
     document
-        .get_node(&node_id)
+        .get_node(&id.into())
         .ok_or_else(|| format!("Node {id} not found in DOM"))?;
 
     let mut output = String::new();
-    write_dom_subtree(document, node_id, 0, max_depth, &mut output).map_err(|e| e.to_string())?;
+    write_dom_subtree(document, id.into(), 0, max_depth, &mut output).map_err(|e| e.to_string())?;
 
     if output.trim().is_empty() {
         println!("Node {id} has no printable DOM output");
@@ -65,18 +63,16 @@ pub fn cmd_node_dom(engine: &HeadlessEngine, id: usize, max_depth: Option<usize>
 pub fn cmd_node_style(engine: &mut HeadlessEngine, config: &BrowserConfig, id: usize) -> Result<(), String> {
     engine.ensure_layout(config)?;
 
-    let node_id = NodeId(id);
-
     let Some(style_tree) = engine.style_tree.as_ref() else {
         return Err("Style tree not available".to_string());
     };
 
     let styled_node = style_tree
-        .find_node(node_id)
+        .get(id.into())
         .ok_or_else(|| format!("Node {id} not found in style tree"))?;
 
     println!("Computed style for node {id}:");
-    println!("{:#?}", styled_node.style);
+    println!("{:#?}", styled_node);
 
     Ok(())
 }
@@ -108,9 +104,8 @@ pub fn cmd_node_children(engine: &HeadlessEngine, id: usize, recursive: bool) ->
     };
 
     let document = page.document();
-    let node_id = NodeId(id);
     let node = document
-        .get_node(&node_id)
+        .get_node(&id.into())
         .ok_or_else(|| format!("Node {id} not found in DOM"))?;
 
     if node.children.is_empty() {
@@ -137,9 +132,7 @@ pub fn cmd_node_children(engine: &HeadlessEngine, id: usize, recursive: bool) ->
 }
 
 fn print_descendants(document: &DocumentRoot, node_id: NodeId, depth: usize) -> Result<(), String> {
-    let node = document
-        .get_node(&node_id)
-        .ok_or_else(|| format!("DOM references missing descendant node {}", node_id.0))?;
+    let node = &document[node_id];
 
     let indent = "  ".repeat(depth);
     println!("{}[{}] {}", indent, node_id.0, describe_node_type(node));
