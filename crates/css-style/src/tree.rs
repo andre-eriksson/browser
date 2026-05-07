@@ -47,7 +47,7 @@ impl StyleTree {
         let rules = GeneratedRule::build(stylesheets, &mut property_registry, absolute_ctx);
         let rule_index = RuleIndex::build(&rules);
 
-        let mut nodes = Vec::with_capacity(dom.nodes.len());
+        let mut styles = Vec::with_capacity(dom.nodes.len());
 
         for node in &dom.nodes {
             let computed_style = ComputedStyle::from_node(
@@ -60,13 +60,13 @@ impl StyleTree {
                     index: &rule_index,
                 },
                 &mut property_registry,
-                &nodes,
+                &styles,
             );
 
-            nodes.push(computed_style);
+            styles.push(computed_style);
         }
 
-        Self { nodes }
+        Self { nodes: styles }
     }
 
     pub fn total_nodes(&self) -> usize {

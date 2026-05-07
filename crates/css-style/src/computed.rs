@@ -129,13 +129,15 @@ impl ComputedStyle {
         property_registry: &mut PropertyRegistry,
         styles: &[ComputedStyle],
     ) -> Self {
-        let parent_id = dom[&node_id].parent.map(|pid| pid.0).unwrap_or(0);
+        let parent = match dom[&node_id].parent.and_then(|pid| styles.get(*pid)) {
+            Some(parent) => parent,
+            None => &ComputedStyle::default(),
+        };
 
-        let parent = styles.get(parent_id).cloned().unwrap_or_default();
-        let mut style_ctx = StyleContext::new(&parent);
+        let mut style_ctx = StyleContext::new(parent);
 
         let specified_style =
-            SpecifiedStyle::from_node(absolute_ctx, &style_ctx, &parent, node_id, dom, rules, property_registry);
+            SpecifiedStyle::from_node(absolute_ctx, &style_ctx, parent, node_id, dom, rules, property_registry);
 
         let margin_top = into_compute!(specified_style, parent, margin_top);
         let margin_right = into_compute!(specified_style, parent, margin_right);
