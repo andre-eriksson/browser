@@ -127,16 +127,8 @@ fn parse_html_and_collect_styles(
                 }
                 BlockedReason::WaitingForScript { script } => match script {
                     // TODO: When JS is supported, fix this.
-                    Script::External { src, .. } => {
-                        panic!("parser blocked on external script: {}", src);
-                    }
-                    Script::Inline {
-                        data,
-                        type_attr: mime_type,
-                    } => {
-                        let script_content = data.expect("failed to extract inline script content");
-                        panic!("parser blocked on inline script (mime_type={}): {}", mime_type, script_content);
-                    }
+                    Script::External { .. } => {}
+                    Script::Inline { .. } => {}
                 },
                 BlockedReason::WaitingForResource(_, _, _) => {}
                 BlockedReason::SVGContent { data } => {
