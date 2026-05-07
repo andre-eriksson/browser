@@ -149,7 +149,7 @@ mod tests {
     fn collapses_whitespace_across_inline_box_boundaries() {
         let style = ComputedStyle::default();
         let mut items = vec![
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+            InlineItem::TextRun(TextRun {
                 id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
@@ -158,13 +158,13 @@ mod tests {
                 id: &NodeId(2),
                 style: &style,
             },
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+            InlineItem::TextRun(TextRun {
                 id: &NodeId(3),
                 content: " ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineBoxEnd { id: &NodeId(2) },
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
+            InlineItem::TextRun(TextRun {
                 id: &NodeId(4),
                 content: "B".to_string(),
                 style: &style,
