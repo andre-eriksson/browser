@@ -4,14 +4,14 @@ use css_values::quantity::{Length, LengthUnit};
 
 use crate::{
     RelativeType,
-    properties::{AbsoluteContext, PixelRepr, RelativeContext},
+    properties::{AbsoluteContext, PixelRepr, StyleContext},
 };
 
 impl PixelRepr for Length {
     fn to_px(
         self,
         rel_type: Option<RelativeType>,
-        rel_ctx: Option<&RelativeContext>,
+        style_ctx: Option<&StyleContext>,
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         Ok(match self.unit() {
@@ -25,15 +25,19 @@ impl PixelRepr for Length {
             LengthUnit::Vw => abs_ctx.viewport_width * self.value() / 100.0,
             LengthUnit::Vh => abs_ctx.viewport_height * self.value() / 100.0,
 
-            LengthUnit::Ch | LengthUnit::Cap => rel_ctx.map_or_else(
+            LengthUnit::Ch | LengthUnit::Cap => style_ctx.map_or_else(
                 || abs_ctx.root_font_size * 0.5 * self.value(),
-                |ctx| ctx.parent.font_size * 0.5 * self.value(),
+                |ctx| ctx.parent_style.font_size * 0.5 * self.value(),
             ),
             LengthUnit::Rem => abs_ctx.root_font_size * self.value(),
             LengthUnit::Em => match rel_type {
-                Some(RelativeType::FontSize) => rel_ctx
-                    .map_or_else(|| abs_ctx.root_font_size * self.value(), |ctx| ctx.parent.font_size * self.value()),
-                _ => rel_ctx.map_or_else(|| abs_ctx.root_font_size * self.value(), |ctx| ctx.font_size * self.value()),
+                Some(RelativeType::FontSize) => style_ctx.map_or_else(
+                    || abs_ctx.root_font_size * self.value(),
+                    |ctx| ctx.parent_style.font_size * self.value(),
+                ),
+                _ => {
+                    style_ctx.map_or_else(|| abs_ctx.root_font_size * self.value(), |ctx| ctx.font_size * self.value())
+                }
             },
             _ => self.value(), // TODO: Handle other units properly
         })

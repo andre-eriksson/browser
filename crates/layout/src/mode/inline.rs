@@ -1,4 +1,4 @@
-use css_style::{ComputedSize, ComputedStyle, StyledNode};
+use css_style::{ComputedSize, ComputedStyle, StyleTree};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
@@ -74,22 +74,24 @@ impl InlineLayout {
     /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
     /// The resulting flat list of inline items is then canonicalised by collapsing whitespace
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
-    pub fn collect_inline_items_from_nodes<'node>(
+    pub fn collect_inline_items_from_nodes<'dom>(
         containing_rect: Rect,
-        dom_tree: &DocumentRoot,
-        parent_style: &'node ComputedStyle,
-        nodes: &'node [&StyledNode],
+        dom_tree: &'dom DocumentRoot,
+        style_tree: &'dom StyleTree,
+        parent_style: &'dom ComputedStyle,
+        nodes: &'dom [NodeId],
         image_ctx: &ImageContext,
-    ) -> Vec<InlineItem<'node>> {
+    ) -> Vec<InlineItem<'dom>> {
         let mut raw_items = Vec::with_capacity(nodes.len() * 2);
 
         for node in nodes {
-            if collect(containing_rect, dom_tree, parent_style, node, &mut raw_items, image_ctx).is_err() {
+            if collect(containing_rect, dom_tree, style_tree, parent_style, node, &mut raw_items, image_ctx).is_err() {
                 break;
             }
         }
 
         canonicalize_whitespace(&mut raw_items);
+
         raw_items
     }
 
@@ -100,6 +102,7 @@ impl InlineLayout {
     /// finally returning the positioned `LayoutNode`s and total height of the laid-out lines.
     pub fn layout(
         dom_tree: &DocumentRoot,
+        style_tree: &StyleTree,
         items: &[InlineItem],
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
@@ -125,12 +128,12 @@ impl InlineLayout {
                     layout_text(&mut inline_layout_ctx, ctx.float_ctx(), text_ctx, &mut line, text);
                 }
                 InlineItem::InlineBoxStart { id, style } => {
-                    line.open_inline_box(&mut inline_layout_ctx.inline_box_stack, text_ctx, *id, style);
+                    line.open_inline_box(&mut inline_layout_ctx.inline_box_stack, text_ctx, **id, style);
                 }
                 InlineItem::InlineBoxEnd { id } => {
-                    line.close_inline_box(&mut inline_layout_ctx.inline_box_stack, *id);
+                    line.close_inline_box(&mut inline_layout_ctx.inline_box_stack, **id);
                 }
-                InlineItem::InlineFlowRoot { node, style } => {
+                InlineItem::InlineFlowRoot { id: node, style } => {
                     let (margin, padding, border) =
                         PropertyResolver::resolve_box_model(style, inline_layout_ctx.available_width);
 
@@ -146,7 +149,9 @@ impl InlineLayout {
                         ctx.position_ctx(),
                     );
 
-                    if let Some(mut layout_node) = LayoutEngine::layout_node(dom_tree, node, &mut block_ctx, text_ctx) {
+                    if let Some(mut layout_node) =
+                        LayoutEngine::layout_node(dom_tree, style_tree, node, &mut block_ctx, text_ctx)
+                    {
                         if style.width == ComputedSize::Auto {
                             layout_node.dimensions.width =
                                 InlineLayout::auto_inline_flow_root_width(&layout_node, padding, border)

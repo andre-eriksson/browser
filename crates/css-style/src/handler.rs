@@ -17,7 +17,7 @@ use css_values::{
 use tracing::trace;
 
 use crate::{
-    AbsoluteContext, Offset, RelativeContext, RelativeType,
+    AbsoluteContext, Offset, RelativeType, StyleContext,
     properties::{
         CSSProperty, PixelRepr,
         background::{
@@ -32,8 +32,8 @@ use crate::{
 /// Context for updating a CSS property, containing necessary information and utilities for the update process.
 pub struct PropertyUpdateContext<'css> {
     pub absolute_ctx: &'css AbsoluteContext<'css>,
+    pub style_ctx: &'css StyleContext<'css>,
     pub specified_style: &'css mut SpecifiedStyle,
-    pub relative_ctx: &'css RelativeContext,
     pub errors: Vec<PropertyError>,
 }
 
@@ -48,13 +48,13 @@ pub struct PropertyError {
 impl<'css> PropertyUpdateContext<'css> {
     pub const fn new(
         absolute_ctx: &'css AbsoluteContext,
+        style_ctx: &'css StyleContext,
         specified_style: &'css mut SpecifiedStyle,
-        relative_ctx: &'css RelativeContext,
     ) -> Self {
         Self {
             absolute_ctx,
+            style_ctx,
             specified_style,
-            relative_ctx,
             errors: Vec::new(),
         }
     }
@@ -89,7 +89,7 @@ impl<'css> PropertyUpdateContext<'css> {
             CSSProperty::Global(_) => self
                 .specified_style
                 .writing_mode
-                .compute(self.relative_ctx.parent.writing_mode),
+                .compute(self.style_ctx.parent_style.writing_mode),
         }
     }
 
@@ -1307,7 +1307,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
     if let Ok(font_size) = CSSProperty::resolve(&ctx.specified_style.font_size) {
         ctx.specified_style.computed_font_size_px = match font_size {
             FontSize::Absolute(abs) => {
-                let Ok(px) = abs.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx) else {
+                let Ok(px) = abs.to_px(Some(RelativeType::FontSize), Some(ctx.style_ctx), ctx.absolute_ctx) else {
                     ctx.record_error_from_stream(
                         "font-size",
                         stream,
@@ -1319,7 +1319,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
                 px
             }
             FontSize::Relative(rel) => {
-                let Ok(px) = rel.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx) else {
+                let Ok(px) = rel.to_px(Some(RelativeType::FontSize), Some(ctx.style_ctx), ctx.absolute_ctx) else {
                     ctx.record_error_from_stream(
                         "font-size",
                         stream,
@@ -1331,7 +1331,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
                 px
             }
             FontSize::Length(len) => {
-                let Ok(px) = len.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx) else {
+                let Ok(px) = len.to_px(Some(RelativeType::FontSize), Some(ctx.style_ctx), ctx.absolute_ctx) else {
                     ctx.record_error_from_stream(
                         "font-size",
                         stream,
@@ -1343,7 +1343,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
                 px
             }
             FontSize::Percentage(pct) => {
-                let parent_font_size = ctx.relative_ctx.parent.font_size;
+                let parent_font_size = ctx.style_ctx.parent_style.font_size;
 
                 pct.as_fraction() * parent_font_size
             }
@@ -1359,7 +1359,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
 
                 match kind {
                     CalcKind::Length(len) => {
-                        let Ok(px) = len.to_px(Some(RelativeType::FontSize), Some(ctx.relative_ctx), ctx.absolute_ctx)
+                        let Ok(px) = len.to_px(Some(RelativeType::FontSize), Some(ctx.style_ctx), ctx.absolute_ctx)
                         else {
                             ctx.record_error_from_stream(
                                 "font-size",
@@ -1374,7 +1374,7 @@ pub fn handle_font_size(ctx: &mut PropertyUpdateContext, stream: &mut ComponentV
                         px
                     }
                     CalcKind::Percentage(pct) => {
-                        let parent_font_size = ctx.relative_ctx.parent.font_size;
+                        let parent_font_size = ctx.style_ctx.parent_style.font_size;
 
                         pct.as_fraction() * parent_font_size
                     }
@@ -1402,11 +1402,11 @@ pub fn handle_font_weight(ctx: &mut PropertyUpdateContext, stream: &mut Componen
             && let CssTokenKind::Ident(ident) = &token.kind
         {
             if ident.eq_ignore_ascii_case("lighter") {
-                let lighter = ctx.relative_ctx.parent.font_weight - 100;
+                let lighter = ctx.style_ctx.parent_style.font_weight - 100;
                 ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(lighter));
                 return;
             } else if ident.eq_ignore_ascii_case("bolder") {
-                let bolder = ctx.relative_ctx.parent.font_weight + 100;
+                let bolder = ctx.style_ctx.parent_style.font_weight + 100;
                 ctx.specified_style.font_weight = CSSProperty::Value(FontWeight::from(bolder));
                 return;
             }
@@ -1475,6 +1475,8 @@ pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueSt
 mod tests {
     use std::net::Ipv4Addr;
 
+    use crate::ComputedStyle;
+
     use super::*;
 
     use css_cssom::CSSStyleSheet;
@@ -1487,10 +1489,16 @@ mod tests {
         AbsoluteContext::default_url(url)
     }
 
+    fn style_ctx() -> StyleContext<'static> {
+        let style = Box::leak(Box::new(ComputedStyle::default()));
+
+        StyleContext::new(style)
+    }
+
     #[test]
     fn test_border_extra_tokens() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle {
             border_top_style: CSSProperty::Value(BorderStyle::Solid),
             border_right_style: CSSProperty::Value(BorderStyle::Solid),
@@ -1504,7 +1512,7 @@ mod tests {
         let decls = CSSStyleSheet::from_inline("border: red 1px solid somethingelse;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_border(&mut ctx, &mut stream);
 
@@ -1515,13 +1523,13 @@ mod tests {
     #[test]
     fn test_border_any_order() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("border: red 1px solid;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_border(&mut ctx, &mut stream);
 
@@ -1534,13 +1542,13 @@ mod tests {
     #[test]
     fn test_border_some_missing() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("border: solid;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_border(&mut ctx, &mut stream);
 
@@ -1554,7 +1562,7 @@ mod tests {
     #[test]
     fn test_border_global_keyword() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let before = specified.clone();
@@ -1562,7 +1570,7 @@ mod tests {
         let decls = CSSStyleSheet::from_inline("border: inherit solid;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_border(&mut ctx, &mut stream);
 
@@ -1573,7 +1581,7 @@ mod tests {
     #[test]
     fn test_background_multiple_layers_with_size_and_color() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline(
@@ -1581,7 +1589,7 @@ mod tests {
         );
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_background(&mut ctx, &mut stream);
 
@@ -1666,13 +1674,13 @@ mod tests {
     #[test]
     fn test_background_repeat_two_values() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("background: none left top / cover repeat no-repeat;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_background(&mut ctx, &mut stream);
 
@@ -1698,13 +1706,13 @@ mod tests {
     #[test]
     fn test_background_origin_clip_chain_padding_border() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("background: none padding-box border-box;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_background(&mut ctx, &mut stream);
 
@@ -1730,13 +1738,13 @@ mod tests {
     #[test]
     fn test_background_zero_zero() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("background: 0 0;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_background(&mut ctx, &mut stream);
 
@@ -1766,13 +1774,13 @@ mod tests {
     #[test]
     fn test_background_none() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("background: none;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_background(&mut ctx, &mut stream);
 
@@ -1791,13 +1799,13 @@ mod tests {
     #[test]
     fn test_flex() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("flex: 1 0 auto;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_flex(&mut ctx, &mut stream);
 
@@ -1810,13 +1818,13 @@ mod tests {
     #[test]
     fn test_flex_flow() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("flex-flow: column-reverse wrap;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_flex_flow(&mut ctx, &mut stream);
 
@@ -1828,13 +1836,13 @@ mod tests {
     #[test]
     fn test_gap() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("gap: 10px 20px;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_gap(&mut ctx, &mut stream);
 
@@ -1846,13 +1854,13 @@ mod tests {
     #[test]
     fn test_flex_invalid() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("flex: 1 1 1 1;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_flex(&mut ctx, &mut stream);
 
@@ -1862,13 +1870,13 @@ mod tests {
     #[test]
     fn test_flex_flow_invalid() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("flex-flow: row unknown-wrap;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_flex_flow(&mut ctx, &mut stream);
 
@@ -1878,13 +1886,13 @@ mod tests {
     #[test]
     fn test_gap_invalid() {
         let abs = absoulte_ctx();
-        let rel = RelativeContext::default();
+        let style_ctx = style_ctx();
         let mut specified = SpecifiedStyle::default();
 
         let decls = CSSStyleSheet::from_inline("gap: invalid-gap;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_gap(&mut ctx, &mut stream);
 
@@ -1893,7 +1901,7 @@ mod tests {
         let decls = CSSStyleSheet::from_inline("gap: 10px 20px 30px;");
         let values = decls[0].original_values.clone();
         let mut stream = ComponentValueStream::from(&values);
-        let mut ctx = PropertyUpdateContext::new(&abs, &mut specified, &rel);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_gap(&mut ctx, &mut stream);
 

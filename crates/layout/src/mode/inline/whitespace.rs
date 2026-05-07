@@ -138,8 +138,10 @@ fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
 
 #[cfg(test)]
 mod tests {
-    use css_style::{ComputedStyle, StyledNode};
+    use css_style::ComputedStyle;
     use html_dom::NodeId;
+
+    use crate::mode::inline::collection::TextRun;
 
     use super::*;
 
@@ -147,23 +149,23 @@ mod tests {
     fn collapses_whitespace_across_inline_box_boundaries() {
         let style = ComputedStyle::default();
         let mut items = vec![
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
-                id: NodeId(1),
+            InlineItem::TextRun(TextRun {
+                id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineBoxStart {
-                id: NodeId(2),
+                id: &NodeId(2),
                 style: &style,
             },
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
-                id: NodeId(3),
+            InlineItem::TextRun(TextRun {
+                id: &NodeId(3),
                 content: " ".to_string(),
                 style: &style,
             }),
-            InlineItem::InlineBoxEnd { id: NodeId(2) },
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
-                id: NodeId(4),
+            InlineItem::InlineBoxEnd { id: &NodeId(2) },
+            InlineItem::TextRun(TextRun {
+                id: &NodeId(4),
                 content: "B".to_string(),
                 style: &style,
             }),
@@ -187,19 +189,18 @@ mod tests {
     #[test]
     fn atomic_items_still_reset_whitespace_collapse_state() {
         let style = ComputedStyle::default();
-        let flow_root = StyledNode::new(NodeId(9));
         let mut items = vec![
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
-                id: NodeId(1),
+            InlineItem::TextRun(TextRun {
+                id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineFlowRoot {
-                node: &flow_root,
-                style: &flow_root.style,
+                id: &NodeId(2),
+                style: &style,
             },
-            InlineItem::TextRun(crate::mode::inline::collection::TextRun {
-                id: NodeId(2),
+            InlineItem::TextRun(TextRun {
+                id: &NodeId(3),
                 content: " B".to_string(),
                 style: &style,
             }),

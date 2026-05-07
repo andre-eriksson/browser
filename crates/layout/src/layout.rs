@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
-use css_style::{Color4f, ComputedStyle, Position, StyledNode};
+use css_style::{Color4f, ComputedStyle, Position};
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
@@ -81,18 +81,6 @@ impl From<&ComputedStyle> for LayoutColors {
                 left: style.border_left_color,
             },
         }
-    }
-}
-
-impl From<&Box<ComputedStyle>> for LayoutColors {
-    fn from(style: &Box<ComputedStyle>) -> Self {
-        Self::from(style.as_ref())
-    }
-}
-
-impl From<&StyledNode> for LayoutColors {
-    fn from(styled_node: &StyledNode) -> Self {
-        Self::from(&styled_node.style)
     }
 }
 

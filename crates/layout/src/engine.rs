@@ -1,4 +1,4 @@
-use css_style::{ComputedStyle, Display, Position, StyleTree, StyledNode};
+use css_style::{ComputedStyle, Display, Position, StyleTree};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{DocumentRoot, NodeId};
 
@@ -27,16 +27,16 @@ pub(crate) enum LayoutMode {
 }
 
 impl LayoutMode {
-    pub fn new(styled_node: &StyledNode) -> Option<Self> {
-        if styled_node.style.display.is_none() {
+    pub fn new(style: &ComputedStyle) -> Option<Self> {
+        if style.display.is_none() {
             return None;
         }
 
-        if styled_node.style.position.is_out_of_flow() {
+        if style.position.is_out_of_flow() {
             return Some(Self::Block);
         }
 
-        if let Display::Normal { outside, inside } = styled_node.style.display {
+        if let Display::Normal { outside, inside } = style.display {
             if let Some(val) = inside {
                 match val {
                     InsideDisplay::Flex => return Some(Self::Flex),
@@ -83,12 +83,12 @@ impl LayoutEngine {
         let mut max_width = 0.0f64;
         let mut root_nodes = Vec::new();
 
-        for styled_node in &style_tree.root_nodes {
+        for node_id in &dom_tree.root_nodes {
             ctx.block_cursor.y = total_height;
 
             let pos_count_before = ctx.position_ctx().position_count();
 
-            let Some(mut node) = Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) else {
+            let Some(mut node) = Self::layout_node(dom_tree, style_tree, node_id, &mut ctx, text_ctx) else {
                 continue;
             };
 
@@ -109,7 +109,7 @@ impl LayoutEngine {
 
         for mut defered_node in ctx
             .position_ctx()
-            .resolve_all(dom_tree, image_ctx, text_ctx)
+            .resolve_all(dom_tree, style_tree, image_ctx, text_ctx)
         {
             Self::offset_children_y(&mut defered_node.children, defered_node.margin.top.to_px());
 
@@ -138,18 +138,22 @@ impl LayoutEngine {
     /// Compute layout for a single node and its descendants
     pub(crate) fn layout_node(
         dom_tree: &DocumentRoot,
-        styled_node: &StyledNode,
+        style_tree: &StyleTree,
+        node_id: &NodeId,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
     ) -> Option<LayoutNode> {
-        let _layout_mode = LayoutMode::new(styled_node)?;
+        let style = &style_tree[node_id];
+        let _layout_mode = LayoutMode::new(style)?;
 
-        BlockLayout::layout(dom_tree, styled_node, ctx, text_ctx)
+        BlockLayout::layout(node_id, dom_tree, style_tree, ctx, text_ctx)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn layout_nodes(
         dom_tree: &DocumentRoot,
-        styled_nodes: &[&StyledNode],
+        style_tree: &StyleTree,
+        node_ids: &[NodeId],
         mode: LayoutMode,
         parent_style: &ComputedStyle,
         containing_block: Rect,
@@ -161,13 +165,14 @@ impl LayoutEngine {
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
                     containing_block,
                     dom_tree,
+                    style_tree,
                     parent_style,
-                    styled_nodes,
+                    node_ids,
                     ctx.image_ctx(),
                 );
                 let inline_ctx = InlineContext::new(containing_block);
 
-                InlineLayout::layout(dom_tree, &inline_items, ctx, text_ctx, inline_ctx)
+                InlineLayout::layout(dom_tree, style_tree, &inline_items, ctx, text_ctx, inline_ctx)
             }
             _ => todo!("Only inline layout is supported for collections of nodes right now"),
         }
@@ -186,11 +191,9 @@ impl LayoutEngine {
         text_ctx: &mut TextContext,
         image_ctx: &ImageContext,
     ) {
-        let ancestors: Vec<NodeId> = dom_tree
-            .ancestors(&node_id)
-            .into_iter()
-            .map(|n| n.id)
-            .collect();
+        let node = &dom_tree[node_id];
+
+        let ancestors: Vec<NodeId> = dom_tree.ancestors(node).into_iter().map(|n| n.id).collect();
 
         let Some(&dirty_parent_id) = ancestors.first() else {
             return;
@@ -202,15 +205,11 @@ impl LayoutEngine {
         let old_layout = layout_tree.node_at(&parent_path).unwrap();
         let old_height = old_layout.dimensions.height;
 
-        let Some(styled_node) = style_tree.find_node(dirty_parent_id) else {
-            return;
-        };
-
         let mut position_ctx = PositionContext::new(viewport);
         let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
         ctx.position_ctx().update_viewport(viewport);
 
-        let Some(mut new_node) = Self::layout_node(dom_tree, styled_node, &mut ctx, text_ctx) else {
+        let Some(mut new_node) = Self::layout_node(dom_tree, style_tree, &dirty_parent_id, &mut ctx, text_ctx) else {
             return;
         };
 
@@ -261,31 +260,38 @@ impl LayoutEngine {
         }
     }
 
-    pub(crate) fn collect_children<'node, F>(
+    pub(crate) fn collect_children<F>(
         ctx: &mut LayoutContext,
-        parent_node: &'node StyledNode,
+        dom_tree: &DocumentRoot,
+        style_tree: &StyleTree,
+        parent_id: &NodeId,
         start_idx: &mut usize,
         condition: F,
-    ) -> Vec<&'node StyledNode>
+    ) -> Vec<NodeId>
     where
-        F: Fn(&StyledNode) -> bool,
+        F: Fn(&NodeId) -> bool,
     {
         let mut collected = Vec::new();
-        for child in parent_node.children.iter().skip(*start_idx) {
-            if child.style.position.is_out_of_flow() && !ctx.is_deferred() {
-                let containing_block = if child.style.position == Position::Fixed {
+        let parent_node = &dom_tree[parent_id];
+        let children = &parent_node.children;
+
+        for child in children.iter().skip(*start_idx) {
+            let style = &style_tree[child];
+
+            if style.position.is_out_of_flow() && !ctx.is_deferred() {
+                let containing_block = if style.position == Position::Fixed {
                     ctx.containing_block()
                 } else {
                     ctx.positioned_containing_block()
                 };
 
-                ctx.position_ctx().defer(child.clone(), containing_block);
+                ctx.position_ctx().defer(child, containing_block);
                 *start_idx += 1;
                 continue;
             }
 
             if condition(child) {
-                collected.push(child);
+                collected.push(*child);
                 *start_idx += 1;
             } else {
                 break;
@@ -298,9 +304,11 @@ impl LayoutEngine {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::{HashMap, HashSet};
+
     use css_style::{ComputedStyle, Display};
     use css_values::display::{BoxDisplay, OutsideDisplay};
-    use html_dom::NodeId;
+    use html_dom::{DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
 
     use super::*;
 
@@ -310,86 +318,81 @@ mod tests {
 
     #[test]
     fn test_layout_mode_none() {
-        let styled_node = StyledNode {
-            style: ComputedStyle {
-                display: Display::Box(BoxDisplay::None),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(0))
+        let style = ComputedStyle {
+            display: Display::Box(BoxDisplay::None),
+            ..Default::default()
         };
 
-        assert_eq!(LayoutMode::new(&styled_node), None);
+        assert_eq!(LayoutMode::new(&style), None);
     }
 
     #[test]
     fn test_layout_mode_block() {
-        let styled_node = StyledNode {
-            style: ComputedStyle {
-                display: Display::from(OutsideDisplay::Block),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(0))
+        let style = ComputedStyle {
+            display: Display::from(OutsideDisplay::Block),
+            ..Default::default()
         };
 
-        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Block));
+        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Block));
     }
 
     #[test]
     fn test_layout_mode_inline() {
-        let styled_node = StyledNode {
-            style: ComputedStyle {
-                display: Display::from(OutsideDisplay::Inline),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(0))
+        let style = ComputedStyle {
+            display: Display::from(OutsideDisplay::Inline),
+            ..Default::default()
         };
-        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Inline));
+
+        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Inline));
     }
 
     #[test]
     fn test_layout_mode_flex() {
-        let styled_node = StyledNode {
-            style: ComputedStyle {
-                display: Display::from(InsideDisplay::Flex),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(0))
+        let style = ComputedStyle {
+            display: Display::from(InsideDisplay::Flex),
+            ..Default::default()
         };
-        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Flex));
+
+        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Flex));
     }
 
     #[test]
     fn test_layout_mode_grid() {
-        let styled_node = StyledNode {
-            style: ComputedStyle {
-                display: Display::from(InsideDisplay::Grid),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(0))
+        let style = ComputedStyle {
+            display: Display::from(InsideDisplay::Grid),
+            ..Default::default()
         };
-        assert_eq!(LayoutMode::new(&styled_node), Some(LayoutMode::Grid));
+
+        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Grid));
     }
 
     #[test]
     fn test_layout_empty() {
-        let styled_node = StyledNode {
-            style: ComputedStyle {
-                display: Display::from(OutsideDisplay::Block),
-                ..Default::default()
-            },
-            ..StyledNode::new(NodeId(0))
+        let style = ComputedStyle {
+            display: Display::from(OutsideDisplay::Block),
+            ..Default::default()
         };
+
+        let style_tree = StyleTree::from(vec![style]);
 
         let img_ctx = ImageContext::new();
         let mut position_ctx = PositionContext::new(viewport());
         let mut ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
 
         let mut text_ctx = TextContext::default();
-        let dom_tree = DocumentRoot::default();
+        let dom_tree = DocumentRoot {
+            nodes: vec![DomNode {
+                id: NodeId(0),
+                data: NodeData::Element(Element::new(Tag::Html(HtmlTag::Html), HashSet::new(), HashMap::new())),
+                children: vec![],
+                parent: None,
+            }],
+            root_nodes: vec![NodeId(0)],
+        };
 
-        let layout_node = BlockLayout::layout(&dom_tree, &styled_node, &mut ctx, &mut text_ctx).unwrap();
+        let layout_node = BlockLayout::layout(&NodeId(0), &dom_tree, &style_tree, &mut ctx, &mut text_ctx).unwrap();
 
-        assert_eq!(layout_node.node_id, styled_node.node_id);
+        assert_eq!(layout_node.node_id, NodeId(0));
         assert_eq!(layout_node.dimensions.x, 0.0);
         assert_eq!(layout_node.dimensions.y, 0.0);
         assert_eq!(layout_node.dimensions.width, 800.0);

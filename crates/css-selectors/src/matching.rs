@@ -358,9 +358,7 @@ pub fn matches_compound<H: BuildHasher>(
             return false;
         };
 
-        let Some(parent_node) = tree.get_node(&parent_id) else {
-            return false;
-        };
+        let parent_node = &tree[&parent_id];
 
         match relation {
             Combinator::Child => {
@@ -382,7 +380,7 @@ pub fn matches_compound<H: BuildHasher>(
                         }
                     }
 
-                    ancestor = candidate.parent.and_then(|id| tree.get_node(&id));
+                    ancestor = candidate.parent.map(|id| &tree[&id]);
                 }
 
                 false
@@ -397,9 +395,7 @@ pub fn matches_compound<H: BuildHasher>(
                     return false;
                 }
 
-                let Some(previous_sibling_node) = tree.get_node(&siblings[node_idx - 1]) else {
-                    return false;
-                };
+                let previous_sibling_node = &tree[&siblings[node_idx - 1]];
 
                 let Some(sibling_element) = previous_sibling_node.data.as_element() else {
                     return false;
@@ -415,9 +411,7 @@ pub fn matches_compound<H: BuildHasher>(
                 };
 
                 for sibling_id in &siblings[..node_idx] {
-                    let Some(sibling_node) = tree.get_node(sibling_id) else {
-                        continue;
-                    };
+                    let sibling_node = &tree[sibling_id];
 
                     let Some(sibling_element) = sibling_node.data.as_element() else {
                         continue;

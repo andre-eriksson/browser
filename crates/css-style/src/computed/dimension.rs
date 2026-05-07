@@ -5,7 +5,7 @@ use css_values::{
     quantity::Length,
 };
 
-use crate::{AbsoluteContext, RelativeContext, RelativeType, properties::PixelRepr};
+use crate::{AbsoluteContext, RelativeType, StyleContext, properties::PixelRepr};
 
 #[derive(Debug, Clone, Default, Copy, PartialEq)]
 pub enum ComputedSize {
@@ -23,13 +23,13 @@ impl ComputedSize {
     pub fn resolve(
         size: Size,
         relative_type: RelativeType,
-        relative_ctx: &RelativeContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match size {
             Size::Auto => Self::Auto,
             Size::Length(length) => {
-                let px = length.to_px(Some(relative_type), Some(relative_ctx), absolute_ctx)?;
+                let px = length.to_px(Some(relative_type), Some(style_ctx), absolute_ctx)?;
                 Self::Px(px)
             }
             Size::Percentage(p) => Self::Percentage(p.as_fraction()),
@@ -44,7 +44,7 @@ impl ComputedSize {
                         Self::default()
                     }
                 } else {
-                    let sum = expr.to_px(Some(relative_type), Some(relative_ctx), absolute_ctx)?;
+                    let sum = expr.to_px(Some(relative_type), Some(style_ctx), absolute_ctx)?;
                     Self::Px(sum)
                 }
             }
@@ -92,13 +92,13 @@ impl ComputedMaxSize {
     pub fn resolve(
         max_size: MaxSize,
         relative_type: RelativeType,
-        relative_ctx: &RelativeContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match max_size {
             MaxSize::None => Self::None,
             MaxSize::Length(length) => {
-                let px = length.to_px(Some(relative_type), Some(relative_ctx), absolute_ctx)?;
+                let px = length.to_px(Some(relative_type), Some(style_ctx), absolute_ctx)?;
                 Self::Px(px)
             }
             MaxSize::Percentage(p) => Self::Percentage(p.as_fraction()),
@@ -113,7 +113,7 @@ impl ComputedMaxSize {
                         Self::default()
                     }
                 } else {
-                    let sum = expr.to_px(Some(relative_type), Some(relative_ctx), absolute_ctx)?;
+                    let sum = expr.to_px(Some(relative_type), Some(style_ctx), absolute_ctx)?;
                     Self::Px(sum)
                 }
             }

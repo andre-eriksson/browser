@@ -1,10 +1,10 @@
 use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, layout::LayoutContext};
-use css_style::StyledNode;
-use html_dom::DocumentRoot;
+use css_style::StyleTree;
+use html_dom::{DocumentRoot, NodeId};
 
 #[derive(Debug, Clone)]
 struct PendingPosition {
-    styled_node: Box<StyledNode>,
+    node_id: NodeId,
     containing_block: Rect,
 }
 
@@ -45,9 +45,9 @@ impl PositionContext {
         }
     }
 
-    pub fn defer(&mut self, styled_node: StyledNode, containing_block: Rect) {
+    pub fn defer(&mut self, node_id: &NodeId, containing_block: Rect) {
         self.pending.push(PendingPosition {
-            styled_node: Box::new(styled_node),
+            node_id: *node_id,
             containing_block,
         });
     }
@@ -55,6 +55,7 @@ impl PositionContext {
     pub fn resolve_all(
         &mut self,
         dom_tree: &DocumentRoot,
+        style_tree: &StyleTree,
         image_ctx: &ImageContext,
         text_ctx: &mut TextContext,
     ) -> Vec<LayoutNode> {
@@ -65,7 +66,7 @@ impl PositionContext {
                 let mut ctx =
                     LayoutContext::deferred(pending.containing_block, self.viewport, image_ctx, &mut new_position_ctx);
 
-                LayoutEngine::layout_node(dom_tree, &pending.styled_node, &mut ctx, text_ctx)
+                LayoutEngine::layout_node(dom_tree, style_tree, &pending.node_id, &mut ctx, text_ctx)
             })
             .collect()
     }

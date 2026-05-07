@@ -362,7 +362,7 @@ mod tests {
         let child_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(&child_data, Some(parent_id));
 
-        let child_node = tree.get_node(&child_id).unwrap();
+        let child_node = &tree[&child_id];
 
         assert!(matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
@@ -393,7 +393,7 @@ mod tests {
         let child_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(&child_data, Some(parent_id));
 
-        let child_node = tree.get_node(&child_id).unwrap();
+        let child_node = &tree[&child_id];
 
         assert!(!matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
@@ -421,7 +421,7 @@ mod tests {
         let child_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(&child_data, Some(parent_id));
 
-        let child_node = tree.get_node(&child_id).unwrap();
+        let child_node = &tree[&child_id];
 
         assert!(matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
@@ -449,7 +449,7 @@ mod tests {
         let child_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let child_id = tree.push_node(&child_data, Some(parent_id));
 
-        let child_node = tree.get_node(&child_id).unwrap();
+        let child_node = &tree[&child_id];
 
         assert!(!matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
@@ -480,7 +480,7 @@ mod tests {
         let sibling2_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
-        let sibling2_node = tree.get_node(&sibling2_id).unwrap();
+        let sibling2_node = &tree[&sibling2_id];
 
         assert!(matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
@@ -511,7 +511,7 @@ mod tests {
         let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
-        let sibling2_node = tree.get_node(&sibling2_id).unwrap();
+        let sibling2_node = &tree[&sibling2_id];
 
         assert!(!matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
@@ -545,7 +545,7 @@ mod tests {
         let sibling3_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling3_id = tree.push_node(&sibling3_data, Some(parent_id));
 
-        let sibling3_node = tree.get_node(&sibling3_id).unwrap();
+        let sibling3_node = &tree[&sibling3_id];
 
         assert!(!matches_compound(&sequences, &tree, sibling3_node, Some(&hash_set)));
     }
@@ -576,7 +576,7 @@ mod tests {
         let sibling2_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
-        let sibling2_node = tree.get_node(&sibling2_id).unwrap();
+        let sibling2_node = &tree[&sibling2_id];
 
         assert!(matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
@@ -607,7 +607,7 @@ mod tests {
         let sibling2_data = generate_node_data!(HtmlTag::P, hash_set.clone(), HashMap::default());
         let sibling2_id = tree.push_node(&sibling2_data, Some(parent_id));
 
-        let sibling2_node = tree.get_node(&sibling2_id).unwrap();
+        let sibling2_node = &tree[&sibling2_id];
 
         assert!(!matches_compound(&sequences, &tree, sibling2_node, Some(&hash_set)));
     }
@@ -641,7 +641,7 @@ mod tests {
         let sibling3_data = generate_node_data!(HtmlTag::Span, hash_set.clone(), HashMap::default());
         let sibling3_id = tree.push_node(&sibling3_data, Some(parent_id));
 
-        let sibling3_node = tree.get_node(&sibling3_id).unwrap();
+        let sibling3_node = &tree[&sibling3_id];
 
         assert!(matches_compound(&sequences, &tree, sibling3_node, Some(&hash_set)));
     }
@@ -1234,7 +1234,7 @@ mod tests {
         let child_data = generate_node_data!(HtmlTag::Span, HashSet::new(), HashMap::default());
         let child_id = tree.push_node(&child_data, Some(parent_id));
 
-        let child_node = tree.get_node(&child_id).unwrap();
+        let child_node = &tree[&child_id];
 
         assert!(matches_compound(&sequences, &tree, child_node, Some(&hash_set)));
     }
@@ -1270,7 +1270,7 @@ mod tests {
         let absolute_data = generate_node_data!(HtmlTag::Div, absolute_classes.clone(), absolute_attributes);
         let absolute_id = tree.push_node(&absolute_data, Some(middle_id));
 
-        let absolute_node = tree.get_node(&absolute_id).unwrap();
+        let absolute_node = &tree[&absolute_id];
 
         assert!(matches_compound(&sequences, &tree, absolute_node, Some(&absolute_classes)));
     }
@@ -1360,7 +1360,7 @@ mod tests {
         let target_data = generate_node_data!(HtmlTag::Div, HashSet::new(), HashMap::default());
         let target_id = tree.push_node(&target_data, Some(root_id));
 
-        let target_node = tree.get_node(&target_id).unwrap();
+        let target_node = &tree[&target_id];
         let classes = HashSet::new();
 
         assert!(!matches_compound(&sequences, &tree, target_node, Some(&classes)));

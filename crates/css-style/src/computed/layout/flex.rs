@@ -1,6 +1,6 @@
 use css_values::FlexBasis;
 
-use crate::{AbsoluteContext, ComputedSize, RelativeContext, RelativeType};
+use crate::{AbsoluteContext, ComputedSize, RelativeType, StyleContext};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ComputedFlexBasis {
@@ -12,14 +12,12 @@ impl ComputedFlexBasis {
     pub fn resolve(
         flex_basis: FlexBasis,
         relative_type: RelativeType,
-        relative_ctx: &RelativeContext,
+        style_ctx: &StyleContext,
         absolute_ctx: &AbsoluteContext,
     ) -> Result<Self, String> {
         Ok(match flex_basis {
             FlexBasis::Content => Self::Content,
-            FlexBasis::Size(size) => {
-                Self::Size(ComputedSize::resolve(size, relative_type, relative_ctx, absolute_ctx)?)
-            }
+            FlexBasis::Size(size) => Self::Size(ComputedSize::resolve(size, relative_type, style_ctx, absolute_ctx)?),
         })
     }
 }
