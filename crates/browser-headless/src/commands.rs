@@ -61,7 +61,7 @@ pub enum HeadlessCommand {
     /// Print cookies (optionally filtered by domain)
     Cookies {
         /// Optional domain to filter cookies
-        domain: Option<String>,
+        domain: String,
     },
 
     /// Query the DOM with a CSS selector and print matching elements
@@ -180,7 +180,7 @@ impl HeadlessCommand {
         help.push_str("  url                   Print current URL\n");
         help.push_str("  headers               Print response headers\n");
         help.push_str("  body                  Print HTML document\n");
-        help.push_str("  cookies [domain]      Print cookies\n");
+        help.push_str("  cookies <domain>      Print cookies\n");
         help.push_str("  info                  Print page summary\n");
         help.push('\n');
         help.push_str("Layout & DOM:\n");
@@ -224,19 +224,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cookies_no_domain() {
-        let cmd = HeadlessCommand::parse("cookies").unwrap();
-        match cmd {
-            HeadlessCommand::Cookies { domain } => assert!(domain.is_none()),
-            _ => panic!("Expected Cookies command"),
-        }
-    }
-
-    #[test]
-    fn test_parse_cookies_with_domain() {
+    fn test_parse_cookies() {
         let cmd = HeadlessCommand::parse("cookies example.com").unwrap();
         match cmd {
-            HeadlessCommand::Cookies { domain } => assert_eq!(domain, Some("example.com".to_string())),
+            HeadlessCommand::Cookies { domain } => assert_eq!(domain, "example.com".to_string()),
             _ => panic!("Expected Cookies command"),
         }
     }

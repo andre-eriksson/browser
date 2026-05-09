@@ -20,6 +20,9 @@ pub enum CacheError {
     #[error(transparent)]
     Database(#[from] rusqlite::Error),
 
+    #[error("couldn't get a lock on the database.")]
+    DatabaseLock,
+
     #[error("{0}")]
     Read(String),
 

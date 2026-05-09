@@ -1,4 +1,8 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+    sync::{Arc, Mutex, RwLock},
+};
 
 use database::{Database, Table};
 use rusqlite::{Connection, Result};
@@ -9,11 +13,13 @@ use url::Host;
 
 use crate::{Expiration, cookie::Cookie, table::CookieTable};
 
-#[derive(Debug, Clone)]
-pub struct CookieDatabase;
+#[derive(Debug)]
+pub struct CookieDatabase {
+    connection: Mutex<Connection>,
+}
 
 impl Database for CookieDatabase {
-    fn open() -> Result<Connection> {
+    fn open() -> Result<Self> {
         let path = get_data_path()
             .ok_or_else(|| rusqlite::Error::InvalidPath("Data path not found".into()))?
             .join("cookies.db");
@@ -25,36 +31,42 @@ impl Database for CookieDatabase {
 
         CookieTable::create_table(&conn)?;
 
-        Ok(conn)
+        Ok(Self {
+            connection: Mutex::new(conn),
+        })
     }
 }
 
-/// A simple in-memory cookie jar (for now).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct CookieJar {
-    /// The list of stored cookies.
-    cookies: Vec<Cookie>,
+    inner: Arc<CookieJarInner>,
+}
+
+#[derive(Debug)]
+pub struct CookieJarInner {
+    // TODO: Trie?
+    //  top level: com -> google
+    //  second level: attributes
+    cookies: RwLock<HashMap<Host, Vec<Cookie>>>,
+    database: CookieDatabase,
 }
 
 impl CookieJar {
     /// Loads existing cookies and returns the cookie jar
     #[must_use]
-    pub fn load() -> Self {
-        let conn = CookieDatabase::open();
-        if let Ok(connection) = conn {
-            let cookies = CookieTable::get_all(&connection);
+    pub fn load(database: CookieDatabase) -> Self {
+        let mut cookies = HashMap::with_capacity(32);
 
-            return Self { cookies };
+        if let Ok(conn) = database.connection.lock() {
+            cookies = CookieTable::get_all(&conn);
         }
 
         Self {
-            cookies: Vec::with_capacity(32),
+            inner: Arc::new(CookieJarInner {
+                cookies: RwLock::new(cookies),
+                database,
+            }),
         }
-    }
-
-    #[must_use]
-    pub const fn cookies(&self) -> &Vec<Cookie> {
-        &self.cookies
     }
 
     #[must_use]
@@ -64,16 +76,21 @@ impl CookieJar {
             return Vec::new();
         };
 
-        self.cookies
-            .iter()
-            .filter(|cookie| {
-                cookie
-                    .domain()
-                    .as_ref()
-                    .is_some_and(|cookie_domain| **cookie_domain == host)
-            })
-            .cloned()
-            .collect()
+        let Ok(read) = self.inner.cookies.read() else {
+            debug!("Unable to get read lock '{}'", domain);
+            return Vec::new();
+        };
+
+        match read.get(&host) {
+            Some(cookies) => cookies.clone(),
+            None => {
+                let Ok(conn) = self.inner.database.connection.lock() else {
+                    return vec![];
+                };
+
+                CookieTable::get_cookies_by_domain(&conn, domain)
+            }
+        }
     }
 
     /// Retrieves cookies that match the given domain, path, and security context.
@@ -87,14 +104,7 @@ impl CookieJar {
     /// A vector to the matching stored cookies.
     #[must_use]
     pub fn get_cookies(&self, domain: &Host<&str>, path: &str, secure: bool) -> Vec<Cookie> {
-        let mut cookies = self.cookies.clone();
-
-        let conn = CookieDatabase::open();
-        if let Ok(connection) = conn {
-            let persisted_cookies = CookieTable::get_cookies_by_domain(&connection, domain.to_string());
-
-            cookies.extend(persisted_cookies);
-        }
+        let cookies = self.get_cookies_for_domain(&domain.to_string());
 
         cookies
             .into_iter()
@@ -110,7 +120,7 @@ impl CookieJar {
     ///
     /// # Notes
     /// This function currently does not handle cookie expiration or maximum cookie limits.
-    pub fn add_cookie(&mut self, cookie: Cookie, request_domain: &Host<&str>) {
+    pub fn add_cookie(&self, cookie: Cookie, request_domain: Host<String>) {
         if let Some(domain) = cookie.domain()
             && !request_domain
                 .to_string()
@@ -121,29 +131,43 @@ impl CookieJar {
             return;
         }
 
-        if cookie.max_age().is_none() && cookie.expires() == &Expiration::Session {
-            self.cookies.push(cookie);
+        let Ok(mut writer) = self.inner.cookies.write() else {
+            debug!("Unable to get write lock");
+            return;
+        };
+
+        if cookie.max_age().is_none() && *cookie.expires() == Expiration::Session {
+            match writer.get_mut(&request_domain) {
+                Some(domain_cookies) => domain_cookies.push(cookie),
+                None => {
+                    let mut domain_cookies = Vec::with_capacity(16);
+                    domain_cookies.push(cookie);
+
+                    writer.insert(request_domain, domain_cookies);
+                }
+            }
+
             return;
         }
 
         // TODO: Mark updated cookies as dirty then |
         //                                          v
         // TODO: Scheduler should periodically save cookies
-        if let Ok(connection) = CookieDatabase::open()
+        if let Ok(connection) = self.inner.database.connection.lock()
             && let Err(err) = CookieTable::create_table(&connection)
         {
             debug!("Failed to create cookie table: {}", err);
         }
 
-        if let Some(pos) = self
-            .cookies
-            .iter()
-            .position(|c| c.name() == cookie.name() && c.domain() == cookie.domain())
-        {
-            self.cookies.remove(pos);
-        }
+        if let Some(domain_cookies) = writer.get_mut(&request_domain) {
+            domain_cookies.retain(|c| !(c.name() == cookie.name() && c.domain() == cookie.domain()));
+            domain_cookies.push(cookie);
+        } else {
+            let mut domain_cookies = Vec::with_capacity(16);
+            domain_cookies.push(cookie);
 
-        self.cookies.push(cookie);
+            writer.insert(request_domain, domain_cookies);
+        }
     }
 
     fn validate_cookie(domain: &Host<&str>, path: &str, secure: bool, cookie: &Cookie) -> bool {
@@ -173,22 +197,19 @@ impl CookieJar {
     }
 }
 
-impl Iterator for CookieJar {
-    type Item = Cookie;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.cookies.is_empty() {
-            None
-        } else {
-            Some(self.cookies.remove(0))
-        }
-    }
-}
-
 impl Display for CookieJar {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for cookie in &self.cookies {
-            writeln!(f, "{}={}", cookie.name(), cookie.value())?;
+        let Ok(read) = self.inner.cookies.read() else {
+            debug!("Unable to get read lock");
+            return Err(std::fmt::Error);
+        };
+
+        for (host, cookies) in read.iter() {
+            writeln!(f, "host={}", host)?;
+
+            for cookie in cookies {
+                writeln!(f, " - {}={}", cookie.name(), cookie.value())?;
+            }
         }
         Ok(())
     }

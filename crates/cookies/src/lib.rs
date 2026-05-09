@@ -6,7 +6,7 @@ pub mod errors;
 mod table;
 
 pub use cookie::{Cookie, Expiration};
-pub use cookie_store::CookieJar;
+pub use cookie_store::{CookieDatabase, CookieJar};
 
 #[cfg(test)]
 mod tests {

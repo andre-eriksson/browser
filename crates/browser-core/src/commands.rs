@@ -5,5 +5,3 @@ mod image;
 mod navigate;
 
 pub use html::parse_devtools_html;
-pub use image::load_image;
-pub use navigate::navigate;

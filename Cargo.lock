@@ -639,6 +639,7 @@ dependencies = [
  "cookies",
  "css-cssom",
  "css-style",
+ "database",
  "html-dom",
  "html-escape",
  "html-parser",

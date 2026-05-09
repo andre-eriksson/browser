@@ -1,6 +1,6 @@
 use browser_core::EngineResponse;
 use iced::{Task, window::Id};
-use tracing::error;
+use tracing::{debug, error};
 
 use crate::{
     core::{Application, TabId},
@@ -10,7 +10,7 @@ use crate::{
             request::navigate::navigate_to_url,
             response::{
                 devtools::on_devtools_page_ready,
-                navigate::{on_image_loaded, on_navigation_error, on_navigation_success},
+                navigate::{on_navigation_error, on_navigation_success},
             },
         },
     },
@@ -48,8 +48,12 @@ impl EventHandler<(Id, TabId, Box<EngineResponse>)> for Application {
             }
             EngineResponse::NavigateError(error) => on_navigation_error(self, &error),
 
-            EngineResponse::ImageFetched(url, bytes, headers) => {
-                on_image_loaded(self, window_id, tab_id, url, bytes, headers)
+            EngineResponse::ImageFetched(_url, _bytes, _headers) => {
+                // on_image_loaded(self, window_id, tab_id, url, bytes, headers)
+
+                debug!("WIP: Rewriting image cache");
+
+                Task::none()
             }
 
             EngineResponse::Error(error) => {

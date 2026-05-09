@@ -1,6 +1,7 @@
 mod browser;
 mod commands;
 mod context;
+mod database;
 pub mod errors;
 mod events;
 mod navigation;

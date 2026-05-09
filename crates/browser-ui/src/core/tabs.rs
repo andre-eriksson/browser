@@ -205,39 +205,6 @@ impl UiTab {
         self.layout_generation += 1;
     }
 
-    /// Record (or update) the intrinsic dimensions for an image source URL,
-    /// preserving any previously stored vary key.
-    pub fn set_image_dimensions(&mut self, src: String, width: f32, height: f32) {
-        self.known_images
-            .entry(src)
-            .and_modify(|m| {
-                m.width = width;
-                m.height = height;
-            })
-            .or_insert(KnownImageMeta {
-                width,
-                height,
-                vary_key: String::new(),
-            });
-    }
-
-    /// Record (or update) the vary key for an image source URL, preserving any
-    /// previously stored dimensions.
-    pub fn set_image_vary_key(&mut self, src: &str, vary_key: String) {
-        if let Some(meta) = self.known_images.get_mut(src) {
-            meta.vary_key = vary_key;
-        }
-    }
-
-    /// Mark an image URL as no longer pending (because it finished loading or
-    /// failed).  Returns `true` when the pending set has become empty, meaning
-    /// all images have been resolved and a batched relayout should be
-    /// triggered.
-    pub fn resolve_pending_image(&mut self, url: &str) -> bool {
-        self.pending_image_urls.remove(url);
-        self.pending_image_urls.is_empty()
-    }
-
     /// Build an [`ImageContext`] from the tab's currently known image
     /// metadata.  This is passed into
     /// [`LayoutEngine::compute_layout`] so that decoded images are

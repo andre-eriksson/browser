@@ -1,16 +1,4 @@
-use css_style::{AbsoluteContext, StyleTree};
-use css_values::color::Color;
-use iced::{Task, window::Id};
-use io::{CacheEntry, CacheRead};
-use layout::{LayoutEngine, Rect};
-use tracing::{debug, error};
-
-use crate::{
-    core::{Application, TabId},
-    errors::BrowserError,
-    events::{Event, browser::BrowserEvent},
-};
-
+/*
 /// Handles the completion of image loading, updating the tab's state and triggering a targeted
 /// async relayout of only the image node and its ancestors.
 ///
@@ -149,4 +137,4 @@ pub fn on_relayout_complete(
     }
 
     Task::none()
-}
+}*/

@@ -1,18 +1,11 @@
-use browser_core::{
-    Commandable, EngineCommand, EngineResponse, NavigationType, Page, PageMetadata, errors::NavigationError,
-};
+use browser_core::{NavigationType, Page, PageMetadata, errors::NavigationError};
 
-use http::HeaderMap;
 use iced::{Task, window::Id};
-use io::{CacheEntry, CacheRead, DocumentPolicy, ReferrerPolicy};
-use layout::{LayoutEngine, Rect};
-use renderer::image::ImageCache;
-use tracing::{debug, error, trace};
+use tracing::error;
 
 use crate::{
     core::{Application, TabId},
-    events::{Event, browser::BrowserEvent},
-    util::image::decode_image_bytes,
+    events::Event,
 };
 
 /// Handles successful navigation by updating the tab's document, stylesheets, layout tree, and initiating image
@@ -36,7 +29,7 @@ pub fn on_navigation_success(
         //}
 
         let viewport = ctx.viewport;
-        let image_srcs = page.images().clone();
+        //let image_srcs = page.images().clone();
 
         ctx.current_url = metadata.url.to_string();
 
@@ -44,6 +37,7 @@ pub fn on_navigation_success(
         tab.resolve_page(viewport, &mut text_context, page, metadata, application.config, None);
         drop(text_context);
 
+        /*
         let image_cache = ImageCache::new();
         application.image_cache = Some(image_cache.clone());
 
@@ -91,9 +85,9 @@ pub fn on_navigation_success(
             .into_iter()
             .map(|src| {
                 let browser = application.browser.clone();
-                let cache = image_cache.clone();
+                // let cache = image_cache.clone();
                 let request_url = tab.page_ctx.as_ref().unwrap().metadata.url.clone();
-                let src_for_err = src.clone();
+                let _src_for_err = src.clone();
 
                 Task::perform(
                     async move {
@@ -111,7 +105,7 @@ pub fn on_navigation_success(
                     move |result| match result {
                         Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
                         Err(err) => {
-                            cache.mark_failed(src_for_err.clone());
+                            // cache.mark_failed(src_for_err.clone());
                             Event::EngineResponse(window_id, tab_id, Box::new(EngineResponse::Error(err)))
                         }
                     },
@@ -121,7 +115,7 @@ pub fn on_navigation_success(
 
         if !tasks.is_empty() {
             return Task::batch(tasks);
-        }
+        }*/
     }
 
     Task::none()
@@ -131,7 +125,7 @@ pub fn on_navigation_error(_application: &mut Application, error: &NavigationErr
     error!(%error, "Navigation failed");
     Task::none()
 }
-
+/*
 /// Handles successful image loads by decoding the image bytes, storing it in the cache, and updating the
 /// corresponding image elements in the tab's layout tree. If the image fails to decode, it marks the cache
 /// entry as failed and triggers a UI update to reflect the failed image load
@@ -155,10 +149,10 @@ pub fn on_image_loaded(
                 }
             },
             move |result| match result {
-                Ok((url, decoded)) => {
-                    if let Err(error) = cache.store(url.clone(), decoded, &headers) {
-                        debug!(%error, "Failed to store image in cache");
-                    }
+                Ok((url, _decoded)) => {
+                    // if let Err(error) = cache.store(url.clone(), decoded, &headers) {
+                    //     debug!(%error, "Failed to store image in cache");
+                    // }
                     Event::Browser(BrowserEvent::ImageLoaded(window_id, tab_id, url, vary_key))
                 }
                 Err((url, err)) => {
@@ -172,3 +166,4 @@ pub fn on_image_loaded(
 
     Task::none()
 }
+*/

@@ -11,6 +11,7 @@ manifest.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true
 css-style.workspace = true
+database.workspace = true
 html-dom.workspace = true
 html-escape.workspace = true
 html-parser.workspace = true

@@ -1,5 +1,4 @@
 use iced::{Size, Task, window::Id};
-use layout::LayoutTree;
 use tracing::error;
 
 use crate::{
@@ -9,7 +8,6 @@ use crate::{
         Event, EventHandler,
         browser::{
             navigate::{navigate_back, navigate_forward, refresh_page},
-            post::{on_image_loaded, on_relayout_complete},
             tab::{change_active_tab, close_tab, create_new_tab},
             window::{on_resized, on_scrolled, on_url_change},
         },
@@ -56,13 +54,13 @@ pub enum BrowserEvent {
 
     /// An image has finished loading (or failed). The first String is the source URL,
     /// the second is the pre-resolved Vary string for exact disk cache lookups.
-    ImageLoaded(Id, TabId, String, String),
+    //ImageLoaded(Id, TabId, String, String),
 
     /// A background relayout has completed.  Carries the tab id, the layout
     /// generation the work was started with, and the resulting layout tree.
     /// If the generation no longer matches the tab's current generation the
     /// result is stale (e.g. the user navigated away) and should be discarded.
-    RelayoutComplete(Id, TabId, u64, LayoutTree),
+    //RelayoutComplete(Id, TabId, u64, LayoutTree),
 
     /// An error occurred during a browser operation, with the provided error message.
     Error(BrowserError),
@@ -83,13 +81,12 @@ impl EventHandler<BrowserEvent> for Application {
             BrowserEvent::Scroll(window_id, x, y) => on_scrolled(self, window_id, x, y),
             BrowserEvent::Resize(window_id, new_viewport) => on_resized(self, window_id, new_viewport),
 
-            BrowserEvent::ImageLoaded(window_id, tab_id, ref url, ref vary_key) => {
-                on_image_loaded(self, window_id, tab_id, url, vary_key)
-            }
-            BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree) => {
-                on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
-            }
-
+            //BrowserEvent::ImageLoaded(window_id, tab_id, ref url, ref vary_key) => {
+            //    on_image_loaded(self, window_id, tab_id, url, vary_key)
+            //}
+            // BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree) => {
+            //     on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
+            // }
             BrowserEvent::Error(error) => {
                 error!(%error, "Browser error occurred");
                 Task::none()

@@ -8,56 +8,40 @@
 //! with only the live entries while updating the index database accordingly.
 
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 
 use serde::{Deserialize, Serialize};
 
-use database::Database;
 use storage::get_cache_path;
 
-use crate::cache::{
-    errors::CacheError,
-    header::CacheHeader,
-    index::{IndexDatabase, IndexTable},
-};
+use crate::cache::{errors::CacheError, header::CacheHeader};
 
 /// The magic bytes and version number at the start of each block file, used to validate the file format when reading.
-const MAGIC: [u8; 4] = *b"BLKC";
+pub(crate) const MAGIC: [u8; 4] = *b"BLKC";
 /// The current version of the block file format. Increment this if any incompatible changes are made to the
 /// structure of block files, so that readers can detect unsupported formats and avoid misinterpreting data.
 /// This is separate from the header version in `CacheHeader`, which tracks the format of individual entries
 /// rather than the overall block file structure.
-const VERSION: u16 = 1;
+pub(crate) const VERSION: u16 = 1;
 /// Directory within the cache path where block files are stored. Each block file contains multiple cache
 /// entries, allowing for more efficient storage of small resources and better space utilization compared
 /// to storing each entry
 #[cfg(not(test))]
-const BLOCK_DIR: &str = "resources/blocks";
+pub(crate) const BLOCK_DIR: &str = "resources/blocks";
 #[cfg(test)]
-const BLOCK_DIR: &str = "tests/resources/blocks";
+pub(crate) const BLOCK_DIR: &str = "tests/resources/blocks";
 /// 20 MB - This threshold determines whether a cache entry is stored as a block or as a large file.
 /// Entries larger than this size will be stored as large files, while smaller entries will be
 /// stored in block files.
 pub const MAX_BLOCK_SIZE: u64 = 20 * 1024 * 1024;
-/// Minimum block file size before compaction is considered (16MB).
-const COMPACTION_THRESHOLD: u64 = 16 * 1024 * 1024;
-/// Minimum dead-byte ratio within entries to trigger compaction (50%).
-const COMPACTION_DEAD_THRESHOLD: usize = 2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeader {
     pub magic: [u8; 4],
     pub version: u16,
-}
-
-struct ScannedEntry {
-    url_hash: [u8; 32],
-    header_bytes: Vec<u8>,
-    content_bytes: Vec<u8>,
-    is_dead: bool,
 }
 
 pub struct BlockFile;
@@ -215,134 +199,6 @@ impl BlockFile {
 
         file.seek(SeekFrom::Start(u64::from(offset)))?;
         file.write_all(&header_bytes)?;
-
-        Ok(())
-    }
-
-    /// Compacts block files on a per-file basis.
-    ///
-    /// For each `.bin` file in the blocks directory that is nearly full (>= 80% of
-    /// `MAX_BLOCK_SIZE`) and has a high proportion of dead entries (>= 50% of entry bytes),
-    /// this rewrites the file with only the live entries, reclaiming space.
-    ///
-    /// After compaction the index database is updated with the new offsets so that
-    /// subsequent reads resolve correctly. Dead entries are also pruned from the index.
-    #[allow(dead_code)]
-    // NOTE: Will be used when a scheduler is implemented to run compaction in
-    //       the background every N hours or when certain thresholds are met.
-    pub fn compact() -> Result<(), CacheError> {
-        let Some(cache_path) = get_cache_path() else {
-            return Err(CacheError::CacheDirectoryNotFound);
-        };
-
-        let block_dir = cache_path.join(BLOCK_DIR);
-        if !block_dir.exists() {
-            return Ok(());
-        }
-
-        let conn = IndexDatabase::open().map_err(CacheError::Database)?;
-
-        let mut files: Vec<(PathBuf, u32)> = fs::read_dir(&block_dir)?
-            .flatten()
-            .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|ext| ext == "bin"))
-            .filter_map(|e| {
-                let path = e.path();
-                let num: u32 = path.file_stem()?.to_str()?.parse().ok()?;
-                Some((path, num))
-            })
-            .collect();
-
-        files.sort_by_key(|(_, num)| *num);
-
-        for (path, _file_number) in &files {
-            let metadata = fs::metadata(path)?;
-            let file_size = metadata.len();
-
-            if file_size < COMPACTION_THRESHOLD {
-                continue;
-            }
-
-            let data = fs::read(path)?;
-
-            let (block_header, remaining): (BlockHeader, &[u8]) =
-                postcard::take_from_bytes(&data).map_err(|_| CacheError::CorruptedBlock)?;
-
-            if block_header.magic != MAGIC || block_header.version != VERSION {
-                continue;
-            }
-
-            let mut entries: Vec<ScannedEntry> = Vec::new();
-            let mut total_entry_bytes = 0;
-            let mut dead_entry_bytes = 0;
-            let mut cursor: &[u8] = remaining;
-
-            while !cursor.is_empty() {
-                let (header, after_header): (CacheHeader, &[u8]) = match postcard::take_from_bytes(cursor) {
-                    Ok(result) => result,
-                    Err(_) => break,
-                };
-
-                let header_size = cursor.len() - after_header.len();
-                let content_size = header.content_size as usize;
-
-                if after_header.len() < content_size {
-                    break;
-                }
-
-                let entry_size = header_size + content_size;
-                total_entry_bytes += entry_size;
-
-                if header.dead {
-                    dead_entry_bytes += entry_size;
-                }
-
-                entries.push(ScannedEntry {
-                    url_hash: header.url_hash,
-                    header_bytes: cursor[..header_size].to_vec(),
-                    content_bytes: after_header[..content_size].to_vec(),
-                    is_dead: header.dead,
-                });
-
-                cursor = &after_header[content_size..];
-            }
-
-            if total_entry_bytes == 0 {
-                continue;
-            }
-
-            if total_entry_bytes.div_ceil(dead_entry_bytes) < COMPACTION_DEAD_THRESHOLD {
-                continue;
-            }
-
-            let temp_path = path.with_extension("tmp");
-
-            let mut block_header_size =
-                u32::try_from(data.len() - remaining.len()).map_err(|_| CacheError::CorruptedBlock)?;
-
-            let mut new_file = File::create(&temp_path).map_err(CacheError::Io)?;
-
-            new_file.write_all(&data[..block_header_size as usize])?;
-
-            for entry in &entries {
-                if entry.is_dead {
-                    let _ = IndexTable::delete_by_key(&conn, &entry.url_hash);
-                    continue;
-                }
-
-                new_file.write_all(&entry.header_bytes)?;
-                new_file.write_all(&entry.content_bytes)?;
-
-                let header_size = u32::try_from(entry.header_bytes.len()).unwrap_or(u32::MAX);
-
-                let _ = IndexTable::update_block_offset(&conn, &entry.url_hash, block_header_size, header_size);
-
-                block_header_size += header_size + u32::try_from(entry.content_bytes.len()).unwrap_or(u32::MAX);
-            }
-
-            new_file.flush()?;
-
-            fs::rename(&temp_path, path)?;
-        }
 
         Ok(())
     }

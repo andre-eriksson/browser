@@ -54,7 +54,7 @@ impl CookieMiddleware {
     /// * `cookie_jar` - The cookie jar where the cookie will be stored.
     /// * `request_domain` - The domain of the request that received the response.
     /// * `header_value` - The value of the Set-Cookie header from the response.
-    pub fn handle_response_cookie(cookie_jar: &mut CookieJar, request_url: &Url, header_value: &HeaderValue) {
+    pub fn handle_response_cookie(cookie_jar: &CookieJar, request_url: &Url, header_value: &HeaderValue) {
         let Some(host) = request_url.host() else {
             debug!("Request URL does not have a valid domain host");
             return;
@@ -77,6 +77,6 @@ impl CookieMiddleware {
 
         trace!("Storing cookie from response");
 
-        cookie_jar.add_cookie(cookie, &host);
+        cookie_jar.add_cookie(cookie, host.to_owned());
     }
 }

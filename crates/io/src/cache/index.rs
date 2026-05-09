@@ -5,6 +5,8 @@
 //! management, while the `IndexTable` struct implements the `Table` trait to manage CRUD operations on
 //! the index entries.
 
+use std::sync::{Arc, Mutex};
+
 use database::{Database, Table};
 use rusqlite::{Connection, Result, params};
 use storage::get_cache_path;
@@ -56,7 +58,31 @@ pub struct Index {
 }
 
 /// Database interface for managing cache index entries, providing methods to open the database connection and ensure the schema is set up correctly.
-pub struct IndexDatabase;
+#[derive(Debug, Clone)]
+pub struct IndexDatabase {
+    pub connection: Arc<Mutex<Connection>>,
+}
+
+impl Database for IndexDatabase {
+    fn open() -> Result<Self> {
+        let path = get_cache_path()
+            .ok_or_else(|| rusqlite::Error::InvalidPath("Cache path not found".into()))?
+            .join(IDX_DATABASE);
+
+        std::fs::create_dir_all(path.parent().unwrap())
+            .map_err(|_| rusqlite::Error::InvalidPath("Failed to create cache directory".into()))?;
+
+        let conn = Connection::open(path)?;
+
+        conn.execute_batch("PRAGMA journal_mode = WAL;")?;
+
+        IndexTable::create_table(&conn)?;
+
+        Ok(Self {
+            connection: Arc::new(Mutex::new(conn)),
+        })
+    }
+}
 
 /// Table interface for managing cache index entries, providing methods to create the index table and perform CRUD operations on the entries.
 pub struct IndexTable;
@@ -110,25 +136,6 @@ impl IndexTable {
             params![new_offset, new_header_size, key],
         )?;
         Ok(())
-    }
-}
-
-impl Database for IndexDatabase {
-    fn open() -> Result<Connection> {
-        let path = get_cache_path()
-            .ok_or_else(|| rusqlite::Error::InvalidPath("Cache path not found".into()))?
-            .join(IDX_DATABASE);
-
-        std::fs::create_dir_all(path.parent().unwrap())
-            .map_err(|_| rusqlite::Error::InvalidPath("Failed to create cache directory".into()))?;
-
-        let conn = Connection::open(path)?;
-
-        conn.execute_batch("PRAGMA journal_mode = WAL;")?;
-
-        IndexTable::create_table(&conn)?;
-
-        Ok(conn)
     }
 }
 

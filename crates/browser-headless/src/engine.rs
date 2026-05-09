@@ -88,7 +88,7 @@ impl HeadlessEngine {
                 Ok(())
             }
             HeadlessCommand::Cookies { domain } => {
-                cmd_cookies(self, domain.as_deref());
+                cmd_cookies(self, &domain);
                 Ok(())
             }
             HeadlessCommand::Dom { selector } => cmd_dom(self, &selector),
