@@ -3,6 +3,8 @@ use network::{CONTENT_ENCODING, HeaderMap};
 use strum::EnumString;
 use tokio::io::{AsyncReadExt, BufReader};
 
+use crate::errors::MiddlewareError;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 pub enum Encoding {
@@ -15,7 +17,7 @@ pub enum Encoding {
 pub struct DecodingMiddleware;
 
 impl DecodingMiddleware {
-    pub async fn decode(headers: &HeaderMap, data: Vec<u8>) -> Result<Vec<u8>, String> {
+    pub async fn decode(headers: &HeaderMap, data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let encoders: Vec<Encoding> = headers
             .get(CONTENT_ENCODING)
             .and_then(|v| v.to_str().ok())
@@ -35,7 +37,7 @@ impl DecodingMiddleware {
         }
     }
 
-    async fn decode_br(data: Vec<u8>) -> Result<Vec<u8>, String> {
+    async fn decode_br(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = BrotliDecoder::new(reader);
 
@@ -43,12 +45,12 @@ impl DecodingMiddleware {
         decoder
             .read_to_end(&mut decompressed)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| MiddlewareError::DecodingError(e.to_string()))?;
 
         Ok(decompressed)
     }
 
-    async fn decode_deflate(data: Vec<u8>) -> Result<Vec<u8>, String> {
+    async fn decode_deflate(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = ZlibDecoder::new(reader);
 
@@ -56,12 +58,12 @@ impl DecodingMiddleware {
         decoder
             .read_to_end(&mut decompressed)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| MiddlewareError::DecodingError(e.to_string()))?;
 
         Ok(decompressed)
     }
 
-    async fn decode_gzip(data: Vec<u8>) -> Result<Vec<u8>, String> {
+    async fn decode_gzip(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = GzipDecoder::new(reader);
 
@@ -69,12 +71,12 @@ impl DecodingMiddleware {
         decoder
             .read_to_end(&mut decompressed)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| MiddlewareError::DecodingError(e.to_string()))?;
 
         Ok(decompressed)
     }
 
-    async fn decode_zstd(data: Vec<u8>) -> Result<Vec<u8>, String> {
+    async fn decode_zstd(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = ZstdDecoder::new(reader);
 
@@ -82,7 +84,7 @@ impl DecodingMiddleware {
         decoder
             .read_to_end(&mut decompressed)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| MiddlewareError::DecodingError(e.to_string()))?;
 
         Ok(decompressed)
     }

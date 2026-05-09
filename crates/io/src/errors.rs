@@ -27,3 +27,9 @@ pub enum ResourceError {
     #[error("too many entries in directory: {0}")]
     TooManyEntries(String),
 }
+
+#[derive(Error, Debug, Clone)]
+pub enum MiddlewareError {
+    #[error("failed to decode content: {0}")]
+    DecodingError(String),
+}
