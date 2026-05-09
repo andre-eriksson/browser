@@ -1,5 +1,4 @@
 use cookies::Cookie;
-#[cfg(feature = "network")]
 use network::{
     HeaderMap,
     client::{HttpClient, ResponseHandle},
@@ -7,10 +6,8 @@ use network::{
     request::RequestBuilder,
 };
 use tracing::{instrument, trace, warn};
-#[cfg(feature = "network")]
 use url::Url;
 
-#[cfg(feature = "network")]
 use crate::{DocumentPolicy, RequestResult, network::request::NetworkService};
 
 use crate::{
@@ -62,7 +59,6 @@ impl Resource {
     pub const DEFAULT_MAX_FILES: Option<usize> = Some(100);
 
     /// Fetches a resource from a remote URL, applying the necessary policies and handling cookies and headers.
-    #[cfg(feature = "network")]
     pub async fn from_remote<'app>(
         url: &'app str,
         client: &'app dyn HttpClient,

@@ -1,4 +1,5 @@
 use http::{HeaderMap, StatusCode};
+use serde::{Deserialize, Serialize};
 
 /// Represents the first part of an HTTP response, containing headers and status code.
 ///
@@ -16,14 +17,16 @@ pub struct HeaderResponse {
 /// Represents a complete HTTP response, including headers, status code, and body.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Response>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     /// The status code of the response.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Status>
+    #[serde(with = "http_serde::status_code")]
     pub status_code: StatusCode,
 
     /// The headers of the response.
+    #[serde(with = "http_serde::header_map")]
     pub headers: HeaderMap,
 
     /// The body of the response.

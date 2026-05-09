@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use httpdate::fmt_http_date;
 use network::{
-    CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, HeaderValue, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED,
+    CONTENT_ENCODING, CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, HeaderValue, IF_MODIFIED_SINCE,
+    IF_NONE_MATCH, LAST_MODIFIED,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -96,6 +97,9 @@ pub struct CacheHeader {
     /// Optional `ETag` value from the HTTP response, used for conditional requests during revalidation.
     pub etag: Option<String>,
 
+    /// Optional `Content-Encoding` value from the HTTP response. None means it is raw data.
+    pub encoding: Option<String>,
+
     /// Optional last modified time of the cached content, represented as a UNIX timestamp in seconds.
     pub last_modified: Option<u64>,
 
@@ -158,6 +162,11 @@ impl CacheHeader {
             .and_then(|v| v.to_str().ok())
             .map(std::string::ToString::to_string);
 
+        let encoding = headers
+            .get(CONTENT_ENCODING)
+            .and_then(|v| v.to_str().ok())
+            .map(std::string::ToString::to_string);
+
         let last_modified = headers
             .get(LAST_MODIFIED)
             .and_then(|v| v.to_str().ok())
@@ -179,6 +188,7 @@ impl CacheHeader {
             url_hash,
             content_type,
             etag,
+            encoding,
             last_modified,
             expires_at,
             max_age_seconds: cache_control.max_age_seconds,

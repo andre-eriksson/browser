@@ -6,11 +6,11 @@ use browser_config::BrowserConfig;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use io::{
-    Resource,
+    HttpCache, Resource,
     embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
     files::CACHE_USER_AGENT,
 };
-use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient};
+use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient, response::Response};
 use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};
 
@@ -40,7 +40,6 @@ impl Browser {
     pub fn new(config: &'static BrowserConfig) -> Self {
         let databases = Databases::init();
         let http_client = Box::new(ReqwestClient::new());
-
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
         let stylesheet = if config.args().enable_ua_css {
@@ -95,6 +94,10 @@ impl Browser {
 
     pub const fn http_client(&self) -> &Box<dyn HttpClient> {
         &self.http_client
+    }
+
+    pub const fn http_cache(&self) -> &HttpCache<String, Response> {
+        &self.databases.http_cache
     }
 
     pub const fn cookie_jar(&self) -> &CookieJar {

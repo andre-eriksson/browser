@@ -15,7 +15,7 @@ database.workspace = true
 html-dom.workspace = true
 html-escape.workspace = true
 html-parser.workspace = true
-io = { workspace = true, features = ["network"] }
+io.workspace = true
 network.workspace = true
 postcard.workspace = true
 serde.workspace = true

@@ -30,13 +30,13 @@ pub enum CacheEntry<T: Clone> {
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
 #[derive(Debug, Clone)]
-pub struct MemoryCache<K, V: Clone> {
+pub struct HttpCache<K, V: Clone> {
     disk: DiskCache,
     /// The in-memory cache entries, protected by a read-write lock for concurrent access.
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
 }
 
-impl<K, V> MemoryCache<K, V>
+impl<K, V> HttpCache<K, V>
 where
     K: AsRef<str> + Eq + Hash + Clone + Serialize + DeserializeOwned,
     V: Clone + Serialize + DeserializeOwned,
@@ -304,7 +304,7 @@ mod tests {
         let value = "cached data".to_string();
 
         let database = IndexDatabase::open().expect("Couldn't open database");
-        let mut cache = MemoryCache::new(database);
+        let mut cache = HttpCache::new(database);
 
         let result = cache.store_on_disk(&key, &value, &headers);
         assert!(result.is_ok());
@@ -327,12 +327,12 @@ mod tests {
         headers.insert("Accept-Encoding", "br".parse().unwrap());
 
         let database = IndexDatabase::open().expect("Couldn't open database");
-        let mut cache = MemoryCache::new(database);
+        let mut cache = HttpCache::new(database);
 
         let key = "https://example.com/vary-test".to_string();
         let value = "vary cached data".to_string();
 
-        let vary = MemoryCache::<String, String>::resolve_vary(&headers).unwrap();
+        let vary = HttpCache::<String, String>::resolve_vary(&headers).unwrap();
         assert!(!vary.is_empty());
 
         cache.store_on_disk(&key, &value, &headers).unwrap();
@@ -357,7 +357,7 @@ mod tests {
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
 
         let database = IndexDatabase::open().expect("Couldn't open database");
-        let mut cache = MemoryCache::new(database);
+        let mut cache = HttpCache::new(database);
 
         let key = "https://example.com/vary-miss-test".to_string();
         let value = "gzip data".to_string();

@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use io::MemoryCache;
+use io::HttpCache;
 use layout::Rect;
 use serde::{Deserialize, Serialize};
 use wgpu;
@@ -38,7 +38,7 @@ pub struct DecodedImageData {
 }
 
 /// Cache of decoded image data, keyed by source URL.
-pub type ImageCache = MemoryCache<String, DecodedImageData>;
+pub type ImageCache = HttpCache<String, DecodedImageData>;
 
 /// A single GPU-resident image with its bind group.
 struct GpuImage {
