@@ -48,7 +48,7 @@ pub struct Index {
     pub content_size: u32,
 
     /// The UNIX timestamp (in seconds) when the cached entry expires, used to determine if the entry is still valid.
-    pub expires_at: Option<Vec<u8>>,
+    pub expires_at: Option<i64>,
 
     /// The UNIX timestamp (in seconds) when the cached entry was created, used for cache management and eviction policies.
     pub created_at: isize,
@@ -103,7 +103,7 @@ impl IndexTable {
                 _ => return Ok(None),
             };
 
-            let expires_at = row.get::<usize, Option<Vec<u8>>>(6)?;
+            let expires_at = row.get::<usize, Option<i64>>(6)?;
             let created_at = row.get::<usize, isize>(7)?;
 
             Ok(Some(Index {

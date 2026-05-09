@@ -6,10 +6,7 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use httpdate::fmt_http_date;
-use network::{
-    CONTENT_ENCODING, CONTENT_TYPE, ETAG, EXPIRES, HeaderMap, HeaderName, HeaderValue, IF_MODIFIED_SINCE,
-    IF_NONE_MATCH, LAST_MODIFIED,
-};
+use network::{ETAG, EXPIRES, HeaderMap, HeaderName, IF_MODIFIED_SINCE, IF_NONE_MATCH, LAST_MODIFIED};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -90,22 +87,16 @@ pub struct CacheHeader {
     /// SHA-256 hash of the URL, used as the key for cache lookup and to ensure data integrity.
     pub url_hash: [u8; 32],
 
-    /// The MIME type of the cached content, extracted from the `Content-Type` header of the HTTP response.
-    pub content_type: String,
-
     // HTTP cache metadata
     /// Optional `ETag` value from the HTTP response, used for conditional requests during revalidation.
     pub etag: Option<String>,
-
-    /// Optional `Content-Encoding` value from the HTTP response. None means it is raw data.
-    pub encoding: Option<String>,
 
     /// Optional last modified time of the cached content, represented as a UNIX timestamp in seconds.
     pub last_modified: Option<u64>,
 
     /// Optional expiration time of the cached content, represented as a UNIX timestamp in seconds.
     /// If `None`, expiration is determined by other cache control directives or heuristics.
-    pub expires_at: Option<Vec<u8>>,
+    pub expires_at: Option<u64>,
 
     /// Optional max-age directive from the `Cache-Control` header, representing the maximum age of the cached content in seconds.
     pub max_age_seconds: Option<u32>,
@@ -151,19 +142,8 @@ impl CacheHeader {
         headers: &HeaderMap,
         cache_control: &CacheControlResponse,
     ) -> Self {
-        let content_type = headers
-            .get(CONTENT_TYPE)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("text/plain")
-            .to_string();
-
         let etag = headers
             .get(ETAG)
-            .and_then(|v| v.to_str().ok())
-            .map(std::string::ToString::to_string);
-
-        let encoding = headers
-            .get(CONTENT_ENCODING)
             .and_then(|v| v.to_str().ok())
             .map(std::string::ToString::to_string);
 
@@ -175,8 +155,9 @@ impl CacheHeader {
 
         let expires_at = headers
             .get(EXPIRES)
-            .map(HeaderValue::as_bytes)
-            .map(<[u8]>::to_vec);
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| httpdate::parse_http_date(s).ok())
+            .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
 
         let mut hasher = Sha256::new();
         hasher.update(data);
@@ -186,9 +167,7 @@ impl CacheHeader {
 
         Self {
             url_hash,
-            content_type,
             etag,
-            encoding,
             last_modified,
             expires_at,
             max_age_seconds: cache_control.max_age_seconds,
@@ -231,16 +210,8 @@ impl CacheHeader {
             .unwrap_or_default()
             .as_secs();
 
-        if let Some(expires_at) = &self.expires_at {
-            return now
-                < SystemTime::UNIX_EPOCH
-                    .checked_add(Duration::from_secs(u64::from_be_bytes(
-                        expires_at.as_slice().try_into().unwrap_or_default(),
-                    )))
-                    .unwrap_or(SystemTime::UNIX_EPOCH)
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs();
+        if let Some(expires_at) = self.expires_at {
+            return now < expires_at;
         }
 
         if let Some(max_age) = self.max_age_seconds {

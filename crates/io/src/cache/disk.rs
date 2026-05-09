@@ -92,7 +92,7 @@ impl DiskCache {
     /// If an entry with the same key already exists and has identical content (same content hash),
     /// the write is skipped to avoid duplicate storage. Otherwise, the existing entry is removed
     /// before the new one is written.
-    pub fn put(&mut self, key: [u8; 32], value: &[u8], mut header: CacheHeader) -> Result<(), CacheError> {
+    pub fn put(&self, key: [u8; 32], value: &[u8], mut header: CacheHeader) -> Result<(), CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
@@ -148,7 +148,7 @@ impl DiskCache {
             offset,
             header_size,
             content_size,
-            expires_at: header.expires_at,
+            expires_at: header.expires_at.map(|v| v as i64),
             created_at: isize::try_from(now).unwrap_or(isize::MAX),
             vary: header.vary.clone(),
         };

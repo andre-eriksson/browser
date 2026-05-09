@@ -132,7 +132,7 @@ where
     /// # Errors
     /// * If there is already an entry for the key in the cache.
     /// * If there is an error writing to disk or serializing the value.
-    pub fn store(&mut self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
+    pub fn store(&self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
         if let Ok(mut entries) = self.entries.write() {
             match entries.entry(key.clone()) {
                 Entry::Occupied(mut occ) => match occ.get() {
@@ -165,7 +165,7 @@ where
     /// * If the `Vary` header is invalid or prevents caching.
     /// * If the `Cache-Control` header prevents caching.
     /// * If there is an error writing to disk or serializing the value.
-    fn store_on_disk(&mut self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
+    fn store_on_disk(&self, key: &K, value: &V, headers: &HeaderMap) -> Result<(), CacheError> {
         let vary = Self::resolve_vary(headers)?;
         let sha = Self::hash_url(key.as_ref(), &vary);
 
@@ -304,7 +304,7 @@ mod tests {
         let value = "cached data".to_string();
 
         let database = IndexDatabase::open().expect("Couldn't open database");
-        let mut cache = HttpCache::new(database);
+        let cache = HttpCache::new(database);
 
         let result = cache.store_on_disk(&key, &value, &headers);
         assert!(result.is_ok());
@@ -327,7 +327,7 @@ mod tests {
         headers.insert("Accept-Encoding", "br".parse().unwrap());
 
         let database = IndexDatabase::open().expect("Couldn't open database");
-        let mut cache = HttpCache::new(database);
+        let cache = HttpCache::new(database);
 
         let key = "https://example.com/vary-test".to_string();
         let value = "vary cached data".to_string();
@@ -357,7 +357,7 @@ mod tests {
         headers.insert("Accept-Encoding", "gzip".parse().unwrap());
 
         let database = IndexDatabase::open().expect("Couldn't open database");
-        let mut cache = HttpCache::new(database);
+        let cache = HttpCache::new(database);
 
         let key = "https://example.com/vary-miss-test".to_string();
         let value = "gzip data".to_string();
