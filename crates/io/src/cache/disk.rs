@@ -51,7 +51,13 @@ impl DiskCache {
             return Err(CacheError::DatabaseLock);
         };
 
-        let index = IndexTable::get_by_key(&connection, &key).map_err(CacheError::Database)?;
+        self.get_with_connection(key, &connection)
+    }
+
+    /// Retrieves a cached value by its key, using the provided connection, returning `None` if the entry is not
+    /// found or is expired.
+    fn get_with_connection(&self, key: [u8; 32], connection: &Connection) -> Result<Option<Vec<u8>>, CacheError> {
+        let index = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
 
         let Some(idx) = index else { return Ok(None) };
 
@@ -104,7 +110,7 @@ impl DiskCache {
         let existing = IndexTable::get_by_key(&connection, &key).map_err(CacheError::Database)?;
 
         if existing.is_some() {
-            if let Ok(Some(existing_value)) = self.get(key) {
+            if let Ok(Some(existing_value)) = self.get_with_connection(key, &connection) {
                 let mut hasher = Sha256::new();
                 hasher.update(&existing_value);
                 let existing_content_hash: [u8; 32] = hasher.finalize().into();
@@ -119,7 +125,7 @@ impl DiskCache {
                 }
             }
 
-            if let Err(e) = Self::remove(key, &connection) {
+            if let Err(e) = Self::delete_with_connection(key, &connection) {
                 connection.execute("ROLLBACK", []).ok();
                 return Err(CacheError::Write(format!("failed to remove existing cache entry: {e}")));
             }
@@ -177,35 +183,19 @@ impl DiskCache {
         Ok(())
     }
 
-    /// Removes a cache entry by its key, deleting both the index entry and the associated data file if it exists. If the entry does not exist, this function will simply return `Ok(())`.
+    /// Removes a cache entry by its key, deleting both the index entry and the associated data file if it exists.
+    /// If the entry does not exist, this function will simply return `Ok(())`.
     pub fn delete(&mut self, key: [u8; 32]) -> Result<bool, CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
 
-        let index = IndexTable::get_by_key(&connection, &key).map_err(CacheError::Database)?;
-
-        if let Some(idx) = index {
-            match idx.entry {
-                IndexEntry::Large => LargeFile::delete(key)?,
-                IndexEntry::Block => {
-                    let offset = idx.offset.ok_or(CacheError::CorruptedIndex)?;
-                    let header_size = idx.header_size.ok_or(CacheError::CorruptedIndex)?;
-
-                    BlockFile::delete(idx.file_id, offset, header_size)?;
-                }
-            }
-
-            IndexTable::delete_by_key(&connection, &key).map_err(CacheError::Database)?;
-
-            return Ok(true);
-        }
-
-        Ok(false)
+        Self::delete_with_connection(key, &connection)
     }
 
-    /// Removes a cache entry by its key, deleting both the index entry and the associated data file if it exists. If the entry does not exist, this function will simply return `Ok(())`.
-    fn remove(key: [u8; 32], connection: &Connection) -> Result<bool, CacheError> {
+    /// Removes a cache entry by its key, using the provided connection, deleting both the index entry and the a
+    /// ssociated data file if it exists. If the entry does not exist, this function will simply return `Ok(())`.
+    fn delete_with_connection(key: [u8; 32], connection: &Connection) -> Result<bool, CacheError> {
         let index = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
 
         if let Some(idx) = index {

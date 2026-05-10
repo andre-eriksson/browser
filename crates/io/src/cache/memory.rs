@@ -6,9 +6,11 @@ use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, hash_map::Entry},
+    fmt::Debug,
     hash::Hash,
     sync::{Arc, RwLock},
 };
+use tracing::debug;
 
 use crate::cache::{
     disk::DiskCache,
@@ -19,7 +21,7 @@ use crate::cache::{
 
 /// The current state of a cached resource in memory.
 #[derive(Debug, Clone)]
-pub enum CacheEntry<T: Clone> {
+pub enum CacheEntry<T: Debug + Clone> {
     /// The resource has been requested but not yet loaded.
     Pending,
     /// The resource has been successfully loaded.
@@ -30,7 +32,7 @@ pub enum CacheEntry<T: Clone> {
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
 #[derive(Debug, Clone)]
-pub struct HttpCache<K, V: Clone> {
+pub struct HttpCache<K, V: Debug + Clone> {
     disk: DiskCache,
     /// The in-memory cache entries, protected by a read-write lock for concurrent access.
     entries: Arc<RwLock<HashMap<K, CacheEntry<V>>>>,
@@ -39,7 +41,7 @@ pub struct HttpCache<K, V: Clone> {
 impl<K, V> HttpCache<K, V>
 where
     K: AsRef<str> + Eq + Hash + Clone + Serialize + DeserializeOwned,
-    V: Clone + Serialize + DeserializeOwned,
+    V: Debug + Clone + Serialize + DeserializeOwned,
 {
     /// Creates a new empty cache.
     #[must_use]
@@ -135,21 +137,25 @@ where
     pub fn store(&self, key: K, value: V, headers: &HeaderMap) -> Result<(), CacheError> {
         if let Ok(mut entries) = self.entries.write() {
             match entries.entry(key.clone()) {
-                Entry::Occupied(mut occ) => match occ.get() {
+                Entry::Occupied(mut occ) => match occ.get_mut() {
                     CacheEntry::Loaded(_) => {
+                        debug!("loaded");
                         return Err(CacheError::Write("entry already exists for this key".to_string()));
                     }
-                    _ => {
+                    val => {
+                        debug!(?val, "not loaded");
                         occ.insert(CacheEntry::Pending);
                     }
                 },
                 Entry::Vacant(vac) => {
-                    vac.insert(CacheEntry::Pending);
+                    debug!("vacant");
+                    vac.insert_entry(CacheEntry::Pending);
                 }
             }
         }
 
         if let Err(error) = self.store_on_disk(&key, &value, headers) {
+            debug!(%error, "failed to store on disk");
             self.mark_failed(key.clone());
             return Err(error);
         }
