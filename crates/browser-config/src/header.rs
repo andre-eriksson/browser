@@ -28,7 +28,7 @@ impl Headers {
         }
 
         insert_header!(ACCEPT, b"text/html,*/*;q=0.8");
-        insert_header!(ACCEPT_ENCODING, b"gzip, deflate, br");
+        insert_header!(ACCEPT_ENCODING, b"zstd, br, gzip, deflate");
         insert_header!(ACCEPT_LANGUAGE, Self::get_accept_language_value().as_bytes());
         insert_header!(CACHE_CONTROL, b"no-store");
         insert_header!(CONNECTION, b"keep-alive");

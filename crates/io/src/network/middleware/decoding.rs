@@ -17,24 +17,26 @@ pub enum Encoding {
 pub struct DecodingMiddleware;
 
 impl DecodingMiddleware {
-    pub async fn decode(headers: &HeaderMap, data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
-        let encoders: Vec<Encoding> = headers
+    pub async fn decode(headers: &HeaderMap, mut data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
+        let encoders = headers
             .get(CONTENT_ENCODING)
             .and_then(|v| v.to_str().ok())
             .unwrap_or_default()
             .split(',')
-            .filter_map(|encoding| encoding.trim().parse::<Encoding>().ok())
-            .collect();
+            .map(|e| e.trim().parse::<Encoding>())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| MiddlewareError::DecodingError(e.to_string()))?;
 
-        match encoders.first() {
-            Some(encoder) => match encoder {
-                Encoding::Br => Self::decode_br(data).await,
-                Encoding::Deflate => Self::decode_deflate(data).await,
-                Encoding::Gzip => Self::decode_gzip(data).await,
-                Encoding::Zstd => Self::decode_zstd(data).await,
-            },
-            None => Ok(data),
+        for encoder in encoders.into_iter().rev() {
+            data = match encoder {
+                Encoding::Br => Self::decode_br(data).await?,
+                Encoding::Deflate => Self::decode_deflate(data).await?,
+                Encoding::Gzip => Self::decode_gzip(data).await?,
+                Encoding::Zstd => Self::decode_zstd(data).await?,
+            };
         }
+
+        Ok(data)
     }
 
     async fn decode_br(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
