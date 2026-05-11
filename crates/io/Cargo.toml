@@ -6,10 +6,12 @@ license.workspace = true
 
 [dependencies]
 async-compression.workspace = true
+async-trait.workspace = true
 cookies.workspace = true
 database.workspace = true
 dirs.workspace = true
 httpdate.workspace = true
+http-serde.workspace = true
 manifest.workspace = true
 network.workspace = true
 postcard.workspace = true

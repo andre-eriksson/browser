@@ -10,7 +10,7 @@ use io::{
     embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
     files::CACHE_USER_AGENT,
 };
-use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient, response::Response};
+use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};
 
@@ -92,11 +92,11 @@ impl Browser {
         self.headers
     }
 
-    pub const fn http_client(&self) -> &Box<dyn HttpClient> {
-        &self.http_client
+    pub const fn http_client(&self) -> &dyn HttpClient {
+        &*self.http_client
     }
 
-    pub const fn http_cache(&self) -> &HttpCache<String, Response> {
+    pub const fn http_cache(&self) -> &HttpCache {
         &self.databases.http_cache
     }
 

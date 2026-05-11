@@ -38,7 +38,7 @@ pub struct DecodedImageData {
 }
 
 /// Cache of decoded image data, keyed by source URL.
-pub type ImageCache = HttpCache<String, DecodedImageData>;
+pub type ImageCache = HttpCache;
 
 /// A single GPU-resident image with its bind group.
 struct GpuImage {

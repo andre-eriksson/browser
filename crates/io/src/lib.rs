@@ -13,7 +13,7 @@ pub use network::{
 };
 
 pub use cache::errors::CacheRead;
+pub use cache::http::{CacheEntry, HttpCache};
 pub use cache::index::{IndexDatabase, IndexTable};
-pub use cache::memory::{CacheEntry, HttpCache};
 pub use files::Entry;
 pub use manager::{Resource, ResourceType};

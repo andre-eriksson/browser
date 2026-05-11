@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 /// Represents the first part of an HTTP response, containing headers and status code.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Response>
+#[derive(Debug, Clone)]
 pub struct HeaderResponse {
     /// The status code of the response.
     ///
@@ -12,6 +13,19 @@ pub struct HeaderResponse {
 
     /// The headers of the response.
     pub headers: HeaderMap,
+}
+
+impl HeaderResponse {
+    /// Creates a new HTTP response.
+    ///
+    /// Useful for testing and constructing responses manually.
+    #[must_use]
+    pub const fn new(status_code: StatusCode, headers: HeaderMap) -> Self {
+        Self {
+            status_code,
+            headers,
+        }
+    }
 }
 
 /// Represents a complete HTTP response, including headers, status code, and body.
@@ -39,19 +53,6 @@ impl From<Vec<u8>> for Response {
             status_code: StatusCode::OK,
             headers: HeaderMap::new(),
             body: Some(body),
-        }
-    }
-}
-
-impl HeaderResponse {
-    /// Creates a new HTTP response.
-    ///
-    /// Useful for testing and constructing responses manually.
-    #[must_use]
-    pub const fn new(status_code: StatusCode, headers: HeaderMap) -> Self {
-        Self {
-            status_code,
-            headers,
         }
     }
 }

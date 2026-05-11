@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
+use http::HeaderMap;
 use io::{CacheEntry, CacheRead};
 use layout::{Color4f, LayoutNode, LayoutTree, Rect};
-use renderer::{DecodedImageData, ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo, image::ImageCache};
+use renderer::{RenderRect, RenderTri, TextBlockInfo, image::ImageCache};
 
 use crate::{core::ScrollOffset, renderer::program::HtmlRenderer};
 
@@ -153,19 +152,19 @@ pub fn collect_render_data_from_layout<'html>(
             && let Some(cache) = image_cache
         {
             let src = &image_data.image_src;
-            let vary_key = &image_data.vary_key;
-            if let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(src, vary_key)
-                && let CacheRead::Hit(decoded) = (*decoded).clone()
+            let _vary_key = &image_data.vary_key;
+            if let Ok(CacheEntry::Loaded(decoded)) = cache.get(src, &HeaderMap::new())
+                && let CacheRead::Hit(_decoded) = (*decoded).clone()
             {
-                renderer.images.push(ImageRenderInfo {
-                    src: src.clone(),
-                    screen_rect: node.dimensions,
-                    data: Arc::new(DecodedImageData {
-                        rgba: decoded.rgba.clone(),
-                        width: decoded.width,
-                        height: decoded.height,
-                    }),
-                });
+                // renderer.images.push(ImageRenderInfo {
+                //     src: src.clone(),
+                //     screen_rect: node.dimensions,
+                //     data: Arc::new(DecodedImageData {
+                //         rgba: decoded.rgba.clone(),
+                //         width: decoded.width,
+                //         height: decoded.height,
+                //     }),
+                // });
             } else {
                 renderer.rects.push(RenderRect {
                     rect: node.dimensions,

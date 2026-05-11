@@ -37,6 +37,7 @@ impl ReqwestClient {
     }
 }
 
+#[derive(Debug)]
 pub struct ReqwestHandle {
     inner: reqwest::Response,
     metadata: HeaderResponse,

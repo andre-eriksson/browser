@@ -4,10 +4,11 @@ use std::{
     fs::{self, File},
     io::Write,
     path::PathBuf,
-    time::SystemTime,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use database::Table;
+use network::{ETAG, EXPIRES, HeaderMap, LAST_MODIFIED, VARY};
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use storage::get_cache_path;
@@ -15,7 +16,7 @@ use storage::get_cache_path;
 use crate::cache::{
     block::{BLOCK_DIR, BlockFile, BlockHeader, MAGIC, MAX_BLOCK_SIZE, VERSION},
     errors::CacheError,
-    header::{CacheHeader, HEADER_VERSION},
+    header::{CacheControlResponse, CacheHeader},
     index::{Index, IndexDatabase, IndexEntry, IndexTable},
     large::LargeFile,
 };
@@ -32,6 +33,14 @@ struct ScannedEntry {
     is_dead: bool,
 }
 
+#[derive(Debug)]
+pub struct DiskEntry {
+    pub index: Index,
+    pub header: CacheHeader,
+    pub data: Vec<u8>,
+    pub content_size: usize,
+}
+
 /// Main interface for the disk cache, providing methods to get, put, and remove cached entries.
 /// It handles both block-based and large file storage, ensuring data integrity and proper cleanup
 /// of expired or corrupted entries.
@@ -46,7 +55,7 @@ impl DiskCache {
     }
 
     /// Retrieves a cached value by its key, returning `None` if the entry is not found or is expired.
-    pub fn get(&self, key: [u8; 32]) -> Result<Option<Vec<u8>>, CacheError> {
+    pub fn get(&self, key: [u8; 32]) -> Result<Option<DiskEntry>, CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
@@ -56,10 +65,12 @@ impl DiskCache {
 
     /// Retrieves a cached value by its key, using the provided connection, returning `None` if the entry is not
     /// found or is expired.
-    fn get_with_connection(&self, key: [u8; 32], connection: &Connection) -> Result<Option<Vec<u8>>, CacheError> {
+    fn get_with_connection(&self, key: [u8; 32], connection: &Connection) -> Result<Option<DiskEntry>, CacheError> {
         let index = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
 
-        let Some(idx) = index else { return Ok(None) };
+        let Some(idx) = index else {
+            return Ok(None);
+        };
 
         let (header, value, content_size) = (match idx.entry {
             IndexEntry::Large => LargeFile::read(key),
@@ -71,22 +82,14 @@ impl DiskCache {
             }
         })?;
 
-        let mut hasher = Sha256::new();
-        hasher.update(&value);
-        let content_hash: [u8; 32] = hasher.finalize().into();
+        let entry = DiskEntry {
+            content_size,
+            data: value,
+            header,
+            index: idx,
+        };
 
-        if header.url_hash != key
-            || header.content_size != u32::try_from(content_size).unwrap_or(u32::MAX)
-            || header.header_version != HEADER_VERSION
-            || !header.is_fresh()
-            || header.content_hash != content_hash
-            || header.dead
-        {
-            // self.remove(key, Some(&connection))?;
-            return Ok(None);
-        }
-
-        Ok(Some(value))
+        Ok(Some(entry))
     }
 
     /// Stores a value in the cache with the given key and header information.
@@ -98,10 +101,32 @@ impl DiskCache {
     /// If an entry with the same key already exists and has identical content (same content hash),
     /// the write is skipped to avoid duplicate storage. Otherwise, the existing entry is removed
     /// before the new one is written.
-    pub fn put(&self, key: [u8; 32], value: &[u8], mut header: CacheHeader) -> Result<(), CacheError> {
+    pub fn put(
+        &self,
+        key: [u8; 32],
+        value: &[u8],
+        headers: &HeaderMap,
+        cache_control: &CacheControlResponse,
+        mut header: CacheHeader,
+    ) -> Result<(), CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
+
+        let vary = headers
+            .get(VARY)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| {
+                s.split(',')
+                    .map(str::trim)
+                    .map(String::from)
+                    .collect::<Vec<String>>()
+            })
+            .unwrap_or_default();
+
+        if vary.contains(&"*".to_string()) {
+            return Err(CacheError::Write("Unable to cache when the Vary has a '*'.".to_string()));
+        }
 
         connection
             .execute("BEGIN TRANSACTION", [])
@@ -110,9 +135,9 @@ impl DiskCache {
         let existing = IndexTable::get_by_key(&connection, &key).map_err(CacheError::Database)?;
 
         if existing.is_some() {
-            if let Ok(Some(existing_value)) = self.get_with_connection(key, &connection) {
+            if let Ok(Some(entry)) = self.get_with_connection(key, &connection) {
                 let mut hasher = Sha256::new();
-                hasher.update(&existing_value);
+                hasher.update(&entry.data);
                 let existing_content_hash: [u8; 32] = hasher.finalize().into();
 
                 let mut new_hasher = Sha256::new();
@@ -147,6 +172,29 @@ impl DiskCache {
                 (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
             };
 
+        let expires_at = headers
+            .get(EXPIRES)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| httpdate::parse_http_date(s).ok())
+            .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
+
+        let fetched_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            .min(i64::MAX as u64);
+
+        let etag = headers
+            .get(ETAG)
+            .and_then(|v| v.to_str().ok())
+            .map(std::string::ToString::to_string);
+
+        let last_modified = headers
+            .get(LAST_MODIFIED)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| httpdate::parse_http_date(s).ok())
+            .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
+
         let index = Index {
             key,
             entry: entry_type,
@@ -154,9 +202,17 @@ impl DiskCache {
             offset,
             header_size,
             content_size,
-            expires_at: header.expires_at.map(|v| v as i64),
+            etag,
+            expires_at: expires_at.map(|v| v.min(i64::MAX as u64) as i64),
+            fetched_at: fetched_at.min(i64::MAX as u64) as i64,
+            last_modified: last_modified.map(|v| v.min(i64::MAX as u64) as i64),
+            max_age_seconds: cache_control
+                .max_age_seconds
+                .map(|v| v.min(i64::MAX as u64) as i64),
+            vary,
+            must_revalidate: cache_control.must_revalidate,
+            no_cache: cache_control.no_cache,
             created_at: isize::try_from(now).unwrap_or(isize::MAX),
-            vary: header.vary.clone(),
         };
 
         if let Err(e) = IndexTable::insert(&connection, &index) {
@@ -191,6 +247,33 @@ impl DiskCache {
         };
 
         Self::delete_with_connection(key, &connection)
+    }
+
+    /// Revalidates a cache entry in the index table, updating the `expires_at` and `fetched_at` fields.
+    pub fn revalidate(&self, key: [u8; 32], headers: &HeaderMap) -> Result<(), CacheError> {
+        let Ok(connection) = self.database.connection.lock() else {
+            return Err(CacheError::DatabaseLock);
+        };
+
+        let expires_at = headers
+            .get(EXPIRES)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| httpdate::parse_http_date(s).ok())
+            .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs());
+
+        let fetched_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+            .min(i64::MAX as u64);
+
+        connection
+            .execute("BEGIN TRANSACTION", [])
+            .map_err(CacheError::Database)?;
+
+        IndexTable::revalidate_by_key(&connection, &key, fetched_at, expires_at)?;
+
+        Ok(())
     }
 
     /// Removes a cache entry by its key, using the provided connection, deleting both the index entry and the a
@@ -249,6 +332,10 @@ impl DiskCache {
             .collect();
 
         files.sort_by_key(|(_, num)| *num);
+
+        let Ok(conn) = self.database.connection.lock() else {
+            return Err(CacheError::DatabaseLock);
+        };
 
         for (path, _file_number) in &files {
             let metadata = fs::metadata(path)?;
@@ -320,10 +407,6 @@ impl DiskCache {
             new_file.write_all(&data[..block_header_size as usize])?;
 
             for entry in &entries {
-                let Ok(conn) = self.database.connection.lock() else {
-                    continue;
-                };
-
                 if entry.is_dead {
                     let _ = IndexTable::delete_by_key(&conn, &entry.url_hash);
                     continue;

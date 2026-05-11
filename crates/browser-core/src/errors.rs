@@ -1,5 +1,5 @@
 use html_parser::errors::HtmlParsingError;
-use io::errors::ResourceError;
+use io::errors::{MiddlewareError, ResourceError};
 use network::errors::RequestError;
 use thiserror::Error;
 
@@ -11,6 +11,9 @@ pub enum NavigationError {
         #[source]
         source: HtmlParsingError,
     },
+
+    #[error(transparent)]
+    Middleware(#[from] MiddlewareError),
 
     #[error("request failed for {url}")]
     Request {

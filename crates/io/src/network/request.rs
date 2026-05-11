@@ -1,4 +1,5 @@
 use cookies::Cookie;
+use http_serde::http::StatusCode;
 use network::{
     ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, HeaderMap, Method, ORIGIN,
     client::{HttpClient, ResponseHandle},
@@ -10,9 +11,11 @@ use tracing::{debug, instrument, trace};
 use url::Url;
 
 use crate::{
+    CacheEntry, CacheRead, HttpCache,
     logging::STATUS_CODE,
     network::{
         middleware::{
+            cache::{CacheMiddleware, CachedResponse},
             cookies::CookieMiddleware,
             cors::CorsMiddleware,
             headers::{Destination, HeadersMiddleware, RequestMode},
@@ -70,20 +73,41 @@ impl<'client> NetworkService<'client> {
         }
     }
 
-    async fn raw_fetch(&self, request: Request) -> RequestResult<Box<dyn ResponseHandle>> {
+    async fn send_request(&self, request: Request) -> RequestResult<Box<dyn ResponseHandle>> {
         let response = self.client.send(request).await;
 
         Self::convert_response(response)
     }
 
-    #[instrument(skip(self, page_url, policies, request), fields(method = %request.method, url = %request.url))]
+    fn maybe_wrap_cached_response(
+        &self,
+        http_cache: &HttpCache,
+        cache_key: String,
+        cacheable: bool,
+        result: RequestResult<Box<dyn ResponseHandle>>,
+    ) -> RequestResult<Box<dyn ResponseHandle>> {
+        if !cacheable {
+            return result;
+        }
+
+        match result {
+            RequestResult::Success(handle) => {
+                RequestResult::Success(CacheMiddleware::wrap_handle(http_cache, cache_key, handle))
+            }
+            RequestResult::ClientError(handle) => RequestResult::ClientError(handle),
+            RequestResult::ServerError(handle) => RequestResult::ServerError(handle),
+            RequestResult::Failed(error) => RequestResult::Failed(error),
+        }
+    }
+
+    #[instrument(skip(self, http_cache, page_url, policies, request), fields(method = %request.method, url = %request.url))]
     pub async fn fetch(
         &self,
+        http_cache: &HttpCache,
         page_url: Option<Url>,
         policies: &DocumentPolicy,
-        request: Request,
+        mut request: Request,
     ) -> RequestResult<Box<dyn ResponseHandle>> {
-        let mut request = request;
         let user_headers = request.headers.clone();
         request.headers.extend(self.browser_headers.clone());
 
@@ -107,18 +131,35 @@ impl<'client> NetworkService<'client> {
                 true,
             );
 
-            return self.raw_fetch(request).await;
+            return match self.resolve_cache(http_cache, request).await {
+                Ok(result) => result,
+                Err(request) => {
+                    let cache_key = request.url.to_string();
+                    let result = self.send_request(request).await;
+
+                    self.maybe_wrap_cached_response(http_cache, cache_key, true, result)
+                }
+            };
         }
 
         if let Some(current_url) = &page_url {
             ReferrerMiddleware::apply_referrer(current_url, &mut request, policies.referrer);
         }
 
+        match self.resolve_cache(http_cache, request).await {
+            Ok(result) => return result,
+            Err(req) => request = req,
+        };
+
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
             trace!("Simple request detected, skipping CORS preflight");
             CookieMiddleware::apply_cookies(&mut request, self.cookies);
 
-            return Self::convert_response(self.client.send(request).await);
+            let cache_key = request.url.to_string();
+            let cacheable = request.method == Method::GET;
+            let result = self.send_request(request).await;
+
+            return self.maybe_wrap_cached_response(http_cache, cache_key, cacheable, result);
         }
 
         let RequestResult::Success(preflight_response) = self
@@ -141,7 +182,11 @@ impl<'client> NetworkService<'client> {
 
         CookieMiddleware::apply_cookies(&mut request, self.cookies);
 
-        Self::convert_response(self.client.send(request).await)
+        let cache_key = request.url.to_string();
+        let cacheable = request.method == Method::GET;
+        let result = self.send_request(request).await;
+
+        self.maybe_wrap_cached_response(http_cache, cache_key, cacheable, result)
     }
 
     async fn preflight_request(
@@ -197,5 +242,63 @@ impl<'client> NetworkService<'client> {
             }),
             Err(e) => RequestResult::Failed(RequestError::Network(e)),
         }
+    }
+
+    // NOTE: rust_analyzer is being wonky here converting CacheResponse to ResponseHandle.
+    #[cfg(not(rust_analyzer))]
+    async fn resolve_cache(
+        &self,
+        http_cache: &HttpCache,
+        mut request: Request,
+    ) -> Result<RequestResult<Box<dyn ResponseHandle>>, Request> {
+        match CacheMiddleware::lookup(&request, http_cache) {
+            Ok(entry) => match entry {
+                CacheEntry::Loaded(loaded) => match *loaded {
+                    CacheRead::Hit(data) => return Ok(RequestResult::Success(Box::new(CachedResponse::new(data)))),
+                    CacheRead::RequiresRevalidation {
+                        stale_data,
+                        revalidation_headers,
+                    } => {
+                        request.headers.extend(revalidation_headers);
+                        let url = request.url.to_string();
+
+                        let network_request = self.send_request(request).await;
+
+                        if let RequestResult::Success(handle) = network_request {
+                            let status = handle.metadata().status_code;
+                            let headers = handle.metadata().headers.clone();
+
+                            if status == StatusCode::NOT_MODIFIED {
+                                match http_cache.revalidate(&url, &headers) {
+                                    Ok(()) => {
+                                        return Ok(RequestResult::Success(Box::new(CachedResponse::new(stale_data))));
+                                    }
+                                    Err(error) => {
+                                        debug!(%error, "failure to revalidate the cache entry");
+                                    }
+                                }
+
+                                return Ok(RequestResult::Success(handle));
+                            } else if status == StatusCode::OK {
+                                return Ok(RequestResult::Success(CacheMiddleware::wrap_handle(
+                                    http_cache, url, handle,
+                                )));
+                            }
+
+                            return Ok(RequestResult::Success(handle));
+                        }
+
+                        return Ok(network_request);
+                    }
+                    CacheRead::Miss => {}
+                },
+                CacheEntry::Failed => {}
+            },
+            Err(error) => {
+                debug!(%error);
+            }
+        }
+
+        Err(request)
     }
 }

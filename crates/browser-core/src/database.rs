@@ -1,11 +1,10 @@
 use cookies::{CookieDatabase, CookieJar};
 use database::Database;
 use io::{HttpCache, IndexDatabase};
-use network::response::Response;
 
 pub(crate) struct Databases {
     pub cookie_jar: CookieJar,
-    pub http_cache: HttpCache<String, Response>,
+    pub http_cache: HttpCache,
 }
 
 impl Databases {

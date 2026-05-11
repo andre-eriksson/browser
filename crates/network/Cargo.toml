@@ -6,8 +6,8 @@ license.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-http-serde.workspace = true
 http.workspace = true
+http-serde.workspace = true
 reqwest.workspace = true
 thiserror.workspace = true
 tokio.workspace = true

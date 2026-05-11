@@ -10,7 +10,7 @@ use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use html_escape::decode_html_entities;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType, Script};
-use io::{CookieMiddleware, DocumentPolicy, Resource};
+use io::{CookieMiddleware, DecodingMiddleware, DocumentPolicy, HttpCache, Resource};
 use network::{
     HeaderMap, SET_COOKIE,
     client::HttpClient,
@@ -43,8 +43,8 @@ impl Browser {
         let headers = Arc::new(self.headers().clone());
         let cookie_jar = self.cookie_jar();
 
-        let (url, response) = self
-            .resolve_navigation_request(url, None, &DocumentPolicy::default(), &headers, client.as_ref())
+        let (request_url, response) = self
+            .resolve_navigation_request(url, None, &DocumentPolicy::default(), &headers, client)
             .await?;
 
         let Some(body) = response.body else {
@@ -54,11 +54,12 @@ impl Browser {
             });
         };
 
-        let mut favicon = Favicon::default();
+        let decoded = DecodingMiddleware::decode(&response.headers, body).await?;
 
+        let mut favicon = Favicon::default();
         let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
         let mut favicon_handle: Option<JoinHandle<Option<Vec<u8>>>> = None;
-        let mut parser = HtmlStreamParser::new(body.as_slice(), None, Some(TabCollector::default()));
+        let mut parser = HtmlStreamParser::new(decoded.as_slice(), None, Some(TabCollector::default()));
 
         let result = loop {
             let state = parser.step().map_err(|e| NavigationError::Parsing {
@@ -102,14 +103,17 @@ impl Browser {
                     }
                     BlockedReason::WaitingForResource(resource_type, href, metadata) => match resource_type {
                         ResourceType::Style => {
-                            let relative_url = url.join(&href).map_err(|error| NavigationError::Request {
-                                source: RequestError::Network(NetworkError::InvalidUrl(error)),
-                                url: href.clone(),
-                            })?;
+                            let relative_url = request_url
+                                .join(&href)
+                                .map_err(|error| NavigationError::Request {
+                                    source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                                    url: href.clone(),
+                                })?;
 
                             let handle = Self::spawn_style_fetch_and_parse(
                                 relative_url,
-                                &url,
+                                &request_url,
+                                self.http_cache(),
                                 client.box_clone(),
                                 Arc::clone(&headers),
                                 cookie_jar,
@@ -117,21 +121,25 @@ impl Browser {
                             style_handles.push(handle);
                         }
                         ResourceType::Favicon => {
-                            let relative_url = url.join(&href).map_err(|error| NavigationError::Request {
-                                source: RequestError::Network(NetworkError::InvalidUrl(error)),
-                                url: href.clone(),
-                            })?;
+                            let relative_url = request_url
+                                .join(&href)
+                                .map_err(|error| NavigationError::Request {
+                                    source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                                    url: href.clone(),
+                                })?;
 
                             favicon.content_type = metadata.content_type;
                             favicon.size = metadata.sizes;
 
-                            let page_url = url.clone();
+                            let page_url = request_url.clone();
                             let policies = DocumentPolicy::default();
                             let client_clone = client.box_clone();
                             let headers_clone = Arc::clone(&headers);
+                            let http_cache = self.http_cache().clone();
 
-                            let cookies = if let Some(host) = url.host() {
-                                self.cookie_jar().get_cookies(&host, url.path(), true)
+                            let cookies = if let Some(host) = request_url.host() {
+                                self.cookie_jar()
+                                    .get_cookies(&host, request_url.path(), true)
                             } else {
                                 vec![]
                             };
@@ -155,6 +163,7 @@ impl Browser {
                                     } else {
                                         match Resource::from_remote(
                                             relative_url.as_str(),
+                                            &http_cache,
                                             client_clone.as_ref(),
                                             &cookies,
                                             &headers_clone,
@@ -164,7 +173,19 @@ impl Browser {
                                         .await
                                         {
                                             Ok(r) => match r.response().await {
-                                                Ok(body_resp) => body_resp.body,
+                                                Ok(body_resp) => {
+                                                    if let Some(body) = body_resp.body {
+                                                        let Ok(decoded) =
+                                                            DecodingMiddleware::decode(&body_resp.headers, body).await
+                                                        else {
+                                                            return None;
+                                                        };
+
+                                                        Some(decoded)
+                                                    } else {
+                                                        None
+                                                    }
+                                                }
                                                 Err(error) => {
                                                     debug!(%error, "Failed to read body for favicon {}", relative_url);
                                                     None
@@ -211,7 +232,7 @@ impl Browser {
         }
 
         let mut metadata = PageMetadata {
-            url,
+            url: request_url,
             title: result
                 .metadata
                 .title
@@ -339,7 +360,7 @@ impl Browser {
                 vec![]
             };
 
-            Resource::from_remote(url.as_str(), client, &cookies, headers, page_url, policies)
+            Resource::from_remote(url.as_str(), self.http_cache(), client, &cookies, headers, page_url, policies)
                 .await
                 .map_err(|e| NavigationError::Request {
                     source: e,
@@ -367,12 +388,14 @@ impl Browser {
     fn spawn_style_fetch_and_parse(
         style_url: Url,
         page_url: &Url,
+        cache: &HttpCache,
         client: Box<dyn HttpClient>,
         headers: Arc<HeaderMap>,
         cookie_jar: &CookieJar,
     ) -> JoinHandle<Option<CSSStyleSheet>> {
         let page_url = page_url.clone();
         let policies = DocumentPolicy::default();
+        let cache = cache.clone();
         let cookie_jar = cookie_jar.clone();
 
         tokio::spawn(
@@ -418,6 +441,7 @@ impl Browser {
 
                     let resp = match Resource::from_remote(
                         style_url.as_str(),
+                        &cache,
                         client.as_ref(),
                         &cookies,
                         &headers,
@@ -442,7 +466,11 @@ impl Browser {
                     let body_bytes = match resp.response().await {
                         Ok(body_resp) => {
                             if let Some(b) = body_resp.body {
-                                b
+                                let Ok(decoded) = DecodingMiddleware::decode(&body_resp.headers, b).await else {
+                                    return None;
+                                };
+
+                                decoded
                             } else {
                                 debug!("Empty body for stylesheet {}", style_url);
                                 return None;
