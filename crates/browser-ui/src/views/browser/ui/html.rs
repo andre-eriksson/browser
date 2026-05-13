@@ -7,7 +7,7 @@ use iced::{
 use layout::{LayoutTree, Rect};
 
 use crate::{
-    core::{Application, ScrollOffset, UiTab},
+    core::{Application, PageContext, ScrollOffset},
     events::Event,
     renderer::{program::HtmlRenderer, viewport::collect_render_data_from_layout},
 };
@@ -34,8 +34,12 @@ impl<'renderer> BrowserHtml<'renderer> {
         }
     }
 
-    pub fn render(mut self, app: &'renderer Application, active_tab: &UiTab) -> container::Container<'renderer, Event> {
-        let image_ctx = active_tab.image_context();
+    pub fn render(
+        mut self,
+        app: &'renderer Application,
+        page_ctx: &PageContext,
+    ) -> container::Container<'renderer, Event> {
+        let image_ctx = page_ctx.image_context();
         let image_ctx = image_ctx.lock().unwrap();
         collect_render_data_from_layout(
             &image_ctx,

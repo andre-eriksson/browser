@@ -77,6 +77,14 @@ impl Display for TabId {
 pub struct PageContext {
     pub page: Page,
     pub metadata: PageMetadata,
+
+    image_ctx: Arc<Mutex<ImageContext>>,
+}
+
+impl PageContext {
+    pub fn image_context(&self) -> Arc<Mutex<ImageContext>> {
+        Arc::clone(&self.image_ctx)
+    }
 }
 
 /// Represents a tab in the UI.
@@ -93,8 +101,6 @@ pub struct UiTab {
 
     pub scroll_offset: ScrollOffset,
 
-    image_ctx: Arc<Mutex<ImageContext>>,
-
     pub history: History,
 }
 
@@ -108,7 +114,6 @@ impl UiTab {
             layout_tree: None,
             layout_generation: 0,
             scroll_offset: ScrollOffset::default(),
-            image_ctx: Arc::new(Mutex::new(ImageContext::new())),
             history: History::new(),
         }
     }
@@ -119,9 +124,11 @@ impl UiTab {
         text_context: &mut MutexGuard<'_, TextContext>,
         config: &BrowserConfig,
     ) {
-        let Some(page) = self.page_ctx.as_ref().map(|ctx| &ctx.page) else {
+        let Some(page_ctx) = self.page_ctx.as_ref() else {
             return;
         };
+
+        let page = &page_ctx.page;
 
         let Some(metadata) = self.page_ctx.as_ref().map(|ctx| &ctx.metadata) else {
             return;
@@ -139,7 +146,7 @@ impl UiTab {
 
         let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
         let layout_tree = {
-            let image_ctx = self.image_ctx.lock().unwrap();
+            let image_ctx = page_ctx.image_ctx.lock().unwrap();
             LayoutEngine::compute_layout(
                 page.document(),
                 &style_tree,
@@ -173,20 +180,22 @@ impl UiTab {
         };
 
         let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
-        let layout_tree = {
-            let image_ctx = self.image_ctx.lock().unwrap();
-            LayoutEngine::compute_layout(
-                page.document(),
-                &style_tree,
-                Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-                text_context,
-                &image_ctx,
-            )
-        };
+        let image_ctx = ImageContext::new();
+        let layout_tree = LayoutEngine::compute_layout(
+            page.document(),
+            &style_tree,
+            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+            text_context,
+            &image_ctx,
+        );
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);
-        self.page_ctx = Some(PageContext { page, metadata });
+        self.page_ctx = Some(PageContext {
+            page,
+            metadata,
+            image_ctx: Arc::new(Mutex::new(image_ctx)),
+        });
         self.scroll_offset = scroll_offset.unwrap_or_default();
     }
 
@@ -195,19 +204,11 @@ impl UiTab {
     /// that any in-flight background relayout from the previous page is
     /// automatically discarded.
     pub fn prepare_for_navigation(&mut self) {
-        {
-            let mut image_ctx = self.image_ctx.lock().unwrap();
+        if let Some(page_ctx) = &self.page_ctx {
+            let mut image_ctx = page_ctx.image_ctx.lock().unwrap();
             image_ctx.clear();
         }
-        self.layout_generation += 1;
-    }
 
-    /// Build an [`ImageContext`] from the tab's currently known image
-    /// metadata.  This is passed into
-    /// [`LayoutEngine::compute_layout`] so that decoded images are
-    /// laid out at their real intrinsic size (with the correct vary key for
-    /// disk-cache lookups) instead of a placeholder.
-    pub fn image_context(&self) -> Arc<Mutex<ImageContext>> {
-        Arc::clone(&self.image_ctx)
+        self.layout_generation += 1;
     }
 }

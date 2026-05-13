@@ -40,8 +40,12 @@ pub fn on_image_decoded(
         return Task::none();
     };
 
+    let Some(page_ctx) = &tab.page_ctx else {
+        return Task::none();
+    };
+
     {
-        let image_ctx = tab.image_context();
+        let image_ctx = page_ctx.image_context();
         let mut image_ctx = image_ctx.lock().unwrap();
         image_ctx.insert(node_id, Arc::new(image_data));
     }
@@ -52,7 +56,7 @@ pub fn on_image_decoded(
     let Some(page_ctx) = tab.page_ctx.clone() else {
         return Task::none();
     };
-    let image_ctx = tab.image_context();
+    let image_ctx = page_ctx.image_context();
     let layout_tree = tab.layout_tree.clone();
     let text_ctx = ctx.text_context.clone();
     let generation = tab.layout_generation;

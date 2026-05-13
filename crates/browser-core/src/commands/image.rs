@@ -15,7 +15,7 @@ impl Browser {
     pub async fn load_image(
         &self,
         node_id: NodeId,
-        url: Url,
+        request_url: Url,
         policies: DocumentPolicy,
         image_url: &str,
     ) -> Result<EngineResponse, CoreError> {
@@ -24,7 +24,7 @@ impl Browser {
 
         let decoded_url = decode_html_entities(image_url);
 
-        let absolute_url = url
+        let absolute_url = request_url
             .join(&decoded_url)
             .map_err(|error| NavigationError::Request {
                 source: RequestError::Network(NetworkError::InvalidUrl(error)),
@@ -40,7 +40,7 @@ impl Browser {
         }
 
         let (_resolved_url, response) = self
-            .resolve_request(absolute_url, Some(url), &policies, &headers, client.as_ref())
+            .resolve_request(absolute_url, Some(request_url), &policies, &headers, client.as_ref())
             .await?;
 
         let Some(body) = response.body else {

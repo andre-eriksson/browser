@@ -11,7 +11,7 @@ use url::Url;
 use crate::{
     core::{Application, Devtools, TabId, UiDevtools, WindowType},
     events::Event,
-    views::devtools::window::{DevtoolsContext, DevtoolsWindow},
+    views::devtools::window::DevtoolsContext,
 };
 
 /// Handles the event when a devtools page is ready, building the style and layout trees for the page and associating it with the corresponding tab in the application.
@@ -21,10 +21,7 @@ pub fn on_devtools_page_ready(application: &mut Application, window_id: Id, tab_
         return Task::none();
     };
 
-    let mut devtools_ctx = DevtoolsContext {
-        viewport: DevtoolsWindow::DEFAULT_VIEWPORT_SIZE,
-        page: None,
-    };
+    let mut devtools_ctx = DevtoolsContext::default();
 
     if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
         let localhost = Url::parse(&format!("http://{}", Ipv4Addr::LOCALHOST)).unwrap();
