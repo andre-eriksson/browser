@@ -407,7 +407,8 @@ mod tests {
                 width: 640,
                 height: 480,
                 rgba: vec![],
-            },
+            }
+            .into(),
         );
 
         LayoutEngine::relayout_node(
@@ -484,7 +485,8 @@ mod tests {
                 width: 640,
                 height: 480,
                 rgba: vec![],
-            },
+            }
+            .into(),
         );
 
         LayoutEngine::relayout_node(
@@ -524,7 +526,8 @@ mod tests {
                 width: 640,
                 height: 480,
                 rgba: vec![],
-            },
+            }
+            .into(),
         );
 
         let layout_a = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);

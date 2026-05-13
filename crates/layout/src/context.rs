@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use html_dom::NodeId;
 
@@ -14,7 +14,7 @@ pub struct LayoutImage {
 
 #[derive(Debug, Clone, Default)]
 pub struct ImageContext {
-    known: HashMap<NodeId, LayoutImage>,
+    known: HashMap<NodeId, Arc<LayoutImage>>,
 }
 
 impl ImageContext {
@@ -26,18 +26,11 @@ impl ImageContext {
         }
     }
 
-    pub fn insert(&mut self, node_id: NodeId, image: LayoutImage) {
+    pub fn insert(&mut self, node_id: NodeId, image: Arc<LayoutImage>) {
         self.known.insert(node_id, image);
     }
 
-    pub fn update_dimension(&mut self, node_id: NodeId, width: u32, height: u32) {
-        if let Some(image) = self.known.get_mut(&node_id) {
-            image.width = width;
-            image.height = height;
-        }
-    }
-
-    pub fn get(&self, node_id: &NodeId) -> Option<&LayoutImage> {
+    pub fn get(&self, node_id: &NodeId) -> Option<&Arc<LayoutImage>> {
         self.known.get(node_id)
     }
 

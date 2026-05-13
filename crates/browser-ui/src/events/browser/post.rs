@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use html_dom::NodeId;
@@ -41,7 +43,7 @@ pub fn on_image_decoded(
     {
         let image_ctx = tab.image_context();
         let mut image_ctx = image_ctx.lock().unwrap();
-        image_ctx.insert(node_id, image_data);
+        image_ctx.insert(node_id, Arc::new(image_data));
     }
 
     let viewport = ctx.viewport;
