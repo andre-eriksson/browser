@@ -8,7 +8,7 @@ use tracing::debug;
 
 use crate::cache::{
     disk::DiskCache,
-    errors::{CacheError, CacheRead},
+    errors::CacheError,
     header::{CacheControlResponse, CacheHeader, HEADER_VERSION},
     index::IndexDatabase,
 };
@@ -16,16 +16,14 @@ use crate::cache::{
 /// The current state of a cached resource in memory.
 #[derive(Debug, Clone)]
 pub enum CacheEntry {
-    /// The resource has been successfully loaded.
-    Loaded(Box<CacheRead>),
-    /// The resource failed to load.
-    Failed,
-}
-
-impl From<CacheRead> for CacheEntry {
-    fn from(value: CacheRead) -> Self {
-        Self::Loaded(Box::new(value))
-    }
+    Hit(Response),
+    RequiresRevalidation {
+        /// The stale data to use if the server responds with 304 Not Modified
+        stale_data: Response,
+        /// The headers to attach to the outbound request (e.g., If-None-Match)
+        revalidation_headers: HeaderMap,
+    },
+    Miss,
 }
 
 /// A thread-safe cache for resources, keyed by a generic key type `K`.
@@ -52,7 +50,7 @@ impl HttpCache {
         let sha = Self::hash_url(key);
 
         let Some(entry) = self.inner.get(sha)? else {
-            return Ok(CacheEntry::Failed);
+            return Ok(CacheEntry::Miss);
         };
 
         let content_size = entry.content_size;
@@ -65,8 +63,7 @@ impl HttpCache {
             || cache_header.header_version != HEADER_VERSION
             || cache_header.dead
         {
-            // TODO: Reason?
-            return Ok(CacheEntry::Failed);
+            return Ok(CacheEntry::Miss);
         }
 
         let mut hasher = Sha256::new();
@@ -74,7 +71,7 @@ impl HttpCache {
         let content_hash: [u8; 32] = hasher.finalize().into();
 
         if cache_header.content_hash != content_hash {
-            return Ok(CacheEntry::Failed);
+            return Ok(CacheEntry::Miss);
         }
 
         let deserialized: Response = postcard::from_bytes(&data).map_err(CacheError::Serialization)?;
@@ -90,19 +87,18 @@ impl HttpCache {
             let current = headers.get(&header_name);
 
             if cached != current {
-                return Ok(CacheEntry::Failed);
+                return Ok(CacheEntry::Miss);
             }
         }
 
         if !index.is_fresh() {
-            return Ok(CacheRead::RequiresRevalidation {
+            return Ok(CacheEntry::RequiresRevalidation {
                 stale_data: deserialized,
                 revalidation_headers: index.revalidation_headers(),
-            }
-            .into());
+            });
         }
 
-        Ok(CacheRead::Hit(deserialized).into())
+        Ok(CacheEntry::Hit(deserialized))
     }
 
     /// Stores a successfully loaded value in the cache for a given key.

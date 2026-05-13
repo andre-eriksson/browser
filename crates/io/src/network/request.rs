@@ -11,7 +11,7 @@ use tracing::{debug, instrument, trace};
 use url::Url;
 
 use crate::{
-    CacheEntry, CacheRead, HttpCache,
+    CacheEntry, HttpCache,
     logging::STATUS_CODE,
     network::{
         middleware::{
@@ -253,46 +253,41 @@ impl<'client> NetworkService<'client> {
     ) -> Result<RequestResult<Box<dyn ResponseHandle>>, Request> {
         match CacheMiddleware::lookup(&request, http_cache) {
             Ok(entry) => match entry {
-                CacheEntry::Loaded(loaded) => match *loaded {
-                    CacheRead::Hit(data) => return Ok(RequestResult::Success(Box::new(CachedResponse::new(data)))),
-                    CacheRead::RequiresRevalidation {
-                        stale_data,
-                        revalidation_headers,
-                    } => {
-                        request.headers.extend(revalidation_headers);
-                        let url = request.url.to_string();
+                CacheEntry::Hit(data) => return Ok(RequestResult::Success(Box::new(CachedResponse::new(data)))),
+                CacheEntry::RequiresRevalidation {
+                    stale_data,
+                    revalidation_headers,
+                } => {
+                    request.headers.extend(revalidation_headers);
+                    let url = request.url.to_string();
 
-                        let network_request = self.send_request(request).await;
+                    let network_request = self.send_request(request).await;
 
-                        if let RequestResult::Success(handle) = network_request {
-                            let status = handle.metadata().status_code;
-                            let headers = handle.metadata().headers.clone();
+                    if let RequestResult::Success(handle) = network_request {
+                        let status = handle.metadata().status_code;
+                        let headers = handle.metadata().headers.clone();
 
-                            if status == StatusCode::NOT_MODIFIED {
-                                match http_cache.revalidate(&url, &headers) {
-                                    Ok(()) => {
-                                        return Ok(RequestResult::Success(Box::new(CachedResponse::new(stale_data))));
-                                    }
-                                    Err(error) => {
-                                        debug!(%error, "failure to revalidate the cache entry");
-                                    }
+                        if status == StatusCode::NOT_MODIFIED {
+                            match http_cache.revalidate(&url, &headers) {
+                                Ok(()) => {
+                                    return Ok(RequestResult::Success(Box::new(CachedResponse::new(stale_data))));
                                 }
-
-                                return Ok(RequestResult::Success(handle));
-                            } else if status == StatusCode::OK {
-                                return Ok(RequestResult::Success(CacheMiddleware::wrap_handle(
-                                    http_cache, url, handle,
-                                )));
+                                Err(error) => {
+                                    debug!(%error, "failure to revalidate the cache entry");
+                                }
                             }
 
                             return Ok(RequestResult::Success(handle));
+                        } else if status == StatusCode::OK {
+                            return Ok(RequestResult::Success(CacheMiddleware::wrap_handle(http_cache, url, handle)));
                         }
 
-                        return Ok(network_request);
+                        return Ok(RequestResult::Success(handle));
                     }
-                    CacheRead::Miss => {}
-                },
-                CacheEntry::Failed => {}
+
+                    return Ok(network_request);
+                }
+                CacheEntry::Miss => {}
             },
             Err(error) => {
                 debug!(%error);

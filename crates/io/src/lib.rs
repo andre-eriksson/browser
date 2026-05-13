@@ -12,7 +12,6 @@ pub use network::{
     policy::referrer::ReferrerPolicy, request::RequestResult,
 };
 
-pub use cache::errors::CacheRead;
 pub use cache::http::{CacheEntry, HttpCache};
 pub use cache::index::{IndexDatabase, IndexTable};
 pub use files::Entry;

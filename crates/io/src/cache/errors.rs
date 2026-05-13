@@ -1,20 +1,6 @@
 //! Errors related to cache operations.
 
-use network::{HeaderMap, response::Response};
 use thiserror::Error;
-
-/// Represents the result of a cache read operation, indicating whether it was a hit or a miss.
-#[derive(Debug, Clone)]
-pub enum CacheRead {
-    Hit(Response),
-    RequiresRevalidation {
-        /// The stale data to use if the server responds with 304 Not Modified
-        stale_data: Response,
-        /// The headers to attach to the outbound request (e.g., If-None-Match)
-        revalidation_headers: HeaderMap,
-    },
-    Miss,
-}
 
 #[derive(Error, Debug)]
 pub enum CacheError {
