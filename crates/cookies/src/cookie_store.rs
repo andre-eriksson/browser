@@ -150,13 +150,10 @@ impl CookieJar {
             return;
         }
 
-        // TODO: Mark updated cookies as dirty then |
-        //                                          v
-        // TODO: Scheduler should periodically save cookies
         if let Ok(connection) = self.inner.database.connection.lock()
-            && let Err(err) = CookieTable::create_table(&connection)
+            && let Err(e) = CookieTable::insert(&connection, &cookie)
         {
-            debug!("Failed to create cookie table: {}", err);
+            debug!("Failed to insert cookie into database: {}", e);
         }
 
         if let Some(domain_cookies) = writer.get_mut(&request_domain) {
