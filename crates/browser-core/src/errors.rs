@@ -37,6 +37,9 @@ pub enum CoreError {
     #[error(transparent)]
     Navigation(#[from] NavigationError),
 
+    #[error("failed to initialize database: {0}")]
+    InitializeDatabase(String),
+
     #[error("failed to get an image")]
     Image,
 

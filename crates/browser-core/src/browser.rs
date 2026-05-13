@@ -38,7 +38,7 @@ impl Browser {
     /// # Panics
     /// * This function will panic if the embedded user agent CSS is not valid UTF-8, which should never happen since it's embedded in the binary.
     pub fn new(config: &'static BrowserConfig) -> Self {
-        let databases = Databases::init();
+        let databases = Databases::init().expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
         let http_client = Box::new(ReqwestClient::new());
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
