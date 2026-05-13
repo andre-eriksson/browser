@@ -138,7 +138,7 @@ impl HttpCache {
         );
 
         if cache_control.no_store {
-            return Err(CacheError::Write(String::from("\"cache-control: no-store\" prevents caching")));
+            return Ok(());
         }
 
         let cache_headers = CacheHeader::new(serialized.as_slice(), sha);
