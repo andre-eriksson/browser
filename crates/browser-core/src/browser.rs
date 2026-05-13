@@ -114,7 +114,7 @@ impl ScriptExecutor for Browser {
 #[async_trait]
 impl Commandable for Browser {
     #[instrument(skip(self), level = "trace")]
-    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, CoreError> {
+    async fn execute(&self, command: EngineCommand) -> Result<EngineResponse, CoreError> {
         match command {
             EngineCommand::Navigate {
                 url,
@@ -162,13 +162,14 @@ impl Commandable for Browser {
                 Ok(EngineResponse::DevtoolsPageReady(devtools_page))
             }
             EngineCommand::FetchImage {
+                node_id,
                 request_url,
                 request_policies,
                 image_url,
             } => {
                 let span = tracing::debug_span!("Browser::FetchImage");
 
-                self.load_image(request_url, request_policies, &image_url)
+                self.load_image(node_id, request_url, request_policies, &image_url)
                     .instrument(span)
                     .await
             }

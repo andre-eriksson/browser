@@ -14,7 +14,6 @@ pub struct TextRun<'node> {
 #[derive(Debug, Clone)]
 pub struct ImageItem<'node> {
     pub id: &'node NodeId,
-    pub src: String,
     pub width: f64,
     pub height: f64,
     pub has_explicit_width: bool,
@@ -91,9 +90,7 @@ pub fn collect<'dom>(
                     return Ok(());
                 };
 
-                let src = attrs.get("src").cloned().unwrap_or_default();
-
-                let known = image_ctx.get(&src);
+                let known = image_ctx.get(node_id);
 
                 let attr_width = attrs.get("width").and_then(|v| v.parse::<f64>().ok());
                 let attr_height = attrs.get("height").and_then(|v| v.parse::<f64>().ok());
@@ -108,24 +105,24 @@ pub fn collect<'dom>(
                         match style.width {
                             ComputedSize::Px(px) => px,
                             ComputedSize::Percentage(frac) => frac * containing_rect.width,
-                            _ => known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.0), // TODO: Handle other types of computed size
+                            _ => known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.width as f64), // TODO: Handle other types of computed size
                         }
                     } else if let Some(attr_w) = attr_width {
                         attr_w
                     } else {
-                        known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.0)
+                        known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.width as f64)
                     };
 
                     let h = if css_height {
                         match style.height {
                             ComputedSize::Px(px) => px,
                             ComputedSize::Percentage(frac) => frac * containing_rect.height,
-                            _ => known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1), // TODO: Handle other types of computed size
+                            _ => known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.height as f64), // TODO: Handle other types of computed size
                         }
                     } else if let Some(attr_h) = attr_height {
                         attr_h
                     } else {
-                        known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.1)
+                        known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.height as f64)
                     };
 
                     let max_width = match style.max_width {
@@ -152,7 +149,6 @@ pub fn collect<'dom>(
 
                 items.push(InlineItem::Image(ImageItem {
                     id: node_id,
-                    src,
                     width,
                     height,
                     has_explicit_width,

@@ -1,5 +1,6 @@
+use html_dom::NodeId;
 use html_escape::decode_html_entities;
-use io::DocumentPolicy;
+use io::{DecodingMiddleware, DocumentPolicy};
 use network::errors::{NetworkError, RequestError};
 use tracing::debug;
 use url::Url;
@@ -13,6 +14,7 @@ impl Browser {
     /// Loads an image from the specified URL using the browser's HTTP client, headers, and cookies.
     pub async fn load_image(
         &self,
+        node_id: NodeId,
         url: Url,
         policies: DocumentPolicy,
         image_url: &str,
@@ -45,6 +47,14 @@ impl Browser {
             return Err(CoreError::Image);
         };
 
-        Ok(EngineResponse::ImageFetched(image_url.to_string(), body, response.headers))
+        let decoded_data = DecodingMiddleware::decode(&response.headers, body)
+            .await
+            .map_err(|_| CoreError::Image)?;
+
+        Ok(EngineResponse::ImageFetched {
+            id: node_id,
+            url: image_url.to_string(),
+            data: decoded_data,
+        })
     }
 }

@@ -43,7 +43,7 @@ fn main() {
         return runtime.block_on(engine.run(config));
     }
 
-    let browser = Arc::new(tokio::sync::Mutex::new(browser));
+    let browser = Arc::new(browser);
 
     let ui = Ui::run(browser, config);
 

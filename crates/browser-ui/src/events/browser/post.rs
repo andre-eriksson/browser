@@ -1,4 +1,16 @@
-/*
+use css_style::{AbsoluteContext, StyleTree};
+use css_values::color::Color;
+use html_dom::NodeId;
+use iced::{Task, window::Id};
+use layout::{LayoutEngine, LayoutImage, Rect};
+use tracing::{debug, error};
+
+use crate::{
+    core::{Application, TabId},
+    errors::BrowserError,
+    events::{Event, browser::BrowserEvent},
+};
+
 /// Handles the completion of image loading, updating the tab's state and triggering a targeted
 /// async relayout of only the image node and its ancestors.
 ///
@@ -9,52 +21,27 @@
 ///
 /// Once all images are ready the relayout runs off the UI thread via `spawn_blocking` so that
 /// scrolling and other interactions remain responsive while the work is in progress.
-pub fn on_image_loaded(
+pub fn on_image_decoded(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
-    url: &str,
-    vary_key: &str,
+    node_id: NodeId,
+    url: String,
+    image_data: LayoutImage,
 ) -> Task<Event> {
     let Some(ctx) = application.browser_windows.get_mut(&window_id) else {
         error!("Browser context not found for window ID: {}", window_id);
         return Task::none();
     };
 
-    let url = url.to_string();
-
-    if let Some(ref cache) = application.image_cache
-        && let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(&url, vary_key)
-        && let CacheRead::Hit(decoded) = (*decoded).clone()
-    {
-        let intrinsic_w = decoded.width as f32;
-        let intrinsic_h = decoded.height as f32;
-        if let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) {
-            tab.set_image_dimensions(url.clone(), intrinsic_w, intrinsic_h);
-            tab.set_image_vary_key(&url, vary_key.to_string());
-        }
-    }
-
     let Some(tab) = ctx.tab_manager.get_tab_mut(tab_id) else {
         return Task::none();
     };
 
-    if !tab.resolve_pending_image(&url) {
-        return Task::none();
-    }
-
-    let image_node_ids: Vec<_> = tab
-        .known_images
-        .keys()
-        .flat_map(|src| {
-            tab.layout_tree
-                .as_ref()
-                .map_or_else(Vec::new, |lt| lt.find_image_nodes_by_src(&src.clone()))
-        })
-        .collect();
-
-    if image_node_ids.is_empty() {
-        return Task::none();
+    {
+        let image_ctx = tab.image_context();
+        let mut image_ctx = image_ctx.lock().unwrap();
+        image_ctx.insert(node_id, image_data);
     }
 
     let viewport = ctx.viewport;
@@ -84,19 +71,18 @@ pub fn on_image_loaded(
                 let dom_tree = page_ctx.page.document();
                 let style_tree = StyleTree::build(config, &ctx, dom_tree, page_ctx.page.stylesheets());
                 let mut tc = text_ctx.lock().unwrap();
+                let image_ctx = image_ctx.lock().unwrap();
                 let mut layout_tree = layout_tree?;
 
-                for node_id in image_node_ids {
-                    LayoutEngine::relayout_node(
-                        node_id,
-                        Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-                        &mut layout_tree,
-                        &style_tree,
-                        dom_tree,
-                        &mut tc,
-                        &image_ctx,
-                    );
-                }
+                LayoutEngine::relayout_node(
+                    node_id,
+                    Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+                    &mut layout_tree,
+                    &style_tree,
+                    dom_tree,
+                    &mut tc,
+                    &image_ctx,
+                );
 
                 Some(layout_tree)
             })
@@ -137,4 +123,4 @@ pub fn on_relayout_complete(
     }
 
     Task::none()
-}*/
+}

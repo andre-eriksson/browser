@@ -29,8 +29,8 @@ pub fn create_window(application: &mut Application, window_id: Id, window_type: 
 
             Task::perform(
                 async move {
-                    let mut lock = browser.lock().await;
-                    lock.execute(EngineCommand::GetDevtoolsPage { document })
+                    browser
+                        .execute(EngineCommand::GetDevtoolsPage { document })
                         .await
                 },
                 move |result| match result {

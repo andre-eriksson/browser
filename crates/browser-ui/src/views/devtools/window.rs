@@ -63,16 +63,21 @@ impl ApplicationWindow for DevtoolsWindow {
                 .into();
         };
 
-        let tab = ctx.tab_manager.active_tab();
+        let tab = ctx
+            .tab_manager
+            .active_tab()
+            .expect("There should always be an active tab in the browser");
 
         let viewport = tab
-            .and_then(|t| t.devtools.as_ref())
+            .devtools
+            .as_ref()
             .map_or(Self::DEFAULT_VIEWPORT_SIZE, |d| d.context.viewport);
 
         // NOTE: Varies depending on UI elements around the content.
         let content_viewport_height = (viewport.height + 50.0).max(100.0);
 
-        tab.and_then(|t| t.devtools.as_ref())
+        tab.devtools
+            .as_ref()
             .and_then(|d| d.context.page.as_ref())
             .map_or_else(
                 || {
@@ -95,7 +100,7 @@ impl ApplicationWindow for DevtoolsWindow {
                         Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(content_viewport_height)),
                         devtools.scroll_offset,
                     );
-                    html.render(application)
+                    html.render(application, tab)
                         .width(Length::Fill)
                         .height(Length::Fill)
                         .into()

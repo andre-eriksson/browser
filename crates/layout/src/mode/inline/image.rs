@@ -17,10 +17,10 @@ pub fn layout_image<'node>(
     let writing_mode = &img.style.writing_mode;
     text_ctx.last_text_align = *alignment;
     text_ctx.last_writing_mode = *writing_mode;
-    let has_intrinsic_size = layout_ctx
-        .image_ctx()
-        .get(&img.src)
-        .is_some_and(|(w, h)| w > 0.0 && h > 0.0);
+
+    let image = layout_ctx.image_ctx().get(img.id);
+
+    let has_intrinsic_size = image.is_some_and(|i| i.width > 0 && i.height > 0);
 
     let (img_width, img_height) = resolve_image_size(
         img.width,
@@ -29,7 +29,7 @@ pub fn layout_image<'node>(
         img.has_explicit_height,
         img.style,
         ctx.available_width,
-        layout_ctx.image_ctx().get(&img.src),
+        image.map(|i| (i.width, i.height)),
     );
 
     if line.line_box.width + img_width > ctx.available_width && line.line_box.width > 0.0 {
@@ -40,12 +40,7 @@ pub fn layout_image<'node>(
         .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
         .colors(LayoutColors::from(img.style))
         .image_data(ImageData {
-            image_src: img.src.clone(),
-            vary_key: layout_ctx
-                .image_ctx()
-                .get_meta(&img.src)
-                .map(|m| m.vary_key.clone())
-                .unwrap_or_default(),
+            node_id: *img.id,
             image_needs_intrinsic_size: img.needs_intrinsic_size && !has_intrinsic_size,
         })
         .build();
@@ -61,7 +56,7 @@ fn resolve_image_size(
     has_explicit_height: bool,
     style: &ComputedStyle,
     available_width: f64,
-    intrinsic_size: Option<(f64, f64)>,
+    intrinsic_size: Option<(u32, u32)>,
 ) -> (f64, f64) {
     let max_width = match style.max_width {
         ComputedMaxSize::Px(px) => px,
@@ -81,14 +76,14 @@ fn resolve_image_size(
     };
     let mut used_height = height.max(0.0);
 
-    if let Some((intrinsic_width, intrinsic_height)) = intrinsic_size.filter(|(w, h)| *w > 0.0 && *h > 0.0) {
+    if let Some((intrinsic_width, intrinsic_height)) = intrinsic_size.filter(|(w, h)| *w > 0 && *h > 0) {
         if has_explicit_width && !has_explicit_height {
-            used_height = used_width * intrinsic_height / intrinsic_width;
+            used_height = used_width * intrinsic_height as f64 / intrinsic_width as f64;
         } else if has_explicit_height && !has_explicit_width {
-            used_width = used_height * intrinsic_width / intrinsic_height;
+            used_width = used_height * intrinsic_width as f64 / intrinsic_height as f64;
         } else if !has_explicit_width && !has_explicit_height {
-            used_width = intrinsic_width;
-            used_height = intrinsic_height;
+            used_width = intrinsic_width as f64;
+            used_height = intrinsic_height as f64;
         }
 
         if has_explicit_width && has_explicit_height {

@@ -5,7 +5,7 @@ use iced::{
 use layout::{LayoutTree, Rect};
 
 use crate::{
-    core::{Application, ScrollOffset},
+    core::{Application, ScrollOffset, UiTab},
     events::Event,
     renderer::{program::HtmlRenderer, viewport::collect_render_data_from_layout},
 };
@@ -32,14 +32,16 @@ impl<'renderer> DevtoolsHtml<'renderer> {
         }
     }
 
-    pub fn render<'app>(mut self, _app: &'app Application) -> container::Container<'app, Event>
+    pub fn render<'app>(mut self, _app: &'app Application, active_tab: &UiTab) -> container::Container<'app, Event>
     where
         'renderer: 'app,
     {
+        let image_ctx = active_tab.image_context();
+        let image_ctx = image_ctx.lock().unwrap();
         collect_render_data_from_layout(
+            &image_ctx,
             &mut self.renderer,
             self.layout_tree,
-            None,
             self.initial_bounds,
             self.scroll_offset,
         );

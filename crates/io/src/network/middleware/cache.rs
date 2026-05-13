@@ -10,11 +10,6 @@ use tracing::debug;
 
 use crate::{CacheEntry, HttpCache, cache::errors::CacheError};
 
-pub struct CachedResponse {
-    metadata: HeaderResponse,
-    body: Option<Vec<u8>>,
-}
-
 pub struct CachingResponse {
     inner: Box<dyn ResponseHandle>,
     cache: HttpCache,
@@ -28,33 +23,6 @@ impl CachingResponse {
             cache,
             cache_key,
         }
-    }
-}
-
-impl CachedResponse {
-    pub fn new(response: Response) -> Self {
-        Self {
-            metadata: HeaderResponse {
-                status_code: response.status_code,
-                headers: response.headers,
-            },
-            body: response.body,
-        }
-    }
-}
-
-#[async_trait]
-impl ResponseHandle for CachedResponse {
-    fn metadata(&self) -> &HeaderResponse {
-        &self.metadata
-    }
-
-    async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
-        Ok(Response {
-            status_code: self.metadata.status_code,
-            headers: self.metadata.headers,
-            body: self.body,
-        })
     }
 }
 
@@ -81,6 +49,38 @@ impl ResponseHandle for CachingResponse {
         }
 
         Ok(response)
+    }
+}
+
+pub struct CachedResponse {
+    metadata: HeaderResponse,
+    body: Option<Vec<u8>>,
+}
+
+impl CachedResponse {
+    pub fn new(response: Response) -> Self {
+        Self {
+            metadata: HeaderResponse {
+                status_code: response.status_code,
+                headers: response.headers,
+            },
+            body: response.body,
+        }
+    }
+}
+
+#[async_trait]
+impl ResponseHandle for CachedResponse {
+    fn metadata(&self) -> &HeaderResponse {
+        &self.metadata
+    }
+
+    async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
+        Ok(Response {
+            status_code: self.metadata.status_code,
+            headers: self.metadata.headers,
+            body: self.body,
+        })
     }
 }
 

@@ -1,7 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet},
     fmt::Display,
-    sync::MutexGuard,
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use browser_config::BrowserConfig;
@@ -22,14 +21,6 @@ pub mod manager;
 pub struct ScrollOffset {
     pub x: f32,
     pub y: f32,
-}
-
-/// Known metadata for a decoded image, persisted across relayouts.
-#[derive(Debug, Clone)]
-pub struct KnownImageMeta {
-    pub width: f32,
-    pub height: f32,
-    pub vary_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -102,8 +93,7 @@ pub struct UiTab {
 
     pub scroll_offset: ScrollOffset,
 
-    pub known_images: HashMap<String, KnownImageMeta>,
-    pub pending_image_urls: HashSet<String>,
+    image_ctx: Arc<Mutex<ImageContext>>,
 
     pub history: History,
 }
@@ -118,8 +108,7 @@ impl UiTab {
             layout_tree: None,
             layout_generation: 0,
             scroll_offset: ScrollOffset::default(),
-            known_images: HashMap::new(),
-            pending_image_urls: HashSet::new(),
+            image_ctx: Arc::new(Mutex::new(ImageContext::new())),
             history: History::new(),
         }
     }
@@ -149,13 +138,16 @@ impl UiTab {
         };
 
         let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
-        let layout_tree = LayoutEngine::compute_layout(
-            page.document(),
-            &style_tree,
-            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-            text_context,
-            &self.image_context(),
-        );
+        let layout_tree = {
+            let image_ctx = self.image_ctx.lock().unwrap();
+            LayoutEngine::compute_layout(
+                page.document(),
+                &style_tree,
+                Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+                text_context,
+                &image_ctx,
+            )
+        };
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);
@@ -181,13 +173,16 @@ impl UiTab {
         };
 
         let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
-        let layout_tree = LayoutEngine::compute_layout(
-            page.document(),
-            &style_tree,
-            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-            text_context,
-            &self.image_context(),
-        );
+        let layout_tree = {
+            let image_ctx = self.image_ctx.lock().unwrap();
+            LayoutEngine::compute_layout(
+                page.document(),
+                &style_tree,
+                Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+                text_context,
+                &image_ctx,
+            )
+        };
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);
@@ -200,8 +195,10 @@ impl UiTab {
     /// that any in-flight background relayout from the previous page is
     /// automatically discarded.
     pub fn prepare_for_navigation(&mut self) {
-        self.known_images.clear();
-        self.pending_image_urls.clear();
+        {
+            let mut image_ctx = self.image_ctx.lock().unwrap();
+            image_ctx.clear();
+        }
         self.layout_generation += 1;
     }
 
@@ -210,11 +207,7 @@ impl UiTab {
     /// [`LayoutEngine::compute_layout`] so that decoded images are
     /// laid out at their real intrinsic size (with the correct vary key for
     /// disk-cache lookups) instead of a placeholder.
-    pub fn image_context(&self) -> ImageContext {
-        let mut ctx = ImageContext::new();
-        for (src, meta) in &self.known_images {
-            ctx.insert_with_vary(src.clone(), f64::from(meta.width), f64::from(meta.height), meta.vary_key.clone());
-        }
-        ctx
+    pub fn image_context(&self) -> Arc<Mutex<ImageContext>> {
+        Arc::clone(&self.image_ctx)
     }
 }

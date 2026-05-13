@@ -109,7 +109,7 @@ impl ApplicationWindow for BrowserWindow {
                 Rect::new(0.0, 87.0, f64::from(viewport.width), f64::from(content_viewport_height)),
                 active_tab.scroll_offset,
             );
-            let html_content = html.render(app);
+            let html_content = html.render(app, active_tab);
             column = column.push(html_content);
         } else {
             let blank_page = container("").width(Length::Fill).height(Length::Fill);

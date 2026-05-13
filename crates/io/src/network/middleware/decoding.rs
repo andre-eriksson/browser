@@ -2,6 +2,7 @@ use async_compression::tokio::bufread::{BrotliDecoder, GzipDecoder, ZlibDecoder,
 use network::{CONTENT_ENCODING, HeaderMap};
 use strum::EnumString;
 use tokio::io::{AsyncReadExt, BufReader};
+use tracing::trace;
 
 use crate::errors::MiddlewareError;
 
@@ -18,22 +19,26 @@ pub struct DecodingMiddleware;
 
 impl DecodingMiddleware {
     pub async fn decode(headers: &HeaderMap, mut data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
-        let encoders = headers
-            .get(CONTENT_ENCODING)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or_default()
-            .split(',')
-            .map(|e| e.trim().parse::<Encoding>())
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| MiddlewareError::DecodingError(e.to_string()))?;
+        if let Some(encoder_value) = headers.get(CONTENT_ENCODING) {
+            let encoders = encoder_value
+                .to_str()
+                .map_err(|e| MiddlewareError::DecodingError(format!("Header string conversion error, {e}")))?
+                .split(',')
+                .map(|e| e.trim().parse::<Encoding>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| MiddlewareError::DecodingError(format!("Header parsing error, {e}")))?
+                .into_iter()
+                .rev()
+                .collect::<Vec<_>>();
 
-        for encoder in encoders.into_iter().rev() {
-            data = match encoder {
-                Encoding::Br => Self::decode_br(data).await?,
-                Encoding::Deflate => Self::decode_deflate(data).await?,
-                Encoding::Gzip => Self::decode_gzip(data).await?,
-                Encoding::Zstd => Self::decode_zstd(data).await?,
-            };
+            for encoder in encoders {
+                data = match encoder {
+                    Encoding::Br => Self::decode_br(data).await?,
+                    Encoding::Deflate => Self::decode_deflate(data).await?,
+                    Encoding::Gzip => Self::decode_gzip(data).await?,
+                    Encoding::Zstd => Self::decode_zstd(data).await?,
+                };
+            }
         }
 
         Ok(data)
@@ -42,6 +47,8 @@ impl DecodingMiddleware {
     async fn decode_br(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = BrotliDecoder::new(reader);
+
+        trace!("Decoding Brotli data of length {}", data.len());
 
         let mut decompressed = Vec::new();
         decoder
@@ -56,6 +63,8 @@ impl DecodingMiddleware {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = ZlibDecoder::new(reader);
 
+        trace!("Decoding Deflate data of length {}", data.len());
+
         let mut decompressed = Vec::new();
         decoder
             .read_to_end(&mut decompressed)
@@ -69,6 +78,8 @@ impl DecodingMiddleware {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = GzipDecoder::new(reader);
 
+        trace!("Decoding Gzip data of length {}", data.len());
+
         let mut decompressed = Vec::new();
         decoder
             .read_to_end(&mut decompressed)
@@ -81,6 +92,8 @@ impl DecodingMiddleware {
     async fn decode_zstd(data: Vec<u8>) -> Result<Vec<u8>, MiddlewareError> {
         let reader = BufReader::new(data.as_slice());
         let mut decoder = ZstdDecoder::new(reader);
+
+        trace!("Decoding Zstd data of length {}", data.len());
 
         let mut decompressed = Vec::new();
         decoder
