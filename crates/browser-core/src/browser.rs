@@ -138,8 +138,7 @@ impl Commandable for Browser {
                 let default_css = {
                     let css_resource = Resource::load_embedded(DEFAULT_CSS);
                     CSSStyleSheet::from_css(
-                        // SAFETY: The CSS is ASCII and embedded in the binary, so it should always be valid UTF-8.
-                        unsafe { str::from_utf8_unchecked(css_resource.as_slice()) },
+                        str::from_utf8(css_resource.as_slice()).expect("Embedded default CSS should be valid UTF-8"),
                         StylesheetOrigin::UserAgent,
                         false,
                     )
@@ -147,8 +146,7 @@ impl Commandable for Browser {
                 let devtools_css = {
                     let css_resource = Resource::load_embedded(DEVTOOLS_CSS);
                     CSSStyleSheet::from_css(
-                        // SAFETY: The CSS is ASCII and embedded in the binary, so it should always be valid UTF-8.
-                        unsafe { str::from_utf8_unchecked(css_resource.as_slice()) },
+                        str::from_utf8(css_resource.as_slice()).expect("Embedded DevTools CSS should be valid UTF-8"),
                         StylesheetOrigin::Author,
                         false,
                     )
