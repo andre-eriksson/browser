@@ -25,7 +25,7 @@ use crate::{
 };
 
 /// Minimum block file size before compaction is considered (16MB).
-const COMPACTION_THRESHOLD: u64 = 16 * 1024 * 1024;
+const COMPACTION_THRESHOLD: usize = 16 * 1024 * 1024;
 /// Minimum dead-byte ratio within entries to trigger compaction (50%).
 const COMPACTION_DEAD_THRESHOLD: usize = 2;
 
@@ -350,7 +350,7 @@ impl DiskCache {
             let metadata = fs::metadata(path)?;
             let file_size = metadata.len();
 
-            if file_size < COMPACTION_THRESHOLD {
+            if file_size < COMPACTION_THRESHOLD as u64 {
                 continue;
             }
 
@@ -398,11 +398,11 @@ impl DiskCache {
                 cursor = &after_header[content_size..];
             }
 
-            if total_entry_bytes == 0 {
+            if total_entry_bytes == 0 || dead_entry_bytes == 0 {
                 continue;
             }
 
-            if total_entry_bytes.div_ceil(dead_entry_bytes) < COMPACTION_DEAD_THRESHOLD {
+            if total_entry_bytes.div_ceil(dead_entry_bytes) < COMPACTION_THRESHOLD.div_ceil(COMPACTION_DEAD_THRESHOLD) {
                 continue;
             }
 
