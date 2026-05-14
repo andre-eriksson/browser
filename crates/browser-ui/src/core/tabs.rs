@@ -1,7 +1,6 @@
 use std::{
-    collections::{HashMap, HashSet},
     fmt::Display,
-    sync::MutexGuard,
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use browser_config::BrowserConfig;
@@ -22,14 +21,6 @@ pub mod manager;
 pub struct ScrollOffset {
     pub x: f32,
     pub y: f32,
-}
-
-/// Known metadata for a decoded image, persisted across relayouts.
-#[derive(Debug, Clone)]
-pub struct KnownImageMeta {
-    pub width: f32,
-    pub height: f32,
-    pub vary_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +77,14 @@ impl Display for TabId {
 pub struct PageContext {
     pub page: Page,
     pub metadata: PageMetadata,
+
+    image_ctx: Arc<Mutex<ImageContext>>,
+}
+
+impl PageContext {
+    pub fn image_context(&self) -> Arc<Mutex<ImageContext>> {
+        Arc::clone(&self.image_ctx)
+    }
 }
 
 /// Represents a tab in the UI.
@@ -102,9 +101,6 @@ pub struct UiTab {
 
     pub scroll_offset: ScrollOffset,
 
-    pub known_images: HashMap<String, KnownImageMeta>,
-    pub pending_image_urls: HashSet<String>,
-
     pub history: History,
 }
 
@@ -118,8 +114,6 @@ impl UiTab {
             layout_tree: None,
             layout_generation: 0,
             scroll_offset: ScrollOffset::default(),
-            known_images: HashMap::new(),
-            pending_image_urls: HashSet::new(),
             history: History::new(),
         }
     }
@@ -130,9 +124,11 @@ impl UiTab {
         text_context: &mut MutexGuard<'_, TextContext>,
         config: &BrowserConfig,
     ) {
-        let Some(page) = self.page_ctx.as_ref().map(|ctx| &ctx.page) else {
+        let Some(page_ctx) = self.page_ctx.as_ref() else {
             return;
         };
+
+        let page = &page_ctx.page;
 
         let Some(metadata) = self.page_ctx.as_ref().map(|ctx| &ctx.metadata) else {
             return;
@@ -149,13 +145,16 @@ impl UiTab {
         };
 
         let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
-        let layout_tree = LayoutEngine::compute_layout(
-            page.document(),
-            &style_tree,
-            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-            text_context,
-            &self.image_context(),
-        );
+        let layout_tree = {
+            let image_ctx = page_ctx.image_ctx.lock().unwrap();
+            LayoutEngine::compute_layout(
+                page.document(),
+                &style_tree,
+                Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+                text_context,
+                &image_ctx,
+            )
+        };
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);
@@ -181,17 +180,22 @@ impl UiTab {
         };
 
         let style_tree = StyleTree::build(config, &absolute_ctx, page.document(), page.stylesheets());
+        let image_ctx = ImageContext::new();
         let layout_tree = LayoutEngine::compute_layout(
             page.document(),
             &style_tree,
             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
             text_context,
-            &self.image_context(),
+            &image_ctx,
         );
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);
-        self.page_ctx = Some(PageContext { page, metadata });
+        self.page_ctx = Some(PageContext {
+            page,
+            metadata,
+            image_ctx: Arc::new(Mutex::new(image_ctx)),
+        });
         self.scroll_offset = scroll_offset.unwrap_or_default();
     }
 
@@ -200,54 +204,11 @@ impl UiTab {
     /// that any in-flight background relayout from the previous page is
     /// automatically discarded.
     pub fn prepare_for_navigation(&mut self) {
-        self.known_images.clear();
-        self.pending_image_urls.clear();
+        if let Some(page_ctx) = &self.page_ctx {
+            let mut image_ctx = page_ctx.image_ctx.lock().unwrap();
+            image_ctx.clear();
+        }
+
         self.layout_generation += 1;
-    }
-
-    /// Record (or update) the intrinsic dimensions for an image source URL,
-    /// preserving any previously stored vary key.
-    pub fn set_image_dimensions(&mut self, src: String, width: f32, height: f32) {
-        self.known_images
-            .entry(src)
-            .and_modify(|m| {
-                m.width = width;
-                m.height = height;
-            })
-            .or_insert(KnownImageMeta {
-                width,
-                height,
-                vary_key: String::new(),
-            });
-    }
-
-    /// Record (or update) the vary key for an image source URL, preserving any
-    /// previously stored dimensions.
-    pub fn set_image_vary_key(&mut self, src: &str, vary_key: String) {
-        if let Some(meta) = self.known_images.get_mut(src) {
-            meta.vary_key = vary_key;
-        }
-    }
-
-    /// Mark an image URL as no longer pending (because it finished loading or
-    /// failed).  Returns `true` when the pending set has become empty, meaning
-    /// all images have been resolved and a batched relayout should be
-    /// triggered.
-    pub fn resolve_pending_image(&mut self, url: &str) -> bool {
-        self.pending_image_urls.remove(url);
-        self.pending_image_urls.is_empty()
-    }
-
-    /// Build an [`ImageContext`] from the tab's currently known image
-    /// metadata.  This is passed into
-    /// [`LayoutEngine::compute_layout`] so that decoded images are
-    /// laid out at their real intrinsic size (with the correct vary key for
-    /// disk-cache lookups) instead of a placeholder.
-    pub fn image_context(&self) -> ImageContext {
-        let mut ctx = ImageContext::new();
-        for (src, meta) in &self.known_images {
-            ctx.insert_with_vary(src.clone(), f64::from(meta.width), f64::from(meta.height), meta.vary_key.clone());
-        }
-        ctx
     }
 }

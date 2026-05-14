@@ -7,7 +7,6 @@ use io::{
     Resource,
     embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
 };
-use tokio::sync::Mutex;
 
 use crate::{core::Application, errors::UiError};
 
@@ -18,7 +17,7 @@ impl Ui {
     ///
     /// # Errors
     /// If the application fails to run, a `UiError::Runtime` is returned with the underlying error.
-    pub fn run(browser: Arc<Mutex<Browser>>, config: &'static BrowserConfig) -> Result<(), UiError> {
+    pub fn run(browser: Arc<Browser>, config: &'static BrowserConfig) -> Result<(), UiError> {
         let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);
         let monospace_font = Resource::load_embedded(ROBOTO_MONO_REGULAR);
         let theme = config.preferences().theme();

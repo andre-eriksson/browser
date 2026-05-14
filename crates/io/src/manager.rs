@@ -1,5 +1,4 @@
 use cookies::Cookie;
-#[cfg(feature = "network")]
 use network::{
     HeaderMap,
     client::{HttpClient, ResponseHandle},
@@ -7,11 +6,9 @@ use network::{
     request::RequestBuilder,
 };
 use tracing::{instrument, trace, warn};
-#[cfg(feature = "network")]
 use url::Url;
 
-#[cfg(feature = "network")]
-use crate::{DocumentPolicy, RequestResult, network::request::NetworkService};
+use crate::{DocumentPolicy, HttpCache, RequestResult, network::request::NetworkService};
 
 use crate::{
     Entry,
@@ -62,9 +59,9 @@ impl Resource {
     pub const DEFAULT_MAX_FILES: Option<usize> = Some(100);
 
     /// Fetches a resource from a remote URL, applying the necessary policies and handling cookies and headers.
-    #[cfg(feature = "network")]
     pub async fn from_remote<'app>(
         url: &'app str,
+        cache: &HttpCache,
         client: &'app dyn HttpClient,
         cookies: &'app [Cookie],
         browser_headers: &'app HeaderMap,
@@ -78,7 +75,10 @@ impl Resource {
 
         let request = RequestBuilder::from(url).build();
         let service = NetworkService::new(client, cookies, browser_headers);
-        let header_response = match service.fetch(page_url.clone(), policies, request).await {
+        let header_response = match service
+            .fetch(cache, page_url.clone(), policies, request)
+            .await
+        {
             RequestResult::Failed(err) => return Err(err),
             RequestResult::ClientError(resp) | RequestResult::ServerError(resp) | RequestResult::Success(resp) => resp,
         };

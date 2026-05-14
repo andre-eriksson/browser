@@ -7,9 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use io::MemoryCache;
-use layout::Rect;
-use serde::{Deserialize, Serialize};
+use layout::{LayoutImage, NodeId, Rect};
 use wgpu;
 
 /// Information needed to render a single image on screen.
@@ -18,27 +16,13 @@ use wgpu;
 /// `HtmlPrimitive` to the GPU pipeline's `prepare()` method.
 #[derive(Debug, Clone)]
 pub struct ImageRenderInfo {
-    /// The source URL of the image (used as cache key)
-    pub src: String,
+    pub node_id: NodeId,
+
     /// Screen-space rectangle where the image should be drawn
     pub screen_rect: Rect,
     /// Decoded RGBA image data (width, height, pixels)
-    pub data: Arc<DecodedImageData>,
+    pub data: Arc<LayoutImage>,
 }
-
-/// Decoded RGBA image data ready for GPU upload.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DecodedImageData {
-    /// Raw RGBA pixel data (4 bytes per pixel)
-    pub rgba: Vec<u8>,
-    /// Image width in pixels
-    pub width: u32,
-    /// Image height in pixels
-    pub height: u32,
-}
-
-/// Cache of decoded image data, keyed by source URL.
-pub type ImageCache = MemoryCache<String, DecodedImageData>;
 
 /// A single GPU-resident image with its bind group.
 struct GpuImage {
@@ -51,7 +35,7 @@ struct GpuImage {
 /// uploaded to the GPU on first encounter in `prepare()`, then the cached
 /// bind group is reused on subsequent frames.
 pub struct GpuImageCache {
-    cache: HashMap<String, GpuImage>,
+    cache: HashMap<NodeId, GpuImage>,
     bind_group_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
 }
@@ -117,12 +101,12 @@ impl GpuImageCache {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        src: &str,
-        data: &DecodedImageData,
+        node_id: &NodeId,
+        data: &LayoutImage,
     ) -> &wgpu::BindGroup {
-        if !self.cache.contains_key(src) {
+        if !self.cache.contains_key(node_id) {
             let texture = device.create_texture(&wgpu::TextureDescriptor {
-                label: Some(&format!("Image Texture: {src}")),
+                label: Some(&format!("Image Texture: {node_id}")),
                 size: wgpu::Extent3d {
                     width: data.width,
                     height: data.height,
@@ -159,7 +143,7 @@ impl GpuImageCache {
             let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some(&format!("Image Bind Group: {src}")),
+                label: Some(&format!("Image Bind Group: {node_id}")),
                 layout: &self.bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
@@ -173,22 +157,22 @@ impl GpuImageCache {
                 ],
             });
 
-            self.cache.insert(src.to_string(), GpuImage { bind_group });
+            self.cache.insert(*node_id, GpuImage { bind_group });
         }
 
-        &self.cache[src].bind_group
+        &self.cache[node_id].bind_group
     }
 
     /// Returns the bind group for a cached image, if it exists.
     #[must_use]
-    pub fn get_bind_group(&self, src: &str) -> Option<&wgpu::BindGroup> {
-        self.cache.get(src).map(|img| &img.bind_group)
+    pub fn get_bind_group(&self, node_id: &NodeId) -> Option<&wgpu::BindGroup> {
+        self.cache.get(node_id).map(|img| &img.bind_group)
     }
 
     /// Returns true if the given image URL has a GPU texture cached.
     #[must_use]
-    pub fn contains(&self, src: &str) -> bool {
-        self.cache.contains_key(src)
+    pub fn contains(&self, node_id: &NodeId) -> bool {
+        self.cache.contains_key(node_id)
     }
 
     /// Clears all cached GPU textures and bind groups.

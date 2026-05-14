@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use css_cssom::CSSStyleSheet;
-use html_dom::DocumentRoot;
+use html_dom::{DocumentRoot, NodeId};
 use io::DocumentPolicy;
 use url::Url;
 
@@ -23,16 +25,16 @@ pub struct PageMetadata {
 #[derive(Debug, Clone)]
 pub struct Page {
     document: DocumentRoot,
-    images: Vec<String>,
+    images: HashMap<String, Vec<NodeId>>,
     stylesheets: Vec<CSSStyleSheet>,
 }
 
 impl Page {
     #[must_use]
-    pub const fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
+    pub fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
         Self {
             document,
-            images: Vec::new(),
+            images: HashMap::new(),
             stylesheets,
         }
     }
@@ -42,14 +44,19 @@ impl Page {
     pub fn blank() -> Self {
         Self {
             document: DocumentRoot::new(),
-            images: Vec::new(),
+            images: HashMap::new(),
             stylesheets: Vec::new(),
         }
     }
 
     /// Loads the page with the given title, document URL, document root, stylesheets, and policies.
     #[must_use]
-    pub fn load(mut self, document: DocumentRoot, images: Vec<String>, stylesheets: Vec<CSSStyleSheet>) -> Self {
+    pub fn load(
+        mut self,
+        document: DocumentRoot,
+        images: HashMap<String, Vec<NodeId>>,
+        stylesheets: Vec<CSSStyleSheet>,
+    ) -> Self {
         self.document = document;
         self.images = images;
         self.stylesheets = stylesheets;
@@ -67,7 +74,7 @@ impl Page {
     }
 
     #[must_use]
-    pub const fn images(&self) -> &Vec<String> {
+    pub const fn images(&self) -> &HashMap<String, Vec<NodeId>> {
         &self.images
     }
 }

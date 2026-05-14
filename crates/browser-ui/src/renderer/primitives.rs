@@ -74,6 +74,7 @@ impl Primitive for HtmlPrimitive {
         pipeline.rect_pipeline.clear();
         pipeline.text_pipeline.clear();
         pipeline.image_pipeline.clear();
+        pipeline.gpu_image_cache.clear();
 
         for render_rect in &self.rects {
             let offset_rect = Rect::new(
@@ -135,7 +136,7 @@ impl Primitive for HtmlPrimitive {
         for image_info in &self.images {
             pipeline
                 .gpu_image_cache
-                .ensure_uploaded(device, queue, &image_info.src, &image_info.data);
+                .ensure_uploaded(device, queue, &image_info.node_id, &image_info.data);
 
             let screen_rect = Rect::new(
                 image_info.screen_rect.x as f32 - self.scroll_offset.x,
@@ -186,7 +187,7 @@ impl Primitive for HtmlPrimitive {
 
             let mut vertex_offset: u32 = 0;
             for image_info in &self.images {
-                if let Some(bind_group) = pipeline.gpu_image_cache.get_bind_group(&image_info.src) {
+                if let Some(bind_group) = pipeline.gpu_image_cache.get_bind_group(&image_info.node_id) {
                     render_pass.set_bind_group(1, bind_group, &[]);
                     render_pass.draw(vertex_offset..vertex_offset + 6, 0..1);
                 }

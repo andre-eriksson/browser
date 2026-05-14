@@ -34,20 +34,11 @@ pub fn cmd_body(engine: &HeadlessEngine) {
     );
 }
 
-pub fn cmd_cookies(engine: &mut HeadlessEngine, domain: Option<&str>) {
-    let jar = engine.browser.cookie_jar().lock().unwrap();
+pub fn cmd_cookies(engine: &mut HeadlessEngine, domain: &str) {
+    let cookie_jar = engine.browser.cookie_jar();
 
-    match domain {
-        Some(domain) => {
-            for cookie in jar.get_cookies_for_domain(domain) {
-                println!("{cookie}");
-            }
-        }
-        None => {
-            for cookie in jar.cookies() {
-                println!("{cookie}");
-            }
-        }
+    for cookie in cookie_jar.get_cookies_for_domain(domain) {
+        println!("{cookie}");
     }
 }
 

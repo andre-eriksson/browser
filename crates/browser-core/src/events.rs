@@ -3,16 +3,15 @@ use crate::{
     errors::{CoreError, NavigationError},
 };
 use async_trait::async_trait;
-use html_dom::DocumentRoot;
+use html_dom::{DocumentRoot, NodeId};
 use io::DocumentPolicy;
-use network::HeaderMap;
 use url::Url;
 
 use crate::context::page::Page;
 
 #[async_trait]
 pub trait Commandable {
-    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, CoreError>;
+    async fn execute(&self, command: EngineCommand) -> Result<EngineResponse, CoreError>;
 }
 
 #[derive(Debug, Clone)]
@@ -36,7 +35,12 @@ pub enum EngineResponse {
     NavigateError(NavigationError),
 
     /// An image was successfully fetched from the network.
-    ImageFetched(String, Vec<u8>, HeaderMap),
+    ImageFetched {
+        node_ids: Vec<NodeId>,
+        content_type: String,
+        url: String,
+        data: Vec<u8>,
+    },
 
     /// A general browser error occurred (for errors that don't fit other categories).
     Error(CoreError),
@@ -56,6 +60,7 @@ pub enum EngineCommand {
 
     /// Command to fetch an image resource using the browser's HTTP client, headers, and cookies.
     FetchImage {
+        node_ids: Vec<NodeId>,
         request_url: Url,
         request_policies: DocumentPolicy,
         image_url: String,

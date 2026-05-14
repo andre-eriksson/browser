@@ -1,11 +1,11 @@
 use rusqlite::{Connection, Result};
 
-pub trait Database {
+pub trait Database: Sized {
     /// Opens a connection to the database.
     ///
     /// # Errors
     /// * If the database file cannot be opened or created
-    fn open() -> Result<Connection>;
+    fn open() -> Result<Self>;
 }
 
 pub trait Table {

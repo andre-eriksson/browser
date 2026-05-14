@@ -17,7 +17,7 @@ mod tests {
     use css_values::color::Color;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::{Resource, embeded::DEFAULT_CSS};
-    use layout::{ImageContext, LayoutEngine, Rect, TextContext};
+    use layout::{ImageContext, LayoutEngine, LayoutImage, NodeId, Rect, TextContext};
 
     fn load_fixture(html: &str) -> String {
         let file = File::open(format!("tests/fixtures/{}", html)).expect("failed to open fixture");
@@ -401,7 +401,15 @@ mod tests {
         let content_height_before = layout.content_height;
 
         let mut image_ctx = ImageContext::new();
-        image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
+        image_ctx.insert(
+            img_node.node_id,
+            LayoutImage {
+                width: 640,
+                height: 480,
+                rgba: vec![],
+            }
+            .into(),
+        );
 
         LayoutEngine::relayout_node(
             img_node.node_id,
@@ -471,7 +479,15 @@ mod tests {
             .expect("should have an image node");
 
         let mut image_ctx = ImageContext::new();
-        image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
+        image_ctx.insert(
+            img_node.node_id,
+            LayoutImage {
+                width: 640,
+                height: 480,
+                rgba: vec![],
+            }
+            .into(),
+        );
 
         LayoutEngine::relayout_node(
             img_node.node_id,
@@ -504,7 +520,15 @@ mod tests {
         let (dom_tree, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
 
         let mut image_ctx = ImageContext::new();
-        image_ctx.insert("https://example.com/test.png", 640.0, 480.0);
+        image_ctx.insert(
+            NodeId(14),
+            LayoutImage {
+                width: 640,
+                height: 480,
+                rgba: vec![],
+            }
+            .into(),
+        );
 
         let layout_a = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);
         let layout_b = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);
@@ -516,6 +540,7 @@ mod tests {
             .iter()
             .find(|n| n.image_data.is_some())
             .unwrap();
+
         let img_b = layout_b.root_nodes[0].children[0].children[0]
             .children
             .iter()

@@ -40,13 +40,12 @@ pub fn navigate_back(application: &mut Application, window_id: Id) -> Task<Event
 
                 Task::perform(
                     async move {
-                        let mut lock = browser.lock().await;
-
-                        lock.execute(EngineCommand::Navigate {
-                            url,
-                            navigation_type: NavigationType::Back,
-                        })
-                        .await
+                        browser
+                            .execute(EngineCommand::Navigate {
+                                url,
+                                navigation_type: NavigationType::Back,
+                            })
+                            .await
                     },
                     move |result| match result {
                         Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
@@ -98,13 +97,12 @@ pub fn navigate_forward(application: &mut Application, window_id: Id) -> Task<Ev
 
                 Task::perform(
                     async move {
-                        let mut lock = browser.lock().await;
-
-                        lock.execute(EngineCommand::Navigate {
-                            url,
-                            navigation_type: NavigationType::Forward,
-                        })
-                        .await
+                        browser
+                            .execute(EngineCommand::Navigate {
+                                url,
+                                navigation_type: NavigationType::Forward,
+                            })
+                            .await
                     },
                     move |result| match result {
                         Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),
@@ -147,13 +145,12 @@ pub fn refresh_page(application: &Application, window_id: Id) -> Task<Event> {
 
     Task::perform(
         async move {
-            let mut lock = browser.lock().await;
-
-            lock.execute(EngineCommand::Navigate {
-                url,
-                navigation_type: NavigationType::Reload,
-            })
-            .await
+            browser
+                .execute(EngineCommand::Navigate {
+                    url,
+                    navigation_type: NavigationType::Reload,
+                })
+                .await
         },
         move |result| match result {
             Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),

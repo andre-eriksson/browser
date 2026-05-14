@@ -1,6 +1,6 @@
 use iced::window::{Icon, icon::from_rgba};
-use image::GenericImageView;
-use renderer::DecodedImageData;
+use image::{GenericImageView, ImageFormat};
+use layout::LayoutImage;
 use tracing::error;
 
 /// Loads an icon from a byte vector and converts it to an Iced window icon.
@@ -25,13 +25,17 @@ pub fn load_icon(data: &[u8]) -> Icon {
 }
 
 /// Decode raw image bytes into RGBA pixel data.
-pub fn decode_image_bytes(url: &str, bytes: &[u8]) -> Result<DecodedImageData, String> {
-    let img = image::load_from_memory(bytes).map_err(|e| format!("Failed to decode image {url}: {e}"))?;
+pub fn decode_image_bytes(url: &str, bytes: &[u8], format: Option<ImageFormat>) -> Result<LayoutImage, String> {
+    let img = match format {
+        Some(fmt) => image::load_from_memory_with_format(bytes, fmt)
+            .map_err(|e| format!("Failed to decode image {url} with format {fmt:?}: {e}"))?,
+        None => image::load_from_memory(bytes).map_err(|e| format!("Failed to decode image {url}: {e}"))?,
+    };
 
     let (width, height) = img.dimensions();
     let rgba = img.to_rgba8().into_raw();
 
-    Ok(DecodedImageData {
+    Ok(LayoutImage {
         rgba,
         width,
         height,

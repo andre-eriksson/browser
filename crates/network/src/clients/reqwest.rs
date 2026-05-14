@@ -26,6 +26,10 @@ impl ReqwestClient {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::builder()
+                .no_brotli()
+                .no_deflate()
+                .no_gzip()
+                .no_zstd()
                 .http2_max_header_list_size(65536)
                 .build()
                 .unwrap(),
@@ -33,6 +37,7 @@ impl ReqwestClient {
     }
 }
 
+#[derive(Debug)]
 pub struct ReqwestHandle {
     inner: reqwest::Response,
     metadata: HeaderResponse,

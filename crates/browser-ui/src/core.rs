@@ -10,5 +10,5 @@ mod tabs;
 mod window;
 
 pub use app::Application;
-pub use tabs::{Devtools, ScrollOffset, TabId, UiDevtools, UiTab, manager::TabManager};
+pub use tabs::{Devtools, PageContext, ScrollOffset, TabId, UiDevtools, UiTab, manager::TabManager};
 pub use window::{ApplicationWindow, WindowType};

@@ -1,4 +1,6 @@
-use html_dom::{Collector, HtmlTag, Tag, TagInfo};
+use std::collections::HashMap;
+
+use html_dom::{Collector, HtmlTag, NodeId, Tag, TagInfo};
 
 #[derive(Default)]
 pub struct TabCollector {
@@ -12,7 +14,7 @@ pub struct TabCollector {
     pub title: Option<String>,
 
     /// The URLs of images found in the document.
-    pub images: Vec<String>,
+    pub images: HashMap<String, Vec<NodeId>>,
 }
 
 impl Collector for TabCollector {
@@ -30,7 +32,10 @@ impl Collector for TabCollector {
         if *tag.tag == Tag::Html(HtmlTag::Img)
             && let Some(src) = tag.attributes.as_ref().and_then(|attrs| attrs.get("src"))
         {
-            self.images.push(src.clone());
+            self.images
+                .entry(src.clone())
+                .or_default()
+                .push(tag.node_id);
         }
 
         if !self.in_head {

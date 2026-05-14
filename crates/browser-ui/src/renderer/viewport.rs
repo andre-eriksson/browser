@@ -1,8 +1,5 @@
-use std::sync::Arc;
-
-use io::{CacheEntry, CacheRead};
-use layout::{Color4f, LayoutNode, LayoutTree, Rect};
-use renderer::{DecodedImageData, ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo, image::ImageCache};
+use layout::{Color4f, ImageContext, LayoutNode, LayoutTree, Rect};
+use renderer::{ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo};
 
 use crate::{core::ScrollOffset, renderer::program::HtmlRenderer};
 
@@ -26,16 +23,16 @@ pub fn is_visible_node(node_dimensions: Rect, initial_bounds: Rect, scroll_offse
 
 /// Helper function to collect all render data from a layout tree with viewport culling
 pub fn collect_render_data_from_layout<'html>(
+    image_ctx: &ImageContext,
     renderer: &mut HtmlRenderer<'html>,
     layout_tree: &'html LayoutTree,
-    image_cache: Option<&ImageCache>,
     initial_bounds: Rect,
     scroll_offset: ScrollOffset,
 ) {
     fn collect_node(
         node: &LayoutNode,
+        image_ctx: &ImageContext,
         renderer: &mut HtmlRenderer,
-        image_cache: Option<&ImageCache>,
         initial_bounds: Rect,
         scroll_offset: ScrollOffset,
     ) {
@@ -149,37 +146,28 @@ pub fn collect_render_data_from_layout<'html>(
             }
         }
 
-        if let Some(image_data) = &node.image_data
-            && let Some(cache) = image_cache
-        {
-            let src = &image_data.image_src;
-            let vary_key = &image_data.vary_key;
-            if let Ok(CacheEntry::Loaded(decoded)) = cache.get_with_vary(src, vary_key)
-                && let CacheRead::Hit(decoded) = (*decoded).clone()
-            {
-                renderer.images.push(ImageRenderInfo {
-                    src: src.clone(),
-                    screen_rect: node.dimensions,
-                    data: Arc::new(DecodedImageData {
-                        rgba: decoded.rgba.clone(),
-                        width: decoded.width,
-                        height: decoded.height,
-                    }),
-                });
-            } else {
+        if let Some(image_data) = &node.image_data {
+            let Some(image) = image_ctx.get(&image_data.node_id) else {
                 renderer.rects.push(RenderRect {
                     rect: node.dimensions,
                     background: IMAGE_PLACEHOLDER_COLOR,
                 });
-            }
+                return;
+            };
+
+            renderer.images.push(ImageRenderInfo {
+                node_id: image_data.node_id,
+                screen_rect: node.dimensions,
+                data: image,
+            });
         }
 
         for child in &node.children {
-            collect_node(child, renderer, image_cache, initial_bounds, scroll_offset);
+            collect_node(child, image_ctx, renderer, initial_bounds, scroll_offset);
         }
     }
 
     for root in &layout_tree.root_nodes {
-        collect_node(root, renderer, image_cache, initial_bounds, scroll_offset);
+        collect_node(root, image_ctx, renderer, initial_bounds, scroll_offset);
     }
 }

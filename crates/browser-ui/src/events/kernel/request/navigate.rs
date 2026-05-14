@@ -55,12 +55,12 @@ pub fn navigate_to_url(application: &mut Application, window_id: Id, new_url: St
 
     Task::perform(
         async move {
-            let mut lock = browser.lock().await;
-            lock.execute(EngineCommand::Navigate {
-                url,
-                navigation_type: NavigationType::Normal,
-            })
-            .await
+            browser
+                .execute(EngineCommand::Navigate {
+                    url,
+                    navigation_type: NavigationType::Normal,
+                })
+                .await
         },
         move |result| match result {
             Ok(event) => Event::EngineResponse(window_id, tab_id, Box::new(event)),

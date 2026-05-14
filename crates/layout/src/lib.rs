@@ -15,9 +15,10 @@ mod primitives;
 mod resolver;
 mod text;
 
-pub use context::ImageContext;
+pub use context::{ImageContext, LayoutImage};
 pub use css_style::{Color4f, Position};
 pub use engine::LayoutEngine;
+pub use html_dom::NodeId;
 pub use layout::{ImageData, LayoutColors, LayoutNode, LayoutTree};
 pub use primitives::{Margin, Rect};
 pub use text::TextContext;

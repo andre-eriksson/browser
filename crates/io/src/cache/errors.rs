@@ -2,13 +2,6 @@
 
 use thiserror::Error;
 
-/// Represents the result of a cache read operation, indicating whether it was a hit or a miss.
-#[derive(Debug, Clone)]
-pub enum CacheRead<T: Clone> {
-    Hit(T),
-    Miss,
-}
-
 #[derive(Error, Debug)]
 pub enum CacheError {
     #[error("cache directory not found, check if the cache directory exists and is writable.")]
@@ -19,6 +12,9 @@ pub enum CacheError {
 
     #[error(transparent)]
     Database(#[from] rusqlite::Error),
+
+    #[error("couldn't get a lock on the database.")]
+    DatabaseLock,
 
     #[error("{0}")]
     Read(String),

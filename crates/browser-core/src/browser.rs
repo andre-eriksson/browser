@@ -1,19 +1,12 @@
-use std::{
-    sync::{Arc, Mutex},
-    vec,
-};
+use std::vec;
 
-use crate::{
-    Page,
-    commands::{load_image, parse_devtools_html},
-    errors::CoreError,
-};
+use crate::{Page, commands::parse_devtools_html, database::Databases, errors::CoreError};
 use async_trait::async_trait;
 use browser_config::BrowserConfig;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use io::{
-    Resource,
+    HttpCache, Resource,
     embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
     files::CACHE_USER_AGENT,
 };
@@ -22,14 +15,13 @@ use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};
 
 use crate::{
-    commands::navigate,
     events::{Commandable, EngineCommand, EngineResponse},
-    navigation::{NavigationContext, ScriptExecutor},
+    navigation::ScriptExecutor,
 };
 
 pub struct Browser {
+    databases: Databases,
     default_stylesheet: Option<CSSStyleSheet>,
-    cookie_jar: Arc<Mutex<CookieJar>>,
     http_client: Box<dyn HttpClient>,
     headers: &'static HeaderMap,
 }
@@ -46,9 +38,8 @@ impl Browser {
     /// # Panics
     /// * This function will panic if the embedded user agent CSS is not valid UTF-8, which should never happen since it's embedded in the binary.
     pub fn new(config: &'static BrowserConfig) -> Self {
+        let databases = Databases::init().expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
         let http_client = Box::new(ReqwestClient::new());
-        let cookie_jar = Arc::new(Mutex::new(CookieJar::load()));
-
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
         let stylesheet = if config.args().enable_ua_css {
@@ -89,8 +80,8 @@ impl Browser {
         };
 
         Self {
+            databases,
             default_stylesheet: stylesheet,
-            cookie_jar,
             http_client,
             headers: config.headers(),
         }
@@ -101,8 +92,16 @@ impl Browser {
         self.headers
     }
 
-    pub const fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
-        &mut self.cookie_jar
+    pub const fn http_client(&self) -> &dyn HttpClient {
+        &*self.http_client
+    }
+
+    pub const fn http_cache(&self) -> &HttpCache {
+        &self.databases.http_cache
+    }
+
+    pub const fn cookie_jar(&self) -> &CookieJar {
+        &self.databases.cookie_jar
     }
 }
 
@@ -112,28 +111,10 @@ impl ScriptExecutor for Browser {
     }
 }
 
-impl NavigationContext for Browser {
-    fn script_executor(&self) -> &dyn ScriptExecutor {
-        self
-    }
-
-    fn cookie_jar(&mut self) -> &mut Arc<Mutex<CookieJar>> {
-        &mut self.cookie_jar
-    }
-
-    fn headers(&self) -> &HeaderMap {
-        self.headers
-    }
-
-    fn http_client(&self) -> &dyn HttpClient {
-        self.http_client.as_ref()
-    }
-}
-
 #[async_trait]
 impl Commandable for Browser {
     #[instrument(skip(self), level = "trace")]
-    async fn execute(&mut self, command: EngineCommand) -> Result<EngineResponse, CoreError> {
+    async fn execute(&self, command: EngineCommand) -> Result<EngineResponse, CoreError> {
         match command {
             EngineCommand::Navigate {
                 url,
@@ -146,7 +127,7 @@ impl Commandable for Browser {
                     .as_ref()
                     .map_or_else(Vec::new, |default| vec![default.clone()]);
 
-                let (page, metadata) = navigate(self, &url, stylesheets).instrument(span).await?;
+                let (page, metadata) = self.navigate(&url, stylesheets).instrument(span).await?;
 
                 Ok(EngineResponse::NavigateSuccess(page, metadata, navigation_type))
             }
@@ -181,13 +162,14 @@ impl Commandable for Browser {
                 Ok(EngineResponse::DevtoolsPageReady(devtools_page))
             }
             EngineCommand::FetchImage {
+                node_ids,
                 request_url,
                 request_policies,
                 image_url,
             } => {
                 let span = tracing::debug_span!("Browser::FetchImage");
 
-                load_image(self, request_url, request_policies, &image_url)
+                self.load_image(node_ids, request_url, request_policies, &image_url)
                     .instrument(span)
                     .await
             }

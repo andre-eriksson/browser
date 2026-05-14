@@ -1,55 +1,68 @@
+use html_dom::NodeId;
 use html_escape::decode_html_entities;
-use io::DocumentPolicy;
+use io::{DecodingMiddleware, DocumentPolicy};
 use network::errors::{NetworkError, RequestError};
 use tracing::debug;
 use url::Url;
 
 use crate::{
-    EngineResponse,
-    commands::navigate::resolve_request,
+    Browser, EngineResponse,
     errors::{CoreError, NavigationError},
-    navigation::NavigationContext,
 };
 
-/// Loads an image from the specified URL using the browser's HTTP client, headers, and cookies.
-pub async fn load_image(
-    ctx: &mut dyn NavigationContext,
-    url: Url,
-    policies: DocumentPolicy,
-    image_url: &str,
-) -> Result<EngineResponse, CoreError> {
-    let client = ctx.http_client().box_clone();
-    let headers = ctx.headers().clone();
-    let cookies = ctx
-        .cookie_jar()
-        .lock()
-        .map_err(|_| CoreError::Image)?
-        .cookies()
-        .clone();
+impl Browser {
+    /// Loads an image from the specified URL using the browser's HTTP client, headers, and cookies.
+    pub async fn load_image(
+        &self,
+        node_ids: Vec<NodeId>,
+        request_url: Url,
+        policies: DocumentPolicy,
+        image_url: &str,
+    ) -> Result<EngineResponse, CoreError> {
+        let client = self.http_client().box_clone();
+        let headers = self.headers().clone();
 
-    let decoded_url = decode_html_entities(image_url);
+        let decoded_url = decode_html_entities(image_url);
 
-    let absolute_url = url
-        .join(&decoded_url)
-        .map_err(|error| NavigationError::Request {
-            source: RequestError::Network(NetworkError::InvalidUrl(error)),
+        let absolute_url = request_url
+            .join(&decoded_url)
+            .map_err(|error| NavigationError::Request {
+                source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                url: image_url.to_string(),
+            })?;
+
+        if std::path::Path::new(absolute_url.path())
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
+        {
+            debug!("SVG images are not supported, skipping: {}", absolute_url);
+            return Err(CoreError::Image);
+        }
+
+        let (_resolved_url, response) = self
+            .resolve_request(absolute_url, Some(request_url), &policies, &headers, client.as_ref())
+            .await?;
+
+        let Some(body) = response.body else {
+            return Err(CoreError::Image);
+        };
+
+        let decoded_data = DecodingMiddleware::decode(&response.headers, body)
+            .await
+            .map_err(|_| CoreError::Image)?;
+
+        let content_type = response
+            .headers
+            .get("Content-Type")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("application/octet-stream")
+            .to_string();
+
+        Ok(EngineResponse::ImageFetched {
+            node_ids,
+            content_type,
             url: image_url.to_string(),
-        })?;
-
-    if std::path::Path::new(absolute_url.path())
-        .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
-    {
-        debug!("SVG images are not supported, skipping: {}", absolute_url);
-        return Err(CoreError::Image);
+            data: decoded_data,
+        })
     }
-
-    let (_resolved_url, response) =
-        resolve_request(absolute_url, ctx, Some(url), &policies, &cookies, &headers, client.as_ref()).await?;
-
-    let Some(body) = response.body else {
-        return Err(CoreError::Image);
-    };
-
-    Ok(EngineResponse::ImageFetched(image_url.to_string(), body, response.headers))
 }

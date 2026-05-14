@@ -86,13 +86,7 @@ impl From<&ComputedStyle> for LayoutColors {
 
 #[derive(Debug, Clone)]
 pub struct ImageData {
-    /// Image source URL for `<img>` elements
-    pub image_src: String,
-
-    /// The pre-resolved Vary string for this image's cache entry, computed from
-    /// the response headers at fetch time. This allows exact disk cache lookups
-    /// without needing the full `HeaderMap`.
-    pub vary_key: String,
+    pub node_id: NodeId,
 
     /// Whether this image node is using placeholder dimensions and should be
     /// updated to the intrinsic image size once the image has been decoded.
@@ -153,31 +147,6 @@ impl LayoutTree {
                 Self::resolve_in_node(collected, child, x, y);
             }
             collected.push(node);
-        }
-    }
-
-    /// Collect the `NodeId` of every image node whose `image_src` matches `url`.
-    ///
-    /// An image node is any [`LayoutNode`] that has `image_data.image_src == url`.
-    /// There may be more than one if the same image appears multiple times on the page.
-    #[must_use]
-    pub fn find_image_nodes_by_src(&self, url: &str) -> Vec<NodeId> {
-        let mut result = Vec::new();
-        for root in &self.root_nodes {
-            Self::collect_image_nodes(root, url, &mut result);
-        }
-        result
-    }
-
-    fn collect_image_nodes(node: &LayoutNode, url: &str, out: &mut Vec<NodeId>) {
-        if let Some(ref img) = node.image_data
-            && img.image_src == url
-        {
-            out.push(node.node_id);
-        }
-
-        for child in &node.children {
-            Self::collect_image_nodes(child, url, out);
         }
     }
 

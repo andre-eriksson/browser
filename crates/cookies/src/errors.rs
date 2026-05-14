@@ -1,6 +1,7 @@
+use rusqlite::Error;
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ParsingError {
     #[error("must have at least a name=value pair")]
     InvalidCookie,
@@ -16,4 +17,7 @@ pub enum ParsingError {
 
     #[error("{prefix} prefixed cookies must {message}")]
     PrefixMismatch { prefix: String, message: String },
+
+    #[error(transparent)]
+    Database(#[from] Error),
 }

@@ -11,8 +11,6 @@ use iced::window::Id;
 use iced::{Color, Subscription, event, keyboard};
 use iced::{Renderer, Task, Theme, window};
 use manifest::APP_NAME;
-use renderer::image::ImageCache;
-use tokio::sync::Mutex;
 
 use crate::core::WindowType;
 use crate::events::browser::BrowserEvent;
@@ -33,15 +31,12 @@ pub struct Application {
     pub window_controller: WindowController,
 
     /// The shared browser instance.
-    pub browser: Arc<Mutex<Browser>>,
-
-    /// Shared image cache for loaded images.
-    pub image_cache: Option<ImageCache>,
+    pub browser: Arc<Browser>,
 }
 
 impl Application {
     /// Creates a new instance of the `Application` with an initial window and a default tab.
-    pub fn new(browser: Arc<Mutex<Browser>>, config: &'static BrowserConfig) -> (Self, Task<Event>) {
+    pub fn new(browser: Arc<Browser>, config: &'static BrowserConfig) -> (Self, Task<Event>) {
         let mut window_controller = WindowController::new();
         let (main_window_id, browser_task) = window_controller.new_window(None, WindowType::Browser);
 
@@ -52,7 +47,6 @@ impl Application {
             window_controller,
             browser,
             config,
-            image_cache: None,
         };
 
         (app, Task::batch(tasks))

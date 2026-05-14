@@ -1,8 +1,10 @@
 use http::{HeaderMap, StatusCode};
+use serde::{Deserialize, Serialize};
 
 /// Represents the first part of an HTTP response, containing headers and status code.
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/API/Response>
+#[derive(Debug, Clone)]
 pub struct HeaderResponse {
     /// The status code of the response.
     ///
@@ -11,33 +13,6 @@ pub struct HeaderResponse {
 
     /// The headers of the response.
     pub headers: HeaderMap,
-}
-
-/// Represents a complete HTTP response, including headers, status code, and body.
-///
-/// <https://developer.mozilla.org/en-US/docs/Web/API/Response>
-#[derive(Debug, Clone)]
-pub struct Response {
-    /// The status code of the response.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Status>
-    pub status_code: StatusCode,
-
-    /// The headers of the response.
-    pub headers: HeaderMap,
-
-    /// The body of the response.
-    pub body: Option<Vec<u8>>,
-}
-
-impl From<Vec<u8>> for Response {
-    fn from(body: Vec<u8>) -> Self {
-        Self {
-            status_code: StatusCode::OK,
-            headers: HeaderMap::new(),
-            body: Some(body),
-        }
-    }
 }
 
 impl HeaderResponse {
@@ -49,6 +24,47 @@ impl HeaderResponse {
         Self {
             status_code,
             headers,
+        }
+    }
+}
+
+/// Represents a complete HTTP response, including headers, status code, and body.
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/API/Response>
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Response {
+    /// The status code of the response.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/HTTP/Status>
+    #[serde(with = "http_serde::status_code")]
+    pub status_code: StatusCode,
+
+    /// The headers of the response.
+    #[serde(with = "http_serde::header_map")]
+    pub headers: HeaderMap,
+
+    /// The body of the response.
+    pub body: Option<Vec<u8>>,
+}
+
+impl Response {
+    /// Creates a new HTTP response with the given status code, headers, and body.
+    #[must_use]
+    pub const fn new(status_code: StatusCode, headers: HeaderMap, body: Option<Vec<u8>>) -> Self {
+        Self {
+            status_code,
+            headers,
+            body,
+        }
+    }
+}
+
+impl From<Vec<u8>> for Response {
+    fn from(body: Vec<u8>) -> Self {
+        Self {
+            status_code: StatusCode::OK,
+            headers: HeaderMap::new(),
+            body: Some(body),
         }
     }
 }
