@@ -74,6 +74,7 @@ impl Primitive for HtmlPrimitive {
         pipeline.rect_pipeline.clear();
         pipeline.text_pipeline.clear();
         pipeline.image_pipeline.clear();
+        pipeline.gpu_image_cache.clear();
 
         for render_rect in &self.rects {
             let offset_rect = Rect::new(
