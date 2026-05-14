@@ -273,6 +273,11 @@ impl DiskCache {
 
         IndexTable::revalidate_by_key(&connection, &key, fetched_at, expires_at)?;
 
+        if connection.execute("COMMIT", []).is_err() {
+            connection.execute("ROLLBACK", []).ok();
+            return Err(CacheError::Database(rusqlite::Error::ExecuteReturnedResults));
+        }
+
         Ok(())
     }
 
