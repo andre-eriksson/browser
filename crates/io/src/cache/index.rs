@@ -16,6 +16,8 @@ use network::{HeaderMap, HeaderValue, IF_MODIFIED_SINCE, IF_NONE_MATCH};
 use rusqlite::{Connection, Result, params};
 use storage::get_cache_path;
 
+use crate::HttpCache;
+
 /// Path to the `SQLite` database file that stores the cache index entries.
 #[cfg(not(test))]
 const IDX_DATABASE: &str = "resources/index.db";
@@ -73,6 +75,9 @@ pub struct Index {
 
     /// The header names associated with the cached entry that affect its cache key, derived from the Vary header, used for cache validation.
     pub vary: Vec<String>,
+
+    /// The SHA-256 hash of the values of the headers specified in the Vary header, used to differentiate cache entries based on varying request headers.
+    pub vary_hash: [u8; 32],
 
     // Revalidation state
     /// Indicates whether the cached entry must be revalidated with the origin server before being served,
@@ -188,7 +193,7 @@ pub struct IndexTable;
 
 impl IndexTable {
     /// Retrieves an index entry by its key, ensuring it is not expired.
-    pub fn get_by_key(conn: &Connection, key: &[u8; 32]) -> Result<Option<Index>> {
+    pub fn get_by_key(conn: &Connection, key: &[u8; 32]) -> Result<Vec<Index>> {
         let mut stmt = conn.prepare(
             "SELECT
                 key,
@@ -203,12 +208,72 @@ impl IndexTable {
                 last_modified,
                 max_age_seconds,
                 vary,
+                vary_hash,
                 must_revalidate,
                 no_cache,
                 created_at
             FROM cache_index WHERE key = ?1",
         )?;
         let mut rows = stmt.query(params![key])?;
+
+        let mut entries = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            let entry_type: String = row.get(1)?;
+            let entry = match entry_type.as_str() {
+                "block" => IndexEntry::Block,
+                "large" => IndexEntry::Large,
+                _ => return Ok(vec![]),
+            };
+
+            let expires_at = row.get::<usize, Option<i64>>(7)?;
+            let vary = HttpCache::deserialize_vary(row.get::<usize, Option<String>>(11)?);
+
+            entries.push(Index {
+                key: row.get(0)?,
+                entry,
+                file_id: row.get(2)?,
+                offset: row.get(3)?,
+                header_size: row.get(4)?,
+                content_size: row.get(5)?,
+                etag: row.get(6)?,
+                expires_at,
+                fetched_at: row.get(8)?,
+                last_modified: row.get(9)?,
+                max_age_seconds: row.get(10)?,
+                vary,
+                vary_hash: row.get(12)?,
+                must_revalidate: row.get(13)?,
+                no_cache: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        }
+
+        Ok(entries)
+    }
+
+    pub fn get_by_key_and_vary_hash(conn: &Connection, key: &[u8; 32], vary_hash: &[u8; 32]) -> Result<Option<Index>> {
+        let mut stmt = conn.prepare(
+            "SELECT
+                key,
+                entry_type,
+                file_id,
+                offset,
+                header_size,
+                content_size,
+                etag,
+                expires_at,
+                fetched_at,
+                last_modified,
+                max_age_seconds,
+                vary,
+                vary_hash,
+                must_revalidate,
+                no_cache,
+                created_at
+            FROM cache_index WHERE key = ?1 AND vary_hash = ?2",
+        )?;
+        let mut rows = stmt.query(params![key, vary_hash])?;
 
         if let Some(row) = rows.next()? {
             let entry_type: String = row.get(1)?;
@@ -219,12 +284,7 @@ impl IndexTable {
             };
 
             let expires_at = row.get::<usize, Option<i64>>(7)?;
-            let vary = row
-                .get::<usize, Option<String>>(11)?
-                .unwrap_or_default()
-                .split(',')
-                .map(String::from)
-                .collect::<Vec<String>>();
+            let vary = HttpCache::deserialize_vary(row.get::<usize, Option<String>>(11)?);
             let created_at = row.get::<usize, isize>(14)?;
 
             Ok(Some(Index {
@@ -240,6 +300,7 @@ impl IndexTable {
                 last_modified: row.get(9)?,
                 max_age_seconds: row.get(10)?,
                 vary,
+                vary_hash: *vary_hash,
                 must_revalidate: row.get(12)?,
                 no_cache: row.get(13)?,
                 created_at,
@@ -292,7 +353,7 @@ impl Table for IndexTable {
         conn.execute_batch(
             "BEGIN TRANSACTION;
             CREATE TABLE IF NOT EXISTS cache_index (
-                key BLOB PRIMARY KEY,
+                key BLOB,
                 entry_type TEXT NOT NULL,
                 file_id INTEGER NOT NULL,
                 offset INTEGER,
@@ -304,9 +365,11 @@ impl Table for IndexTable {
                 last_modified INTEGER,
                 max_age_seconds INTEGER,
                 vary TEXT,
+                vary_hash BLOB NOT NULL,
                 must_revalidate INTEGER,
                 no_cache INTEGER,
-                created_at INTEGER NOT NULL
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (key, vary)
             );
             CREATE INDEX IF NOT EXISTS entry_type_idx ON cache_index (entry_type);
             CREATE INDEX IF NOT EXISTS expires_at_idx ON cache_index (expires_at);
@@ -321,7 +384,7 @@ impl Table for IndexTable {
             IndexEntry::Large => "large",
         };
 
-        let vary = data.vary.join(",");
+        let vary = HttpCache::serialize_vary(&data.vary);
 
         conn.execute(
             "INSERT OR REPLACE INTO cache_index (
@@ -337,11 +400,12 @@ impl Table for IndexTable {
                 last_modified,
                 max_age_seconds,
                 vary,
+                vary_hash,
                 must_revalidate,
                 no_cache,
                 created_at
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 &data.key,
                 entry_type,
@@ -355,6 +419,7 @@ impl Table for IndexTable {
                 data.last_modified,
                 data.max_age_seconds,
                 vary,
+                data.vary_hash,
                 data.must_revalidate,
                 data.no_cache,
                 data.created_at,

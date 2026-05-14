@@ -1,9 +1,9 @@
 //! In-memory cache implementation for resources, with support for disk persistence and Vary header handling.
 
-use network::{CACHE_CONTROL, HeaderMap, HeaderName, response::Response};
+use network::{CACHE_CONTROL, HeaderMap, VARY, response::Response};
 use postcard::to_stdvec;
 use sha2::{Digest, Sha256};
-use std::{fmt::Debug, str::FromStr};
+use std::fmt::Debug;
 use tracing::debug;
 
 use crate::cache::{
@@ -46,10 +46,10 @@ impl HttpCache {
     /// # Errors
     /// * If the cache lock is poisoned.
     /// * If there is an error reading from disk or deserializing the cached value.
-    pub fn get(&self, key: &str, headers: &HeaderMap) -> Result<CacheEntry, CacheError> {
+    pub fn get(&self, key: &str, request_headers: &HeaderMap) -> Result<CacheEntry, CacheError> {
         let sha = Self::hash_url(key);
 
-        let Some(entry) = self.inner.get(sha)? else {
+        let Some(entry) = self.inner.get(sha, request_headers)? else {
             return Ok(CacheEntry::Miss);
         };
 
@@ -76,21 +76,6 @@ impl HttpCache {
 
         let deserialized: Response = postcard::from_bytes(&data).map_err(CacheError::Serialization)?;
 
-        let vary_header_names = index
-            .vary
-            .iter()
-            .filter_map(|v| HeaderName::from_str(v).ok())
-            .collect::<Vec<HeaderName>>();
-
-        for header_name in vary_header_names {
-            let cached = deserialized.headers.get(&header_name);
-            let current = headers.get(&header_name);
-
-            if cached != current {
-                return Ok(CacheEntry::Miss);
-            }
-        }
-
         if !index.is_fresh() {
             return Ok(CacheEntry::RequiresRevalidation {
                 stale_data: deserialized,
@@ -106,8 +91,8 @@ impl HttpCache {
     /// # Errors
     /// * If there is already an entry for the key in the cache.
     /// * If there is an error writing to disk or serializing the value.
-    pub fn store(&self, key: String, value: Response, headers: &HeaderMap) -> Result<(), CacheError> {
-        if let Err(error) = self.store_on_disk(&key, &value, headers) {
+    pub fn store(&self, key: String, response: Response, request_headers: &HeaderMap) -> Result<(), CacheError> {
+        if let Err(error) = self.store_on_disk(&key, &response, request_headers) {
             debug!(%error, "failed to store on disk");
             return Err(error);
         }
@@ -121,13 +106,14 @@ impl HttpCache {
     /// * If the `Vary` header is invalid or prevents caching.
     /// * If the `Cache-Control` header prevents caching.
     /// * If there is an error writing to disk or serializing the value.
-    fn store_on_disk(&self, key: &str, value: &Response, headers: &HeaderMap) -> Result<(), CacheError> {
+    fn store_on_disk(&self, key: &str, response: &Response, request_headers: &HeaderMap) -> Result<(), CacheError> {
         let sha = Self::hash_url(key);
 
-        let serialized = to_stdvec(value).map_err(CacheError::Serialization)?;
+        let serialized = to_stdvec(response).map_err(CacheError::Serialization)?;
 
         let cache_control = CacheControlResponse::from(
-            headers
+            response
+                .headers
                 .get(CACHE_CONTROL)
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or_default(),
@@ -140,23 +126,23 @@ impl HttpCache {
         let cache_headers = CacheHeader::new(serialized.as_slice(), sha);
 
         self.inner
-            .put(sha, serialized.as_slice(), headers, &cache_control, cache_headers)
+            .put(sha, serialized.as_slice(), &response.headers, request_headers, &cache_control, cache_headers)
     }
 
-    pub fn revalidate(&self, key: &str, headers: &HeaderMap) -> Result<(), CacheError> {
+    pub fn revalidate(&self, key: &str, request_headers: &HeaderMap) -> Result<(), CacheError> {
         let sha = Self::hash_url(key);
 
-        self.inner.revalidate(sha, headers)
+        self.inner.revalidate(sha, request_headers)
     }
 
     /// Evicts a cache entry for a given key, removing it from both memory and disk.
     ///
     /// # Errors
     /// * If there is an error removing the entry from disk.
-    pub fn evict(&mut self, key: &str, _headers: &HeaderMap) -> Result<bool, CacheError> {
+    pub fn evict(&mut self, key: &str, request_headers: &HeaderMap) -> Result<bool, CacheError> {
         let sha = Self::hash_url(key);
 
-        let removed_disk = self.inner.delete(sha)?;
+        let removed_disk = self.inner.delete(sha, request_headers)?;
         Ok(removed_disk)
     }
 
@@ -166,93 +152,140 @@ impl HttpCache {
         hasher.update(url.as_bytes());
         hasher.finalize().into()
     }
+
+    pub(crate) fn hash_vary(vary: &[String], request_headers: &HeaderMap) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+
+        for header_name in vary {
+            if let Some(value) = request_headers.get(header_name) {
+                hasher.update(header_name.as_bytes());
+                hasher.update(value.as_bytes());
+            }
+        }
+
+        hasher.finalize().into()
+    }
+
+    /// Deserializes a Vary header value into a vector of header names.
+    pub(crate) fn deserialize_vary(vary: Option<String>) -> Vec<String> {
+        vary.unwrap_or_default()
+            .split(',')
+            .map(String::from)
+            .collect::<Vec<String>>()
+    }
+
+    /// Serializes a vector of header names into a Vary header value.
+    pub(crate) fn serialize_vary(vary: &[String]) -> String {
+        vary.join(",")
+    }
+
+    /// Extracts the Vary header from the given headers and returns a vector of header names.
+    pub(crate) fn extract_vary(headers: &HeaderMap) -> Vec<String> {
+        headers
+            .get(VARY)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.split(',').map(|h| h.trim().to_string()).collect())
+            .unwrap_or_default()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use database::Database;
+    use http_serde::http::StatusCode;
     use network::VARY;
     use serial_test::serial;
 
     use super::*;
 
     #[test]
+    fn test_hash_url() {
+        let url = "https://example.com/resource";
+        let hash1 = HttpCache::hash_url(url);
+        let hash2 = HttpCache::hash_url(url);
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_hash_vary() {
+        let vary_headers = vec!["Accept-Encoding".to_string(), "User-Agent".to_string()];
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert("Accept-Encoding", "gzip".parse().unwrap());
+        request_headers.insert("User-Agent", "Mozilla/5.0".parse().unwrap());
+
+        let hash1 = HttpCache::hash_vary(&vary_headers, &request_headers);
+        let hash2 = HttpCache::hash_vary(&vary_headers, &request_headers);
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_serialize_deserialize_vary() {
+        let vary_headers = vec!["Accept-Encoding".to_string(), "User-Agent".to_string()];
+        let serialized = HttpCache::serialize_vary(&vary_headers);
+        assert_eq!(serialized, "Accept-Encoding,User-Agent");
+
+        let deserialized = HttpCache::deserialize_vary(Some(serialized));
+        assert_eq!(deserialized, vary_headers);
+    }
+
+    #[test]
+    fn test_extract_vary() {
+        let mut headers = HeaderMap::new();
+        headers.insert(VARY, "Accept-Encoding, User-Agent".parse().unwrap());
+
+        let vary_headers = HttpCache::extract_vary(&headers);
+        assert_eq!(vary_headers, vec!["Accept-Encoding".to_string(), "User-Agent".to_string()]);
+    }
+
+    #[test]
     #[serial]
     fn test_store_and_get() {
-        let mut headers = HeaderMap::new();
-        headers.insert(VARY, "Accept-Encoding".parse().unwrap());
-        headers.insert("Accept-Encoding", "gzip".parse().unwrap());
+        let mut request_header = HeaderMap::new();
+        request_header.insert("Accept-Encoding", "gzip".parse().unwrap());
+
+        let mut response_headers = HeaderMap::new();
+        response_headers.insert(VARY, "Accept-Encoding".parse().unwrap());
+        response_headers.insert("Accept-Encoding", "gzip".parse().unwrap());
         let key = "https://example.com/resource".to_string();
-        let value = Response::from("cached data".as_bytes().to_vec());
+        let response = Response::new(StatusCode::OK, response_headers, Some("cached_data".as_bytes().to_vec()));
 
         let database = IndexDatabase::open().expect("Couldn't open database");
         let cache = HttpCache::new(database);
 
-        let result = cache.store_on_disk(&key, &value, &headers);
+        let result = cache.store(key.clone(), response, &request_header);
         assert!(result.is_ok());
 
-        let mut headers = HeaderMap::new();
-        headers.insert(VARY, "Accept-Encoding".parse().unwrap());
-        headers.insert("Accept-Encoding", "gzip".parse().unwrap());
-
-        let retrieved = cache.get(&key, &headers);
+        let retrieved = cache.get(&key, &request_header);
 
         assert!(retrieved.is_ok());
-        //assert_eq!(value, retrieved.unwrap());
+        assert!(matches!(retrieved.unwrap(), CacheEntry::Hit(_)));
     }
 
-    // #[test]
-    // #[serial]
-    // fn test_get_with_vary_from_disk() {
-    //     let mut headers = HeaderMap::new();
-    //     headers.insert(VARY, "Accept-Encoding".parse().unwrap());
-    //     headers.insert("Accept-Encoding", "br".parse().unwrap());
+    #[test]
+    #[serial]
+    fn test_vary_header_handling() {
+        let mut request_header = HeaderMap::new();
+        request_header.insert("Accept-Encoding", "gzip".parse().unwrap());
 
-    //     let database = IndexDatabase::open().expect("Couldn't open database");
-    //     let cache = HttpCache::new(database);
+        let mut response_headers = HeaderMap::new();
+        response_headers.insert(VARY, "Accept-Encoding".parse().unwrap());
+        response_headers.insert("Accept-Encoding", "gzip".parse().unwrap());
+        let key = "https://example.com/resource".to_string();
+        let response = Response::new(StatusCode::OK, response_headers, Some("cached_data".as_bytes().to_vec()));
 
-    //     let key = "https://example.com/vary-test".to_string();
-    //     let value = "vary cached data".to_string();
+        let database = IndexDatabase::open().expect("Couldn't open database");
+        let cache = HttpCache::new(database);
 
-    //     let vary = HttpCache::<String, String>::resolve_vary(&headers).unwrap();
-    //     assert!(!vary.is_empty());
+        let result = cache.store(key.clone(), response, &request_header);
+        assert!(result.is_ok());
 
-    //     cache.store_on_disk(&key, &value, &headers).unwrap();
+        // Attempt to retrieve with a different Accept-Encoding value
+        let mut different_request_header = HeaderMap::new();
+        different_request_header.insert("Accept-Encoding", "deflate".parse().unwrap());
 
-    //     cache.entries.write().unwrap().clear();
+        let retrieved = cache.get(&key, &different_request_header);
 
-    //     let result = cache.get_with_vary(&key, &vary).unwrap();
-    //     match result {
-    //         CacheEntry::Loaded(read) => match (*read).clone() {
-    //             CacheRead::Hit(v) => assert_eq!(v, value),
-    //             CacheRead::Miss => panic!("Expected Hit, got Miss"),
-    //         },
-    //         other => panic!("Expected Loaded, got {:?}", other),
-    //     }
-    // }
-
-    // #[test]
-    // #[serial]
-    // fn test_get_with_vary_wrong_vary_misses() {
-    //     let mut headers = HeaderMap::new();
-    //     headers.insert(VARY, "Accept-Encoding".parse().unwrap());
-    //     headers.insert("Accept-Encoding", "gzip".parse().unwrap());
-
-    //     let database = IndexDatabase::open().expect("Couldn't open database");
-    //     let cache = HttpCache::new(database);
-
-    //     let key = "https://example.com/vary-miss-test".to_string();
-    //     let value = "gzip data".to_string();
-
-    //     cache.store_on_disk(&key, &value, &headers).unwrap();
-
-    //     cache.entries.write().unwrap().clear();
-
-    //     let wrong_vary = "accept-encoding:br".to_string();
-    //     let result = cache.get_with_vary(&key, &wrong_vary).unwrap();
-    //     match result {
-    //         CacheEntry::Pending => {}
-    //         other => panic!("Expected Pending (miss), got {:?}", other),
-    //     }
-    // }
+        assert!(retrieved.is_ok());
+        assert!(matches!(retrieved.unwrap(), CacheEntry::Miss));
+    }
 }

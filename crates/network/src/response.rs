@@ -47,6 +47,18 @@ pub struct Response {
     pub body: Option<Vec<u8>>,
 }
 
+impl Response {
+    /// Creates a new HTTP response with the given status code, headers, and body.
+    #[must_use]
+    pub const fn new(status_code: StatusCode, headers: HeaderMap, body: Option<Vec<u8>>) -> Self {
+        Self {
+            status_code,
+            headers,
+            body,
+        }
+    }
+}
+
 impl From<Vec<u8>> for Response {
     fn from(body: Vec<u8>) -> Self {
         Self {

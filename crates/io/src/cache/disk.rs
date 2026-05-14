@@ -8,17 +8,20 @@ use std::{
 };
 
 use database::Table;
-use network::{ETAG, EXPIRES, HeaderMap, LAST_MODIFIED, VARY};
+use network::{ETAG, EXPIRES, HeaderMap, LAST_MODIFIED};
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 use storage::get_cache_path;
 
-use crate::cache::{
-    block::{BLOCK_DIR, BlockFile, BlockHeader, MAGIC, MAX_BLOCK_SIZE, VERSION},
-    errors::CacheError,
-    header::{CacheControlResponse, CacheHeader},
-    index::{Index, IndexDatabase, IndexEntry, IndexTable},
-    large::LargeFile,
+use crate::{
+    HttpCache,
+    cache::{
+        block::{BLOCK_DIR, BlockFile, BlockHeader, MAGIC, MAX_BLOCK_SIZE, VERSION},
+        errors::CacheError,
+        header::{CacheControlResponse, CacheHeader},
+        index::{Index, IndexDatabase, IndexEntry, IndexTable},
+        large::LargeFile,
+    },
 };
 
 /// Minimum block file size before compaction is considered (16MB).
@@ -54,42 +57,53 @@ impl DiskCache {
         Self { database }
     }
 
-    /// Retrieves a cached value by its key, returning `None` if the entry is not found or is expired.
-    pub fn get(&self, key: [u8; 32]) -> Result<Option<DiskEntry>, CacheError> {
+    /// Retrieves a cached value by its key and vary, returning `None` if the entry is not found or is expired.
+    pub fn get(&self, key: [u8; 32], request_headers: &HeaderMap) -> Result<Option<DiskEntry>, CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
 
-        self.get_with_connection(key, &connection)
+        self.get_with_connection(&connection, key, request_headers)
     }
 
-    /// Retrieves a cached value by its key, using the provided connection, returning `None` if the entry is not
+    /// Retrieves a cached value by its key and vary header, using the provided connection, returning `None` if the entry is not
     /// found or is expired.
-    fn get_with_connection(&self, key: [u8; 32], connection: &Connection) -> Result<Option<DiskEntry>, CacheError> {
-        let index = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
+    fn get_with_connection(
+        &self,
+        connection: &Connection,
+        key: [u8; 32],
+        request_headers: &HeaderMap,
+    ) -> Result<Option<DiskEntry>, CacheError> {
+        let entries = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
 
-        let Some(idx) = index else {
-            return Ok(None);
-        };
+        for index in entries {
+            let vary_hash = HttpCache::hash_vary(&index.vary, request_headers);
 
-        let (header, value, content_size) = (match idx.entry {
-            IndexEntry::Large => LargeFile::read(key),
-            IndexEntry::Block => {
-                let offset = idx.offset.ok_or(CacheError::CorruptedIndex)?;
-                let header_size = idx.header_size.ok_or(CacheError::CorruptedIndex)?;
-
-                BlockFile::read(idx.file_id, offset, header_size, idx.content_size)
+            if index.vary_hash != vary_hash {
+                continue;
             }
-        })?;
 
-        let entry = DiskEntry {
-            content_size,
-            data: value,
-            header,
-            index: idx,
-        };
+            let (header, value, content_size) = (match index.entry {
+                IndexEntry::Large => LargeFile::read(key),
+                IndexEntry::Block => {
+                    let offset = index.offset.ok_or(CacheError::CorruptedIndex)?;
+                    let header_size = index.header_size.ok_or(CacheError::CorruptedIndex)?;
 
-        Ok(Some(entry))
+                    BlockFile::read(index.file_id, offset, header_size, index.content_size)
+                }
+            })?;
+
+            let entry = DiskEntry {
+                content_size,
+                data: value,
+                header,
+                index,
+            };
+
+            return Ok(Some(entry));
+        }
+
+        Ok(None)
     }
 
     /// Stores a value in the cache with the given key and header information.
@@ -105,7 +119,8 @@ impl DiskCache {
         &self,
         key: [u8; 32],
         value: &[u8],
-        headers: &HeaderMap,
+        response_headers: &HeaderMap,
+        request_headers: &HeaderMap,
         cache_control: &CacheControlResponse,
         mut header: CacheHeader,
     ) -> Result<(), CacheError> {
@@ -113,46 +128,30 @@ impl DiskCache {
             return Err(CacheError::DatabaseLock);
         };
 
-        let vary = headers
-            .get(VARY)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| {
-                s.split(',')
-                    .map(str::trim)
-                    .map(String::from)
-                    .collect::<Vec<String>>()
-            })
-            .unwrap_or_default();
+        let vary = HttpCache::extract_vary(response_headers);
 
         if vary.contains(&"*".to_string()) {
-            return Err(CacheError::Write("Unable to cache when the Vary has a '*'.".to_string()));
+            return Ok(());
         }
+
+        let vary_hash = HttpCache::hash_vary(&vary, request_headers);
 
         connection
             .execute("BEGIN TRANSACTION", [])
             .map_err(CacheError::Database)?;
 
-        let existing = IndexTable::get_by_key(&connection, &key).map_err(CacheError::Database)?;
+        if let Ok(Some(entry)) = self.get_with_connection(&connection, key, response_headers) {
+            let mut hasher = Sha256::new();
+            hasher.update(&entry.data);
+            let existing_content_hash: [u8; 32] = hasher.finalize().into();
 
-        if existing.is_some() {
-            if let Ok(Some(entry)) = self.get_with_connection(key, &connection) {
-                let mut hasher = Sha256::new();
-                hasher.update(&entry.data);
-                let existing_content_hash: [u8; 32] = hasher.finalize().into();
+            let mut new_hasher = Sha256::new();
+            new_hasher.update(value);
+            let new_content_hash: [u8; 32] = new_hasher.finalize().into();
 
-                let mut new_hasher = Sha256::new();
-                new_hasher.update(value);
-                let new_content_hash: [u8; 32] = new_hasher.finalize().into();
-
-                if existing_content_hash == new_content_hash {
-                    connection.execute("COMMIT", []).ok();
-                    return Ok(());
-                }
-            }
-
-            if let Err(e) = Self::delete_with_connection(key, &connection) {
-                connection.execute("ROLLBACK", []).ok();
-                return Err(CacheError::Write(format!("failed to remove existing cache entry: {e}")));
+            if existing_content_hash == new_content_hash {
+                connection.execute("COMMIT", []).ok();
+                return Ok(());
             }
         }
 
@@ -172,7 +171,7 @@ impl DiskCache {
                 (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
             };
 
-        let expires_at = headers
+        let expires_at = response_headers
             .get(EXPIRES)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| httpdate::parse_http_date(s).ok())
@@ -184,12 +183,12 @@ impl DiskCache {
             .as_secs()
             .min(i64::MAX as u64);
 
-        let etag = headers
+        let etag = response_headers
             .get(ETAG)
             .and_then(|v| v.to_str().ok())
             .map(std::string::ToString::to_string);
 
-        let last_modified = headers
+        let last_modified = response_headers
             .get(LAST_MODIFIED)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| httpdate::parse_http_date(s).ok())
@@ -210,6 +209,7 @@ impl DiskCache {
                 .max_age_seconds
                 .map(|v| v.min(i64::MAX as u64) as i64),
             vary,
+            vary_hash,
             must_revalidate: cache_control.must_revalidate,
             no_cache: cache_control.no_cache,
             created_at: isize::try_from(now).unwrap_or(isize::MAX),
@@ -241,12 +241,14 @@ impl DiskCache {
 
     /// Removes a cache entry by its key, deleting both the index entry and the associated data file if it exists.
     /// If the entry does not exist, this function will simply return `Ok(())`.
-    pub fn delete(&mut self, key: [u8; 32]) -> Result<bool, CacheError> {
+    pub fn delete(&mut self, key: [u8; 32], headers: &HeaderMap) -> Result<bool, CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
 
-        Self::delete_with_connection(key, &connection)
+        let vary = HttpCache::extract_vary(headers);
+
+        Self::delete_with_connection(key, &vary, &connection)
     }
 
     /// Revalidates a cache entry in the index table, updating the `expires_at` and `fetched_at` fields.
@@ -283,23 +285,25 @@ impl DiskCache {
 
     /// Removes a cache entry by its key, using the provided connection, deleting both the index entry and the a
     /// ssociated data file if it exists. If the entry does not exist, this function will simply return `Ok(())`.
-    fn delete_with_connection(key: [u8; 32], connection: &Connection) -> Result<bool, CacheError> {
-        let index = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
+    fn delete_with_connection(key: [u8; 32], vary: &[String], connection: &Connection) -> Result<bool, CacheError> {
+        let entries = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
 
-        if let Some(idx) = index {
-            match idx.entry {
-                IndexEntry::Large => LargeFile::delete(key)?,
-                IndexEntry::Block => {
-                    let offset = idx.offset.ok_or(CacheError::CorruptedIndex)?;
-                    let header_size = idx.header_size.ok_or(CacheError::CorruptedIndex)?;
+        for entry in entries {
+            if entry.vary == vary {
+                match entry.entry {
+                    IndexEntry::Large => LargeFile::delete(key)?,
+                    IndexEntry::Block => {
+                        let offset = entry.offset.ok_or(CacheError::CorruptedIndex)?;
+                        let header_size = entry.header_size.ok_or(CacheError::CorruptedIndex)?;
 
-                    BlockFile::delete(idx.file_id, offset, header_size)?;
+                        BlockFile::delete(entry.file_id, offset, header_size)?;
+                    }
                 }
+
+                IndexTable::delete_by_key(connection, &key).map_err(CacheError::Database)?;
+
+                return Ok(true);
             }
-
-            IndexTable::delete_by_key(connection, &key).map_err(CacheError::Database)?;
-
-            return Ok(true);
         }
 
         Ok(false)
