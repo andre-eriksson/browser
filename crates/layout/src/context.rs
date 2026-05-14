@@ -30,8 +30,8 @@ impl ImageContext {
         self.known.insert(node_id, image);
     }
 
-    pub fn get(&self, node_id: &NodeId) -> Option<&Arc<LayoutImage>> {
-        self.known.get(node_id)
+    pub fn get(&self, node_id: &NodeId) -> Option<Arc<LayoutImage>> {
+        self.known.get(node_id).map(Arc::clone)
     }
 
     pub fn clear(&mut self) {

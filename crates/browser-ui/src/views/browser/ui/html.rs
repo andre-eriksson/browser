@@ -41,6 +41,7 @@ impl<'renderer> BrowserHtml<'renderer> {
     ) -> container::Container<'renderer, Event> {
         let image_ctx = page_ctx.image_context();
         let image_ctx = image_ctx.lock().unwrap();
+
         collect_render_data_from_layout(
             &image_ctx,
             &mut self.renderer,

@@ -14,7 +14,7 @@ impl Browser {
     /// Loads an image from the specified URL using the browser's HTTP client, headers, and cookies.
     pub async fn load_image(
         &self,
-        node_id: NodeId,
+        node_ids: Vec<NodeId>,
         request_url: Url,
         policies: DocumentPolicy,
         image_url: &str,
@@ -51,8 +51,16 @@ impl Browser {
             .await
             .map_err(|_| CoreError::Image)?;
 
+        let content_type = response
+            .headers
+            .get("Content-Type")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("application/octet-stream")
+            .to_string();
+
         Ok(EngineResponse::ImageFetched {
-            id: node_id,
+            node_ids,
+            content_type,
             url: image_url.to_string(),
             data: decoded_data,
         })

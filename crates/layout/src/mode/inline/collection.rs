@@ -105,24 +105,32 @@ pub fn collect<'dom>(
                         match style.width {
                             ComputedSize::Px(px) => px,
                             ComputedSize::Percentage(frac) => frac * containing_rect.width,
-                            _ => known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.width as f64), // TODO: Handle other types of computed size
+                            _ => known
+                                .as_ref()
+                                .map_or(DEFAULT_IMAGE_WIDTH, |m| m.width as f64), // TODO: Handle other types of computed size
                         }
                     } else if let Some(attr_w) = attr_width {
                         attr_w
                     } else {
-                        known.map_or(DEFAULT_IMAGE_WIDTH, |m| m.width as f64)
+                        known
+                            .as_ref()
+                            .map_or(DEFAULT_IMAGE_WIDTH, |m| m.width as f64)
                     };
 
                     let h = if css_height {
                         match style.height {
                             ComputedSize::Px(px) => px,
                             ComputedSize::Percentage(frac) => frac * containing_rect.height,
-                            _ => known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.height as f64), // TODO: Handle other types of computed size
+                            _ => known
+                                .as_ref()
+                                .map_or(DEFAULT_IMAGE_HEIGHT, |m| m.height as f64), // TODO: Handle other types of computed size
                         }
                     } else if let Some(attr_h) = attr_height {
                         attr_h
                     } else {
-                        known.map_or(DEFAULT_IMAGE_HEIGHT, |m| m.height as f64)
+                        known
+                            .as_ref()
+                            .map_or(DEFAULT_IMAGE_HEIGHT, |m| m.height as f64)
                     };
 
                     let max_width = match style.max_width {

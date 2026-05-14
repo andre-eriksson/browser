@@ -60,7 +60,7 @@ pub enum BrowserEvent {
     ImageDecoded {
         window_id: Id,
         tab_id: TabId,
-        node_id: NodeId,
+        node_ids: Vec<NodeId>,
         url: String,
         image_data: LayoutImage,
     },
@@ -93,10 +93,10 @@ impl EventHandler<BrowserEvent> for Application {
             BrowserEvent::ImageDecoded {
                 window_id,
                 tab_id,
-                node_id,
+                node_ids,
                 url,
                 image_data,
-            } => on_image_decoded(self, window_id, tab_id, node_id, url, image_data),
+            } => on_image_decoded(self, window_id, tab_id, node_ids, url, image_data),
             BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree) => {
                 on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
             }

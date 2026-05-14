@@ -36,7 +36,8 @@ pub enum EngineResponse {
 
     /// An image was successfully fetched from the network.
     ImageFetched {
-        id: NodeId,
+        node_ids: Vec<NodeId>,
+        content_type: String,
         url: String,
         data: Vec<u8>,
     },
@@ -59,7 +60,7 @@ pub enum EngineCommand {
 
     /// Command to fetch an image resource using the browser's HTTP client, headers, and cookies.
     FetchImage {
-        node_id: NodeId,
+        node_ids: Vec<NodeId>,
         request_url: Url,
         request_policies: DocumentPolicy,
         image_url: String,

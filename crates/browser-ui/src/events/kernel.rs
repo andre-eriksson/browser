@@ -48,7 +48,12 @@ impl EventHandler<(Id, TabId, Box<EngineResponse>)> for Application {
             }
             EngineResponse::NavigateError(error) => on_navigation_error(self, &error),
 
-            EngineResponse::ImageFetched { id, url, data } => on_image_loaded(self, window_id, tab_id, id, url, data),
+            EngineResponse::ImageFetched {
+                node_ids,
+                content_type,
+                url,
+                data,
+            } => on_image_loaded(self, window_id, tab_id, node_ids, content_type, url, data),
 
             EngineResponse::Error(error) => {
                 error!(%error, "Engine command failed");

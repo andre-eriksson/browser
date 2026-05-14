@@ -20,7 +20,7 @@ pub fn layout_image<'node>(
 
     let image = layout_ctx.image_ctx().get(img.id);
 
-    let has_intrinsic_size = image.is_some_and(|i| i.width > 0 && i.height > 0);
+    let has_intrinsic_size = image.as_ref().is_some_and(|i| i.width > 0 && i.height > 0);
 
     let (img_width, img_height) = resolve_image_size(
         img.width,

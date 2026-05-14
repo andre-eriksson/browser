@@ -14,7 +14,7 @@ pub struct TabCollector {
     pub title: Option<String>,
 
     /// The URLs of images found in the document.
-    pub images: HashMap<NodeId, String>,
+    pub images: HashMap<String, Vec<NodeId>>,
 }
 
 impl Collector for TabCollector {
@@ -32,7 +32,10 @@ impl Collector for TabCollector {
         if *tag.tag == Tag::Html(HtmlTag::Img)
             && let Some(src) = tag.attributes.as_ref().and_then(|attrs| attrs.get("src"))
         {
-            self.images.insert(tag.node_id, src.clone());
+            self.images
+                .entry(src.clone())
+                .or_default()
+                .push(tag.node_id);
         }
 
         if !self.in_head {

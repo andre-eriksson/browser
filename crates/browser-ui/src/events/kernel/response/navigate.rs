@@ -4,6 +4,7 @@ use browser_core::{
 
 use html_dom::NodeId;
 use iced::{Task, window::Id};
+use image::ImageFormat;
 use io::{DocumentPolicy, ReferrerPolicy};
 use tracing::error;
 
@@ -47,17 +48,17 @@ pub fn on_navigation_success(
             .page
             .images()
             .iter()
-            .map(|(id, src)| {
-                let node_id = *id;
+            .map(|(src, ids)| {
+                let node_ids = ids.clone();
                 let browser = application.browser.clone();
                 let src = src.clone();
-                let request_url = tab.page_ctx.as_ref().unwrap().metadata.url.clone();
+                let request_url = page_ctx.metadata.url.clone();
 
                 Task::perform(
                     async move {
                         browser
                             .execute(EngineCommand::FetchImage {
-                                node_id,
+                                node_ids,
                                 request_url,
                                 request_policies: DocumentPolicy {
                                     referrer: ReferrerPolicy::SameOrigin,
@@ -95,13 +96,20 @@ pub fn on_image_loaded(
     _application: &Application,
     window_id: Id,
     tab_id: TabId,
-    node_id: NodeId,
+    node_ids: Vec<NodeId>,
+    content_type: String,
     url: String,
     bytes: Vec<u8>,
 ) -> Task<Event> {
     Task::perform(
         async move {
-            match decode_image_bytes(&url, bytes.as_slice()) {
+            let format = if let Some(from_mime) = ImageFormat::from_mime_type(content_type) {
+                Some(from_mime)
+            } else {
+                ImageFormat::from_extension(url.rsplit('.').next().unwrap_or_default())
+            };
+
+            match decode_image_bytes(&url, bytes.as_slice(), format) {
                 Ok(decoded) => Ok((url, decoded)),
                 Err(err) => Err(err),
             }
@@ -110,7 +118,7 @@ pub fn on_image_loaded(
             Ok((url, decoded)) => Event::Browser(BrowserEvent::ImageDecoded {
                 window_id,
                 tab_id,
-                node_id,
+                node_ids,
                 url,
                 image_data: decoded,
             }),

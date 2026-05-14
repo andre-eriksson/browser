@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use css_style::{AbsoluteContext, StyleTree};
-use css_values::color::Color;
 use html_dom::NodeId;
 use iced::{Task, window::Id};
 use layout::{LayoutEngine, LayoutImage, Rect};
@@ -13,21 +11,13 @@ use crate::{
     events::{Event, browser::BrowserEvent},
 };
 
-/// Handles the completion of image loading, updating the tab's state and triggering a targeted
-/// async relayout of only the image node and its ancestors.
-///
-/// Image loads are **batched**: a relayout is only triggered once every pending image for the
-/// page has resolved (loaded or failed). This means a page with N images pays the layout cost
-/// once rather than N times. The `pending_image_urls` set on [`UiTab`] tracks what is still
-/// outstanding; `resolve_pending_image` removes the URL and returns `true` when the set is empty.
-///
-/// Once all images are ready the relayout runs off the UI thread via `spawn_blocking` so that
-/// scrolling and other interactions remain responsive while the work is in progress.
+/// Handles the completion of an image decoding operation by updating the image context and triggering a relayout
+/// for the affected nodes.
 pub fn on_image_decoded(
     application: &mut Application,
     window_id: Id,
     tab_id: TabId,
-    node_id: NodeId,
+    node_ids: Vec<NodeId>,
     url: String,
     image_data: LayoutImage,
 ) -> Task<Event> {
@@ -47,48 +37,44 @@ pub fn on_image_decoded(
     {
         let image_ctx = page_ctx.image_context();
         let mut image_ctx = image_ctx.lock().unwrap();
-        image_ctx.insert(node_id, Arc::new(image_data));
+        let data = Arc::new(image_data);
+        for node_id in &node_ids {
+            image_ctx.insert(*node_id, Arc::clone(&data));
+        }
     }
 
     let viewport = ctx.viewport;
 
-    let theme_category = application.config.preferences().theme().category;
     let Some(page_ctx) = tab.page_ctx.clone() else {
         return Task::none();
     };
+
     let image_ctx = page_ctx.image_context();
+    let style_tree = tab.style_tree.clone();
     let layout_tree = tab.layout_tree.clone();
     let text_ctx = ctx.text_context.clone();
     let generation = tab.layout_generation;
-    let config = application.config;
 
     Task::perform(
         async move {
             tokio::task::spawn_blocking(move || {
-                let ctx = AbsoluteContext {
-                    root_font_size: 16.0,
-                    viewport_width: f64::from(viewport.width),
-                    viewport_height: f64::from(viewport.height),
-                    theme_category,
-                    document_url: &page_ctx.metadata.url,
-                    root_color: Color::BLACK,
-                    root_line_height_multiplier: 1.2,
-                };
                 let dom_tree = page_ctx.page.document();
-                let style_tree = StyleTree::build(config, &ctx, dom_tree, page_ctx.page.stylesheets());
-                let mut tc = text_ctx.lock().unwrap();
+                let style_tree = style_tree?;
+                let mut text_ctx = text_ctx.lock().unwrap();
                 let image_ctx = image_ctx.lock().unwrap();
                 let mut layout_tree = layout_tree?;
 
-                LayoutEngine::relayout_node(
-                    node_id,
-                    Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-                    &mut layout_tree,
-                    &style_tree,
-                    dom_tree,
-                    &mut tc,
-                    &image_ctx,
-                );
+                for node_id in node_ids {
+                    LayoutEngine::relayout_node(
+                        node_id,
+                        Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+                        &mut layout_tree,
+                        &style_tree,
+                        dom_tree,
+                        &mut text_ctx,
+                        &image_ctx,
+                    );
+                }
 
                 Some(layout_tree)
             })

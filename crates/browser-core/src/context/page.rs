@@ -25,7 +25,7 @@ pub struct PageMetadata {
 #[derive(Debug, Clone)]
 pub struct Page {
     document: DocumentRoot,
-    images: HashMap<NodeId, String>,
+    images: HashMap<String, Vec<NodeId>>,
     stylesheets: Vec<CSSStyleSheet>,
 }
 
@@ -54,7 +54,7 @@ impl Page {
     pub fn load(
         mut self,
         document: DocumentRoot,
-        images: HashMap<NodeId, String>,
+        images: HashMap<String, Vec<NodeId>>,
         stylesheets: Vec<CSSStyleSheet>,
     ) -> Self {
         self.document = document;
@@ -74,7 +74,7 @@ impl Page {
     }
 
     #[must_use]
-    pub const fn images(&self) -> &HashMap<NodeId, String> {
+    pub const fn images(&self) -> &HashMap<String, Vec<NodeId>> {
         &self.images
     }
 }

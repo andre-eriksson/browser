@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use layout::{Color4f, ImageContext, LayoutImage, LayoutNode, LayoutTree, Rect};
+use layout::{Color4f, ImageContext, LayoutNode, LayoutTree, Rect};
 use renderer::{ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo};
 
 use crate::{core::ScrollOffset, renderer::program::HtmlRenderer};
@@ -160,11 +158,7 @@ pub fn collect_render_data_from_layout<'html>(
             renderer.images.push(ImageRenderInfo {
                 node_id: image_data.node_id,
                 screen_rect: node.dimensions,
-                data: Arc::new(LayoutImage {
-                    rgba: image.rgba.clone(),
-                    width: image.width,
-                    height: image.height,
-                }),
+                data: image,
             });
         }
 
