@@ -398,11 +398,11 @@ impl DiskCache {
                 cursor = &after_header[content_size..];
             }
 
-            if total_entry_bytes == 0 || dead_entry_bytes == 0 {
+            if total_entry_bytes == 0 {
                 continue;
             }
 
-            if total_entry_bytes.div_ceil(dead_entry_bytes) < COMPACTION_THRESHOLD.div_ceil(COMPACTION_DEAD_THRESHOLD) {
+            if dead_entry_bytes < COMPACTION_THRESHOLD.div_ceil(COMPACTION_DEAD_THRESHOLD) {
                 continue;
             }
 
