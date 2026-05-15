@@ -4,12 +4,6 @@ use html_dom::{Collector, HtmlTag, NodeId, Tag, TagInfo};
 
 #[derive(Default)]
 pub struct TabCollector {
-    /// Indicates whether the parser is currently within the `<head>` section of the HTML document.
-    pub in_head: bool,
-
-    /// Indicates whether the parser is currently within a `<title>` tag.
-    pub in_title: bool,
-
     /// The title of the tab, if available.
     pub title: Option<String>,
 
@@ -19,16 +13,6 @@ pub struct TabCollector {
 
 impl Collector for TabCollector {
     fn collect(&mut self, tag: &TagInfo) {
-        if *tag.tag == Tag::Html(HtmlTag::Head) {
-            self.in_head = true;
-            return;
-        }
-
-        if *tag.tag == Tag::Html(HtmlTag::Body) {
-            self.in_head = false;
-            return;
-        }
-
         if *tag.tag == Tag::Html(HtmlTag::Img)
             && let Some(src) = tag.attributes.as_ref().and_then(|attrs| attrs.get("src"))
         {
@@ -38,19 +22,12 @@ impl Collector for TabCollector {
                 .push(tag.node_id);
         }
 
-        if !self.in_head {
-            return;
-        }
-
-        if *tag.tag == Tag::Html(HtmlTag::Title) {
-            self.in_title = true;
-        }
-
-        if self.in_title
-            && let Some(title) = tag.data
+        if *tag.tag == Tag::Html(HtmlTag::Title)
+            && self.title.is_none()
+            && let Some(data) = tag.data
+            && !data.trim().is_empty()
         {
-            self.title = Some(title.clone());
-            self.in_title = false;
+            self.title = Some(data.clone());
         }
     }
 
