@@ -10,8 +10,8 @@ use iced::{
 use io::{Resource, embeded::PLUS_ICON};
 
 use crate::{
-    core::{TabId, UiTab},
-    events::{Event, browser::BrowserEvent},
+    core::{Tab, TabId},
+    events::{BrowserEvent, Event},
 };
 
 pub struct TabButton;
@@ -20,11 +20,11 @@ impl TabButton {
     pub fn render<'app>(
         window_id: Id,
         theme: &'app browser_config::Theme,
-        tab: &'app UiTab,
+        tab: &'app Tab,
         active_tab_id: TabId,
     ) -> MouseArea<'app, Event> {
         let tab_title = text(
-            tab.page_ctx
+            tab.page
                 .as_ref()
                 .map_or("about:blank", |ctx| ctx.metadata.title.trim()),
         )
@@ -34,7 +34,7 @@ impl TabButton {
         let mut tab_title_row = Row::new();
 
         if let Some(favicon) = &tab
-            .page_ctx
+            .page
             .as_ref()
             .and_then(|ctx| ctx.metadata.favicon.as_ref())
         {

@@ -1,5 +1,5 @@
 use browser_config::BrowserConfig;
-use browser_core::{Browser, History, NavigationType, Page, PageMetadata};
+use browser_core::{Browser, Document, History, NavigationType, PageMetadata};
 use browser_preferences::theme::ThemeCategory;
 use css_style::{AbsoluteContext, StyleTree};
 use layout::{ImageContext, LayoutEngine, LayoutTree, Rect, TextContext};
@@ -24,7 +24,7 @@ const DEFAULT_VIEWPORT_HEIGHT: f64 = 800.0;
 
 pub struct HeadlessEngine {
     pub browser: Browser,
-    pub page: Option<Page>,
+    pub page: Option<Document>,
     pub metadata: Option<PageMetadata>,
     pub history: History,
     pub viewport_width: f64,
@@ -125,7 +125,7 @@ impl HeadlessEngine {
             return;
         };
 
-        let document = page.document();
+        let document = page.dom();
         let stylesheets = page.stylesheets();
 
         let localhost = Url::parse(&format!("http://{}/", Ipv4Addr::LOCALHOST)).unwrap();

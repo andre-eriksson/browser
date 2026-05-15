@@ -23,17 +23,17 @@ pub struct PageMetadata {
 
 /// Represents a web page loaded in a tab.
 #[derive(Debug, Clone)]
-pub struct Page {
-    document: DocumentRoot,
+pub struct Document {
+    dom: DocumentRoot,
     images: HashMap<String, Vec<NodeId>>,
     stylesheets: Vec<CSSStyleSheet>,
 }
 
-impl Page {
+impl Document {
     #[must_use]
-    pub fn new(document: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
+    pub fn new(dom: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
         Self {
-            document,
+            dom,
             images: HashMap::new(),
             stylesheets,
         }
@@ -43,7 +43,7 @@ impl Page {
     #[must_use]
     pub fn blank() -> Self {
         Self {
-            document: DocumentRoot::new(),
+            dom: DocumentRoot::new(),
             images: HashMap::new(),
             stylesheets: Vec::new(),
         }
@@ -53,19 +53,19 @@ impl Page {
     #[must_use]
     pub fn load(
         mut self,
-        document: DocumentRoot,
+        dom: DocumentRoot,
         images: HashMap<String, Vec<NodeId>>,
         stylesheets: Vec<CSSStyleSheet>,
     ) -> Self {
-        self.document = document;
+        self.dom = dom;
         self.images = images;
         self.stylesheets = stylesheets;
         self
     }
 
     #[must_use]
-    pub const fn document(&self) -> &DocumentRoot {
-        &self.document
+    pub const fn dom(&self) -> &DocumentRoot {
+        &self.dom
     }
 
     #[must_use]

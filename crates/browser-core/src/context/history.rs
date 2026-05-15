@@ -1,4 +1,4 @@
-use crate::{Page, PageMetadata};
+use crate::{Document, PageMetadata};
 
 /// Maximum number of pages to cache in the forward and backward navigation caches, allowing for quick retrieval of recently visited pages without reloading from the network.
 const MAX_BFCACHE_SIZE: usize = 3;
@@ -7,10 +7,10 @@ const MAX_BFCACHE_SIZE: usize = 3;
 #[derive(Debug, Clone)]
 pub struct History {
     /// Cache for recently visited pages when navigating forward, allowing for quick retrieval without reloading from the network.
-    f_cache: Vec<Page>,
+    f_cache: Vec<Document>,
 
     /// Cache for recently visited pages when navigating back, allowing for quick retrieval without reloading from the network.
-    b_cache: Vec<Page>,
+    b_cache: Vec<Document>,
 
     /// Metadata for pages in the forward navigation history, used to reconstruct page state when navigating forward, or used
     /// to retrieve the URL and do a fresh navigation if the cached page is no longer available.
@@ -35,25 +35,25 @@ impl History {
     }
 
     /// Adds a new page to the forward history, caching the page for quick retrieval when navigating forward.
-    pub fn add_back(&mut self, page: Page, metadata: PageMetadata) {
+    pub fn add_back(&mut self, page: Document, metadata: PageMetadata) {
         self.push_back_entry(page, metadata);
         self.clear_forward_history();
     }
 
     /// Adds a new page to the forward history, caching the page for quick retrieval when navigating forward.
-    fn push_forward_entry(&mut self, page: Page, metadata: PageMetadata) {
+    fn push_forward_entry(&mut self, page: Document, metadata: PageMetadata) {
         Self::push_cached_page(&mut self.f_cache, page);
         self.forward.push(metadata);
     }
 
     /// Adds a new page to the backward history, caching the page for quick retrieval when navigating back.
-    fn push_back_entry(&mut self, page: Page, metadata: PageMetadata) {
+    fn push_back_entry(&mut self, page: Document, metadata: PageMetadata) {
         Self::push_cached_page(&mut self.b_cache, page);
         self.backward.push(metadata);
     }
 
     /// Pushes a page into the specified cache, ensuring that the cache does not exceed the defined maximum size by removing the oldest entry if necessary.
-    fn push_cached_page(cache: &mut Vec<Page>, page: Page) {
+    fn push_cached_page(cache: &mut Vec<Document>, page: Document) {
         if cache.len() >= MAX_BFCACHE_SIZE {
             cache.remove(0);
         }
@@ -85,7 +85,7 @@ impl History {
     ///
     /// # Panics
     /// * This method will panic if there are no entries in the backward history when attempting to navigate back, as it assumes that the caller has already checked for availability using `can_go_back()`.
-    pub fn go_back(&mut self, page: Page, metadata: PageMetadata) -> (Option<Page>, PageMetadata) {
+    pub fn go_back(&mut self, page: Document, metadata: PageMetadata) -> (Option<Document>, PageMetadata) {
         let previous_metadata = self
             .backward
             .pop()
@@ -102,7 +102,7 @@ impl History {
     ///
     /// # Panics
     /// * This method will panic if there is no page metadata available in the forward history, which should not happen if `can_go_forward()` is checked before calling this method.
-    pub fn go_forward(&mut self, page: Page, metadata: PageMetadata) -> (Option<Page>, PageMetadata) {
+    pub fn go_forward(&mut self, page: Document, metadata: PageMetadata) -> (Option<Document>, PageMetadata) {
         let previous_metadata = self
             .forward
             .pop()
@@ -140,10 +140,10 @@ mod tests {
     fn test_history_navigation() {
         let mut history = History::new();
 
-        let page1 = Page::blank();
+        let page1 = Document::blank();
         let metadata1 = page_metadata(1);
 
-        let page2 = Page::blank();
+        let page2 = Document::blank();
         let metadata2 = page_metadata(2);
 
         history.add_back(page1.clone(), metadata1.clone());
@@ -169,13 +169,13 @@ mod tests {
     fn test_new_navigation_clears_forward_history() {
         let mut history = History::new();
 
-        history.add_back(Page::blank(), page_metadata(1));
-        history.add_back(Page::blank(), page_metadata(2));
+        history.add_back(Document::blank(), page_metadata(1));
+        history.add_back(Document::blank(), page_metadata(2));
 
-        let _ = history.go_back(Page::blank(), page_metadata(3));
+        let _ = history.go_back(Document::blank(), page_metadata(3));
         assert!(history.can_go_forward());
 
-        history.add_back(Page::blank(), page_metadata(2));
+        history.add_back(Document::blank(), page_metadata(2));
         assert!(!history.can_go_forward());
     }
 
@@ -183,19 +183,19 @@ mod tests {
     fn test_go_forward_preserves_remaining_forward_entries() {
         let mut history = History::new();
 
-        history.add_back(Page::blank(), page_metadata(1));
-        history.add_back(Page::blank(), page_metadata(2));
-        history.add_back(Page::blank(), page_metadata(3));
+        history.add_back(Document::blank(), page_metadata(1));
+        history.add_back(Document::blank(), page_metadata(2));
+        history.add_back(Document::blank(), page_metadata(3));
 
-        let _ = history.go_back(Page::blank(), page_metadata(4));
-        let _ = history.go_back(Page::blank(), page_metadata(3));
+        let _ = history.go_back(Document::blank(), page_metadata(4));
+        let _ = history.go_back(Document::blank(), page_metadata(3));
 
-        let (cached_page, metadata) = history.go_forward(Page::blank(), page_metadata(2));
+        let (cached_page, metadata) = history.go_forward(Document::blank(), page_metadata(2));
         assert!(cached_page.is_some());
         assert_eq!(metadata.url.as_str(), "http://example.com/page3");
         assert!(history.can_go_forward());
 
-        let (cached_page, metadata) = history.go_forward(Page::blank(), page_metadata(3));
+        let (cached_page, metadata) = history.go_forward(Document::blank(), page_metadata(3));
         assert!(cached_page.is_some());
         assert_eq!(metadata.url.as_str(), "http://example.com/page4");
         assert!(!history.can_go_forward());
@@ -207,14 +207,14 @@ mod tests {
         let total_history_entries = MAX_BFCACHE_SIZE + 3;
 
         for idx in 0..total_history_entries {
-            history.add_back(Page::blank(), page_metadata(idx));
+            history.add_back(Document::blank(), page_metadata(idx));
         }
 
         for step in 0..total_history_entries {
             let expected_index = total_history_entries - 1 - step;
             let synthetic_current_page = 1_000 + step;
 
-            let (cached_page, metadata) = history.go_back(Page::blank(), page_metadata(synthetic_current_page));
+            let (cached_page, metadata) = history.go_back(Document::blank(), page_metadata(synthetic_current_page));
             assert_eq!(metadata.url.as_str(), format!("http://example.com/page{expected_index}"));
 
             if step < MAX_BFCACHE_SIZE {
@@ -231,7 +231,7 @@ mod tests {
             let expected_index = 1_000 + (total_history_entries - 1 - step);
             let synthetic_current_page = 2_000 + step;
 
-            let (cached_page, metadata) = history.go_forward(Page::blank(), page_metadata(synthetic_current_page));
+            let (cached_page, metadata) = history.go_forward(Document::blank(), page_metadata(synthetic_current_page));
             assert_eq!(metadata.url.as_str(), format!("http://example.com/page{expected_index}"));
 
             if step < MAX_BFCACHE_SIZE {

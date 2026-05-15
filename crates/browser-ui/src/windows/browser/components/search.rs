@@ -1,24 +1,21 @@
 use std::str::FromStr;
 
+use browser_config::Theme;
 use iced::{
-    Background, Border, Color, Theme,
+    Background, Border, Color,
     border::Radius,
     widget::{TextInput, text_input},
     window::Id,
 };
 
-use crate::events::{Event, browser::BrowserEvent, kernel::EngineRequest};
+use crate::events::{BrowserEvent, EngineRequest, Event};
 
 pub struct SearchInput;
 
 impl SearchInput {
-    pub fn render<'app>(
-        window_id: Id,
-        theme: &'app browser_config::Theme,
-        current_url: &str,
-    ) -> TextInput<'app, Event> {
+    pub fn render<'app>(window_id: Id, theme: &'app Theme, current_url: &str) -> TextInput<'app, Event> {
         text_input("Search", current_url)
-            .style(|t: &Theme, _| text_input::Style {
+            .style(|t: &iced::Theme, _| text_input::Style {
                 border: Border {
                     color: Color::from_str(&theme.colors.primary).unwrap(),
                     width: 0.5,

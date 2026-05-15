@@ -30,7 +30,7 @@ pub fn cmd_body(engine: &HeadlessEngine) {
         engine
             .page
             .as_ref()
-            .map_or_else(|| "No page loaded".to_string(), |p| p.document().to_string())
+            .map_or_else(|| "No page loaded".to_string(), |p| p.dom().to_string())
     );
 }
 

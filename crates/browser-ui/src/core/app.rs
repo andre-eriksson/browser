@@ -13,11 +13,10 @@ use iced::{Renderer, Task, Theme, window};
 use manifest::APP_NAME;
 
 use crate::core::WindowType;
-use crate::events::browser::BrowserEvent;
-use crate::events::window::WindowEvent;
-use crate::events::{Event, EventHandler};
-use crate::manager::WindowController;
-use crate::views::browser::window::BrowserContext;
+
+use crate::core::WindowController;
+use crate::events::{BrowserEvent, Event, EventHandler, WindowEvent};
+use crate::windows::browser::window::BrowserContext;
 
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {

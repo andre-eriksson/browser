@@ -2,10 +2,7 @@ use iced::{Task, window::Id};
 
 use crate::{
     core::{Application, WindowType},
-    events::{
-        Event, EventHandler,
-        window::events::{close_window, create_window},
-    },
+    events::{Event, EventHandler},
 };
 
 /// Represents the different types of Window-related events that can occur in the application.
@@ -20,13 +17,11 @@ pub enum WindowEvent {
     CloseWindow(Id),
 }
 
-mod events;
-
 impl EventHandler<WindowEvent> for Application {
     fn handle(&mut self, event: WindowEvent) -> Task<Event> {
         match event {
-            WindowEvent::NewWindow(window_id, window_type) => create_window(self, window_id, window_type),
-            WindowEvent::CloseWindow(window_id) => close_window(self, window_id),
+            WindowEvent::NewWindow(window_id, window_type) => Application::create_window(self, window_id, window_type),
+            WindowEvent::CloseWindow(window_id) => Application::close_window(self, window_id),
         }
     }
 }

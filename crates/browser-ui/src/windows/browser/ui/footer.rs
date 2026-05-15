@@ -9,7 +9,7 @@ use iced::{
 
 use crate::{
     core::{Application, WindowType},
-    events::{Event, window::WindowEvent},
+    events::{Event, WindowEvent},
 };
 
 pub struct BrowserFooter;

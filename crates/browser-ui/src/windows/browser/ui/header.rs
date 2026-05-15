@@ -13,7 +13,7 @@ use iced::{
 use crate::{
     core::Application,
     events::Event,
-    views::browser::components::{
+    windows::browser::components::{
         navigation::{BackButton, ForwardButton, RefreshButton},
         search::SearchInput,
         tab::{NewTabButton, TabButton},

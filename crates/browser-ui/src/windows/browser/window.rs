@@ -14,11 +14,11 @@ use manifest::{APP_ID, APP_NAME};
 
 use crate::{
     core::{Application, ApplicationWindow, TabManager, WindowType},
-    events::{Event, browser::BrowserEvent},
+    events::{BrowserEvent, Event},
     load_fallback_fonts,
     renderer::program::HtmlRenderer,
     util::image::load_icon,
-    views::browser::ui::{footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml},
+    windows::browser::ui::{footer::BrowserFooter, header::BrowserHeader, html::BrowserHtml},
 };
 
 #[derive(Debug, Clone)]
@@ -93,12 +93,12 @@ impl ApplicationWindow for BrowserWindow {
         let mut column = Column::new();
         column = column.push(header);
 
-        if let Some(page_ctx) = &active_tab.page_ctx
+        if let Some(page_ctx) = &active_tab.page
             && let Some(layout_tree) = &active_tab.layout_tree
         {
             let renderer = HtmlRenderer::new(
                 self.id,
-                page_ctx.page.document(),
+                page_ctx.document.dom(),
                 layout_tree,
                 active_tab.scroll_offset,
                 WindowType::Browser,

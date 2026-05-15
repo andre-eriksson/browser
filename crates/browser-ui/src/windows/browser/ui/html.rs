@@ -1,24 +1,25 @@
+use std::str::FromStr;
+
 use iced::{
-    Length,
+    Background, Color, Length,
     widget::{Shader, container, shader},
 };
 use layout::{LayoutTree, Rect};
 
 use crate::{
-    core::{Application, ScrollOffset},
+    core::{Application, Page, ScrollOffset},
     events::Event,
     renderer::{program::HtmlRenderer, viewport::collect_render_data_from_layout},
-    views::devtools::window::DevtoolsContext,
 };
 
-pub struct DevtoolsHtml<'renderer> {
+pub struct BrowserHtml<'renderer> {
     renderer: HtmlRenderer<'renderer>,
     layout_tree: &'renderer LayoutTree,
     initial_bounds: Rect,
     scroll_offset: ScrollOffset,
 }
 
-impl<'renderer> DevtoolsHtml<'renderer> {
+impl<'renderer> BrowserHtml<'renderer> {
     pub const fn new(
         renderer: HtmlRenderer<'renderer>,
         layout_tree: &'renderer LayoutTree,
@@ -33,16 +34,10 @@ impl<'renderer> DevtoolsHtml<'renderer> {
         }
     }
 
-    pub fn render<'app>(
-        mut self,
-        _app: &'app Application,
-        devtools_ctx: &DevtoolsContext,
-    ) -> container::Container<'app, Event>
-    where
-        'renderer: 'app,
-    {
-        let image_ctx = devtools_ctx.image_context();
+    pub fn render(mut self, app: &'renderer Application, page_ctx: &Page) -> container::Container<'renderer, Event> {
+        let image_ctx = page_ctx.image_context();
         let image_ctx = image_ctx.lock().unwrap();
+
         collect_render_data_from_layout(
             &image_ctx,
             &mut self.renderer,
@@ -55,6 +50,20 @@ impl<'renderer> DevtoolsHtml<'renderer> {
             .width(Length::Fill)
             .height(Length::Fill);
 
-        container(shader).width(Length::Fill).height(Length::Fill)
+        container(shader)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(move |_| {
+                let background_color = if app.config.args().preferences.force_dark {
+                    Color::from_str(app.config.preferences().theme().colors.background.as_str()).unwrap()
+                } else {
+                    Color::from_rgb8(255, 255, 255)
+                };
+
+                container::Style {
+                    background: Some(Background::Color(background_color)),
+                    ..Default::default()
+                }
+            })
     }
 }

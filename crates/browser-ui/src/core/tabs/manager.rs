@@ -1,18 +1,18 @@
 use crate::{
-    core::{UiTab, tabs::TabId},
+    core::{Tab, tabs::TabId},
     errors::TabError,
 };
 
 #[derive(Debug, Clone)]
 pub struct TabManager {
     active_tab: TabId,
-    tabs: Vec<UiTab>,
+    tabs: Vec<Tab>,
     next_tab_id: usize,
 }
 
 impl TabManager {
     pub fn new() -> Self {
-        let initial_tab = UiTab::new(TabId(0));
+        let initial_tab = Tab::new(TabId::new(0));
 
         Self {
             active_tab: initial_tab.id,
@@ -25,19 +25,19 @@ impl TabManager {
         self.active_tab
     }
 
-    pub fn active_tab(&self) -> Option<&UiTab> {
+    pub fn active_tab(&self) -> Option<&Tab> {
         self.tabs.iter().find(|t| t.id == self.active_tab)
     }
 
-    pub fn active_tab_mut(&mut self) -> Option<&mut UiTab> {
+    pub fn active_tab_mut(&mut self) -> Option<&mut Tab> {
         self.tabs.iter_mut().find(|t| t.id == self.active_tab)
     }
 
-    pub(crate) fn _get_tab(&self, tab_id: TabId) -> Option<&UiTab> {
+    pub(crate) fn _get_tab(&self, tab_id: TabId) -> Option<&Tab> {
         self.tabs.iter().find(|t| t.id == tab_id)
     }
 
-    pub(crate) fn get_tab_mut(&mut self, tab_id: TabId) -> Option<&mut UiTab> {
+    pub(crate) fn get_tab_mut(&mut self, tab_id: TabId) -> Option<&mut Tab> {
         self.tabs.iter_mut().find(|t| t.id == tab_id)
     }
 
@@ -45,14 +45,14 @@ impl TabManager {
         self.next_tab_id
     }
 
-    pub(crate) fn add_tab(&mut self, tab: UiTab) {
+    pub(crate) fn add_tab(&mut self, tab: Tab) {
         self.tabs.push(tab);
         self.next_tab_id += 1;
     }
 
     pub(crate) fn change_active_tab(&mut self, tab_id: TabId) -> Result<(), TabError> {
         if !self.tabs.iter().any(|t| t.id == tab_id) {
-            return Err(TabError::TabNotFound(tab_id.0));
+            return Err(TabError::TabNotFound(*tab_id));
         }
 
         self.active_tab = tab_id;
@@ -74,15 +74,15 @@ impl TabManager {
             self.tabs.remove(pos);
             Ok(())
         } else {
-            Err(TabError::TabNotFound(tab_id.0))
+            Err(TabError::TabNotFound(*tab_id))
         }
     }
 
-    pub(crate) fn tabs(&self) -> &[UiTab] {
+    pub(crate) fn tabs(&self) -> &[Tab] {
         &self.tabs
     }
 
-    pub(crate) fn tabs_mut(&mut self) -> &mut [UiTab] {
+    pub(crate) fn tabs_mut(&mut self) -> &mut [Tab] {
         &mut self.tabs
     }
 }

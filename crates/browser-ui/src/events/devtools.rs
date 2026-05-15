@@ -2,13 +2,9 @@ use iced::{Size, Task, window::Id};
 
 use crate::{
     core::Application,
-    events::{
-        Event, EventHandler,
-        devtools::window::{on_resized, on_scrolled},
-    },
+    events::{Event, EventHandler},
+    windows::devtools::window::DevtoolsWindow,
 };
-
-mod window;
 
 /// Represents the different types of Devtool-related events that can occur in the application.
 ///
@@ -25,8 +21,8 @@ pub enum DevtoolEvent {
 impl EventHandler<DevtoolEvent> for Application {
     fn handle(&mut self, event: DevtoolEvent) -> Task<Event> {
         match event {
-            DevtoolEvent::Scroll(window_id, x, y) => on_scrolled(self, window_id, x, y),
-            DevtoolEvent::Resize(window_id, new_viewport) => on_resized(self, window_id, new_viewport),
+            DevtoolEvent::Scroll(window_id, x, y) => DevtoolsWindow::on_scrolled(self, window_id, x, y),
+            DevtoolEvent::Resize(window_id, new_viewport) => DevtoolsWindow::on_resized(self, window_id, new_viewport),
         }
     }
 }

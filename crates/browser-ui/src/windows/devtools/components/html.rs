@@ -1,25 +1,23 @@
-use std::str::FromStr;
-
 use iced::{
-    Background, Color, Length,
+    Length,
     widget::{Shader, container, shader},
 };
 use layout::{LayoutTree, Rect};
 
 use crate::{
-    core::{Application, PageContext, ScrollOffset},
+    core::{Application, DevtoolsContext, ScrollOffset},
     events::Event,
     renderer::{program::HtmlRenderer, viewport::collect_render_data_from_layout},
 };
 
-pub struct BrowserHtml<'renderer> {
+pub struct DevtoolsHtml<'renderer> {
     renderer: HtmlRenderer<'renderer>,
     layout_tree: &'renderer LayoutTree,
     initial_bounds: Rect,
     scroll_offset: ScrollOffset,
 }
 
-impl<'renderer> BrowserHtml<'renderer> {
+impl<'renderer> DevtoolsHtml<'renderer> {
     pub const fn new(
         renderer: HtmlRenderer<'renderer>,
         layout_tree: &'renderer LayoutTree,
@@ -34,14 +32,16 @@ impl<'renderer> BrowserHtml<'renderer> {
         }
     }
 
-    pub fn render(
+    pub fn render<'app>(
         mut self,
-        app: &'renderer Application,
-        page_ctx: &PageContext,
-    ) -> container::Container<'renderer, Event> {
-        let image_ctx = page_ctx.image_context();
+        _app: &'app Application,
+        devtools_ctx: &DevtoolsContext,
+    ) -> container::Container<'app, Event>
+    where
+        'renderer: 'app,
+    {
+        let image_ctx = devtools_ctx.image_context();
         let image_ctx = image_ctx.lock().unwrap();
-
         collect_render_data_from_layout(
             &image_ctx,
             &mut self.renderer,
@@ -54,20 +54,6 @@ impl<'renderer> BrowserHtml<'renderer> {
             .width(Length::Fill)
             .height(Length::Fill);
 
-        container(shader)
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .style(move |_| {
-                let background_color = if app.config.args().preferences.force_dark {
-                    Color::from_str(app.config.preferences().theme().colors.background.as_str()).unwrap()
-                } else {
-                    Color::from_rgb8(255, 255, 255)
-                };
-
-                container::Style {
-                    background: Some(Background::Color(background_color)),
-                    ..Default::default()
-                }
-            })
+        container(shader).width(Length::Fill).height(Length::Fill)
     }
 }

@@ -10,7 +10,7 @@ pub fn cmd_dom(engine: &HeadlessEngine, selector: &str) -> Result<(), String> {
         return Err("No page loaded. Please navigate to a URL first.".to_string());
     };
 
-    let document = page.document();
+    let document = page.dom();
 
     let component_values: Vec<ComponentValue> = CssTokenizer::new(selector, false)
         .map(ComponentValue::Token)

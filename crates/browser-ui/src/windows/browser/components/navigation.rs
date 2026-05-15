@@ -12,8 +12,8 @@ use io::{
 };
 
 use crate::{
-    core::UiTab,
-    events::{Event, browser::BrowserEvent},
+    core::Tab,
+    events::{BrowserEvent, Event},
 };
 
 pub struct BackButton;
@@ -22,7 +22,7 @@ impl BackButton {
     pub fn render<'app>(
         window_id: Id,
         theme: &'app browser_config::Theme,
-        current_tab: Option<&'app UiTab>,
+        current_tab: Option<&'app Tab>,
     ) -> Button<'app, Event> {
         let left_chevron_icon = Resource::load_embedded(LEFT_CHEVRON_ICON);
 
@@ -62,7 +62,7 @@ impl ForwardButton {
     pub fn render<'app>(
         window_id: Id,
         theme: &'app browser_config::Theme,
-        current_tab: Option<&'app UiTab>,
+        current_tab: Option<&'app Tab>,
     ) -> Button<'app, Event> {
         let right_chevron_icon = Resource::load_embedded(RIGHT_CHEVRON_ICON);
 

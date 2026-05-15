@@ -21,7 +21,7 @@ use tokio::task::JoinHandle;
 use tracing::{Instrument, debug, warn};
 use url::Url;
 
-use crate::context::{collector::TabCollector, page::Page};
+use crate::context::{collector::TabCollector, page::Document};
 
 /// A list of allowed "about:" URLs that the browser can load.
 /// This is a security measure to prevent loading potentially harmful or
@@ -36,8 +36,8 @@ impl Browser {
         &self,
         url: &str,
         mut stylesheets: Vec<CSSStyleSheet>,
-    ) -> Result<(Page, PageMetadata), NavigationError> {
-        let page = Page::blank();
+    ) -> Result<(Document, PageMetadata), NavigationError> {
+        let page = Document::blank();
 
         let client = self.http_client();
         let headers = Arc::new(self.headers().clone());

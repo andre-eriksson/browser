@@ -4,23 +4,11 @@ use layout::{LayoutImage, LayoutTree};
 use tracing::error;
 
 use crate::{
-    core::{Application, TabId},
+    core::{Application, Tab, TabId},
     errors::BrowserError,
-    events::{
-        Event, EventHandler,
-        browser::{
-            navigate::{navigate_back, navigate_forward, refresh_page},
-            post::{on_image_decoded, on_relayout_complete},
-            tab::{change_active_tab, close_tab, create_new_tab},
-            window::{on_resized, on_scrolled, on_url_change},
-        },
-    },
+    events::{Event, EventHandler},
+    windows::browser::window::BrowserWindow,
 };
-
-mod navigate;
-mod post;
-mod tab;
-mod window;
 
 /// Represents the different types of Browser-related events that can occur in the application.
 ///
@@ -78,17 +66,17 @@ pub enum BrowserEvent {
 impl EventHandler<BrowserEvent> for Application {
     fn handle(&mut self, event: BrowserEvent) -> Task<Event> {
         match event {
-            BrowserEvent::NewTab(window_id) => create_new_tab(self, window_id),
-            BrowserEvent::CloseTab(window_id, tab_id) => close_tab(self, window_id, tab_id),
-            BrowserEvent::ChangeActiveTab(window_id, tab_id) => change_active_tab(self, window_id, tab_id),
-            BrowserEvent::NavigateBack(window_id) => navigate_back(self, window_id),
-            BrowserEvent::NavigateForward(window_id) => navigate_forward(self, window_id),
-            BrowserEvent::Refresh(window_id) => refresh_page(self, window_id),
+            BrowserEvent::NewTab(window_id) => Tab::create_new_tab(self, window_id),
+            BrowserEvent::CloseTab(window_id, tab_id) => Tab::close_tab(self, window_id, tab_id),
+            BrowserEvent::ChangeActiveTab(window_id, tab_id) => Tab::change_active_tab(self, window_id, tab_id),
 
-            BrowserEvent::ChangeURL(window_id, url) => on_url_change(self, window_id, url),
+            BrowserEvent::NavigateBack(window_id) => Tab::navigate_back(self, window_id),
+            BrowserEvent::NavigateForward(window_id) => Tab::navigate_forward(self, window_id),
+            BrowserEvent::Refresh(window_id) => Tab::refresh_page(self, window_id),
 
-            BrowserEvent::Scroll(window_id, x, y) => on_scrolled(self, window_id, x, y),
-            BrowserEvent::Resize(window_id, new_viewport) => on_resized(self, window_id, new_viewport),
+            BrowserEvent::ChangeURL(window_id, url) => BrowserWindow::on_url_change(self, window_id, url),
+            BrowserEvent::Scroll(window_id, x, y) => BrowserWindow::on_scrolled(self, window_id, x, y),
+            BrowserEvent::Resize(window_id, new_viewport) => BrowserWindow::on_resized(self, window_id, new_viewport),
 
             BrowserEvent::ImageDecoded {
                 window_id,
@@ -96,9 +84,10 @@ impl EventHandler<BrowserEvent> for Application {
                 node_ids,
                 url,
                 image_data,
-            } => on_image_decoded(self, window_id, tab_id, node_ids, url, image_data),
+            } => Tab::on_image_decoded(self, window_id, tab_id, node_ids, url, image_data),
+
             BrowserEvent::RelayoutComplete(window_id, tab_id, generation, layout_tree) => {
-                on_relayout_complete(self, window_id, tab_id, generation, layout_tree)
+                Tab::on_relayout(self, window_id, tab_id, generation, layout_tree)
             }
             BrowserEvent::Error(error) => {
                 error!(%error, "Browser error occurred");

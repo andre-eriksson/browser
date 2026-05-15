@@ -7,7 +7,7 @@ use html_dom::{DocumentRoot, NodeId};
 use io::DocumentPolicy;
 use url::Url;
 
-use crate::context::page::Page;
+use crate::context::page::Document;
 
 #[async_trait]
 pub trait Commandable {
@@ -26,10 +26,10 @@ pub enum NavigationType {
 #[derive(Debug, Clone)]
 pub enum EngineResponse {
     /// The `DevTools` page for a tab is ready.
-    DevtoolsPageReady(Page),
+    DevtoolsPageReady(Document),
 
     /// Navigation succeeded.
-    NavigateSuccess(Page, PageMetadata, NavigationType),
+    NavigateSuccess(Document, PageMetadata, NavigationType),
 
     /// Navigation failed with a network error.
     NavigateError(NavigationError),

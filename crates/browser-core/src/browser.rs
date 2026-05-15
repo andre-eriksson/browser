@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{Page, commands::parse_devtools_html, database::Databases, errors::CoreError};
+use crate::{Document, commands::parse_devtools_html, database::Databases, errors::CoreError};
 use async_trait::async_trait;
 use browser_config::BrowserConfig;
 use cookies::CookieJar;
@@ -155,7 +155,7 @@ impl Commandable for Browser {
                 let stylesheets = vec![default_css, devtools_css];
                 let dom = parse_devtools_html(&document).map_err(|e| CoreError::DevtoolsGeneration(e.to_string()))?;
 
-                let devtools_page = Page::new(dom, stylesheets);
+                let devtools_page = Document::new(dom, stylesheets);
 
                 Ok(EngineResponse::DevtoolsPageReady(devtools_page))
             }

@@ -10,7 +10,7 @@ pub fn cmd_node_id(engine: &HeadlessEngine, id: usize) -> Result<(), String> {
         return Err("No page loaded. Please navigate to a URL first.".to_string());
     };
 
-    let document = page.document();
+    let document = page.dom();
     let node = document
         .get_node(&id.into())
         .ok_or_else(|| format!("Node {id} not found in DOM"))?;
@@ -43,7 +43,7 @@ pub fn cmd_node_dom(engine: &HeadlessEngine, id: usize, max_depth: Option<usize>
         return Err("No page loaded. Please navigate to a URL first.".to_string());
     };
 
-    let document = page.document();
+    let document = page.dom();
     document
         .get_node(&id.into())
         .ok_or_else(|| format!("Node {id} not found in DOM"))?;
@@ -103,7 +103,7 @@ pub fn cmd_node_children(engine: &HeadlessEngine, id: usize, recursive: bool) ->
         return Err("No page loaded. Please navigate to a URL first.".to_string());
     };
 
-    let document = page.document();
+    let document = page.dom();
     let node = document
         .get_node(&id.into())
         .ok_or_else(|| format!("Node {id} not found in DOM"))?;

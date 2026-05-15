@@ -1,45 +1,19 @@
-use std::sync::{Arc, Mutex};
-
 use iced::{
     Length, Renderer, Size, Theme,
     widget::{container, text},
     window::{self, Id, Position, Settings, settings::PlatformSpecific},
 };
 use io::{Resource, embeded::DEVTOOLS_ICON};
-use layout::{ImageContext, Rect};
+use layout::Rect;
 use manifest::{DEVTOOLS_ID, DEVTOOLS_NAME};
 
 use crate::{
-    core::{Application, ApplicationWindow, UiDevtools, WindowType},
-    events::{Event, devtools::DevtoolEvent},
+    core::{Application, ApplicationWindow, WindowType},
+    events::{DevtoolEvent, Event},
     renderer::program::HtmlRenderer,
     util::image::load_icon,
-    views::devtools::components::html::DevtoolsHtml,
+    windows::devtools::components::html::DevtoolsHtml,
 };
-
-#[derive(Debug, Clone)]
-pub struct DevtoolsContext {
-    pub viewport: Size,
-    pub page: Option<UiDevtools>,
-
-    image_ctx: Arc<Mutex<ImageContext>>,
-}
-
-impl DevtoolsContext {
-    pub fn image_context(&self) -> Arc<Mutex<ImageContext>> {
-        Arc::clone(&self.image_ctx)
-    }
-}
-
-impl Default for DevtoolsContext {
-    fn default() -> Self {
-        Self {
-            viewport: DevtoolsWindow::DEFAULT_VIEWPORT_SIZE,
-            page: None,
-            image_ctx: Arc::new(Mutex::new(ImageContext::new())),
-        }
-    }
-}
 
 /// `DevtoolsWindow` is a window for displaying developer tools in the application.
 #[derive(Debug)]
@@ -103,7 +77,7 @@ impl ApplicationWindow for DevtoolsWindow {
 
         let renderer = HtmlRenderer::new(
             self.id,
-            devtools_page.document(),
+            devtools_page.dom(),
             devtools_page.layout_tree(),
             devtools_page.scroll_offset,
             WindowType::Devtools,

@@ -6,9 +6,6 @@ mod core;
 /// UI event definitions.
 mod events;
 
-/// UI module manager.
-mod manager;
-
 /// The runtime environment for the UI.
 mod runtime;
 
@@ -16,7 +13,7 @@ mod runtime;
 mod util;
 
 /// UI views and components.
-mod views;
+mod windows;
 
 mod renderer;
 

@@ -12,7 +12,7 @@ use renderer::{ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo};
 
 use crate::{
     core::{ScrollOffset, WindowType},
-    events::{Event, browser::BrowserEvent, devtools::DevtoolEvent, kernel::EngineRequest},
+    events::{BrowserEvent, DevtoolEvent, EngineRequest, Event},
     renderer::primitives::HtmlPrimitive,
 };
 

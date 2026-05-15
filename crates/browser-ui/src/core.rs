@@ -9,6 +9,8 @@ mod tabs;
 /// Application window representation and types.
 mod window;
 
+mod handler;
+
 pub use app::Application;
-pub use tabs::{Devtools, PageContext, ScrollOffset, TabId, UiDevtools, UiTab, manager::TabManager};
-pub use window::{ApplicationWindow, WindowType};
+pub use tabs::{Devtools, DevtoolsContext, DevtoolsPage, Page, Tab, TabId, manager::TabManager};
+pub use window::{ApplicationWindow, ScrollOffset, WindowController, WindowType};
