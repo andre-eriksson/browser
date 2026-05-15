@@ -298,6 +298,21 @@ impl CalcProduct {
                     (CalcKind::Percentage(p1), CalcKind::Percentage(p2)) => {
                         Ok(CalcKind::Percentage(Percentage::new(p1.as_fraction() * p2.as_fraction())))
                     }
+                    (CalcKind::Length(l), CalcKind::Number(n)) | (CalcKind::Number(n), CalcKind::Length(l)) => {
+                        Ok(CalcKind::Length(Length::new(l.value() * n, l.unit())))
+                    }
+                    (CalcKind::Angle(a), CalcKind::Number(n)) | (CalcKind::Number(n), CalcKind::Angle(a)) => {
+                        Ok(CalcKind::Angle(Angle::new(a.value() * n, a.unit())))
+                    }
+                    (CalcKind::Time(t), CalcKind::Number(n)) | (CalcKind::Number(n), CalcKind::Time(t)) => {
+                        Ok(CalcKind::Time(Time::new(t.value() * n, t.unit())))
+                    }
+                    (CalcKind::Frequency(f), CalcKind::Number(n)) | (CalcKind::Number(n), CalcKind::Frequency(f)) => {
+                        Ok(CalcKind::Frequency(Frequency::new(f.value() * n, f.unit())))
+                    }
+                    (CalcKind::Resolution(r), CalcKind::Number(n)) | (CalcKind::Number(n), CalcKind::Resolution(r)) => {
+                        Ok(CalcKind::Resolution(Resolution::new(r.value() * n, r.unit())))
+                    }
                     _ => Err(CssValueError::InvalidValue(format!(
                         "At least one side of a multiplication must be a number or percentage, but got {left_kind:?} * {right_kind:?}"
                     ))),
@@ -315,18 +330,46 @@ impl CalcProduct {
                             Ok(CalcKind::Number(l / r))
                         }
                     }
-                    (CalcKind::Number(n), CalcKind::Percentage(p)) => {
-                        if p.as_fraction() == 0.0 {
-                            Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
-                        } else {
-                            Ok(CalcKind::Percentage(Percentage::new(n / p.as_fraction())))
-                        }
-                    }
                     (CalcKind::Percentage(p), CalcKind::Number(n)) => {
                         if n == 0.0 {
                             Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
                         } else {
                             Ok(CalcKind::Percentage(Percentage::new(p.as_fraction() / n)))
+                        }
+                    }
+                    (CalcKind::Length(l), CalcKind::Number(n)) => {
+                        if n == 0.0 {
+                            Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
+                        } else {
+                            Ok(CalcKind::Length(Length::new(l.value() / n, l.unit())))
+                        }
+                    }
+                    (CalcKind::Angle(a), CalcKind::Number(n)) => {
+                        if n == 0.0 {
+                            Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
+                        } else {
+                            Ok(CalcKind::Angle(Angle::new(a.value() / n, a.unit())))
+                        }
+                    }
+                    (CalcKind::Time(t), CalcKind::Number(n)) => {
+                        if n == 0.0 {
+                            Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
+                        } else {
+                            Ok(CalcKind::Time(Time::new(t.value() / n, t.unit())))
+                        }
+                    }
+                    (CalcKind::Frequency(f), CalcKind::Number(n)) => {
+                        if n == 0.0 {
+                            Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
+                        } else {
+                            Ok(CalcKind::Frequency(Frequency::new(f.value() / n, f.unit())))
+                        }
+                    }
+                    (CalcKind::Resolution(r), CalcKind::Number(n)) => {
+                        if n == 0.0 {
+                            Err(CssValueError::InvalidValue("Division by zero in calc()".into()))
+                        } else {
+                            Ok(CalcKind::Resolution(Resolution::new(r.value() / n, r.unit())))
                         }
                     }
                     _ => Err(CssValueError::InvalidValue(format!(
@@ -409,24 +452,118 @@ impl CalcSum {
                 let left_kind = l.kind()?;
                 let right_kind = r.kind()?;
 
-                if left_kind == right_kind {
-                    Ok(left_kind)
-                } else {
-                    Err(CssValueError::InvalidValue(format!(
-                        "Cannot add or subtract incompatible types in calc(): {left_kind:?} + {right_kind:?}"
-                    )))
+                match (left_kind, right_kind) {
+                    (CalcKind::Number(l), CalcKind::Number(r)) => Ok(CalcKind::Number(l + r)),
+                    (CalcKind::Percentage(p1), CalcKind::Percentage(p2)) => {
+                        Ok(CalcKind::Percentage(Percentage::new(p1.as_fraction() + p2.as_fraction())))
+                    }
+                    (CalcKind::Length(l), CalcKind::Length(r)) => {
+                        if l.unit() != r.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add lengths with different units in calc(): {l:?} + {r:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Length(Length::new(l.value() + r.value(), l.unit())))
+                        }
+                    }
+                    (CalcKind::Angle(a), CalcKind::Angle(b)) => {
+                        if a.unit() != b.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add angles with different units in calc(): {a:?} + {b:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Angle(Angle::new(a.value() + b.value(), a.unit())))
+                        }
+                    }
+                    (CalcKind::Time(t1), CalcKind::Time(t2)) => {
+                        if t1.unit() != t2.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add times with different units in calc(): {t1:?} + {t2:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Time(Time::new(t1.value() + t2.value(), t1.unit())))
+                        }
+                    }
+                    (CalcKind::Frequency(f1), CalcKind::Frequency(f2)) => {
+                        if f1.unit() != f2.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add frequencies with different units in calc(): {f1:?} + {f2:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Frequency(Frequency::new(f1.value() + f2.value(), f1.unit())))
+                        }
+                    }
+                    (CalcKind::Resolution(r1), CalcKind::Resolution(r2)) => {
+                        if r1.unit() != r2.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add resolutions with different units in calc(): {r1:?} + {r2:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Resolution(Resolution::new(r1.value() + r2.value(), r1.unit())))
+                        }
+                    }
+                    _ => Err(CssValueError::InvalidValue(format!(
+                        "Cannot add incompatible types in calc(): {left_kind:?} + {right_kind:?}"
+                    ))),
                 }
             }
             Self::Subtract(l, r) => {
                 let left_kind = l.kind()?;
                 let right_kind = r.kind()?;
 
-                if left_kind == right_kind {
-                    Ok(left_kind)
-                } else {
-                    Err(CssValueError::InvalidValue(format!(
-                        "Cannot add or subtract incompatible types in calc(): {left_kind:?} - {right_kind:?}"
-                    )))
+                match (left_kind, right_kind) {
+                    (CalcKind::Number(l), CalcKind::Number(r)) => Ok(CalcKind::Number(l + r)),
+                    (CalcKind::Percentage(p1), CalcKind::Percentage(p2)) => {
+                        Ok(CalcKind::Percentage(Percentage::new(p1.as_fraction() + p2.as_fraction())))
+                    }
+                    (CalcKind::Length(l), CalcKind::Length(r)) => {
+                        if l.unit() != r.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add lengths with different units in calc(): {l:?} - {r:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Length(Length::new(l.value() - r.value(), l.unit())))
+                        }
+                    }
+                    (CalcKind::Angle(a), CalcKind::Angle(b)) => {
+                        if a.unit() != b.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add angles with different units in calc(): {a:?} - {b:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Angle(Angle::new(a.value() - b.value(), a.unit())))
+                        }
+                    }
+                    (CalcKind::Time(t1), CalcKind::Time(t2)) => {
+                        if t1.unit() != t2.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add times with different units in calc(): {t1:?} - {t2:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Time(Time::new(t1.value() - t2.value(), t1.unit())))
+                        }
+                    }
+                    (CalcKind::Frequency(f1), CalcKind::Frequency(f2)) => {
+                        if f1.unit() != f2.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add frequencies with different units in calc(): {f1:?} - {f2:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Frequency(Frequency::new(f1.value() - f2.value(), f1.unit())))
+                        }
+                    }
+                    (CalcKind::Resolution(r1), CalcKind::Resolution(r2)) => {
+                        if r1.unit() != r2.unit() {
+                            Err(CssValueError::InvalidValue(format!(
+                                "Cannot add resolutions with different units in calc(): {r1:?} - {r2:?}"
+                            )))
+                        } else {
+                            Ok(CalcKind::Resolution(Resolution::new(r1.value() - r2.value(), r1.unit())))
+                        }
+                    }
+                    _ => Err(CssValueError::InvalidValue(format!(
+                        "Cannot add incompatible types in calc(): {left_kind:?} - {right_kind:?}"
+                    ))),
                 }
             }
         }

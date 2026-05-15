@@ -291,6 +291,16 @@ impl Angle {
         Self { value, unit }
     }
 
+    /// Returns the raw numeric value of the angle, without converting it to a specific unit.
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+
+    /// Returns the unit of the angle, which can be degrees, radians, gradians, or turns.
+    pub fn unit(&self) -> AngleUnit {
+        self.unit
+    }
+
     /// A shorthand constructor for creating an Angle with the degrees unit, for convenience.
     #[must_use]
     pub const fn deg(value: f64) -> Self {
@@ -441,6 +451,16 @@ impl Time {
         Self { value, unit }
     }
 
+    /// Returns the raw numeric value of the time, without converting it to a specific unit.
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+
+    /// Returns the unit of the time, which can be seconds or milliseconds.
+    pub fn unit(&self) -> TimeUnit {
+        self.unit
+    }
+
     /// A shorthand constructor for creating a Time with the seconds unit, for convenience.
     #[must_use]
     pub const fn s(value: f64) -> Self {
@@ -531,6 +551,16 @@ impl Frequency {
     #[must_use]
     pub const fn new(value: f64, unit: FrequencyUnit) -> Self {
         Self { value, unit }
+    }
+
+    /// Returns the raw numeric value of the frequency, without converting it to a specific unit.
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+
+    /// Returns the unit of the frequency, which can be hertz or kilohertz.
+    pub fn unit(&self) -> FrequencyUnit {
+        self.unit
     }
 
     /// A shorthand constructor for creating a Frequency with the hertz unit, for convenience.
@@ -626,6 +656,16 @@ impl Resolution {
     #[must_use]
     pub const fn new(value: f64, unit: ResolutionUnit) -> Self {
         Self { value, unit }
+    }
+
+    /// Returns the raw numeric value of the resolution, without converting it to a specific unit.
+    pub fn value(&self) -> f64 {
+        self.value
+    }
+
+    /// Returns the unit of the resolution, which can be dots per inch, dots per centimeter, or dots per pixel.
+    pub fn unit(&self) -> ResolutionUnit {
+        self.unit
     }
 
     /// A shorthand constructor for creating a Resolution with the dots per inch unit, for convenience.
