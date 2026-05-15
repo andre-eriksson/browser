@@ -14,7 +14,7 @@ pub struct BuildResult<M> {
     pub dom_tree: DocumentRoot,
 
     /// The metadata collected during parsing, which is of type `M`.
-    pub metadata: M,
+    pub metadata: Option<M>,
 }
 
 /// A builder for constructing a DOM tree from HTML tokens.
@@ -23,7 +23,7 @@ pub struct BuildResult<M> {
 /// * `C` - The type of the collector used to gather metadata during parsing, which must implement the `Collector` trait.
 pub struct DomTreeBuilder<C: Collector> {
     /// The collector instance used to gather metadata during parsing.
-    pub collector: C,
+    pub collector: Option<C>,
 
     /// The root of the DOM tree being constructed.
     dom_tree: DocumentRoot,
@@ -42,7 +42,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// A new instance of `DomTreeBuilder` initialized with an empty DOM tree and no open elements.
     pub fn new(collector: Option<C>) -> Self {
         Self {
-            collector: collector.unwrap_or_default(),
+            collector,
             dom_tree: DocumentRoot::new(),
             open_elements: Vec::with_capacity(16),
         }
@@ -55,7 +55,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     pub fn finalize(self) -> BuildResult<C> {
         BuildResult {
             dom_tree: self.dom_tree,
-            metadata: self.collector.into_result(),
+            metadata: self.collector.map(|collector| collector.into_result()),
         }
     }
 
@@ -148,12 +148,14 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
 
         let new_id = self.insert_node(&node_data);
 
-        self.collector.collect(&TagInfo {
-            tag: &tag,
-            attributes: &node_data.as_element().unwrap().attributes,
-            node_id: new_id,
-            data: None,
-        });
+        if let Some(collector) = &mut self.collector {
+            collector.collect(&TagInfo {
+                tag: &tag,
+                attributes: &node_data.as_element().unwrap().attributes,
+                node_id: new_id,
+                data: None,
+            });
+        }
 
         if !tag.is_void_element() {
             self.open_elements.push(new_id);
@@ -200,12 +202,14 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
                 let text_data = NodeData::Text(text_content.trim().to_string());
                 let new_id = self.insert_node(&text_data);
 
-                self.collector.collect(&TagInfo {
-                    tag,
-                    attributes,
-                    node_id: new_id,
-                    data: text_data.as_text(),
-                });
+                if let Some(collector) = &mut self.collector {
+                    collector.collect(&TagInfo {
+                        tag,
+                        attributes,
+                        node_id: new_id,
+                        data: text_data.as_text(),
+                    });
+                }
             }
         }
     }

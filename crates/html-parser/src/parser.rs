@@ -41,18 +41,25 @@ pub struct HtmlStreamParser<R: BufRead, C: Collector + Default> {
 }
 
 impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
-    pub fn new(reader: R, buffer_size: Option<usize>, collector: Option<C>) -> Self {
-        let buffer_size = buffer_size.unwrap_or(1024 * 8);
+    /// The default buffer size for reading from the input stream and accumulating HTML content, set to 8 KB.
+    const DEFAULT_BUFFER_SIZE: usize = 1024 * 8;
+
+    pub fn new(reader: R) -> Self {
         Self {
             reader,
-            buffer: String::with_capacity(buffer_size),
+            buffer: String::with_capacity(Self::DEFAULT_BUFFER_SIZE),
             byte_buffer: Vec::new(),
             tokenizer_state: TokenizerState::default(),
-            builder: Some(DomTreeBuilder::new(collector)),
+            builder: Some(DomTreeBuilder::new(None)),
             state: ParserState::default(),
             previous_token_state: TokenState::Data,
-            read_buffer: vec![0u8; buffer_size],
+            read_buffer: vec![0u8; Self::DEFAULT_BUFFER_SIZE],
         }
+    }
+
+    pub fn with_collector(mut self, collector: C) -> Self {
+        self.builder = Some(DomTreeBuilder::new(Some(collector)));
+        self
     }
 
     /// Processes the next chunk of HTML content from the input stream.
@@ -390,6 +397,6 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
 
 impl<R: BufRead> HtmlStreamParser<R, DefaultCollector> {
     pub fn simple(reader: R) -> Self {
-        Self::new(reader, None, None)
+        Self::new(reader)
     }
 }

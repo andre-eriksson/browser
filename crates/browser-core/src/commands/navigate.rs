@@ -59,7 +59,7 @@ impl Browser {
         let mut favicon = Favicon::default();
         let mut style_handles: Vec<JoinHandle<Option<CSSStyleSheet>>> = Vec::new();
         let mut favicon_handle: Option<JoinHandle<Option<Vec<u8>>>> = None;
-        let mut parser = HtmlStreamParser::new(decoded.as_slice(), None, Some(TabCollector::default()));
+        let mut parser = HtmlStreamParser::new(decoded.as_slice()).with_collector(TabCollector::default());
 
         let result = loop {
             let state = parser.step().map_err(|e| NavigationError::Parsing {
@@ -231,10 +231,10 @@ impl Browser {
             }
         }
 
-        let mut metadata = PageMetadata {
+        let result_metadata = result.metadata.unwrap();
+        let mut page_metadata = PageMetadata {
             url: request_url,
-            title: result
-                .metadata
+            title: result_metadata
                 .title
                 .clone()
                 .unwrap_or_else(|| "Untitled".to_string()),
@@ -246,8 +246,7 @@ impl Browser {
             match favicon_handle.await {
                 Ok(Some(favicon_bytes)) => {
                     favicon.data = favicon_bytes;
-
-                    metadata.favicon = Some(favicon);
+                    page_metadata.favicon = Some(favicon);
                 }
                 Ok(None) => {}
                 Err(e) => {
@@ -256,7 +255,7 @@ impl Browser {
             }
         }
 
-        Ok((page.load(result.dom_tree, result.metadata.images, stylesheets), metadata))
+        Ok((page.load(result.dom_tree, result_metadata.images, stylesheets), page_metadata))
     }
 
     /// Resolves the body of the document to be navigated to, handling both "about:" URLs and regular HTTP/HTTPS URLs.
