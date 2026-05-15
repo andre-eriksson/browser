@@ -199,7 +199,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
             if let NodeData::Element(parent_elem) = &parent_node.data {
                 let tag = &parent_elem.tag.clone();
                 let attributes = &parent_elem.attributes.clone();
-                let text_data = NodeData::Text(text_content.trim().to_string());
+                let text_data = NodeData::Text(text_content.to_string());
                 let new_id = self.insert_node(&text_data);
 
                 if let Some(collector) = &mut self.collector {
