@@ -1,11 +1,10 @@
-use browser_config::BrowserConfig;
 use layout::LayoutNode;
 use tracing::info;
 
 use crate::HeadlessEngine;
 
-pub fn cmd_node(engine: &mut HeadlessEngine, config: &BrowserConfig, x: f64, y: f64) -> Result<(), String> {
-    engine.ensure_layout(config)?;
+pub fn cmd_node(engine: &mut HeadlessEngine, x: f64, y: f64) -> Result<(), String> {
+    engine.ensure_layout()?;
 
     let Some(ref layout) = engine.layout_tree else {
         return Err("Layout not available".to_string());
@@ -25,8 +24,8 @@ pub fn cmd_node(engine: &mut HeadlessEngine, config: &BrowserConfig, x: f64, y: 
     Ok(())
 }
 
-pub fn cmd_layout(engine: &mut HeadlessEngine, config: &BrowserConfig) -> Result<(), String> {
-    engine.ensure_layout(config)?;
+pub fn cmd_layout(engine: &mut HeadlessEngine) -> Result<(), String> {
+    engine.ensure_layout()?;
 
     let Some(ref layout) = engine.layout_tree else {
         return Err("Layout not available".to_string());
@@ -40,14 +39,14 @@ pub fn cmd_layout(engine: &mut HeadlessEngine, config: &BrowserConfig) -> Result
     Ok(())
 }
 
-pub fn cmd_resize(engine: &mut HeadlessEngine, config: &BrowserConfig, width: f64, height: f64) -> Result<(), String> {
+pub fn cmd_resize(engine: &mut HeadlessEngine, width: f64, height: f64) -> Result<(), String> {
     if width <= 0.0 || height <= 0.0 {
         return Err("Viewport dimensions must be positive".to_string());
     }
 
     engine.viewport_width = width;
     engine.viewport_height = height;
-    engine.recompute_layout(config);
+    engine.recompute_layout();
     info!("Viewport resized to {}x{}", width, height);
     Ok(())
 }

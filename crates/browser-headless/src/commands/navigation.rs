@@ -1,6 +1,5 @@
 use std::mem::take;
 
-use browser_config::BrowserConfig;
 use browser_core::{Commandable, EngineCommand, EngineResponse, NavigationType};
 use tracing::info;
 
@@ -8,7 +7,6 @@ use crate::HeadlessEngine;
 
 pub async fn cmd_navigate(
     engine: &mut HeadlessEngine,
-    config: &BrowserConfig,
     url: &str,
     navigation_type: NavigationType,
 ) -> Result<(), String> {
@@ -36,7 +34,7 @@ pub async fn cmd_navigate(
 
                 engine.page = Some(page);
                 engine.metadata = Some(metadata);
-                engine.recompute_layout(config);
+                engine.recompute_layout();
                 info!("Navigated to: {}", url);
                 Ok(())
             }
@@ -47,7 +45,7 @@ pub async fn cmd_navigate(
     }
 }
 
-pub async fn cmd_back(engine: &mut HeadlessEngine, config: &BrowserConfig) -> Result<(), String> {
+pub async fn cmd_back(engine: &mut HeadlessEngine) -> Result<(), String> {
     let Some(page) = take(&mut engine.page) else {
         return Err("No current page to navigate back from".to_string());
     };
@@ -60,15 +58,15 @@ pub async fn cmd_back(engine: &mut HeadlessEngine, config: &BrowserConfig) -> Re
         (Some(page), metadata) => {
             engine.page = Some(page);
             engine.metadata = Some(metadata);
-            engine.recompute_layout(config);
+            engine.recompute_layout();
             info!("Navigated back");
             Ok(())
         }
-        (None, metadata) => cmd_navigate(engine, config, metadata.url.as_str(), NavigationType::Back).await,
+        (None, metadata) => cmd_navigate(engine, metadata.url.as_str(), NavigationType::Back).await,
     }
 }
 
-pub async fn cmd_forward(engine: &mut HeadlessEngine, config: &BrowserConfig) -> Result<(), String> {
+pub async fn cmd_forward(engine: &mut HeadlessEngine) -> Result<(), String> {
     let Some(page) = std::mem::take(&mut engine.page) else {
         return Err("No current page to navigate forward from".to_string());
     };
@@ -81,15 +79,15 @@ pub async fn cmd_forward(engine: &mut HeadlessEngine, config: &BrowserConfig) ->
         (Some(page), metadata) => {
             engine.page = Some(page);
             engine.metadata = Some(metadata);
-            engine.recompute_layout(config);
+            engine.recompute_layout();
             info!("Navigated forward");
             Ok(())
         }
-        (None, metadata) => cmd_navigate(engine, config, metadata.url.as_str(), NavigationType::Forward).await,
+        (None, metadata) => cmd_navigate(engine, metadata.url.as_str(), NavigationType::Forward).await,
     }
 }
 
-pub async fn cmd_reload(engine: &mut HeadlessEngine, config: &BrowserConfig) -> Result<(), String> {
+pub async fn cmd_reload(engine: &mut HeadlessEngine) -> Result<(), String> {
     let url = engine
         .metadata
         .as_ref()
@@ -97,5 +95,5 @@ pub async fn cmd_reload(engine: &mut HeadlessEngine, config: &BrowserConfig) -> 
         .ok_or_else(|| "No page to reload".to_string())?
         .clone();
 
-    cmd_navigate(engine, config, url.as_str(), NavigationType::Reload).await
+    cmd_navigate(engine, url.as_str(), NavigationType::Reload).await
 }

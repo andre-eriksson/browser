@@ -45,8 +45,7 @@ impl Application {
             WindowType::Browser => {
                 let (id, task) = self.window_controller.new_window(None, window_type);
 
-                self.browser_windows
-                    .insert(id, BrowserContext::new(self.config));
+                self.browser_windows.insert(id, BrowserContext::new(None));
 
                 task.discard()
             }

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use browser_config::BrowserConfig;
+use browser_preferences::BrowserPreferences;
 use css_cssom::{ComponentValue, Property};
 use css_values::{
     AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent, JustifyItems, JustifySelf,
@@ -121,7 +121,7 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     /// Computes the `ComputedStyle` for a given node in the DOM.
     pub fn from_node(
-        config: &BrowserConfig,
+        preferences: Option<&BrowserPreferences>,
         absolute_ctx: &AbsoluteContext,
         node_id: NodeId,
         dom: &DocumentRoot,
@@ -403,7 +403,7 @@ impl ComputedStyle {
             variables: Arc::clone(&specified_style.variables),
         };
 
-        if config.args().preferences.force_dark {
+        if preferences.map(|p| p.force_dark()).unwrap_or(false) {
             computed.apply_dark_heuristic();
         }
 

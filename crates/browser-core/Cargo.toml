@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+browser-args.workspace = true
 browser-config.workspace = true
 manifest.workspace = true
 cookies.workspace = true

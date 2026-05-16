@@ -31,7 +31,7 @@ impl BrowserHeader {
             .expect("Browser context should exist for the window");
 
         let current_tab = ctx.tab_manager.active_tab();
-        let theme = app.config.preferences().theme();
+        let theme = app.preferences.theme();
 
         let all_tabs = row(ctx
             .tab_manager

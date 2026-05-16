@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
+use browser_preferences::theme::Theme;
 use iced::{
-    Background, Border, Color, Length, Theme,
+    Background, Border, Color, Length,
     alignment::Vertical,
     border::Radius,
     widget::{Button, MouseArea, Row, button, image, mouse_area, svg, text},
@@ -19,7 +20,7 @@ pub struct TabButton;
 impl TabButton {
     pub fn render<'app>(
         window_id: Id,
-        theme: &'app browser_config::Theme,
+        theme: &'app Theme,
         tab: &'app Tab,
         active_tab_id: TabId,
     ) -> MouseArea<'app, Event> {
@@ -64,7 +65,7 @@ impl TabButton {
         mouse_area(
             button(tab_title_row)
                 .on_press(Event::Browser(BrowserEvent::ChangeActiveTab(window_id, tab.id)))
-                .style(move |_theme: &Theme, status| {
+                .style(move |_theme: &iced::Theme, status| {
                     if tab.id == active_tab_id {
                         button::Style {
                             background: Some(Background::Color(Color::from_str(&theme.colors.primary).unwrap())),
@@ -119,7 +120,7 @@ impl TabButton {
 pub struct NewTabButton;
 
 impl NewTabButton {
-    pub fn render(window_id: Id, theme: &browser_config::Theme) -> Button<'_, Event> {
+    pub fn render(window_id: Id, theme: &Theme) -> Button<'_, Event> {
         let plus_icon = Resource::load_embedded(PLUS_ICON);
 
         button(

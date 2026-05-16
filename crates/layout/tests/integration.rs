@@ -8,7 +8,6 @@ mod tests {
     use std::net::Ipv4Addr;
     use url::Url;
 
-    use browser_config::BrowserConfig;
     use browser_preferences::theme::ThemeCategory;
     use browser_ui::load_fallback_fonts;
     use cosmic_text::FontSystem;
@@ -46,7 +45,6 @@ mod tests {
     /// running layout.  This is the building block for the other macros.
     macro_rules! process_html_raw {
         ($path:literal, $user_agent_css:expr) => {{
-            let config = BrowserConfig::default();
             let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
             let html = load_fixture($path);
 
@@ -105,7 +103,7 @@ mod tests {
             };
 
             let document = result.dom_tree;
-            let style_tree = StyleTree::build(&config, &absolute_ctx, &document, &stylesheets);
+            let style_tree = StyleTree::build(None, &absolute_ctx, &document, &stylesheets);
             let font_system = FontSystem::new_with_fonts(load_fallback_fonts());
             let text_context = TextContext::new(font_system);
             (document, style_tree, text_context)

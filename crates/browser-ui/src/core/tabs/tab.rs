@@ -1,7 +1,7 @@
 use std::{fmt::Display, ops::Deref, sync::MutexGuard};
 
-use browser_config::BrowserConfig;
 use browser_core::{Document, History, PageMetadata};
+use browser_preferences::BrowserPreferences;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::Size;
@@ -67,7 +67,7 @@ impl Tab {
         &mut self,
         viewport: Size,
         text_context: &mut MutexGuard<'_, TextContext>,
-        config: &BrowserConfig,
+        preferences: &BrowserPreferences,
     ) {
         let Some(page_ctx) = self.page.as_ref() else {
             return;
@@ -83,13 +83,13 @@ impl Tab {
             root_font_size: 16.0,
             viewport_width: f64::from(viewport.width),
             viewport_height: f64::from(viewport.height),
-            theme_category: config.preferences().theme().category,
+            theme_category: preferences.theme().category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,
         };
 
-        let style_tree = StyleTree::build(config, &absolute_ctx, page.dom(), page.stylesheets());
+        let style_tree = StyleTree::build(Some(preferences), &absolute_ctx, page.dom(), page.stylesheets());
         let layout_tree = {
             let image_ctx = page_ctx.image_context();
             let image_ctx = image_ctx.lock().unwrap();
@@ -112,20 +112,20 @@ impl Tab {
         text_context: &mut MutexGuard<'_, TextContext>,
         document: Document,
         metadata: PageMetadata,
-        config: &BrowserConfig,
+        preferences: &BrowserPreferences,
         scroll_offset: Option<ScrollOffset>,
     ) {
         let absolute_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: f64::from(viewport.width),
             viewport_height: f64::from(viewport.height),
-            theme_category: config.preferences().theme().category,
+            theme_category: preferences.theme().category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
             root_color: Color::BLACK,
         };
 
-        let style_tree = StyleTree::build(config, &absolute_ctx, document.dom(), document.stylesheets());
+        let style_tree = StyleTree::build(Some(preferences), &absolute_ctx, document.dom(), document.stylesheets());
         let image_ctx = ImageContext::new();
         let layout_tree = LayoutEngine::compute_layout(
             document.dom(),

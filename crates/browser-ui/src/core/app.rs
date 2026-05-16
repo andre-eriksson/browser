@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use browser_config::BrowserConfig;
+use browser_args::BrowserArgs;
 use browser_core::Browser;
+use browser_preferences::BrowserPreferences;
 use iced::keyboard::key;
 use iced::theme::{Custom, Palette};
 use iced::widget::text;
@@ -20,32 +21,36 @@ use crate::windows::browser::window::BrowserContext;
 
 /// Represents the main application state, including the current window, tabs, and client.
 pub struct Application {
-    /// The application config.
-    pub config: &'static BrowserConfig,
+    /// The shared browser instance.
+    pub browser: Arc<Browser>,
+
+    /// The browser preferences, loaded from the configuration.
+    pub preferences: Arc<BrowserPreferences>,
 
     /// The browser contexts for each open window, keyed by window ID.
     pub browser_windows: HashMap<Id, BrowserContext>,
 
     /// The window controller managing multiple windows.
     pub window_controller: WindowController,
-
-    /// The shared browser instance.
-    pub browser: Arc<Browser>,
 }
 
 impl Application {
     /// Creates a new instance of the `Application` with an initial window and a default tab.
-    pub fn new(browser: Arc<Browser>, config: &'static BrowserConfig) -> (Self, Task<Event>) {
+    pub fn new(
+        browser: Arc<Browser>,
+        args: Arc<BrowserArgs>,
+        preferences: Arc<BrowserPreferences>,
+    ) -> (Self, Task<Event>) {
         let mut window_controller = WindowController::new();
         let (main_window_id, browser_task) = window_controller.new_window(None, WindowType::Browser);
 
         let tasks = vec![browser_task.discard()];
 
         let app = Self {
-            browser_windows: HashMap::from([(main_window_id, BrowserContext::new(config))]),
-            window_controller,
             browser,
-            config,
+            preferences,
+            browser_windows: HashMap::from([(main_window_id, BrowserContext::new(Some(args)))]),
+            window_controller,
         };
 
         (app, Task::batch(tasks))
@@ -107,7 +112,7 @@ impl Application {
 
     /// Returns the theme for the application window.
     pub fn theme(&self, _window_id: window::Id) -> Theme {
-        let app_theme = self.config.preferences().theme();
+        let app_theme = self.preferences.theme();
 
         macro_rules! color_or_default {
             ($color:ident) => {
@@ -124,7 +129,7 @@ impl Application {
             danger: color_or_default!(danger),
         };
 
-        let custom = Custom::new(format!("usr/{}", self.config.preferences().theme_name()), palette);
+        let custom = Custom::new(format!("usr/{}", self.preferences.theme_name()), palette);
 
         Theme::Custom(Arc::new(custom))
     }

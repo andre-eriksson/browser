@@ -2,6 +2,7 @@ use std::vec;
 
 use crate::{Document, commands::parse_devtools_html, database::Databases, errors::CoreError};
 use async_trait::async_trait;
+use browser_args::BrowserArgs;
 use browser_config::BrowserConfig;
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
@@ -19,11 +20,12 @@ use crate::{
     navigation::ScriptExecutor,
 };
 
+#[derive(Debug)]
 pub struct Browser {
+    config: BrowserConfig,
     databases: Databases,
     default_stylesheet: Option<CSSStyleSheet>,
     http_client: Box<dyn HttpClient>,
-    headers: &'static HeaderMap,
 }
 
 impl Browser {
@@ -32,17 +34,15 @@ impl Browser {
 
     /// Creates a new instance of the `Browser` struct, initializing the HTTP client, cookie jar, and user agent stylesheet.
     ///
-    /// # Arguments
-    /// * `config` - A reference to the browser configuration, which may contain settings for enabling the user agent stylesheet and custom headers.
-    ///
     /// # Panics
     /// * This function will panic if the embedded user agent CSS is not valid UTF-8, which should never happen since it's embedded in the binary.
-    pub fn new(config: &'static BrowserConfig) -> Self {
+    pub fn new(args: &BrowserArgs) -> Self {
+        let config = BrowserConfig::new(args);
         let databases = Databases::init().expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
         let http_client = Box::new(ReqwestClient::new());
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
-        let stylesheet = if config.args().enable_ua_css {
+        let stylesheet = if args.enable_ua_css {
             match Resource::load(CACHE_USER_AGENT, Self::MAX_USER_AGENT_CSS_SIZE) {
                 Ok(data) => {
                     trace!("Loaded user agent stylesheet from cache");
@@ -80,16 +80,20 @@ impl Browser {
         };
 
         Self {
+            config,
             databases,
             default_stylesheet: stylesheet,
             http_client,
-            headers: config.headers(),
         }
     }
 
+    pub fn config(&self) -> &BrowserConfig {
+        &self.config
+    }
+
     #[must_use]
-    pub const fn headers(&self) -> &HeaderMap {
-        self.headers
+    pub fn headers(&self) -> &HeaderMap {
+        self.config.headers()
     }
 
     pub const fn http_client(&self) -> &dyn HttpClient {

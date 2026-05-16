@@ -1,0 +1,9 @@
+[package]
+name = "browser-args"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+clap.workspace = true
+manifest.workspace = true

@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/bootstrap",
+    "crates/browser-args",
     "crates/browser-config",
     "crates/browser-core",
     "crates/browser-headless",
@@ -36,6 +37,7 @@ license = "MIT"
 version = "0.1.0"
 
 [workspace.dependencies]
+browser-args        = { path = "crates/browser-args" }
 browser-config      = { path = "crates/browser-config" }
 browser-core        = { path = "crates/browser-core" }
 browser-headless    = { path = "crates/browser-headless" }

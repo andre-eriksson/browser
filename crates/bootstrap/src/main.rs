@@ -1,6 +1,6 @@
 use std::{str::FromStr, sync::Arc};
 
-use browser_config::BrowserConfig;
+use browser_args::{BrowserArgs, Parser};
 use browser_core::Browser;
 use browser_headless::HeadlessEngine;
 use browser_ui::Ui;
@@ -29,10 +29,10 @@ fn main() {
         .with(fmt::layer().with_file(false).with_line_number(false))
         .init();
 
-    let config = Box::leak(Box::new(BrowserConfig::new()));
-    let browser = Browser::new(config);
+    let args = BrowserArgs::parse();
+    let browser = Browser::new(&args);
 
-    if config.args().headless.enabled {
+    if args.headless.enabled {
         let mut engine = HeadlessEngine::new(browser);
 
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -40,12 +40,11 @@ fn main() {
             .build()
             .expect("Failed to create Tokio runtime");
 
-        return runtime.block_on(engine.run(config));
+        return runtime.block_on(engine.run(args));
     }
 
     let browser = Arc::new(browser);
-
-    let ui = Ui::run(browser, config);
+    let ui = Ui::run(browser, args);
 
     if let Err(error) = ui {
         error!(%error, "Application exited unsuccessfully.");

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use browser_config::BrowserConfig;
+use browser_args::BrowserArgs;
 use iced::{
     Length, Renderer, Size, Subscription, Theme,
     advanced::graphics::text::cosmic_text::FontSystem,
@@ -32,7 +32,7 @@ pub struct BrowserContext {
 impl BrowserContext {
     pub const DEFAULT_URL: &str = "https://www.google.com";
 
-    pub fn new(config: &BrowserConfig) -> Self {
+    pub fn new(args: Option<Arc<BrowserArgs>>) -> Self {
         let mut font_system = FontSystem::new_with_fonts(load_fallback_fonts());
         font_system.db_mut().set_serif_family("Roboto Serif");
         font_system.db_mut().set_sans_serif_family("Open Sans");
@@ -42,10 +42,12 @@ impl BrowserContext {
 
         Self {
             viewport: BrowserWindow::DEFAULT_VIEWPORT_SIZE,
-            current_url: config
-                .args()
-                .url
-                .clone()
+            current_url: args
+                .map(|a| {
+                    a.url
+                        .clone()
+                        .unwrap_or_else(|| Self::DEFAULT_URL.to_string())
+                })
                 .unwrap_or_else(|| Self::DEFAULT_URL.to_string()),
             tab_manager: TabManager::new(),
             text_context,

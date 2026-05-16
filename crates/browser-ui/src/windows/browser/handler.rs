@@ -43,7 +43,7 @@ impl BrowserWindow {
 
             let mut tc = ctx.text_context.lock().unwrap();
 
-            tab.resize_current_page(new_viewport, &mut tc, application.config);
+            tab.resize_current_page(new_viewport, &mut tc, &application.preferences);
         }
 
         Task::none()

@@ -340,7 +340,7 @@ impl Tab {
             ctx.current_url = metadata.url.to_string();
 
             let mut text_context = ctx.text_context.lock().unwrap();
-            tab.resolve_page(viewport, &mut text_context, page, metadata, application.config, None);
+            tab.resolve_page(viewport, &mut text_context, page, metadata, &application.preferences, None);
             drop(text_context);
 
             let page_ctx = tab.page.as_ref().unwrap();

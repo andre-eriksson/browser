@@ -54,8 +54,8 @@ impl<'renderer> BrowserHtml<'renderer> {
             .width(Length::Fill)
             .height(Length::Fill)
             .style(move |_| {
-                let background_color = if app.config.args().preferences.force_dark {
-                    Color::from_str(app.config.preferences().theme().colors.background.as_str()).unwrap()
+                let background_color = if app.preferences.force_dark() {
+                    Color::from_str(app.preferences.theme().colors.background.as_str()).unwrap()
                 } else {
                     Color::from_rgb8(255, 255, 255)
                 };

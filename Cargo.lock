@@ -575,6 +575,7 @@ dependencies = [
 name = "bootstrap"
 version = "0.1.0"
 dependencies = [
+ "browser-args",
  "browser-config",
  "browser-core",
  "browser-headless",
@@ -617,15 +618,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "browser-args"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "manifest",
+]
+
+[[package]]
 name = "browser-config"
 version = "0.1.0"
 dependencies = [
- "browser-preferences",
- "clap",
+ "browser-args",
  "manifest",
  "network",
  "sys-locale",
- "tokio",
  "tracing",
 ]
 
@@ -634,6 +641,7 @@ name = "browser-core"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "browser-args",
  "browser-config",
  "cookies",
  "css-cssom",
@@ -657,6 +665,7 @@ dependencies = [
 name = "browser-headless"
 version = "0.1.0"
 dependencies = [
+ "browser-args",
  "browser-config",
  "browser-core",
  "browser-preferences",
@@ -677,6 +686,7 @@ dependencies = [
 name = "browser-preferences"
 version = "0.1.0"
 dependencies = [
+ "browser-args",
  "clap",
  "io",
  "serde",
@@ -688,6 +698,7 @@ dependencies = [
 name = "browser-ui"
 version = "0.1.0"
 dependencies = [
+ "browser-args",
  "browser-config",
  "browser-core",
  "browser-preferences",

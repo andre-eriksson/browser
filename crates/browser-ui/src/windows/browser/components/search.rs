@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use browser_config::Theme;
+use browser_preferences::theme::Theme;
 use iced::{
     Background, Border, Color,
     border::Radius,

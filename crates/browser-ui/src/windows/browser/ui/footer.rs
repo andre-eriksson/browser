@@ -19,7 +19,7 @@ impl BrowserFooter {
     ///
     /// Contains a button to open the devtools!
     pub fn render(app: &Application, window_id: Id) -> container::Container<'_, Event> {
-        let theme = app.config.preferences().theme();
+        let theme = app.preferences.theme();
 
         let ctx = app
             .browser_windows
@@ -54,11 +54,7 @@ impl BrowserFooter {
                 .on_press(toggle_devtools_event)
                 .padding(10),
         )
-        .style(|_| {
-            container::background(Background::Color(
-                Color::from_str(app.config.preferences().theme().colors.foreground.as_str()).unwrap(),
-            ))
-        })
+        .style(|_| container::background(Background::Color(Color::from_str(theme.colors.foreground.as_str()).unwrap())))
         .padding(10.0)
         .width(Length::Fill)
         .height(Length::Shrink)

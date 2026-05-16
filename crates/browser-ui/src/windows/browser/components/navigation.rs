@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use browser_preferences::theme::Theme;
 use iced::{
     Background, Border, Color, Length,
     border::Radius,
@@ -19,11 +20,7 @@ use crate::{
 pub struct BackButton;
 
 impl BackButton {
-    pub fn render<'app>(
-        window_id: Id,
-        theme: &'app browser_config::Theme,
-        current_tab: Option<&'app Tab>,
-    ) -> Button<'app, Event> {
+    pub fn render<'app>(window_id: Id, theme: &'app Theme, current_tab: Option<&'app Tab>) -> Button<'app, Event> {
         let left_chevron_icon = Resource::load_embedded(LEFT_CHEVRON_ICON);
 
         button(
@@ -59,11 +56,7 @@ impl BackButton {
 pub struct ForwardButton;
 
 impl ForwardButton {
-    pub fn render<'app>(
-        window_id: Id,
-        theme: &'app browser_config::Theme,
-        current_tab: Option<&'app Tab>,
-    ) -> Button<'app, Event> {
+    pub fn render<'app>(window_id: Id, theme: &'app Theme, current_tab: Option<&'app Tab>) -> Button<'app, Event> {
         let right_chevron_icon = Resource::load_embedded(RIGHT_CHEVRON_ICON);
 
         button(
@@ -99,7 +92,7 @@ impl ForwardButton {
 pub struct RefreshButton;
 
 impl RefreshButton {
-    pub fn render(window_id: Id, theme: &browser_config::Theme) -> Button<'_, Event> {
+    pub fn render(window_id: Id, theme: &Theme) -> Button<'_, Event> {
         let refresh_icon = Resource::load_embedded(REFRESH_ICON);
 
         button(

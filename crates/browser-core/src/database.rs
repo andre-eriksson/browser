@@ -4,6 +4,7 @@ use io::{HttpCache, IndexDatabase};
 
 use crate::errors::CoreError;
 
+#[derive(Debug)]
 pub(crate) struct Databases {
     pub cookie_jar: CookieJar,
     pub http_cache: HttpCache,

@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::ops::Index;
 
-use browser_config::BrowserConfig;
+use browser_preferences::BrowserPreferences;
 use css_cssom::CSSStyleSheet;
 use css_values::property::PropertyDescriptor;
 use html_dom::{DocumentRoot, NodeId};
@@ -38,7 +38,7 @@ impl StyleTree {
     /// DOM tree based on the provided stylesheets and the cascade rules, and constructs the corresponding `StyledNode` for each DOM node.
     #[must_use]
     pub fn build(
-        config: &BrowserConfig,
+        preferences: Option<&BrowserPreferences>,
         absolute_ctx: &AbsoluteContext,
         dom: &DocumentRoot,
         stylesheets: &[CSSStyleSheet],
@@ -51,7 +51,7 @@ impl StyleTree {
 
         for node in &dom.nodes {
             let computed_style = ComputedStyle::from_node(
-                config,
+                preferences,
                 absolute_ctx,
                 node.id,
                 dom,

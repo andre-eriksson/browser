@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+browser-args.workspace = true
 browser-config.workspace = true
 browser-core.workspace = true
 browser-preferences.workspace = true

@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+browser-args.workspace = true
 clap.workspace = true
 io.workspace = true
 serde.workspace = true

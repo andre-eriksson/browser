@@ -66,13 +66,14 @@ impl DevtoolsWindow {
                     root_font_size: 16.0,
                     viewport_width: f64::from(new_viewport.width),
                     viewport_height: f64::from(new_viewport.height),
-                    theme_category: application.config.preferences().theme().category,
+                    theme_category: application.preferences.theme().category,
                     document_url: &localhost,
                     root_color: Color::BLACK,
                     root_line_height_multiplier: 1.2,
                 };
-                let style_tree = StyleTree::build(application.config, &abs_ctx, page.dom(), page.stylesheets());
 
+                let style_tree =
+                    StyleTree::build(Some(&application.preferences), &abs_ctx, page.dom(), page.stylesheets());
                 let mut tc = ctx.text_context.lock().unwrap();
                 let img_ctx = ImageContext::new();
                 let layout_tree = LayoutEngine::compute_layout(
@@ -106,13 +107,13 @@ impl DevtoolsWindow {
                 root_font_size: 16.0,
                 viewport_width: f64::from(devtools_ctx.viewport.width),
                 viewport_height: f64::from(devtools_ctx.viewport.height),
-                theme_category: application.config.preferences().theme().category,
+                theme_category: application.preferences.theme().category,
                 document_url: &localhost,
                 root_line_height_multiplier: 1.2,
                 root_color: Color::BLACK,
             };
 
-            let style_tree = StyleTree::build(application.config, &abs_ctx, page.dom(), page.stylesheets());
+            let style_tree = StyleTree::build(Some(&application.preferences), &abs_ctx, page.dom(), page.stylesheets());
             let mut tc = ctx.text_context.lock().unwrap();
             let img_ctx = ImageContext::new();
             let layout_tree = LayoutEngine::compute_layout(

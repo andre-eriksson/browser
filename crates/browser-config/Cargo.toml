@@ -5,10 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-browser-preferences.workspace = true
-clap.workspace = true
+browser-args.workspace = true
 manifest.workspace = true
 network.workspace = true
 sys-locale.workspace = true
-tokio.workspace = true
 tracing.workspace = true

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use browser_args::BrowserArgs;
 use io::{Entry, Resource, files::PREFERENCES};
 use serde::Deserialize;
 use tracing::warn;
@@ -10,10 +11,20 @@ pub mod theme;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct BrowserPreferences {
+    /// A map of available themes, keyed by their name. This field is skipped during serialization and deserialization,
+    /// as themes are loaded separately from the preferences file. The themes are loaded from the user data directory and
+    /// include default themes (light and dark) as fallbacks.
     #[serde(skip)]
     themes: HashMap<String, Theme>,
+
+    /// The name of the active theme, which should correspond to a key in the `themes` map.
     #[serde(default = "BrowserPreferences::default_theme")]
     theme: String,
+
+    /// Whether to force dark mode on **only** HTML content **NOT** the browser UI, this will not affect the theme of the browser,
+    /// This applies a heuristic to text & background colors in HTML and inverts them.
+    #[serde(default)]
+    force_dark: bool,
 }
 
 impl Default for BrowserPreferences {
@@ -21,6 +32,7 @@ impl Default for BrowserPreferences {
         Self {
             themes: Self::load_themes(),
             theme: "light".to_string(),
+            force_dark: false,
         }
     }
 }
@@ -36,14 +48,15 @@ impl BrowserPreferences {
     const MAX_THEME_FILES: Option<usize> = Some(100);
 
     #[must_use]
-    pub fn new(active_theme: String) -> Self {
+    pub fn new(active_theme: String, force_dark: bool) -> Self {
         Self {
             themes: Self::load_themes(),
             theme: active_theme,
+            force_dark,
         }
     }
 
-    pub fn load() -> Self {
+    pub fn load(args: &BrowserArgs) -> Self {
         match Resource::load(PREFERENCES, Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
@@ -66,12 +79,16 @@ impl BrowserPreferences {
                     config.theme = "light".to_string();
                 }
 
+                if args.preferences.force_dark {
+                    config.force_dark = true;
+                }
+
                 config
             }
             Err(error) => {
                 warn!(%error, "Failed to load preferences, using default settings.");
 
-                Self::default()
+                Self::new("light".to_string(), args.preferences.force_dark)
             }
         }
     }
@@ -90,6 +107,10 @@ impl BrowserPreferences {
         self.themes
             .get(&self.theme)
             .expect("Active theme should always be valid, due to loading checks.")
+    }
+
+    pub fn force_dark(&self) -> bool {
+        self.force_dark
     }
 
     fn load_themes() -> HashMap<String, Theme> {
