@@ -58,7 +58,7 @@ impl PositionContext {
         style_tree: &StyleTree,
         image_ctx: &ImageContext,
         text_ctx: &mut TextContext,
-    ) -> Vec<LayoutNode> {
+    ) -> Vec<(LayoutNode, Rect)> {
         self.pending
             .drain(..)
             .filter_map(|pending| {

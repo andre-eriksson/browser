@@ -94,6 +94,14 @@ impl Margin {
     pub fn zero() -> Self {
         Self::default()
     }
+
+    pub fn vertical(&self) -> f64 {
+        self.top.to_px() + self.bottom.to_px()
+    }
+
+    pub fn horizontal(&self) -> f64 {
+        self.left.to_px() + self.right.to_px()
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]

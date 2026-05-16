@@ -153,12 +153,12 @@ impl InlineLayout {
                         LayoutEngine::layout_node(dom_tree, style_tree, node, &mut block_ctx, text_ctx)
                     {
                         if style.width == ComputedSize::Auto {
-                            layout_node.dimensions.width =
-                                InlineLayout::auto_inline_flow_root_width(&layout_node, padding, border)
-                                    .min(layout_node.dimensions.width);
+                            layout_node.0.dimensions.width =
+                                InlineLayout::auto_inline_flow_root_width(&layout_node.0, padding, border)
+                                    .min(layout_node.0.dimensions.width);
                         }
 
-                        let total_width = layout_node.dimensions.width + margin.left.to_px() + margin.right.to_px();
+                        let total_width = layout_node.0.dimensions.width + margin.left.to_px() + margin.right.to_px();
                         let available_line_width = line
                             .line_box
                             .available_width(ctx.float_ctx_ref(), inline_layout_ctx.available_width);
@@ -172,11 +172,11 @@ impl InlineLayout {
                             line.finish_line_with_decorations(&mut inline_layout_ctx, text_ctx, ctx.float_ctx(), None);
                         }
 
-                        let ascent = layout_node.dimensions.height + margin.top.to_px() + margin.bottom.to_px();
+                        let ascent = layout_node.0.dimensions.height + margin.top.to_px() + margin.bottom.to_px();
 
-                        layout_node.margin = margin;
+                        layout_node.0.margin = margin;
 
-                        line.line_box.add(layout_node, ascent, 0.0);
+                        line.line_box.add(layout_node.0, ascent, 0.0);
                     }
                 }
                 InlineItem::Image(img) => {

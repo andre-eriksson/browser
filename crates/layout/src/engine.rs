@@ -92,28 +92,31 @@ impl LayoutEngine {
                 continue;
             };
 
-            let top_margin = node.margin.top.to_px();
-            let bottom_margin = node.margin.bottom.to_px();
+            let top_margin = node.0.margin.top.to_px();
+            let bottom_margin = node.0.margin.bottom.to_px();
 
-            Self::offset_children_y(&mut node.children, top_margin);
+            Self::offset_children_y(&mut node.0.children, top_margin);
             ctx.position_ctx()
                 .offset_positions_since(pos_count_before, top_margin);
 
-            node.dimensions.height += top_margin + bottom_margin;
+            node.0.dimensions.height += top_margin + bottom_margin;
 
-            total_height += node.dimensions.height;
-            max_width = max_width.max(node.dimensions.width);
+            total_height += node.0.dimensions.height;
+            max_width = max_width.max(node.0.dimensions.width);
 
-            root_nodes.push(node);
+            root_nodes.push(node.0);
         }
 
         for mut defered_node in ctx
             .position_ctx()
             .resolve_all(dom_tree, style_tree, image_ctx, text_ctx)
         {
-            Self::offset_children_y(&mut defered_node.children, defered_node.margin.top.to_px());
+            Self::offset_children_y(&mut defered_node.0.children, defered_node.0.margin.top.to_px());
 
-            root_nodes.push(defered_node);
+            total_height = total_height.max(defered_node.1.height);
+            max_width = max_width.max(defered_node.1.width);
+
+            root_nodes.push(defered_node.0);
         }
 
         LayoutTree {
@@ -142,7 +145,7 @@ impl LayoutEngine {
         node_id: &NodeId,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
-    ) -> Option<LayoutNode> {
+    ) -> Option<(LayoutNode, Rect)> {
         let style = &style_tree[node_id];
         let _layout_mode = LayoutMode::new(style)?;
 
@@ -213,12 +216,12 @@ impl LayoutEngine {
             return;
         };
 
-        Self::offset_children_y(&mut new_node.children, new_node.margin.top.to_px());
+        Self::offset_children_y(&mut new_node.0.children, new_node.0.margin.top.to_px());
 
-        let new_height = new_node.dimensions.height;
+        let new_height = new_node.0.dimensions.height;
         let delta = new_height - old_height;
 
-        *layout_tree.node_at_mut(&parent_path).unwrap() = new_node;
+        *layout_tree.node_at_mut(&parent_path).unwrap() = new_node.0;
 
         if delta.abs() < EPSILON {
             return;
@@ -392,11 +395,11 @@ mod tests {
 
         let layout_node = BlockLayout::layout(&NodeId(0), &dom_tree, &style_tree, &mut ctx, &mut text_ctx).unwrap();
 
-        assert_eq!(layout_node.node_id, NodeId(0));
-        assert_eq!(layout_node.dimensions.x, 0.0);
-        assert_eq!(layout_node.dimensions.y, 0.0);
-        assert_eq!(layout_node.dimensions.width, 800.0);
-        assert_eq!(layout_node.dimensions.height, 0.0);
-        assert_eq!(layout_node.children.len(), 0);
+        assert_eq!(layout_node.0.node_id, NodeId(0));
+        assert_eq!(layout_node.0.dimensions.x, 0.0);
+        assert_eq!(layout_node.0.dimensions.y, 0.0);
+        assert_eq!(layout_node.0.dimensions.width, 800.0);
+        assert_eq!(layout_node.0.dimensions.height, 0.0);
+        assert_eq!(layout_node.0.children.len(), 0);
     }
 }

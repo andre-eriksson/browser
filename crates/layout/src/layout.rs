@@ -263,8 +263,17 @@ impl<'layout> LayoutContext<'layout> {
 
     /// Creates a child context with the specified containing block, inheriting
     /// the image and position contexts.
-    pub(crate) fn child_context(&mut self, containing_block: Rect) -> LayoutContext<'_> {
-        LayoutContext::new(containing_block, self.image_ctx, &mut *self.position_ctx)
+    pub(crate) fn child_context(&mut self, containing_block: Rect, deferred: bool) -> LayoutContext<'_> {
+        if deferred {
+            LayoutContext::deferred(
+                containing_block,
+                self.positioned_containing_block,
+                self.image_ctx,
+                self.position_ctx,
+            )
+        } else {
+            LayoutContext::new(containing_block, self.image_ctx, &mut *self.position_ctx)
+        }
     }
 
     /// Returns the containing block rect

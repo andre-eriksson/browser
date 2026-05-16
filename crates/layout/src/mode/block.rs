@@ -93,7 +93,7 @@ impl BlockLayout {
         style_tree: &StyleTree,
         ctx: &mut LayoutContext,
         text_ctx: &mut TextContext,
-    ) -> Option<LayoutNode> {
+    ) -> Option<(LayoutNode, Rect)> {
         let style = &style_tree[node_id];
         let node = &dom_tree[node_id];
         let node_children = &node.children;
@@ -118,14 +118,16 @@ impl BlockLayout {
         let y = Self::calculate_y(style, ctx);
 
         let mut flow = BlockFlow::new(style, container_width);
-        let child_containing_height = Self::calculate_height(style, ctx.containing_block().height);
+        let height = Self::calculate_height(style, ctx.containing_block().height);
+        let mut child_width = 0.0;
+        let mut child_height = 0.0;
 
         let parent_positioned_cb = ctx.positioned_containing_block();
 
         if style.position == Position::Static {
             ctx.set_positioned_containing_block(parent_positioned_cb);
         } else {
-            let rect = Rect::new(x, y, width, child_containing_height + padding.vertical() + border.vertical());
+            let rect = Rect::new(x, y, width, height + padding.vertical() + border.vertical());
 
             ctx.position_ctx().push_position(rect);
             ctx.set_positioned_containing_block(rect);
@@ -150,7 +152,7 @@ impl BlockLayout {
                     x + padding.left + border.left,
                     y + padding.top + border.top + flow.current_y,
                     width,
-                    child_containing_height - flow.current_y,
+                    height - flow.current_y,
                 );
                 let (inline_layout_nodes, inline_result) = LayoutEngine::layout_nodes(
                     dom_tree,
@@ -205,12 +207,10 @@ impl BlockLayout {
                 }
             };
 
-            let mut child_ctx = ctx.child_context(Rect::new(
-                x + padding.left + border.left,
-                y + padding.top + border.top,
-                width,
-                child_containing_height,
-            ));
+            let mut child_ctx = ctx.child_context(
+                Rect::new(x + padding.left + border.left, y + padding.top + border.top, width, height),
+                style.position.is_out_of_flow(),
+            );
             child_ctx.set_positioned_containing_block(child_ctx.positioned_containing_block());
             child_ctx.block_cursor.y = child_y_offset;
 
@@ -220,15 +220,15 @@ impl BlockLayout {
                 if has_clearance {
                     flow.advance_to(
                         child_y_offset,
-                        child_node.dimensions.height,
-                        child_node.margin.bottom.to_px(),
+                        child_node.0.dimensions.height,
+                        child_node.0.margin.bottom.to_px(),
                         child_style.float != Float::None,
                     );
                 } else {
                     flow.advance(
-                        child_node.margin.top.to_px(),
-                        child_node.dimensions.height,
-                        child_node.margin.bottom.to_px(),
+                        child_node.0.margin.top.to_px(),
+                        child_node.0.dimensions.height,
+                        child_node.0.margin.bottom.to_px(),
                         child_style.float != Float::None,
                     );
                 }
@@ -236,17 +236,19 @@ impl BlockLayout {
                 if child_style.float != Float::None {
                     ctx.float_ctx().add_float(
                         Rect::new(
-                            child_node.dimensions.x,
+                            child_node.0.dimensions.x,
                             y + padding.top + border.top + child_y_offset,
-                            child_node.dimensions.width,
-                            child_node.dimensions.height,
+                            child_node.0.dimensions.width,
+                            child_node.0.dimensions.height,
                         ),
                         child_style.writing_mode,
                         child_style.float,
                     );
                 }
 
-                children.push(child_node);
+                child_width = f64::max(child_width, child_node.0.dimensions.width + child_node.0.margin.horizontal());
+                child_height += child_node.1.height;
+                children.push(child_node.0);
             }
 
             child_idx += 1;
@@ -263,13 +265,17 @@ impl BlockLayout {
         let calculated_height =
             PropertyResolver::calculate_height(style, content_height_from_children, ctx.containing_block().height);
 
-        let final_height = if style.height == ComputedSize::Auto {
+        let final_height = if style.position.is_out_of_flow() {
+            height
+        } else if style.height == ComputedSize::Auto {
             content_height_from_children + padding.vertical() + border.vertical()
-        } else if child_containing_height > calculated_height {
-            child_containing_height + padding.vertical() + border.vertical()
+        } else if height > calculated_height {
+            height + padding.vertical() + border.vertical()
         } else {
             calculated_height + padding.vertical() + border.vertical()
         };
+
+        let final_width = width + padding.horizontal() + border.horizontal();
 
         let mut margin = margin;
         if !flow.parent_has_top_fence && !children.is_empty() {
@@ -290,10 +296,10 @@ impl BlockLayout {
             .children(children)
             .height_auto(style.height == ComputedSize::Auto)
             .position(style.position)
-            .dimensions(Rect::new(x, y, width + padding.horizontal() + border.horizontal(), final_height))
+            .dimensions(Rect::new(x, y, final_width, final_height))
             .build();
 
-        Some(node)
+        Some((node, Rect::new(x, y, final_width.max(child_width), final_height.max(child_height))))
     }
 
     fn is_inline(style: &ComputedStyle) -> bool {

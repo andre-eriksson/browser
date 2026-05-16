@@ -37,6 +37,12 @@ pub fn collect_render_data_from_layout<'html>(
         scroll_offset: ScrollOffset,
     ) {
         if !is_visible_node(node.dimensions, initial_bounds, scroll_offset) {
+            if node.position.is_out_of_flow() || node.image_data.is_some() {
+                for child in &node.children {
+                    collect_node(child, image_ctx, renderer, initial_bounds, scroll_offset);
+                }
+            }
+
             return;
         }
 
