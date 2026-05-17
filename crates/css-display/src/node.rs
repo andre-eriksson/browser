@@ -1,5 +1,6 @@
 use html_dom::NodeId;
 
+#[derive(Debug, Clone)]
 pub struct BoxNode {
     pub node_id: Option<NodeId>,
     pub children: Vec<BoxNode>,

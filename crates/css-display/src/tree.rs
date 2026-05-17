@@ -3,6 +3,7 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::node::BoxNode;
 
+#[derive(Debug, Clone)]
 pub struct BoxTree {
     pub root_nodes: Vec<BoxNode>,
 }
@@ -26,6 +27,11 @@ impl BoxTree {
 
         for child_id in &dom[node_id].children {
             let child_style = &style_tree[child_id];
+
+            if child_style.display.is_none() {
+                continue;
+            }
+
             let childs_children = Self::build_box_node(child_id, dom, style_tree);
 
             if child_style.display.is_inline() {
