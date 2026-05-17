@@ -419,6 +419,22 @@ impl ComputedStyle {
             self.color = self.color.invert_dark_mode();
         }
     }
+
+    pub fn inherited_subset(&self) -> Self {
+        Self {
+            color: self.color,
+            cursor: self.cursor,
+            font_family: Arc::clone(&self.font_family),
+            font_size: self.font_size,
+            font_weight: self.font_weight,
+            line_height: self.line_height,
+            text_align: self.text_align,
+            whitespace: self.whitespace,
+            writing_mode: self.writing_mode,
+
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for ComputedStyle {

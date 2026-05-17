@@ -1318,6 +1318,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "css-display"
+version = "0.1.0"
+dependencies = [
+ "css-style",
+ "css-values",
+ "html-dom",
+]
+
+[[package]]
 name = "css-parser"
 version = "0.1.0"
 dependencies = [
@@ -2912,6 +2921,7 @@ dependencies = [
  "cosmic-text",
  "criterion",
  "css-cssom",
+ "css-display",
  "css-style",
  "css-values",
  "html-dom",

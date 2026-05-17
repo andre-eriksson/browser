@@ -1,0 +1,10 @@
+[package]
+name = "css-display"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+html-dom.workspace = true
+css-style.workspace = true
+css-values.workspace = true

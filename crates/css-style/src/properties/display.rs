@@ -43,6 +43,28 @@ impl Display {
         matches!(self, Self::Box(BoxDisplay::None))
     }
 
+    /// Checks if the display value is a block-level display type.
+    pub const fn is_block(&self) -> bool {
+        if let Self::Normal { outside, .. } = self {
+            matches!(outside, Some(OutsideDisplay::Block))
+        } else if let Self::ListItem { outside, .. } = self {
+            matches!(outside, Some(OutsideDisplay::Block))
+        } else {
+            false
+        }
+    }
+
+    /// Checks if the display value is an inline-level display type.
+    pub const fn is_inline(&self) -> bool {
+        if let Self::Normal { outside, .. } = self {
+            matches!(outside, Some(OutsideDisplay::Inline))
+        } else if let Self::ListItem { outside, .. } = self {
+            matches!(outside, Some(OutsideDisplay::Inline))
+        } else {
+            false
+        }
+    }
+
     #[must_use]
     pub fn adjust_float(self, float: Float) -> Self {
         if matches!(float, Float::None) {
