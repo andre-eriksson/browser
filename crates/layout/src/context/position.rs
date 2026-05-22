@@ -1,21 +1,23 @@
-use crate::{ImageContext, LayoutEngine, LayoutNode, Rect, TextContext, layout::LayoutContext};
-use css_style::StyleTree;
-use html_dom::{DocumentRoot, NodeId};
+use crate::{
+    ImageContext, LayoutNode, LayoutTree, Rect, context::LayoutContext, engine::LayoutInput, primitives::Size,
+};
+use css_display::BoxNode;
+use css_style::ComputedStyle;
 
 #[derive(Debug, Clone)]
-struct PendingPosition {
-    node_id: NodeId,
+struct PendingPosition<'node> {
+    box_node: BoxNode<'node>,
     containing_block: Rect,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct PositionContext {
-    pending: Vec<PendingPosition>,
+pub struct PositionContext<'node> {
+    pending: Vec<PendingPosition<'node>>,
     viewport: Rect,
     positioned: Vec<Rect>,
 }
 
-impl PositionContext {
+impl<'node> PositionContext<'node> {
     pub fn new(viewport: Rect) -> Self {
         Self {
             pending: Vec::new(),
@@ -45,20 +47,14 @@ impl PositionContext {
         }
     }
 
-    pub fn defer(&mut self, node_id: &NodeId, containing_block: Rect) {
+    pub fn defer(&mut self, box_node: &'node BoxNode, containing_block: Rect) {
         self.pending.push(PendingPosition {
-            node_id: *node_id,
+            box_node: box_node.clone(),
             containing_block,
         });
     }
 
-    pub fn resolve_all(
-        &mut self,
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        image_ctx: &ImageContext,
-        text_ctx: &mut TextContext,
-    ) -> Vec<(LayoutNode, Rect)> {
+    pub fn resolve_all(&mut self, input: &mut LayoutInput, image_ctx: &ImageContext) -> Vec<(LayoutNode, Size)> {
         self.pending
             .drain(..)
             .filter_map(|pending| {
@@ -66,7 +62,7 @@ impl PositionContext {
                 let mut ctx =
                     LayoutContext::deferred(pending.containing_block, self.viewport, image_ctx, &mut new_position_ctx);
 
-                LayoutEngine::layout_node(dom_tree, style_tree, &pending.node_id, &mut ctx, text_ctx)
+                LayoutTree::layout_node(&pending.box_node, input, &ComputedStyle::default(), &mut ctx)
             })
             .collect()
     }

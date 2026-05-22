@@ -125,7 +125,7 @@ impl LineBox<'_> {
             let dec_x = content_start_x + dec.start_x + offset_x;
             let dec_y = self.y - dec.padding.top - dec.border.top;
 
-            let node = LayoutNode::builder(dec.id)
+            let node = LayoutNode::builder(Some(dec.id))
                 .dimensions(Rect::new(dec_x, dec_y, dec_width, dec_height))
                 .padding(dec.padding)
                 .border(dec.border)
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn add_accounts_for_horizontal_margins() {
         let mut line = LineBox::new(0.0, 0.0);
-        let node = LayoutNode::builder(NodeId(1))
+        let node = LayoutNode::builder(Some(NodeId(1)))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
             .margin(Margin {
                 top: 0.0.into(),
@@ -290,10 +290,10 @@ mod tests {
 
     #[test]
     fn add_repositions_descendants_when_parent_x_changes() {
-        let child = LayoutNode::builder(NodeId(2))
+        let child = LayoutNode::builder(Some(NodeId(2)))
             .dimensions(Rect::new(5.0, 0.0, 4.0, 4.0))
             .build();
-        let parent = LayoutNode::builder(NodeId(1))
+        let parent = LayoutNode::builder(Some(NodeId(1)))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
             .children(vec![child])
             .build();
@@ -307,10 +307,10 @@ mod tests {
 
     #[test]
     fn finish_repositions_descendants_with_parent() {
-        let child = LayoutNode::builder(NodeId(2))
+        let child = LayoutNode::builder(Some(NodeId(2)))
             .dimensions(Rect::new(2.0, 3.0, 4.0, 4.0))
             .build();
-        let parent = LayoutNode::builder(NodeId(1))
+        let parent = LayoutNode::builder(Some(NodeId(1)))
             .dimensions(Rect::new(1.0, 2.0, 10.0, 10.0))
             .children(vec![child])
             .build();

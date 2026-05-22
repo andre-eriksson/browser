@@ -1,65 +1,27 @@
-use css_style::{ComputedStyle, Display, Position, StyleTree};
-use css_values::display::{InsideDisplay, OutsideDisplay};
+use css_display::{BoxNode, BoxTree};
+use css_style::{ComputedStyle, StyleTree};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    context::ImageContext,
-    layout::{LayoutContext, LayoutNode, LayoutTree},
+    LayoutNode, LayoutTree,
+    context::{ImageContext, LayoutContext, PositionContext, TextContext},
     mode::{
-        block::BlockLayout,
-        inline::{InlineContext, InlineLayout},
+        LayoutMode,
+        block::{BlockContext, BlockLayout},
+        //inline::{InlineContext, InlineLayout},
     },
-    position::PositionContext,
-    primitives::Rect,
-    text::TextContext,
+    primitives::{Rect, Size},
 };
 
 const EPSILON: f64 = 0.1;
 
-/// Layout mode determines how children are positioned
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum LayoutMode {
-    #[default]
-    Block,
-    Inline,
-    Flex, // TODO: implement
-    Grid, // TODO: implement
+/// Immutable references to the trees — passed everywhere, never mutated
+pub struct LayoutInput<'a> {
+    pub dom: &'a DocumentRoot,
+    pub text: &'a mut TextContext,
 }
 
-impl LayoutMode {
-    pub fn new(style: &ComputedStyle) -> Option<Self> {
-        if style.display.is_none() {
-            return None;
-        }
-
-        if style.position.is_out_of_flow() {
-            return Some(Self::Block);
-        }
-
-        if let Display::Normal { outside, inside } = style.display {
-            if let Some(val) = inside {
-                match val {
-                    InsideDisplay::Flex => return Some(Self::Flex),
-                    InsideDisplay::Grid => return Some(Self::Grid),
-                    _ => {}
-                }
-            }
-
-            if let Some(val) = outside {
-                match val {
-                    OutsideDisplay::Block => return Some(Self::Block),
-                    OutsideDisplay::Inline => return Some(Self::Inline),
-                }
-            }
-        }
-
-        Some(Self::Block)
-    }
-}
-
-pub struct LayoutEngine;
-
-impl LayoutEngine {
+impl LayoutTree {
     /// Compute layout for an entire style tree, using known image dimensions
     /// from `image_ctx` so that previously-decoded images are laid out at their
     /// intrinsic size rather than a placeholder.
@@ -70,12 +32,11 @@ impl LayoutEngine {
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
     pub fn compute_layout(
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
+        input: &mut LayoutInput,
+        box_tree: &BoxTree,
         viewport: Rect,
-        text_ctx: &mut TextContext,
         image_ctx: &ImageContext,
-    ) -> LayoutTree {
+    ) -> Self {
         let mut position_ctx = PositionContext::new(viewport);
         let mut ctx = LayoutContext::new(viewport, image_ctx, &mut position_ctx);
 
@@ -83,99 +44,108 @@ impl LayoutEngine {
         let mut max_width = 0.0f64;
         let mut root_nodes = Vec::new();
 
-        for node_id in &dom_tree.root_nodes {
-            ctx.block_cursor.y = total_height;
-
-            let pos_count_before = ctx.position_ctx().position_count();
-
-            let Some(mut node) = Self::layout_node(dom_tree, style_tree, node_id, &mut ctx, text_ctx) else {
+        for box_node in &box_tree.root_nodes {
+            let Some((node, size)) = Self::layout_node(box_node, input, &ComputedStyle::default(), &mut ctx) else {
                 continue;
             };
 
-            let top_margin = node.0.margin.top.to_px();
-            let bottom_margin = node.0.margin.bottom.to_px();
+            total_height += node.dimensions.height;
+            max_width = max_width.max(node.dimensions.width);
 
-            Self::offset_children_y(&mut node.0.children, top_margin);
-            ctx.position_ctx()
-                .offset_positions_since(pos_count_before, top_margin);
-
-            node.0.dimensions.height += top_margin + bottom_margin;
-
-            total_height += node.0.dimensions.height;
-            max_width = max_width.max(node.0.dimensions.width);
-
-            root_nodes.push(node.0);
+            root_nodes.push(node);
         }
 
-        for mut defered_node in ctx
-            .position_ctx()
-            .resolve_all(dom_tree, style_tree, image_ctx, text_ctx)
-        {
-            Self::offset_children_y(&mut defered_node.0.children, defered_node.0.margin.top.to_px());
+        // for defered_node in ctx.position_ctx().resolve_all(input, image_ctx) {
+        //     // Self::offset_children_y(&mut defered_node.0.children, defered_node.0.margin.top.to_px());
 
-            total_height = total_height.max(defered_node.1.height);
-            max_width = max_width.max(defered_node.1.width);
+        //     total_height = total_height.max(defered_node.1.height);
+        //     max_width = max_width.max(defered_node.1.width);
 
-            root_nodes.push(defered_node.0);
-        }
+        //     root_nodes.push(defered_node.0);
+        // }
 
-        LayoutTree {
+        Self {
             root_nodes,
             content_height: total_height,
             content_width: max_width,
         }
     }
 
-    /// Recursively offset all children's y positions
-    fn offset_children_y(children: &mut [LayoutNode], offset: f64) {
-        for child in children.iter_mut() {
-            if child.position.is_out_of_flow() {
-                continue;
-            }
-
-            child.dimensions.y += offset;
-            Self::offset_children_y(&mut child.children, offset);
-        }
-    }
-
     /// Compute layout for a single node and its descendants
     pub(crate) fn layout_node(
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        node_id: &NodeId,
+        box_node: &BoxNode,
+        input: &mut LayoutInput,
+        parent_style: &ComputedStyle,
         ctx: &mut LayoutContext,
-        text_ctx: &mut TextContext,
-    ) -> Option<(LayoutNode, Rect)> {
-        let style = &style_tree[node_id];
-        let _layout_mode = LayoutMode::new(style)?;
+    ) -> Option<(LayoutNode, Size)> {
+        let _layout_mode = LayoutMode::new(box_node);
 
-        BlockLayout::layout(node_id, dom_tree, style_tree, ctx, text_ctx)
+        let mut block_ctx = BlockContext {
+            cursor_y: ctx.containing_block().y,
+            collapsed_margin: None,
+            containing_width: ctx.containing_block().width,
+        };
+
+        BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx)
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn layout_nodes(
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        node_ids: &[NodeId],
-        mode: LayoutMode,
+        box_nodes: &[BoxNode],
         parent_style: &ComputedStyle,
+        input: &mut LayoutInput,
         containing_block: Rect,
         ctx: &mut LayoutContext,
-        text_ctx: &mut TextContext,
-    ) -> (Vec<LayoutNode>, Rect) {
-        match mode {
-            LayoutMode::Inline => {
-                let inline_items = InlineLayout::collect_inline_items_from_nodes(
-                    containing_block,
-                    dom_tree,
-                    style_tree,
-                    parent_style,
-                    node_ids,
-                    ctx.image_ctx(),
-                );
-                let inline_ctx = InlineContext::new(containing_block);
+    ) -> (Vec<LayoutNode>, Size) {
+        let mode = if let Some(first_node) = box_nodes.first() {
+            LayoutMode::new(first_node)
+        } else {
+            return (Vec::new(), Size::new(containing_block.width, containing_block.height));
+        };
 
-                InlineLayout::layout(dom_tree, style_tree, &inline_items, ctx, text_ctx, inline_ctx)
+        match mode {
+            LayoutMode::Block => {
+                let mut layout_nodes = Vec::new();
+                let mut current_y = containing_block.y;
+                let mut block_ctx = BlockContext {
+                    cursor_y: current_y,
+                    collapsed_margin: None,
+                    containing_width: containing_block.width,
+                };
+
+                for box_node in box_nodes {
+                    let (mut layout_node, node_rect) =
+                        BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx)
+                            .unwrap_or_else(|| (LayoutNode::builder(box_node.node_id).build(), Size::new(0.0, 0.0)));
+
+                    layout_node.dimensions.x = containing_block.x;
+                    layout_node.dimensions.y = current_y;
+
+                    current_y += layout_node.dimensions.height;
+                    layout_nodes.push(layout_node);
+                }
+
+                let total_height = current_y - containing_block.y;
+                let max_width = layout_nodes
+                    .iter()
+                    .map(|node| node.dimensions.width)
+                    .fold(0.0, f64::max);
+
+                (layout_nodes, Size::new(max_width, total_height))
+            }
+            LayoutMode::Inline => {
+                // let inline_items = InlineLayout::collect_inline_items_from_nodes(
+                //     containing_block,
+                //     dom_tree,
+                //     style_tree,
+                //     parent_style,
+                //     box_nodes,
+                //     ctx.image_ctx(),
+                // );
+                // let inline_ctx = InlineContext::new(containing_block);
+
+                // InlineLayout::layout(dom_tree, style_tree, &inline_items, ctx, text_ctx, inline_ctx)
+
+                (Vec::new(), Size::new(0.0, 0.0))
             }
             _ => todo!("Only inline layout is supported for collections of nodes right now"),
         }
@@ -194,66 +164,66 @@ impl LayoutEngine {
         text_ctx: &mut TextContext,
         image_ctx: &ImageContext,
     ) {
-        let node = &dom_tree[node_id];
+        // let node = &dom_tree[node_id];
 
-        let ancestors: Vec<NodeId> = dom_tree.ancestors(node).into_iter().map(|n| n.id).collect();
+        // let ancestors: Vec<NodeId> = dom_tree.ancestors(node).into_iter().map(|n| n.id).collect();
 
-        let Some(&dirty_parent_id) = ancestors.first() else {
-            return;
-        };
-        let Some(parent_path) = layout_tree.find_path(dirty_parent_id) else {
-            return;
-        };
+        // let Some(&dirty_parent_id) = ancestors.first() else {
+        //     return;
+        // };
+        // let Some(parent_path) = layout_tree.find_path(dirty_parent_id) else {
+        //     return;
+        // };
 
-        let old_layout = layout_tree.node_at(&parent_path).unwrap();
-        let old_height = old_layout.dimensions.height;
+        // let old_layout = layout_tree.node_at(&parent_path).unwrap();
+        // let old_height = old_layout.dimensions.height;
 
-        let mut position_ctx = PositionContext::new(viewport);
-        let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
-        ctx.position_ctx().update_viewport(viewport);
+        // let mut position_ctx = PositionContext::new(viewport);
+        // let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
+        // ctx.position_ctx().update_viewport(viewport);
 
-        let Some(mut new_node) = Self::layout_node(dom_tree, style_tree, &dirty_parent_id, &mut ctx, text_ctx) else {
-            return;
-        };
+        // let Some(mut new_node) = Self::layout_node(dom_tree, style_tree, &dirty_parent_id, &mut ctx, text_ctx) else {
+        //     return;
+        // };
 
-        Self::offset_children_y(&mut new_node.0.children, new_node.0.margin.top.to_px());
+        // Self::offset_children_y(&mut new_node.0.children, new_node.0.margin.top.to_px());
 
-        let new_height = new_node.0.dimensions.height;
-        let delta = new_height - old_height;
+        // let new_height = new_node.0.dimensions.height;
+        // let delta = new_height - old_height;
 
-        *layout_tree.node_at_mut(&parent_path).unwrap() = new_node.0;
+        // *layout_tree.node_at_mut(&parent_path).unwrap() = new_node.0;
 
-        if delta.abs() < EPSILON {
-            return;
-        }
+        // if delta.abs() < EPSILON {
+        //     return;
+        // }
 
-        for ancestor_id in ancestors.iter().skip(1) {
-            let Some(ancestor_path) = layout_tree.find_path(*ancestor_id) else {
-                break;
-            };
-            let ancestor = layout_tree.node_at_mut(&ancestor_path).unwrap();
+        // for ancestor_id in ancestors.iter().skip(1) {
+        //     let Some(ancestor_path) = layout_tree.find_path(*ancestor_id) else {
+        //         break;
+        //     };
+        //     let ancestor = layout_tree.node_at_mut(&ancestor_path).unwrap();
 
-            let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
+        //     let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
 
-            let changed_child_idx = ancestor
-                .children
-                .iter()
-                .position(|child| child.node_id == prev_id);
+        //     let changed_child_idx = ancestor
+        //         .children
+        //         .iter()
+        //         .position(|child| child.node_id == prev_id);
 
-            if let Some(idx) = changed_child_idx {
-                for sibling in &mut ancestor.children[idx + 1..] {
-                    Self::shift_y_recursively(sibling, delta);
-                }
-            }
+        //     if let Some(idx) = changed_child_idx {
+        //         for sibling in &mut ancestor.children[idx + 1..] {
+        //             Self::shift_y_recursively(sibling, delta);
+        //         }
+        //     }
 
-            if ancestor.is_height_auto {
-                ancestor.dimensions.height += delta;
-            } else {
-                break;
-            }
-        }
+        //     if ancestor.is_height_auto {
+        //         ancestor.dimensions.height += delta;
+        //     } else {
+        //         break;
+        //     }
+        // }
 
-        layout_tree.content_height += delta;
+        // layout_tree.content_height += delta;
     }
 
     fn shift_y_recursively(node: &mut LayoutNode, delta: f64) {
@@ -263,46 +233,46 @@ impl LayoutEngine {
         }
     }
 
-    pub(crate) fn collect_children<F>(
-        ctx: &mut LayoutContext,
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        parent_id: &NodeId,
-        start_idx: &mut usize,
-        condition: F,
-    ) -> Vec<NodeId>
-    where
-        F: Fn(&NodeId) -> bool,
-    {
-        let mut collected = Vec::new();
-        let parent_node = &dom_tree[parent_id];
-        let children = &parent_node.children;
+    // pub(crate) fn collect_children<F>(
+    //     ctx: &mut LayoutContext,
+    //     dom_tree: &DocumentRoot,
+    //     style_tree: &StyleTree,
+    //     parent_id: &NodeId,
+    //     start_idx: &mut usize,
+    //     condition: F,
+    // ) -> Vec<NodeId>
+    // where
+    //     F: Fn(&NodeId) -> bool,
+    // {
+    //     let mut collected = Vec::new();
+    //     let parent_node = &dom_tree[parent_id];
+    //     let children = &parent_node.children;
 
-        for child in children.iter().skip(*start_idx) {
-            let style = &style_tree[child];
+    //     for child in children.iter().skip(*start_idx) {
+    //         let style = &style_tree[child];
 
-            if style.position.is_out_of_flow() && !ctx.is_deferred() {
-                let containing_block = if style.position == Position::Fixed {
-                    ctx.containing_block()
-                } else {
-                    ctx.positioned_containing_block()
-                };
+    //         if style.position.is_out_of_flow() && !ctx.is_deferred() {
+    //             let containing_block = if style.position == Position::Fixed {
+    //                 ctx.containing_block()
+    //             } else {
+    //                 ctx.positioned_containing_block()
+    //             };
 
-                ctx.position_ctx().defer(child, containing_block);
-                *start_idx += 1;
-                continue;
-            }
+    //             ctx.position_ctx().defer(child, containing_block);
+    //             *start_idx += 1;
+    //             continue;
+    //         }
 
-            if condition(child) {
-                collected.push(*child);
-                *start_idx += 1;
-            } else {
-                break;
-            }
-        }
+    //         if condition(child) {
+    //             collected.push(*child);
+    //             *start_idx += 1;
+    //         } else {
+    //             break;
+    //         }
+    //     }
 
-        collected
-    }
+    //     collected
+    // }
 }
 
 #[cfg(test)]
@@ -310,63 +280,13 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use css_style::{ComputedStyle, Display};
-    use css_values::display::{BoxDisplay, OutsideDisplay};
+    use css_values::display::{BoxDisplay, InsideDisplay, OutsideDisplay};
     use html_dom::{DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
 
     use super::*;
 
     fn viewport() -> Rect {
         Rect::new(0.0, 0.0, 800.0, 600.0)
-    }
-
-    #[test]
-    fn test_layout_mode_none() {
-        let style = ComputedStyle {
-            display: Display::Box(BoxDisplay::None),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), None);
-    }
-
-    #[test]
-    fn test_layout_mode_block() {
-        let style = ComputedStyle {
-            display: Display::from(OutsideDisplay::Block),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Block));
-    }
-
-    #[test]
-    fn test_layout_mode_inline() {
-        let style = ComputedStyle {
-            display: Display::from(OutsideDisplay::Inline),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Inline));
-    }
-
-    #[test]
-    fn test_layout_mode_flex() {
-        let style = ComputedStyle {
-            display: Display::from(InsideDisplay::Flex),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Flex));
-    }
-
-    #[test]
-    fn test_layout_mode_grid() {
-        let style = ComputedStyle {
-            display: Display::from(InsideDisplay::Grid),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Grid));
     }
 
     #[test]
@@ -392,10 +312,22 @@ mod tests {
             }],
             root_nodes: vec![NodeId(0)],
         };
+        let mut input = LayoutInput {
+            dom: &dom_tree,
+            text: &mut text_ctx,
+        };
+        let mut block_ctx = BlockContext {
+            cursor_y: 0.0,
+            collapsed_margin: None,
+            containing_width: viewport().width,
+        };
 
-        let layout_node = BlockLayout::layout(&NodeId(0), &dom_tree, &style_tree, &mut ctx, &mut text_ctx).unwrap();
+        let style = ComputedStyle::default();
+        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
+        let layout_node =
+            BlockLayout::layout(&box_node, &ComputedStyle::default(), &mut input, &mut ctx, &mut block_ctx).unwrap();
 
-        assert_eq!(layout_node.0.node_id, NodeId(0));
+        assert_eq!(layout_node.0.node_id, Some(NodeId(0)));
         assert_eq!(layout_node.0.dimensions.x, 0.0);
         assert_eq!(layout_node.0.dimensions.y, 0.0);
         assert_eq!(layout_node.0.dimensions.width, 800.0);

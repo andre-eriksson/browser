@@ -6,7 +6,7 @@ use browser_core::{
 use iced::Task;
 use image::ImageFormat;
 use io::{DocumentPolicy, ReferrerPolicy};
-use layout::{LayoutEngine, LayoutImage, NodeId, Rect};
+use layout::{LayoutImage, LayoutTree, NodeId, Rect};
 use regex::Regex;
 use tracing::{debug, error};
 use url::Url;
@@ -466,7 +466,7 @@ impl Tab {
                     let mut layout_tree = layout_tree?;
 
                     for node_id in node_ids {
-                        LayoutEngine::relayout_node(
+                        LayoutTree::relayout_node(
                             node_id,
                             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
                             &mut layout_tree,

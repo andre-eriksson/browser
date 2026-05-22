@@ -1,3 +1,4 @@
+use css_display::node::BoxNode;
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle, Display, StyleTree};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{DocumentRoot, HtmlTag, NodeData, NodeId, Tag};
@@ -61,17 +62,21 @@ pub fn collect<'dom>(
     dom_tree: &'dom DocumentRoot,
     style_tree: &'dom StyleTree,
     parent_style: &'dom ComputedStyle,
-    node_id: &'dom NodeId,
+    box_node: &'dom BoxNode,
     items: &mut Vec<InlineItem<'dom>>,
     image_ctx: &ImageContext,
 ) -> Result<(), ()> {
+    let Some(node_id) = box_node.node_id else {
+        return Ok(());
+    };
+
     let node = &dom_tree[node_id];
     let style = &style_tree[node_id];
 
     match &node.data {
         NodeData::Text(content) => {
             items.push(InlineItem::TextRun(TextRun {
-                id: node_id,
+                id: &node_id,
                 content: content.clone(),
                 style: parent_style,
             }));
@@ -90,7 +95,7 @@ pub fn collect<'dom>(
                     return Ok(());
                 };
 
-                let known = image_ctx.get(node_id);
+                let known = image_ctx.get(box_node);
 
                 let attr_width = attrs.get("width").and_then(|v| v.parse::<f64>().ok());
                 let attr_height = attrs.get("height").and_then(|v| v.parse::<f64>().ok());
@@ -156,7 +161,7 @@ pub fn collect<'dom>(
                 };
 
                 items.push(InlineItem::Image(ImageItem {
-                    id: node_id,
+                    id: &node_id,
                     width,
                     height,
                     has_explicit_width,
@@ -170,7 +175,10 @@ pub fn collect<'dom>(
 
                 if let Display::Normal { outside, inside } = display {
                     if outside == Some(OutsideDisplay::Inline) && inside == Some(InsideDisplay::FlowRoot) {
-                        items.push(InlineItem::InlineFlowRoot { id: node_id, style });
+                        items.push(InlineItem::InlineFlowRoot {
+                            id: &node_id,
+                            style,
+                        });
 
                         return Ok(());
                     } else if outside != Some(OutsideDisplay::Inline) {
@@ -178,13 +186,16 @@ pub fn collect<'dom>(
                     }
                 }
 
-                items.push(InlineItem::InlineBoxStart { id: node_id, style });
+                items.push(InlineItem::InlineBoxStart {
+                    id: &node_id,
+                    style,
+                });
 
                 for child_id in &node.children {
                     collect(containing_rect, dom_tree, style_tree, style, child_id, items, image_ctx)?;
                 }
 
-                items.push(InlineItem::InlineBoxEnd { id: node_id });
+                items.push(InlineItem::InlineBoxEnd { id: &node_id });
             }
         },
     }

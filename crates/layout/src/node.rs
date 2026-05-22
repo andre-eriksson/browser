@@ -1,11 +1,34 @@
 use std::sync::Arc;
 
 use cosmic_text::Buffer;
+
 use css_style::Position;
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
-use crate::{ImageData, LayoutColors, LayoutNode, Margin, Rect, primitives::SideOffset};
+use crate::{ImageData, LayoutColors, Rect, primitives::SideOffset};
+
+/// A node in the layout tree representing a rendered element
+#[derive(Debug, Clone)]
+pub struct LayoutNode {
+    pub node_id: Option<NodeId>,
+    pub border: SideOffset,
+    pub children: Vec<Self>,
+    pub colors: LayoutColors,
+    pub cursor: Cursor,
+    pub dimensions: Rect,
+    pub image_data: Option<ImageData>,
+    pub is_height_auto: bool,
+    pub position: Position,
+    pub text_buffer: Option<Arc<Buffer>>,
+}
+
+impl LayoutNode {
+    #[must_use]
+    pub fn builder(node_id: Option<NodeId>) -> NodeBuilder {
+        NodeBuilder::new(node_id)
+    }
+}
 
 /// Builder pattern for constructing a `LayoutNode`.
 #[derive(Debug, Clone)]
@@ -14,15 +37,13 @@ pub struct NodeBuilder {
 }
 
 impl NodeBuilder {
-    pub fn new(node_id: NodeId) -> Self {
+    pub fn new(node_id: Option<NodeId>) -> Self {
         Self {
             layout_node: LayoutNode {
                 node_id,
                 dimensions: Rect::default(),
                 colors: LayoutColors::default(),
                 cursor: Cursor::default(),
-                margin: Margin::default(),
-                padding: SideOffset::default(),
                 border: SideOffset::default(),
                 position: Position::Static,
                 text_buffer: None,
@@ -65,16 +86,6 @@ impl NodeBuilder {
 
     pub const fn height_auto(mut self, is_height_auto: bool) -> Self {
         self.layout_node.is_height_auto = is_height_auto;
-        self
-    }
-
-    pub const fn margin(mut self, margin: Margin) -> Self {
-        self.layout_node.margin = margin;
-        self
-    }
-
-    pub const fn padding(mut self, padding: SideOffset) -> Self {
-        self.layout_node.padding = padding;
         self
     }
 

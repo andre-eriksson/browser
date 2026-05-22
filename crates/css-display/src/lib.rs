@@ -1,2 +1,5 @@
-pub mod node;
-pub mod tree;
+mod node;
+mod tree;
+
+pub use node::BoxNode;
+pub use tree::BoxTree;

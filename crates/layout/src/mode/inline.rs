@@ -1,3 +1,4 @@
+use css_display::node::BoxNode;
 use css_style::{ComputedSize, ComputedStyle, StyleTree};
 use html_dom::{DocumentRoot, NodeId};
 
@@ -79,7 +80,7 @@ impl InlineLayout {
         dom_tree: &'dom DocumentRoot,
         style_tree: &'dom StyleTree,
         parent_style: &'dom ComputedStyle,
-        nodes: &'dom [NodeId],
+        nodes: &'dom [BoxNode],
         image_ctx: &ImageContext,
     ) -> Vec<InlineItem<'dom>> {
         let mut raw_items = Vec::with_capacity(nodes.len() * 2);
@@ -245,14 +246,14 @@ mod tests {
 
     #[test]
     fn auto_inline_flow_root_width_uses_descendant_extent() {
-        let nested_text = LayoutNode::builder(NodeId(3))
+        let nested_text = LayoutNode::builder(Some(NodeId(3)))
             .dimensions(Rect::new(13.0, 0.0, 25.0, 12.0))
             .build();
-        let inline_child = LayoutNode::builder(NodeId(2))
+        let inline_child = LayoutNode::builder(Some(NodeId(2)))
             .dimensions(Rect::new(13.0, 0.0, 25.0, 12.0))
             .children(vec![nested_text])
             .build();
-        let container = LayoutNode::builder(NodeId(1))
+        let container = LayoutNode::builder(Some(NodeId(1)))
             .dimensions(Rect::new(8.0, 0.0, 500.0, 20.0))
             .children(vec![inline_child])
             .build();

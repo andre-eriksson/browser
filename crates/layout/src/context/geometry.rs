@@ -5,9 +5,9 @@ use crate::{
     primitives::{MarginValue, SideOffset},
 };
 
-pub struct PropertyResolver;
+pub(crate) struct Geometry;
 
-impl PropertyResolver {
+impl Geometry {
     pub(crate) fn resolve_box_model(style: &ComputedStyle, containing_width: f64) -> (Margin, SideOffset, SideOffset) {
         let margins = Self::resolve_margin(style, containing_width);
         let padding = Self::resolve_padding(style, containing_width);

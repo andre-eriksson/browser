@@ -3,6 +3,7 @@ use std::{
     net::Ipv4Addr,
 };
 
+use css_display::BoxTree;
 use tracing::{error, info};
 use url::Url;
 
@@ -10,7 +11,7 @@ use browser_args::BrowserArgs;
 use browser_core::{Browser, Document, History, NavigationType, PageMetadata};
 use browser_preferences::theme::ThemeCategory;
 use css_style::{AbsoluteContext, StyleTree};
-use layout::{ImageContext, LayoutEngine, LayoutTree, Rect, TextContext};
+use layout::{ImageContext, LayoutInput, LayoutTree, Rect, TextContext};
 
 use crate::commands::{
     HeadlessCommand, NodeCommand,
@@ -143,10 +144,19 @@ impl HeadlessEngine {
         };
 
         let style_tree = StyleTree::build(None, &ctx, document, stylesheets);
+        let box_tree = BoxTree::new(document, &style_tree);
 
         let viewport = Rect::new(0.0, 0.0, self.viewport_width, self.viewport_height);
         let img_ctx = ImageContext::new();
-        let layout_tree = LayoutEngine::compute_layout(document, &style_tree, viewport, &mut self.text_ctx, &img_ctx);
+        let layout_tree = LayoutTree::compute_layout(
+            &mut LayoutInput {
+                dom: document,
+                text: &mut self.text_ctx,
+            },
+            &box_tree,
+            viewport,
+            &img_ctx,
+        );
 
         self.style_tree = Some(style_tree);
         self.layout_tree = Some(layout_tree);

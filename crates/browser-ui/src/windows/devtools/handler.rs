@@ -1,10 +1,11 @@
 use std::net::Ipv4Addr;
 
 use browser_core::Document;
+use css_display::BoxTree;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::{Size, Task, window::Id};
-use layout::{ImageContext, LayoutEngine, Rect};
+use layout::{ImageContext, LayoutInput, LayoutTree, Rect};
 use tracing::warn;
 use url::Url;
 
@@ -74,13 +75,16 @@ impl DevtoolsWindow {
 
                 let style_tree =
                     StyleTree::build(Some(&application.preferences), &abs_ctx, page.dom(), page.stylesheets());
+                let box_tree = BoxTree::new(page.dom(), &style_tree);
                 let mut tc = ctx.text_context.lock().unwrap();
                 let img_ctx = ImageContext::new();
-                let layout_tree = LayoutEngine::compute_layout(
-                    page.dom(),
-                    &style_tree,
+                let layout_tree = LayoutTree::compute_layout(
+                    &mut LayoutInput {
+                        dom: page.dom(),
+                        text: &mut tc,
+                    },
+                    &box_tree,
                     Rect::new(0.0, 0.0, f64::from(new_viewport.width), f64::from(new_viewport.height)),
-                    &mut tc,
                     &img_ctx,
                 );
                 drop(tc);
@@ -114,13 +118,16 @@ impl DevtoolsWindow {
             };
 
             let style_tree = StyleTree::build(Some(&application.preferences), &abs_ctx, page.dom(), page.stylesheets());
+            let box_tree = BoxTree::new(page.dom(), &style_tree);
             let mut tc = ctx.text_context.lock().unwrap();
             let img_ctx = ImageContext::new();
-            let layout_tree = LayoutEngine::compute_layout(
-                page.dom(),
-                &style_tree,
+            let layout_tree = LayoutTree::compute_layout(
+                &mut LayoutInput {
+                    dom: page.dom(),
+                    text: &mut tc,
+                },
+                &box_tree,
                 Rect::new(0.0, 0.0, f64::from(devtools_ctx.viewport.width), f64::from(devtools_ctx.viewport.height)),
-                &mut tc,
                 &img_ctx,
             );
             drop(tc);

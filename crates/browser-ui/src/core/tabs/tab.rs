@@ -2,10 +2,11 @@ use std::{fmt::Display, ops::Deref, sync::MutexGuard};
 
 use browser_core::{Document, History, PageMetadata};
 use browser_preferences::BrowserPreferences;
+use css_display::BoxTree;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use iced::Size;
-use layout::{ImageContext, LayoutEngine, LayoutTree, Rect, TextContext};
+use layout::{ImageContext, LayoutInput, LayoutTree, Rect, TextContext};
 
 use crate::core::{Devtools, Page, ScrollOffset};
 
@@ -90,14 +91,17 @@ impl Tab {
         };
 
         let style_tree = StyleTree::build(Some(preferences), &absolute_ctx, page.dom(), page.stylesheets());
+        let box_tree = BoxTree::new(page.dom(), &style_tree);
         let layout_tree = {
             let image_ctx = page_ctx.image_context();
             let image_ctx = image_ctx.lock().unwrap();
-            LayoutEngine::compute_layout(
-                page.dom(),
-                &style_tree,
+            LayoutTree::compute_layout(
+                &mut LayoutInput {
+                    dom: page.dom(),
+                    text: text_context,
+                },
+                &box_tree,
                 Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-                text_context,
                 &image_ctx,
             )
         };
@@ -126,12 +130,15 @@ impl Tab {
         };
 
         let style_tree = StyleTree::build(Some(preferences), &absolute_ctx, document.dom(), document.stylesheets());
+        let box_tree = BoxTree::new(document.dom(), &style_tree);
         let image_ctx = ImageContext::new();
-        let layout_tree = LayoutEngine::compute_layout(
-            document.dom(),
-            &style_tree,
+        let layout_tree = LayoutTree::compute_layout(
+            &mut LayoutInput {
+                dom: document.dom(),
+                text: text_context,
+            },
+            &box_tree,
             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-            text_context,
             &image_ctx,
         );
 

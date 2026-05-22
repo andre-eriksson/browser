@@ -12,11 +12,12 @@ mod tests {
     use browser_ui::load_fallback_fonts;
     use cosmic_text::FontSystem;
     use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+    use css_display::BoxTree;
     use css_style::{AbsoluteContext, StyleTree};
     use css_values::color::Color;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
     use io::{Resource, embeded::DEFAULT_CSS};
-    use layout::{ImageContext, LayoutEngine, LayoutImage, NodeId, Rect, TextContext};
+    use layout::{ImageContext, LayoutImage, LayoutInput, LayoutTree, NodeId, Rect, TextContext};
 
     fn load_fixture(html: &str) -> String {
         let file = File::open(format!("tests/fixtures/{}", html)).expect("failed to open fixture");
@@ -114,10 +115,30 @@ mod tests {
     /// `ImageContext` for known image dimensions.
     macro_rules! layout_from {
         ($dom_tree:expr, $style_tree:expr, $text_context:expr) => {{
+            let box_tree = BoxTree::new(&$dom_tree, &$style_tree);
             let img_ctx = ImageContext::new();
-            LayoutEngine::compute_layout(&$dom_tree, &$style_tree, viewport(), $text_context, &img_ctx)
+            LayoutTree::compute_layout(
+                &mut LayoutInput {
+                    dom: &$dom_tree,
+                    text: $text_context,
+                },
+                &box_tree,
+                viewport(),
+                &img_ctx,
+            )
         }};
-        ($dom_tree:expr, $style_tree:expr, $text_context:expr, $image_ctx:expr) => {{ LayoutEngine::compute_layout(&$dom_tree, &$style_tree, viewport(), $text_context, $image_ctx) }};
+        ($dom_tree:expr, $style_tree:expr, $text_context:expr, $image_ctx:expr) => {{
+            let box_tree = BoxTree::new(&$dom_tree, &$style_tree);
+            LayoutTree::compute_layout(
+                &mut LayoutInput {
+                    dom: &$dom_tree,
+                    text: $text_context,
+                },
+                &box_tree,
+                viewport(),
+                $image_ctx,
+            )
+        }};
     }
 
     /// Convenience: parse HTML and immediately compute layout (no image
@@ -125,8 +146,17 @@ mod tests {
     macro_rules! process_html {
         ($path:literal, $user_agent_css:expr) => {{
             let (dom_tree, style_tree, mut text_context) = process_html_raw!($path, $user_agent_css);
+            let box_tree = BoxTree::new(&dom_tree, &style_tree);
             let img_ctx = ImageContext::new();
-            LayoutEngine::compute_layout(&dom_tree, &style_tree, viewport(), &mut text_context, &img_ctx)
+            LayoutTree::compute_layout(
+                &mut LayoutInput {
+                    dom: &dom_tree,
+                    text: &mut text_context,
+                },
+                &box_tree,
+                viewport(),
+                &img_ctx,
+            )
         }};
     }
 
@@ -400,7 +430,7 @@ mod tests {
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert(
-            img_node.node_id,
+            img_node.node_id.unwrap(),
             LayoutImage {
                 width: 640,
                 height: 480,
@@ -409,8 +439,8 @@ mod tests {
             .into(),
         );
 
-        LayoutEngine::relayout_node(
-            img_node.node_id,
+        LayoutTree::relayout_node(
+            img_node.node_id.unwrap(),
             Rect::default(),
             &mut layout,
             &style_tree,
@@ -478,7 +508,7 @@ mod tests {
 
         let mut image_ctx = ImageContext::new();
         image_ctx.insert(
-            img_node.node_id,
+            img_node.node_id.unwrap(),
             LayoutImage {
                 width: 640,
                 height: 480,
@@ -487,8 +517,8 @@ mod tests {
             .into(),
         );
 
-        LayoutEngine::relayout_node(
-            img_node.node_id,
+        LayoutTree::relayout_node(
+            img_node.node_id.unwrap(),
             Rect::default(),
             &mut layout,
             &style_tree,

@@ -88,7 +88,11 @@ impl<'html> HtmlRenderer<'html> {
         let nodes = self.layout_tree.resolve(f64::from(x), f64::from(y));
 
         for node in nodes {
-            let dom_node = &self.dom_tree[node.node_id];
+            let Some(node_id) = node.node_id else {
+                continue;
+            };
+
+            let dom_node = &self.dom_tree[node_id];
 
             if let Some(n) = dom_node.data.as_element()
                 && n.tag == Tag::Html(HtmlTag::A)

@@ -118,7 +118,7 @@ fn layout_text_segment<'node>(
             break;
         }
 
-        let node = LayoutNode::builder(text.node_id)
+        let node = LayoutNode::builder(Some(text.node_id))
             .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
             .colors(LayoutColors::text_only(text.style.color))
             .cursor(text.style.cursor)
