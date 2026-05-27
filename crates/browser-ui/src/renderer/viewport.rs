@@ -48,10 +48,7 @@ pub fn collect_render_data_from_layout<'html>(
 
         let border = node.border;
         let border_color = &node.colors.border_color;
-        if (border.top > 0.0 || border.right > 0.0 || border.bottom > 0.0 || border.left > 0.0)
-            && node.dimensions.width > 0.0
-            && node.dimensions.height > 0.0
-        {
+        if border.top > 0.0 || border.right > 0.0 || border.bottom > 0.0 || border.left > 0.0 {
             let x = node.dimensions.x as f32;
             let y = node.dimensions.y as f32;
             let w = node.dimensions.width as f32;

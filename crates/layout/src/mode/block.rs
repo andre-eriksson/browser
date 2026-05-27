@@ -87,8 +87,8 @@ impl BlockLayout {
         // }
 
         let container_width = ctx.containing_block().width;
-
         let box_model = Geometry::resolve_box_model(style, container_width);
+
         let establishes_bfc = FormattingContext::establishes_bfc(box_node, parent_style, style, input.dom);
 
         let width = Self::calculate_width(style, container_width, &box_model);
