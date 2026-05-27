@@ -1,12 +1,14 @@
 use css_display::BoxTree;
-use css_style::ComputedStyle;
+use css_style::{ComputedStyle, StyleTree};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    LayoutTree,
+    LayoutNode, LayoutTree,
     context::{ImageContext, LayoutContext, TextContext},
     mode::{
-        block::{BlockContext, BlockLayout}, //inline::{InlineContext, InlineLayout},
+        LayoutMode,
+        block::{BlockContext, BlockLayout},
+        inline::{InlineContext, InlineLayout}, //inline::{InlineContext, InlineLayout},
     },
     primitives::Rect,
 };
@@ -74,114 +76,117 @@ impl LayoutTree {
     ///
     /// # Panics
     /// * If the node or any of its ancestors are not found in the layout tree, which should never happen since the layout tree is built from the DOM tree.
-    pub fn relayout_node(_node_id: NodeId, _viewport: Rect, _layout_tree: &mut LayoutTree, _input: &mut LayoutInput) {
-        // let node = &input.dom[node_id];
+    pub fn relayout_node<'css>(
+        node_id: NodeId,
+        viewport: Rect,
+        layout_tree: &mut LayoutTree,
+        style_tree: &'css StyleTree,
+        input: &mut LayoutInput<'css>,
+    ) {
+        let node = &input.dom[node_id];
 
-        // let ancestors: Vec<NodeId> = input
-        //     .dom
-        //     .ancestors(node)
-        //     .into_iter()
-        //     .map(|n| n.id)
-        //     .collect();
+        let ancestors: Vec<NodeId> = input
+            .dom
+            .ancestors(node)
+            .into_iter()
+            .map(|n| n.id)
+            .collect();
 
-        // let Some(&dirty_parent_id) = ancestors.first() else {
-        //     return;
-        // };
-        // let Some(parent_path) = layout_tree.find_path(dirty_parent_id) else {
-        //     return;
-        // };
+        let Some(&dirty_parent_id) = ancestors.first() else {
+            return;
+        };
+        let Some(parent_path) = layout_tree.find_path(dirty_parent_id) else {
+            return;
+        };
 
-        // let old_layout = layout_tree.node_at(&parent_path).unwrap();
-        // let old_box_node = box_tree[dirty_parent_id];
+        let old_layout = layout_tree.node_at(&parent_path).unwrap();
+        let box_node = &input.box_tree[&old_layout.layout_id];
 
-        // let old_height = old_layout.dimensions.height;
+        let old_height = old_layout.dimensions.height;
 
-        // // let mut position_ctx = PositionContext::new(viewport);
-        // let mut ctx = LayoutContext::new(old_layout.dimensions);
-        // // ctx.position_ctx().update_viewport(viewport);
+        // let mut position_ctx = PositionContext::new(viewport);
+        let mut ctx = LayoutContext::new(old_layout.dimensions);
+        // ctx.position_ctx().update_viewport(viewport);
 
-        // let mode = LayoutMode::new(box_node)
+        let style = &style_tree[dirty_parent_id];
+        let mode = LayoutMode::from(style);
 
-        // let Some(mut new_node) = Self::layout_node(dom_tree, style_tree, &dirty_parent_id, &mut ctx, text_ctx) else {
-        //     return;
-        // };
+        let (nodes, nodes_size) = match mode {
+            LayoutMode::Inline => {
+                let inline_items =
+                    InlineLayout::collect_inline_items_from_nodes(viewport, input, style, &box_node.children);
 
-        // let new_height = new_node.0.dimensions.height;
-        // let delta = new_height - old_height;
+                let inline_ctx = InlineContext::new(viewport);
 
-        // *layout_tree.node_at_mut(&parent_path).unwrap() = new_node.0;
+                InlineLayout::layout(input, &inline_items, &mut ctx, inline_ctx)
+            }
+            _ => {
+                // FIXME: Should retain the old block context for the node being relayouted, so that it doesn't lose track of deferred positioned children.
+                let mut block_ctx = BlockContext::default();
 
-        // if delta.abs() < Self::EPSILON {
-        //     return;
-        // }
+                let Some((node, size)) = BlockLayout::layout(
+                    &box_node.layout_id,
+                    &ComputedStyle::default(),
+                    input,
+                    &mut ctx,
+                    &mut block_ctx,
+                    false,
+                ) else {
+                    return;
+                };
 
-        // for ancestor_id in ancestors.iter().skip(1) {
-        //     let Some(ancestor_path) = layout_tree.find_path(*ancestor_id) else {
-        //         break;
-        //     };
-        //     let ancestor = layout_tree.node_at_mut(&ancestor_path).unwrap();
+                (vec![node], Rect::new(0.0, 0.0, size.width, size.height))
+            }
+        };
 
-        //     let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
+        if nodes.is_empty() {
+            return;
+        }
 
-        //     let changed_child_idx = ancestor
-        //         .children
-        //         .iter()
-        //         .position(|child| child.node_id == prev_id);
+        let new_height = nodes_size.height;
+        let delta = new_height - old_height;
 
-        //     if let Some(idx) = changed_child_idx {
-        //         for sibling in &mut ancestor.children[idx + 1..] {
-        //             Self::shift_y_recursively(sibling, delta);
-        //         }
-        //     }
+        // TODO: Replace a range of nodes depends on inline and such.
+        *layout_tree.node_at_mut(&parent_path).unwrap() = nodes[0].clone();
 
-        //     if ancestor.is_height_auto {
-        //         ancestor.dimensions.height += delta;
-        //     } else {
-        //         break;
-        //     }
-        // }
+        if delta.abs() < Self::EPSILON {
+            return;
+        }
 
-        // layout_tree.content_height += delta;
+        for ancestor_id in ancestors.iter().skip(1) {
+            let Some(ancestor_path) = layout_tree.find_path(*ancestor_id) else {
+                break;
+            };
+            let ancestor = layout_tree.node_at_mut(&ancestor_path).unwrap();
+            let style = &style_tree[ancestor_id];
+
+            let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
+
+            let changed_child_idx = ancestor
+                .children
+                .iter()
+                .position(|child| child.node_id == Some(prev_id));
+
+            if let Some(idx) = changed_child_idx {
+                for sibling in &mut ancestor.children[idx + 1..] {
+                    Self::shift_y_recursively(sibling, delta);
+                }
+            }
+
+            if style.height.is_auto() {
+                ancestor.dimensions.height += delta;
+            } else {
+                break;
+            }
+        }
+
+        layout_tree.content_height += delta;
     }
 
-    // pub(crate) fn collect_children<F>(
-    //     ctx: &mut LayoutContext,
-    //     dom_tree: &DocumentRoot,
-    //     style_tree: &StyleTree,
-    //     parent_id: &NodeId,
-    //     start_idx: &mut usize,
-    //     condition: F,
-    // ) -> Vec<NodeId>
-    // where
-    //     F: Fn(&NodeId) -> bool,
-    // {
-    //     let mut collected = Vec::new();
-    //     let parent_node = &dom_tree[parent_id];
-    //     let children = &parent_node.children;
-
-    //     for child in children.iter().skip(*start_idx) {
-    //         let style = &style_tree[child];
-
-    //         if style.position.is_out_of_flow() && !ctx.is_deferred() {
-    //             let containing_block = if style.position == Position::Fixed {
-    //                 ctx.containing_block()
-    //             } else {
-    //                 ctx.positioned_containing_block()
-    //             };
-
-    //             ctx.position_ctx().defer(child, containing_block);
-    //             *start_idx += 1;
-    //             continue;
-    //         }
-
-    //         if condition(child) {
-    //             collected.push(*child);
-    //             *start_idx += 1;
-    //         } else {
-    //             break;
-    //         }
-    //     }
-
-    //     collected
-    // }
+    fn shift_y_recursively(node: &mut LayoutNode, delta: f64) {
+        node.dimensions.y += delta;
+        for child in &mut node.children {
+            Self::shift_y_recursively(child, delta);
+        }
+    }
 }

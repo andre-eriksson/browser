@@ -1,5 +1,5 @@
 use css_display::BoxNode;
-use css_style::Display;
+use css_style::{ComputedStyle, Display};
 use css_values::display::InsideDisplay;
 
 pub mod block;
@@ -21,6 +21,30 @@ impl LayoutMode {
 
         debug_assert!(!style.display.is_none(), "Should've been pruned by the BoxTree.");
 
+        if style.position.is_out_of_flow() {
+            return Self::Block;
+        }
+
+        if style.display.is_block() {
+            return Self::Block;
+        } else if style.display.is_inline() {
+            return Self::Inline;
+        } else if let Display::Normal { inside, .. } = style.display
+            && let Some(val) = inside
+        {
+            match val {
+                InsideDisplay::Flex => return Self::Flex,
+                InsideDisplay::Grid => return Self::Grid,
+                _ => {}
+            }
+        }
+
+        Self::Block
+    }
+}
+
+impl From<&ComputedStyle> for LayoutMode {
+    fn from(style: &ComputedStyle) -> Self {
         if style.position.is_out_of_flow() {
             return Self::Block;
         }

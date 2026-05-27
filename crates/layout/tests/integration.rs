@@ -114,29 +114,27 @@ mod tests {
     /// Runs layout from a pre-built `StyleTree`, optionally with an
     /// `ImageContext` for known image dimensions.
     macro_rules! layout_from {
-        ($dom_tree:expr, $style_tree:expr, $text_context:expr) => {{
-            let box_tree = BoxTree::new(&$dom_tree, &$style_tree);
+        ($dom_tree:expr, $box_tree:expr, $text_context:expr) => {{
             let img_ctx = ImageContext::new();
             LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: &$dom_tree,
+                    box_tree: &$box_tree,
                     text: $text_context,
+                    image: &img_ctx,
                 },
-                &box_tree,
                 viewport(),
-                &img_ctx,
             )
         }};
-        ($dom_tree:expr, $style_tree:expr, $text_context:expr, $image_ctx:expr) => {{
-            let box_tree = BoxTree::new(&$dom_tree, &$style_tree);
+        ($dom_tree:expr, $box_tree:expr, $text_context:expr, $image_ctx:expr) => {{
             LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: &$dom_tree,
+                    box_tree: &$box_tree,
                     text: $text_context,
+                    image: &$image_ctx,
                 },
-                &box_tree,
                 viewport(),
-                $image_ctx,
             )
         }};
     }
@@ -151,11 +149,11 @@ mod tests {
             LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: &dom_tree,
+                    box_tree: &box_tree,
                     text: &mut text_context,
+                    image: &img_ctx,
                 },
-                &box_tree,
                 viewport(),
-                &img_ctx,
             )
         }};
     }
@@ -372,8 +370,8 @@ mod tests {
     #[test]
     fn test_child_calc_percentage_resolves_against_parent_size() {
         let (dom, style_tree, mut text_ctx) = process_html_raw!("calc_percent_child.html.zst", true);
-
-        let layout = layout_from!(dom, style_tree, &mut text_ctx);
+        let box_tree = BoxTree::new(&dom, &style_tree);
+        let layout = layout_from!(dom, box_tree, &mut text_ctx);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -397,8 +395,8 @@ mod tests {
     #[test]
     fn test_image_relayout_repositions_siblings() {
         let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
-
-        let mut layout = layout_from!(dom, style_tree, &mut text_context);
+        let box_tree = BoxTree::new(&dom, &style_tree);
+        let mut layout = layout_from!(dom, box_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -444,9 +442,12 @@ mod tests {
             Rect::default(),
             &mut layout,
             &style_tree,
-            &dom,
-            &mut text_context,
-            &image_ctx,
+            &mut LayoutInput {
+                dom: &dom,
+                box_tree: &box_tree,
+                text: &mut text_context,
+                image: &image_ctx,
+            },
         );
 
         let root2 = &layout.root_nodes[0];
@@ -494,8 +495,8 @@ mod tests {
     #[test]
     fn test_image_relayout_respects_css_width_percentage() {
         let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout_css_width.html.zst", true);
-
-        let mut layout = layout_from!(dom, style_tree, &mut text_context);
+        let box_tree = BoxTree::new(&dom, &style_tree);
+        let mut layout = layout_from!(dom, box_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -522,9 +523,12 @@ mod tests {
             Rect::default(),
             &mut layout,
             &style_tree,
-            &dom,
-            &mut text_context,
-            &image_ctx,
+            &mut LayoutInput {
+                dom: &dom,
+                box_tree: &box_tree,
+                text: &mut text_context,
+                image: &image_ctx,
+            },
         );
 
         let root2 = &layout.root_nodes[0];
@@ -545,8 +549,8 @@ mod tests {
     /// running it twice produces identical results.
     #[test]
     fn test_image_relayout_is_idempotent() {
-        let (dom_tree, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
-
+        let (dom, style_tree, mut text_context) = process_html_raw!("image_relayout.html.zst", true);
+        let box_tree = BoxTree::new(&dom, &style_tree);
         let mut image_ctx = ImageContext::new();
         image_ctx.insert(
             NodeId(14),
@@ -558,8 +562,8 @@ mod tests {
             .into(),
         );
 
-        let layout_a = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);
-        let layout_b = layout_from!(dom_tree, style_tree, &mut text_context, &image_ctx);
+        let layout_a = layout_from!(dom, box_tree, &mut text_context, &image_ctx);
+        let layout_b = layout_from!(dom, box_tree, &mut text_context, &image_ctx);
 
         assert_eq!(layout_a.content_height, layout_b.content_height);
 
@@ -583,8 +587,9 @@ mod tests {
 
     #[test]
     fn test_float_basic() {
-        let (dom_tree, style_tree, mut text_context) = process_html_raw!("float_basic.html.zst", true);
-        let layout = layout_from!(dom_tree, style_tree, &mut text_context);
+        let (dom, style_tree, mut text_context) = process_html_raw!("float_basic.html.zst", true);
+        let box_tree = BoxTree::new(&dom, &style_tree);
+        let layout = layout_from!(dom, box_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -610,8 +615,9 @@ mod tests {
 
     #[test]
     fn test_float_clear_left() {
-        let (dom_tree, style_tree, mut text_context) = process_html_raw!("float_clear.html.zst", true);
-        let layout = layout_from!(dom_tree, style_tree, &mut text_context);
+        let (dom, style_tree, mut text_context) = process_html_raw!("float_clear.html.zst", true);
+        let box_tree = BoxTree::new(&dom, &style_tree);
+        let layout = layout_from!(dom, box_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
@@ -640,8 +646,9 @@ mod tests {
 
     #[test]
     fn test_float_clear_right() {
-        let (dom_tree, style_tree, mut text_context) = process_html_raw!("float_clear_right.html.zst", true);
-        let layout = layout_from!(dom_tree, style_tree, &mut text_context);
+        let (dom, style_tree, mut text_context) = process_html_raw!("float_clear_right.html.zst", true);
+        let box_tree = BoxTree::new(&dom, &style_tree);
+        let layout = layout_from!(dom, box_tree, &mut text_context);
 
         let root = &layout.root_nodes[0];
         let body = &root.children[0];
