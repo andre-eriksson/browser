@@ -163,13 +163,13 @@ impl BlockLayout {
         let colors = LayoutColors::from(style);
         let node = LayoutNode::builder(box_node.node_id)
             .border(box_model.border)
+            .children(children)
             .colors(colors)
             .cursor(style.cursor)
-            .children(children)
+            .dimensions(Rect::new(ctx.cursor().x, node_y, width, content_height))
             .margin(box_model.margin)
             .padding(box_model.padding)
             .position(style.position)
-            .dimensions(Rect::new(ctx.cursor().x, node_y, width, content_height))
             .build();
 
         ctx.cursor().y = node_y + content_height;
