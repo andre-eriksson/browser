@@ -147,15 +147,15 @@ impl HeadlessEngine {
         let box_tree = BoxTree::new(document, &style_tree);
 
         let viewport = Rect::new(0.0, 0.0, self.viewport_width, self.viewport_height);
-        let img_ctx = ImageContext::new();
+        let image_ctx = ImageContext::new();
         let layout_tree = LayoutTree::compute_layout(
             &mut LayoutInput {
                 dom: document,
                 text: &mut self.text_ctx,
+                image: &image_ctx,
             },
             &box_tree,
             viewport,
-            &img_ctx,
         );
 
         self.style_tree = Some(style_tree);

@@ -1,5 +1,8 @@
 use crate::{
-    ImageContext, LayoutNode, LayoutTree, Rect, context::LayoutContext, engine::LayoutInput, primitives::Size,
+    ImageContext, LayoutNode, LayoutTree, Rect,
+    context::{LayoutContext, layout::Cursor},
+    engine::LayoutInput,
+    primitives::Size,
 };
 use css_display::BoxNode;
 use css_style::ComputedStyle;
@@ -54,13 +57,12 @@ impl<'node> PositionContext<'node> {
         });
     }
 
-    pub fn resolve_all(&mut self, input: &mut LayoutInput, image_ctx: &ImageContext) -> Vec<(LayoutNode, Size)> {
+    pub fn resolve_all(&mut self, input: &mut LayoutInput) -> Vec<(LayoutNode, Size)> {
         self.pending
             .drain(..)
             .filter_map(|pending| {
-                let mut new_position_ctx = PositionContext::new(pending.containing_block);
                 let mut ctx =
-                    LayoutContext::deferred(pending.containing_block, self.viewport, image_ctx, &mut new_position_ctx);
+                    LayoutContext::deferred(Cursor { x: 0.0, y: 0.0 }, pending.containing_block, self.viewport);
 
                 LayoutTree::layout_node(&pending.box_node, input, &ComputedStyle::default(), &mut ctx)
             })

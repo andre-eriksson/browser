@@ -85,8 +85,7 @@ impl CSSParsable for Offset {
         while let Some(cv) = stream.next_cv() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    offset_values
-                        .push(OffsetValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
+                    offset_values.push(OffsetValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -184,14 +183,12 @@ impl TryFrom<&[MarginValue]> for Margin {
 
 impl CSSParsable for Margin {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
         let mut offset_values = Vec::new();
 
-        while let Some(cv) = stream.next_cv() {
+        while let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
-                    offset_values
-                        .push(MarginValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
+                    offset_values.push(MarginValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
                 }
                 ComponentValue::Token(token) => match &token.kind {
                     CssTokenKind::Dimension { value, unit } => {
@@ -205,6 +202,16 @@ impl CSSParsable for Margin {
                     }
                     CssTokenKind::Ident(ident) if ident.eq_ignore_ascii_case("auto") => {
                         offset_values.push(MarginValue::Auto);
+                    }
+                    CssTokenKind::Number(numeric) => {
+                        if numeric.to_f64() == 0.0 {
+                            offset_values.push(MarginValue::Length(Length::px(0.0)));
+                        } else {
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Invalid numeric value for margin: {}. Only zero is allowed without a unit.",
+                                numeric.to_f64()
+                            )));
+                        }
                     }
                     _ => {}
                 },

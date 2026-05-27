@@ -1,19 +1,36 @@
+use css_display::BoxNode;
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
     Margin,
-    primitives::{MarginValue, SideOffset},
+    context::LayoutContext,
+    primitives::{MarginValue, SideOffset, Size},
 };
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct BoxModel {
+    pub margin: Margin,
+    pub padding: SideOffset,
+    pub border: SideOffset,
+}
 
 pub(crate) struct Geometry;
 
 impl Geometry {
-    pub(crate) fn resolve_box_model(style: &ComputedStyle, containing_width: f64) -> (Margin, SideOffset, SideOffset) {
-        let margins = Self::resolve_margin(style, containing_width);
-        let padding = Self::resolve_padding(style, containing_width);
-        let borders = Self::resolve_border(style);
+    pub(crate) fn compute_intrinsic_sizes(box_node: &BoxNode, layout_ctx: &LayoutContext) -> (Size, Size) {
+        (Size::new(0.0, 0.0), Size::new(0.0, 0.0))
+    }
 
-        (margins, padding, borders)
+    pub(crate) fn resolve_box_model(style: &ComputedStyle, containing_width: f64) -> BoxModel {
+        let margin = Self::resolve_margin(style, containing_width);
+        let padding = Self::resolve_padding(style, containing_width);
+        let border = Self::resolve_border(style);
+
+        BoxModel {
+            margin,
+            padding,
+            border,
+        }
     }
 
     // TODO: Support all positions
@@ -28,8 +45,10 @@ impl Geometry {
         style.padding_top.to_px(containing_width) > 0.0 || style.border_top_width > 0.0
     }
 
-    pub fn has_bottom_fence(style: &ComputedStyle, containing_width: f64) -> bool {
-        style.padding_bottom.to_px(containing_width) > 0.0 || style.border_bottom_width > 0.0
+    pub fn has_bottom_fence(style: &ComputedStyle, containing_width: f64, height: f64) -> bool {
+        style.padding_bottom.to_px(containing_width) > 0.0
+            || style.border_bottom_width > 0.0
+            || (!style.height.is_auto() && height > 0.0)
     }
 
     /// Resolve margin values to pixels

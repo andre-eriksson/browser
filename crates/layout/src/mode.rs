@@ -1,6 +1,6 @@
 use css_display::BoxNode;
 use css_style::Display;
-use css_values::display::{InsideDisplay, OutsideDisplay};
+use css_values::display::InsideDisplay;
 
 pub mod block;
 //pub mod inline;
@@ -25,20 +25,17 @@ impl LayoutMode {
             return Self::Block;
         }
 
-        if let Display::Normal { outside, inside } = style.display {
-            if let Some(val) = inside {
-                match val {
-                    InsideDisplay::Flex => return Self::Flex,
-                    InsideDisplay::Grid => return Self::Grid,
-                    _ => {}
-                }
-            }
-
-            if let Some(val) = outside {
-                match val {
-                    OutsideDisplay::Block => return Self::Block,
-                    OutsideDisplay::Inline => return Self::Inline,
-                }
+        if style.display.is_block() {
+            return Self::Block;
+        } else if style.display.is_inline() {
+            return Self::Inline;
+        } else if let Display::Normal { inside, .. } = style.display
+            && let Some(val) = inside
+        {
+            match val {
+                InsideDisplay::Flex => return Self::Flex,
+                InsideDisplay::Grid => return Self::Grid,
+                _ => {}
             }
         }
 
@@ -49,6 +46,7 @@ impl LayoutMode {
 #[cfg(test)]
 mod tests {
     use css_style::ComputedStyle;
+    use css_values::display::OutsideDisplay;
     use html_dom::NodeId;
 
     use super::*;

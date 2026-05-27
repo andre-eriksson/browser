@@ -6,19 +6,20 @@ use css_style::Position;
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
-use crate::{ImageData, LayoutColors, Rect, primitives::SideOffset};
+use crate::{ImageData, LayoutColors, Margin, Rect, primitives::SideOffset};
 
 /// A node in the layout tree representing a rendered element
 #[derive(Debug, Clone)]
 pub struct LayoutNode {
-    pub node_id: Option<NodeId>,
     pub border: SideOffset,
     pub children: Vec<Self>,
     pub colors: LayoutColors,
     pub cursor: Cursor,
     pub dimensions: Rect,
     pub image_data: Option<ImageData>,
-    pub is_height_auto: bool,
+    pub margin: Margin,
+    pub node_id: Option<NodeId>,
+    pub padding: SideOffset,
     pub position: Position,
     pub text_buffer: Option<Arc<Buffer>>,
 }
@@ -40,16 +41,17 @@ impl NodeBuilder {
     pub fn new(node_id: Option<NodeId>) -> Self {
         Self {
             layout_node: LayoutNode {
-                node_id,
-                dimensions: Rect::default(),
+                border: SideOffset::default(),
+                children: Vec::new(),
                 colors: LayoutColors::default(),
                 cursor: Cursor::default(),
-                border: SideOffset::default(),
+                dimensions: Rect::default(),
+                image_data: None,
+                margin: Margin::default(),
+                node_id,
+                padding: SideOffset::default(),
                 position: Position::Static,
                 text_buffer: None,
-                image_data: None,
-                children: Vec::new(),
-                is_height_auto: false,
             },
         }
     }
@@ -84,8 +86,13 @@ impl NodeBuilder {
         self
     }
 
-    pub const fn height_auto(mut self, is_height_auto: bool) -> Self {
-        self.layout_node.is_height_auto = is_height_auto;
+    pub const fn margin(mut self, margin: Margin) -> Self {
+        self.layout_node.margin = margin;
+        self
+    }
+
+    pub const fn padding(mut self, padding: SideOffset) -> Self {
+        self.layout_node.padding = padding;
         self
     }
 

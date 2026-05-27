@@ -77,15 +77,15 @@ impl DevtoolsWindow {
                     StyleTree::build(Some(&application.preferences), &abs_ctx, page.dom(), page.stylesheets());
                 let box_tree = BoxTree::new(page.dom(), &style_tree);
                 let mut tc = ctx.text_context.lock().unwrap();
-                let img_ctx = ImageContext::new();
+                let image_ctx = ImageContext::new();
                 let layout_tree = LayoutTree::compute_layout(
                     &mut LayoutInput {
                         dom: page.dom(),
                         text: &mut tc,
+                        image: &image_ctx,
                     },
                     &box_tree,
                     Rect::new(0.0, 0.0, f64::from(new_viewport.width), f64::from(new_viewport.height)),
-                    &img_ctx,
                 );
                 drop(tc);
 
@@ -120,15 +120,15 @@ impl DevtoolsWindow {
             let style_tree = StyleTree::build(Some(&application.preferences), &abs_ctx, page.dom(), page.stylesheets());
             let box_tree = BoxTree::new(page.dom(), &style_tree);
             let mut tc = ctx.text_context.lock().unwrap();
-            let img_ctx = ImageContext::new();
+            let image_ctx = ImageContext::new();
             let layout_tree = LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: page.dom(),
                     text: &mut tc,
+                    image: &image_ctx,
                 },
                 &box_tree,
                 Rect::new(0.0, 0.0, f64::from(devtools_ctx.viewport.width), f64::from(devtools_ctx.viewport.height)),
-                &img_ctx,
             );
             drop(tc);
 

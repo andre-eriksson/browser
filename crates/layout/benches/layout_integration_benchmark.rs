@@ -216,10 +216,10 @@ fn bench_layout_pipeline(c: &mut Criterion) {
                     &mut LayoutInput {
                         dom: &dom,
                         text: &mut layout_text_context,
+                        image: &image_ctx,
                     },
                     &box_tree,
                     viewport,
-                    &image_ctx,
                 );
                 black_box(layout.content_height);
             })
@@ -237,10 +237,10 @@ fn bench_layout_pipeline(c: &mut Criterion) {
                 &mut LayoutInput {
                     dom: &dom,
                     text: &mut full_text_context,
+                    image: &image_ctx,
                 },
                 &box_tree,
                 viewport,
-                &image_ctx,
             );
             black_box(layout.content_height);
         })

@@ -99,10 +99,10 @@ impl Tab {
                 &mut LayoutInput {
                     dom: page.dom(),
                     text: text_context,
+                    image: &image_ctx,
                 },
                 &box_tree,
                 Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-                &image_ctx,
             )
         };
 
@@ -136,10 +136,10 @@ impl Tab {
             &mut LayoutInput {
                 dom: document.dom(),
                 text: text_context,
+                image: &image_ctx,
             },
             &box_tree,
             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
-            &image_ctx,
         );
 
         self.style_tree = Some(style_tree);

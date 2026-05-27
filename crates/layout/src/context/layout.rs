@@ -3,65 +3,62 @@ use crate::{
     context::{FloatContext, PositionContext},
 };
 
+#[derive(Debug, Clone, Copy)]
+pub struct Cursor {
+    pub x: f64,
+    pub y: f64,
+}
+
 /// Context passed down during layout computation
 #[derive(Debug)]
-pub struct LayoutContext<'layout, 'nodes> {
+pub struct LayoutContext {
+    cursor: Cursor,
     containing_block: Rect,
     positioned_containing_block: Rect,
     deferred: bool,
-    position_ctx: &'layout mut PositionContext<'nodes>,
     float_ctx: FloatContext,
-    image_ctx: &'layout ImageContext,
 }
 
-impl<'layout, 'nodes> LayoutContext<'layout, 'nodes> {
+impl LayoutContext {
     /// Creates a new `LayoutContext` with the given containing block
-    pub(crate) fn new(
-        containing_block: Rect,
-        image_ctx: &'layout ImageContext,
-        position_ctx: &'layout mut PositionContext<'nodes>,
-    ) -> Self {
+    pub(crate) fn new(containing_block: Rect) -> Self {
         Self {
+            cursor: Cursor { x: 0.0, y: 0.0 },
             containing_block,
             positioned_containing_block: containing_block,
             deferred: false,
-            position_ctx,
             float_ctx: FloatContext::new(),
-            image_ctx,
         }
     }
 
     /// Creates a new `LayoutContext` for deferred layout, which will be used for elements that are
     /// laid out in a second pass after the initial layout has completed.
-    pub(crate) fn deferred(
-        containing_block: Rect,
-        positioned_containing_block: Rect,
-        image_ctx: &'layout ImageContext,
-        position_ctx: &'layout mut PositionContext<'nodes>,
-    ) -> Self {
+    pub(crate) fn deferred(cursor: Cursor, containing_block: Rect, positioned_containing_block: Rect) -> Self {
         Self {
+            cursor,
             containing_block,
             positioned_containing_block,
             deferred: true,
-            position_ctx,
             float_ctx: FloatContext::new(),
-            image_ctx,
         }
     }
 
     /// Creates a child context with the specified containing block, inheriting
     /// the image and position contexts.
-    pub(crate) fn child_context(&'nodes mut self, containing_block: Rect, deferred: bool) -> LayoutContext<'_, '_> {
+    pub(crate) fn child_context(&mut self, containing_block: Rect, deferred: bool) -> Self {
         if deferred {
-            LayoutContext::deferred(
-                containing_block,
-                self.positioned_containing_block,
-                self.image_ctx,
-                self.position_ctx,
-            )
+            Self::deferred(Cursor { x: 0.0, y: 0.0 }, containing_block, self.positioned_containing_block)
         } else {
-            LayoutContext::new(containing_block, self.image_ctx, &mut *self.position_ctx)
+            Self::new(containing_block)
         }
+    }
+
+    pub const fn cursor_ref(&self) -> &Cursor {
+        &self.cursor
+    }
+
+    pub const fn cursor(&mut self) -> &mut Cursor {
+        &mut self.cursor
     }
 
     /// Returns the containing block rect
@@ -78,20 +75,12 @@ impl<'layout, 'nodes> LayoutContext<'layout, 'nodes> {
         self.deferred
     }
 
-    pub fn position_ctx(&'nodes mut self) -> &mut PositionContext {
-        self.position_ctx
-    }
-
     pub fn float_ctx(&mut self) -> &mut FloatContext {
         &mut self.float_ctx
     }
 
     pub fn float_ctx_ref(&self) -> &FloatContext {
         &self.float_ctx
-    }
-
-    pub fn image_ctx(&self) -> &ImageContext {
-        self.image_ctx
     }
 
     /// Sets the nearest positioned ancestor containing block used by absolute positioning.

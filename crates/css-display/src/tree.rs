@@ -1,4 +1,5 @@
-use css_style::StyleTree;
+use css_style::{ComputedStyle, StyleTree};
+use css_values::text::Whitespace;
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::node::BoxNode;
@@ -27,11 +28,23 @@ impl<'node> BoxTree<'node> {
         let mut children = Vec::new();
         let mut inline_buffer = Vec::new();
         let mut saw_block = false;
+        let all_block = dom[node_id]
+            .children
+            .iter()
+            .filter(|child_id| !style_tree[*child_id].display.is_none())
+            .all(|child_id| {
+                let child_style = &style_tree[child_id];
+                child_style.display.is_block() || Self::is_suppressable_whitespace(child_id, style, dom)
+            });
 
         for child_id in &dom[node_id].children {
             let child_style = &style_tree[child_id];
 
             if child_style.display.is_none() {
+                continue;
+            }
+
+            if all_block && Self::is_suppressable_whitespace(child_id, style, dom) {
                 continue;
             }
 
@@ -58,5 +71,18 @@ impl<'node> BoxTree<'node> {
         }
 
         children
+    }
+
+    fn is_suppressable_whitespace(node_id: &NodeId, parent_style: &ComputedStyle, dom: &DocumentRoot) -> bool {
+        let node = &dom[node_id];
+
+        if let Some(text) = node.data.as_text() {
+            let is_all_whitespace = text.chars().all(|c| c.is_ascii_whitespace());
+            let collapses =
+                matches!(parent_style.whitespace, Whitespace::Normal | Whitespace::Nowrap | Whitespace::PreLine);
+            is_all_whitespace && collapses
+        } else {
+            false
+        }
     }
 }

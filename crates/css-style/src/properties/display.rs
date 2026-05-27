@@ -132,7 +132,7 @@ impl From<OutsideDisplay> for Display {
 impl From<InsideDisplay> for Display {
     fn from(inside: InsideDisplay) -> Self {
         Self::Normal {
-            outside: None,
+            outside: Some(OutsideDisplay::Block),
             inside: Some(inside),
         }
     }
@@ -203,7 +203,10 @@ impl CSSParsable for Display {
             ["table"] => Ok(Self::from(InsideDisplay::Table)),
             ["flex"] => Ok(Self::from(InsideDisplay::Flex)),
             ["grid"] => Ok(Self::from(InsideDisplay::Grid)),
-            ["ruby"] => Ok(Self::from(InsideDisplay::Ruby)),
+            ["ruby"] => Ok(Self::Normal {
+                outside: Some(OutsideDisplay::Inline),
+                inside: Some(InsideDisplay::Ruby),
+            }),
             ["list-item"] => Ok(Self::ListItem {
                 outside: None,
                 flow_root: false,

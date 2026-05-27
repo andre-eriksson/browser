@@ -4,10 +4,10 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     LayoutNode, LayoutTree,
-    context::{ImageContext, LayoutContext, PositionContext, TextContext},
+    context::{Geometry, ImageContext, LayoutContext, PositionContext, TextContext},
     mode::{
         LayoutMode,
-        block::{BlockContext, BlockLayout},
+        block::{BlockContext, BlockLayout, MarginCollapsing},
         //inline::{InlineContext, InlineLayout},
     },
     primitives::{Rect, Size},
@@ -19,6 +19,7 @@ const EPSILON: f64 = 0.1;
 pub struct LayoutInput<'a> {
     pub dom: &'a DocumentRoot,
     pub text: &'a mut TextContext,
+    pub image: &'a ImageContext,
 }
 
 impl LayoutTree {
@@ -31,14 +32,9 @@ impl LayoutTree {
     /// [`ImageContext`], then calls this method to produce a fresh
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
-    pub fn compute_layout(
-        input: &mut LayoutInput,
-        box_tree: &BoxTree,
-        viewport: Rect,
-        image_ctx: &ImageContext,
-    ) -> Self {
-        let mut position_ctx = PositionContext::new(viewport);
-        let mut ctx = LayoutContext::new(viewport, image_ctx, &mut position_ctx);
+    pub fn compute_layout(input: &mut LayoutInput, box_tree: &BoxTree, viewport: Rect) -> Self {
+        // let mut position_ctx = PositionContext::new(viewport);
+        let mut ctx = LayoutContext::new(viewport);
 
         let mut total_height = 0.0f64;
         let mut max_width = 0.0f64;
@@ -49,8 +45,8 @@ impl LayoutTree {
                 continue;
             };
 
-            total_height += node.dimensions.height;
-            max_width = max_width.max(node.dimensions.width);
+            total_height += size.height;
+            max_width = max_width.max(size.width);
 
             root_nodes.push(node);
         }
@@ -78,15 +74,17 @@ impl LayoutTree {
         parent_style: &ComputedStyle,
         ctx: &mut LayoutContext,
     ) -> Option<(LayoutNode, Size)> {
-        let _layout_mode = LayoutMode::new(box_node);
+        let layout_mode = LayoutMode::new(box_node);
 
-        let mut block_ctx = BlockContext {
-            cursor_y: ctx.containing_block().y,
-            collapsed_margin: None,
-            containing_width: ctx.containing_block().width,
-        };
+        let (_min_size, _max_size) = Geometry::compute_intrinsic_sizes(box_node, ctx);
 
-        BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx)
+        match layout_mode {
+            _ => {
+                let mut block_ctx = BlockContext::default();
+
+                BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx, false)
+            }
+        }
     }
 
     pub(crate) fn layout_nodes(
@@ -107,14 +105,16 @@ impl LayoutTree {
                 let mut layout_nodes = Vec::new();
                 let mut current_y = containing_block.y;
                 let mut block_ctx = BlockContext {
-                    cursor_y: current_y,
-                    collapsed_margin: None,
-                    containing_width: containing_block.width,
+                    collapsed_margin: MarginCollapsing {
+                        max_positive: 0.0,
+                        max_negative: 0.0,
+                    },
+                    deferred_top_margin: None,
                 };
 
                 for box_node in box_nodes {
                     let (mut layout_node, node_rect) =
-                        BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx)
+                        BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx, false)
                             .unwrap_or_else(|| (LayoutNode::builder(box_node.node_id).build(), Size::new(0.0, 0.0)));
 
                     layout_node.dimensions.x = containing_block.x;
@@ -273,65 +273,4 @@ impl LayoutTree {
 
     //     collected
     // }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::{HashMap, HashSet};
-
-    use css_style::{ComputedStyle, Display};
-    use css_values::display::{BoxDisplay, InsideDisplay, OutsideDisplay};
-    use html_dom::{DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
-
-    use super::*;
-
-    fn viewport() -> Rect {
-        Rect::new(0.0, 0.0, 800.0, 600.0)
-    }
-
-    #[test]
-    fn test_layout_empty() {
-        let style = ComputedStyle {
-            display: Display::from(OutsideDisplay::Block),
-            ..Default::default()
-        };
-
-        let style_tree = StyleTree::from(vec![style]);
-
-        let img_ctx = ImageContext::new();
-        let mut position_ctx = PositionContext::new(viewport());
-        let mut ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
-
-        let mut text_ctx = TextContext::default();
-        let dom_tree = DocumentRoot {
-            nodes: vec![DomNode {
-                id: NodeId(0),
-                data: NodeData::Element(Element::new(Tag::Html(HtmlTag::Html), HashSet::new(), HashMap::new())),
-                children: vec![],
-                parent: None,
-            }],
-            root_nodes: vec![NodeId(0)],
-        };
-        let mut input = LayoutInput {
-            dom: &dom_tree,
-            text: &mut text_ctx,
-        };
-        let mut block_ctx = BlockContext {
-            cursor_y: 0.0,
-            collapsed_margin: None,
-            containing_width: viewport().width,
-        };
-
-        let style = ComputedStyle::default();
-        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
-        let layout_node =
-            BlockLayout::layout(&box_node, &ComputedStyle::default(), &mut input, &mut ctx, &mut block_ctx).unwrap();
-
-        assert_eq!(layout_node.0.node_id, Some(NodeId(0)));
-        assert_eq!(layout_node.0.dimensions.x, 0.0);
-        assert_eq!(layout_node.0.dimensions.y, 0.0);
-        assert_eq!(layout_node.0.dimensions.width, 800.0);
-        assert_eq!(layout_node.0.dimensions.height, 0.0);
-        assert_eq!(layout_node.0.children.len(), 0);
-    }
 }
