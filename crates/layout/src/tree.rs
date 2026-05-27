@@ -1,4 +1,4 @@
-use html_dom::NodeId;
+use css_display::LayoutNodeId;
 
 use crate::LayoutNode;
 
@@ -37,9 +37,9 @@ impl LayoutTree {
 
     /// Finds the path to the layout node corresponding to the given `NodeId`, if it exists.
     #[must_use]
-    pub fn find_path(&self, node_id: NodeId) -> Option<Vec<usize>> {
+    pub fn find_path(&self, layout_id: LayoutNodeId) -> Option<Vec<usize>> {
         for (idx, root) in self.root_nodes.iter().enumerate() {
-            if let Some(mut path) = Self::find_path_in_node(root, node_id) {
+            if let Some(mut path) = Self::find_path_in_node(root, layout_id) {
                 path.insert(0, idx);
                 return Some(path);
             }
@@ -48,13 +48,13 @@ impl LayoutTree {
         None
     }
 
-    fn find_path_in_node(node: &LayoutNode, node_id: NodeId) -> Option<Vec<usize>> {
-        if node.node_id == Some(node_id) {
+    fn find_path_in_node(node: &LayoutNode, layout_id: LayoutNodeId) -> Option<Vec<usize>> {
+        if node.layout_id == layout_id {
             return Some(vec![]);
         }
 
         for (idx, child) in node.children.iter().enumerate() {
-            if let Some(mut path) = Self::find_path_in_node(child, node_id) {
+            if let Some(mut path) = Self::find_path_in_node(child, layout_id) {
                 path.insert(0, idx);
                 return Some(path);
             }

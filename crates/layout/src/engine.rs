@@ -1,13 +1,12 @@
 use css_display::BoxTree;
-use css_style::{ComputedStyle, StyleTree};
+use css_style::ComputedStyle;
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
     LayoutTree,
     context::{ImageContext, LayoutContext, TextContext},
     mode::{
-        block::{BlockContext, BlockLayout},
-        //inline::{InlineContext, InlineLayout},
+        block::{BlockContext, BlockLayout}, //inline::{InlineContext, InlineLayout},
     },
     primitives::Rect,
 };
@@ -15,11 +14,14 @@ use crate::{
 /// Immutable references to the trees — passed everywhere, never mutated
 pub struct LayoutInput<'a> {
     pub dom: &'a DocumentRoot,
+    pub box_tree: &'a BoxTree<'a>,
     pub text: &'a mut TextContext,
     pub image: &'a ImageContext,
 }
 
 impl LayoutTree {
+    const EPSILON: f64 = 0.1;
+
     /// Compute layout for an entire style tree, using known image dimensions
     /// from `image_ctx` so that previously-decoded images are laid out at their
     /// intrinsic size rather than a placeholder.
@@ -29,7 +31,7 @@ impl LayoutTree {
     /// [`ImageContext`], then calls this method to produce a fresh
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
-    pub fn compute_layout(input: &mut LayoutInput, box_tree: &BoxTree, viewport: Rect) -> Self {
+    pub fn compute_layout(input: &mut LayoutInput, viewport: Rect) -> Self {
         // let mut position_ctx = PositionContext::new(viewport);
         let mut ctx = LayoutContext::new(viewport);
 
@@ -37,11 +39,11 @@ impl LayoutTree {
         let mut max_width = 0.0f64;
         let mut root_nodes = Vec::new();
 
-        for box_node in &box_tree.root_nodes {
+        for layout_id in &input.box_tree.root_nodes {
             let mut block_ctx = BlockContext::default();
 
             let Some((node, size)) =
-                BlockLayout::layout(box_node, &ComputedStyle::default(), input, &mut ctx, &mut block_ctx, false)
+                BlockLayout::layout(layout_id, &ComputedStyle::default(), input, &mut ctx, &mut block_ctx, false)
             else {
                 continue;
             };
@@ -72,18 +74,15 @@ impl LayoutTree {
     ///
     /// # Panics
     /// * If the node or any of its ancestors are not found in the layout tree, which should never happen since the layout tree is built from the DOM tree.
-    pub fn relayout_node(
-        _node_id: NodeId,
-        _viewport: Rect,
-        _layout_tree: &mut LayoutTree,
-        _style_tree: &StyleTree,
-        _dom_tree: &DocumentRoot,
-        _text_ctx: &mut TextContext,
-        _image_ctx: &ImageContext,
-    ) {
-        // let node = &dom_tree[node_id];
+    pub fn relayout_node(_node_id: NodeId, _viewport: Rect, _layout_tree: &mut LayoutTree, _input: &mut LayoutInput) {
+        // let node = &input.dom[node_id];
 
-        // let ancestors: Vec<NodeId> = dom_tree.ancestors(node).into_iter().map(|n| n.id).collect();
+        // let ancestors: Vec<NodeId> = input
+        //     .dom
+        //     .ancestors(node)
+        //     .into_iter()
+        //     .map(|n| n.id)
+        //     .collect();
 
         // let Some(&dirty_parent_id) = ancestors.first() else {
         //     return;
@@ -93,24 +92,26 @@ impl LayoutTree {
         // };
 
         // let old_layout = layout_tree.node_at(&parent_path).unwrap();
+        // let old_box_node = box_tree[dirty_parent_id];
+
         // let old_height = old_layout.dimensions.height;
 
-        // let mut position_ctx = PositionContext::new(viewport);
-        // let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
-        // ctx.position_ctx().update_viewport(viewport);
+        // // let mut position_ctx = PositionContext::new(viewport);
+        // let mut ctx = LayoutContext::new(old_layout.dimensions);
+        // // ctx.position_ctx().update_viewport(viewport);
+
+        // let mode = LayoutMode::new(box_node)
 
         // let Some(mut new_node) = Self::layout_node(dom_tree, style_tree, &dirty_parent_id, &mut ctx, text_ctx) else {
         //     return;
         // };
-
-        // Self::offset_children_y(&mut new_node.0.children, new_node.0.margin.top.to_px());
 
         // let new_height = new_node.0.dimensions.height;
         // let delta = new_height - old_height;
 
         // *layout_tree.node_at_mut(&parent_path).unwrap() = new_node.0;
 
-        // if delta.abs() < EPSILON {
+        // if delta.abs() < Self::EPSILON {
         //     return;
         // }
 

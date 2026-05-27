@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use cosmic_text::Buffer;
 
+use css_display::LayoutNodeId;
 use css_style::Position;
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
@@ -17,6 +18,7 @@ pub struct LayoutNode {
     pub cursor: Cursor,
     pub dimensions: Rect,
     pub image_data: Option<ImageData>,
+    pub layout_id: LayoutNodeId,
     pub margin: Margin,
     pub node_id: Option<NodeId>,
     pub padding: SideOffset,
@@ -26,8 +28,8 @@ pub struct LayoutNode {
 
 impl LayoutNode {
     #[must_use]
-    pub fn builder(node_id: Option<NodeId>) -> NodeBuilder {
-        NodeBuilder::new(node_id)
+    pub fn builder(layout_id: LayoutNodeId) -> NodeBuilder {
+        NodeBuilder::new(layout_id)
     }
 }
 
@@ -38,7 +40,7 @@ pub struct NodeBuilder {
 }
 
 impl NodeBuilder {
-    pub fn new(node_id: Option<NodeId>) -> Self {
+    pub fn new(layout_id: LayoutNodeId) -> Self {
         Self {
             layout_node: LayoutNode {
                 border: SideOffset::default(),
@@ -47,8 +49,9 @@ impl NodeBuilder {
                 cursor: Cursor::default(),
                 dimensions: Rect::default(),
                 image_data: None,
+                layout_id,
                 margin: Margin::default(),
-                node_id,
+                node_id: None,
                 padding: SideOffset::default(),
                 position: Position::Static,
                 text_buffer: None,
@@ -88,6 +91,16 @@ impl NodeBuilder {
 
     pub const fn margin(mut self, margin: Margin) -> Self {
         self.layout_node.margin = margin;
+        self
+    }
+
+    pub const fn node_id(mut self, node_id: NodeId) -> Self {
+        self.layout_node.node_id = Some(node_id);
+        self
+    }
+
+    pub const fn maybe_node_id(mut self, maybe_node_id: Option<NodeId>) -> Self {
+        self.layout_node.node_id = maybe_node_id;
         self
     }
 

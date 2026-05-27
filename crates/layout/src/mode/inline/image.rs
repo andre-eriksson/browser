@@ -36,9 +36,10 @@ pub fn layout_image<'node>(
         line.finish_line_with_decorations(ctx, input.text, layout_ctx.float_ctx_ref(), None);
     }
 
-    let node = LayoutNode::builder(Some(*img.node_id))
+    let node = LayoutNode::builder(*img.layout_id)
         .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
         .colors(LayoutColors::from(img.style))
+        .node_id(*img.node_id)
         .image_data(ImageData {
             node_id: *img.node_id,
             image_needs_intrinsic_size: img.needs_intrinsic_size && !has_intrinsic_size,

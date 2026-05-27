@@ -56,7 +56,7 @@ pub fn print_layout_node(node: &LayoutNode, depth: usize) {
     let rect = &node.dimensions;
     println!(
         "{}[{:?}] x={:.1} y={:.1} w={:.1} h={:.1}",
-        indent, node.node_id, rect.x, rect.y, rect.width, rect.height
+        indent, node.layout_id, rect.x, rect.y, rect.width, rect.height
     );
 
     for child in &node.children {

@@ -98,10 +98,10 @@ impl Tab {
             LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: page.dom(),
+                    box_tree: &box_tree,
                     text: text_context,
                     image: &image_ctx,
                 },
-                &box_tree,
                 Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
             )
         };
@@ -135,10 +135,10 @@ impl Tab {
         let layout_tree = LayoutTree::compute_layout(
             &mut LayoutInput {
                 dom: document.dom(),
+                box_tree: &box_tree,
                 text: text_context,
                 image: &image_ctx,
             },
-            &box_tree,
             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
         );
 

@@ -1,4 +1,4 @@
-use css_display::BoxNode;
+use css_display::LayoutNodeId;
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle, Display};
 use css_values::display::{InsideDisplay, OutsideDisplay};
 use html_dom::{HtmlTag, NodeData, NodeId, Tag};
@@ -7,6 +7,7 @@ use crate::{LayoutInput, Rect};
 
 #[derive(Debug, Clone)]
 pub struct TextRun<'node> {
+    pub layout_id: &'node LayoutNodeId,
     pub node_id: &'node NodeId,
     pub content: String,
     pub style: &'node ComputedStyle,
@@ -14,6 +15,7 @@ pub struct TextRun<'node> {
 
 #[derive(Debug, Clone)]
 pub struct ImageItem<'node> {
+    pub layout_id: &'node LayoutNodeId,
     pub node_id: &'node NodeId,
     pub width: f64,
     pub height: f64,
@@ -34,17 +36,18 @@ pub enum InlineItem<'node> {
     /// Contributes left border + left padding to the line and begins tracking
     /// a decoration region.
     InlineBoxStart {
+        layout_id: &'node LayoutNodeId,
         node_id: &'node NodeId,
         style: &'node ComputedStyle,
     },
 
     /// Marks the closing edge of an inline element.
     /// Contributes right border + right padding and finalises the decoration.
-    InlineBoxEnd { node_id: &'node NodeId },
+    InlineBoxEnd { layout_id: &'node LayoutNodeId },
 
     /// inline-block or inline flow-root
     InlineFlowRoot {
-        box_node: &'node BoxNode<'node>,
+        layout_id: &'node LayoutNodeId,
         style: &'node ComputedStyle,
     },
 
@@ -59,11 +62,12 @@ pub enum InlineItem<'node> {
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
 pub fn collect<'dom>(
     containing_rect: Rect,
-    input: &mut LayoutInput<'_>,
+    input: &mut LayoutInput<'dom>,
     parent_style: &'dom ComputedStyle,
-    box_node: &'dom BoxNode,
+    layout_id: &'dom LayoutNodeId,
     items: &mut Vec<InlineItem<'dom>>,
 ) -> Result<(), ()> {
+    let box_node = &input.box_tree[layout_id];
     let Some(node_id) = &box_node.node_id else {
         return Ok(());
     };
@@ -74,6 +78,7 @@ pub fn collect<'dom>(
     match &node.data {
         NodeData::Text(content) => {
             items.push(InlineItem::TextRun(TextRun {
+                layout_id,
                 node_id,
                 content: content.clone(),
                 style: parent_style,
@@ -159,6 +164,7 @@ pub fn collect<'dom>(
                 };
 
                 items.push(InlineItem::Image(ImageItem {
+                    layout_id,
                     node_id,
                     width,
                     height,
@@ -173,7 +179,7 @@ pub fn collect<'dom>(
 
                 if let Display::Normal { outside, inside } = display {
                     if outside == Some(OutsideDisplay::Inline) && inside == Some(InsideDisplay::FlowRoot) {
-                        items.push(InlineItem::InlineFlowRoot { box_node, style });
+                        items.push(InlineItem::InlineFlowRoot { layout_id, style });
 
                         return Ok(());
                     } else if outside != Some(OutsideDisplay::Inline) {
@@ -181,13 +187,17 @@ pub fn collect<'dom>(
                     }
                 }
 
-                items.push(InlineItem::InlineBoxStart { node_id, style });
+                items.push(InlineItem::InlineBoxStart {
+                    layout_id,
+                    node_id,
+                    style,
+                });
 
                 for child_node in &box_node.children {
                     collect(containing_rect, input, style, child_node, items)?;
                 }
 
-                items.push(InlineItem::InlineBoxEnd { node_id });
+                items.push(InlineItem::InlineBoxEnd { layout_id });
             }
         },
     }

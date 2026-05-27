@@ -81,10 +81,10 @@ impl DevtoolsWindow {
                 let layout_tree = LayoutTree::compute_layout(
                     &mut LayoutInput {
                         dom: page.dom(),
+                        box_tree: &box_tree,
                         text: &mut tc,
                         image: &image_ctx,
                     },
-                    &box_tree,
                     Rect::new(0.0, 0.0, f64::from(new_viewport.width), f64::from(new_viewport.height)),
                 );
                 drop(tc);
@@ -124,10 +124,10 @@ impl DevtoolsWindow {
             let layout_tree = LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: page.dom(),
+                    box_tree: &box_tree,
                     text: &mut tc,
                     image: &image_ctx,
                 },
-                &box_tree,
                 Rect::new(0.0, 0.0, f64::from(devtools_ctx.viewport.width), f64::from(devtools_ctx.viewport.height)),
             );
             drop(tc);

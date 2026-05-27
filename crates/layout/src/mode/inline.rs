@@ -1,4 +1,4 @@
-use css_display::BoxNode;
+use css_display::LayoutNodeId;
 use css_style::{ComputedSize, ComputedStyle};
 use html_dom::NodeId;
 
@@ -29,7 +29,8 @@ mod whitespace;
 /// are known.
 #[derive(Debug, Clone)]
 pub struct InlineDecoration<'node> {
-    id: NodeId,
+    layout_id: LayoutNodeId,
+    node_id: NodeId,
     start_x: f64,
     end_x: f64,
     style: &'node ComputedStyle,
@@ -40,7 +41,8 @@ pub struct InlineDecoration<'node> {
 /// State for an inline box that has been opened but not yet closed.
 #[derive(Debug, Clone)]
 pub struct ActiveInlineBox<'node> {
-    id: NodeId,
+    layout_id: LayoutNodeId,
+    node_id: &'node NodeId,
     style: &'node ComputedStyle,
     start_x: f64,
     margin: Margin,
@@ -78,9 +80,9 @@ impl InlineLayout {
     /// according to the CSS `white-space` property of each text run and stripping leading/trailing whitespace from lines.
     pub fn collect_inline_items_from_nodes<'dom>(
         containing_rect: Rect,
-        input: &mut LayoutInput<'_>,
+        input: &mut LayoutInput<'dom>,
         parent_style: &'dom ComputedStyle,
-        nodes: &'dom [BoxNode],
+        nodes: &'dom [LayoutNodeId],
     ) -> Vec<InlineItem<'dom>> {
         let mut raw_items = Vec::with_capacity(nodes.len() * 2);
 
@@ -125,13 +127,23 @@ impl InlineLayout {
                 InlineItem::TextRun(text) => {
                     layout_text(&mut inline_layout_ctx, ctx.float_ctx(), input.text, &mut line, text);
                 }
-                InlineItem::InlineBoxStart { node_id: id, style } => {
-                    line.open_inline_box(&mut inline_layout_ctx.inline_box_stack, input.text, **id, style);
+                InlineItem::InlineBoxStart {
+                    layout_id,
+                    node_id,
+                    style,
+                } => {
+                    line.open_inline_box(
+                        &mut inline_layout_ctx.inline_box_stack,
+                        input.text,
+                        **layout_id,
+                        node_id,
+                        style,
+                    );
                 }
-                InlineItem::InlineBoxEnd { node_id: id } => {
-                    line.close_inline_box(&mut inline_layout_ctx.inline_box_stack, **id);
+                InlineItem::InlineBoxEnd { layout_id } => {
+                    line.close_inline_box(&mut inline_layout_ctx.inline_box_stack, **layout_id);
                 }
-                InlineItem::InlineFlowRoot { box_node, style } => {
+                InlineItem::InlineFlowRoot { layout_id, style } => {
                     let box_model = Geometry::resolve_box_model(style, inline_layout_ctx.available_width);
                     let mut ctx = LayoutContext::new(Rect::new(
                         inline_ctx.containing_block.x,
@@ -142,7 +154,7 @@ impl InlineLayout {
                     let mut block_ctx = BlockContext::default();
 
                     if let Some(mut layout_node) =
-                        BlockLayout::layout(box_node, style, input, &mut ctx, &mut block_ctx, false)
+                        BlockLayout::layout(layout_id, style, input, &mut ctx, &mut block_ctx, false)
                     {
                         if style.width == ComputedSize::Auto {
                             layout_node.0.dimensions.width = InlineLayout::auto_inline_flow_root_width(
@@ -243,20 +255,18 @@ impl InlineLayout {
 
 #[cfg(test)]
 mod tests {
-    use html_dom::NodeId;
-
     use super::*;
 
     #[test]
     fn auto_inline_flow_root_width_uses_descendant_extent() {
-        let nested_text = LayoutNode::builder(Some(NodeId(3)))
+        let nested_text = LayoutNode::builder(LayoutNodeId::new(3))
             .dimensions(Rect::new(13.0, 0.0, 25.0, 12.0))
             .build();
-        let inline_child = LayoutNode::builder(Some(NodeId(2)))
+        let inline_child = LayoutNode::builder(LayoutNodeId::new(2))
             .dimensions(Rect::new(13.0, 0.0, 25.0, 12.0))
             .children(vec![nested_text])
             .build();
-        let container = LayoutNode::builder(Some(NodeId(1)))
+        let container = LayoutNode::builder(LayoutNodeId::new(1))
             .dimensions(Rect::new(8.0, 0.0, 500.0, 20.0))
             .children(vec![inline_child])
             .build();

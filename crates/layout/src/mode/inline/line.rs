@@ -1,3 +1,4 @@
+use css_display::LayoutNodeId;
 use css_style::ComputedStyle;
 use css_values::text::{TextAlign, WritingMode};
 use html_dom::NodeId;
@@ -124,11 +125,12 @@ impl LineBox<'_> {
             let dec_x = content_start_x + dec.start_x + offset_x;
             let dec_y = self.y - dec.padding.top - dec.border.top;
 
-            let node = LayoutNode::builder(Some(dec.id))
+            let node = LayoutNode::builder(dec.layout_id)
                 .dimensions(Rect::new(dec_x, dec_y, dec_width, dec_height))
                 .padding(dec.padding)
                 .border(dec.border)
                 .colors(LayoutColors::from(dec.style))
+                .node_id(dec.node_id)
                 .build();
 
             final_nodes.push(node);
@@ -173,7 +175,8 @@ impl<'node> LineBoxBuilder<'node> {
         &mut self,
         inline_box_stack: &mut Vec<ActiveInlineBox<'node>>,
         text_ctx: &mut TextContext,
-        id: NodeId,
+        layout_id: LayoutNodeId,
+        node_id: &'node NodeId,
         style: &'node ComputedStyle,
     ) {
         let box_model = Geometry::resolve_box_model(style, self.available_width);
@@ -182,7 +185,8 @@ impl<'node> LineBoxBuilder<'node> {
         self.line_box.advance(left_edge);
 
         inline_box_stack.push(ActiveInlineBox {
-            id,
+            layout_id,
+            node_id,
             style,
             start_x: self.line_box.width - left_edge + box_model.margin.left.to_px(),
             margin: box_model.margin,
@@ -194,15 +198,23 @@ impl<'node> LineBoxBuilder<'node> {
         text_ctx.last_writing_mode = style.writing_mode;
     }
 
-    pub(crate) fn close_inline_box(&mut self, inline_box_stack: &mut Vec<ActiveInlineBox<'node>>, id: NodeId) {
-        if let Some(pos) = inline_box_stack.iter().rposition(|b| b.id == id) {
+    pub(crate) fn close_inline_box(
+        &mut self,
+        inline_box_stack: &mut Vec<ActiveInlineBox<'node>>,
+        layout_id: LayoutNodeId,
+    ) {
+        if let Some(pos) = inline_box_stack
+            .iter()
+            .rposition(|b| b.layout_id == layout_id)
+        {
             let active = inline_box_stack.remove(pos);
 
             let right_edge = active.padding.right + active.border.right + active.margin.right.to_px();
             self.line_box.advance(right_edge);
 
             self.line_box.decorations.push(InlineDecoration {
-                id: active.id,
+                layout_id: active.layout_id,
+                node_id: *active.node_id,
                 start_x: active.start_x,
                 end_x: self.line_box.width - active.margin.right.to_px(),
                 style: active.style,
@@ -250,7 +262,8 @@ impl<'node> LineBoxBuilder<'node> {
             self.line_box.advance(right_edge);
 
             self.line_box.decorations.push(InlineDecoration {
-                id: active.id,
+                layout_id: active.layout_id,
+                node_id: *active.node_id,
                 start_x: active.start_x,
                 end_x: self.line_box.width - active.margin.right.to_px(),
                 style: active.style,
@@ -263,15 +276,13 @@ impl<'node> LineBoxBuilder<'node> {
 
 #[cfg(test)]
 mod tests {
-    use html_dom::NodeId;
-
     use super::*;
     use crate::{Margin, Rect};
 
     #[test]
     fn add_accounts_for_horizontal_margins() {
         let mut line = LineBox::new(0.0, 0.0);
-        let node = LayoutNode::builder(Some(NodeId(1)))
+        let node = LayoutNode::builder(LayoutNodeId::new(1))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
             .margin(Margin {
                 top: 0.0.into(),
@@ -289,10 +300,10 @@ mod tests {
 
     #[test]
     fn add_repositions_descendants_when_parent_x_changes() {
-        let child = LayoutNode::builder(Some(NodeId(2)))
+        let child = LayoutNode::builder(LayoutNodeId::new(2))
             .dimensions(Rect::new(5.0, 0.0, 4.0, 4.0))
             .build();
-        let parent = LayoutNode::builder(Some(NodeId(1)))
+        let parent = LayoutNode::builder(LayoutNodeId::new(1))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
             .children(vec![child])
             .build();
@@ -306,10 +317,10 @@ mod tests {
 
     #[test]
     fn finish_repositions_descendants_with_parent() {
-        let child = LayoutNode::builder(Some(NodeId(2)))
+        let child = LayoutNode::builder(LayoutNodeId::new(2))
             .dimensions(Rect::new(2.0, 3.0, 4.0, 4.0))
             .build();
-        let parent = LayoutNode::builder(Some(NodeId(1)))
+        let parent = LayoutNode::builder(LayoutNodeId::new(1))
             .dimensions(Rect::new(1.0, 2.0, 10.0, 10.0))
             .children(vec![child])
             .build();

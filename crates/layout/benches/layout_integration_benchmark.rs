@@ -197,7 +197,7 @@ fn bench_layout_pipeline(c: &mut Criterion) {
         |b, (dom, style_tree)| {
             b.iter(|| {
                 let box_tree = BoxTree::new(black_box(dom), black_box(style_tree));
-                black_box(box_tree.root_nodes.len());
+                black_box(box_tree.nodes.len());
             })
         },
     );
@@ -215,10 +215,10 @@ fn bench_layout_pipeline(c: &mut Criterion) {
                 let layout = LayoutTree::compute_layout(
                     &mut LayoutInput {
                         dom: &dom,
+                        box_tree: &box_tree,
                         text: &mut layout_text_context,
                         image: &image_ctx,
                     },
-                    &box_tree,
                     viewport,
                 );
                 black_box(layout.content_height);
@@ -236,10 +236,10 @@ fn bench_layout_pipeline(c: &mut Criterion) {
             let layout = LayoutTree::compute_layout(
                 &mut LayoutInput {
                     dom: &dom,
+                    box_tree: &box_tree,
                     text: &mut full_text_context,
                     image: &image_ctx,
                 },
-                &box_tree,
                 viewport,
             );
             black_box(layout.content_height);

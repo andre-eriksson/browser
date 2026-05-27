@@ -67,7 +67,7 @@ impl<'node> PositionContext<'node> {
                 let mut block_ctx = BlockContext::default();
 
                 BlockLayout::layout(
-                    &pending.box_node,
+                    &pending.box_node.layout_id,
                     &ComputedStyle::default(),
                     input,
                     &mut ctx,

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use css_display::LayoutNodeId;
 use css_style::ComputedStyle;
 use css_values::text::Whitespace;
 use html_dom::NodeId;
@@ -12,6 +13,7 @@ use crate::{
 
 struct Text<'text> {
     content: &'text str,
+    layout_id: LayoutNodeId,
     node_id: NodeId,
     style: &'text ComputedStyle,
     desc: &'text TextDescription<'text>,
@@ -56,6 +58,7 @@ pub fn layout_text<'node>(
                     float_ctx,
                     &Text {
                         content: segment,
+                        layout_id: *text.layout_id,
                         node_id: *text.node_id,
                         style: text.style,
                         desc: &text_desc,
@@ -75,6 +78,7 @@ pub fn layout_text<'node>(
             float_ctx,
             &Text {
                 content: &text.content,
+                layout_id: *text.layout_id,
                 node_id: *text.node_id,
                 style: text.style,
                 desc: &text_desc,
@@ -117,11 +121,12 @@ fn layout_text_segment<'node>(
             break;
         }
 
-        let node = LayoutNode::builder(Some(text.node_id))
+        let node = LayoutNode::builder(text.layout_id)
             .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
             .colors(LayoutColors::text_only(text.style.color))
             .cursor(text.style.cursor)
             .text_buffer(Arc::new(measured.buffer))
+            .node_id(text.node_id)
             .build();
 
         let ascent = measured.height;

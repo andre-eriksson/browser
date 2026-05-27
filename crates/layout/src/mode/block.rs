@@ -1,4 +1,4 @@
-use css_display::BoxNode;
+use css_display::LayoutNodeId;
 use css_style::{ComputedSize, ComputedStyle, Position};
 use css_values::display::{Float, OutsideDisplay};
 
@@ -62,13 +62,14 @@ pub struct BlockLayout;
 
 impl BlockLayout {
     pub fn layout(
-        box_node: &BoxNode,
+        layout_id: &LayoutNodeId,
         parent_style: &ComputedStyle,
         input: &mut LayoutInput<'_>,
         ctx: &mut LayoutContext,
         current_block: &mut BlockContext,
         defer_top_margin: bool,
     ) -> Option<(LayoutNode, Size)> {
+        let box_node = &input.box_tree[layout_id];
         let style = &*box_node.style;
 
         if style.display != OutsideDisplay::Block.into() {
@@ -108,7 +109,7 @@ impl BlockLayout {
         let has_block_child = box_node
             .children
             .iter()
-            .any(|child| matches!(LayoutMode::new(child), LayoutMode::Block));
+            .any(|child| matches!(LayoutMode::new(&input.box_tree[child]), LayoutMode::Block));
         let can_collapse_top_with_child = has_block_child && !has_top_fence && !establishes_bfc;
 
         current_block.deferred_top_margin = None;
@@ -161,13 +162,14 @@ impl BlockLayout {
         let node_y = ctx.containing_block().y + ctx.cursor().y;
 
         let colors = LayoutColors::from(style);
-        let node = LayoutNode::builder(box_node.node_id)
+        let node = LayoutNode::builder(*layout_id)
             .border(box_model.border)
             .children(children)
             .colors(colors)
             .cursor(style.cursor)
             .dimensions(Rect::new(ctx.cursor().x, node_y, width, content_height))
             .margin(box_model.margin)
+            .maybe_node_id(box_node.node_id)
             .padding(box_model.padding)
             .position(style.position)
             .build();
@@ -190,10 +192,10 @@ impl BlockLayout {
         Some((node, Size::new(width, content_height)))
     }
 
-    fn layout_block_children(
-        children: &[BoxNode],
-        parent_style: &ComputedStyle,
-        input: &mut LayoutInput<'_>,
+    fn layout_block_children<'a>(
+        children: &'a [LayoutNodeId],
+        parent_style: &'a ComputedStyle,
+        input: &mut LayoutInput<'a>,
         child_ctx: &mut LayoutContext,
         child_block: &mut BlockContext,
         collapse_first_child_top: bool,
@@ -205,7 +207,7 @@ impl BlockLayout {
             return (nodes, deferred_child_top);
         }
 
-        match LayoutMode::new(&children[0]) {
+        match LayoutMode::new(&input.box_tree[&children[0]]) {
             LayoutMode::Inline => {
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
                     child_ctx.containing_block(),
@@ -421,6 +423,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::{Margin, TextContext, context::ImageContext, primitives::SideOffset};
+    use css_display::{BoxNode, BoxTree};
     use css_style::{ComputedMargin, ComputedStyle};
     use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
 
@@ -671,8 +674,17 @@ mod tests {
             }],
             root_nodes: vec![NodeId(0)],
         };
+        let style = ComputedStyle::default();
+        let box_node = BoxNode::new_with_layout_id(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
+
+        let box_tree = BoxTree {
+            nodes: vec![box_node],
+            root_nodes: vec![LayoutNodeId::new(0)],
+        };
+
         let mut input = LayoutInput {
             dom: &dom_tree,
+            box_tree: &box_tree,
             text: &mut text_ctx,
             image: &img_ctx,
         };
@@ -684,13 +696,17 @@ mod tests {
             deferred_top_margin: None,
         };
 
-        let style = ComputedStyle::default();
-        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
-        let layout_node =
-            BlockLayout::layout(&box_node, &ComputedStyle::default(), &mut input, &mut ctx, &mut block_ctx, false)
-                .unwrap();
+        let layout_node = BlockLayout::layout(
+            &LayoutNodeId::new(0),
+            &ComputedStyle::default(),
+            &mut input,
+            &mut ctx,
+            &mut block_ctx,
+            false,
+        )
+        .unwrap();
 
-        assert_eq!(layout_node.0.node_id, Some(NodeId(0)));
+        assert_eq!(layout_node.0.layout_id, LayoutNodeId::new(0));
         assert_eq!(layout_node.0.dimensions.x, 0.0);
         assert_eq!(layout_node.0.dimensions.y, 0.0);
         assert_eq!(layout_node.0.dimensions.width, 800.0);

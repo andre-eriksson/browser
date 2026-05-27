@@ -151,10 +151,10 @@ impl HeadlessEngine {
         let layout_tree = LayoutTree::compute_layout(
             &mut LayoutInput {
                 dom: document,
+                box_tree: &box_tree,
                 text: &mut self.text_ctx,
                 image: &image_ctx,
             },
-            &box_tree,
             viewport,
         );
 
