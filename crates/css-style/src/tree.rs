@@ -4,7 +4,7 @@
 //! based on the cascade rules and the provided stylesheets.
 
 use std::collections::HashMap;
-use std::ops::{Index, IndexMut};
+use std::ops::Index;
 
 use browser_preferences::BrowserPreferences;
 use css_cssom::CSSStyleSheet;

@@ -1,6 +1,6 @@
 use css_display::LayoutNodeId;
 use css_style::{ComputedSize, ComputedStyle, Position};
-use css_values::display::{Float, OutsideDisplay};
+use css_values::display::Float;
 
 use crate::{
     LayoutColors, LayoutNode, Rect,
@@ -71,10 +71,6 @@ impl BlockLayout {
     ) -> Option<(LayoutNode, Size)> {
         let box_node = &input.box_tree[layout_id];
         let style = &*box_node.style;
-
-        if style.display != OutsideDisplay::Block.into() {
-            return None;
-        }
 
         // if style.position.is_out_of_flow() && !ctx.is_deferred() {
         //     let containing_block = if style.position == Position::Fixed {
@@ -703,8 +699,10 @@ mod tests {
             &mut ctx,
             &mut block_ctx,
             false,
-        )
-        .unwrap();
+        );
+
+        dbg!(&layout_node);
+        let layout_node = layout_node.unwrap();
 
         assert_eq!(layout_node.0.layout_id, LayoutNodeId::new(0));
         assert_eq!(layout_node.0.dimensions.x, 0.0);

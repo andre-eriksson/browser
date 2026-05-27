@@ -17,8 +17,8 @@ use css_values::{
 pub enum Display {
     /// [ <display-outside> || <display-inside> ]
     Normal {
-        outside: Option<OutsideDisplay>,
-        inside: Option<InsideDisplay>,
+        outside: OutsideDisplay,
+        inside: InsideDisplay,
     },
 
     /// <display-listitem> =
@@ -26,7 +26,7 @@ pub enum Display {
     ///   [ flow | flow-root ]?  &&
     ///   list-item
     ListItem {
-        outside: Option<OutsideDisplay>,
+        outside: OutsideDisplay,
         flow_root: bool,
     },
 
@@ -46,9 +46,9 @@ impl Display {
     /// Checks if the display value is a block-level display type.
     pub const fn is_block(&self) -> bool {
         if let Self::Normal { outside, .. } = self {
-            matches!(outside, Some(OutsideDisplay::Block))
+            matches!(outside, OutsideDisplay::Block)
         } else if let Self::ListItem { outside, .. } = self {
-            matches!(outside, Some(OutsideDisplay::Block))
+            matches!(outside, OutsideDisplay::Block)
         } else {
             false
         }
@@ -57,9 +57,9 @@ impl Display {
     /// Checks if the display value is an inline-level display type.
     pub const fn is_inline(&self) -> bool {
         if let Self::Normal { outside, .. } = self {
-            matches!(outside, Some(OutsideDisplay::Inline))
+            matches!(outside, OutsideDisplay::Inline)
         } else if let Self::ListItem { outside, .. } = self {
-            matches!(outside, Some(OutsideDisplay::Inline))
+            matches!(outside, OutsideDisplay::Inline)
         } else {
             false
         }
@@ -83,24 +83,24 @@ impl Display {
         {
             Self::from(InsideDisplay::Table)
         } else if let Self::Normal { outside, inside } = self
-            && matches!(outside, Some(OutsideDisplay::Inline))
+            && matches!(outside, OutsideDisplay::Inline)
         {
             match inside {
-                Some(InsideDisplay::FlowRoot | InsideDisplay::Flow) => Self::Normal {
-                    outside: Some(OutsideDisplay::Block),
-                    inside: Some(InsideDisplay::Flow),
+                InsideDisplay::FlowRoot | InsideDisplay::Flow => Self::Normal {
+                    outside: OutsideDisplay::Block,
+                    inside: InsideDisplay::Flow,
                 },
-                Some(InsideDisplay::Table) => Self::Normal {
-                    outside: Some(OutsideDisplay::Block),
-                    inside: Some(InsideDisplay::Table),
+                InsideDisplay::Table => Self::Normal {
+                    outside: OutsideDisplay::Block,
+                    inside: InsideDisplay::Table,
                 },
-                Some(InsideDisplay::Flex) => Self::Normal {
-                    outside: Some(OutsideDisplay::Block),
-                    inside: Some(InsideDisplay::Flex),
+                InsideDisplay::Flex => Self::Normal {
+                    outside: OutsideDisplay::Block,
+                    inside: InsideDisplay::Flex,
                 },
-                Some(InsideDisplay::Grid) => Self::Normal {
-                    outside: Some(OutsideDisplay::Block),
-                    inside: Some(InsideDisplay::Grid),
+                InsideDisplay::Grid => Self::Normal {
+                    outside: OutsideDisplay::Block,
+                    inside: InsideDisplay::Grid,
                 },
                 _ => self,
             }
@@ -114,8 +114,8 @@ impl Default for Display {
     /// The CSS initial value of `display` is `inline` (i.e., `outside: Inline, inside: Flow`).
     fn default() -> Self {
         Self::Normal {
-            outside: Some(OutsideDisplay::Inline),
-            inside: Some(InsideDisplay::Flow),
+            outside: OutsideDisplay::Inline,
+            inside: InsideDisplay::Flow,
         }
     }
 }
@@ -123,17 +123,24 @@ impl Default for Display {
 impl From<OutsideDisplay> for Display {
     fn from(outside: OutsideDisplay) -> Self {
         Self::Normal {
-            outside: Some(outside),
-            inside: Some(InsideDisplay::Flow),
+            outside,
+            inside: InsideDisplay::Flow,
         }
     }
 }
 
 impl From<InsideDisplay> for Display {
     fn from(inside: InsideDisplay) -> Self {
+        if inside == InsideDisplay::Ruby {
+            return Self::Normal {
+                outside: OutsideDisplay::Inline,
+                inside,
+            };
+        }
+
         Self::Normal {
-            outside: Some(OutsideDisplay::Block),
-            inside: Some(inside),
+            outside: OutsideDisplay::Block,
+            inside,
         }
     }
 }
@@ -175,40 +182,37 @@ impl CSSParsable for Display {
         let parts: Vec<&str> = parts.iter().map(std::string::String::as_str).collect();
         match parts.as_slice() {
             ["inline"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Flow),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::Flow,
             }),
             ["inline-block"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::FlowRoot),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::FlowRoot,
             }),
             ["inline-table"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Table),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::Table,
             }),
             ["inline-flex"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Flex),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::Flex,
             }),
             ["inline-grid"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Grid),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::Grid,
             }),
             ["block"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Block),
-                inside: Some(InsideDisplay::Flow),
+                outside: OutsideDisplay::Block,
+                inside: InsideDisplay::Flow,
             }),
             ["flow"] => Ok(Self::from(InsideDisplay::Flow)),
             ["flow-root"] => Ok(Self::from(InsideDisplay::FlowRoot)),
             ["table"] => Ok(Self::from(InsideDisplay::Table)),
             ["flex"] => Ok(Self::from(InsideDisplay::Flex)),
             ["grid"] => Ok(Self::from(InsideDisplay::Grid)),
-            ["ruby"] => Ok(Self::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Ruby),
-            }),
+            ["ruby"] => Ok(Self::from(InsideDisplay::Ruby)),
             ["list-item"] => Ok(Self::ListItem {
-                outside: None,
+                outside: OutsideDisplay::Block,
                 flow_root: false,
             }),
             ["table-row-group"] => Ok(Self::from(InternalDisplay::TableRowGroup)),
@@ -229,7 +233,7 @@ impl CSSParsable for Display {
                 if let Ok(outside) = outside_or_flow.parse() {
                     if list_item_or_inside.parse::<ListItemDisplay>().is_ok() {
                         return Ok(Self::ListItem {
-                            outside: Some(outside),
+                            outside,
                             flow_root: false,
                         });
                     }
@@ -238,10 +242,7 @@ impl CSSParsable for Display {
                         CssValueError::InvalidValue(format!("Invalid inside display value: {list_item_or_inside}"))
                     })?;
 
-                    Ok(Self::Normal {
-                        outside: Some(outside),
-                        inside: Some(inside),
-                    })
+                    Ok(Self::Normal { outside, inside })
                 } else if outside_or_flow.eq_ignore_ascii_case("flow")
                     || outside_or_flow.eq_ignore_ascii_case("flow-root")
                 {
@@ -254,7 +255,7 @@ impl CSSParsable for Display {
                     let is_flow_root = outside_or_flow.eq_ignore_ascii_case("flow-root");
 
                     Ok(Self::ListItem {
-                        outside: None,
+                        outside: OutsideDisplay::Block,
                         flow_root: is_flow_root,
                     })
                 } else {
@@ -278,7 +279,7 @@ impl CSSParsable for Display {
                 }
 
                 Ok(Self::ListItem {
-                    outside: Some(outside),
+                    outside,
                     flow_root: is_flow_root,
                 })
             }
@@ -314,8 +315,8 @@ mod tests {
         assert_eq!(
             display,
             Display::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::FlowRoot),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::FlowRoot,
             }
         );
     }

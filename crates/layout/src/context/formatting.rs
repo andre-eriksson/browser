@@ -30,14 +30,11 @@ impl FormattingContext {
         if matches!(
             style.display,
             Display::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::FlowRoot),
+                inside: InsideDisplay::FlowRoot,
+                ..
             } | Display::Normal {
-                outside: None,
-                inside: Some(InsideDisplay::FlowRoot),
-            } | Display::Normal {
-                outside: Some(OutsideDisplay::Inline),
-                inside: Some(InsideDisplay::Table),
+                outside: OutsideDisplay::Inline,
+                inside: InsideDisplay::Table,
             } | Display::Internal(
                 InternalDisplay::TableRow
                     | InternalDisplay::TableRowGroup
@@ -76,11 +73,11 @@ impl FormattingContext {
         false
     }
 
-    fn is_flex_or_grid(display: Option<InsideDisplay>) -> bool {
-        matches!(display, Some(InsideDisplay::Flex | InsideDisplay::Grid))
+    fn is_flex_or_grid(display: InsideDisplay) -> bool {
+        matches!(display, InsideDisplay::Flex | InsideDisplay::Grid)
     }
 
-    fn is_flex_grid_or_table(display: Option<InsideDisplay>) -> bool {
-        matches!(display, Some(InsideDisplay::Flex | InsideDisplay::Grid | InsideDisplay::Table))
+    fn is_flex_grid_or_table(display: InsideDisplay) -> bool {
+        matches!(display, InsideDisplay::Flex | InsideDisplay::Grid | InsideDisplay::Table)
     }
 }

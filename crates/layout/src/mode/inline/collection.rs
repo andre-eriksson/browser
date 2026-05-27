@@ -178,11 +178,11 @@ pub fn collect<'dom>(
                 let display = style.display;
 
                 if let Display::Normal { outside, inside } = display {
-                    if outside == Some(OutsideDisplay::Inline) && inside == Some(InsideDisplay::FlowRoot) {
+                    if outside == OutsideDisplay::Inline && inside == InsideDisplay::FlowRoot {
                         items.push(InlineItem::InlineFlowRoot { layout_id, style });
 
                         return Ok(());
-                    } else if outside != Some(OutsideDisplay::Inline) {
+                    } else if outside != OutsideDisplay::Inline {
                         return Err(());
                     }
                 }
