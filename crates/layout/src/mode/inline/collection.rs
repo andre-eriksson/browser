@@ -1,20 +1,20 @@
-use css_display::node::BoxNode;
-use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle, Display, StyleTree};
+use css_display::BoxNode;
+use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle, Display};
 use css_values::display::{InsideDisplay, OutsideDisplay};
-use html_dom::{DocumentRoot, HtmlTag, NodeData, NodeId, Tag};
+use html_dom::{HtmlTag, NodeData, NodeId, Tag};
 
-use crate::{ImageContext, Rect};
+use crate::{LayoutInput, Rect};
 
 #[derive(Debug, Clone)]
 pub struct TextRun<'node> {
-    pub id: &'node NodeId,
+    pub node_id: &'node NodeId,
     pub content: String,
     pub style: &'node ComputedStyle,
 }
 
 #[derive(Debug, Clone)]
 pub struct ImageItem<'node> {
-    pub id: &'node NodeId,
+    pub node_id: &'node NodeId,
     pub width: f64,
     pub height: f64,
     pub has_explicit_width: bool,
@@ -34,17 +34,17 @@ pub enum InlineItem<'node> {
     /// Contributes left border + left padding to the line and begins tracking
     /// a decoration region.
     InlineBoxStart {
-        id: &'node NodeId,
+        node_id: &'node NodeId,
         style: &'node ComputedStyle,
     },
 
     /// Marks the closing edge of an inline element.
     /// Contributes right border + right padding and finalises the decoration.
-    InlineBoxEnd { id: &'node NodeId },
+    InlineBoxEnd { node_id: &'node NodeId },
 
     /// inline-block or inline flow-root
     InlineFlowRoot {
-        id: &'node NodeId,
+        box_node: &'node BoxNode<'node>,
         style: &'node ComputedStyle,
     },
 
@@ -59,24 +59,22 @@ pub enum InlineItem<'node> {
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
 pub fn collect<'dom>(
     containing_rect: Rect,
-    dom_tree: &'dom DocumentRoot,
-    style_tree: &'dom StyleTree,
+    input: &mut LayoutInput<'_>,
     parent_style: &'dom ComputedStyle,
     box_node: &'dom BoxNode,
     items: &mut Vec<InlineItem<'dom>>,
-    image_ctx: &ImageContext,
 ) -> Result<(), ()> {
-    let Some(node_id) = box_node.node_id else {
+    let Some(node_id) = &box_node.node_id else {
         return Ok(());
     };
 
-    let node = &dom_tree[node_id];
-    let style = &style_tree[node_id];
+    let node = &input.dom[node_id];
+    let style = &*box_node.style;
 
     match &node.data {
         NodeData::Text(content) => {
             items.push(InlineItem::TextRun(TextRun {
-                id: &node_id,
+                node_id,
                 content: content.clone(),
                 style: parent_style,
             }));
@@ -95,7 +93,7 @@ pub fn collect<'dom>(
                     return Ok(());
                 };
 
-                let known = image_ctx.get(box_node);
+                let known = input.image.get(&box_node.node_id.unwrap());
 
                 let attr_width = attrs.get("width").and_then(|v| v.parse::<f64>().ok());
                 let attr_height = attrs.get("height").and_then(|v| v.parse::<f64>().ok());
@@ -161,7 +159,7 @@ pub fn collect<'dom>(
                 };
 
                 items.push(InlineItem::Image(ImageItem {
-                    id: &node_id,
+                    node_id,
                     width,
                     height,
                     has_explicit_width,
@@ -175,10 +173,7 @@ pub fn collect<'dom>(
 
                 if let Display::Normal { outside, inside } = display {
                     if outside == Some(OutsideDisplay::Inline) && inside == Some(InsideDisplay::FlowRoot) {
-                        items.push(InlineItem::InlineFlowRoot {
-                            id: &node_id,
-                            style,
-                        });
+                        items.push(InlineItem::InlineFlowRoot { box_node, style });
 
                         return Ok(());
                     } else if outside != Some(OutsideDisplay::Inline) {
@@ -186,16 +181,13 @@ pub fn collect<'dom>(
                     }
                 }
 
-                items.push(InlineItem::InlineBoxStart {
-                    id: &node_id,
-                    style,
-                });
+                items.push(InlineItem::InlineBoxStart { node_id, style });
 
-                for child_id in &node.children {
-                    collect(containing_rect, dom_tree, style_tree, style, child_id, items, image_ctx)?;
+                for child_node in &box_node.children {
+                    collect(containing_rect, input, style, child_node, items)?;
                 }
 
-                items.push(InlineItem::InlineBoxEnd { id: &node_id });
+                items.push(InlineItem::InlineBoxEnd { node_id });
             }
         },
     }

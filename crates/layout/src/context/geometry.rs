@@ -1,10 +1,8 @@
-use css_display::BoxNode;
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
     Margin,
-    context::LayoutContext,
-    primitives::{MarginValue, SideOffset, Size},
+    primitives::{MarginValue, SideOffset},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -17,9 +15,9 @@ pub(crate) struct BoxModel {
 pub(crate) struct Geometry;
 
 impl Geometry {
-    pub(crate) fn compute_intrinsic_sizes(box_node: &BoxNode, layout_ctx: &LayoutContext) -> (Size, Size) {
-        (Size::new(0.0, 0.0), Size::new(0.0, 0.0))
-    }
+    // pub(crate) fn compute_intrinsic_sizes(box_node: &BoxNode, layout_ctx: &LayoutContext) -> (Size, Size) {
+    //     (Size::new(0.0, 0.0), Size::new(0.0, 0.0))
+    // }
 
     pub(crate) fn resolve_box_model(style: &ComputedStyle, containing_width: f64) -> BoxModel {
         let margin = Self::resolve_margin(style, containing_width);

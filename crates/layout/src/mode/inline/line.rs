@@ -4,9 +4,8 @@ use html_dom::NodeId;
 
 use crate::{
     LayoutColors, LayoutNode, Rect, TextContext,
-    float::FloatContext,
+    context::{FloatContext, Geometry},
     mode::inline::{ActiveInlineBox, InlineDecoration, InlineLayoutContext},
-    resolver::PropertyResolver,
 };
 
 /// A single line of inline layout, accumulating positioned `LayoutNode`s and
@@ -177,18 +176,18 @@ impl<'node> LineBoxBuilder<'node> {
         id: NodeId,
         style: &'node ComputedStyle,
     ) {
-        let (margin, padding, border) = PropertyResolver::resolve_box_model(style, self.available_width);
+        let box_model = Geometry::resolve_box_model(style, self.available_width);
 
-        let left_edge = margin.left.to_px() + border.left + padding.left;
+        let left_edge = box_model.margin.left.to_px() + box_model.border.left + box_model.padding.left;
         self.line_box.advance(left_edge);
 
         inline_box_stack.push(ActiveInlineBox {
             id,
             style,
-            start_x: self.line_box.width - left_edge + margin.left.to_px(),
-            margin,
-            padding,
-            border,
+            start_x: self.line_box.width - left_edge + box_model.margin.left.to_px(),
+            margin: box_model.margin,
+            padding: box_model.padding,
+            border: box_model.border,
         });
 
         text_ctx.last_text_align = style.text_align;

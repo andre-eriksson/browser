@@ -3,7 +3,7 @@ use css_style::Display;
 use css_values::display::InsideDisplay;
 
 pub mod block;
-//pub mod inline;
+pub mod inline;
 
 /// Layout mode determines how children are positioned
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

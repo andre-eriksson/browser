@@ -138,6 +138,7 @@ fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
 
 #[cfg(test)]
 mod tests {
+    use css_display::BoxNode;
     use css_style::ComputedStyle;
     use html_dom::NodeId;
 
@@ -150,22 +151,24 @@ mod tests {
         let style = ComputedStyle::default();
         let mut items = vec![
             InlineItem::TextRun(TextRun {
-                id: &NodeId(1),
+                node_id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineBoxStart {
-                id: &NodeId(2),
+                node_id: &NodeId(2),
                 style: &style,
             },
             InlineItem::TextRun(TextRun {
-                id: &NodeId(3),
+                node_id: &NodeId(3),
                 content: " ".to_string(),
                 style: &style,
             }),
-            InlineItem::InlineBoxEnd { id: &NodeId(2) },
+            InlineItem::InlineBoxEnd {
+                node_id: &NodeId(2),
+            },
             InlineItem::TextRun(TextRun {
-                id: &NodeId(4),
+                node_id: &NodeId(4),
                 content: "B".to_string(),
                 style: &style,
             }),
@@ -189,18 +192,19 @@ mod tests {
     #[test]
     fn atomic_items_still_reset_whitespace_collapse_state() {
         let style = ComputedStyle::default();
+        let node = BoxNode::new(&NodeId(2), &style, vec![]);
         let mut items = vec![
             InlineItem::TextRun(TextRun {
-                id: &NodeId(1),
+                node_id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineFlowRoot {
-                id: &NodeId(2),
+                box_node: &node,
                 style: &style,
             },
             InlineItem::TextRun(TextRun {
-                id: &NodeId(3),
+                node_id: &NodeId(3),
                 content: " B".to_string(),
                 style: &style,
             }),

@@ -1,7 +1,8 @@
 use crate::{
-    ImageContext, LayoutNode, LayoutTree, Rect,
+    LayoutNode, LayoutTree, Rect,
     context::{LayoutContext, layout::Cursor},
     engine::LayoutInput,
+    mode::block::{BlockContext, BlockLayout},
     primitives::Size,
 };
 use css_display::BoxNode;
@@ -63,8 +64,16 @@ impl<'node> PositionContext<'node> {
             .filter_map(|pending| {
                 let mut ctx =
                     LayoutContext::deferred(Cursor { x: 0.0, y: 0.0 }, pending.containing_block, self.viewport);
+                let mut block_ctx = BlockContext::default();
 
-                LayoutTree::layout_node(&pending.box_node, input, &ComputedStyle::default(), &mut ctx)
+                BlockLayout::layout(
+                    &pending.box_node,
+                    &ComputedStyle::default(),
+                    input,
+                    &mut ctx,
+                    &mut block_ctx,
+                    false,
+                )
             })
             .collect()
     }

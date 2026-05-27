@@ -6,9 +6,8 @@ use html_dom::NodeId;
 
 use crate::{
     LayoutColors, LayoutNode, Rect, TextContext,
-    float::FloatContext,
+    context::{FloatContext, TextDescription},
     mode::inline::{InlineLayoutContext, collection::TextRun, line::LineBoxBuilder},
-    text::TextDescription,
 };
 
 struct Text<'text> {
@@ -57,7 +56,7 @@ pub fn layout_text<'node>(
                     float_ctx,
                     &Text {
                         content: segment,
-                        node_id: *text.id,
+                        node_id: *text.node_id,
                         style: text.style,
                         desc: &text_desc,
                     },
@@ -76,7 +75,7 @@ pub fn layout_text<'node>(
             float_ctx,
             &Text {
                 content: &text.content,
-                node_id: *text.id,
+                node_id: *text.node_id,
                 style: text.style,
                 desc: &text_desc,
             },
@@ -123,7 +122,6 @@ fn layout_text_segment<'node>(
             .colors(LayoutColors::text_only(text.style.color))
             .cursor(text.style.cursor)
             .text_buffer(Arc::new(measured.buffer))
-            .height_auto(true)
             .build();
 
         let ascent = measured.height;

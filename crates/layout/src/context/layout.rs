@@ -1,7 +1,4 @@
-use crate::{
-    ImageContext, Rect,
-    context::{FloatContext, PositionContext},
-};
+use crate::{Rect, context::FloatContext};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Cursor {

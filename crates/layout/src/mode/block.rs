@@ -6,7 +6,10 @@ use crate::{
     LayoutColors, LayoutNode, Rect,
     context::{BoxModel, FormattingContext, Geometry, LayoutContext},
     engine::LayoutInput,
-    mode::LayoutMode,
+    mode::{
+        LayoutMode,
+        inline::{InlineContext, InlineLayout},
+    },
     primitives::Size,
 };
 
@@ -198,11 +201,30 @@ impl BlockLayout {
         let mut nodes = Vec::with_capacity(children.len());
         let mut deferred_child_top = None;
 
-        for child in children {
-            let mode = LayoutMode::new(child);
+        if children.is_empty() {
+            return (nodes, deferred_child_top);
+        }
 
-            match mode {
-                LayoutMode::Block => {
+        match LayoutMode::new(&children[0]) {
+            LayoutMode::Inline => {
+                let inline_items = InlineLayout::collect_inline_items_from_nodes(
+                    child_ctx.containing_block(),
+                    input,
+                    parent_style,
+                    children,
+                );
+
+                let inline_ctx = InlineContext::new(child_ctx.containing_block());
+
+                let (inline_nodes, nodes_size) = InlineLayout::layout(input, &inline_items, child_ctx, inline_ctx);
+
+                child_ctx.cursor().y += nodes_size.height;
+
+                nodes.extend(inline_nodes);
+            }
+            _ => {
+                // TODO: Handle Flex and Grid.
+                for child in children {
                     let defer = collapse_first_child_top && nodes.is_empty();
 
                     if let Some((node, _)) =
@@ -214,7 +236,6 @@ impl BlockLayout {
                         nodes.push(node);
                     }
                 }
-                _ => continue,
             }
         }
 

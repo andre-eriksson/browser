@@ -1,19 +1,16 @@
-use css_display::{BoxNode, BoxTree};
+use css_display::BoxTree;
 use css_style::{ComputedStyle, StyleTree};
 use html_dom::{DocumentRoot, NodeId};
 
 use crate::{
-    LayoutNode, LayoutTree,
-    context::{Geometry, ImageContext, LayoutContext, PositionContext, TextContext},
+    LayoutTree,
+    context::{ImageContext, LayoutContext, TextContext},
     mode::{
-        LayoutMode,
-        block::{BlockContext, BlockLayout, MarginCollapsing},
+        block::{BlockContext, BlockLayout},
         //inline::{InlineContext, InlineLayout},
     },
-    primitives::{Rect, Size},
+    primitives::Rect,
 };
-
-const EPSILON: f64 = 0.1;
 
 /// Immutable references to the trees — passed everywhere, never mutated
 pub struct LayoutInput<'a> {
@@ -41,7 +38,11 @@ impl LayoutTree {
         let mut root_nodes = Vec::new();
 
         for box_node in &box_tree.root_nodes {
-            let Some((node, size)) = Self::layout_node(box_node, input, &ComputedStyle::default(), &mut ctx) else {
+            let mut block_ctx = BlockContext::default();
+
+            let Some((node, size)) =
+                BlockLayout::layout(box_node, &ComputedStyle::default(), input, &mut ctx, &mut block_ctx, false)
+            else {
                 continue;
             };
 
@@ -67,102 +68,18 @@ impl LayoutTree {
         }
     }
 
-    /// Compute layout for a single node and its descendants
-    pub(crate) fn layout_node(
-        box_node: &BoxNode,
-        input: &mut LayoutInput,
-        parent_style: &ComputedStyle,
-        ctx: &mut LayoutContext,
-    ) -> Option<(LayoutNode, Size)> {
-        let layout_mode = LayoutMode::new(box_node);
-
-        let (_min_size, _max_size) = Geometry::compute_intrinsic_sizes(box_node, ctx);
-
-        match layout_mode {
-            _ => {
-                let mut block_ctx = BlockContext::default();
-
-                BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx, false)
-            }
-        }
-    }
-
-    pub(crate) fn layout_nodes(
-        box_nodes: &[BoxNode],
-        parent_style: &ComputedStyle,
-        input: &mut LayoutInput,
-        containing_block: Rect,
-        ctx: &mut LayoutContext,
-    ) -> (Vec<LayoutNode>, Size) {
-        let mode = if let Some(first_node) = box_nodes.first() {
-            LayoutMode::new(first_node)
-        } else {
-            return (Vec::new(), Size::new(containing_block.width, containing_block.height));
-        };
-
-        match mode {
-            LayoutMode::Block => {
-                let mut layout_nodes = Vec::new();
-                let mut current_y = containing_block.y;
-                let mut block_ctx = BlockContext {
-                    collapsed_margin: MarginCollapsing {
-                        max_positive: 0.0,
-                        max_negative: 0.0,
-                    },
-                    deferred_top_margin: None,
-                };
-
-                for box_node in box_nodes {
-                    let (mut layout_node, node_rect) =
-                        BlockLayout::layout(box_node, parent_style, input, ctx, &mut block_ctx, false)
-                            .unwrap_or_else(|| (LayoutNode::builder(box_node.node_id).build(), Size::new(0.0, 0.0)));
-
-                    layout_node.dimensions.x = containing_block.x;
-                    layout_node.dimensions.y = current_y;
-
-                    current_y += layout_node.dimensions.height;
-                    layout_nodes.push(layout_node);
-                }
-
-                let total_height = current_y - containing_block.y;
-                let max_width = layout_nodes
-                    .iter()
-                    .map(|node| node.dimensions.width)
-                    .fold(0.0, f64::max);
-
-                (layout_nodes, Size::new(max_width, total_height))
-            }
-            LayoutMode::Inline => {
-                // let inline_items = InlineLayout::collect_inline_items_from_nodes(
-                //     containing_block,
-                //     dom_tree,
-                //     style_tree,
-                //     parent_style,
-                //     box_nodes,
-                //     ctx.image_ctx(),
-                // );
-                // let inline_ctx = InlineContext::new(containing_block);
-
-                // InlineLayout::layout(dom_tree, style_tree, &inline_items, ctx, text_ctx, inline_ctx)
-
-                (Vec::new(), Size::new(0.0, 0.0))
-            }
-            _ => todo!("Only inline layout is supported for collections of nodes right now"),
-        }
-    }
-
     /// Relayout a single node and its ancestors, updating the layout tree in place.
     ///
     /// # Panics
     /// * If the node or any of its ancestors are not found in the layout tree, which should never happen since the layout tree is built from the DOM tree.
     pub fn relayout_node(
-        node_id: NodeId,
-        viewport: Rect,
-        layout_tree: &mut LayoutTree,
-        style_tree: &StyleTree,
-        dom_tree: &DocumentRoot,
-        text_ctx: &mut TextContext,
-        image_ctx: &ImageContext,
+        _node_id: NodeId,
+        _viewport: Rect,
+        _layout_tree: &mut LayoutTree,
+        _style_tree: &StyleTree,
+        _dom_tree: &DocumentRoot,
+        _text_ctx: &mut TextContext,
+        _image_ctx: &ImageContext,
     ) {
         // let node = &dom_tree[node_id];
 
@@ -224,13 +141,6 @@ impl LayoutTree {
         // }
 
         // layout_tree.content_height += delta;
-    }
-
-    fn shift_y_recursively(node: &mut LayoutNode, delta: f64) {
-        node.dimensions.y += delta;
-        for child in &mut node.children {
-            Self::shift_y_recursively(child, delta);
-        }
     }
 
     // pub(crate) fn collect_children<F>(
