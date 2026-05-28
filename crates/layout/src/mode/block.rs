@@ -119,6 +119,11 @@ impl BlockLayout {
             ctx,
         );
 
+        let child_height = if !style.height.is_auto() {
+            Self::calculate_height(style, ctx.containing_block().height)
+        } else {
+            0.0
+        };
         let mut child_block = BlockContext::new();
         let child_start_y = ctx.containing_block().y + ctx.cursor().y;
         let mut child_ctx = ctx.child_context(
@@ -126,7 +131,7 @@ impl BlockLayout {
                 x,
                 y: child_start_y,
                 width,
-                height: 0.0,
+                height: child_height,
             },
             false,
         );
