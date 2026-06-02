@@ -4,7 +4,7 @@ use css_values::display::Float;
 
 use crate::{
     LayoutColors, LayoutNode, Rect,
-    context::{BoxModel, FormattingContext, Geometry, LayoutContext},
+    context::{BoxModel, FormattingContext, Geometry, LayoutContext, PositionContext},
     engine::LayoutInput,
     mode::{
         LayoutMode,
@@ -66,42 +66,33 @@ impl BlockLayout {
         parent_style: &ComputedStyle,
         input: &mut LayoutInput<'_>,
         ctx: &mut LayoutContext,
+        position_ctx: &mut PositionContext,
         current_block: &mut BlockContext,
         defer_top_margin: bool,
     ) -> Option<(LayoutNode, Size)> {
         let box_node = &input.box_tree[layout_id];
         let style = &*box_node.style;
 
-        // if style.position.is_out_of_flow() && !ctx.is_deferred() {
-        //     let containing_block = if style.position == Position::Fixed {
-        //         ctx.containing_block()
-        //     } else {
-        //         ctx.positioned_containing_block()
-        //     };
-        //     ctx.position_ctx().defer(&box_node, containing_block);
+        if style.position.is_out_of_flow() && !ctx.is_deferred() {
+            let containing_block = if style.position == Position::Fixed {
+                Some(ctx.containing_block())
+            } else {
+                None
+            };
 
-        //     return None;
-        // }
+            position_ctx.defer(layout_id, containing_block, current_block.clone(), defer_top_margin);
 
-        let container_width = ctx.containing_block().width;
-        let box_model = Geometry::resolve_box_model(style, container_width);
+            return None;
+        }
 
+        let box_model = Geometry::resolve_box_model(style, ctx.containing_block().width);
         let establishes_bfc = FormattingContext::establishes_bfc(box_node, parent_style, style, input.dom);
 
-        let width = Self::calculate_width(style, container_width, &box_model);
+        let width = Self::calculate_width(style, ctx.containing_block().width, &box_model);
         let x = Self::calculate_x(style, ctx, &box_model, width);
         ctx.cursor().x = x;
 
-        // if style.position == Position::Static {
-        //     ctx.set_positioned_containing_block(parent_positioned_cb);
-        // } else {
-        //     let rect = Rect::new(x, y, width, height + padding.vertical() + border.vertical());
-
-        //     ctx.position_ctx().push_position(rect);
-        //     ctx.set_positioned_containing_block(rect);
-        // }
-
-        let has_top_fence = Geometry::has_top_fence(style, container_width);
+        let has_top_fence = Geometry::has_top_fence(style, ctx.containing_block().width);
         let has_block_child = box_node
             .children
             .iter()
@@ -119,11 +110,19 @@ impl BlockLayout {
             ctx,
         );
 
-        let child_height = if !style.height.is_auto() {
-            Self::calculate_height(style, ctx.containing_block().height)
+        let avaliable_child_height =
+            Geometry::calculate_height(style, &box_model, ctx.containing_block().height, ctx.containing_block().height);
+
+        if style.position == Position::Static {
+            ctx.set_positioned_containing_block(ctx.positioned_containing_block());
         } else {
-            0.0
-        };
+            let nearest_positioned_ancestor = ctx.positioned_containing_block();
+            let rect = Rect::new(nearest_positioned_ancestor.x, nearest_positioned_ancestor.y, width, 0.0);
+
+            position_ctx.push_parent(layout_id, rect);
+            ctx.set_positioned_containing_block(rect);
+        }
+
         let mut child_block = BlockContext::new();
         let child_start_y = ctx.containing_block().y + ctx.cursor().y;
         let mut child_ctx = ctx.child_context(
@@ -131,7 +130,7 @@ impl BlockLayout {
                 x,
                 y: child_start_y,
                 width,
-                height: child_height,
+                height: avaliable_child_height,
             },
             false,
         );
@@ -140,6 +139,7 @@ impl BlockLayout {
             &box_node.children,
             style,
             input,
+            position_ctx,
             &mut child_ctx,
             &mut child_block,
             can_collapse_top_with_child,
@@ -154,16 +154,33 @@ impl BlockLayout {
             ctx,
         );
 
-        let content_height = if style.height == ComputedSize::Auto {
-            child_ctx.cursor().y
-        } else {
-            Self::calculate_height(style, ctx.containing_block().height)
-        };
+        let height_is_auto = style.height == ComputedSize::Auto;
+        let can_collapse_bottom =
+            height_is_auto && !Geometry::has_bottom_fence(style, ctx.containing_block().width) && !establishes_bfc;
 
-        let node_y = ctx.containing_block().y + ctx.cursor().y;
+        Self::apply_bottom_margin(
+            height_is_auto,
+            can_collapse_bottom,
+            &mut child_block,
+            current_block,
+            &box_model,
+            ctx,
+        );
+
+        let top_collapsed_offset = Self::top_collapsed_offset(&children, &child_ctx, can_collapse_top_with_child);
+
+        let content_height = Self::calculate_height(
+            style,
+            &box_model,
+            (child_ctx.cursor().y - top_collapsed_offset).max(0.0),
+            ctx.containing_block().height,
+        );
+
+        let node_y = Self::calculate_start_y(style, ctx);
 
         let colors = LayoutColors::from(style);
         let node = LayoutNode::builder(*layout_id)
+            .block_formatting_context(establishes_bfc)
             .border(box_model.border)
             .children(children)
             .colors(colors)
@@ -177,19 +194,6 @@ impl BlockLayout {
 
         ctx.cursor().y = node_y + content_height;
 
-        let height_is_auto = style.height == ComputedSize::Auto;
-        let can_collapse_bottom =
-            height_is_auto && !Geometry::has_bottom_fence(style, container_width, content_height) && !establishes_bfc;
-
-        Self::apply_bottom_margin(
-            height_is_auto,
-            can_collapse_bottom,
-            &mut child_block,
-            current_block,
-            &box_model,
-            ctx,
-        );
-
         Some((node, Size::new(width, content_height)))
     }
 
@@ -197,6 +201,7 @@ impl BlockLayout {
         children: &'a [LayoutNodeId],
         parent_style: &'a ComputedStyle,
         input: &mut LayoutInput<'a>,
+        position_ctx: &mut PositionContext,
         child_ctx: &mut LayoutContext,
         child_block: &mut BlockContext,
         collapse_first_child_top: bool,
@@ -219,7 +224,8 @@ impl BlockLayout {
 
                 let inline_ctx = InlineContext::new(child_ctx.containing_block());
 
-                let (inline_nodes, nodes_size) = InlineLayout::layout(input, &inline_items, child_ctx, inline_ctx);
+                let (inline_nodes, nodes_size) =
+                    InlineLayout::layout(input, &inline_items, child_ctx, position_ctx, inline_ctx);
 
                 child_ctx.cursor().y += nodes_size.height;
 
@@ -231,7 +237,7 @@ impl BlockLayout {
                     let defer = collapse_first_child_top && nodes.is_empty();
 
                     if let Some((node, _)) =
-                        BlockLayout::layout(child, parent_style, input, child_ctx, child_block, defer)
+                        BlockLayout::layout(child, parent_style, input, child_ctx, position_ctx, child_block, defer)
                     {
                         if defer {
                             deferred_child_top = child_block.deferred_top_margin.take();
@@ -273,8 +279,8 @@ impl BlockLayout {
 
     fn calculate_x(style: &ComputedStyle, ctx: &LayoutContext, box_model: &BoxModel, content_width: f64) -> f64 {
         let container_width = ctx.containing_block().width;
-        let has_left = !style.left.is_auto() && style.left.to_px(container_width) > 0.0;
-        let has_right = !style.right.is_auto() && style.right.to_px(container_width) > 0.0;
+        let has_left = !style.left.is_auto();
+        let has_right = !style.right.is_auto();
         let margin_left_px = box_model.margin.left.to_px();
         let margin_right_px = box_model.margin.right.to_px();
         let left_px = style.left.to_px(container_width);
@@ -310,22 +316,62 @@ impl BlockLayout {
         normal_x
     }
 
-    fn calculate_height(style: &ComputedStyle, containing_block_height: f64) -> f64 {
-        let height_is_unconstrained =
-            style.height == ComputedSize::Auto || style.height == ComputedSize::Percentage(100.0);
-        let has_top = !style.top.is_auto() && style.top.to_px(containing_block_height) > 0.0;
-        let has_bottom = !style.bottom.is_auto() && style.bottom.to_px(containing_block_height) > 0.0;
+    fn calculate_start_y(style: &ComputedStyle, ctx: &LayoutContext) -> f64 {
+        let normal_y = ctx.containing_block().y + ctx.cursor_ref().y;
 
-        if style.position.is_out_of_flow() && has_top && has_bottom && height_is_unconstrained {
+        match style.position {
+            Position::Relative | Position::Absolute => {
+                let top = style.top.to_px(ctx.containing_block().width);
+                let bottom = style.bottom.to_px(ctx.containing_block().width);
+
+                if top > 0.0 {
+                    normal_y + top
+                } else {
+                    normal_y - bottom
+                }
+            }
+            _ => normal_y,
+        }
+    }
+
+    fn calculate_height(
+        style: &ComputedStyle,
+        box_model: &BoxModel,
+        child_height: f64,
+        containing_block_height: f64,
+    ) -> f64 {
+        if style.position.is_out_of_flow() && !style.top.is_auto() && !style.bottom.is_auto() {
             let top_px = style.top.to_px(containing_block_height);
             let bottom_px = style.bottom.to_px(containing_block_height);
+            let defined_height = Geometry::calculate_height(style, box_model, child_height, containing_block_height);
+
+            if style.height.is_defined() {
+                return defined_height.max(0.0);
+            }
 
             (containing_block_height - top_px - bottom_px).max(0.0)
+        } else if matches!(style.height, ComputedSize::Percentage(_)) {
+            child_height
         } else {
-            match style.height {
-                ComputedSize::Auto => 0.0,
-                _ => Geometry::calculate_height(style, 0.0, containing_block_height).max(0.0),
+            Geometry::calculate_height(style, box_model, child_height, containing_block_height).max(0.0)
+        }
+    }
+
+    fn top_collapsed_offset(children: &[LayoutNode], child_ctx: &LayoutContext, collapse_first_child_top: bool) -> f64 {
+        if !collapse_first_child_top {
+            return 0.0;
+        }
+
+        match children.first() {
+            Some(first_child) => {
+                let first_child_bottom = first_child.dimensions.y + first_child.dimensions.height;
+                if child_ctx.cursor_ref().y + f64::EPSILON >= first_child_bottom {
+                    first_child.dimensions.y
+                } else {
+                    0.0
+                }
             }
+            None => 0.0,
         }
     }
 
@@ -425,7 +471,7 @@ mod tests {
 
     use crate::{Margin, TextContext, context::ImageContext, primitives::SideOffset};
     use css_display::{BoxNode, BoxTree};
-    use css_style::{ComputedMargin, ComputedStyle};
+    use css_style::{ComputedMargin, ComputedSize, ComputedStyle};
     use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
 
     use super::*;
@@ -628,7 +674,8 @@ mod tests {
             ..Default::default()
         };
 
-        let height = BlockLayout::calculate_height(&style, 600.0);
+        let box_model = BoxModel::default();
+        let height = BlockLayout::calculate_height(&style, &box_model, 0.0, 600.0);
         assert_eq!(height, 550.0);
     }
 
@@ -642,7 +689,8 @@ mod tests {
             ..Default::default()
         };
 
-        let height = BlockLayout::calculate_height(&style, 600.0);
+        let box_model = BoxModel::default();
+        let height = BlockLayout::calculate_height(&style, &box_model, 0.0, 600.0);
         assert_eq!(height, 550.0);
     }
 
@@ -656,7 +704,8 @@ mod tests {
             ..Default::default()
         };
 
-        let height = BlockLayout::calculate_height(&style, 600.0);
+        let box_model = BoxModel::default();
+        let height = BlockLayout::calculate_height(&style, &box_model, 0.0, 600.0);
         assert_eq!(height, 0.0);
     }
 
@@ -664,6 +713,7 @@ mod tests {
     fn test_layout_empty() {
         let img_ctx = ImageContext::new();
         let mut ctx = LayoutContext::new(viewport());
+        let mut position_ctx = PositionContext::new(viewport());
 
         let mut text_ctx = TextContext::default();
         let dom_tree = DocumentRoot {
@@ -702,11 +752,11 @@ mod tests {
             &ComputedStyle::default(),
             &mut input,
             &mut ctx,
+            &mut position_ctx,
             &mut block_ctx,
             false,
         );
 
-        dbg!(&layout_node);
         let layout_node = layout_node.unwrap();
 
         assert_eq!(layout_node.0.layout_id, LayoutNodeId::new(0));

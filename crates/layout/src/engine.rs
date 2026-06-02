@@ -1,10 +1,6 @@
-use css_display::BoxTree;
-use css_style::{ComputedStyle, StyleTree};
-use html_dom::{DocumentRoot, NodeId};
-
 use crate::{
     LayoutNode, LayoutTree,
-    context::{ImageContext, LayoutContext, TextContext},
+    context::{ImageContext, LayoutContext, PositionContext, TextContext},
     mode::{
         LayoutMode,
         block::{BlockContext, BlockLayout},
@@ -12,6 +8,11 @@ use crate::{
     },
     primitives::Rect,
 };
+use css_display::BoxTree;
+use css_style::{ComputedStyle, StyleTree};
+use html_dom::{DocumentRoot, NodeId};
+
+use tracing::trace;
 
 /// Immutable references to the trees — passed everywhere, never mutated
 pub struct LayoutInput<'a> {
@@ -34,9 +35,8 @@ impl LayoutTree {
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
     pub fn compute_layout(input: &mut LayoutInput, viewport: Rect) -> Self {
-        // let mut position_ctx = PositionContext::new(viewport);
+        let mut position_ctx = PositionContext::new(viewport);
         let mut ctx = LayoutContext::new(viewport);
-
         let mut total_height = 0.0f64;
         let mut max_width = 0.0f64;
         let mut root_nodes = Vec::new();
@@ -44,9 +44,15 @@ impl LayoutTree {
         for layout_id in &input.box_tree.root_nodes {
             let mut block_ctx = BlockContext::default();
 
-            let Some((node, size)) =
-                BlockLayout::layout(layout_id, &ComputedStyle::default(), input, &mut ctx, &mut block_ctx, false)
-            else {
+            let Some((node, size)) = BlockLayout::layout(
+                layout_id,
+                &ComputedStyle::default(),
+                input,
+                &mut ctx,
+                &mut position_ctx,
+                &mut block_ctx,
+                false,
+            ) else {
                 continue;
             };
 
@@ -56,20 +62,16 @@ impl LayoutTree {
             root_nodes.push(node);
         }
 
-        // for defered_node in ctx.position_ctx().resolve_all(input, image_ctx) {
-        //     // Self::offset_children_y(&mut defered_node.0.children, defered_node.0.margin.top.to_px());
-
-        //     total_height = total_height.max(defered_node.1.height);
-        //     max_width = max_width.max(defered_node.1.width);
-
-        //     root_nodes.push(defered_node.0);
-        // }
-
-        Self {
+        let mut tree = Self {
             root_nodes,
             content_height: total_height,
             content_width: max_width,
-        }
+        };
+
+        trace!("Initial layout complete, resolving deferred positions...");
+        position_ctx.resolve_all(input, &mut tree);
+
+        tree
     }
 
     /// Relayout a single node and its ancestors, updating the layout tree in place.
@@ -104,9 +106,8 @@ impl LayoutTree {
 
         let old_height = old_layout.dimensions.height;
 
-        // let mut position_ctx = PositionContext::new(viewport);
+        let mut position_ctx = PositionContext::new(viewport);
         let mut ctx = LayoutContext::new(old_layout.dimensions);
-        // ctx.position_ctx().update_viewport(viewport);
 
         let style = &style_tree[dirty_parent_id];
         let mode = LayoutMode::from(style);
@@ -118,7 +119,7 @@ impl LayoutTree {
 
                 let inline_ctx = InlineContext::new(viewport);
 
-                InlineLayout::layout(input, &inline_items, &mut ctx, inline_ctx)
+                InlineLayout::layout(input, &inline_items, &mut ctx, &mut position_ctx, inline_ctx)
             }
             _ => {
                 // FIXME: Should retain the old block context for the node being relayouted, so that it doesn't lose track of deferred positioned children.
@@ -129,6 +130,7 @@ impl LayoutTree {
                     &ComputedStyle::default(),
                     input,
                     &mut ctx,
+                    &mut position_ctx,
                     &mut block_ctx,
                     false,
                 ) else {

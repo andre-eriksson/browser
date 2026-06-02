@@ -41,7 +41,7 @@ pub struct HtmlRenderer<'html> {
     pub images: Vec<ImageRenderInfo>,
 
     /// The DOM tree being rendered
-    dom_tree: &'html DocumentRoot,
+    pub dom_tree: &'html DocumentRoot,
 
     /// The layout tree being rendered
     layout_tree: &'html LayoutTree,

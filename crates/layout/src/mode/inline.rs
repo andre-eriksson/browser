@@ -4,7 +4,7 @@ use html_dom::NodeId;
 
 use crate::{
     LayoutInput, LayoutNode, Margin, Rect,
-    context::{Geometry, LayoutContext},
+    context::{Geometry, LayoutContext, PositionContext},
     mode::{
         block::{BlockContext, BlockLayout},
         inline::{
@@ -106,6 +106,7 @@ impl InlineLayout {
         input: &mut LayoutInput<'_>,
         items: &[InlineItem],
         ctx: &mut LayoutContext,
+        position_ctx: &mut PositionContext,
         inline_ctx: InlineContext,
     ) -> (Vec<LayoutNode>, Rect) {
         let mut line = LineBoxBuilder::new(
@@ -154,7 +155,7 @@ impl InlineLayout {
                     let mut block_ctx = BlockContext::default();
 
                     if let Some(mut layout_node) =
-                        BlockLayout::layout(layout_id, style, input, &mut ctx, &mut block_ctx, false)
+                        BlockLayout::layout(layout_id, style, input, &mut ctx, position_ctx, &mut block_ctx, false)
                     {
                         if style.width == ComputedSize::Auto {
                             layout_node.0.dimensions.width = InlineLayout::auto_inline_flow_root_width(

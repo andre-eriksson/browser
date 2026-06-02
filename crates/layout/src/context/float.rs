@@ -26,7 +26,7 @@ impl FloatContext {
 
     /// Add a float to the context. The rect should already have clearance applied
     /// (i.e., the y position should be the final cleared position).
-    pub fn add_float(&mut self, rect: Rect, writing_mode: WritingMode, float: Float) {
+    pub fn _add_float(&mut self, rect: Rect, writing_mode: WritingMode, float: Float) {
         let float_box = FloatBox { rect };
         match float {
             Float::Left => self.left_floats.push(float_box),
@@ -67,7 +67,7 @@ impl FloatContext {
         (left_offset, container_width - right_offset)
     }
 
-    pub fn clear_y(&self, clear: Clear, writing_mode: WritingMode, current_y: f64) -> f64 {
+    pub fn _clear_y(&self, clear: Clear, writing_mode: WritingMode, current_y: f64) -> f64 {
         match clear {
             Clear::None => current_y,
             Clear::Left => self
@@ -85,23 +85,25 @@ impl FloatContext {
                 .unwrap_or(current_y)
                 .max(current_y),
             Clear::Both => {
-                let left_clear = self.clear_y(Clear::Left, writing_mode, current_y);
-                let right_clear = self.clear_y(Clear::Right, writing_mode, current_y);
+                let left_clear = self._clear_y(Clear::Left, writing_mode, current_y);
+                let right_clear = self._clear_y(Clear::Right, writing_mode, current_y);
 
                 left_clear.max(right_clear)
             }
             Clear::InlineEnd => match writing_mode {
                 WritingMode::HorizontalTb | WritingMode::SidewaysRl | WritingMode::VerticalRl => {
-                    self.clear_y(Clear::Right, writing_mode, current_y)
+                    self._clear_y(Clear::Right, writing_mode, current_y)
                 }
-                WritingMode::SidewaysLr | WritingMode::VerticalLr => self.clear_y(Clear::Left, writing_mode, current_y),
+                WritingMode::SidewaysLr | WritingMode::VerticalLr => {
+                    self._clear_y(Clear::Left, writing_mode, current_y)
+                }
             },
             Clear::InlineStart => match writing_mode {
                 WritingMode::HorizontalTb | WritingMode::SidewaysRl | WritingMode::VerticalRl => {
-                    self.clear_y(Clear::Left, writing_mode, current_y)
+                    self._clear_y(Clear::Left, writing_mode, current_y)
                 }
                 WritingMode::SidewaysLr | WritingMode::VerticalLr => {
-                    self.clear_y(Clear::Right, writing_mode, current_y)
+                    self._clear_y(Clear::Right, writing_mode, current_y)
                 }
             },
         }

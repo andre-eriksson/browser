@@ -46,7 +46,13 @@ impl LayoutContext {
         if deferred {
             Self::deferred(Cursor { x: 0.0, y: 0.0 }, containing_block, self.positioned_containing_block)
         } else {
-            Self::new(containing_block)
+            Self {
+                cursor: Cursor { x: 0.0, y: 0.0 },
+                containing_block,
+                positioned_containing_block: self.positioned_containing_block,
+                deferred: false,
+                float_ctx: FloatContext::new(),
+            }
         }
     }
 

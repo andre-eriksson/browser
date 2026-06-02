@@ -1,3 +1,4 @@
+use css_display::LayoutNodeId;
 use html_dom::NodeId;
 
 use crate::LayoutNode;
@@ -94,5 +95,28 @@ impl LayoutTree {
             };
         }
         current
+    }
+
+    pub fn find_node_by_layout_id(&mut self, layout_id: LayoutNodeId) -> Option<&mut LayoutNode> {
+        for root in &mut self.root_nodes {
+            if let Some(node) = Self::find_node_by_layout_id_in_node(root, layout_id) {
+                return Some(node);
+            }
+        }
+        None
+    }
+
+    fn find_node_by_layout_id_in_node(node: &mut LayoutNode, layout_id: LayoutNodeId) -> Option<&mut LayoutNode> {
+        if node.layout_id == layout_id {
+            return Some(node);
+        }
+
+        for child in &mut node.children {
+            if let Some(found) = Self::find_node_by_layout_id_in_node(child, layout_id) {
+                return Some(found);
+            }
+        }
+
+        None
     }
 }

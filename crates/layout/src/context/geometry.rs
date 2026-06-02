@@ -43,10 +43,10 @@ impl Geometry {
         style.padding_top.to_px(containing_width) > 0.0 || style.border_top_width > 0.0
     }
 
-    pub fn has_bottom_fence(style: &ComputedStyle, containing_width: f64, height: f64) -> bool {
+    pub fn has_bottom_fence(style: &ComputedStyle, containing_width: f64) -> bool {
         style.padding_bottom.to_px(containing_width) > 0.0
             || style.border_bottom_width > 0.0
-            || (!style.height.is_auto() && height > 0.0)
+            || (!style.height.is_auto() && style.height.is_defined())
     }
 
     /// Resolve margin values to pixels
@@ -128,7 +128,12 @@ impl Geometry {
         width.min(available_width)
     }
 
-    pub(crate) fn calculate_height(style: &ComputedStyle, children_height: f64, containing_height: f64) -> f64 {
+    pub(crate) fn calculate_height(
+        style: &ComputedStyle,
+        box_model: &BoxModel,
+        children_height: f64,
+        containing_height: f64,
+    ) -> f64 {
         let height = match &style.height {
             ComputedSize::Auto => children_height,
             ComputedSize::Px(px) => *px,
@@ -147,11 +152,8 @@ impl Geometry {
                 _ => f64::INFINITY,
             };
 
-            let top = MarginValue::resolve(style.margin_top, containing_height);
-            let bottom = MarginValue::resolve(style.margin_bottom, containing_height);
-
             let available_height = f64::min(
-                match (top, bottom) {
+                match (box_model.margin.top, box_model.margin.bottom) {
                     (MarginValue::Auto, MarginValue::Auto) => containing_height,
                     (MarginValue::Auto, MarginValue::Px(px)) => containing_height - px,
                     (MarginValue::Px(px), MarginValue::Auto) => containing_height - px,

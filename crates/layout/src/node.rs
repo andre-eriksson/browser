@@ -12,6 +12,7 @@ use crate::{ImageData, LayoutColors, Margin, Rect, primitives::SideOffset};
 /// A node in the layout tree representing a rendered element
 #[derive(Debug, Clone)]
 pub struct LayoutNode {
+    pub block_formatting_context: bool,
     pub border: SideOffset,
     pub children: Vec<Self>,
     pub colors: LayoutColors,
@@ -31,6 +32,10 @@ impl LayoutNode {
     pub fn builder(layout_id: LayoutNodeId) -> NodeBuilder {
         NodeBuilder::new(layout_id)
     }
+
+    pub fn insert_child(&mut self, child: LayoutNode) {
+        self.children.push(child);
+    }
 }
 
 /// Builder pattern for constructing a `LayoutNode`.
@@ -43,6 +48,7 @@ impl NodeBuilder {
     pub fn new(layout_id: LayoutNodeId) -> Self {
         Self {
             layout_node: LayoutNode {
+                block_formatting_context: false,
                 border: SideOffset::default(),
                 children: Vec::new(),
                 colors: LayoutColors::default(),
@@ -57,6 +63,11 @@ impl NodeBuilder {
                 text_buffer: None,
             },
         }
+    }
+
+    pub const fn block_formatting_context(mut self, block_formatting_context: bool) -> Self {
+        self.layout_node.block_formatting_context = block_formatting_context;
+        self
     }
 
     pub const fn border(mut self, border: SideOffset) -> Self {

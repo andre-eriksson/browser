@@ -4,7 +4,7 @@ use css_style::ComputedStyle;
 use css_values::display::OutsideDisplay;
 use html_dom::NodeId;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LayoutNodeId(usize);
 
 impl LayoutNodeId {

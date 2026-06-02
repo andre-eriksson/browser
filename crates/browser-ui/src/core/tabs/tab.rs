@@ -122,7 +122,7 @@ impl Tab {
         let absolute_ctx = AbsoluteContext {
             root_font_size: 16.0,
             viewport_width: f64::from(viewport.width),
-            viewport_height: f64::from(viewport.height),
+            viewport_height: f64::from(viewport.height) - 87.0 - 60.0,
             theme_category: preferences.theme().category,
             document_url: &metadata.url,
             root_line_height_multiplier: 1.2,
@@ -139,7 +139,7 @@ impl Tab {
                 text: text_context,
                 image: &image_ctx,
             },
-            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
+            Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height) - 87.0 - 60.0),
         );
 
         self.style_tree = Some(style_tree);

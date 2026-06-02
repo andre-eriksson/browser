@@ -5,76 +5,110 @@ use crate::{
     mode::block::{BlockContext, BlockLayout},
     primitives::Size,
 };
-use css_display::BoxNode;
+use css_display::LayoutNodeId;
 use css_style::ComputedStyle;
 
 #[derive(Debug, Clone)]
-struct PendingPosition<'node> {
-    box_node: BoxNode<'node>,
+struct PendingPosition {
+    parent_id: LayoutNodeId,
+    layout_id: LayoutNodeId,
     containing_block: Rect,
+    block_ctx: BlockContext,
+    defer_top_margin: bool,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct PositionContext<'node> {
-    pending: Vec<PendingPosition<'node>>,
+pub struct PositionContext {
+    pending: Vec<PendingPosition>,
     viewport: Rect,
     positioned: Vec<Rect>,
+    parent_id: LayoutNodeId,
 }
 
-impl<'node> PositionContext<'node> {
+impl PositionContext {
     pub fn new(viewport: Rect) -> Self {
         Self {
             pending: Vec::new(),
             viewport,
             positioned: vec![viewport],
+            parent_id: LayoutNodeId::new(0),
         }
     }
 
-    pub fn update_viewport(&mut self, viewport: Rect) {
-        self.viewport = viewport;
-    }
-
-    pub fn push_position(&mut self, rect: Rect) {
+    pub fn push_parent(&mut self, parent_id: &LayoutNodeId, rect: Rect) {
+        self.parent_id = *parent_id;
         self.positioned.push(rect);
     }
 
-    /// Returns the current number of positioned rects, for use with `offset_positions_since`.
-    pub const fn position_count(&self) -> usize {
-        self.positioned.len()
-    }
-
-    /// Offsets the Y coordinate of all positioned rects added since `start_count`.
-    /// This is used to apply margin offsets after layout completes for a subtree.
-    pub fn offset_positions_since(&mut self, start_count: usize, y_offset: f64) {
-        for rect in self.positioned.iter_mut().skip(start_count) {
-            rect.y += y_offset;
-        }
-    }
-
-    pub fn defer(&mut self, box_node: &'node BoxNode, containing_block: Rect) {
+    pub fn defer(
+        &mut self,
+        layout_id: &LayoutNodeId,
+        containing_block: Option<Rect>,
+        block_ctx: BlockContext,
+        defer_top_margin: bool,
+    ) {
+        let containing_block = containing_block.unwrap_or(self.positioned.last().cloned().unwrap_or(self.viewport));
         self.pending.push(PendingPosition {
-            box_node: box_node.clone(),
+            parent_id: self.parent_id,
+            layout_id: *layout_id,
             containing_block,
+            block_ctx,
+            defer_top_margin,
         });
     }
 
-    pub fn resolve_all(&mut self, input: &mut LayoutInput) -> Vec<(LayoutNode, Size)> {
+    pub fn _resolve_all(&mut self, input: &mut LayoutInput) -> Vec<(LayoutNode, Size)> {
         self.pending
             .drain(..)
-            .filter_map(|pending| {
+            .filter_map(|mut pending| {
+                let mut new_position_ctx = PositionContext::new(pending.containing_block);
                 let mut ctx =
                     LayoutContext::deferred(Cursor { x: 0.0, y: 0.0 }, pending.containing_block, self.viewport);
-                let mut block_ctx = BlockContext::default();
 
                 BlockLayout::layout(
-                    &pending.box_node.layout_id,
+                    &pending.layout_id,
                     &ComputedStyle::default(),
                     input,
                     &mut ctx,
-                    &mut block_ctx,
-                    false,
+                    &mut new_position_ctx,
+                    &mut pending.block_ctx,
+                    pending.defer_top_margin,
                 )
             })
             .collect()
+    }
+
+    pub fn resolve_all(&mut self, input: &mut LayoutInput, layout_tree: &mut LayoutTree) {
+        for mut pending in self.pending.drain(..) {
+            let Some(layout_node) = layout_tree.find_node_by_layout_id(pending.parent_id) else {
+                continue;
+            };
+
+            let mut new_position_ctx = PositionContext::new(pending.containing_block);
+            let mut ctx = LayoutContext::deferred(
+                Cursor { x: 0.0, y: 0.0 },
+                Rect {
+                    x: layout_node.dimensions.x,
+                    y: layout_node.dimensions.y,
+                    width: pending.containing_block.width,
+                    height: pending.containing_block.height,
+                },
+                self.viewport,
+            );
+
+            if let Some((node, size)) = BlockLayout::layout(
+                &pending.layout_id,
+                &ComputedStyle::default(),
+                input,
+                &mut ctx,
+                &mut new_position_ctx,
+                &mut pending.block_ctx,
+                pending.defer_top_margin,
+            ) {
+                layout_node.insert_child(node);
+                layout_tree.content_width = layout_tree.content_width.max(size.width);
+                layout_tree.content_height = layout_tree.content_height.max(size.height);
+            }
+        }
     }
 }
