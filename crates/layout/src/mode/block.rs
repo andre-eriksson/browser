@@ -192,7 +192,7 @@ impl BlockLayout {
             .position(style.position)
             .build();
 
-        ctx.cursor().y = node_y + content_height;
+        ctx.cursor().y += content_height;
 
         Some((node, Size::new(width, content_height)))
     }
