@@ -14,34 +14,28 @@ pub struct BoxTree<'node> {
 
 impl<'node> BoxTree<'node> {
     pub fn new(dom: &'node DocumentRoot, style_tree: &'node StyleTree) -> Self {
-        let mut tree = Self {
-            root_nodes: Vec::with_capacity(dom.root_nodes.len()),
-            nodes: Vec::with_capacity(dom.nodes.len()),
-        };
+        let mut root_nodes = Vec::with_capacity(dom.root_nodes.len());
+        let mut nodes = Vec::with_capacity(dom.nodes.len());
 
         for node_id in &dom.root_nodes {
-            tree.build_box_node(node_id, dom, style_tree, true);
+            let id = Self::build_box_node(node_id, dom, style_tree, &mut nodes);
+
+            root_nodes.push(id);
         }
 
-        tree
+        Self { root_nodes, nodes }
     }
 
     fn build_box_node(
-        &mut self,
         node_id: &'node NodeId,
         dom: &'node DocumentRoot,
         style_tree: &'node StyleTree,
-        is_root: bool,
+        nodes: &mut Vec<BoxNode<'node>>,
     ) -> LayoutNodeId {
         let style = &style_tree[node_id];
-        let layout_id = LayoutNodeId::new(self.nodes.len());
+        let layout_id = LayoutNodeId::new(nodes.len());
 
-        if is_root {
-            self.root_nodes.push(layout_id);
-        }
-
-        self.nodes
-            .push(BoxNode::new_with_layout_id(layout_id, node_id, style, Vec::new()));
+        nodes.push(BoxNode::new(layout_id, node_id, style, Vec::new()));
 
         let mut children = Vec::new();
         let mut inline_buffer = Vec::new();
@@ -66,15 +60,14 @@ impl<'node> BoxTree<'node> {
                 continue;
             }
 
-            let child_layout_id = self.build_box_node(child_id, dom, style_tree, false);
+            let child_layout_id = Self::build_box_node(child_id, dom, style_tree, nodes);
 
             if child_style.display.is_inline() {
                 inline_buffer.push(child_layout_id);
             } else if child_style.display.is_block() {
                 if !inline_buffer.is_empty() {
-                    let anon_layout_id = LayoutNodeId::new(self.nodes.len());
-                    self.nodes
-                        .push(BoxNode::new_anonymous_node_with_layout_id(anon_layout_id, inline_buffer, style));
+                    let anon_layout_id = LayoutNodeId::new(nodes.len());
+                    nodes.push(BoxNode::new_anonymous_node(anon_layout_id, inline_buffer, style));
                     children.push(anon_layout_id);
                     inline_buffer = Vec::new();
                 }
@@ -85,16 +78,15 @@ impl<'node> BoxTree<'node> {
 
         if !inline_buffer.is_empty() {
             if saw_block {
-                let anon_layout_id = LayoutNodeId::new(self.nodes.len());
-                self.nodes
-                    .push(BoxNode::new_anonymous_node_with_layout_id(anon_layout_id, inline_buffer, style));
+                let anon_layout_id = LayoutNodeId::new(nodes.len());
+                nodes.push(BoxNode::new_anonymous_node(anon_layout_id, inline_buffer, style));
                 children.push(anon_layout_id);
             } else {
                 children.extend(inline_buffer);
             }
         }
 
-        self.nodes[layout_id.index()].children = children;
+        nodes[layout_id.index()].children = children;
         layout_id
     }
 

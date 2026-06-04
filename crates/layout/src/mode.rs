@@ -66,6 +66,7 @@ impl From<&ComputedStyle> for LayoutMode {
 
 #[cfg(test)]
 mod tests {
+    use css_display::LayoutNodeId;
     use css_style::ComputedStyle;
     use css_values::display::OutsideDisplay;
     use html_dom::NodeId;
@@ -79,7 +80,7 @@ mod tests {
             ..Default::default()
         };
 
-        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
+        let box_node = BoxNode::new(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
 
         assert_eq!(LayoutMode::new(&box_node), LayoutMode::Block);
     }
@@ -91,7 +92,7 @@ mod tests {
             ..Default::default()
         };
 
-        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
+        let box_node = BoxNode::new(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
 
         assert_eq!(LayoutMode::new(&box_node), LayoutMode::Inline);
     }
@@ -103,7 +104,7 @@ mod tests {
             ..Default::default()
         };
 
-        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
+        let box_node = BoxNode::new(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
 
         assert_eq!(LayoutMode::new(&box_node), LayoutMode::Flex);
     }
@@ -115,7 +116,7 @@ mod tests {
             ..Default::default()
         };
 
-        let box_node = BoxNode::new(&NodeId(0), &style, vec![]);
+        let box_node = BoxNode::new(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
 
         assert_eq!(LayoutMode::new(&box_node), LayoutMode::Grid);
     }

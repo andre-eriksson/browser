@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn atomic_items_still_reset_whitespace_collapse_state() {
         let style = ComputedStyle::default();
-        let node = BoxNode::new_with_layout_id(LayoutNodeId::new(2), &NodeId(2), &style, vec![]);
+        let node = BoxNode::new(LayoutNodeId::new(2), &NodeId(2), &style, vec![]);
         let id1 = LayoutNodeId::new(1);
         let id3 = LayoutNodeId::new(3);
 

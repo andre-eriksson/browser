@@ -55,11 +55,7 @@ pub struct BoxNode<'a> {
 }
 
 impl<'a> BoxNode<'a> {
-    pub fn new(node_id: &'a NodeId, style: &'a ComputedStyle, _children: Vec<BoxNode<'a>>) -> Self {
-        Self::new_with_layout_id(LayoutNodeId::new(0), node_id, style, Vec::new())
-    }
-
-    pub fn new_with_layout_id(
+    pub fn new(
         layout_id: LayoutNodeId,
         node_id: &'a NodeId,
         style: &'a ComputedStyle,
@@ -73,7 +69,7 @@ impl<'a> BoxNode<'a> {
         }
     }
 
-    pub fn new_anonymous_node_with_layout_id(
+    pub fn new_anonymous_node(
         layout_id: LayoutNodeId,
         buffer: Vec<LayoutNodeId>,
         style: &'a ComputedStyle,

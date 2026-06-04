@@ -726,7 +726,7 @@ mod tests {
             root_nodes: vec![NodeId(0)],
         };
         let style = ComputedStyle::default();
-        let box_node = BoxNode::new_with_layout_id(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
+        let box_node = BoxNode::new(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
 
         let box_tree = BoxTree {
             nodes: vec![box_node],
