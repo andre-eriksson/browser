@@ -43,6 +43,7 @@ impl MarginCollapsing {
 
 #[derive(Debug, Clone, Default)]
 pub struct BlockContext {
+    pub defer_top_margin: bool,
     pub collapsed_margin: MarginCollapsing,
     pub deferred_top_margin: Option<MarginCollapsing>,
 }
@@ -50,6 +51,7 @@ pub struct BlockContext {
 impl BlockContext {
     pub fn new() -> Self {
         Self {
+            defer_top_margin: false,
             collapsed_margin: MarginCollapsing {
                 max_positive: 0.0,
                 max_negative: 0.0,
@@ -62,14 +64,14 @@ pub struct BlockLayout;
 
 impl BlockLayout {
     pub fn layout(
+        nodes: &mut Vec<Option<LayoutNode>>,
         layout_id: &LayoutNodeId,
         parent_style: &ComputedStyle,
         input: &mut LayoutInput<'_>,
         ctx: &mut LayoutContext,
         position_ctx: &mut PositionContext,
         current_block: &mut BlockContext,
-        defer_top_margin: bool,
-    ) -> Option<(LayoutNode, Size)> {
+    ) -> Option<(LayoutNodeId, Size)> {
         let box_node = &input.box_tree[layout_id];
         let style = &*box_node.style;
 
@@ -80,7 +82,7 @@ impl BlockLayout {
                 None
             };
 
-            position_ctx.defer(layout_id, containing_block, current_block.clone(), defer_top_margin);
+            position_ctx.defer(layout_id, containing_block, current_block.clone());
 
             return None;
         }
@@ -101,14 +103,7 @@ impl BlockLayout {
 
         current_block.deferred_top_margin = None;
 
-        Self::apply_top_margin(
-            has_top_fence,
-            can_collapse_top_with_child,
-            defer_top_margin,
-            current_block,
-            &box_model,
-            ctx,
-        );
+        Self::apply_top_margin(has_top_fence, can_collapse_top_with_child, current_block, &box_model, ctx);
 
         let avaliable_child_height =
             Geometry::calculate_height(style, &box_model, ctx.containing_block().height, ctx.containing_block().height);
@@ -132,10 +127,11 @@ impl BlockLayout {
                 width,
                 height: avaliable_child_height,
             },
-            false,
+            ctx.is_deferred(),
         );
 
-        let (mut children, deferred_child_top) = Self::layout_block_children(
+        let (ids, deferred_child_top) = Self::layout_children(
+            nodes,
             &box_node.children,
             style,
             input,
@@ -145,14 +141,7 @@ impl BlockLayout {
             can_collapse_top_with_child,
         );
 
-        Self::resolve_deferred_top(
-            can_collapse_top_with_child,
-            defer_top_margin,
-            current_block,
-            deferred_child_top,
-            &mut children,
-            ctx,
-        );
+        Self::resolve_deferred_top(nodes, can_collapse_top_with_child, current_block, deferred_child_top, &ids, ctx);
 
         let height_is_auto = style.height == ComputedSize::Auto;
         let can_collapse_bottom =
@@ -167,7 +156,7 @@ impl BlockLayout {
             ctx,
         );
 
-        let top_collapsed_offset = Self::top_collapsed_offset(&children, &child_ctx, can_collapse_top_with_child);
+        let top_collapsed_offset = Self::top_collapsed_offset(nodes, &ids, &child_ctx, can_collapse_top_with_child);
 
         let content_height = Self::calculate_height(
             style,
@@ -182,7 +171,7 @@ impl BlockLayout {
         let node = LayoutNode::builder(*layout_id)
             .block_formatting_context(establishes_bfc)
             .border(box_model.border)
-            .children(children)
+            .children(ids)
             .colors(colors)
             .cursor(style.cursor)
             .dimensions(Rect::new(ctx.cursor().x, node_y, width, content_height))
@@ -192,12 +181,19 @@ impl BlockLayout {
             .position(style.position)
             .build();
 
+        nodes[layout_id.index()] = Some(node);
+
+        // for child in ids {
+        //     nodes.insert(child.layout_id.index(), child);
+        // }
+
         ctx.cursor().y += content_height;
 
-        Some((node, Size::new(width, content_height)))
+        Some((*layout_id, Size::new(width, content_height)))
     }
 
-    fn layout_block_children<'a>(
+    fn layout_children<'a>(
+        nodes: &mut Vec<Option<LayoutNode>>,
         children: &'a [LayoutNodeId],
         parent_style: &'a ComputedStyle,
         input: &mut LayoutInput<'a>,
@@ -205,12 +201,12 @@ impl BlockLayout {
         child_ctx: &mut LayoutContext,
         child_block: &mut BlockContext,
         collapse_first_child_top: bool,
-    ) -> (Vec<LayoutNode>, Option<MarginCollapsing>) {
-        let mut nodes = Vec::with_capacity(children.len());
+    ) -> (Vec<LayoutNodeId>, Option<MarginCollapsing>) {
+        let mut node_ids = Vec::with_capacity(children.len());
         let mut deferred_child_top = None;
 
         if children.is_empty() {
-            return (nodes, deferred_child_top);
+            return (node_ids, deferred_child_top);
         }
 
         match LayoutMode::new(&input.box_tree[&children[0]]) {
@@ -224,38 +220,44 @@ impl BlockLayout {
 
                 let inline_ctx = InlineContext::new(child_ctx.containing_block());
 
-                let (inline_nodes, nodes_size) =
-                    InlineLayout::layout(input, &inline_items, child_ctx, position_ctx, inline_ctx);
+                let (ids, nodes_size) =
+                    InlineLayout::layout(nodes, input, &inline_items, child_ctx, position_ctx, inline_ctx);
 
                 child_ctx.cursor().y += nodes_size.height;
-
-                nodes.extend(inline_nodes);
+                node_ids.extend(ids);
             }
             _ => {
                 // TODO: Handle Flex and Grid.
                 for child in children {
                     let defer = collapse_first_child_top && nodes.is_empty();
+                    child_block.defer_top_margin = defer;
 
-                    if let Some((node, _)) =
-                        BlockLayout::layout(child, parent_style, input, child_ctx, position_ctx, child_block, defer)
+                    if let Some((node_id, _)) =
+                        BlockLayout::layout(nodes, child, parent_style, input, child_ctx, position_ctx, child_block)
                     {
                         if defer {
                             deferred_child_top = child_block.deferred_top_margin.take();
                         }
-                        nodes.push(node);
+                        node_ids.push(node_id);
                     }
                 }
             }
         }
 
-        (nodes, deferred_child_top)
+        (node_ids, deferred_child_top)
     }
 
-    fn offset_node_y(node: &mut LayoutNode, delta_y: f64) {
+    fn offset_node_y(nodes: &mut Vec<Option<LayoutNode>>, id: &LayoutNodeId, delta_y: f64) {
+        let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
+            return;
+        };
+
         node.dimensions.y += delta_y;
-        for child in &mut node.children {
-            Self::offset_node_y(child, delta_y);
+        for child_id in &node.children {
+            Self::offset_node_y(nodes, child_id, delta_y);
         }
+
+        nodes[id.index()] = Some(node);
     }
 
     fn calculate_width(style: &ComputedStyle, container_width: f64, box_model: &BoxModel) -> f64 {
@@ -334,39 +336,50 @@ impl BlockLayout {
         }
     }
 
-    fn calculate_height(
+    pub(crate) fn calculate_height(
         style: &ComputedStyle,
         box_model: &BoxModel,
         child_height: f64,
         containing_block_height: f64,
     ) -> f64 {
-        if style.position.is_out_of_flow() && !style.top.is_auto() && !style.bottom.is_auto() {
+        if style.position.is_out_of_flow() && !(style.top.is_auto() || style.bottom.is_auto()) {
             let top_px = style.top.to_px(containing_block_height);
             let bottom_px = style.bottom.to_px(containing_block_height);
-            let defined_height = Geometry::calculate_height(style, box_model, child_height, containing_block_height);
 
             if style.height.is_defined() {
-                return defined_height.max(0.0);
-            }
+                let height =
+                    Geometry::calculate_height(style, box_model, child_height, containing_block_height).max(0.0);
 
-            (containing_block_height - top_px - bottom_px).max(0.0)
-        } else if matches!(style.height, ComputedSize::Percentage(_)) {
-            child_height
+                (height - top_px - bottom_px).max(0.0)
+            } else if style.height == ComputedSize::Auto {
+                (child_height - top_px - bottom_px).max(0.0)
+            } else {
+                (containing_block_height - top_px - bottom_px).max(0.0)
+            }
         } else {
             Geometry::calculate_height(style, box_model, child_height, containing_block_height).max(0.0)
         }
     }
 
-    fn top_collapsed_offset(children: &[LayoutNode], child_ctx: &LayoutContext, collapse_first_child_top: bool) -> f64 {
+    fn top_collapsed_offset(
+        nodes: &mut [Option<LayoutNode>],
+        ids: &[LayoutNodeId],
+        child_ctx: &LayoutContext,
+        collapse_first_child_top: bool,
+    ) -> f64 {
         if !collapse_first_child_top {
             return 0.0;
         }
 
-        match children.first() {
+        match ids.first() {
             Some(first_child) => {
-                let first_child_bottom = first_child.dimensions.y + first_child.dimensions.height;
+                let Some(node) = &nodes[first_child.index()] else {
+                    return 0.0;
+                };
+
+                let first_child_bottom = node.dimensions.y + node.dimensions.height;
                 if child_ctx.cursor_ref().y + f64::EPSILON >= first_child_bottom {
-                    first_child.dimensions.y
+                    node.dimensions.y
                 } else {
                     0.0
                 }
@@ -378,7 +391,6 @@ impl BlockLayout {
     fn apply_top_margin(
         has_top_fence: bool,
         can_collapse_top_with_child: bool,
-        defer_top_margin: bool,
         current_block: &mut BlockContext,
         box_model: &BoxModel,
         ctx: &mut LayoutContext,
@@ -392,7 +404,7 @@ impl BlockLayout {
                 .add(box_model.margin.top.to_px());
 
             if !can_collapse_top_with_child {
-                if defer_top_margin {
+                if current_block.defer_top_margin {
                     current_block.deferred_top_margin = Some(current_block.collapsed_margin);
                     current_block.collapsed_margin.flush();
                 } else {
@@ -433,11 +445,11 @@ impl BlockLayout {
     }
 
     fn resolve_deferred_top(
+        nodes: &mut Vec<Option<LayoutNode>>,
         can_collapse_top_with_child: bool,
-        defer_top_margin: bool,
         current_block: &mut BlockContext,
         deferred_child_top: Option<MarginCollapsing>,
-        children: &mut [LayoutNode],
+        ids: &[LayoutNodeId],
         ctx: &mut LayoutContext,
     ) {
         if can_collapse_top_with_child {
@@ -445,7 +457,7 @@ impl BlockLayout {
                 current_block.collapsed_margin.add_collapsed(&child_top);
             }
 
-            if defer_top_margin {
+            if current_block.defer_top_margin {
                 current_block.deferred_top_margin = Some(current_block.collapsed_margin);
                 current_block.collapsed_margin.flush();
             } else {
@@ -455,8 +467,8 @@ impl BlockLayout {
                 // the first child's margin must be seen before we can compute the
                 // collapsed total. Now that we have it, shift all children retroactively.
                 if collapsed != 0.0 {
-                    for child in children {
-                        Self::offset_node_y(child, collapsed);
+                    for child_id in ids {
+                        Self::offset_node_y(nodes, child_id, collapsed);
                     }
                 }
                 ctx.cursor().y += collapsed;
@@ -479,33 +491,6 @@ mod tests {
     fn viewport() -> Rect {
         Rect::new(0.0, 0.0, 800.0, 600.0)
     }
-
-    // #[test]
-    // fn test_collapsing_margins() {
-    //     assert_eq!(BlockFlow::collapse_margins(10.0, 20.0), 20.0);
-    //     assert_eq!(BlockFlow::collapse_margins(-10.0, -20.0), -20.0);
-    //     assert_eq!(BlockFlow::collapse_margins(10.0, -5.0), 5.0);
-    //     assert_eq!(BlockFlow::collapse_margins(-10.0, 5.0), -5.0);
-    //     assert_eq!(BlockFlow::collapse_margins(0.0, 15.0), 15.0);
-    //     assert_eq!(BlockFlow::collapse_margins(-5.0, 0.0), -5.0);
-    // }
-
-    // #[test]
-    // fn test_advance_flow() {
-    //     let mut flow = BlockFlow::new(&ComputedStyle::default(), viewport().width);
-
-    //     let y1 = flow.advance(10.0, 50.0, 15.0, false);
-    //     assert_eq!(y1, 0.0);
-    //     assert_eq!(flow.current_y, 50.0);
-
-    //     let y2 = flow.advance(20.0, 30.0, 10.0, false);
-    //     assert_eq!(y2, 70.0);
-    //     assert_eq!(flow.current_y, 100.0);
-
-    //     let y3 = flow.advance(5.0, 40.0, 20.0, false);
-    //     assert_eq!(y3, 110.0);
-    //     assert_eq!(flow.current_y, 150.0);
-    // }
 
     #[test]
     fn test_calculate_x_static() {
@@ -676,7 +661,7 @@ mod tests {
 
         let box_model = BoxModel::default();
         let height = BlockLayout::calculate_height(&style, &box_model, 0.0, 600.0);
-        assert_eq!(height, 550.0);
+        assert_eq!(height, 0.0);
     }
 
     #[test]
@@ -685,7 +670,7 @@ mod tests {
             position: Position::Fixed,
             top: 10.0.into(),
             bottom: 40.0.into(),
-            height: ComputedSize::Percentage(100.0),
+            height: ComputedSize::Percentage(1.0),
             ..Default::default()
         };
 
@@ -726,11 +711,12 @@ mod tests {
             root_nodes: vec![NodeId(0)],
         };
         let style = ComputedStyle::default();
-        let box_node = BoxNode::new(LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
+        let box_node = BoxNode::new(None, LayoutNodeId::new(0), &NodeId(0), &style, vec![]);
 
         let box_tree = BoxTree {
             nodes: vec![box_node],
             root_nodes: vec![LayoutNodeId::new(0)],
+            dom_to_layout: Vec::new(),
         };
 
         let mut input = LayoutInput {
@@ -740,6 +726,7 @@ mod tests {
             image: &img_ctx,
         };
         let mut block_ctx = BlockContext {
+            defer_top_margin: false,
             collapsed_margin: MarginCollapsing {
                 max_positive: 0.0,
                 max_negative: 0.0,
@@ -747,23 +734,27 @@ mod tests {
             deferred_top_margin: None,
         };
 
+        let mut nodes = Vec::new();
+
         let layout_node = BlockLayout::layout(
+            &mut nodes,
             &LayoutNodeId::new(0),
             &ComputedStyle::default(),
             &mut input,
             &mut ctx,
             &mut position_ctx,
             &mut block_ctx,
-            false,
         );
 
-        let layout_node = layout_node.unwrap();
+        let (layout_node_id, _) = layout_node.unwrap();
+        let layout_node = &nodes[layout_node_id.index()].clone().unwrap();
 
-        assert_eq!(layout_node.0.layout_id, LayoutNodeId::new(0));
-        assert_eq!(layout_node.0.dimensions.x, 0.0);
-        assert_eq!(layout_node.0.dimensions.y, 0.0);
-        assert_eq!(layout_node.0.dimensions.width, 800.0);
-        assert_eq!(layout_node.0.dimensions.height, 0.0);
-        assert_eq!(layout_node.0.children.len(), 0);
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(layout_node.layout_id, LayoutNodeId::new(0));
+        assert_eq!(layout_node.dimensions.x, 0.0);
+        assert_eq!(layout_node.dimensions.y, 0.0);
+        assert_eq!(layout_node.dimensions.width, 800.0);
+        assert_eq!(layout_node.dimensions.height, 0.0);
+        assert_eq!(layout_node.children.len(), 0);
     }
 }

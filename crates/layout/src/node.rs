@@ -14,7 +14,7 @@ use crate::{ImageData, LayoutColors, Margin, Rect, primitives::SideOffset};
 pub struct LayoutNode {
     pub block_formatting_context: bool,
     pub border: SideOffset,
-    pub children: Vec<Self>,
+    pub children: Vec<LayoutNodeId>,
     pub colors: LayoutColors,
     pub cursor: Cursor,
     pub dimensions: Rect,
@@ -33,8 +33,8 @@ impl LayoutNode {
         NodeBuilder::new(layout_id)
     }
 
-    pub fn insert_child(&mut self, child: LayoutNode) {
-        self.children.push(child);
+    pub fn insert_child(&mut self, child_id: LayoutNodeId) {
+        self.children.push(child_id);
     }
 }
 
@@ -75,7 +75,7 @@ impl NodeBuilder {
         self
     }
 
-    pub fn children(mut self, children: Vec<LayoutNode>) -> Self {
+    pub fn children(mut self, children: Vec<LayoutNodeId>) -> Self {
         self.layout_node.children = children;
         self
     }

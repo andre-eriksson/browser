@@ -10,6 +10,16 @@ use crate::tag::Tag;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId(pub usize);
 
+impl NodeId {
+    pub const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    pub const fn index(self) -> usize {
+        self.0
+    }
+}
+
 impl From<usize> for NodeId {
     fn from(value: usize) -> Self {
         Self(value)

@@ -1,7 +1,7 @@
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
-    Margin,
+    LayoutNode, Margin,
     primitives::{MarginValue, SideOffset},
 };
 
@@ -10,6 +10,16 @@ pub(crate) struct BoxModel {
     pub margin: Margin,
     pub padding: SideOffset,
     pub border: SideOffset,
+}
+
+impl From<&LayoutNode> for BoxModel {
+    fn from(value: &LayoutNode) -> Self {
+        Self {
+            margin: value.margin,
+            padding: value.padding,
+            border: value.border,
+        }
+    }
 }
 
 pub(crate) struct Geometry;

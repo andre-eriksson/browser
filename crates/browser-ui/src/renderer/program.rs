@@ -44,7 +44,7 @@ pub struct HtmlRenderer<'html> {
     pub dom_tree: &'html DocumentRoot,
 
     /// The layout tree being rendered
-    layout_tree: &'html LayoutTree,
+    pub layout_tree: &'html LayoutTree,
 
     /// Current scroll offset for rendering and hit testing
     scroll_offset: ScrollOffset,

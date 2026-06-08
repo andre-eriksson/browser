@@ -13,7 +13,7 @@ use crate::{
 /// tracking the maximum ascent/descent for vertical alignment and any active
 /// inline box decorations.
 pub struct LineBox<'node> {
-    pub items: Vec<LayoutNode>,
+    pub items: Vec<LayoutNodeId>,
     pub width: f64,
     pub max_ascent: f64,
     pub max_descent: f64,
@@ -41,20 +41,20 @@ impl LineBox<'_> {
         (right_edge - left_edge).max(0.0)
     }
 
-    pub fn add(&mut self, mut node: LayoutNode, ascent: f64, descent: f64) {
+    pub fn add(&mut self, nodes: &mut Vec<Option<LayoutNode>>, node: &mut LayoutNode, ascent: f64, descent: f64) {
         let new_x = self.x + self.width + node.margin.left.to_px();
         let delta_x = new_x - node.dimensions.x;
         node.dimensions.x = new_x;
 
         if delta_x != 0.0 {
-            LineBox::shift_descendants(&mut node.children, delta_x, 0.0);
+            LineBox::shift_descendants(nodes, &node.children, delta_x, 0.0);
         }
 
         self.width += node.dimensions.width + node.margin.left.to_px() + node.margin.right.to_px();
 
         self.max_ascent = self.max_ascent.max(ascent);
         self.max_descent = self.max_descent.max(descent);
-        self.items.push(node);
+        self.items.push(node.layout_id);
     }
 
     /// Advance the line width by a fixed amount (e.g. for inline box
@@ -63,11 +63,16 @@ impl LineBox<'_> {
         self.width += amount;
     }
 
-    fn shift_descendants(children: &mut [LayoutNode], delta_x: f64, delta_y: f64) {
-        for child in children.iter_mut() {
-            child.dimensions.x += delta_x;
-            child.dimensions.y += delta_y;
-            LineBox::shift_descendants(&mut child.children, delta_x, delta_y);
+    fn shift_descendants(nodes: &mut Vec<Option<LayoutNode>>, children: &[LayoutNodeId], delta_x: f64, delta_y: f64) {
+        for child_id in children {
+            let Some(mut node) = std::mem::take(&mut nodes[child_id.index()]) else {
+                continue;
+            };
+
+            node.dimensions.x += delta_x;
+            node.dimensions.y += delta_y;
+            LineBox::shift_descendants(nodes, &node.children, delta_x, delta_y);
+            nodes[child_id.index()] = Some(node);
         }
     }
 
@@ -75,14 +80,15 @@ impl LineBox<'_> {
     /// inline box decorations and returning the nodes along with the total line height.
     pub fn finish(
         self,
+        nodes: &mut Vec<Option<LayoutNode>>,
         float_ctx: &FloatContext,
         container_x: f64,
         container_width: f64,
         text_align: TextAlign,
         writing_mode: WritingMode,
-    ) -> (Vec<LayoutNode>, f64) {
+    ) -> (Vec<LayoutNodeId>, f64) {
         let line_height = self.max_ascent + self.max_descent;
-        let mut final_nodes = Vec::with_capacity(self.decorations.len() + self.items.len());
+        let mut final_node_ids = Vec::with_capacity(self.decorations.len() + self.items.len());
 
         let (left_edge, right_edge) = float_ctx.available_width_at(self.y, container_width);
         let available_width = (right_edge - left_edge).max(0.0);
@@ -133,10 +139,15 @@ impl LineBox<'_> {
                 .node_id(dec.node_id)
                 .build();
 
-            final_nodes.push(node);
+            final_node_ids.push(dec.layout_id);
+            nodes[dec.layout_id.index()] = Some(node);
         }
 
-        for mut node in self.items {
+        for id in self.items {
+            let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
+                continue;
+            };
+
             let new_x = content_start_x + node.dimensions.x - self.x + offset_x;
             // TODO: vertical-align support.
             let baseline_y = self.y + self.max_ascent;
@@ -148,13 +159,14 @@ impl LineBox<'_> {
             node.dimensions.y = new_y;
 
             if delta_x != 0.0 || delta_y != 0.0 {
-                LineBox::shift_descendants(&mut node.children, delta_x, delta_y);
+                LineBox::shift_descendants(nodes, &node.children, delta_x, delta_y);
             }
 
-            final_nodes.push(node);
+            final_node_ids.push(id);
+            nodes[id.index()] = Some(node);
         }
 
-        (final_nodes, line_height)
+        (final_node_ids, line_height)
     }
 }
 
@@ -228,6 +240,7 @@ impl<'node> LineBoxBuilder<'node> {
     /// boxes, then starts a fresh line and re-opens those inline boxes on it.
     pub(crate) fn finish_line_with_decorations(
         &mut self,
+        nodes: &mut Vec<Option<LayoutNode>>,
         ctx: &mut InlineLayoutContext<'node>,
         text_ctx: &TextContext,
         float_ctx: &FloatContext,
@@ -238,15 +251,15 @@ impl<'node> LineBoxBuilder<'node> {
         self.close_active_decorations(&mut continuing_boxes);
 
         let old_line = std::mem::replace(&mut self.line_box, LineBox::new(ctx.start_x, ctx.current_y));
-        let (line_nodes, h) = old_line.finish(
+        let (_, line_height) = old_line.finish(
+            nodes,
             float_ctx,
             ctx.start_x,
             ctx.available_width,
             text_ctx.last_text_align,
             text_ctx.last_writing_mode,
         );
-        ctx.nodes.extend(line_nodes);
-        ctx.current_y += min_line_height.map_or(h, |min_h| h.max(min_h));
+        ctx.current_y += min_line_height.map_or(line_height, |min_h| line_height.max(min_h));
         self.line_box = LineBox::new(ctx.start_x, ctx.current_y);
 
         for con_box in continuing_boxes {
@@ -282,7 +295,7 @@ mod tests {
     #[test]
     fn add_accounts_for_horizontal_margins() {
         let mut line = LineBox::new(0.0, 0.0);
-        let node = LayoutNode::builder(LayoutNodeId::new(1))
+        let mut node = LayoutNode::builder(LayoutNodeId::new(0))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
             .margin(Margin {
                 top: 0.0.into(),
@@ -292,49 +305,62 @@ mod tests {
             })
             .build();
 
-        line.add(node, 10.0, 0.0);
+        let mut nodes = vec![Some(node.clone())];
+        line.add(&mut nodes, &mut node, 10.0, 0.0);
+        let node = &nodes[0].clone().unwrap();
 
         assert_eq!(line.width, 15.0);
-        assert_eq!(line.items[0].dimensions.x, 2.0);
+        assert_eq!(node.dimensions.x, 2.0);
     }
 
     #[test]
     fn add_repositions_descendants_when_parent_x_changes() {
-        let child = LayoutNode::builder(LayoutNodeId::new(2))
+        let child = LayoutNode::builder(LayoutNodeId::new(1))
             .dimensions(Rect::new(5.0, 0.0, 4.0, 4.0))
             .build();
-        let parent = LayoutNode::builder(LayoutNodeId::new(1))
+        let mut parent = LayoutNode::builder(LayoutNodeId::new(0))
             .dimensions(Rect::new(0.0, 0.0, 10.0, 10.0))
-            .children(vec![child])
+            .children(vec![LayoutNodeId::new(1)])
             .build();
 
-        let mut line = LineBox::new(10.0, 0.0);
-        line.add(parent, 10.0, 0.0);
+        let mut nodes = vec![Some(parent.clone()), Some(child)];
 
-        assert_eq!(line.items[0].dimensions.x, 10.0);
-        assert_eq!(line.items[0].children[0].dimensions.x, 15.0);
+        let mut line = LineBox::new(10.0, 0.0);
+        line.add(&mut nodes, &mut parent, 10.0, 0.0);
+
+        let first_item = &line.items[0];
+        let first_node = &nodes[first_item.index()].clone().unwrap();
+        assert_eq!(first_node.dimensions.x, 10.0);
+
+        let first_child_id = &first_node.children[0];
+        let first_child = &nodes[first_child_id.index()].clone().unwrap();
+
+        assert_eq!(first_child.dimensions.x, 15.0);
     }
 
     #[test]
     fn finish_repositions_descendants_with_parent() {
-        let child = LayoutNode::builder(LayoutNodeId::new(2))
+        let child = LayoutNode::builder(LayoutNodeId::new(1))
             .dimensions(Rect::new(2.0, 3.0, 4.0, 4.0))
             .build();
-        let parent = LayoutNode::builder(LayoutNodeId::new(1))
+        let mut parent = LayoutNode::builder(LayoutNodeId::new(0))
             .dimensions(Rect::new(1.0, 2.0, 10.0, 10.0))
-            .children(vec![child])
+            .children(vec![LayoutNodeId::new(1)])
             .build();
 
+        let mut nodes = vec![Some(parent.clone()), Some(child)];
+
         let mut line = LineBox::new(0.0, 40.0);
-        line.add(parent, 10.0, 0.0);
+        line.add(&mut nodes, &mut parent, 10.0, 0.0);
 
-        let (nodes, _) = line.finish(&FloatContext::new(), 10.0, 200.0, TextAlign::Left, WritingMode::HorizontalTb);
+        let _ = line.finish(&mut nodes, &FloatContext::new(), 10.0, 200.0, TextAlign::Left, WritingMode::HorizontalTb);
 
-        let parent = &nodes[0];
+        let parent = &nodes[0].clone().unwrap();
         assert_eq!(parent.dimensions.x, 10.0);
         assert_eq!(parent.dimensions.y, 40.0);
 
-        let child = &parent.children[0];
+        let child_id = &parent.children[0];
+        let child = &nodes[child_id.index()].clone().unwrap();
         assert_eq!(child.dimensions.x, 11.0);
         assert_eq!(child.dimensions.y, 41.0);
     }

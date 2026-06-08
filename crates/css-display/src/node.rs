@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{fmt::Debug, ops::Deref};
 
 use css_style::ComputedStyle;
 use css_values::display::OutsideDisplay;
@@ -48,6 +48,7 @@ impl Deref for CopiedStyle<'_> {
 
 #[derive(Debug, Clone)]
 pub struct BoxNode<'a> {
+    pub parent_id: Option<LayoutNodeId>,
     pub layout_id: LayoutNodeId,
     pub node_id: Option<NodeId>,
     pub style: CopiedStyle<'a>,
@@ -56,12 +57,14 @@ pub struct BoxNode<'a> {
 
 impl<'a> BoxNode<'a> {
     pub fn new(
+        parent_id: Option<LayoutNodeId>,
         layout_id: LayoutNodeId,
         node_id: &'a NodeId,
         style: &'a ComputedStyle,
         children: Vec<LayoutNodeId>,
     ) -> Self {
         Self {
+            parent_id,
             layout_id,
             node_id: Some(*node_id),
             style: CopiedStyle::Defined(style),
@@ -70,18 +73,20 @@ impl<'a> BoxNode<'a> {
     }
 
     pub fn new_anonymous_node(
+        parent_id: Option<LayoutNodeId>,
         layout_id: LayoutNodeId,
-        buffer: Vec<LayoutNodeId>,
         style: &'a ComputedStyle,
+        children: Vec<LayoutNodeId>,
     ) -> Self {
         let mut inherited = style.inherited_subset();
         inherited.display = OutsideDisplay::Block.into();
 
         Self {
+            parent_id,
             layout_id,
             node_id: None,
             style: CopiedStyle::Anonymous(Box::new(inherited)),
-            children: buffer,
+            children,
         }
     }
 }

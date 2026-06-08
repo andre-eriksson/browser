@@ -469,10 +469,9 @@ impl Tab {
 
                     for node_id in node_ids {
                         LayoutTree::relayout_node(
-                            node_id,
+                            &node_id,
                             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
                             &mut layout_tree,
-                            &style_tree,
                             &mut LayoutInput {
                                 dom: dom_tree,
                                 box_tree: &box_tree,

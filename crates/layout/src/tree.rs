@@ -1,5 +1,4 @@
 use css_display::LayoutNodeId;
-use html_dom::NodeId;
 
 use crate::LayoutNode;
 
@@ -7,7 +6,9 @@ use crate::LayoutNode;
 #[derive(Debug, Clone, Default)]
 pub struct LayoutTree {
     /// The root layout nodes
-    pub root_nodes: Vec<LayoutNode>,
+    pub root_nodes: Vec<LayoutNodeId>,
+
+    pub nodes: Vec<Option<LayoutNode>>,
 
     /// The total content height of the layout tree
     pub content_height: f64,
@@ -22,25 +23,39 @@ impl LayoutTree {
     pub fn resolve(&self, x: f64, y: f64) -> Vec<&LayoutNode> {
         let mut collected = Vec::new();
         for node in &self.root_nodes {
-            Self::resolve_in_node(&mut collected, node, x, y);
+            self.resolve_in_node(&mut collected, node, x, y);
         }
+
         collected
+            .into_iter()
+            .flat_map(|id| &self.nodes[id.index()])
+            .collect()
     }
 
-    fn resolve_in_node<'nodes>(collected: &mut Vec<&'nodes LayoutNode>, node: &'nodes LayoutNode, x: f64, y: f64) {
+    fn resolve_in_node<'nodes>(
+        &'nodes self,
+        collected: &mut Vec<&'nodes LayoutNodeId>,
+        node_id: &'nodes LayoutNodeId,
+        x: f64,
+        y: f64,
+    ) {
+        let Some(node) = &self.nodes[node_id.index()] else {
+            return;
+        };
+
         if node.dimensions.contains_point(x, y) {
             for child in &node.children {
-                Self::resolve_in_node(collected, child, x, y);
+                self.resolve_in_node(collected, child, x, y);
             }
-            collected.push(node);
+            collected.push(&node.layout_id);
         }
     }
 
     /// Finds the path to the layout node corresponding to the given `NodeId`, if it exists.
     #[must_use]
-    pub fn find_path(&self, node_id: NodeId) -> Option<Vec<usize>> {
+    pub fn find_path(&self, id: LayoutNodeId) -> Option<Vec<usize>> {
         for (idx, root) in self.root_nodes.iter().enumerate() {
-            if let Some(mut path) = Self::find_path_in_node(root, node_id) {
+            if let Some(mut path) = self.find_path_in_node(root, id) {
                 path.insert(0, idx);
                 return Some(path);
             }
@@ -49,13 +64,19 @@ impl LayoutTree {
         None
     }
 
-    fn find_path_in_node(node: &LayoutNode, node_id: NodeId) -> Option<Vec<usize>> {
-        if node.node_id == Some(node_id) {
+    fn find_path_in_node(&self, curr: &LayoutNodeId, seek: LayoutNodeId) -> Option<Vec<usize>> {
+        if *curr == seek {
             return Some(vec![]);
         }
 
-        for (idx, child) in node.children.iter().enumerate() {
-            if let Some(mut path) = Self::find_path_in_node(child, node_id) {
+        let Some(node) = &self.nodes[curr.index()] else {
+            return None;
+        };
+
+        let children = &node.children;
+
+        for (idx, child) in children.iter().enumerate() {
+            if let Some(mut path) = self.find_path_in_node(child, seek) {
                 path.insert(0, idx);
                 return Some(path);
             }
@@ -66,57 +87,18 @@ impl LayoutTree {
 
     /// Retrieves a reference to the layout node at the specified path, if it exists.
     #[must_use]
-    pub fn node_at(&self, path: &[usize]) -> Option<&LayoutNode> {
+    pub fn node_at(&self, path: &[usize]) -> Option<&LayoutNodeId> {
         if path.is_empty() {
             return None;
         }
 
         let mut current = self.root_nodes.get(path[0]);
-        for &idx in &path[1..] {
+        for _ in &path[1..] {
             current = match current {
                 None => return current,
-                Some(node) => node.children.get(idx),
+                Some(node) => Some(node),
             };
         }
         current
-    }
-
-    /// Retrieves a mutable reference to the layout node at the specified path, if it exists.
-    pub fn node_at_mut(&mut self, path: &[usize]) -> Option<&mut LayoutNode> {
-        if path.is_empty() {
-            return None;
-        }
-
-        let mut current = self.root_nodes.get_mut(path[0]);
-        for &idx in &path[1..] {
-            current = match current {
-                None => return current,
-                Some(node) => node.children.get_mut(idx),
-            };
-        }
-        current
-    }
-
-    pub fn find_node_by_layout_id(&mut self, layout_id: LayoutNodeId) -> Option<&mut LayoutNode> {
-        for root in &mut self.root_nodes {
-            if let Some(node) = Self::find_node_by_layout_id_in_node(root, layout_id) {
-                return Some(node);
-            }
-        }
-        None
-    }
-
-    fn find_node_by_layout_id_in_node(node: &mut LayoutNode, layout_id: LayoutNodeId) -> Option<&mut LayoutNode> {
-        if node.layout_id == layout_id {
-            return Some(node);
-        }
-
-        for child in &mut node.children {
-            if let Some(found) = Self::find_node_by_layout_id_in_node(child, layout_id) {
-                return Some(found);
-            }
-        }
-
-        None
     }
 }

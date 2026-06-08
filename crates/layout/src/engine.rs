@@ -4,12 +4,12 @@ use crate::{
     mode::{
         LayoutMode,
         block::{BlockContext, BlockLayout},
-        inline::{InlineContext, InlineLayout}, //inline::{InlineContext, InlineLayout},
+        inline::{InlineContext, InlineLayout},
     },
     primitives::Rect,
 };
-use css_display::BoxTree;
-use css_style::{ComputedStyle, StyleTree};
+use css_display::{BoxTree, LayoutNodeId};
+use css_style::ComputedStyle;
 use html_dom::{DocumentRoot, NodeId};
 
 use tracing::trace;
@@ -39,19 +39,20 @@ impl LayoutTree {
         let mut ctx = LayoutContext::new(viewport);
         let mut total_height = 0.0f64;
         let mut max_width = 0.0f64;
-        let mut root_nodes = Vec::new();
+        let mut root_nodes = Vec::with_capacity(input.box_tree.root_nodes.len());
+        let mut nodes = vec![None; input.box_tree.nodes.len()];
 
         for layout_id in &input.box_tree.root_nodes {
             let mut block_ctx = BlockContext::default();
 
-            let Some((node, size)) = BlockLayout::layout(
+            let Some((id, size)) = BlockLayout::layout(
+                &mut nodes,
                 layout_id,
                 &ComputedStyle::default(),
                 input,
                 &mut ctx,
                 &mut position_ctx,
                 &mut block_ctx,
-                false,
             ) else {
                 continue;
             };
@@ -59,17 +60,25 @@ impl LayoutTree {
             total_height += size.height;
             max_width = max_width.max(size.width);
 
-            root_nodes.push(node);
+            root_nodes.push(id);
         }
 
         let mut tree = Self {
             root_nodes,
+            nodes,
             content_height: total_height,
             content_width: max_width,
         };
 
         trace!("Initial layout complete, resolving deferred positions...");
         position_ctx.resolve_all(input, &mut tree);
+
+        debug_assert!(
+            tree.nodes
+                .iter()
+                .flatten()
+                .is_sorted_by(|a, b| a.layout_id.index() < b.layout_id.index())
+        );
 
         tree
     }
@@ -79,60 +88,60 @@ impl LayoutTree {
     /// # Panics
     /// * If the node or any of its ancestors are not found in the layout tree, which should never happen since the layout tree is built from the DOM tree.
     pub fn relayout_node<'css>(
-        node_id: NodeId,
+        node_id: &NodeId,
         viewport: Rect,
         layout_tree: &mut LayoutTree,
-        style_tree: &'css StyleTree,
         input: &mut LayoutInput<'css>,
     ) {
-        let node = &input.dom[node_id];
+        let layout_id = input.box_tree.dom_to_layout[node_id.index()].expect("Node not found in layout tree");
+        let Some(old_node) = &layout_tree.nodes[layout_id.index()] else {
+            panic!("Layout node not found for layout_id: {:?}", layout_id);
+        };
 
-        let ancestors: Vec<NodeId> = input
-            .dom
-            .ancestors(node)
+        let box_node = &input.box_tree[&layout_id];
+        let ancestors: Vec<LayoutNodeId> = input
+            .box_tree
+            .ancestors(box_node)
             .into_iter()
-            .map(|n| n.id)
+            .map(|n| n.layout_id)
             .collect();
 
-        let Some(&dirty_parent_id) = ancestors.first() else {
-            return;
-        };
-        let Some(parent_path) = layout_tree.find_path(dirty_parent_id) else {
-            return;
-        };
-
-        let old_layout = layout_tree.node_at(&parent_path).unwrap();
-        let box_node = &input.box_tree[&old_layout.layout_id];
-
-        let old_height = old_layout.dimensions.height;
+        let old_height = old_node.dimensions.height;
 
         let mut position_ctx = PositionContext::new(viewport);
-        let mut ctx = LayoutContext::new(old_layout.dimensions);
+        let mut ctx = LayoutContext::new(old_node.dimensions);
 
-        let style = &style_tree[dirty_parent_id];
-        let mode = LayoutMode::from(style);
+        let style = &*box_node.style;
+        let mode = LayoutMode::new(box_node);
 
         let (nodes, nodes_size) = match mode {
             LayoutMode::Inline => {
                 let inline_items =
-                    InlineLayout::collect_inline_items_from_nodes(viewport, input, style, &box_node.children);
+                    InlineLayout::collect_inline_items_from_node(viewport, input, style, &box_node.layout_id);
 
                 let inline_ctx = InlineContext::new(viewport);
 
-                InlineLayout::layout(input, &inline_items, &mut ctx, &mut position_ctx, inline_ctx)
+                InlineLayout::layout(
+                    &mut layout_tree.nodes,
+                    input,
+                    &inline_items,
+                    &mut ctx,
+                    &mut position_ctx,
+                    inline_ctx,
+                )
             }
             _ => {
                 // FIXME: Should retain the old block context for the node being relayouted, so that it doesn't lose track of deferred positioned children.
                 let mut block_ctx = BlockContext::default();
 
                 let Some((node, size)) = BlockLayout::layout(
+                    &mut layout_tree.nodes,
                     &box_node.layout_id,
                     &ComputedStyle::default(),
                     input,
                     &mut ctx,
                     &mut position_ctx,
                     &mut block_ctx,
-                    false,
                 ) else {
                     return;
                 };
@@ -149,46 +158,50 @@ impl LayoutTree {
         let delta = new_height - old_height;
 
         // TODO: Replace a range of nodes depends on inline and such.
-        *layout_tree.node_at_mut(&parent_path).unwrap() = nodes[0].clone();
 
         if delta.abs() < Self::EPSILON {
             return;
         }
 
         for ancestor_id in ancestors.iter().skip(1) {
-            let Some(ancestor_path) = layout_tree.find_path(*ancestor_id) else {
-                break;
+            let Some(mut node) = std::mem::take(&mut layout_tree.nodes[ancestor_id.index()]) else {
+                panic!("Ancestor node not found in layout tree for layout_id: {:?}", ancestor_id);
             };
-            let ancestor = layout_tree.node_at_mut(&ancestor_path).unwrap();
-            let style = &style_tree[ancestor_id];
+
+            let style = &*input.box_tree[ancestor_id].style;
 
             let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
 
-            let changed_child_idx = ancestor
-                .children
-                .iter()
-                .position(|child| child.node_id == Some(prev_id));
+            let changed_child_idx = node.children.iter().position(|child| *child == prev_id);
 
             if let Some(idx) = changed_child_idx {
-                for sibling in &mut ancestor.children[idx + 1..] {
-                    Self::shift_y_recursively(sibling, delta);
+                for sibling in &node.children[idx + 1..] {
+                    Self::shift_y_recursively(&mut layout_tree.nodes, sibling, delta);
                 }
             }
 
             if style.height.is_auto() {
-                ancestor.dimensions.height += delta;
+                node.dimensions.height += delta;
             } else {
                 break;
             }
+
+            layout_tree.nodes[ancestor_id.index()] = Some(node);
         }
 
         layout_tree.content_height += delta;
     }
 
-    fn shift_y_recursively(node: &mut LayoutNode, delta: f64) {
+    fn shift_y_recursively(nodes: &mut Vec<Option<LayoutNode>>, id: &LayoutNodeId, delta: f64) {
+        let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
+            panic!("Node not found in layout tree for layout_id: {:?}", id);
+        };
+
         node.dimensions.y += delta;
-        for child in &mut node.children {
-            Self::shift_y_recursively(child, delta);
+        for child_id in &node.children {
+            Self::shift_y_recursively(nodes, child_id, delta);
         }
+
+        nodes.insert(id.index(), Some(node));
     }
 }

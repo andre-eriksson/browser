@@ -20,6 +20,7 @@ struct Text<'text> {
 }
 
 pub fn layout_text<'node>(
+    nodes: &mut Vec<Option<LayoutNode>>,
     ctx: &mut InlineLayoutContext<'node>,
     float_ctx: &FloatContext,
     text_ctx: &mut TextContext,
@@ -49,10 +50,12 @@ pub fn layout_text<'node>(
 
     if preserves_newlines && text.content.contains('\n') {
         let segments: Vec<&str> = text.content.split('\n').collect();
+        let mut uses_source_layout_id = true;
 
         for (seg_idx, segment) in segments.iter().enumerate() {
             if !segment.is_empty() {
-                layout_text_segment(
+                let emitted = layout_text_segment(
+                    nodes,
                     ctx,
                     text_ctx,
                     float_ctx,
@@ -64,15 +67,21 @@ pub fn layout_text<'node>(
                         desc: &text_desc,
                     },
                     line,
+                    uses_source_layout_id,
                 );
+
+                if emitted {
+                    uses_source_layout_id = false;
+                }
             }
 
             if seg_idx < segments.len() - 1 {
-                line.finish_line_with_decorations(ctx, text_ctx, float_ctx, Some(line_height));
+                line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, Some(line_height));
             }
         }
     } else {
         layout_text_segment(
+            nodes,
             ctx,
             text_ctx,
             float_ctx,
@@ -84,6 +93,7 @@ pub fn layout_text<'node>(
                 desc: &text_desc,
             },
             line,
+            true,
         );
     }
 }
@@ -92,13 +102,16 @@ pub fn layout_text<'node>(
 /// the current [`LineBox`], word-wrapping across multiple lines when the
 /// text exceeds `available_width`.
 fn layout_text_segment<'node>(
+    nodes: &mut Vec<Option<LayoutNode>>,
     ctx: &mut InlineLayoutContext<'node>,
     text_ctx: &mut TextContext,
     float_ctx: &FloatContext,
     text: &Text,
     line: &mut LineBoxBuilder<'node>,
-) {
+    mut use_source_layout_id: bool,
+) -> bool {
     let mut remaining_text = text.content;
+    let mut emitted_any = false;
 
     while !remaining_text.is_empty() {
         let available_width = line
@@ -107,7 +120,7 @@ fn layout_text_segment<'node>(
         let remaining_line_space = (available_width - line.line_box.width).max(0.0);
 
         if remaining_line_space < 1.0 && line.line_box.width > 0.0 {
-            line.finish_line_with_decorations(ctx, text_ctx, float_ctx, None);
+            line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, None);
             continue;
         }
 
@@ -121,7 +134,16 @@ fn layout_text_segment<'node>(
             break;
         }
 
-        let node = LayoutNode::builder(text.layout_id)
+        let layout_id = if use_source_layout_id {
+            use_source_layout_id = false;
+            text.layout_id
+        } else {
+            let layout_id = LayoutNodeId::new(ctx.next_layout_id);
+            ctx.next_layout_id += 1;
+            layout_id
+        };
+
+        let mut node = LayoutNode::builder(layout_id)
             .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
             .colors(LayoutColors::text_only(text.style.color))
             .cursor(text.style.cursor)
@@ -132,13 +154,22 @@ fn layout_text_segment<'node>(
         let ascent = measured.height;
         let descent = 0.0;
 
-        line.line_box.add(node, ascent, descent);
+        line.line_box.add(nodes, &mut node, ascent, descent);
+        if layout_id.index() == nodes.len() {
+            nodes.push(Some(node));
+        } else {
+            nodes[layout_id.index()] = Some(node);
+        }
+        ctx.ids.push(layout_id);
+        emitted_any = true;
 
         if let Some(r) = rest {
-            line.finish_line_with_decorations(ctx, text_ctx, float_ctx, None);
+            line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, None);
             remaining_text = r;
         } else {
             break;
         }
     }
+
+    emitted_any
 }

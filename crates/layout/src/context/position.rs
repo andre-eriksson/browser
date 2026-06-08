@@ -1,9 +1,8 @@
 use crate::{
-    LayoutNode, LayoutTree, Rect,
-    context::{LayoutContext, layout::Cursor},
+    LayoutTree, Rect,
+    context::{BoxModel, LayoutContext, layout::Cursor},
     engine::LayoutInput,
     mode::block::{BlockContext, BlockLayout},
-    primitives::Size,
 };
 use css_display::LayoutNodeId;
 use css_style::ComputedStyle;
@@ -14,7 +13,6 @@ struct PendingPosition {
     layout_id: LayoutNodeId,
     containing_block: Rect,
     block_ctx: BlockContext,
-    defer_top_margin: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -40,47 +38,19 @@ impl PositionContext {
         self.positioned.push(rect);
     }
 
-    pub fn defer(
-        &mut self,
-        layout_id: &LayoutNodeId,
-        containing_block: Option<Rect>,
-        block_ctx: BlockContext,
-        defer_top_margin: bool,
-    ) {
+    pub fn defer(&mut self, layout_id: &LayoutNodeId, containing_block: Option<Rect>, block_ctx: BlockContext) {
         let containing_block = containing_block.unwrap_or(self.positioned.last().cloned().unwrap_or(self.viewport));
         self.pending.push(PendingPosition {
             parent_id: self.parent_id,
             layout_id: *layout_id,
             containing_block,
             block_ctx,
-            defer_top_margin,
         });
-    }
-
-    pub fn _resolve_all(&mut self, input: &mut LayoutInput) -> Vec<(LayoutNode, Size)> {
-        self.pending
-            .drain(..)
-            .filter_map(|mut pending| {
-                let mut new_position_ctx = PositionContext::new(pending.containing_block);
-                let mut ctx =
-                    LayoutContext::deferred(Cursor { x: 0.0, y: 0.0 }, pending.containing_block, self.viewport);
-
-                BlockLayout::layout(
-                    &pending.layout_id,
-                    &ComputedStyle::default(),
-                    input,
-                    &mut ctx,
-                    &mut new_position_ctx,
-                    &mut pending.block_ctx,
-                    pending.defer_top_margin,
-                )
-            })
-            .collect()
     }
 
     pub fn resolve_all(&mut self, input: &mut LayoutInput, layout_tree: &mut LayoutTree) {
         for mut pending in self.pending.drain(..) {
-            let Some(layout_node) = layout_tree.find_node_by_layout_id(pending.parent_id) else {
+            let Some(mut layout_node) = std::mem::take(&mut layout_tree.nodes[pending.parent_id.index()]) else {
                 continue;
             };
 
@@ -97,18 +67,33 @@ impl PositionContext {
             );
 
             if let Some((node, size)) = BlockLayout::layout(
+                &mut layout_tree.nodes,
                 &pending.layout_id,
                 &ComputedStyle::default(),
                 input,
                 &mut ctx,
                 &mut new_position_ctx,
                 &mut pending.block_ctx,
-                pending.defer_top_margin,
             ) {
                 layout_node.insert_child(node);
+
+                if layout_node.layout_id.index() == 3 {
+                    let box_model = BoxModel::from(&layout_node);
+                    let height = BlockLayout::calculate_height(
+                        &input.box_tree[layout_node.layout_id].style,
+                        &box_model,
+                        size.height,
+                        size.height,
+                    );
+
+                    layout_node.dimensions.height = layout_node.dimensions.height.max(height);
+                }
+
                 layout_tree.content_width = layout_tree.content_width.max(size.width);
                 layout_tree.content_height = layout_tree.content_height.max(size.height);
             }
+
+            layout_tree.nodes[pending.parent_id.index()] = Some(layout_node);
         }
     }
 }

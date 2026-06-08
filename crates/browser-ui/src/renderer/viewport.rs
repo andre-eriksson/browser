@@ -1,3 +1,4 @@
+use css_display::LayoutNodeId;
 use layout::{Color4f, ImageContext, LayoutNode, LayoutTree, Rect};
 use renderer::{ImageRenderInfo, RenderRect, RenderTri, TextBlockInfo};
 
@@ -152,12 +153,15 @@ pub fn collect_render_data_from_layout<'html>(
     scroll_offset: ScrollOffset,
 ) {
     fn collect_node(
-        node: &LayoutNode,
+        node_id: &LayoutNodeId,
         image_ctx: &ImageContext,
         renderer: &mut HtmlRenderer,
         initial_bounds: Rect,
         scroll_offset: ScrollOffset,
     ) {
+        let Some(node) = &renderer.layout_tree.nodes[node_id.index()] else {
+            return;
+        };
         let self_visible = is_visible_node(node.dimensions, initial_bounds, scroll_offset);
 
         if self_visible {

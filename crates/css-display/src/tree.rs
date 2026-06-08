@@ -1,4 +1,4 @@
-use std::ops::Index;
+use std::{fmt::Debug, ops::Index};
 
 use css_style::{ComputedStyle, StyleTree};
 use css_values::text::Whitespace;
@@ -10,84 +10,113 @@ use crate::node::{BoxNode, LayoutNodeId};
 pub struct BoxTree<'node> {
     pub root_nodes: Vec<LayoutNodeId>,
     pub nodes: Vec<BoxNode<'node>>,
+    pub dom_to_layout: Vec<Option<LayoutNodeId>>,
 }
 
 impl<'node> BoxTree<'node> {
     pub fn new(dom: &'node DocumentRoot, style_tree: &'node StyleTree) -> Self {
         let mut root_nodes = Vec::with_capacity(dom.root_nodes.len());
         let mut nodes = Vec::with_capacity(dom.nodes.len());
+        let mut dom_to_layout = vec![None; dom.nodes.len()];
 
         for node_id in &dom.root_nodes {
-            let id = Self::build_box_node(node_id, dom, style_tree, &mut nodes);
+            if let Some(id) = Self::build_box_node(None, node_id, dom, style_tree, &mut nodes, &mut dom_to_layout) {
+                root_nodes.push(id);
 
-            root_nodes.push(id);
+                if dom.get_node(node_id).is_some() {
+                    dom_to_layout[node_id.index()] = Some(id);
+                }
+            }
         }
 
-        Self { root_nodes, nodes }
+        debug_assert!(nodes.is_sorted_by(|a, b| a.layout_id.index() < b.layout_id.index()));
+
+        Self {
+            root_nodes,
+            nodes,
+            dom_to_layout,
+        }
     }
 
     fn build_box_node(
+        parent_id: Option<LayoutNodeId>,
         node_id: &'node NodeId,
         dom: &'node DocumentRoot,
         style_tree: &'node StyleTree,
         nodes: &mut Vec<BoxNode<'node>>,
-    ) -> LayoutNodeId {
+        dom_to_layout: &mut Vec<Option<LayoutNodeId>>,
+    ) -> Option<LayoutNodeId> {
         let style = &style_tree[node_id];
+
+        if style.display.is_none() {
+            return None;
+        }
+
+        if Self::is_suppressable_whitespace(node_id, style, dom) {
+            return None;
+        }
+
         let layout_id = LayoutNodeId::new(nodes.len());
+        nodes.push(BoxNode::new(parent_id, layout_id, node_id, style, Vec::new()));
 
-        nodes.push(BoxNode::new(layout_id, node_id, style, Vec::new()));
+        if dom.get_node(node_id).is_some() {
+            dom_to_layout[node_id.index()] = Some(layout_id);
+        }
 
-        let mut children = Vec::new();
-        let mut inline_buffer = Vec::new();
-        let mut saw_block = false;
-        let all_block = dom[node_id]
+        let (all_block, all_inline) = dom[node_id]
             .children
             .iter()
             .filter(|child_id| !style_tree[*child_id].display.is_none())
-            .all(|child_id| {
+            .fold((true, true), |(all_block, all_inline), child_id| {
                 let child_style = &style_tree[child_id];
-                child_style.display.is_block() || Self::is_suppressable_whitespace(child_id, style, dom)
+                (all_block && child_style.display.is_block(), all_inline && child_style.display.is_inline())
             });
+        let needs_anonymous_wrapping = !all_block && !all_inline;
+
+        let mut layout_children: Vec<LayoutNodeId> = Vec::new();
+        let mut anon_children: Vec<LayoutNodeId> = Vec::new();
+        let mut current_anon_id: Option<LayoutNodeId> = None;
 
         for child_id in &dom[node_id].children {
             let child_style = &style_tree[child_id];
 
-            if child_style.display.is_none() {
+            if child_style.display.is_none() || Self::is_suppressable_whitespace(child_id, style, dom) {
                 continue;
             }
 
-            if all_block && Self::is_suppressable_whitespace(child_id, style, dom) {
-                continue;
-            }
-
-            let child_layout_id = Self::build_box_node(child_id, dom, style_tree, nodes);
-
-            if child_style.display.is_inline() {
-                inline_buffer.push(child_layout_id);
-            } else if child_style.display.is_block() {
-                if !inline_buffer.is_empty() {
-                    let anon_layout_id = LayoutNodeId::new(nodes.len());
-                    nodes.push(BoxNode::new_anonymous_node(anon_layout_id, inline_buffer, style));
-                    children.push(anon_layout_id);
-                    inline_buffer = Vec::new();
+            if needs_anonymous_wrapping && child_style.display.is_inline() {
+                if current_anon_id.is_none() {
+                    let anon_id = LayoutNodeId::new(nodes.len());
+                    nodes.push(BoxNode::new_anonymous_node(Some(layout_id), anon_id, style, Vec::new()));
+                    layout_children.push(anon_id);
+                    current_anon_id = Some(anon_id);
                 }
-                children.push(child_layout_id);
-                saw_block = true;
-            }
-        }
 
-        if !inline_buffer.is_empty() {
-            if saw_block {
-                let anon_layout_id = LayoutNodeId::new(nodes.len());
-                nodes.push(BoxNode::new_anonymous_node(anon_layout_id, inline_buffer, style));
-                children.push(anon_layout_id);
+                let anon_id = current_anon_id.unwrap();
+                if let Some(child_layout_id) =
+                    Self::build_box_node(Some(anon_id), child_id, dom, style_tree, nodes, dom_to_layout)
+                {
+                    anon_children.push(child_layout_id);
+                }
             } else {
-                children.extend(inline_buffer);
+                if let Some(anon_id) = current_anon_id.take() {
+                    nodes[anon_id.index()].children = std::mem::take(&mut anon_children);
+                }
+
+                if let Some(child_layout_id) =
+                    Self::build_box_node(Some(layout_id), child_id, dom, style_tree, nodes, dom_to_layout)
+                {
+                    layout_children.push(child_layout_id);
+                }
             }
         }
 
-        nodes[layout_id.index()].children = children;
-        layout_id
+        if let Some(anon_id) = current_anon_id.take() {
+            nodes[anon_id.index()].children = std::mem::take(&mut anon_children);
+        }
+
+        nodes[layout_id.index()].children = layout_children;
+        Some(layout_id)
     }
 
     fn is_suppressable_whitespace(node_id: &NodeId, parent_style: &ComputedStyle, dom: &DocumentRoot) -> bool {
@@ -101,6 +130,21 @@ impl<'node> BoxTree<'node> {
         } else {
             false
         }
+    }
+
+    #[must_use]
+    pub fn ancestors(&'node self, node: &BoxNode) -> Vec<&'node BoxNode<'node>> {
+        let mut result = Vec::new();
+        let mut current = node.parent_id;
+
+        while let Some(pid) = current {
+            let parent_node = &self[pid];
+
+            result.push(parent_node);
+            current = parent_node.parent_id;
+        }
+
+        result
     }
 }
 
@@ -179,12 +223,12 @@ mod tests {
         );
 
         assert_eq!(tree.nodes[0].node_id, Some(NodeId(0)));
-        assert_eq!(tree.nodes[1].node_id, Some(NodeId(1)));
-        assert_eq!(tree.nodes[2].node_id, Some(NodeId(2)));
-        assert_eq!(tree.nodes[3].node_id, None);
+        assert_eq!(tree.nodes[1].node_id, None);
+        assert_eq!(tree.nodes[2].node_id, Some(NodeId(1)));
+        assert_eq!(tree.nodes[3].node_id, Some(NodeId(2)));
 
-        assert_eq!(tree.nodes[0].children, vec![LayoutNodeId::new(3), LayoutNodeId::new(2)]);
-        assert_eq!(tree.nodes[3].children, vec![LayoutNodeId::new(1)]);
+        assert_eq!(tree.nodes[0].children, vec![LayoutNodeId::new(1), LayoutNodeId::new(3)]);
+        assert_eq!(tree.nodes[1].children, vec![LayoutNodeId::new(2)]);
     }
 
     #[test]

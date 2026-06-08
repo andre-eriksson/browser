@@ -7,6 +7,7 @@ use crate::{
 };
 
 pub fn layout_image<'node>(
+    nodes: &mut Vec<Option<LayoutNode>>,
     ctx: &mut InlineLayoutContext<'node>,
     input: &mut LayoutInput<'_>,
     img: &ImageItem,
@@ -33,10 +34,10 @@ pub fn layout_image<'node>(
     );
 
     if line.line_box.width + img_width > ctx.available_width && line.line_box.width > 0.0 {
-        line.finish_line_with_decorations(ctx, input.text, layout_ctx.float_ctx_ref(), None);
+        line.finish_line_with_decorations(nodes, ctx, input.text, layout_ctx.float_ctx_ref(), None);
     }
 
-    let node = LayoutNode::builder(*img.layout_id)
+    let mut node = LayoutNode::builder(*img.layout_id)
         .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
         .colors(LayoutColors::from(img.style))
         .node_id(*img.node_id)
@@ -47,7 +48,9 @@ pub fn layout_image<'node>(
         .build();
 
     let ascent = img_height;
-    line.line_box.add(node, ascent, 0.0);
+    line.line_box.add(nodes, &mut node, ascent, 0.0);
+    nodes[img.layout_id.index()] = Some(node);
+    ctx.ids.push(*img.layout_id);
 }
 
 fn resolve_image_size(
