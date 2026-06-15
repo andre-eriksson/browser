@@ -4,6 +4,8 @@ use css_style::ComputedStyle;
 use css_values::display::OutsideDisplay;
 use html_dom::NodeId;
 
+use crate::tree::ChildFormattingContext;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LayoutNodeId(usize);
 
@@ -46,7 +48,7 @@ impl Deref for CopiedStyle<'_> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BoxNode<'a> {
     pub parent_id: Option<LayoutNodeId>,
     pub layout_id: LayoutNodeId,
@@ -75,11 +77,14 @@ impl<'a> BoxNode<'a> {
     pub fn new_anonymous_node(
         parent_id: Option<LayoutNodeId>,
         layout_id: LayoutNodeId,
-        style: &'a ComputedStyle,
+        parent_style: &'a ComputedStyle,
         children: Vec<LayoutNodeId>,
+        cfc: ChildFormattingContext,
     ) -> Self {
-        let mut inherited = style.inherited_subset();
-        inherited.display = OutsideDisplay::Block.into();
+        let mut inherited = parent_style.inherited_subset();
+        if matches!(cfc, ChildFormattingContext::Block) {
+            inherited.display = OutsideDisplay::Block.into();
+        }
 
         Self {
             parent_id,
@@ -88,5 +93,17 @@ impl<'a> BoxNode<'a> {
             style: CopiedStyle::Anonymous(Box::new(inherited)),
             children,
         }
+    }
+}
+
+impl<'a> Debug for BoxNode<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BoxNode")
+            .field("parent_id", &self.parent_id)
+            .field("layout_id", &self.layout_id)
+            .field("node_id", &self.node_id)
+            .field("is_anonymous", &matches!(self.style, CopiedStyle::Anonymous(_)))
+            .field("children", &self.children)
+            .finish()
     }
 }

@@ -6,6 +6,13 @@ use html_dom::{DocumentRoot, NodeId};
 
 use crate::node::{BoxNode, LayoutNodeId};
 
+#[derive(Debug, Clone, Copy)]
+pub enum ChildFormattingContext {
+    Inline { has_inline_element_siblings: bool },
+    Block,
+}
+
+/// <https://www.w3.org/TR/CSS2/visuren.html#box-gen>
 #[derive(Debug, Clone)]
 pub struct BoxTree<'node> {
     pub root_nodes: Vec<LayoutNodeId>,
@@ -38,6 +45,37 @@ impl<'node> BoxTree<'node> {
         }
     }
 
+    fn infer_child_context(
+        node_ids: &Vec<NodeId>,
+        dom: &'node DocumentRoot,
+        style_tree: &'node StyleTree,
+    ) -> ChildFormattingContext {
+        let mut res = ChildFormattingContext::Inline {
+            has_inline_element_siblings: false,
+        };
+
+        for node_id in node_ids {
+            let dom_node = &dom[node_id];
+            let style = &style_tree[node_id];
+
+            if style.display.is_none() {
+                continue;
+            }
+
+            if style.display.is_block() {
+                res = ChildFormattingContext::Block
+            }
+
+            if dom_node.data.as_element().is_some() && matches!(res, ChildFormattingContext::Inline { .. }) {
+                res = ChildFormattingContext::Inline {
+                    has_inline_element_siblings: true,
+                }
+            }
+        }
+
+        res
+    }
+
     fn build_box_node(
         parent_id: Option<LayoutNodeId>,
         node_id: &'node NodeId,
@@ -52,42 +90,36 @@ impl<'node> BoxTree<'node> {
             return None;
         }
 
-        if Self::is_suppressable_whitespace(node_id, style, dom) {
-            return None;
-        }
-
         let layout_id = LayoutNodeId::new(nodes.len());
+
         nodes.push(BoxNode::new(parent_id, layout_id, node_id, style, Vec::new()));
+        dom_to_layout[node_id.index()] = Some(layout_id);
 
-        if dom.get_node(node_id).is_some() {
-            dom_to_layout[node_id.index()] = Some(layout_id);
-        }
-
-        let (all_block, all_inline) = dom[node_id]
-            .children
-            .iter()
-            .filter(|child_id| !style_tree[*child_id].display.is_none())
-            .fold((true, true), |(all_block, all_inline), child_id| {
-                let child_style = &style_tree[child_id];
-                (all_block && child_style.display.is_block(), all_inline && child_style.display.is_inline())
-            });
-        let needs_anonymous_wrapping = !all_block && !all_inline;
+        let cfc = Self::infer_child_context(&dom[node_id].children, dom, style_tree);
 
         let mut layout_children: Vec<LayoutNodeId> = Vec::new();
         let mut anon_children: Vec<LayoutNodeId> = Vec::new();
         let mut current_anon_id: Option<LayoutNodeId> = None;
-
         for child_id in &dom[node_id].children {
+            let child_dom_node = &dom[child_id];
             let child_style = &style_tree[child_id];
 
             if child_style.display.is_none() || Self::is_suppressable_whitespace(child_id, style, dom) {
                 continue;
             }
 
-            if needs_anonymous_wrapping && child_style.display.is_inline() {
+            let needs_anonymous = match cfc {
+                ChildFormattingContext::Block => child_style.display.is_inline(),
+                ChildFormattingContext::Inline {
+                    has_inline_element_siblings: text_needs_wrapping,
+                } => text_needs_wrapping && child_dom_node.data.as_text().is_some(),
+            };
+
+            if needs_anonymous {
                 if current_anon_id.is_none() {
                     let anon_id = LayoutNodeId::new(nodes.len());
-                    nodes.push(BoxNode::new_anonymous_node(Some(layout_id), anon_id, style, Vec::new()));
+                    nodes.push(BoxNode::new_anonymous_node(Some(layout_id), anon_id, style, Vec::new(), cfc));
+
                     layout_children.push(anon_id);
                     current_anon_id = Some(anon_id);
                 }
@@ -119,16 +151,25 @@ impl<'node> BoxTree<'node> {
         Some(layout_id)
     }
 
+    /// CSS2.1 §9.2.2.1
+    ///
+    /// White space content that would subsequently be collapsed away according to the 'white-space'
+    /// property does not generate any anonymous inline boxes.
     fn is_suppressable_whitespace(node_id: &NodeId, parent_style: &ComputedStyle, dom: &DocumentRoot) -> bool {
         let node = &dom[node_id];
 
-        if let Some(text) = node.data.as_text() {
-            let is_all_whitespace = text.chars().all(|c| c.is_ascii_whitespace());
-            let collapses =
-                matches!(parent_style.whitespace, Whitespace::Normal | Whitespace::Nowrap | Whitespace::PreLine);
-            is_all_whitespace && collapses
-        } else {
-            false
+        let Some(text) = node.data.as_text() else {
+            return false;
+        };
+
+        if !text.chars().all(|c| c.is_ascii_whitespace()) {
+            return false;
+        }
+
+        match parent_style.whitespace {
+            Whitespace::Normal | Whitespace::Nowrap => true,
+            Whitespace::PreLine => !text.contains('\n'),
+            _ => false,
         }
     }
 
