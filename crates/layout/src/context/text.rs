@@ -1,8 +1,21 @@
+use std::sync::Arc;
+
 use cosmic_text::{Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap};
 use css_style::FontFamily;
 use css_values::text::{FontFamilyName, GenericName, TextAlign, Whitespace, WritingMode};
 
-#[derive(Debug)]
+use crate::Rect;
+
+#[derive(Debug, Clone)]
+pub struct TextFragment {
+    pub size: Rect,
+    pub buffers: Vec<Arc<Buffer>>,
+
+    #[cfg(debug_assertions)]
+    pub debug_content: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Text {
     pub width: f64,
     pub last_line_width: f64,
@@ -185,5 +198,31 @@ impl TextContext {
             900 => Weight::BLACK,
             _ => Weight::NORMAL,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_measure_text_that_fits() {
+        let mut text_ctx = TextContext::default();
+        let text_desc = TextDescription {
+            whitespace: &Whitespace::Normal,
+            line_height: 16.0,
+            font_family: &FontFamily::default(),
+            font_weight: 400,
+            font_size_px: 16.0,
+        };
+
+        let (measured, remaining) = text_ctx.measure_text_that_fits(
+            "Hello world! This is a test of the text measurement system.",
+            &text_desc,
+            100.0,
+        );
+        assert!(measured.width > 0.0);
+        assert!(measured.height > 0.0);
+        assert_eq!(remaining, Some(" This is a test of the text measurement system."));
     }
 }

@@ -1,13 +1,9 @@
-use std::sync::Arc;
-
-use cosmic_text::Buffer;
-
 use css_display::LayoutNodeId;
 use css_style::Position;
 use css_values::cursor::Cursor;
 use html_dom::NodeId;
 
-use crate::{ImageData, LayoutColors, Margin, Rect, primitives::SideOffset};
+use crate::{ImageData, LayoutColors, Margin, Rect, context::TextFragment, primitives::SideOffset};
 
 /// A node in the layout tree representing a rendered element
 #[derive(Debug, Clone)]
@@ -24,7 +20,7 @@ pub struct LayoutNode {
     pub node_id: Option<NodeId>,
     pub padding: SideOffset,
     pub position: Position,
-    pub text_buffer: Option<Arc<Buffer>>,
+    pub text_fragments: Vec<TextFragment>,
 }
 
 impl LayoutNode {
@@ -60,7 +56,7 @@ impl NodeBuilder {
                 node_id: None,
                 padding: SideOffset::default(),
                 position: Position::Static,
-                text_buffer: None,
+                text_fragments: vec![],
             },
         }
     }
@@ -125,8 +121,8 @@ impl NodeBuilder {
         self
     }
 
-    pub fn text_buffer(mut self, text_buffer: Arc<Buffer>) -> Self {
-        self.layout_node.text_buffer = Some(text_buffer);
+    pub fn text_fragments(mut self, text_fragments: Vec<TextFragment>) -> Self {
+        self.layout_node.text_fragments = text_fragments;
         self
     }
 

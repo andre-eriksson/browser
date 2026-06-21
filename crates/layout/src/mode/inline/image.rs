@@ -3,7 +3,7 @@ use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 use crate::{
     ImageData, LayoutColors, LayoutInput, LayoutNode, Rect,
     context::LayoutContext,
-    mode::inline::{InlineLayoutContext, collection::ImageItem, line::LineBoxBuilder},
+    mode::inline::{InlineLayoutContext, collection::ImageItem},
 };
 
 pub fn layout_image<'node>(
@@ -12,7 +12,6 @@ pub fn layout_image<'node>(
     input: &mut LayoutInput<'_>,
     img: &ImageItem,
     layout_ctx: &LayoutContext,
-    line: &mut LineBoxBuilder<'node>,
 ) {
     let alignment = &img.style.text_align;
     let writing_mode = &img.style.writing_mode;
@@ -33,9 +32,9 @@ pub fn layout_image<'node>(
         image.map(|i| (i.width, i.height)),
     );
 
-    if line.line_box.width + img_width > ctx.available_width && line.line_box.width > 0.0 {
-        line.finish_line_with_decorations(nodes, ctx, input.text, layout_ctx.float_ctx_ref(), None);
-    }
+    // if line.line_box.width + img_width > ctx.available_width && line.line_box.width > 0.0 {
+    //     line.finish_line_with_decorations(nodes, ctx, input.text, layout_ctx.float_ctx_ref(), None);
+    // }
 
     let mut node = LayoutNode::builder(*img.layout_id)
         .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
@@ -48,7 +47,7 @@ pub fn layout_image<'node>(
         .build();
 
     let ascent = img_height;
-    line.line_box.add(nodes, &mut node, ascent, 0.0);
+    // line.line_box.add(nodes, &mut node, ascent, 0.0);
     nodes[img.layout_id.index()] = Some(node);
     ctx.ids.push(*img.layout_id);
 }

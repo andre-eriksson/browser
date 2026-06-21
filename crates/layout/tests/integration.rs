@@ -292,14 +292,14 @@ mod tests {
         let root_node = &layout.nodes[root.index()].clone().unwrap();
         assert_eq!(root_node.dimensions.x, 0.0);
         assert_eq!(root_node.dimensions.y, 0.0);
-        assert_eq!(root_node.dimensions.height, 436.0);
+        assert_eq!(root_node.dimensions.height, 400.0);
         assert_eq!(root_node.dimensions.height, layout.content_height);
 
         let body = &root_node.children[0];
         let body_node = &layout.nodes[body.index()].clone().unwrap();
         assert_eq!(body_node.dimensions.x, 8.0);
         assert_eq!(body_node.dimensions.y, 8.0);
-        assert_eq!(body_node.dimensions.height, 420.0);
+        assert_eq!(body_node.dimensions.height, 280.0);
         assert_eq!(body_node.dimensions.width, 784.0);
         assert_eq!(body_node.children.len(), 4);
 
@@ -316,7 +316,7 @@ mod tests {
         let second_div_node = &layout.nodes[second_div.index()].clone().unwrap();
         assert_eq!(second_div_node.dimensions.x, 38.0);
         assert_eq!(second_div_node.dimensions.y, 88.0);
-        assert_eq!(second_div_node.dimensions.height, 50.0);
+        assert_eq!(second_div_node.dimensions.height, 30.0);
         assert_eq!(second_div_node.dimensions.width, 724.0);
         assert_eq!(second_div_node.padding.top, 10.0);
         assert_eq!(second_div_node.padding.bottom, 10.0);
@@ -431,7 +431,10 @@ mod tests {
         let container = &body_node.children[0];
         let container_node = &layout.nodes[container.index()].clone().unwrap();
 
-        let img = container_node
+        let img_parent = &container_node.children[1];
+        let img_parent_node = &layout.nodes[img_parent.index()].clone().unwrap();
+
+        let img = img_parent_node
             .children
             .iter()
             .find(|n| {
@@ -477,7 +480,7 @@ mod tests {
 
         LayoutTree::relayout_node(
             &img_node.node_id.unwrap(),
-            Rect::default(),
+            viewport(),
             &mut layout,
             &mut LayoutInput {
                 dom: &dom,
@@ -496,7 +499,10 @@ mod tests {
         let container2 = &body_node2.children[0];
         let container_node2 = &layout.nodes[container2.index()].clone().unwrap();
 
-        let img2 = container_node2
+        let img_parent2 = &container_node2.children[1];
+        let img_parent_node2 = &layout.nodes[img_parent2.index()].clone().unwrap();
+
+        let img2 = img_parent_node2
             .children
             .iter()
             .find(|n| {
@@ -558,7 +564,10 @@ mod tests {
         let container = &body_node.children[0];
         let container_node = &layout.nodes[container.index()].clone().unwrap();
 
-        let img = container_node
+        let img_parent = &container_node.children[1];
+        let img_parent_node = &layout.nodes[img_parent.index()].clone().unwrap();
+
+        let img = img_parent_node
             .children
             .iter()
             .find(|n| {
@@ -581,7 +590,7 @@ mod tests {
 
         LayoutTree::relayout_node(
             &img_node.node_id.unwrap(),
-            Rect::default(),
+            viewport(),
             &mut layout,
             &mut LayoutInput {
                 dom: &dom,
@@ -600,7 +609,10 @@ mod tests {
         let container2 = &body_node2.children[0];
         let container_node2 = &layout.nodes[container2.index()].clone().unwrap();
 
-        let img2 = container_node2
+        let img_parent2 = &container_node2.children[1];
+        let img_parent_node2 = &layout.nodes[img_parent2.index()].clone().unwrap();
+
+        let img2 = img_parent_node2
             .children
             .iter()
             .find(|n| {
@@ -637,7 +649,7 @@ mod tests {
 
         assert_eq!(layout_a.content_height, layout_b.content_height);
 
-        let img_a_node = &layout_a.nodes[layout_a.nodes[layout_a.nodes[layout_a.root_nodes[0].index()]
+        let img_parent_a_node = &layout_a.nodes[layout_a.nodes[layout_a.nodes[layout_a.root_nodes[0].index()]
             .clone()
             .unwrap()
             .children[0]
@@ -648,6 +660,9 @@ mod tests {
             .index()]
         .clone()
         .unwrap();
+
+        let img_a_id = img_parent_a_node.children[1];
+        let img_a_node = &layout_a.nodes[img_a_id.index()].clone().unwrap();
 
         let img_a = img_a_node
             .children
@@ -659,7 +674,7 @@ mod tests {
             .unwrap();
         let img_a_node = &layout_a.nodes[img_a.index()].clone().unwrap();
 
-        let img_b_node = &layout_b.nodes[layout_b.nodes[layout_b.nodes[layout_b.root_nodes[0].index()]
+        let img_parent_b_node = &layout_b.nodes[layout_b.nodes[layout_b.nodes[layout_b.root_nodes[0].index()]
             .clone()
             .unwrap()
             .children[0]
@@ -670,6 +685,9 @@ mod tests {
             .index()]
         .clone()
         .unwrap();
+
+        let img_b_id = img_parent_b_node.children[1];
+        let img_b_node = &layout_a.nodes[img_b_id.index()].clone().unwrap();
 
         let img_b = img_b_node
             .children

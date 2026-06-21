@@ -66,6 +66,10 @@ impl Default for FontFamily {
 }
 
 impl FontFamily {
+    pub const fn new(names: Vec<FontFamilyName>) -> Self {
+        Self { names }
+    }
+
     /// Get the list of font family names in this `FontFamily`. The list is ordered by preference, with the most preferred font first.
     #[must_use]
     pub const fn names(&self) -> &Vec<FontFamilyName> {

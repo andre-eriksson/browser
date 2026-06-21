@@ -22,6 +22,7 @@ fn main() {
         .add_directive(Directive::from_str("css=debug").unwrap())
         .add_directive(Directive::from_str("cookies=debug").unwrap())
         .add_directive(Directive::from_str("html=debug").unwrap())
+        .add_directive(Directive::from_str("renderer=debug").unwrap())
         .add_directive(Directive::from_str("network=debug").unwrap());
 
     tracing_subscriber::registry()

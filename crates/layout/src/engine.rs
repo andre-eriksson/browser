@@ -93,12 +93,16 @@ impl LayoutTree {
         layout_tree: &mut LayoutTree,
         input: &mut LayoutInput<'css>,
     ) {
-        let layout_id = input.box_tree.dom_to_layout[node_id.index()].expect("Node not found in layout tree");
+        let Some(layout_id) = input.box_tree.dom_to_layout[node_id.index()] else {
+            panic!("Layout ID not found for node_id: {:?}", node_id);
+        };
+
         let Some(old_node) = &layout_tree.nodes[layout_id.index()] else {
             panic!("Layout node not found for layout_id: {:?}", layout_id);
         };
 
         let box_node = &input.box_tree[&layout_id];
+
         let ancestors: Vec<LayoutNodeId> = input
             .box_tree
             .ancestors(box_node)
@@ -114,12 +118,31 @@ impl LayoutTree {
         let style = &*box_node.style;
         let mode = LayoutMode::new(box_node);
 
+        let containing_block = if let Some(parent) = box_node.parent_id {
+            let parent_node = &layout_tree.nodes[parent.index()]
+                .as_ref()
+                .expect("Parent node not found in layout tree");
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: parent_node.dimensions.width,
+                height: parent_node.dimensions.height,
+            }
+        } else {
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: old_node.dimensions.width,
+                height: old_node.dimensions.height,
+            }
+        };
+
         let (nodes, nodes_size) = match mode {
             LayoutMode::Inline => {
                 let inline_items =
                     InlineLayout::collect_inline_items_from_node(viewport, input, style, &box_node.layout_id);
 
-                let inline_ctx = InlineContext::new(viewport);
+                let inline_ctx = InlineContext::new(containing_block);
 
                 InlineLayout::layout(
                     &mut layout_tree.nodes,

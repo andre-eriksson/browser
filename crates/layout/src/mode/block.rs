@@ -143,18 +143,9 @@ impl BlockLayout {
 
         Self::resolve_deferred_top(nodes, can_collapse_top_with_child, current_block, deferred_child_top, &ids, ctx);
 
-        let height_is_auto = style.height == ComputedSize::Auto;
-        let can_collapse_bottom =
-            height_is_auto && !Geometry::has_bottom_fence(style, ctx.containing_block().width) && !establishes_bfc;
+        let can_collapse_bottom = !Geometry::has_bottom_fence(style, ctx.containing_block().width) && !establishes_bfc;
 
-        Self::apply_bottom_margin(
-            height_is_auto,
-            can_collapse_bottom,
-            &mut child_block,
-            current_block,
-            &box_model,
-            ctx,
-        );
+        Self::apply_bottom_margin(can_collapse_bottom, &mut child_block, current_block, &box_model, ctx);
 
         let top_collapsed_offset = Self::top_collapsed_offset(nodes, &ids, &child_ctx, can_collapse_top_with_child);
 
@@ -183,11 +174,7 @@ impl BlockLayout {
 
         nodes[layout_id.index()] = Some(node);
 
-        // for child in ids {
-        //     nodes.insert(child.layout_id.index(), child);
-        // }
-
-        ctx.cursor().y += content_height;
+        ctx.cursor().y += content_height + box_model.padding.vertical() + box_model.border.vertical();
 
         Some((*layout_id, Size::new(width, content_height)))
     }
@@ -228,12 +215,24 @@ impl BlockLayout {
             }
             _ => {
                 // TODO: Handle Flex and Grid.
-                for child in children {
-                    let defer = collapse_first_child_top && nodes.is_empty();
+                for child_id in children {
+                    let is_first = node_ids.is_empty();
+                    let defer = collapse_first_child_top && is_first;
                     child_block.defer_top_margin = defer;
 
+                    if is_first {
+                        let box_node = &input.box_tree[child_id];
+                        let style = &*box_node.style;
+
+                        if Geometry::has_top_fence(style, child_ctx.containing_block().width) {
+                            let box_model = Geometry::resolve_box_model(style, child_ctx.containing_block().width);
+                            let flushed = child_block.collapsed_margin.flush();
+                            child_ctx.cursor().y += flushed + box_model.padding.top + box_model.border.top;
+                        }
+                    }
+
                     if let Some((node_id, _)) =
-                        BlockLayout::layout(nodes, child, parent_style, input, child_ctx, position_ctx, child_block)
+                        BlockLayout::layout(nodes, child_id, parent_style, input, child_ctx, position_ctx, child_block)
                     {
                         if defer {
                             deferred_child_top = child_block.deferred_top_margin.take();
@@ -397,7 +396,7 @@ impl BlockLayout {
     ) {
         if has_top_fence {
             let flushed = current_block.collapsed_margin.flush();
-            ctx.cursor().y += flushed + box_model.padding.top + box_model.border.top;
+            ctx.cursor().y += flushed;
         } else {
             current_block
                 .collapsed_margin
@@ -416,7 +415,6 @@ impl BlockLayout {
     }
 
     fn apply_bottom_margin(
-        height_is_auto: bool,
         can_collapse_bottom: bool,
         child_block: &mut BlockContext,
         current_block: &mut BlockContext,
@@ -429,15 +427,8 @@ impl BlockLayout {
                 .add(box_model.margin.bottom.to_px());
             current_block
                 .collapsed_margin
-                .add(child_block.collapsed_margin.flush());
+                .add_collapsed(&child_block.collapsed_margin);
         } else {
-            if height_is_auto {
-                ctx.cursor().y += child_block.collapsed_margin.flush();
-            } else {
-                child_block.collapsed_margin.flush();
-            }
-
-            ctx.cursor().y += box_model.padding.bottom + box_model.border.bottom;
             current_block
                 .collapsed_margin
                 .add(box_model.margin.bottom.to_px());
@@ -716,7 +707,7 @@ mod tests {
         let box_tree = BoxTree {
             nodes: vec![box_node],
             root_nodes: vec![LayoutNodeId::new(0)],
-            dom_to_layout: Vec::new(),
+            dom_to_layout: vec![Some(LayoutNodeId::new(0))],
         };
 
         let mut input = LayoutInput {
@@ -734,7 +725,7 @@ mod tests {
             deferred_top_margin: None,
         };
 
-        let mut nodes = Vec::new();
+        let mut nodes = vec![None; input.box_tree.nodes.len()];
 
         let layout_node = BlockLayout::layout(
             &mut nodes,

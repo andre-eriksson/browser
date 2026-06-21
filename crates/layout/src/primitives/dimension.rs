@@ -1,7 +1,7 @@
 use std::ops::Add;
 
 /// Rectangle representation for layout dimensions and positions
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Rect<T = f64> {
     pub x: T,
     pub y: T,

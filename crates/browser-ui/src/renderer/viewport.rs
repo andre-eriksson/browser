@@ -105,25 +105,24 @@ fn render_node(node: &LayoutNode, image_ctx: &ImageContext, renderer: &mut HtmlR
 
     if node.colors.background_color.a > 0.0 {
         let border = node.border;
+        let padding = node.padding;
         let inner_x = node.dimensions.x + border.left;
         let inner_y = node.dimensions.y + border.top;
-        let inner_width = (node.dimensions.width - border.horizontal()).max(0.0);
-        let inner_height = (node.dimensions.height - border.vertical()).max(0.0);
+        let inner_width = (node.dimensions.width + padding.horizontal() - border.horizontal()).max(0.0);
+        let inner_height = (node.dimensions.height + padding.vertical() - border.vertical()).max(0.0);
         renderer.rects.push(RenderRect {
             rect: Rect::new(inner_x, inner_y, inner_width, inner_height),
             background: node.colors.background_color,
         });
     }
 
-    if let Some(buffer) = &node.text_buffer {
-        let text_block = TextBlockInfo::from_arc_buffer(
-            buffer,
-            node.dimensions.x as f32,
-            node.dimensions.y as f32,
-            node.colors.color,
-        );
-        if !text_block.glyphs.is_empty() {
-            renderer.text_blocks.push(text_block);
+    for fragment in &node.text_fragments {
+        for text in &fragment.buffers {
+            let text_block =
+                TextBlockInfo::from_arc_buffer(text, fragment.size.x as f32, fragment.size.y as f32, node.colors.color);
+            if !text_block.glyphs.is_empty() {
+                renderer.text_blocks.push(text_block);
+            }
         }
     }
 
@@ -158,22 +157,24 @@ pub fn collect_render_data_from_layout<'html>(
         renderer: &mut HtmlRenderer,
         initial_bounds: Rect,
         scroll_offset: ScrollOffset,
+        parent_visible: bool,
     ) {
         let Some(node) = &renderer.layout_tree.nodes[node_id.index()] else {
             return;
         };
+
         let self_visible = is_visible_node(node.dimensions, initial_bounds, scroll_offset);
 
-        if self_visible {
+        if self_visible || parent_visible {
             render_node(node, image_ctx, renderer);
         }
 
         for child in &node.children {
-            collect_node(child, image_ctx, renderer, initial_bounds, scroll_offset);
+            collect_node(child, image_ctx, renderer, initial_bounds, scroll_offset, self_visible);
         }
     }
 
     for root in &layout_tree.root_nodes {
-        collect_node(root, image_ctx, renderer, initial_bounds, scroll_offset);
+        collect_node(root, image_ctx, renderer, initial_bounds, scroll_offset, false);
     }
 }

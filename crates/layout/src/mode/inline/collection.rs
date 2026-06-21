@@ -37,7 +37,7 @@ pub enum InlineItem<'node> {
     /// a decoration region.
     InlineBoxStart {
         layout_id: &'node LayoutNodeId,
-        node_id: &'node NodeId,
+        node_id: Option<NodeId>,
         style: &'node ComputedStyle,
     },
 
@@ -58,6 +58,19 @@ pub enum InlineItem<'node> {
     Break { line_height_px: f64 },
 }
 
+impl InlineItem<'_> {
+    pub fn type_string(&self) -> String {
+        match self {
+            Self::TextRun(_) => "TextRun".to_string(),
+            Self::InlineBoxStart { .. } => "InlineBoxStart".to_string(),
+            Self::InlineBoxEnd { .. } => "InlineBoxEnd".to_string(),
+            Self::InlineFlowRoot { .. } => "InlineFlowRoot".to_string(),
+            Self::Image(_) => "Image".to_string(),
+            Self::Break { .. } => "Break".to_string(),
+        }
+    }
+}
+
 /// Recursively collects inline items from the given styled node and its children,
 /// returning an error if it encounters a block-level element (which should be handled by the block layout instead).
 pub fn collect<'dom>(
@@ -69,6 +82,23 @@ pub fn collect<'dom>(
 ) -> Result<(), ()> {
     let box_node = &input.box_tree[layout_id];
     let Some(node_id) = &box_node.node_id else {
+        debug_assert!(
+            box_node.children.len() == 1,
+            "Anonymous Inline Box, should only have a single child, instead has {}",
+            box_node.children.len()
+        );
+
+        let text_layout_id = input.box_tree[layout_id].children.first().unwrap();
+        let text_node_id = &input.box_tree[text_layout_id].node_id.as_ref().unwrap();
+        let text = input.dom[*text_node_id].data.as_text().unwrap();
+
+        items.push(InlineItem::TextRun(TextRun {
+            layout_id,
+            node_id: text_node_id,
+            content: text.clone(),
+            style: parent_style,
+        }));
+
         return Ok(());
     };
 
@@ -189,7 +219,7 @@ pub fn collect<'dom>(
 
                 items.push(InlineItem::InlineBoxStart {
                     layout_id,
-                    node_id,
+                    node_id: Some(*node_id),
                     style,
                 });
 

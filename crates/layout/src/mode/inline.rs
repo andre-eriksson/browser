@@ -30,7 +30,7 @@ mod whitespace;
 #[derive(Debug, Clone)]
 pub struct InlineDecoration<'node> {
     layout_id: LayoutNodeId,
-    node_id: NodeId,
+    node_id: Option<NodeId>,
     start_x: f64,
     end_x: f64,
     style: &'node ComputedStyle,
@@ -42,7 +42,7 @@ pub struct InlineDecoration<'node> {
 #[derive(Debug, Clone)]
 pub struct ActiveInlineBox<'node> {
     layout_id: LayoutNodeId,
-    node_id: &'node NodeId,
+    node_id: Option<NodeId>,
     style: &'node ComputedStyle,
     start_x: f64,
     margin: Margin,
@@ -58,7 +58,6 @@ pub struct InlineLayoutContext<'node> {
     pub available_width: f64,
     pub ids: Vec<LayoutNodeId>,
     pub inline_box_stack: Vec<ActiveInlineBox<'node>>,
-    pub next_layout_id: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,7 +139,6 @@ impl InlineLayout {
             start_x: inline_ctx.containing_block.x,
             ids: Vec::new(),
             inline_box_stack: Vec::new(),
-            next_layout_id: nodes.len(),
         };
 
         for item in items {
@@ -157,7 +155,7 @@ impl InlineLayout {
                         &mut inline_layout_ctx.inline_box_stack,
                         input.text,
                         **layout_id,
-                        node_id,
+                        *node_id,
                         style,
                     );
                 }
@@ -194,38 +192,38 @@ impl InlineLayout {
                         let total_width = layout_node.dimensions.width
                             + box_model.margin.left.to_px()
                             + box_model.margin.right.to_px();
-                        let available_line_width = line
-                            .line_box
-                            .available_width(ctx.float_ctx_ref(), inline_layout_ctx.available_width);
+                        // let available_line_width = line
+                        //     .line_box
+                        //     .available_width(ctx.float_ctx_ref(), inline_layout_ctx.available_width);
 
                         let alignment = &style.text_align;
                         let writing_mode = &style.writing_mode;
                         input.text.last_text_align = *alignment;
                         input.text.last_writing_mode = *writing_mode;
 
-                        if line.line_box.width + total_width > available_line_width && line.line_box.width > 0.0 {
-                            line.finish_line_with_decorations(
-                                nodes,
-                                &mut inline_layout_ctx,
-                                input.text,
-                                ctx.float_ctx(),
-                                None,
-                            );
-                        }
+                        // if line.line_box.width + total_width > available_line_width && line.line_box.width > 0.0 {
+                        //     line.finish_line_with_decorations(
+                        //         nodes,
+                        //         &mut inline_layout_ctx,
+                        //         input.text,
+                        //         ctx.float_ctx(),
+                        //         None,
+                        //     );
+                        // }
 
                         let ascent = layout_node.dimensions.height
                             + box_model.margin.top.to_px()
                             + box_model.margin.bottom.to_px();
 
                         layout_node.margin = box_model.margin;
-                        line.line_box.add(nodes, &mut layout_node, ascent, 0.0);
+                        // line.line_box.add(nodes, &mut layout_node, ascent, 0.0);
 
                         nodes[id.index()] = Some(layout_node);
                         inline_layout_ctx.ids.push(id);
                     }
                 }
                 InlineItem::Image(img) => {
-                    layout_image(nodes, &mut inline_layout_ctx, input, img, ctx, &mut line);
+                    layout_image(nodes, &mut inline_layout_ctx, input, img, ctx);
                 }
                 InlineItem::Break { line_height_px } => {
                     line.finish_line_with_decorations(

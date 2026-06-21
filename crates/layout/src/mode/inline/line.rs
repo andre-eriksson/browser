@@ -1,3 +1,5 @@
+use std::{collections::HashMap, f64};
+
 use css_display::LayoutNodeId;
 use css_style::ComputedStyle;
 use css_values::text::{TextAlign, WritingMode};
@@ -5,7 +7,7 @@ use html_dom::NodeId;
 
 use crate::{
     LayoutColors, LayoutNode, Rect, TextContext,
-    context::{FloatContext, Geometry},
+    context::{FloatContext, Geometry, TextFragment},
     mode::inline::{ActiveInlineBox, InlineDecoration, InlineLayoutContext},
 };
 
@@ -14,6 +16,7 @@ use crate::{
 /// inline box decorations.
 pub struct LineBox<'node> {
     pub items: Vec<LayoutNodeId>,
+    pub fragments: HashMap<LayoutNodeId, Vec<(usize, Rect)>>,
     pub width: f64,
     pub max_ascent: f64,
     pub max_descent: f64,
@@ -26,6 +29,7 @@ impl LineBox<'_> {
     pub fn new(x: f64, y: f64) -> Self {
         Self {
             items: Vec::with_capacity(8),
+            fragments: HashMap::with_capacity(4),
             width: 0.0,
             max_ascent: 0.0,
             max_descent: 0.0,
@@ -39,6 +43,30 @@ impl LineBox<'_> {
     pub fn available_width(&self, float_ctx: &FloatContext, container_width: f64) -> f64 {
         let (left_edge, right_edge) = float_ctx.available_width_at(self.y, container_width);
         (right_edge - left_edge).max(0.0)
+    }
+
+    pub fn add_fragment(
+        &mut self,
+        layout_id: LayoutNodeId,
+        fragment_idx: usize,
+        style: &ComputedStyle,
+        size: &mut Rect,
+        ascent: f64,
+        descent: f64,
+    ) {
+        let margin_left = style.margin_left.to_px(self.width);
+        let margin_right = style.margin_right.to_px(self.width);
+
+        let new_x = self.width + margin_left;
+        size.x = new_x;
+
+        self.width += size.width + margin_left + margin_right;
+        self.max_ascent = self.max_ascent.max(ascent);
+        self.max_descent = self.max_descent.max(descent);
+        self.fragments
+            .entry(layout_id)
+            .or_default()
+            .push((fragment_idx, *size));
     }
 
     pub fn add(&mut self, nodes: &mut Vec<Option<LayoutNode>>, node: &mut LayoutNode, ascent: f64, descent: f64) {
@@ -57,12 +85,6 @@ impl LineBox<'_> {
         self.items.push(node.layout_id);
     }
 
-    /// Advance the line width by a fixed amount (e.g. for inline box
-    /// padding/border contributions) without adding a layout node.
-    pub fn advance(&mut self, amount: f64) {
-        self.width += amount;
-    }
-
     fn shift_descendants(nodes: &mut Vec<Option<LayoutNode>>, children: &[LayoutNodeId], delta_x: f64, delta_y: f64) {
         for child_id in children {
             let Some(mut node) = std::mem::take(&mut nodes[child_id.index()]) else {
@@ -76,10 +98,16 @@ impl LineBox<'_> {
         }
     }
 
+    /// Advance the line width by a fixed amount (e.g. for inline box
+    /// padding/border contributions) without adding a layout node.
+    pub fn advance(&mut self, amount: f64) {
+        self.width += amount;
+    }
+
     /// Finalise the line, emitting positioned `LayoutNode`s for any active
     /// inline box decorations and returning the nodes along with the total line height.
     pub fn finish(
-        self,
+        mut self,
         nodes: &mut Vec<Option<LayoutNode>>,
         float_ctx: &FloatContext,
         container_x: f64,
@@ -136,30 +164,48 @@ impl LineBox<'_> {
                 .padding(dec.padding)
                 .border(dec.border)
                 .colors(LayoutColors::from(dec.style))
-                .node_id(dec.node_id)
+                .maybe_node_id(dec.node_id)
                 .build();
 
             final_node_ids.push(dec.layout_id);
             nodes[dec.layout_id.index()] = Some(node);
         }
 
-        for id in self.items {
+        // for id in self.items {
+        //     let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
+        //         continue;
+        //     };
+
+        //     let new_x = content_start_x + node.dimensions.x - self.x + offset_x;
+        //     // TODO: vertical-align support.
+        //     let baseline_y = self.y + self.max_ascent;
+        //     let new_y = baseline_y - node.dimensions.height;
+        //     let delta_x = new_x - node.dimensions.x;
+        //     let delta_y = new_y - node.dimensions.y;
+
+        //     node.dimensions.x = new_x;
+        //     node.dimensions.y = new_y;
+
+        //     if delta_x != 0.0 || delta_y != 0.0 {
+        //         LineBox::shift_descendants(nodes, &node.children, delta_x, delta_y);
+        //     }
+
+        //     final_node_ids.push(id);
+        //     nodes[id.index()] = Some(node);
+        // }
+
+        for (id, sizes) in self.fragments.into_iter() {
             let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
                 continue;
             };
 
-            let new_x = content_start_x + node.dimensions.x - self.x + offset_x;
-            // TODO: vertical-align support.
-            let baseline_y = self.y + self.max_ascent;
-            let new_y = baseline_y - node.dimensions.height;
-            let delta_x = new_x - node.dimensions.x;
-            let delta_y = new_y - node.dimensions.y;
+            for (idx, size) in sizes {
+                // TODO: vertical-align support.
+                let new_x = content_start_x + size.x - self.x + offset_x;
+                let baseline_y = self.y + self.max_ascent;
+                let new_y = baseline_y - size.height;
 
-            node.dimensions.x = new_x;
-            node.dimensions.y = new_y;
-
-            if delta_x != 0.0 || delta_y != 0.0 {
-                LineBox::shift_descendants(nodes, &node.children, delta_x, delta_y);
+                node.text_fragments[idx].size = Rect::new(new_x, new_y, size.width, size.height);
             }
 
             final_node_ids.push(id);
@@ -188,7 +234,7 @@ impl<'node> LineBoxBuilder<'node> {
         inline_box_stack: &mut Vec<ActiveInlineBox<'node>>,
         text_ctx: &mut TextContext,
         layout_id: LayoutNodeId,
-        node_id: &'node NodeId,
+        node_id: Option<NodeId>,
         style: &'node ComputedStyle,
     ) {
         let box_model = Geometry::resolve_box_model(style, self.available_width);
@@ -226,7 +272,7 @@ impl<'node> LineBoxBuilder<'node> {
 
             self.line_box.decorations.push(InlineDecoration {
                 layout_id: active.layout_id,
-                node_id: *active.node_id,
+                node_id: active.node_id,
                 start_x: active.start_x,
                 end_x: self.line_box.width - active.margin.right.to_px(),
                 style: active.style,
@@ -276,7 +322,7 @@ impl<'node> LineBoxBuilder<'node> {
 
             self.line_box.decorations.push(InlineDecoration {
                 layout_id: active.layout_id,
-                node_id: *active.node_id,
+                node_id: active.node_id,
                 start_x: active.start_x,
                 end_x: self.line_box.width - active.margin.right.to_px(),
                 style: active.style,

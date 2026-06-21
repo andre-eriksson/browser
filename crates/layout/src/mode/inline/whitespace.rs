@@ -162,7 +162,7 @@ mod tests {
             }),
             InlineItem::InlineBoxStart {
                 layout_id: &id2,
-                node_id: &NodeId(2),
+                node_id: Some(NodeId(2)),
                 style: &style,
             },
             InlineItem::TextRun(TextRun {
