@@ -69,6 +69,10 @@ impl LineBox<'_> {
             .push((fragment_idx, *size));
     }
 
+    pub fn add_ascent(&mut self, ascent: f64) {
+        self.max_ascent = self.max_ascent.max(ascent);
+    }
+
     // pub fn add(&mut self, nodes: &mut Vec<Option<LayoutNode>>, node: &mut LayoutNode, ascent: f64, descent: f64) {
     //     let new_x = self.x + self.width + node.margin.left.to_px();
     //     let delta_x = new_x - node.dimensions.x;
