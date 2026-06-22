@@ -143,19 +143,23 @@ impl BlockLayout {
         let (ids, deferred_child_top) =
             Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx);
 
-        Self::resolve_deferred_top(nodes, can_collapse_top_with_child, current_block, deferred_child_top, &ids, ctx);
+        let applied_top_margin = Self::resolve_deferred_top(
+            nodes,
+            can_collapse_top_with_child,
+            current_block,
+            deferred_child_top,
+            &ids,
+            ctx,
+        );
 
         let can_collapse_bottom = !Geometry::has_bottom_fence(style, ctx.containing_block().width) && !establishes_bfc;
 
         Self::apply_bottom_margin(can_collapse_bottom, &mut child_ctx.block_ctx, current_block, &box_model);
 
-        let top_collapsed_offset =
-            Self::top_collapsed_offset(nodes, &ids, &child_ctx.layout_ctx, can_collapse_top_with_child);
-
         let content_height = Self::calculate_height(
             style,
             &box_model,
-            (child_ctx.layout_ctx.cursor().y - top_collapsed_offset).max(0.0),
+            (child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0),
             ctx.containing_block().height,
         );
 
@@ -374,33 +378,6 @@ impl BlockLayout {
         }
     }
 
-    fn top_collapsed_offset(
-        nodes: &mut [Option<LayoutNode>],
-        ids: &[LayoutNodeId],
-        child_ctx: &LayoutContext,
-        collapse_first_child_top: bool,
-    ) -> f64 {
-        if !collapse_first_child_top {
-            return 0.0;
-        }
-
-        match ids.first() {
-            Some(first_child) => {
-                let Some(node) = &nodes[first_child.index()] else {
-                    return 0.0;
-                };
-
-                let first_child_bottom = node.dimensions.y + node.dimensions.height;
-                if child_ctx.cursor_ref().y + f64::EPSILON >= first_child_bottom {
-                    node.dimensions.y
-                } else {
-                    0.0
-                }
-            }
-            None => 0.0,
-        }
-    }
-
     fn apply_top_margin(
         has_top_fence: bool,
         can_collapse_top_with_child: bool,
@@ -434,6 +411,13 @@ impl BlockLayout {
         current_block: &mut BlockContext,
         box_model: &BoxModel,
     ) {
+        // The bottom margin of an in-flow block box with a 'height' of 'auto' and a 'min-height' of zero collapses
+        //   with its last in-flow block-level child's bottom margin if the box has no bottom padding and no bottom
+        //   border and the child's bottom margin does not collapse with a top margin that has clearance.
+        //
+        // A box's own margins collapse if the 'min-height' property is zero, and it has neither top or bottom borders
+        //   nor top or bottom padding, and it has a 'height' of either 0 or 'auto', and it does not contain a line box,
+        //   and all of its in-flow children's margins (if any) collapse.
         if can_collapse_bottom {
             child_block
                 .collapsed_margin
@@ -455,26 +439,30 @@ impl BlockLayout {
         deferred_child_top: Option<MarginCollapsing>,
         ids: &[LayoutNodeId],
         ctx: &mut LayoutContext,
-    ) {
-        if can_collapse_top_with_child {
-            if let Some(child_top) = deferred_child_top {
-                current_block.collapsed_margin.add_collapsed(&child_top);
-            }
+    ) -> f64 {
+        if !can_collapse_top_with_child {
+            return 0.0;
+        }
 
-            if current_block.defer_top_margin {
-                current_block.deferred_top_margin = Some(current_block.collapsed_margin);
-                current_block.collapsed_margin.flush();
-            } else {
-                let collapsed = current_block.collapsed_margin.flush();
+        if let Some(child_top) = deferred_child_top {
+            current_block.collapsed_margin.add_collapsed(&child_top);
+        }
 
-                if collapsed != 0.0 {
-                    for child_id in ids {
-                        Self::offset_node_y(nodes, child_id, collapsed);
-                    }
-                }
-                ctx.cursor().y += collapsed;
+        if current_block.defer_top_margin {
+            current_block.deferred_top_margin = Some(current_block.collapsed_margin);
+            current_block.collapsed_margin.flush();
+            return 0.0;
+        }
+
+        let collapsed = current_block.collapsed_margin.flush();
+
+        if collapsed != 0.0 {
+            for child_id in ids {
+                Self::offset_node_y(nodes, child_id, collapsed);
             }
         }
+        ctx.cursor().y += collapsed;
+        collapsed
     }
 }
 

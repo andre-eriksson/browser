@@ -57,7 +57,8 @@ impl ComputedSize {
 
     pub fn is_defined(&self) -> bool {
         match self {
-            Self::Auto | Self::MaxContent | Self::MinContent | Self::FitContent | Self::Stretch => false,
+            Self::Auto => false,
+            Self::MaxContent | Self::MinContent | Self::FitContent | Self::Stretch => true,
             Self::Px(px) => !px.is_nan() && !px.is_infinite(),
             Self::Percentage(p) => !p.is_nan() && !p.is_infinite(),
         }
