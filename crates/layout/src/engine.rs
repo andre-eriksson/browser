@@ -118,10 +118,9 @@ impl LayoutTree {
         let style = &*box_node.style;
         let mode = LayoutMode::new(box_node);
 
-        let containing_block = if let Some(parent) = box_node.parent_id {
-            let parent_node = &layout_tree.nodes[parent.index()]
-                .as_ref()
-                .expect("Parent node not found in layout tree");
+        let containing_block = if let Some(parent) = box_node.parent_id
+            && let Some(parent_node) = &layout_tree.nodes[parent.index()]
+        {
             Rect {
                 x: 0.0,
                 y: 0.0,

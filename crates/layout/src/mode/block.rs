@@ -69,6 +69,9 @@ struct BlockChildContext {
 pub struct BlockLayout;
 
 impl BlockLayout {
+    /// Lays out the node as a block
+    ///
+    /// <https://www.w3.org/TR/CSS2/box.html#collapsing-margins>
     pub fn layout(
         nodes: &mut Vec<Option<LayoutNode>>,
         layout_id: &LayoutNodeId,
