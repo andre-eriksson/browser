@@ -118,8 +118,12 @@ fn render_node(node: &LayoutNode, image_ctx: &ImageContext, renderer: &mut HtmlR
 
     for fragment in &node.text_fragments {
         for text in &fragment.buffers {
-            let text_block =
-                TextBlockInfo::from_arc_buffer(text, fragment.size.x as f32, fragment.size.y as f32, node.colors.color);
+            let text_block = TextBlockInfo::from_arc_buffer(
+                text,
+                fragment.size.x as f32,
+                (node.dimensions.y + fragment.size.y) as f32,
+                node.colors.color,
+            );
             if !text_block.glyphs.is_empty() {
                 renderer.text_blocks.push(text_block);
             }

@@ -454,9 +454,6 @@ impl BlockLayout {
             } else {
                 let collapsed = current_block.collapsed_margin.flush();
 
-                // Children were laid out before the top margin was resolved because
-                // the first child's margin must be seen before we can compute the
-                // collapsed total. Now that we have it, shift all children retroactively.
                 if collapsed != 0.0 {
                     for child_id in ids {
                         Self::offset_node_y(nodes, child_id, collapsed);

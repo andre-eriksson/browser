@@ -1,4 +1,4 @@
-use std::{mem::take, panic, sync::Arc};
+use std::sync::Arc;
 
 use cosmic_text::Buffer;
 use css_display::LayoutNodeId;
@@ -8,7 +8,7 @@ use html_dom::NodeId;
 
 use crate::{
     LayoutColors, LayoutNode, Rect, TextContext,
-    context::{FloatContext, Text, TextDescription, TextFragment},
+    context::{FloatContext, TextDescription, TextFragment},
     mode::inline::{InlineLayoutContext, collection::TextRun, line::LineBoxBuilder},
 };
 
@@ -21,7 +21,7 @@ struct TextInput<'text> {
 }
 
 pub fn layout_text<'node>(
-    nodes: &mut Vec<Option<LayoutNode>>,
+    nodes: &mut [Option<LayoutNode>],
     ctx: &mut InlineLayoutContext<'node>,
     float_ctx: &FloatContext,
     text_ctx: &mut TextContext,
@@ -105,7 +105,7 @@ pub fn layout_text<'node>(
 /// the current [`LineBox`], word-wrapping across multiple lines when the
 /// text exceeds `available_width`.
 fn layout_text_segment<'node>(
-    nodes: &mut Vec<Option<LayoutNode>>,
+    nodes: &mut [Option<LayoutNode>],
     ctx: &mut InlineLayoutContext<'node>,
     text_ctx: &mut TextContext,
     float_ctx: &FloatContext,
