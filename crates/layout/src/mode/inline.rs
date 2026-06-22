@@ -189,7 +189,7 @@ impl InlineLayout {
                             .min(layout_node.dimensions.width);
                         }
 
-                        let total_width = layout_node.dimensions.width
+                        let _total_width = layout_node.dimensions.width
                             + box_model.margin.left.to_px()
                             + box_model.margin.right.to_px();
                         // let available_line_width = line
@@ -211,7 +211,7 @@ impl InlineLayout {
                         //     );
                         // }
 
-                        let ascent = layout_node.dimensions.height
+                        let _ascent = layout_node.dimensions.height
                             + box_model.margin.top.to_px()
                             + box_model.margin.bottom.to_px();
 
@@ -223,7 +223,7 @@ impl InlineLayout {
                     }
                 }
                 InlineItem::Image(img) => {
-                    layout_image(nodes, &mut inline_layout_ctx, input, img, ctx);
+                    layout_image(nodes, &mut inline_layout_ctx, input, img, ctx, &mut line);
                 }
                 InlineItem::Break { line_height_px } => {
                     line.finish_line_with_decorations(

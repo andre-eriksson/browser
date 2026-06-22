@@ -60,6 +60,12 @@ impl BlockContext {
         }
     }
 }
+
+struct BlockChildContext {
+    pub layout_ctx: LayoutContext,
+    pub block_ctx: BlockContext,
+    pub collapse_first_child_top: bool,
+}
 pub struct BlockLayout;
 
 impl BlockLayout {
@@ -118,41 +124,38 @@ impl BlockLayout {
             ctx.set_positioned_containing_block(rect);
         }
 
-        let mut child_block = BlockContext::new();
         let child_start_y = ctx.containing_block().y + ctx.cursor().y;
-        let mut child_ctx = ctx.child_context(
-            Rect {
-                x,
-                y: child_start_y,
-                width,
-                height: avaliable_child_height,
-            },
-            ctx.is_deferred(),
-        );
 
-        let (ids, deferred_child_top) = Self::layout_children(
-            nodes,
-            &box_node.children,
-            style,
-            input,
-            position_ctx,
-            &mut child_ctx,
-            &mut child_block,
-            can_collapse_top_with_child,
-        );
+        let mut child_ctx = BlockChildContext {
+            layout_ctx: ctx.child_context(
+                Rect {
+                    x,
+                    y: child_start_y,
+                    width,
+                    height: avaliable_child_height,
+                },
+                ctx.is_deferred(),
+            ),
+            block_ctx: BlockContext::new(),
+            collapse_first_child_top: can_collapse_top_with_child,
+        };
+
+        let (ids, deferred_child_top) =
+            Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx);
 
         Self::resolve_deferred_top(nodes, can_collapse_top_with_child, current_block, deferred_child_top, &ids, ctx);
 
         let can_collapse_bottom = !Geometry::has_bottom_fence(style, ctx.containing_block().width) && !establishes_bfc;
 
-        Self::apply_bottom_margin(can_collapse_bottom, &mut child_block, current_block, &box_model, ctx);
+        Self::apply_bottom_margin(can_collapse_bottom, &mut child_ctx.block_ctx, current_block, &box_model);
 
-        let top_collapsed_offset = Self::top_collapsed_offset(nodes, &ids, &child_ctx, can_collapse_top_with_child);
+        let top_collapsed_offset =
+            Self::top_collapsed_offset(nodes, &ids, &child_ctx.layout_ctx, can_collapse_top_with_child);
 
         let content_height = Self::calculate_height(
             style,
             &box_model,
-            (child_ctx.cursor().y - top_collapsed_offset).max(0.0),
+            (child_ctx.layout_ctx.cursor().y - top_collapsed_offset).max(0.0),
             ctx.containing_block().height,
         );
 
@@ -185,9 +188,7 @@ impl BlockLayout {
         parent_style: &'a ComputedStyle,
         input: &mut LayoutInput<'a>,
         position_ctx: &mut PositionContext,
-        child_ctx: &mut LayoutContext,
-        child_block: &mut BlockContext,
-        collapse_first_child_top: bool,
+        child_ctx: &mut BlockChildContext,
     ) -> (Vec<LayoutNodeId>, Option<MarginCollapsing>) {
         let mut node_ids = Vec::with_capacity(children.len());
         let mut deferred_child_top = None;
@@ -199,43 +200,56 @@ impl BlockLayout {
         match LayoutMode::new(&input.box_tree[&children[0]]) {
             LayoutMode::Inline => {
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
-                    child_ctx.containing_block(),
+                    child_ctx.layout_ctx.containing_block(),
                     input,
                     parent_style,
                     children,
                 );
 
-                let inline_ctx = InlineContext::new(child_ctx.containing_block());
+                let inline_ctx = InlineContext::new(child_ctx.layout_ctx.containing_block());
 
-                let (ids, nodes_size) =
-                    InlineLayout::layout(nodes, input, &inline_items, child_ctx, position_ctx, inline_ctx);
+                let (ids, nodes_size) = InlineLayout::layout(
+                    nodes,
+                    input,
+                    &inline_items,
+                    &mut child_ctx.layout_ctx,
+                    position_ctx,
+                    inline_ctx,
+                );
 
-                child_ctx.cursor().y += nodes_size.height;
+                child_ctx.layout_ctx.cursor().y += nodes_size.height;
                 node_ids.extend(ids);
             }
             _ => {
                 // TODO: Handle Flex and Grid.
                 for child_id in children {
                     let is_first = node_ids.is_empty();
-                    let defer = collapse_first_child_top && is_first;
-                    child_block.defer_top_margin = defer;
+                    let defer = child_ctx.collapse_first_child_top && is_first;
+                    child_ctx.block_ctx.defer_top_margin = defer;
 
                     if is_first {
                         let box_node = &input.box_tree[child_id];
                         let style = &*box_node.style;
 
-                        if Geometry::has_top_fence(style, child_ctx.containing_block().width) {
-                            let box_model = Geometry::resolve_box_model(style, child_ctx.containing_block().width);
-                            let flushed = child_block.collapsed_margin.flush();
-                            child_ctx.cursor().y += flushed + box_model.padding.top + box_model.border.top;
+                        if Geometry::has_top_fence(style, child_ctx.layout_ctx.containing_block().width) {
+                            let box_model =
+                                Geometry::resolve_box_model(style, child_ctx.layout_ctx.containing_block().width);
+                            let flushed = child_ctx.block_ctx.collapsed_margin.flush();
+                            child_ctx.layout_ctx.cursor().y += flushed + box_model.padding.top + box_model.border.top;
                         }
                     }
 
-                    if let Some((node_id, _)) =
-                        BlockLayout::layout(nodes, child_id, parent_style, input, child_ctx, position_ctx, child_block)
-                    {
+                    if let Some((node_id, _)) = BlockLayout::layout(
+                        nodes,
+                        child_id,
+                        parent_style,
+                        input,
+                        &mut child_ctx.layout_ctx,
+                        position_ctx,
+                        &mut child_ctx.block_ctx,
+                    ) {
                         if defer {
-                            deferred_child_top = child_block.deferred_top_margin.take();
+                            deferred_child_top = child_ctx.block_ctx.deferred_top_margin.take();
                         }
                         node_ids.push(node_id);
                     }
@@ -419,7 +433,6 @@ impl BlockLayout {
         child_block: &mut BlockContext,
         current_block: &mut BlockContext,
         box_model: &BoxModel,
-        ctx: &mut LayoutContext,
     ) {
         if can_collapse_bottom {
             child_block
