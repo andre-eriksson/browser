@@ -58,15 +58,15 @@ pub enum InlineItem<'node> {
     Break { line_height_px: f64 },
 }
 
-impl InlineItem<'_> {
-    pub fn type_string(&self) -> String {
+impl std::fmt::Display for InlineItem<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::TextRun(_) => "TextRun".to_string(),
-            Self::InlineBoxStart { .. } => "InlineBoxStart".to_string(),
-            Self::InlineBoxEnd { .. } => "InlineBoxEnd".to_string(),
-            Self::InlineFlowRoot { .. } => "InlineFlowRoot".to_string(),
-            Self::Image(_) => "Image".to_string(),
-            Self::Break { .. } => "Break".to_string(),
+            Self::TextRun(_) => f.write_str("TextRun"),
+            Self::InlineBoxStart { .. } => f.write_str("InlineBoxStart"),
+            Self::InlineBoxEnd { .. } => f.write_str("InlineBoxEnd"),
+            Self::InlineFlowRoot { .. } => f.write_str("InlineFlowRoot"),
+            Self::Image(_) => f.write_str("Image"),
+            Self::Break { .. } => f.write_str("Break"),
         }
     }
 }
