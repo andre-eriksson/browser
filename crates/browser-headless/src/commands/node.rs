@@ -92,7 +92,7 @@ pub fn cmd_node_layout(engine: &mut HeadlessEngine, id: usize) -> Result<(), Str
         .ok_or_else(|| format!("Layout node {id} could not be resolved by path"))?;
 
     println!("Layout subtree for node {id}:");
-    print_layout_node(engine, node, 0);
+    print_layout_node(layout, node, 0);
 
     Ok(())
 }
