@@ -264,7 +264,7 @@ impl InlineLayout {
     }
 
     fn auto_inline_flow_root_width(
-        nodes: &mut Vec<Option<LayoutNode>>,
+        nodes: &[Option<LayoutNode>],
         layout_node: &LayoutNode,
         padding: SideOffset,
         border: SideOffset,
@@ -279,8 +279,8 @@ impl InlineLayout {
         content_width + padding.horizontal() + border.horizontal()
     }
 
-    fn max_right_edge(nodes: &mut Vec<Option<LayoutNode>>, node_id: &LayoutNodeId) -> f64 {
-        let Some(node) = std::mem::take(&mut nodes[node_id.index()]) else {
+    fn max_right_edge(nodes: &[Option<LayoutNode>], node_id: &LayoutNodeId) -> f64 {
+        let Some(node) = &nodes[node_id.index()] else {
             return 0.0;
         };
 
@@ -311,7 +311,7 @@ mod tests {
             .children(vec![LayoutNodeId::new(1)])
             .build();
 
-        let mut nodes = vec![
+        let nodes = vec![
             Some(container.clone()),
             Some(inline_child),
             Some(nested_text),
@@ -330,7 +330,7 @@ mod tests {
             left: 1.0,
         };
 
-        let width = InlineLayout::auto_inline_flow_root_width(&mut nodes, &container, padding, border);
+        let width = InlineLayout::auto_inline_flow_root_width(&nodes, &container, padding, border);
 
         assert!((width - 35.0).abs() < 0.001);
     }
