@@ -24,6 +24,50 @@ impl<T: Add<Output = T> + PartialOrd + Copy> Rect<T> {
     pub fn contains_point(&self, px: T, py: T) -> bool {
         px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
     }
+
+    pub fn max(self, other: Self) -> Self {
+        let new_x = if self.x >= other.x { self.x } else { other.x };
+        let new_y = if self.y >= other.y { self.y } else { other.y };
+        let new_w = if self.width >= other.width {
+            self.width
+        } else {
+            other.width
+        };
+        let new_h = if self.height >= other.height {
+            self.height
+        } else {
+            other.height
+        };
+
+        Self {
+            x: new_x,
+            y: new_y,
+            width: new_w,
+            height: new_h,
+        }
+    }
+
+    pub fn min(self, other: Self) -> Self {
+        let new_x = if self.x <= other.x { self.x } else { other.x };
+        let new_y = if self.y <= other.y { self.y } else { other.y };
+        let new_w = if self.width <= other.width {
+            self.width
+        } else {
+            other.width
+        };
+        let new_h = if self.height <= other.height {
+            self.height
+        } else {
+            other.height
+        };
+
+        Self {
+            x: new_x,
+            y: new_y,
+            width: new_w,
+            height: new_h,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -36,5 +80,14 @@ impl<T: Add<Output = T> + PartialOrd + Copy> Size<T> {
     #[must_use]
     pub const fn new(width: T, height: T) -> Self {
         Self { width, height }
+    }
+}
+
+impl From<Rect> for Size {
+    fn from(value: Rect) -> Self {
+        Self {
+            height: value.height,
+            width: value.width,
+        }
     }
 }

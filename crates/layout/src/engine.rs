@@ -1,12 +1,12 @@
 use crate::{
     LayoutNode, LayoutTree,
-    context::{ImageContext, LayoutContext, PositionContext, TextContext},
+    context::{FloatContext, ImageContext, LayoutContext, PositionContext, TextContext},
     mode::{
         LayoutMode,
         block::{BlockContext, BlockLayout},
         inline::{InlineContext, InlineLayout},
     },
-    primitives::Rect,
+    primitives::{Rect, Size},
 };
 use css_display::{BoxTree, LayoutNodeId};
 use css_style::ComputedStyle;
@@ -36,6 +36,8 @@ impl LayoutTree {
     /// been repositioned correctly.
     pub fn compute_layout(input: &mut LayoutInput, viewport: Rect) -> Self {
         let mut position_ctx = PositionContext::new(viewport);
+        let mut float_ctx = FloatContext::new();
+
         let mut ctx = LayoutContext::new(viewport);
         let mut total_height = 0.0f64;
         let mut max_width = 0.0f64;
@@ -53,6 +55,7 @@ impl LayoutTree {
                 &mut ctx,
                 &mut position_ctx,
                 &mut block_ctx,
+                &mut float_ctx,
             ) else {
                 continue;
             };
@@ -112,7 +115,10 @@ impl LayoutTree {
 
         let old_height = old_node.dimensions.height;
 
+        // TODO: Restore old contexts
         let mut position_ctx = PositionContext::new(viewport);
+        let mut float_ctx = FloatContext::new();
+
         let mut ctx = LayoutContext::new(old_node.dimensions);
 
         let style = &*box_node.style;
@@ -147,9 +153,9 @@ impl LayoutTree {
                     &mut layout_tree.nodes,
                     input,
                     &inline_items,
-                    &mut ctx,
                     &mut position_ctx,
                     inline_ctx,
+                    &mut float_ctx,
                 )
             }
             _ => {
@@ -164,11 +170,12 @@ impl LayoutTree {
                     &mut ctx,
                     &mut position_ctx,
                     &mut block_ctx,
+                    &mut float_ctx,
                 ) else {
                     return;
                 };
 
-                (vec![node], Rect::new(0.0, 0.0, size.width, size.height))
+                (vec![node], Size::new(size.width, size.height))
             }
         };
 

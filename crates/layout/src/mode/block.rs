@@ -4,7 +4,7 @@ use css_values::display::Float;
 
 use crate::{
     LayoutColors, LayoutNode, Rect,
-    context::{BoxModel, FormattingContext, Geometry, LayoutContext, PositionContext},
+    context::{BoxModel, FloatContext, FormattingContext, Geometry, LayoutContext, PositionContext},
     engine::LayoutInput,
     mode::{
         LayoutMode,
@@ -72,6 +72,7 @@ impl BlockLayout {
     /// Lays out the node as a block
     ///
     /// <https://www.w3.org/TR/CSS2/box.html#collapsing-margins>
+    #[allow(clippy::too_many_arguments)]
     pub fn layout(
         nodes: &mut Vec<Option<LayoutNode>>,
         layout_id: &LayoutNodeId,
@@ -80,6 +81,7 @@ impl BlockLayout {
         ctx: &mut LayoutContext,
         position_ctx: &mut PositionContext,
         current_block: &mut BlockContext,
+        float_ctx: &mut FloatContext,
     ) -> Option<(LayoutNodeId, Size)> {
         let box_node = &input.box_tree[layout_id];
         let style = &*box_node.style;
@@ -127,7 +129,12 @@ impl BlockLayout {
             ctx.set_positioned_containing_block(rect);
         }
 
-        let child_start_y = ctx.containing_block().y + ctx.cursor().y;
+        let mut child_start_y = if float_ctx.has_floats() {
+            ctx.containing_block().y
+        } else {
+            ctx.containing_block().y + ctx.cursor().y
+        };
+        child_start_y = float_ctx.clear_y(style.clear, style.writing_mode, child_start_y);
 
         let mut child_ctx = BlockChildContext {
             layout_ctx: ctx.child_context(
@@ -143,8 +150,8 @@ impl BlockLayout {
             collapse_first_child_top: can_collapse_top_with_child,
         };
 
-        let (ids, deferred_child_top) =
-            Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx);
+        let (ids, deferred_child_top, children_size) =
+            Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx, float_ctx);
 
         let applied_top_margin = Self::resolve_deferred_top(
             nodes,
@@ -162,11 +169,17 @@ impl BlockLayout {
         let content_height = Self::calculate_height(
             style,
             &box_model,
-            (child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0),
+            children_size
+                .as_ref()
+                .map(|cs| cs.height)
+                .unwrap_or((child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0)),
             ctx.containing_block().height,
         );
 
         let node_y = Self::calculate_start_y(style, ctx);
+        let node_dimensions = Rect::new(ctx.cursor().x, node_y, width, content_height);
+
+        float_ctx.add_float(node_dimensions, style);
 
         let colors = LayoutColors::from(style);
         let node = LayoutNode::builder(*layout_id)
@@ -175,7 +188,7 @@ impl BlockLayout {
             .children(ids)
             .colors(colors)
             .cursor(style.cursor)
-            .dimensions(Rect::new(ctx.cursor().x, node_y, width, content_height))
+            .dimensions(node_dimensions)
             .margin(box_model.margin)
             .maybe_node_id(box_node.node_id)
             .padding(box_model.padding)
@@ -196,12 +209,14 @@ impl BlockLayout {
         input: &mut LayoutInput<'a>,
         position_ctx: &mut PositionContext,
         child_ctx: &mut BlockChildContext,
-    ) -> (Vec<LayoutNodeId>, Option<MarginCollapsing>) {
+        float_ctx: &mut FloatContext,
+    ) -> (Vec<LayoutNodeId>, Option<MarginCollapsing>, Option<Size>) {
+        let mut size = None;
         let mut node_ids = Vec::with_capacity(children.len());
         let mut deferred_child_top = None;
 
         if children.is_empty() {
-            return (node_ids, deferred_child_top);
+            return (node_ids, deferred_child_top, size);
         }
 
         match LayoutMode::new(&input.box_tree[&children[0]]) {
@@ -215,17 +230,12 @@ impl BlockLayout {
 
                 let inline_ctx = InlineContext::new(child_ctx.layout_ctx.containing_block());
 
-                let (ids, nodes_size) = InlineLayout::layout(
-                    nodes,
-                    input,
-                    &inline_items,
-                    &mut child_ctx.layout_ctx,
-                    position_ctx,
-                    inline_ctx,
-                );
+                let (ids, nodes_size) =
+                    InlineLayout::layout(nodes, input, &inline_items, position_ctx, inline_ctx, float_ctx);
 
                 child_ctx.layout_ctx.cursor().y += nodes_size.height;
                 node_ids.extend(ids);
+                size = Some(nodes_size);
             }
             _ => {
                 // TODO: Handle Flex and Grid.
@@ -246,7 +256,7 @@ impl BlockLayout {
                         }
                     }
 
-                    if let Some((node_id, _)) = BlockLayout::layout(
+                    if let Some((node_id, node_size)) = BlockLayout::layout(
                         nodes,
                         child_id,
                         parent_style,
@@ -254,17 +264,19 @@ impl BlockLayout {
                         &mut child_ctx.layout_ctx,
                         position_ctx,
                         &mut child_ctx.block_ctx,
+                        float_ctx,
                     ) {
                         if defer {
                             deferred_child_top = child_ctx.block_ctx.deferred_top_margin.take();
                         }
                         node_ids.push(node_id);
+                        size = Some(node_size);
                     }
                 }
             }
         }
 
-        (node_ids, deferred_child_top)
+        (node_ids, deferred_child_top, size)
     }
 
     fn offset_node_y(nodes: &mut Vec<Option<LayoutNode>>, id: &LayoutNodeId, delta_y: f64) {
@@ -473,7 +485,11 @@ impl BlockLayout {
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use crate::{Margin, TextContext, context::ImageContext, primitives::SideOffset};
+    use crate::{
+        Margin, TextContext,
+        context::{FloatContext, ImageContext},
+        primitives::SideOffset,
+    };
     use css_display::{BoxNode, BoxTree};
     use css_style::{ComputedMargin, ComputedSize, ComputedStyle};
     use html_dom::{DocumentRoot, DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
@@ -559,6 +575,7 @@ mod tests {
         };
 
         let ctx = LayoutContext::new(viewport());
+
         let box_model = BoxModel {
             border: SideOffset::zero(),
             margin: Margin::zero(),
@@ -580,6 +597,7 @@ mod tests {
         };
 
         let ctx = LayoutContext::new(viewport());
+
         let box_model = BoxModel {
             border: SideOffset::zero(),
             margin: Margin::zero(),
@@ -689,6 +707,7 @@ mod tests {
     #[test]
     fn test_layout_empty() {
         let img_ctx = ImageContext::new();
+        let mut float_ctx = FloatContext::new();
         let mut ctx = LayoutContext::new(viewport());
         let mut position_ctx = PositionContext::new(viewport());
 
@@ -736,6 +755,7 @@ mod tests {
             &mut ctx,
             &mut position_ctx,
             &mut block_ctx,
+            &mut float_ctx,
         );
 
         let (layout_node_id, _) = layout_node.unwrap();

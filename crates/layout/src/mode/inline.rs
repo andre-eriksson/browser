@@ -4,7 +4,7 @@ use html_dom::NodeId;
 
 use crate::{
     LayoutInput, LayoutNode, Margin, Rect,
-    context::{Geometry, LayoutContext, PositionContext},
+    context::{FloatContext, Geometry, LayoutContext, PositionContext},
     mode::{
         block::{BlockContext, BlockLayout},
         inline::{
@@ -15,7 +15,7 @@ use crate::{
             whitespace::canonicalize_whitespace,
         },
     },
-    primitives::SideOffset,
+    primitives::{SideOffset, Size},
 };
 
 mod collection;
@@ -123,10 +123,10 @@ impl InlineLayout {
         nodes: &mut Vec<Option<LayoutNode>>,
         input: &mut LayoutInput<'_>,
         items: &[InlineItem],
-        ctx: &mut LayoutContext,
         position_ctx: &mut PositionContext,
         inline_ctx: InlineContext,
-    ) -> (Vec<LayoutNodeId>, Rect) {
+        float_ctx: &mut FloatContext,
+    ) -> (Vec<LayoutNodeId>, Size) {
         let mut line = LineBoxBuilder::new(
             inline_ctx.containing_block.width,
             inline_ctx.containing_block.x,
@@ -141,10 +141,13 @@ impl InlineLayout {
             inline_box_stack: Vec::new(),
         };
 
+        let mut total_child_size = None;
+
         for item in items {
             match item {
                 InlineItem::TextRun(text) => {
-                    layout_text(nodes, &mut inline_layout_ctx, ctx.float_ctx(), input.text, &mut line, text);
+                    total_child_size =
+                        layout_text(nodes, &mut inline_layout_ctx, float_ctx, input.text, &mut line, text);
                 }
                 InlineItem::InlineBoxStart {
                     layout_id,
@@ -172,9 +175,16 @@ impl InlineLayout {
                     ));
                     let mut block_ctx = BlockContext::default();
 
-                    if let Some((id, _)) =
-                        BlockLayout::layout(nodes, layout_id, style, input, &mut ctx, position_ctx, &mut block_ctx)
-                    {
+                    if let Some((id, _)) = BlockLayout::layout(
+                        nodes,
+                        layout_id,
+                        style,
+                        input,
+                        &mut ctx,
+                        position_ctx,
+                        &mut block_ctx,
+                        float_ctx,
+                    ) {
                         let Some(mut layout_node) = std::mem::take(&mut nodes[id.index()]) else {
                             continue;
                         };
@@ -223,14 +233,14 @@ impl InlineLayout {
                     }
                 }
                 InlineItem::Image(img) => {
-                    layout_image(nodes, &mut inline_layout_ctx, input, img, ctx, &mut line);
+                    layout_image(nodes, &mut inline_layout_ctx, input, img, &mut line, float_ctx);
                 }
                 InlineItem::Break { line_height_px } => {
                     line.finish_line_with_decorations(
                         nodes,
                         &mut inline_layout_ctx,
                         input.text,
-                        ctx.float_ctx(),
+                        float_ctx,
                         Some(*line_height_px),
                     );
                 }
@@ -241,24 +251,19 @@ impl InlineLayout {
 
         let (_, line_height) = line.line_box.finish(
             nodes,
-            ctx.float_ctx(),
+            float_ctx,
             inline_ctx.containing_block.x,
             inline_ctx.containing_block.width,
             input.text.last_text_align,
             input.text.last_writing_mode,
         );
 
-        let total_height = inline_layout_ctx.current_y + line_height - inline_ctx.containing_block.y;
+        let total_size = Size::new(
+            inline_ctx.containing_block.width,
+            inline_layout_ctx.current_y + line_height - inline_ctx.containing_block.y,
+        );
 
-        (
-            inline_layout_ctx.ids,
-            Rect::new(
-                inline_ctx.containing_block.x,
-                inline_ctx.containing_block.y,
-                inline_ctx.containing_block.width,
-                total_height,
-            ),
-        )
+        (inline_layout_ctx.ids, total_child_size.unwrap_or(total_size))
     }
 
     fn auto_inline_flow_root_width(

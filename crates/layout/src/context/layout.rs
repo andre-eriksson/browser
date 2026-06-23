@@ -1,4 +1,4 @@
-use crate::{Rect, context::FloatContext};
+use crate::Rect;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Cursor {
@@ -13,7 +13,6 @@ pub struct LayoutContext {
     containing_block: Rect,
     positioned_containing_block: Rect,
     deferred: bool,
-    float_ctx: FloatContext,
 }
 
 impl LayoutContext {
@@ -24,7 +23,6 @@ impl LayoutContext {
             containing_block,
             positioned_containing_block: containing_block,
             deferred: false,
-            float_ctx: FloatContext::new(),
         }
     }
 
@@ -36,7 +34,6 @@ impl LayoutContext {
             containing_block,
             positioned_containing_block,
             deferred: true,
-            float_ctx: FloatContext::new(),
         }
     }
 
@@ -51,7 +48,6 @@ impl LayoutContext {
                 containing_block,
                 positioned_containing_block: self.positioned_containing_block,
                 deferred: false,
-                float_ctx: FloatContext::new(),
             }
         }
     }
@@ -76,14 +72,6 @@ impl LayoutContext {
 
     pub const fn is_deferred(&self) -> bool {
         self.deferred
-    }
-
-    pub fn float_ctx(&mut self) -> &mut FloatContext {
-        &mut self.float_ctx
-    }
-
-    pub fn float_ctx_ref(&self) -> &FloatContext {
-        &self.float_ctx
     }
 
     /// Sets the nearest positioned ancestor containing block used by absolute positioning.

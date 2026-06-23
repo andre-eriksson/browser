@@ -175,29 +175,6 @@ impl LineBox<'_> {
             nodes[dec.layout_id.index()] = Some(node);
         }
 
-        // for id in self.items {
-        //     let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
-        //         continue;
-        //     };
-
-        //     let new_x = content_start_x + node.dimensions.x - self.x + offset_x;
-        //     // TODO: vertical-align support.
-        //     let baseline_y = self.y + self.max_ascent;
-        //     let new_y = baseline_y - node.dimensions.height;
-        //     let delta_x = new_x - node.dimensions.x;
-        //     let delta_y = new_y - node.dimensions.y;
-
-        //     node.dimensions.x = new_x;
-        //     node.dimensions.y = new_y;
-
-        //     if delta_x != 0.0 || delta_y != 0.0 {
-        //         LineBox::shift_descendants(nodes, &node.children, delta_x, delta_y);
-        //     }
-
-        //     final_node_ids.push(id);
-        //     nodes[id.index()] = Some(node);
-        // }
-
         for (id, sizes) in self.fragments.into_iter() {
             let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
                 continue;

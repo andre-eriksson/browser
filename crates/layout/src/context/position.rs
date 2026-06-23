@@ -1,6 +1,6 @@
 use crate::{
     LayoutTree, Rect,
-    context::{BoxModel, LayoutContext, layout::Cursor},
+    context::{BoxModel, FloatContext, LayoutContext, layout::Cursor},
     engine::LayoutInput,
     mode::block::{BlockContext, BlockLayout},
 };
@@ -54,7 +54,9 @@ impl PositionContext {
                 continue;
             };
 
+            // TODO: Restore old contexts
             let mut new_position_ctx = PositionContext::new(pending.containing_block);
+            let mut float_ctx = FloatContext::new();
             let mut ctx = LayoutContext::deferred(
                 Cursor { x: 0.0, y: 0.0 },
                 Rect {
@@ -74,6 +76,7 @@ impl PositionContext {
                 &mut ctx,
                 &mut new_position_ctx,
                 &mut pending.block_ctx,
+                &mut float_ctx,
             ) {
                 layout_node.insert_child(node);
 
