@@ -46,7 +46,7 @@ impl<'node> BoxTree<'node> {
     }
 
     fn infer_child_context(
-        node_ids: &Vec<NodeId>,
+        node_ids: &[NodeId],
         dom: &'node DocumentRoot,
         style_tree: &'node StyleTree,
     ) -> ChildFormattingContext {
@@ -82,7 +82,7 @@ impl<'node> BoxTree<'node> {
         dom: &'node DocumentRoot,
         style_tree: &'node StyleTree,
         nodes: &mut Vec<BoxNode<'node>>,
-        dom_to_layout: &mut Vec<Option<LayoutNodeId>>,
+        dom_to_layout: &mut [Option<LayoutNodeId>],
     ) -> Option<LayoutNodeId> {
         let style = &style_tree[node_id];
 
