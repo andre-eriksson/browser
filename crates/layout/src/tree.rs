@@ -92,13 +92,12 @@ impl LayoutTree {
             return None;
         }
 
-        let mut current = self.root_nodes.get(path[0]);
-        for _ in &path[1..] {
-            current = match current {
-                None => return current,
-                Some(node) => Some(node),
-            };
+        let mut current = self.root_nodes.get(path[0])?;
+        for &idx in &path[1..] {
+            let node = self.nodes[current.index()].as_ref()?;
+            current = node.children.get(idx)?;
         }
-        current
+
+        Some(current)
     }
 }
