@@ -141,13 +141,10 @@ impl InlineLayout {
             inline_box_stack: Vec::new(),
         };
 
-        let mut total_child_size = None;
-
         for item in items {
             match item {
                 InlineItem::TextRun(text) => {
-                    total_child_size =
-                        layout_text(nodes, &mut inline_layout_ctx, float_ctx, input.text, &mut line, text);
+                    layout_text(nodes, &mut inline_layout_ctx, float_ctx, input.text, &mut line, text);
                 }
                 InlineItem::InlineBoxStart {
                     layout_id,
@@ -263,7 +260,7 @@ impl InlineLayout {
             inline_layout_ctx.current_y + line_height - inline_ctx.containing_block.y,
         );
 
-        (inline_layout_ctx.ids, total_child_size.unwrap_or(total_size))
+        (inline_layout_ctx.ids, total_size)
     }
 
     fn auto_inline_flow_root_width(

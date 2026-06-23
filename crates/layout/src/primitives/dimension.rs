@@ -81,6 +81,24 @@ impl<T: Add<Output = T> + PartialOrd + Copy> Size<T> {
     pub const fn new(width: T, height: T) -> Self {
         Self { width, height }
     }
+
+    pub fn max(self, other: Self) -> Self {
+        let new_w = if self.width >= other.width {
+            self.width
+        } else {
+            other.width
+        };
+        let new_h = if self.height >= other.height {
+            self.height
+        } else {
+            other.height
+        };
+
+        Self {
+            width: new_w,
+            height: new_h,
+        }
+    }
 }
 
 impl From<Rect> for Size {

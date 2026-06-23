@@ -150,7 +150,7 @@ impl BlockLayout {
             collapse_first_child_top: can_collapse_top_with_child,
         };
 
-        let (ids, deferred_child_top, children_size) =
+        let (ids, deferred_child_top, _) =
             Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx, float_ctx);
 
         let applied_top_margin = Self::resolve_deferred_top(
@@ -169,10 +169,7 @@ impl BlockLayout {
         let content_height = Self::calculate_height(
             style,
             &box_model,
-            children_size
-                .as_ref()
-                .map(|cs| cs.height)
-                .unwrap_or((child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0)),
+            (child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0),
             ctx.containing_block().height,
         );
 
@@ -235,7 +232,11 @@ impl BlockLayout {
 
                 child_ctx.layout_ctx.cursor().y += nodes_size.height;
                 node_ids.extend(ids);
-                size = Some(nodes_size);
+                size = if let Some(s) = size {
+                    Some(s.max(nodes_size))
+                } else {
+                    Some(nodes_size)
+                }
             }
             _ => {
                 // TODO: Handle Flex and Grid.
@@ -270,7 +271,12 @@ impl BlockLayout {
                             deferred_child_top = child_ctx.block_ctx.deferred_top_margin.take();
                         }
                         node_ids.push(node_id);
-                        size = Some(node_size);
+
+                        size = if let Some(s) = size {
+                            Some(s.max(node_size))
+                        } else {
+                            Some(node_size)
+                        }
                     }
                 }
             }

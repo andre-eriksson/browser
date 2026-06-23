@@ -10,7 +10,6 @@ use crate::{
     LayoutColors, LayoutNode, Rect, TextContext,
     context::{FloatContext, TextDescription, TextFragment},
     mode::inline::{InlineLayoutContext, collection::TextRun, line::LineBoxBuilder},
-    primitives::Size,
 };
 
 struct TextInput<'text> {
@@ -28,7 +27,7 @@ pub fn layout_text<'node>(
     text_ctx: &mut TextContext,
     line: &mut LineBoxBuilder<'node>,
     text: &TextRun,
-) -> Option<Size> {
+) {
     let font_size_px = text.style.font_size;
     let whitespace = &text.style.whitespace;
     let text_align = text.style.text_align;
@@ -96,16 +95,11 @@ pub fn layout_text<'node>(
         ctx.ids.push(*text.layout_id);
     }
 
-    let mut size = None;
-
     if let Some(mut node) = std::mem::take(&mut nodes[text.layout_id.index()]) {
-        let new_dimension = recompute_bounds(&mut node);
-        size = Some(new_dimension.into());
+        recompute_bounds(&mut node);
 
         nodes[text.layout_id.index()] = Some(node);
     }
-
-    size
 }
 
 /// Measure a single-line text segment (no embedded newlines) and add it to
@@ -202,9 +196,9 @@ fn flush_fragment<'node>(
         .add_fragment(text.layout_id, idx, text.style, &mut node.text_fragments[idx].size, height, 0.0);
 }
 
-fn recompute_bounds(node: &mut LayoutNode) -> Rect {
+fn recompute_bounds(node: &mut LayoutNode) {
     let Some(first) = node.text_fragments.first() else {
-        return Rect::default();
+        return;
     };
 
     let mut min_x = first.size.x;
@@ -219,7 +213,5 @@ fn recompute_bounds(node: &mut LayoutNode) -> Rect {
         max_y = max_y.max(f.size.y + f.size.height);
     }
 
-    let new_dimension = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
-    node.dimensions = new_dimension;
-    new_dimension
+    node.dimensions = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
 }
