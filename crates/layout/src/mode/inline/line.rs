@@ -15,7 +15,6 @@ use crate::{
 /// tracking the maximum ascent/descent for vertical alignment and any active
 /// inline box decorations.
 pub struct LineBox<'node> {
-    pub items: Vec<LayoutNodeId>,
     pub fragments: HashMap<LayoutNodeId, Vec<(usize, Rect)>>,
     pub width: f64,
     pub max_ascent: f64,
@@ -28,7 +27,6 @@ pub struct LineBox<'node> {
 impl LineBox<'_> {
     pub fn new(x: f64, y: f64) -> Self {
         Self {
-            items: Vec::with_capacity(8),
             fragments: HashMap::with_capacity(4),
             width: 0.0,
             max_ascent: 0.0,
@@ -91,7 +89,7 @@ impl LineBox<'_> {
         writing_mode: WritingMode,
     ) -> (Vec<LayoutNodeId>, f64) {
         let line_height = self.max_ascent + self.max_descent;
-        let mut final_node_ids = Vec::with_capacity(self.decorations.len() + self.items.len());
+        let mut final_node_ids = Vec::with_capacity(self.decorations.len() + (self.fragments.len() / 3));
 
         let (left_edge, right_edge) = float_ctx.available_width_at(self.y, container_width);
         let available_width = (right_edge - left_edge).max(0.0);
