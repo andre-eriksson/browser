@@ -163,7 +163,7 @@ pub fn collect_render_data_from_layout<'html>(
         scroll_offset: ScrollOffset,
         parent_visible: bool,
     ) {
-        let Some(node) = &renderer.layout_tree.nodes[node_id.index()] else {
+        let Some(Some(node)) = &renderer.layout_tree.nodes.get(node_id.index()) else {
             return;
         };
 
