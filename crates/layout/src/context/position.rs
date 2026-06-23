@@ -80,18 +80,15 @@ impl PositionContext {
             ) {
                 layout_node.insert_child(node);
 
-                if layout_node.layout_id.index() == 3 {
-                    let box_model = BoxModel::from(&layout_node);
-                    let height = BlockLayout::calculate_height(
-                        &input.box_tree[layout_node.layout_id].style,
-                        &box_model,
-                        size.height,
-                        size.height,
-                    );
+                let box_model = BoxModel::from(&layout_node);
+                let height = BlockLayout::calculate_height(
+                    &input.box_tree[layout_node.layout_id].style,
+                    &box_model,
+                    size.height,
+                    size.height,
+                );
 
-                    layout_node.dimensions.height = layout_node.dimensions.height.max(height);
-                }
-
+                layout_node.dimensions.height = layout_node.dimensions.height.max(height);
                 layout_tree.content_width = layout_tree.content_width.max(size.width);
                 layout_tree.content_height = layout_tree.content_height.max(size.height);
             }
