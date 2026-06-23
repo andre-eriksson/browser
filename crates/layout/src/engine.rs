@@ -231,6 +231,6 @@ impl LayoutTree {
             Self::shift_y_recursively(nodes, child_id, delta);
         }
 
-        nodes.insert(id.index(), Some(node));
+        nodes[id.index()] = Some(node);
     }
 }
