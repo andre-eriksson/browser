@@ -110,8 +110,4 @@ impl FloatContext {
             },
         }
     }
-
-    pub fn has_floats(&self) -> bool {
-        !(self.left_floats.is_empty() && self.right_floats.is_empty())
-    }
 }

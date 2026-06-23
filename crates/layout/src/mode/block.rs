@@ -129,12 +129,7 @@ impl BlockLayout {
             ctx.set_positioned_containing_block(rect);
         }
 
-        let mut child_start_y = if float_ctx.has_floats() {
-            ctx.containing_block().y
-        } else {
-            ctx.containing_block().y + ctx.cursor().y
-        };
-        child_start_y = float_ctx.clear_y(style.clear, style.writing_mode, child_start_y);
+        let child_start_y = ctx.containing_block().y + ctx.cursor().y;
 
         let mut child_ctx = BlockChildContext {
             layout_ctx: ctx.child_context(
@@ -174,7 +169,10 @@ impl BlockLayout {
         );
 
         let node_y = Self::calculate_start_y(style, ctx);
-        let node_dimensions = Rect::new(ctx.cursor().x, node_y, width, content_height);
+        let y_adj = float_ctx.clear_y(style.clear, style.writing_mode, node_y);
+        let delta_y = y_adj - node_y;
+
+        let node_dimensions = Rect::new(ctx.cursor().x, y_adj, width, content_height);
 
         float_ctx.add_float(node_dimensions, style);
 
@@ -194,7 +192,11 @@ impl BlockLayout {
 
         nodes[layout_id.index()] = Some(node);
 
-        ctx.cursor().y += content_height + box_model.padding.vertical() + box_model.border.vertical();
+        ctx.cursor().y += delta_y;
+
+        if matches!(style.float, Float::None) {
+            ctx.cursor().y += content_height + box_model.padding.vertical() + box_model.border.vertical();
+        }
 
         Some((*layout_id, Size::new(width, content_height)))
     }
