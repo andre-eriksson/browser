@@ -48,9 +48,7 @@ impl Geometry {
     }
 
     pub fn has_bottom_fence(style: &ComputedStyle, containing_width: f64) -> bool {
-        style.padding_bottom.to_px(containing_width) > 0.0
-            || style.border_bottom_width > 0.0
-            || style.height.is_defined()
+        style.padding_bottom.to_px(containing_width) > 0.0 || style.border_bottom_width > 0.0
     }
 
     /// Resolve margin values to pixels
@@ -111,7 +109,7 @@ impl Geometry {
                 (MarginValue::Auto, MarginValue::Auto) => containing_width,
                 (MarginValue::Auto, MarginValue::Px(px)) => containing_width - px,
                 (MarginValue::Px(px), MarginValue::Auto) => containing_width - px,
-                (MarginValue::Px(left_px), MarginValue::Px(right_px)) => containing_width - left_px - right_px,
+                (MarginValue::Px(left_px), MarginValue::Px(right_px)) => containing_width - (left_px + right_px),
             },
             if max_width == 0.0 && style.width == ComputedSize::Auto {
                 f64::INFINITY

@@ -1,6 +1,7 @@
 use css_display::LayoutNodeId;
 use css_style::{ComputedSize, ComputedStyle};
 use html_dom::NodeId;
+use tracing::{Level, enabled, trace};
 
 use crate::{
     LayoutInput, LayoutNode, Margin, Rect,
@@ -15,7 +16,7 @@ use crate::{
             whitespace::canonicalize_whitespace,
         },
     },
-    primitives::{SideOffset, Size},
+    primitives::SideOffset,
 };
 
 mod collection;
@@ -126,7 +127,9 @@ impl InlineLayout {
         position_ctx: &mut PositionContext,
         inline_ctx: InlineContext,
         float_ctx: &mut FloatContext,
-    ) -> (Vec<LayoutNodeId>, Size) {
+    ) -> (Vec<LayoutNodeId>, Vec<Rect>, Rect) {
+        let mut node_container = inline_ctx.containing_block;
+        let mut node_dimensions = Vec::with_capacity(items.len());
         let mut line = LineBoxBuilder::new(
             inline_ctx.containing_block.width,
             inline_ctx.containing_block.x,
@@ -142,6 +145,10 @@ impl InlineLayout {
         };
 
         for item in items {
+            if enabled!(Level::TRACE) {
+                trace!(%item)
+            }
+
             match item {
                 InlineItem::TextRun(text) => {
                     layout_text(nodes, &mut inline_layout_ctx, float_ctx, input.text, &mut line, text);
@@ -240,13 +247,19 @@ impl InlineLayout {
                         float_ctx,
                         Some(*line_height_px),
                     );
+
+                    node_dimensions.push(Rect::new(line.line_box.x, line.line_box.y, 0.0, *line_height_px));
+
+                    node_container.height = node_container
+                        .height
+                        .max(line.line_box.y - node_container.y + line_height_px);
                 }
             }
         }
 
         line.close_active_decorations(&mut inline_layout_ctx.inline_box_stack);
 
-        let (_, line_height) = line.line_box.finish(
+        let line_result = line.line_box.finish(
             nodes,
             float_ctx,
             inline_ctx.containing_block.x,
@@ -255,12 +268,14 @@ impl InlineLayout {
             input.text.last_writing_mode,
         );
 
-        let total_size = Size::new(
-            inline_ctx.containing_block.width,
-            inline_layout_ctx.current_y + line_height - inline_ctx.containing_block.y,
-        );
+        Self::finalize_fragment_positions(nodes, &inline_layout_ctx.ids);
 
-        (inline_layout_ctx.ids, total_size)
+        node_dimensions.extend(line_result.node_dimensions);
+
+        node_container.height = inline_layout_ctx.current_y + line_result.line_height - inline_ctx.containing_block.y;
+        node_container.width = node_container.width.max(line_result.container.width);
+
+        (inline_layout_ctx.ids, node_dimensions, node_container)
     }
 
     fn auto_inline_flow_root_width(
@@ -290,6 +305,23 @@ impl InlineLayout {
         }
 
         right
+    }
+
+    fn finalize_fragment_positions(nodes: &mut [Option<LayoutNode>], ids: &[LayoutNodeId]) {
+        let mut seen = std::collections::HashSet::with_capacity(ids.len());
+        for &id in ids {
+            if !seen.insert(id) {
+                continue; // guard against double-conversion if an id was pushed twice
+            }
+            let Some(node) = nodes[id.index()].as_mut() else {
+                continue;
+            };
+            let (dx, dy) = (node.dimensions.x, node.dimensions.y);
+            for frag in &mut node.text_fragments {
+                frag.size.x -= dx;
+                frag.size.y -= dy;
+            }
+        }
     }
 }
 

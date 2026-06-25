@@ -12,25 +12,18 @@ impl PixelRepr for LineHeight {
         abs_ctx: &AbsoluteContext,
     ) -> Result<f64, String> {
         Ok(match self {
-            Self::Normal => style_ctx.map_or(abs_ctx.root_font_size * abs_ctx.root_line_height_multiplier, |ctx| {
-                ctx.font_size * abs_ctx.root_line_height_multiplier
-            }),
-            Self::Number(num) => style_ctx.map_or(abs_ctx.root_font_size * num, |ctx| ctx.font_size * num),
+            Self::Normal => abs_ctx.root_line_height_multiplier,
+            Self::Number(num) => num,
             Self::Length(len) => len.to_px(rel_type, style_ctx, abs_ctx)?,
-            Self::Percentage(pct) => {
-                style_ctx.map_or(abs_ctx.root_font_size * pct.as_fraction(), |ctx| ctx.font_size * pct.as_fraction())
-            }
+            Self::Percentage(pct) => abs_ctx.root_line_height_multiplier * pct.as_fraction(),
             Self::Calc(expr) => {
                 let kind = expr.into_sum().kind();
 
                 match kind {
                     Ok(CalcKind::Length(len)) => len.to_px(rel_type, style_ctx, abs_ctx)?,
-                    Ok(CalcKind::Percentage(pct)) => style_ctx
-                        .map_or(abs_ctx.root_font_size * pct.as_fraction(), |ctx| ctx.font_size * pct.as_fraction()),
-                    Ok(CalcKind::Number(num)) => {
-                        style_ctx.map_or(abs_ctx.root_font_size * num, |ctx| ctx.font_size * num)
-                    }
-                    _ => LineHeight::Normal.to_px(rel_type, style_ctx, abs_ctx)?,
+                    Ok(CalcKind::Percentage(pct)) => abs_ctx.root_line_height_multiplier * pct.as_fraction(),
+                    Ok(CalcKind::Number(num)) => num,
+                    _ => abs_ctx.root_line_height_multiplier,
                 }
             }
         })

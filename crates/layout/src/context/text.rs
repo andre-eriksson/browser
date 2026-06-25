@@ -73,7 +73,7 @@ impl TextContext {
         max_width: f64,
     ) -> (Text, Option<&'text str>) {
         // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
-        let line_height_px = text_description.line_height.max(1.0);
+        let line_height_px = text_description.line_height.max(0.1) * text_description.font_size_px;
 
         let metrics = Metrics::new(text_description.font_size_px as f32, line_height_px as f32);
         let family = Self::resolve_font_family(text_description.font_family);
@@ -124,7 +124,7 @@ impl TextContext {
 
     /// Extract text metrics from an already-shaped buffer.
     fn extract_text_metrics(buffer: &Buffer, text_description: &TextDescription, text: &str) -> Text {
-        let line_height_px = text_description.line_height.max(1.0);
+        let line_height_px = text_description.line_height.max(0.1) * text_description.font_size_px;
         let preserve_whitespace = matches!(text_description.whitespace, Whitespace::Pre | Whitespace::PreWrap);
         let is_whitespace_only = text.trim().is_empty() && !preserve_whitespace;
 
@@ -210,7 +210,7 @@ mod tests {
         let mut text_ctx = TextContext::default();
         let text_desc = TextDescription {
             whitespace: &Whitespace::Normal,
-            line_height: 16.0,
+            line_height: 1.2,
             font_family: &FontFamily::default(),
             font_weight: 400,
             font_size_px: 16.0,

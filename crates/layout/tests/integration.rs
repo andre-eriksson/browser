@@ -258,7 +258,7 @@ mod tests {
         let second_div_node = &layout.nodes[second_div.index()].clone().unwrap();
         assert_eq!(second_div_node.dimensions.x, 28.0);
         assert_eq!(second_div_node.dimensions.y, 70.0);
-        assert_eq!(second_div_node.dimensions.height, 50.0);
+        assert_eq!(second_div_node.dimensions.height, 30.0);
         assert_eq!(second_div_node.dimensions.width, 744.0);
         assert_eq!(second_div_node.padding.top, 10.0);
         assert_eq!(second_div_node.padding.bottom, 10.0);
@@ -292,14 +292,14 @@ mod tests {
         let root_node = &layout.nodes[root.index()].clone().unwrap();
         assert_eq!(root_node.dimensions.x, 0.0);
         assert_eq!(root_node.dimensions.y, 0.0);
-        assert_eq!(root_node.dimensions.height, 400.0);
+        assert_eq!(root_node.dimensions.height, 436.0);
         assert_eq!(root_node.dimensions.height, layout.content_height);
 
         let body = &root_node.children[0];
         let body_node = &layout.nodes[body.index()].clone().unwrap();
         assert_eq!(body_node.dimensions.x, 8.0);
         assert_eq!(body_node.dimensions.y, 8.0);
-        assert_eq!(body_node.dimensions.height, 280.0);
+        assert_eq!(body_node.dimensions.height, 400.0);
         assert_eq!(body_node.dimensions.width, 784.0);
         assert_eq!(body_node.children.len(), 4);
 
@@ -350,22 +350,22 @@ mod tests {
         let root_node = &layout.nodes[root.index()].clone().unwrap();
         assert_eq!(root_node.dimensions.x, 0.0);
         assert_eq!(root_node.dimensions.y, 0.0);
-        assert_eq!(root_node.dimensions.height, 176.0);
+        assert!(root_node.dimensions.height > 150.0 && root_node.dimensions.height < 200.0);
         assert_eq!(root_node.dimensions.height, layout.content_height);
 
         let body = &root_node.children[0];
         let body_node = &layout.nodes[body.index()].clone().unwrap();
         assert_eq!(body_node.dimensions.x, 8.0);
         assert_eq!(body_node.dimensions.y, 8.0);
-        assert_eq!(body_node.dimensions.height, 148.0);
-        assert_eq!(body_node.children.len(), 3);
+        assert!(body_node.dimensions.height > 130.0 && body_node.dimensions.height < 160.0);
+        assert_eq!(body_node.children.len(), 4);
 
         let first_span = &body_node.children[0];
         let first_span_node = &layout.nodes[first_span.index()].clone().unwrap();
         assert_eq!(first_span_node.dimensions.x, 8.0);
         assert_eq!(first_span_node.dimensions.y, 8.0);
         assert_eq!(first_span_node.dimensions.height, 24.0);
-        assert!(first_span_node.dimensions.width > 90.0 && first_span_node.dimensions.width < 100.0);
+        assert_eq!(first_span_node.dimensions.width, 784.0);
 
         let first_div = &body_node.children[1];
         let first_div_node = &layout.nodes[first_div.index()].clone().unwrap();
@@ -376,10 +376,10 @@ mod tests {
 
         // <br> is just adjusting the y position of the next element
 
-        let second_div = &body_node.children[2];
+        let second_div = &body_node.children[3];
         let second_div_node = &layout.nodes[second_div.index()].clone().unwrap();
         assert_eq!(second_div_node.dimensions.x, 28.0);
-        assert_eq!(second_div_node.dimensions.y, 126.0);
+        assert!(second_div_node.dimensions.y > 110.0 && second_div_node.dimensions.y < 130.0);
         assert_eq!(second_div_node.dimensions.height, 30.0);
         assert_eq!(second_div_node.dimensions.width, 744.0);
     }

@@ -53,21 +53,18 @@ pub fn layout_text<'node>(
         let segments: Vec<&str> = text.content.split('\n').collect();
 
         for (seg_idx, segment) in segments.iter().enumerate() {
-            if !segment.is_empty() {
-                layout_text_segment(
-                    nodes,
-                    ctx,
-                    text_ctx,
-                    float_ctx,
-                    &TextInput {
-                        content: segment,
-                        layout_id: *text.layout_id,
-                        node_id: *text.node_id,
-                        style: text.style,
-                        desc: &text_desc,
-                    },
-                    line,
-                );
+            let input = TextInput {
+                content: segment,
+                layout_id: *text.layout_id,
+                node_id: *text.node_id,
+                style: text.style,
+                desc: &text_desc,
+            };
+
+            if segment.is_empty() {
+                flush_newline_marker(nodes, line, &input);
+            } else {
+                layout_text_segment(nodes, ctx, text_ctx, float_ctx, &input, line);
             }
 
             if seg_idx < segments.len() - 1 {
@@ -93,12 +90,6 @@ pub fn layout_text<'node>(
         );
 
         ctx.ids.push(*text.layout_id);
-    }
-
-    if let Some(mut node) = std::mem::take(&mut nodes[text.layout_id.index()]) {
-        recompute_bounds(&mut node);
-
-        nodes[text.layout_id.index()] = Some(node);
     }
 }
 
@@ -196,22 +187,26 @@ fn flush_fragment<'node>(
         .add_fragment(text.layout_id, idx, text.style, &mut node.text_fragments[idx].size, height, 0.0);
 }
 
-fn recompute_bounds(node: &mut LayoutNode) {
-    let Some(first) = node.text_fragments.first() else {
-        return;
+fn flush_newline_marker<'node>(nodes: &mut [Option<LayoutNode>], line: &mut LineBoxBuilder<'node>, text: &TextInput) {
+    let line_height = text.style.line_height * text.style.font_size;
+    let node = nodes[text.layout_id.index()].get_or_insert_with(|| {
+        LayoutNode::builder(text.layout_id)
+            .colors(LayoutColors::text_only(text.style.color))
+            .cursor(text.style.cursor)
+            .node_id(text.node_id)
+            .build()
+    });
+
+    let fragment = TextFragment {
+        size: Rect::new(0.0, 0.0, 0.0, line_height),
+        buffers: Vec::new(),
+
+        #[cfg(debug_assertions)]
+        debug_content: String::new(),
     };
+    let idx = node.text_fragments.len();
+    node.text_fragments.push(fragment);
 
-    let mut min_x = first.size.x;
-    let mut min_y = first.size.y;
-    let mut max_x = first.size.x + first.size.width;
-    let mut max_y = first.size.y + first.size.height;
-
-    for f in &node.text_fragments[1..] {
-        min_x = min_x.min(f.size.x);
-        min_y = min_y.min(f.size.y);
-        max_x = max_x.max(f.size.x + f.size.width);
-        max_y = max_y.max(f.size.y + f.size.height);
-    }
-
-    node.dimensions = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
+    line.line_box
+        .add_fragment(text.layout_id, idx, text.style, &mut node.text_fragments[idx].size, line_height, 0.0);
 }

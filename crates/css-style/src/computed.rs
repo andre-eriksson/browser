@@ -485,7 +485,7 @@ impl Default for ComputedStyle {
             justify_items: JustifyItems::default(),
             justify_self: JustifySelf::default(),
             left: ComputedMargin::Auto,
-            line_height: 1.5 * 16.0,
+            line_height: 1.2,
             margin_bottom: 0.0.into(),
             margin_left: 0.0.into(),
             margin_right: 0.0.into(),

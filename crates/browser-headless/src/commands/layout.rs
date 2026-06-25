@@ -33,6 +33,7 @@ pub fn cmd_layout(engine: &mut HeadlessEngine) -> Result<(), String> {
     };
 
     println!("Layout Tree ({}x{}):", layout.content_width, layout.content_height);
+
     for node_id in &layout.root_nodes {
         print_layout_node(layout, node_id, 0);
     }

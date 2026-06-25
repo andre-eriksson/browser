@@ -6,7 +6,7 @@ use crate::{
         block::{BlockContext, BlockLayout},
         inline::{InlineContext, InlineLayout},
     },
-    primitives::{Rect, Size},
+    primitives::Rect,
 };
 use css_display::{BoxTree, LayoutNodeId};
 use css_style::ComputedStyle;
@@ -142,7 +142,7 @@ impl LayoutTree {
             }
         };
 
-        let (nodes, nodes_size) = match mode {
+        let (nodes, _, node_container) = match mode {
             LayoutMode::Inline => {
                 let inline_items =
                     InlineLayout::collect_inline_items_from_node(viewport, input, style, &box_node.layout_id);
@@ -175,7 +175,7 @@ impl LayoutTree {
                     return;
                 };
 
-                (vec![node], Size::new(size.width, size.height))
+                (vec![node], vec![Rect::new(0.0, 0.0, size.width, size.height)], Rect::default())
             }
         };
 
@@ -183,7 +183,7 @@ impl LayoutTree {
             return;
         }
 
-        let new_height = nodes_size.height;
+        let new_height = node_container.height;
         let delta = new_height - old_height;
 
         // TODO: Replace a range of nodes depends on inline and such.
@@ -198,9 +198,7 @@ impl LayoutTree {
             };
 
             let style = &*input.box_tree[ancestor_id].style;
-
             let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
-
             let changed_child_idx = node.children.iter().position(|child| *child == prev_id);
 
             if let Some(idx) = changed_child_idx {

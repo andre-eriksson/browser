@@ -120,7 +120,7 @@ fn render_node(node: &LayoutNode, image_ctx: &ImageContext, renderer: &mut HtmlR
         for text in &fragment.buffers {
             let text_block = TextBlockInfo::from_arc_buffer(
                 text,
-                fragment.size.x as f32,
+                (node.dimensions.x + fragment.size.x) as f32,
                 (node.dimensions.y + fragment.size.y) as f32,
                 node.colors.color,
             );

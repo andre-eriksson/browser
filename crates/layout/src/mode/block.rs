@@ -1,6 +1,7 @@
 use css_display::LayoutNodeId;
 use css_style::{ComputedSize, ComputedStyle, Position};
 use css_values::display::Float;
+use tracing::{Level, enabled, trace};
 
 use crate::{
     LayoutColors, LayoutNode, Rect,
@@ -10,7 +11,6 @@ use crate::{
         LayoutMode,
         inline::{InlineContext, InlineLayout},
     },
-    primitives::Size,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -41,31 +41,29 @@ impl MarginCollapsing {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct BlockContext {
-    pub defer_top_margin: bool,
+    pub top_collapsed: bool,
+    pub bottom_collapsed: bool,
     pub collapsed_margin: MarginCollapsing,
-    pub deferred_top_margin: Option<MarginCollapsing>,
 }
 
-impl BlockContext {
-    pub fn new() -> Self {
-        Self {
-            defer_top_margin: false,
-            collapsed_margin: MarginCollapsing {
-                max_positive: 0.0,
-                max_negative: 0.0,
-            },
-            deferred_top_margin: None,
-        }
-    }
-}
-
+#[derive(Debug)]
 struct BlockChildContext {
     pub layout_ctx: LayoutContext,
     pub block_ctx: BlockContext,
-    pub collapse_first_child_top: bool,
 }
+
+#[derive(Debug, Clone, Default)]
+struct ChildLayoutResult {
+    node_ids: Vec<LayoutNodeId>,
+    _node_dimensions: Vec<Rect>,
+
+    /// The container of the nodes, i.e., the `X` and `Y` are the initial points
+    /// and the `width` and `height` are the max, for easier access.
+    node_container: Rect,
+}
+
 pub struct BlockLayout;
 
 impl BlockLayout {
@@ -82,9 +80,16 @@ impl BlockLayout {
         position_ctx: &mut PositionContext,
         current_block: &mut BlockContext,
         float_ctx: &mut FloatContext,
-    ) -> Option<(LayoutNodeId, Size)> {
+    ) -> Option<(LayoutNodeId, Rect)> {
         let box_node = &input.box_tree[layout_id];
         let style = &*box_node.style;
+
+        if enabled!(Level::TRACE)
+            && let Some(node_id) = box_node.node_id
+            && let Some(element) = &input.dom[node_id].data.as_element()
+        {
+            trace!(%element.tag, "↓ Top-down")
+        }
 
         if style.position.is_out_of_flow() && !ctx.is_deferred() {
             let containing_block = if style.position == Position::Fixed {
@@ -93,7 +98,7 @@ impl BlockLayout {
                 None
             };
 
-            position_ctx.defer(layout_id, containing_block, current_block.clone());
+            position_ctx.defer(layout_id, containing_block, *current_block);
 
             return None;
         }
@@ -101,23 +106,25 @@ impl BlockLayout {
         let box_model = Geometry::resolve_box_model(style, ctx.containing_block().width);
         let establishes_bfc = FormattingContext::establishes_bfc(box_node, parent_style, style, input.dom);
 
-        let width = Self::calculate_width(style, ctx.containing_block().width, &box_model);
+        let width = Self::calculate_width(style, ctx.containing_block().width);
+
         let x = Self::calculate_x(style, ctx, &box_model, width);
         ctx.cursor().x = x;
 
         let has_top_fence = Geometry::has_top_fence(style, ctx.containing_block().width);
+        let has_bottom_fence = Geometry::has_bottom_fence(style, ctx.containing_block().width);
+
         let has_block_child = box_node
             .children
             .iter()
             .any(|child| matches!(LayoutMode::new(&input.box_tree[child]), LayoutMode::Block));
-        let can_collapse_top_with_child = has_block_child && !has_top_fence && !establishes_bfc;
 
-        current_block.deferred_top_margin = None;
-
-        Self::apply_top_margin(has_top_fence, can_collapse_top_with_child, current_block, &box_model, ctx);
+        // MARGIN TOP
+        let collapsed_top = Self::apply_top_margin(style, has_block_child, has_top_fence, current_block, &box_model);
+        ctx.cursor().y += collapsed_top;
 
         let avaliable_child_height =
-            Geometry::calculate_height(style, &box_model, ctx.containing_block().height, ctx.containing_block().height);
+            Geometry::calculate_height(style, &box_model, f64::INFINITY, ctx.containing_block().height);
 
         if style.position == Position::Static {
             ctx.set_positioned_containing_block(ctx.positioned_containing_block());
@@ -130,49 +137,91 @@ impl BlockLayout {
         }
 
         let child_start_y = ctx.containing_block().y + ctx.cursor().y;
-
         let mut child_ctx = BlockChildContext {
             layout_ctx: ctx.child_context(
                 Rect {
-                    x,
-                    y: child_start_y,
-                    width,
-                    height: avaliable_child_height,
+                    x: x + box_model.padding.left + box_model.border.left,
+                    y: child_start_y + box_model.padding.top + box_model.border.top,
+                    width: width - (box_model.padding.horizontal() + box_model.border.horizontal()),
+                    height: avaliable_child_height - (box_model.padding.vertical() + box_model.border.vertical()),
                 },
                 ctx.is_deferred(),
             ),
-            block_ctx: BlockContext::new(),
-            collapse_first_child_top: can_collapse_top_with_child,
+            block_ctx: *current_block,
         };
 
-        let (ids, deferred_child_top, _) =
+        let child_layout_result =
             Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx, float_ctx);
 
-        let applied_top_margin = Self::resolve_deferred_top(
-            nodes,
-            can_collapse_top_with_child,
+        if enabled!(Level::TRACE)
+            && let Some(node_id) = box_node.node_id
+            && let Some(element) = &input.dom[node_id].data.as_element()
+        {
+            trace!(%element.tag, "↑ Bottom-up")
+        }
+
+        let node_y = if style.height.is_auto()
+            && has_block_child
+            // && let Some(child_y) = child_ctx.block_ctx.resolved_top_y
+            && !current_block.top_collapsed
+            && !establishes_bfc
+        {
+            child_layout_result.node_container.y
+        } else {
+            Self::calculate_y(style, ctx)
+        };
+
+        let collapsed_bottom = Self::apply_bottom_margin(
+            establishes_bfc,
+            has_bottom_fence,
+            &mut child_ctx.block_ctx,
             current_block,
-            deferred_child_top,
-            &ids,
-            ctx,
-        );
-
-        let can_collapse_bottom = !Geometry::has_bottom_fence(style, ctx.containing_block().width) && !establishes_bfc;
-
-        Self::apply_bottom_margin(can_collapse_bottom, &mut child_ctx.block_ctx, current_block, &box_model);
-
-        let content_height = Self::calculate_height(
-            style,
             &box_model,
-            (child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0),
-            ctx.containing_block().height,
         );
 
-        let node_y = Self::calculate_start_y(style, ctx);
-        let y_adj = float_ctx.clear_y(style.clear, style.writing_mode, node_y);
-        let delta_y = y_adj - node_y;
+        let raw_height = if style.height.is_auto() {
+            // TODO: MIN-WIDTH
+            // if let Some(cd) = child_size {
+            //     if current_block.resolved_bottom_y.is_some() || establishes_bfc {
+            //         cd.y + cd.height + collapsed_bottom - (box_model.padding.top + box_model.border.top + node_y)
+            //     } else {
+            //         (cd.y + cd.height) - node_y
+            //     }
+            // } else {
+            //     0.0
+            // }
 
-        let node_dimensions = Rect::new(ctx.cursor().x, y_adj, width, content_height);
+            if current_block.bottom_collapsed || establishes_bfc {
+                child_layout_result.node_container.height + collapsed_bottom + child_layout_result.node_container.y
+                    - (box_model.padding.top + box_model.border.top + node_y)
+            } else {
+                child_layout_result.node_container.height + collapsed_bottom
+            }
+
+            // if child_layout_result.node_container.y != node_y {
+            //     child_layout_result.node_container.height + collapsed_bottom + child_layout_result.node_container.y
+            // } else {
+            //     child_layout_result.node_container.height + collapsed_bottom
+            // }
+        } else {
+            Self::calculate_height(
+                style,
+                &box_model,
+                // (child_ctx.layout_ctx.cursor().y - applied_top_margin).max(0.0),
+                child_layout_result.node_container.height,
+                ctx.containing_block().height,
+            )
+        }
+        .max(0.0);
+
+        if matches!(style.float, Float::None) {
+            ctx.cursor().y += raw_height;
+        }
+
+        let y_adj = float_ctx.clear_y(style.clear, style.writing_mode, node_y);
+        ctx.cursor().y += y_adj - node_y;
+
+        let node_dimensions = Rect::new(ctx.cursor().x, y_adj, width, raw_height);
 
         float_ctx.add_float(node_dimensions, style);
 
@@ -180,7 +229,7 @@ impl BlockLayout {
         let node = LayoutNode::builder(*layout_id)
             .block_formatting_context(establishes_bfc)
             .border(box_model.border)
-            .children(ids)
+            .children(child_layout_result.node_ids)
             .colors(colors)
             .cursor(style.cursor)
             .dimensions(node_dimensions)
@@ -192,13 +241,16 @@ impl BlockLayout {
 
         nodes[layout_id.index()] = Some(node);
 
-        ctx.cursor().y += delta_y;
+        let final_dimension_with_padding = Rect::new(
+            ctx.cursor().x,
+            y_adj,
+            width + box_model.padding.horizontal() + box_model.border.horizontal(),
+            raw_height + box_model.padding.vertical() + box_model.border.vertical(),
+        );
 
-        if matches!(style.float, Float::None) {
-            ctx.cursor().y += content_height + box_model.padding.vertical() + box_model.border.vertical();
-        }
+        ctx.cursor().y += box_model.padding.vertical() + box_model.border.vertical();
 
-        Some((*layout_id, Size::new(width, content_height)))
+        Some((*layout_id, final_dimension_with_padding))
     }
 
     fn layout_children<'a>(
@@ -209,13 +261,17 @@ impl BlockLayout {
         position_ctx: &mut PositionContext,
         child_ctx: &mut BlockChildContext,
         float_ctx: &mut FloatContext,
-    ) -> (Vec<LayoutNodeId>, Option<MarginCollapsing>, Option<Size>) {
-        let mut size = None;
+    ) -> ChildLayoutResult {
+        let mut node_dimensions = Vec::with_capacity(children.len());
         let mut node_ids = Vec::with_capacity(children.len());
-        let mut deferred_child_top = None;
+        let mut node_container: Option<Rect> = None;
 
         if children.is_empty() {
-            return (node_ids, deferred_child_top, size);
+            return ChildLayoutResult {
+                node_ids,
+                _node_dimensions: node_dimensions,
+                node_container: Rect::default(),
+            };
         }
 
         match LayoutMode::new(&input.box_tree[&children[0]]) {
@@ -229,36 +285,22 @@ impl BlockLayout {
 
                 let inline_ctx = InlineContext::new(child_ctx.layout_ctx.containing_block());
 
-                let (ids, nodes_size) =
+                let (ids, nodes_size, container) =
                     InlineLayout::layout(nodes, input, &inline_items, position_ctx, inline_ctx, float_ctx);
 
-                child_ctx.layout_ctx.cursor().y += nodes_size.height;
+                // child_ctx.layout_ctx.cursor().y += nodes_size.height;
                 node_ids.extend(ids);
-                size = if let Some(s) = size {
-                    Some(s.max(nodes_size))
+                node_dimensions.extend(nodes_size);
+                if let Some(nc) = &mut node_container {
+                    nc.width = nc.width.max(container.width);
+                    nc.height = nc.height.max(container.y - nc.y + container.height);
                 } else {
-                    Some(nodes_size)
+                    node_container = Some(container);
                 }
             }
             _ => {
                 // TODO: Handle Flex and Grid.
                 for child_id in children {
-                    let is_first = node_ids.is_empty();
-                    let defer = child_ctx.collapse_first_child_top && is_first;
-                    child_ctx.block_ctx.defer_top_margin = defer;
-
-                    if is_first {
-                        let box_node = &input.box_tree[child_id];
-                        let style = &*box_node.style;
-
-                        if Geometry::has_top_fence(style, child_ctx.layout_ctx.containing_block().width) {
-                            let box_model =
-                                Geometry::resolve_box_model(style, child_ctx.layout_ctx.containing_block().width);
-                            let flushed = child_ctx.block_ctx.collapsed_margin.flush();
-                            child_ctx.layout_ctx.cursor().y += flushed + box_model.padding.top + box_model.border.top;
-                        }
-                    }
-
                     if let Some((node_id, node_size)) = BlockLayout::layout(
                         nodes,
                         child_id,
@@ -269,38 +311,37 @@ impl BlockLayout {
                         &mut child_ctx.block_ctx,
                         float_ctx,
                     ) {
-                        if defer {
-                            deferred_child_top = child_ctx.block_ctx.deferred_top_margin.take();
-                        }
                         node_ids.push(node_id);
+                        node_dimensions.push(node_size);
 
-                        size = if let Some(s) = size {
-                            Some(s.max(node_size))
+                        if let Some(nc) = &mut node_container {
+                            nc.width = nc.width.max(node_size.width);
+                            nc.height = nc.height.max(node_size.y - nc.y + node_size.height);
                         } else {
-                            Some(node_size)
+                            node_container = Some(node_size);
                         }
                     }
                 }
             }
         }
 
-        (node_ids, deferred_child_top, size)
-    }
+        let final_container = node_container.unwrap_or_default();
 
-    fn offset_node_y(nodes: &mut Vec<Option<LayoutNode>>, id: &LayoutNodeId, delta_y: f64) {
-        let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
-            return;
-        };
+        // debug_assert_eq!(
+        //     node_dimensions
+        //         .iter()
+        //         .fold((0.0, 0.0), |acc: (f64, f64), nd| { (acc.0.max(nd.height), acc.1.max(nd.height)) }),
+        //     (final_container.height, final_container.width)
+        // );
 
-        node.dimensions.y += delta_y;
-        for child_id in &node.children {
-            Self::offset_node_y(nodes, child_id, delta_y);
+        ChildLayoutResult {
+            node_ids,
+            _node_dimensions: node_dimensions,
+            node_container: final_container,
         }
-
-        nodes[id.index()] = Some(node);
     }
 
-    fn calculate_width(style: &ComputedStyle, container_width: f64, box_model: &BoxModel) -> f64 {
+    fn calculate_width(style: &ComputedStyle, container_width: f64) -> f64 {
         if style.position.is_out_of_flow() {
             let has_left = !style.left.is_auto() && style.left.to_px(container_width) > 0.0;
             let has_right = !style.right.is_auto() && style.right.to_px(container_width) > 0.0;
@@ -312,11 +353,8 @@ impl BlockLayout {
         }
 
         let specified_width = Geometry::calculate_width(style, container_width);
-        if style.width == ComputedSize::Auto {
-            (specified_width - box_model.padding.horizontal() - box_model.border.horizontal()).max(0.0)
-        } else {
-            specified_width
-        }
+
+        specified_width.max(0.0)
     }
 
     fn calculate_x(style: &ComputedStyle, ctx: &LayoutContext, box_model: &BoxModel, content_width: f64) -> f64 {
@@ -358,7 +396,7 @@ impl BlockLayout {
         normal_x
     }
 
-    fn calculate_start_y(style: &ComputedStyle, ctx: &LayoutContext) -> f64 {
+    fn calculate_y(style: &ComputedStyle, ctx: &LayoutContext) -> f64 {
         let normal_y = ctx.containing_block().y + ctx.cursor_ref().y;
 
         match style.position {
@@ -402,46 +440,46 @@ impl BlockLayout {
     }
 
     fn apply_top_margin(
+        style: &ComputedStyle,
+        has_block_children: bool,
         has_top_fence: bool,
-        can_collapse_top_with_child: bool,
         current_block: &mut BlockContext,
         box_model: &BoxModel,
-        ctx: &mut LayoutContext,
-    ) {
-        if has_top_fence {
-            let flushed = current_block.collapsed_margin.flush();
-            ctx.cursor().y += flushed;
-        } else {
-            current_block
-                .collapsed_margin
-                .add(box_model.margin.top.to_px());
+    ) -> f64 {
+        current_block
+            .collapsed_margin
+            .add(box_model.margin.top.to_px());
 
-            if !can_collapse_top_with_child {
-                if current_block.defer_top_margin {
-                    current_block.deferred_top_margin = Some(current_block.collapsed_margin);
-                    current_block.collapsed_margin.flush();
-                } else {
-                    let collapsed = current_block.collapsed_margin.flush();
-                    ctx.cursor().y += collapsed;
-                }
-            }
+        if has_top_fence || style.height.is_defined() || !has_block_children {
+            current_block.top_collapsed = true;
+            return current_block.collapsed_margin.flush();
         }
+
+        0.0
     }
 
+    /// Applies bottom margin changes
+    ///
+    /// * The bottom margin of an in-flow block-level element always collapses with the top margin of its next in-flow
+    ///   block-level sibling, unless that sibling has clearance.
+    ///
+    /// * The bottom margin of an in-flow block box with a 'height' of 'auto' and a 'min-height' of zero collapses
+    ///   with its last in-flow block-level child's bottom margin if the box has no bottom padding and no bottom
+    ///   border and the child's bottom margin does not collapse with a top margin that has clearance.
+    ///
+    /// * A box's own margins collapse if the 'min-height' property is zero, and it has neither top or bottom borders
+    ///   nor top or bottom padding, and it has a 'height' of either 0 or 'auto', and it does not contain a line box,
+    ///   and all of its in-flow children's margins (if any) collapse.
     fn apply_bottom_margin(
-        can_collapse_bottom: bool,
+        is_bfc: bool,
+        has_bottom_fence: bool,
         child_block: &mut BlockContext,
         current_block: &mut BlockContext,
         box_model: &BoxModel,
-    ) {
-        // The bottom margin of an in-flow block box with a 'height' of 'auto' and a 'min-height' of zero collapses
-        //   with its last in-flow block-level child's bottom margin if the box has no bottom padding and no bottom
-        //   border and the child's bottom margin does not collapse with a top margin that has clearance.
-        //
-        // A box's own margins collapse if the 'min-height' property is zero, and it has neither top or bottom borders
-        //   nor top or bottom padding, and it has a 'height' of either 0 or 'auto', and it does not contain a line box,
-        //   and all of its in-flow children's margins (if any) collapse.
-        if can_collapse_bottom {
+    ) -> f64 {
+        let collapses_with_child = !is_bfc && !has_bottom_fence;
+
+        if collapses_with_child {
             child_block
                 .collapsed_margin
                 .add(box_model.margin.bottom.to_px());
@@ -453,39 +491,13 @@ impl BlockLayout {
                 .collapsed_margin
                 .add(box_model.margin.bottom.to_px());
         }
-    }
 
-    fn resolve_deferred_top(
-        nodes: &mut Vec<Option<LayoutNode>>,
-        can_collapse_top_with_child: bool,
-        current_block: &mut BlockContext,
-        deferred_child_top: Option<MarginCollapsing>,
-        ids: &[LayoutNodeId],
-        ctx: &mut LayoutContext,
-    ) -> f64 {
-        if !can_collapse_top_with_child {
-            return 0.0;
+        if has_bottom_fence || is_bfc {
+            current_block.bottom_collapsed = true;
+            return child_block.collapsed_margin.flush();
         }
 
-        if let Some(child_top) = deferred_child_top {
-            current_block.collapsed_margin.add_collapsed(&child_top);
-        }
-
-        if current_block.defer_top_margin {
-            current_block.deferred_top_margin = Some(current_block.collapsed_margin);
-            current_block.collapsed_margin.flush();
-            return 0.0;
-        }
-
-        let collapsed = current_block.collapsed_margin.flush();
-
-        if collapsed != 0.0 {
-            for child_id in ids {
-                Self::offset_node_y(nodes, child_id, collapsed);
-            }
-        }
-        ctx.cursor().y += collapsed;
-        collapsed
+        0.0
     }
 }
 
@@ -744,14 +756,7 @@ mod tests {
             text: &mut text_ctx,
             image: &img_ctx,
         };
-        let mut block_ctx = BlockContext {
-            defer_top_margin: false,
-            collapsed_margin: MarginCollapsing {
-                max_positive: 0.0,
-                max_negative: 0.0,
-            },
-            deferred_top_margin: None,
-        };
+        let mut block_ctx = BlockContext::default();
 
         let mut nodes = vec![None; input.box_tree.nodes.len()];
 

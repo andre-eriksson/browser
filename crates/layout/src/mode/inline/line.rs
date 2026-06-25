@@ -11,11 +11,18 @@ use crate::{
     mode::inline::{ActiveInlineBox, InlineDecoration, InlineLayoutContext},
 };
 
+pub struct LineBoxResult {
+    pub line_height: f64,
+    pub node_dimensions: Vec<Rect>,
+    pub container: Rect,
+}
+
 /// A single line of inline layout, accumulating positioned `LayoutNode`s and
 /// tracking the maximum ascent/descent for vertical alignment and any active
 /// inline box decorations.
 pub struct LineBox<'node> {
     pub fragments: HashMap<LayoutNodeId, Vec<(usize, Rect)>>,
+    pub fragment_order: Vec<LayoutNodeId>,
     pub width: f64,
     pub max_ascent: f64,
     pub max_descent: f64,
@@ -28,6 +35,7 @@ impl LineBox<'_> {
     pub fn new(x: f64, y: f64) -> Self {
         Self {
             fragments: HashMap::with_capacity(4),
+            fragment_order: Vec::with_capacity(4),
             width: 0.0,
             max_ascent: 0.0,
             max_descent: 0.0,
@@ -55,12 +63,17 @@ impl LineBox<'_> {
         let margin_left = style.margin_left.to_px(self.width);
         let margin_right = style.margin_right.to_px(self.width);
 
-        let new_x = self.x + self.width + margin_left;
+        let new_x = self.width + margin_left;
         size.x = new_x;
 
         self.width += size.width + margin_left + margin_right;
+
         self.max_ascent = self.max_ascent.max(ascent);
         self.max_descent = self.max_descent.max(descent);
+
+        if !self.fragments.contains_key(&layout_id) {
+            self.fragment_order.push(layout_id);
+        }
         self.fragments
             .entry(layout_id)
             .or_default()
@@ -87,9 +100,10 @@ impl LineBox<'_> {
         container_width: f64,
         text_align: TextAlign,
         writing_mode: WritingMode,
-    ) -> (Vec<LayoutNodeId>, f64) {
+    ) -> LineBoxResult {
+        let mut container: Option<Rect> = None;
+        let mut dimensions = Vec::with_capacity(self.fragment_order.len() + self.decorations.len());
         let line_height = self.max_ascent + self.max_descent;
-        let mut final_node_ids = Vec::with_capacity(self.decorations.len() + (self.fragments.len() / 3));
 
         let (left_edge, right_edge) = float_ctx.available_width_at(self.y, container_width);
         let available_width = (right_edge - left_edge).max(0.0);
@@ -128,41 +142,71 @@ impl LineBox<'_> {
 
             let dec_width = (dec.end_x - dec.start_x).max(0.0);
             let dec_height = line_height + dec.padding.vertical() + dec.border.vertical();
-
             let dec_x = content_start_x + dec.start_x + offset_x;
             let dec_y = self.y - dec.padding.top - dec.border.top;
+            let node_dimension = Rect::new(dec_x, dec_y, dec_width, dec_height);
 
             let node = LayoutNode::builder(dec.layout_id)
-                .dimensions(Rect::new(dec_x, dec_y, dec_width, dec_height))
+                .dimensions(node_dimension)
                 .padding(dec.padding)
                 .border(dec.border)
                 .colors(LayoutColors::from(dec.style))
                 .maybe_node_id(dec.node_id)
                 .build();
 
-            final_node_ids.push(dec.layout_id);
+            Rect::<f64>::union_rect(&mut container, node_dimension);
+
+            dimensions.push(node_dimension);
             nodes[dec.layout_id.index()] = Some(node);
         }
 
-        for (id, sizes) in self.fragments.into_iter() {
+        let LineBox {
+            mut fragments,
+            fragment_order,
+            y,
+            max_ascent,
+            ..
+        } = self;
+
+        for id in fragment_order {
+            let Some(sizes) = fragments.remove(&id) else {
+                continue;
+            };
             let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
                 continue;
             };
 
             for (idx, size) in sizes {
                 // TODO: vertical-align support.
-                let new_x = content_start_x + size.x - self.x + offset_x;
-                let baseline_y = self.y + self.max_ascent;
+
+                let new_x = content_start_x + size.x + offset_x;
+                let baseline_y = y + max_ascent;
                 let new_y = baseline_y - size.height;
 
                 node.text_fragments[idx].size = Rect::new(new_x, new_y, size.width, size.height);
             }
 
-            final_node_ids.push(id);
+            let mut node_bbox: Option<Rect> = None;
+            for frag in &node.text_fragments {
+                Rect::<f64>::union_rect(&mut node_bbox, frag.size);
+            }
+            let node_bbox = node_bbox.unwrap_or_default();
+
+            node.dimensions.x = node_bbox.x;
+            node.dimensions.y = node_bbox.y;
+            node.dimensions.width = node_bbox.width;
+            node.dimensions.height = node_bbox.height;
+
+            Rect::<f64>::union_rect(&mut container, node_bbox);
+            dimensions.push(node_bbox);
             nodes[id.index()] = Some(node);
         }
 
-        (final_node_ids, line_height)
+        LineBoxResult {
+            line_height,
+            node_dimensions: dimensions,
+            container: container.unwrap_or_default(),
+        }
     }
 }
 
@@ -247,7 +291,7 @@ impl<'node> LineBoxBuilder<'node> {
         self.close_active_decorations(&mut continuing_boxes);
 
         let old_line = std::mem::replace(&mut self.line_box, LineBox::new(ctx.start_x, ctx.current_y));
-        let (_, line_height) = old_line.finish(
+        let line_result = old_line.finish(
             nodes,
             float_ctx,
             ctx.start_x,
@@ -255,7 +299,7 @@ impl<'node> LineBoxBuilder<'node> {
             text_ctx.last_text_align,
             text_ctx.last_writing_mode,
         );
-        ctx.current_y += min_line_height.map_or(line_height, |min_h| line_height.max(min_h));
+        ctx.current_y += min_line_height.map_or(line_result.line_height, |min_h| line_result.line_height.max(min_h));
         self.line_box = LineBox::new(ctx.start_x, ctx.current_y);
 
         for con_box in continuing_boxes {

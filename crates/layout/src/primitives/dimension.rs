@@ -68,8 +68,22 @@ impl<T: Add<Output = T> + PartialOrd + Copy> Rect<T> {
             height: new_h,
         }
     }
+
+    pub(crate) fn union_rect(acc: &mut Option<Rect>, r: Rect) {
+        match acc {
+            Some(a) => {
+                let min_x = a.x.min(r.x);
+                let min_y = a.y.min(r.y);
+                let max_x = (a.x + a.width).max(r.x + r.width);
+                let max_y = (a.y + a.height).max(r.y + r.height);
+                *a = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
+            }
+            None => *acc = Some(r),
+        }
+    }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Size<T = f64> {
     pub width: T,
@@ -77,27 +91,9 @@ pub struct Size<T = f64> {
 }
 
 impl<T: Add<Output = T> + PartialOrd + Copy> Size<T> {
-    #[must_use]
+    #[allow(dead_code)]
     pub const fn new(width: T, height: T) -> Self {
         Self { width, height }
-    }
-
-    pub fn max(self, other: Self) -> Self {
-        let new_w = if self.width >= other.width {
-            self.width
-        } else {
-            other.width
-        };
-        let new_h = if self.height >= other.height {
-            self.height
-        } else {
-            other.height
-        };
-
-        Self {
-            width: new_w,
-            height: new_h,
-        }
     }
 }
 
