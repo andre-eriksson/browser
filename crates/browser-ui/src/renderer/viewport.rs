@@ -29,8 +29,8 @@ fn render_node(node: &LayoutNode, image_ctx: &ImageContext, renderer: &mut HtmlR
     if border.top > 0.0 || border.right > 0.0 || border.bottom > 0.0 || border.left > 0.0 {
         let x = node.dimensions.x as f32;
         let y = node.dimensions.y as f32;
-        let w = node.dimensions.width as f32;
-        let h = node.dimensions.height as f32;
+        let h = (node.dimensions.height + node.padding.vertical()) as f32;
+        let w = (node.dimensions.width + node.padding.horizontal()) as f32;
 
         let inner_x = x + border.left as f32;
         let inner_y = y + border.top as f32;
