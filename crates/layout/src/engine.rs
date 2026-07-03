@@ -1,65 +1,30 @@
-use css_style::{ComputedStyle, Display, Position, StyleTree};
-use css_values::display::{InsideDisplay, OutsideDisplay};
-use html_dom::{DocumentRoot, NodeId};
-
 use crate::{
-    context::ImageContext,
-    layout::{LayoutContext, LayoutNode, LayoutTree},
+    LayoutNode, LayoutTree,
+    context::{FloatContext, ImageContext, LayoutContext, PositionContext, TextContext},
     mode::{
-        block::BlockLayout,
+        LayoutMode,
+        block::{BlockContext, BlockLayout},
         inline::{InlineContext, InlineLayout},
     },
-    position::PositionContext,
     primitives::Rect,
-    text::TextContext,
 };
+use css_display::{BoxTree, LayoutNodeId};
+use css_style::ComputedStyle;
+use html_dom::{DocumentRoot, NodeId};
 
-const EPSILON: f64 = 0.1;
+use tracing::trace;
 
-/// Layout mode determines how children are positioned
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum LayoutMode {
-    #[default]
-    Block,
-    Inline,
-    Flex, // TODO: implement
-    Grid, // TODO: implement
+/// Immutable references to the trees — passed everywhere, never mutated
+pub struct LayoutInput<'a> {
+    pub dom: &'a DocumentRoot,
+    pub box_tree: &'a BoxTree<'a>,
+    pub text: &'a mut TextContext,
+    pub image: &'a ImageContext,
 }
 
-impl LayoutMode {
-    pub fn new(style: &ComputedStyle) -> Option<Self> {
-        if style.display.is_none() {
-            return None;
-        }
+impl LayoutTree {
+    const EPSILON: f64 = 0.1;
 
-        if style.position.is_out_of_flow() {
-            return Some(Self::Block);
-        }
-
-        if let Display::Normal { outside, inside } = style.display {
-            if let Some(val) = inside {
-                match val {
-                    InsideDisplay::Flex => return Some(Self::Flex),
-                    InsideDisplay::Grid => return Some(Self::Grid),
-                    _ => {}
-                }
-            }
-
-            if let Some(val) = outside {
-                match val {
-                    OutsideDisplay::Block => return Some(Self::Block),
-                    OutsideDisplay::Inline => return Some(Self::Inline),
-                }
-            }
-        }
-
-        Some(Self::Block)
-    }
-}
-
-pub struct LayoutEngine;
-
-impl LayoutEngine {
     /// Compute layout for an entire style tree, using known image dimensions
     /// from `image_ctx` so that previously-decoded images are laid out at their
     /// intrinsic size rather than a placeholder.
@@ -69,337 +34,196 @@ impl LayoutEngine {
     /// [`ImageContext`], then calls this method to produce a fresh
     /// [`LayoutTree`] where the image and all of its siblings / ancestors have
     /// been repositioned correctly.
-    pub fn compute_layout(
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        viewport: Rect,
-        text_ctx: &mut TextContext,
-        image_ctx: &ImageContext,
-    ) -> LayoutTree {
+    pub fn compute_layout(input: &mut LayoutInput, viewport: Rect) -> Self {
         let mut position_ctx = PositionContext::new(viewport);
-        let mut ctx = LayoutContext::new(viewport, image_ctx, &mut position_ctx);
+        let mut float_ctx = FloatContext::new();
 
+        let mut ctx = LayoutContext::new(viewport);
         let mut total_height = 0.0f64;
         let mut max_width = 0.0f64;
-        let mut root_nodes = Vec::new();
+        let mut root_nodes = Vec::with_capacity(input.box_tree.root_nodes.len());
+        let mut nodes = vec![None; input.box_tree.nodes.len()];
 
-        for node_id in &dom_tree.root_nodes {
-            ctx.block_cursor.y = total_height;
+        for layout_id in &input.box_tree.root_nodes {
+            let mut block_ctx = BlockContext::default();
 
-            let pos_count_before = ctx.position_ctx().position_count();
-
-            let Some(mut node) = Self::layout_node(dom_tree, style_tree, node_id, &mut ctx, text_ctx) else {
+            let Some((id, size)) = BlockLayout::layout(
+                &mut nodes,
+                layout_id,
+                &ComputedStyle::default(),
+                input,
+                &mut ctx,
+                &mut position_ctx,
+                &mut block_ctx,
+                &mut float_ctx,
+            ) else {
                 continue;
             };
 
-            let top_margin = node.0.margin.top.to_px();
-            let bottom_margin = node.0.margin.bottom.to_px();
+            total_height += size.height;
+            max_width = max_width.max(size.width);
 
-            Self::offset_children_y(&mut node.0.children, top_margin);
-            ctx.position_ctx()
-                .offset_positions_since(pos_count_before, top_margin);
-
-            node.0.dimensions.height += top_margin + bottom_margin;
-
-            total_height += node.0.dimensions.height;
-            max_width = max_width.max(node.0.dimensions.width);
-
-            root_nodes.push(node.0);
+            root_nodes.push(id);
         }
 
-        for mut defered_node in ctx
-            .position_ctx()
-            .resolve_all(dom_tree, style_tree, image_ctx, text_ctx)
-        {
-            Self::offset_children_y(&mut defered_node.0.children, defered_node.0.margin.top.to_px());
-
-            total_height = total_height.max(defered_node.1.height);
-            max_width = max_width.max(defered_node.1.width);
-
-            root_nodes.push(defered_node.0);
-        }
-
-        LayoutTree {
+        let mut tree = Self {
             root_nodes,
+            nodes,
             content_height: total_height,
             content_width: max_width,
-        }
-    }
+        };
 
-    /// Recursively offset all children's y positions
-    fn offset_children_y(children: &mut [LayoutNode], offset: f64) {
-        for child in children.iter_mut() {
-            if child.position.is_out_of_flow() {
-                continue;
-            }
+        trace!("Initial layout complete, resolving deferred positions...");
+        position_ctx.resolve_all(input, &mut tree);
 
-            child.dimensions.y += offset;
-            Self::offset_children_y(&mut child.children, offset);
-        }
-    }
+        debug_assert!(
+            tree.nodes
+                .iter()
+                .flatten()
+                .is_sorted_by(|a, b| a.layout_id.index() < b.layout_id.index())
+        );
 
-    /// Compute layout for a single node and its descendants
-    pub(crate) fn layout_node(
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        node_id: &NodeId,
-        ctx: &mut LayoutContext,
-        text_ctx: &mut TextContext,
-    ) -> Option<(LayoutNode, Rect)> {
-        let style = &style_tree[node_id];
-        let _layout_mode = LayoutMode::new(style)?;
-
-        BlockLayout::layout(node_id, dom_tree, style_tree, ctx, text_ctx)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn layout_nodes(
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        node_ids: &[NodeId],
-        mode: LayoutMode,
-        parent_style: &ComputedStyle,
-        containing_block: Rect,
-        ctx: &mut LayoutContext,
-        text_ctx: &mut TextContext,
-    ) -> (Vec<LayoutNode>, Rect) {
-        match mode {
-            LayoutMode::Inline => {
-                let inline_items = InlineLayout::collect_inline_items_from_nodes(
-                    containing_block,
-                    dom_tree,
-                    style_tree,
-                    parent_style,
-                    node_ids,
-                    ctx.image_ctx(),
-                );
-                let inline_ctx = InlineContext::new(containing_block);
-
-                InlineLayout::layout(dom_tree, style_tree, &inline_items, ctx, text_ctx, inline_ctx)
-            }
-            _ => todo!("Only inline layout is supported for collections of nodes right now"),
-        }
+        tree
     }
 
     /// Relayout a single node and its ancestors, updating the layout tree in place.
     ///
     /// # Panics
     /// * If the node or any of its ancestors are not found in the layout tree, which should never happen since the layout tree is built from the DOM tree.
-    pub fn relayout_node(
-        node_id: NodeId,
+    pub fn relayout_node<'css>(
+        node_id: &NodeId,
         viewport: Rect,
         layout_tree: &mut LayoutTree,
-        style_tree: &StyleTree,
-        dom_tree: &DocumentRoot,
-        text_ctx: &mut TextContext,
-        image_ctx: &ImageContext,
+        input: &mut LayoutInput<'css>,
     ) {
-        let node = &dom_tree[node_id];
-
-        let ancestors: Vec<NodeId> = dom_tree.ancestors(node).into_iter().map(|n| n.id).collect();
-
-        let Some(&dirty_parent_id) = ancestors.first() else {
-            return;
-        };
-        let Some(parent_path) = layout_tree.find_path(dirty_parent_id) else {
-            return;
+        let Some(layout_id) = input.box_tree.dom_to_layout[node_id.index()] else {
+            panic!("Layout ID not found for node_id: {:?}", node_id);
         };
 
-        let old_layout = layout_tree.node_at(&parent_path).unwrap();
-        let old_height = old_layout.dimensions.height;
+        let Some(old_node) = &layout_tree.nodes[layout_id.index()] else {
+            panic!("Layout node not found for layout_id: {:?}", layout_id);
+        };
 
+        let box_node = &input.box_tree[&layout_id];
+
+        let ancestors: Vec<LayoutNodeId> = input
+            .box_tree
+            .ancestors(box_node)
+            .into_iter()
+            .map(|n| n.layout_id)
+            .collect();
+
+        let mut path = Vec::with_capacity(ancestors.len() + 1);
+        path.push(layout_id);
+        path.extend(ancestors);
+
+        let old_height = old_node.dimensions.height;
+
+        // TODO: Restore old contexts
         let mut position_ctx = PositionContext::new(viewport);
-        let mut ctx = LayoutContext::new(old_layout.dimensions, image_ctx, &mut position_ctx);
-        ctx.position_ctx().update_viewport(viewport);
+        let mut float_ctx = FloatContext::new();
 
-        let Some(mut new_node) = Self::layout_node(dom_tree, style_tree, &dirty_parent_id, &mut ctx, text_ctx) else {
-            return;
+        let mut ctx = LayoutContext::new(old_node.dimensions);
+
+        let style = &*box_node.style;
+        let mode = LayoutMode::new(box_node);
+
+        let containing_block = if let Some(parent) = box_node.parent_id
+            && let Some(parent_node) = &layout_tree.nodes[parent.index()]
+        {
+            parent_node.dimensions
+        } else {
+            old_node.dimensions
         };
 
-        Self::offset_children_y(&mut new_node.0.children, new_node.0.margin.top.to_px());
+        let (nodes, _, node_container) = match mode {
+            LayoutMode::Inline => {
+                let inline_items =
+                    InlineLayout::collect_inline_items_from_node(viewport, input, style, &box_node.layout_id);
 
-        let new_height = new_node.0.dimensions.height;
-        let delta = new_height - old_height;
+                let inline_ctx = InlineContext::new(containing_block);
 
-        *layout_tree.node_at_mut(&parent_path).unwrap() = new_node.0;
+                InlineLayout::layout(
+                    &mut layout_tree.nodes,
+                    input,
+                    &inline_items,
+                    &mut position_ctx,
+                    inline_ctx,
+                    &mut float_ctx,
+                )
+            }
+            _ => {
+                // FIXME: Should retain the old block context for the node being relayouted, so that it doesn't lose track of deferred positioned children.
+                let mut block_ctx = BlockContext::default();
 
-        if delta.abs() < EPSILON {
+                let Some((node, size)) = BlockLayout::layout(
+                    &mut layout_tree.nodes,
+                    &box_node.layout_id,
+                    &ComputedStyle::default(),
+                    input,
+                    &mut ctx,
+                    &mut position_ctx,
+                    &mut block_ctx,
+                    &mut float_ctx,
+                ) else {
+                    return;
+                };
+
+                (vec![node], vec![Rect::new(0.0, 0.0, size.width, size.height)], size)
+            }
+        };
+
+        if nodes.is_empty() {
             return;
         }
 
-        for ancestor_id in ancestors.iter().skip(1) {
-            let Some(ancestor_path) = layout_tree.find_path(*ancestor_id) else {
-                break;
+        let new_height = node_container.height;
+        let delta = new_height - old_height;
+
+        // TODO: Replace a range of nodes depends on inline and such.
+
+        if delta.abs() < Self::EPSILON {
+            return;
+        }
+
+        for ancestor_id in path.iter().skip(1) {
+            let Some(mut node) = std::mem::take(&mut layout_tree.nodes[ancestor_id.index()]) else {
+                panic!("Ancestor node not found in layout tree for layout_id: {:?}", ancestor_id);
             };
-            let ancestor = layout_tree.node_at_mut(&ancestor_path).unwrap();
 
-            let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
-
-            let changed_child_idx = ancestor
-                .children
-                .iter()
-                .position(|child| child.node_id == prev_id);
+            let style = &*input.box_tree[ancestor_id].style;
+            let prev_id = path[path.iter().position(|id| id == ancestor_id).unwrap() - 1];
+            let changed_child_idx = node.children.iter().position(|child| *child == prev_id);
 
             if let Some(idx) = changed_child_idx {
-                for sibling in &mut ancestor.children[idx + 1..] {
-                    Self::shift_y_recursively(sibling, delta);
+                for sibling in &node.children[idx + 1..] {
+                    Self::shift_y_recursively(&mut layout_tree.nodes, sibling, delta);
                 }
             }
 
-            if ancestor.is_height_auto {
-                ancestor.dimensions.height += delta;
+            if style.height.is_auto() {
+                node.dimensions.height += delta;
             } else {
                 break;
             }
+
+            layout_tree.nodes[ancestor_id.index()] = Some(node);
         }
 
         layout_tree.content_height += delta;
     }
 
-    fn shift_y_recursively(node: &mut LayoutNode, delta: f64) {
+    fn shift_y_recursively(nodes: &mut Vec<Option<LayoutNode>>, id: &LayoutNodeId, delta: f64) {
+        let Some(mut node) = std::mem::take(&mut nodes[id.index()]) else {
+            panic!("Node not found in layout tree for layout_id: {:?}", id);
+        };
+
         node.dimensions.y += delta;
-        for child in &mut node.children {
-            Self::shift_y_recursively(child, delta);
-        }
-    }
 
-    pub(crate) fn collect_children<F>(
-        ctx: &mut LayoutContext,
-        dom_tree: &DocumentRoot,
-        style_tree: &StyleTree,
-        parent_id: &NodeId,
-        start_idx: &mut usize,
-        condition: F,
-    ) -> Vec<NodeId>
-    where
-        F: Fn(&NodeId) -> bool,
-    {
-        let mut collected = Vec::new();
-        let parent_node = &dom_tree[parent_id];
-        let children = &parent_node.children;
-
-        for child in children.iter().skip(*start_idx) {
-            let style = &style_tree[child];
-
-            if style.position.is_out_of_flow() && !ctx.is_deferred() {
-                let containing_block = if style.position == Position::Fixed {
-                    ctx.containing_block()
-                } else {
-                    ctx.positioned_containing_block()
-                };
-
-                ctx.position_ctx().defer(child, containing_block);
-                *start_idx += 1;
-                continue;
-            }
-
-            if condition(child) {
-                collected.push(*child);
-                *start_idx += 1;
-            } else {
-                break;
-            }
+        for child_id in &node.children {
+            Self::shift_y_recursively(nodes, child_id, delta);
         }
 
-        collected
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::{HashMap, HashSet};
-
-    use css_style::{ComputedStyle, Display};
-    use css_values::display::{BoxDisplay, OutsideDisplay};
-    use html_dom::{DomNode, Element, HtmlTag, NodeData, NodeId, Tag};
-
-    use super::*;
-
-    fn viewport() -> Rect {
-        Rect::new(0.0, 0.0, 800.0, 600.0)
-    }
-
-    #[test]
-    fn test_layout_mode_none() {
-        let style = ComputedStyle {
-            display: Display::Box(BoxDisplay::None),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), None);
-    }
-
-    #[test]
-    fn test_layout_mode_block() {
-        let style = ComputedStyle {
-            display: Display::from(OutsideDisplay::Block),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Block));
-    }
-
-    #[test]
-    fn test_layout_mode_inline() {
-        let style = ComputedStyle {
-            display: Display::from(OutsideDisplay::Inline),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Inline));
-    }
-
-    #[test]
-    fn test_layout_mode_flex() {
-        let style = ComputedStyle {
-            display: Display::from(InsideDisplay::Flex),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Flex));
-    }
-
-    #[test]
-    fn test_layout_mode_grid() {
-        let style = ComputedStyle {
-            display: Display::from(InsideDisplay::Grid),
-            ..Default::default()
-        };
-
-        assert_eq!(LayoutMode::new(&style), Some(LayoutMode::Grid));
-    }
-
-    #[test]
-    fn test_layout_empty() {
-        let style = ComputedStyle {
-            display: Display::from(OutsideDisplay::Block),
-            ..Default::default()
-        };
-
-        let style_tree = StyleTree::from(vec![style]);
-
-        let img_ctx = ImageContext::new();
-        let mut position_ctx = PositionContext::new(viewport());
-        let mut ctx = LayoutContext::new(viewport(), &img_ctx, &mut position_ctx);
-
-        let mut text_ctx = TextContext::default();
-        let dom_tree = DocumentRoot {
-            nodes: vec![DomNode {
-                id: NodeId(0),
-                data: NodeData::Element(Element::new(Tag::Html(HtmlTag::Html), HashSet::new(), HashMap::new())),
-                children: vec![],
-                parent: None,
-            }],
-            root_nodes: vec![NodeId(0)],
-        };
-
-        let layout_node = BlockLayout::layout(&NodeId(0), &dom_tree, &style_tree, &mut ctx, &mut text_ctx).unwrap();
-
-        assert_eq!(layout_node.0.node_id, NodeId(0));
-        assert_eq!(layout_node.0.dimensions.x, 0.0);
-        assert_eq!(layout_node.0.dimensions.y, 0.0);
-        assert_eq!(layout_node.0.dimensions.width, 800.0);
-        assert_eq!(layout_node.0.dimensions.height, 0.0);
-        assert_eq!(layout_node.0.children.len(), 0);
+        nodes[id.index()] = Some(node);
     }
 }

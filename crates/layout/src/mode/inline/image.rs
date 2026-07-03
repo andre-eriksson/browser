@@ -1,24 +1,25 @@
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
-    ImageData, LayoutColors, LayoutNode, Rect, TextContext,
-    layout::LayoutContext,
+    ImageData, LayoutColors, LayoutInput, LayoutNode, Rect,
+    context::FloatContext,
     mode::inline::{InlineLayoutContext, collection::ImageItem, line::LineBoxBuilder},
 };
 
 pub fn layout_image<'node>(
+    nodes: &mut [Option<LayoutNode>],
     ctx: &mut InlineLayoutContext<'node>,
+    input: &mut LayoutInput<'_>,
     img: &ImageItem,
-    text_ctx: &mut TextContext,
-    layout_ctx: &LayoutContext,
     line: &mut LineBoxBuilder<'node>,
+    float_ctx: &mut FloatContext,
 ) {
     let alignment = &img.style.text_align;
     let writing_mode = &img.style.writing_mode;
-    text_ctx.last_text_align = *alignment;
-    text_ctx.last_writing_mode = *writing_mode;
+    input.text.last_text_align = *alignment;
+    input.text.last_writing_mode = *writing_mode;
 
-    let image = layout_ctx.image_ctx().get(img.id);
+    let image = input.image.get(img.node_id);
 
     let has_intrinsic_size = image.as_ref().is_some_and(|i| i.width > 0 && i.height > 0);
 
@@ -33,20 +34,23 @@ pub fn layout_image<'node>(
     );
 
     if line.line_box.width + img_width > ctx.available_width && line.line_box.width > 0.0 {
-        line.finish_line_with_decorations(ctx, text_ctx, layout_ctx.float_ctx_ref(), None);
+        line.finish_line_with_decorations(nodes, ctx, input.text, float_ctx, None);
     }
 
-    let node = LayoutNode::builder(*img.id)
-        .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
+    let node = LayoutNode::builder(*img.layout_id)
+        .dimensions(Rect::new(line.line_box.x, line.line_box.y, img_width, img_height))
         .colors(LayoutColors::from(img.style))
+        .node_id(*img.node_id)
         .image_data(ImageData {
-            node_id: *img.id,
+            node_id: *img.node_id,
             image_needs_intrinsic_size: img.needs_intrinsic_size && !has_intrinsic_size,
         })
         .build();
 
     let ascent = img_height;
-    line.line_box.add(node, ascent, 0.0);
+    line.line_box.add_ascent(ascent);
+    nodes[img.layout_id.index()] = Some(node);
+    ctx.ids.push(*img.layout_id);
 }
 
 fn resolve_image_size(

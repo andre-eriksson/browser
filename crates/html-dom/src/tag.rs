@@ -67,6 +67,18 @@ impl Display for Tag {
     }
 }
 
+impl From<HtmlTag> for Tag {
+    fn from(value: HtmlTag) -> Self {
+        Self::Html(value)
+    }
+}
+
+impl From<SvgTag> for Tag {
+    fn from(value: SvgTag) -> Self {
+        Self::Svg(value)
+    }
+}
+
 /// Represents known HTML tags as an enum.
 ///
 /// This enum includes common HTML tags that are recognized by the parser.

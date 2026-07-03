@@ -54,6 +54,25 @@ impl ComputedSize {
             Size::Stretch => Self::Stretch,
         })
     }
+
+    pub fn is_defined(&self) -> bool {
+        match self {
+            Self::Auto => false,
+            Self::MaxContent | Self::MinContent | Self::FitContent | Self::Stretch => true,
+            Self::Px(px) => !px.is_nan() && !px.is_infinite(),
+            Self::Percentage(p) => !p.is_nan() && !p.is_infinite(),
+        }
+    }
+
+    /// Returns true if this size is auto.
+    pub fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
+
+    /// Returns true if this size is one of the "shrink-to-fit" sizes (auto, max-content, or min-content).
+    pub fn is_shrink_to_fit(&self) -> bool {
+        matches!(self, Self::Auto | Self::MaxContent | Self::MinContent)
+    }
 }
 
 impl From<ComputedSize> for Size {

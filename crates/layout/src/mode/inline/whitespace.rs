@@ -138,6 +138,7 @@ fn strip_edge_whitespace(items: &mut Vec<InlineItem>) {
 
 #[cfg(test)]
 mod tests {
+    use css_display::{BoxNode, LayoutNodeId};
     use css_style::ComputedStyle;
     use html_dom::NodeId;
 
@@ -148,24 +149,32 @@ mod tests {
     #[test]
     fn collapses_whitespace_across_inline_box_boundaries() {
         let style = ComputedStyle::default();
+        let id1 = LayoutNodeId::new(1);
+        let id2 = LayoutNodeId::new(2);
+        let id3 = LayoutNodeId::new(3);
+        let id4 = LayoutNodeId::new(4);
         let mut items = vec![
             InlineItem::TextRun(TextRun {
-                id: &NodeId(1),
+                layout_id: &id1,
+                node_id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineBoxStart {
-                id: &NodeId(2),
+                layout_id: &id2,
+                node_id: Some(NodeId(2)),
                 style: &style,
             },
             InlineItem::TextRun(TextRun {
-                id: &NodeId(3),
+                layout_id: &id3,
+                node_id: &NodeId(3),
                 content: " ".to_string(),
                 style: &style,
             }),
-            InlineItem::InlineBoxEnd { id: &NodeId(2) },
+            InlineItem::InlineBoxEnd { layout_id: &id2 },
             InlineItem::TextRun(TextRun {
-                id: &NodeId(4),
+                layout_id: &id4,
+                node_id: &NodeId(4),
                 content: "B".to_string(),
                 style: &style,
             }),
@@ -189,18 +198,24 @@ mod tests {
     #[test]
     fn atomic_items_still_reset_whitespace_collapse_state() {
         let style = ComputedStyle::default();
+        let node = BoxNode::new(None, LayoutNodeId::new(2), &NodeId(2), &style, vec![]);
+        let id1 = LayoutNodeId::new(1);
+        let id3 = LayoutNodeId::new(3);
+
         let mut items = vec![
             InlineItem::TextRun(TextRun {
-                id: &NodeId(1),
+                layout_id: &id1,
+                node_id: &NodeId(1),
                 content: "A ".to_string(),
                 style: &style,
             }),
             InlineItem::InlineFlowRoot {
-                id: &NodeId(2),
+                layout_id: &node.layout_id,
                 style: &style,
             },
             InlineItem::TextRun(TextRun {
-                id: &NodeId(3),
+                layout_id: &id3,
+                node_id: &NodeId(3),
                 content: " B".to_string(),
                 style: &style,
             }),

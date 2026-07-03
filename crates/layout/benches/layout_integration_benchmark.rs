@@ -15,12 +15,13 @@ use browser_ui::load_fallback_fonts;
 use cosmic_text::FontSystem;
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use css_display::BoxTree;
 use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use html_dom::DocumentRoot;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, Script};
 use io::{Resource, embeded::DEFAULT_CSS};
-use layout::{ImageContext, LayoutEngine, Rect, TextContext};
+use layout::{ImageContext, LayoutInput, LayoutTree, Rect, TextContext};
 use url::Url;
 
 const BENCH_HTML_ENV: &str = "LAYOUT_BENCH_HTML";
@@ -188,6 +189,20 @@ fn bench_layout_pipeline(c: &mut Criterion) {
     );
     style_group.finish();
 
+    let mut box_group = c.benchmark_group(format!("layout/box_tree_build/{fixture_name}"));
+    box_group.throughput(Throughput::Elements(style_tree.total_nodes() as u64));
+    box_group.bench_with_input(
+        BenchmarkId::new("root_nodes", style_tree.total_nodes()),
+        &(&dom, &style_tree),
+        |b, (dom, style_tree)| {
+            b.iter(|| {
+                let box_tree = BoxTree::new(black_box(dom), black_box(style_tree));
+                black_box(box_tree.nodes.len());
+            })
+        },
+    );
+    box_group.finish();
+
     let mut layout_text_context = new_text_context();
     let mut layout_group = c.benchmark_group(format!("layout/compute_layout/{fixture_name}"));
     layout_group.throughput(Throughput::Elements(style_tree.total_nodes() as u64));
@@ -196,12 +211,15 @@ fn bench_layout_pipeline(c: &mut Criterion) {
         &style_tree,
         |b, style_tree| {
             b.iter(|| {
-                let layout = LayoutEngine::compute_layout(
-                    &dom,
-                    black_box(style_tree),
+                let box_tree = BoxTree::new(black_box(&dom), black_box(style_tree));
+                let layout = LayoutTree::compute_layout(
+                    &mut LayoutInput {
+                        dom: &dom,
+                        box_tree: &box_tree,
+                        text: &mut layout_text_context,
+                        image: &image_ctx,
+                    },
                     viewport,
-                    &mut layout_text_context,
-                    &image_ctx,
                 );
                 black_box(layout.content_height);
             })
@@ -214,7 +232,16 @@ fn bench_layout_pipeline(c: &mut Criterion) {
         b.iter(|| {
             let (dom, stylesheets) = parse_html_and_collect_styles(black_box(html.as_str()), &user_agent_stylesheet);
             let style_tree = build_style_tree(&dom, &stylesheets, viewport);
-            let layout = LayoutEngine::compute_layout(&dom, &style_tree, viewport, &mut full_text_context, &image_ctx);
+            let box_tree = BoxTree::new(black_box(&dom), black_box(&style_tree));
+            let layout = LayoutTree::compute_layout(
+                &mut LayoutInput {
+                    dom: &dom,
+                    box_tree: &box_tree,
+                    text: &mut full_text_context,
+                    image: &image_ctx,
+                },
+                viewport,
+            );
             black_box(layout.content_height);
         })
     });

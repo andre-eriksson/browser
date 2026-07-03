@@ -671,6 +671,7 @@ dependencies = [
  "browser-preferences",
  "clap",
  "css-cssom",
+ "css-display",
  "css-selectors",
  "css-style",
  "css-tokenizer",
@@ -704,6 +705,7 @@ dependencies = [
  "browser-preferences",
  "cookies",
  "css-cssom",
+ "css-display",
  "css-style",
  "css-values",
  "html-dom",
@@ -1315,6 +1317,15 @@ dependencies = [
  "criterion",
  "css-parser",
  "serde",
+]
+
+[[package]]
+name = "css-display"
+version = "0.1.0"
+dependencies = [
+ "css-style",
+ "css-values",
+ "html-dom",
 ]
 
 [[package]]
@@ -2912,6 +2923,7 @@ dependencies = [
  "cosmic-text",
  "criterion",
  "css-cssom",
+ "css-display",
  "css-style",
  "css-values",
  "html-dom",

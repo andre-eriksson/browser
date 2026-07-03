@@ -4,21 +4,17 @@
 //! the layout tree, which represents the visual structure of a web page based
 //! on the DOM and CSS styles.
 
-mod builder;
 mod context;
-pub mod engine;
-mod float;
-mod layout;
+mod engine;
 mod mode;
-mod position;
+mod node;
 mod primitives;
-mod resolver;
-mod text;
+mod tree;
 
-pub use context::{ImageContext, LayoutImage};
+pub use context::{ImageContext, ImageData, LayoutImage, TextContext};
 pub use css_style::{Color4f, Position};
-pub use engine::LayoutEngine;
+pub use engine::LayoutInput;
 pub use html_dom::NodeId;
-pub use layout::{ImageData, LayoutColors, LayoutNode, LayoutTree};
-pub use primitives::{Margin, Rect};
-pub use text::TextContext;
+pub use node::LayoutNode;
+pub use primitives::{LayoutColors, Margin, Rect};
+pub use tree::LayoutTree;

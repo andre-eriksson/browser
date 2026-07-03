@@ -1,24 +1,27 @@
 use std::sync::Arc;
 
+use cosmic_text::Buffer;
+use css_display::LayoutNodeId;
 use css_style::ComputedStyle;
 use css_values::text::Whitespace;
 use html_dom::NodeId;
 
 use crate::{
     LayoutColors, LayoutNode, Rect, TextContext,
-    float::FloatContext,
+    context::{FloatContext, TextDescription, TextFragment},
     mode::inline::{InlineLayoutContext, collection::TextRun, line::LineBoxBuilder},
-    text::TextDescription,
 };
 
-struct Text<'text> {
+struct TextInput<'text> {
     content: &'text str,
+    layout_id: LayoutNodeId,
     node_id: NodeId,
     style: &'text ComputedStyle,
     desc: &'text TextDescription<'text>,
 }
 
 pub fn layout_text<'node>(
+    nodes: &mut [Option<LayoutNode>],
     ctx: &mut InlineLayoutContext<'node>,
     float_ctx: &FloatContext,
     text_ctx: &mut TextContext,
@@ -50,38 +53,43 @@ pub fn layout_text<'node>(
         let segments: Vec<&str> = text.content.split('\n').collect();
 
         for (seg_idx, segment) in segments.iter().enumerate() {
-            if !segment.is_empty() {
-                layout_text_segment(
-                    ctx,
-                    text_ctx,
-                    float_ctx,
-                    &Text {
-                        content: segment,
-                        node_id: *text.id,
-                        style: text.style,
-                        desc: &text_desc,
-                    },
-                    line,
-                );
+            let input = TextInput {
+                content: segment,
+                layout_id: *text.layout_id,
+                node_id: *text.node_id,
+                style: text.style,
+                desc: &text_desc,
+            };
+
+            if segment.is_empty() {
+                flush_newline_marker(nodes, line, &input);
+            } else {
+                layout_text_segment(nodes, ctx, text_ctx, float_ctx, &input, line);
             }
 
             if seg_idx < segments.len() - 1 {
-                line.finish_line_with_decorations(ctx, text_ctx, float_ctx, Some(line_height));
+                line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, Some(line_height));
             }
         }
+
+        ctx.ids.push(*text.layout_id);
     } else {
         layout_text_segment(
+            nodes,
             ctx,
             text_ctx,
             float_ctx,
-            &Text {
+            &TextInput {
                 content: &text.content,
-                node_id: *text.id,
+                layout_id: *text.layout_id,
+                node_id: *text.node_id,
                 style: text.style,
                 desc: &text_desc,
             },
             line,
         );
+
+        ctx.ids.push(*text.layout_id);
     }
 }
 
@@ -89,13 +97,17 @@ pub fn layout_text<'node>(
 /// the current [`LineBox`], word-wrapping across multiple lines when the
 /// text exceeds `available_width`.
 fn layout_text_segment<'node>(
+    nodes: &mut [Option<LayoutNode>],
     ctx: &mut InlineLayoutContext<'node>,
     text_ctx: &mut TextContext,
     float_ctx: &FloatContext,
-    text: &Text,
+    text: &TextInput,
     line: &mut LineBoxBuilder<'node>,
 ) {
     let mut remaining_text = text.content;
+    let mut current_fragment_buffers: Vec<Arc<Buffer>> = Vec::new();
+    let mut current_fragment_w = 0.0_f64;
+    let mut current_fragment_h = 0.0_f64;
 
     while !remaining_text.is_empty() {
         let available_width = line
@@ -104,7 +116,10 @@ fn layout_text_segment<'node>(
         let remaining_line_space = (available_width - line.line_box.width).max(0.0);
 
         if remaining_line_space < 1.0 && line.line_box.width > 0.0 {
-            line.finish_line_with_decorations(ctx, text_ctx, float_ctx, None);
+            flush_fragment(nodes, line, text, &mut current_fragment_buffers, current_fragment_w, current_fragment_h);
+            current_fragment_w = 0.0;
+            current_fragment_h = 0.0;
+            line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, None);
             continue;
         }
 
@@ -118,24 +133,80 @@ fn layout_text_segment<'node>(
             break;
         }
 
-        let node = LayoutNode::builder(text.node_id)
-            .dimensions(Rect::new(0.0, 0.0, measured.width, measured.height))
-            .colors(LayoutColors::text_only(text.style.color))
-            .cursor(text.style.cursor)
-            .text_buffer(Arc::new(measured.buffer))
-            .height_auto(true)
-            .build();
-
-        let ascent = measured.height;
-        let descent = 0.0;
-
-        line.line_box.add(node, ascent, descent);
+        current_fragment_w += measured.width;
+        current_fragment_h = current_fragment_h.max(measured.height);
+        current_fragment_buffers.push(Arc::new(measured.buffer));
 
         if let Some(r) = rest {
-            line.finish_line_with_decorations(ctx, text_ctx, float_ctx, None);
+            flush_fragment(nodes, line, text, &mut current_fragment_buffers, current_fragment_w, current_fragment_h);
+            current_fragment_w = 0.0;
+            current_fragment_h = 0.0;
+            line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, None);
             remaining_text = r;
         } else {
             break;
         }
     }
+
+    flush_fragment(nodes, line, text, &mut current_fragment_buffers, current_fragment_w, current_fragment_h);
+}
+
+fn flush_fragment<'node>(
+    nodes: &mut [Option<LayoutNode>],
+    line: &mut LineBoxBuilder<'node>,
+    text: &TextInput,
+    buffers: &mut Vec<Arc<Buffer>>,
+    width: f64,
+    height: f64,
+) {
+    if buffers.is_empty() {
+        return;
+    }
+
+    let node = nodes[text.layout_id.index()].get_or_insert_with(|| {
+        LayoutNode::builder(text.layout_id)
+            .colors(LayoutColors::text_only(text.style.color))
+            .cursor(text.style.cursor)
+            .node_id(text.node_id)
+            .build()
+    });
+
+    let fragment = TextFragment {
+        size: Rect::new(0.0, 0.0, width, height),
+        buffers: std::mem::take(buffers),
+
+        #[cfg(debug_assertions)]
+        debug_content: text.content.to_string(),
+    };
+    let idx = node.text_fragments.len();
+    node.text_fragments.push(fragment);
+    node.dimensions.width += width;
+    node.dimensions.height = node.dimensions.height.max(height);
+
+    line.line_box
+        .add_fragment(text.layout_id, idx, text.style, &mut node.text_fragments[idx].size, height, 0.0);
+}
+
+fn flush_newline_marker<'node>(nodes: &mut [Option<LayoutNode>], line: &mut LineBoxBuilder<'node>, text: &TextInput) {
+    let line_height = text.style.line_height * text.style.font_size;
+    let node = nodes[text.layout_id.index()].get_or_insert_with(|| {
+        LayoutNode::builder(text.layout_id)
+            .colors(LayoutColors::text_only(text.style.color))
+            .cursor(text.style.cursor)
+            .node_id(text.node_id)
+            .build()
+    });
+
+    let fragment = TextFragment {
+        size: Rect::new(0.0, 0.0, 0.0, line_height),
+        buffers: Vec::new(),
+
+        #[cfg(debug_assertions)]
+        debug_content: String::new(),
+    };
+    let idx = node.text_fragments.len();
+    node.text_fragments.push(fragment);
+
+    line.line_box
+        .add_fragment(text.layout_id, idx, text.style, &mut node.text_fragments[idx].size, line_height, 0.0);
 }

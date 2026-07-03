@@ -11,6 +11,7 @@ browser-core.workspace = true
 browser-preferences.workspace = true
 clap.workspace = true
 css-cssom.workspace = true
+css-display.workspace = true
 css-selectors.workspace = true
 css-style.workspace = true
 css-tokenizer.workspace = true

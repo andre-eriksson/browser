@@ -1,8 +1,21 @@
+use std::sync::Arc;
+
 use cosmic_text::{Align, Attrs, Buffer, Family, FontSystem, Metrics, Shaping, Stretch, Weight, Wrap};
 use css_style::FontFamily;
 use css_values::text::{FontFamilyName, GenericName, TextAlign, Whitespace, WritingMode};
 
-#[derive(Debug)]
+use crate::Rect;
+
+#[derive(Debug, Clone)]
+pub struct TextFragment {
+    pub size: Rect,
+    pub buffers: Vec<Arc<Buffer>>,
+
+    #[cfg(debug_assertions)]
+    pub debug_content: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Text {
     pub width: f64,
     pub last_line_width: f64,
@@ -60,7 +73,7 @@ impl TextContext {
         max_width: f64,
     ) -> (Text, Option<&'text str>) {
         // NOTE: CSS allows line-height: 0, but cosmic-text requires a positive line height.
-        let line_height_px = text_description.line_height.max(1.0);
+        let line_height_px = text_description.line_height.max(0.1) * text_description.font_size_px;
 
         let metrics = Metrics::new(text_description.font_size_px as f32, line_height_px as f32);
         let family = Self::resolve_font_family(text_description.font_family);
@@ -111,7 +124,7 @@ impl TextContext {
 
     /// Extract text metrics from an already-shaped buffer.
     fn extract_text_metrics(buffer: &Buffer, text_description: &TextDescription, text: &str) -> Text {
-        let line_height_px = text_description.line_height.max(1.0);
+        let line_height_px = text_description.line_height.max(0.1) * text_description.font_size_px;
         let preserve_whitespace = matches!(text_description.whitespace, Whitespace::Pre | Whitespace::PreWrap);
         let is_whitespace_only = text.trim().is_empty() && !preserve_whitespace;
 
@@ -185,5 +198,31 @@ impl TextContext {
             900 => Weight::BLACK,
             _ => Weight::NORMAL,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_measure_text_that_fits() {
+        let mut text_ctx = TextContext::default();
+        let text_desc = TextDescription {
+            whitespace: &Whitespace::Normal,
+            line_height: 1.2,
+            font_family: &FontFamily::default(),
+            font_weight: 400,
+            font_size_px: 16.0,
+        };
+
+        let (measured, remaining) = text_ctx.measure_text_that_fits(
+            "Hello world! This is a test of the text measurement system.",
+            &text_desc,
+            100.0,
+        );
+        assert!(measured.width > 0.0);
+        assert!(measured.height > 0.0);
+        assert_eq!(remaining, Some(" This is a test of the text measurement system."));
     }
 }

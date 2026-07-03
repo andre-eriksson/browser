@@ -39,6 +39,7 @@ pub struct NetworkService<'client> {
     browser_headers: &'client HeaderMap,
 }
 
+#[allow(unexpected_cfgs)]
 impl<'client> NetworkService<'client> {
     pub fn new(
         client: &'client dyn HttpClient,

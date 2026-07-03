@@ -1,5 +1,6 @@
 use std::fmt::Write as _;
 
+use css_display::LayoutNodeId;
 use html_dom::{DocumentRoot, DomNode, NodeData, NodeId};
 
 use crate::{HeadlessEngine, commands::layout::print_layout_node};
@@ -79,20 +80,19 @@ pub fn cmd_node_style(engine: &mut HeadlessEngine, id: usize) -> Result<(), Stri
 pub fn cmd_node_layout(engine: &mut HeadlessEngine, id: usize) -> Result<(), String> {
     engine.ensure_layout()?;
 
-    let node_id = NodeId(id);
     let Some(layout) = engine.layout_tree.as_ref() else {
         return Err("Layout not available".to_string());
     };
 
     let path = layout
-        .find_path(node_id)
+        .find_path(LayoutNodeId::new(id))
         .ok_or_else(|| format!("Node {id} is not present in the layout tree (it may not render, e.g. display:none)"))?;
     let node = layout
         .node_at(&path)
         .ok_or_else(|| format!("Layout node {id} could not be resolved by path"))?;
 
     println!("Layout subtree for node {id}:");
-    print_layout_node(node, 0);
+    print_layout_node(layout, node, 0);
 
     Ok(())
 }

@@ -90,7 +90,7 @@ impl ApplicationWindow for BrowserWindow {
         let viewport = ctx.viewport;
 
         // NOTE: Varies depending on UI elements around the content.
-        let content_viewport_height = (viewport.height - 100.0).max(100.0);
+        let content_viewport_height = (viewport.height - 87.0 - 60.0).max(100.0);
 
         let mut column = Column::new();
         column = column.push(header);
@@ -108,7 +108,7 @@ impl ApplicationWindow for BrowserWindow {
             let html = BrowserHtml::new(
                 renderer,
                 layout_tree,
-                Rect::new(0.0, 87.0, f64::from(viewport.width), f64::from(content_viewport_height)),
+                Rect::new(0.0, 87.0, f64::from(viewport.width), f64::from(content_viewport_height) - 87.0 - 60.0),
                 active_tab.scroll_offset,
             );
             let html_content = html.render(app, page_ctx);

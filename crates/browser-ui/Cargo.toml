@@ -11,6 +11,7 @@ browser-core.workspace = true
 browser-preferences.workspace = true
 cookies.workspace = true
 css-cssom.workspace = true
+css-display.workspace = true
 css-style.workspace = true
 css-values.workspace = true
 html-dom.workspace = true

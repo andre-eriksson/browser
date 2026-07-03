@@ -113,6 +113,22 @@ pub enum InternalDisplay {
     RubyTextContainer,
 }
 
+impl InternalDisplay {
+    pub fn is_table(&self) -> bool {
+        matches!(
+            self,
+            Self::TableRowGroup
+                | Self::TableHeaderGroup
+                | Self::TableFooterGroup
+                | Self::TableRow
+                | Self::TableCell
+                | Self::TableColumnGroup
+                | Self::TableColumn
+                | Self::TableCaption
+        )
+    }
+}
+
 /// These values define whether an element generates display boxes at all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive)]

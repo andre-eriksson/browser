@@ -3,10 +3,11 @@ use std::sync::Arc;
 use browser_core::{
     Commandable, Document, EngineCommand, EngineResponse, NavigationType, PageMetadata, errors::CoreError,
 };
+use css_display::BoxTree;
 use iced::Task;
 use image::ImageFormat;
 use io::{DocumentPolicy, ReferrerPolicy};
-use layout::{LayoutEngine, LayoutImage, NodeId, Rect};
+use layout::{LayoutImage, LayoutInput, LayoutTree, NodeId, Rect};
 use regex::Regex;
 use tracing::{debug, error};
 use url::Url;
@@ -464,16 +465,19 @@ impl Tab {
                     let mut text_ctx = text_ctx.lock().unwrap();
                     let image_ctx = image_ctx.lock().unwrap();
                     let mut layout_tree = layout_tree?;
+                    let box_tree = BoxTree::new(dom_tree, &style_tree);
 
                     for node_id in node_ids {
-                        LayoutEngine::relayout_node(
-                            node_id,
+                        LayoutTree::relayout_node(
+                            &node_id,
                             Rect::new(0.0, 0.0, f64::from(viewport.width), f64::from(viewport.height)),
                             &mut layout_tree,
-                            &style_tree,
-                            dom_tree,
-                            &mut text_ctx,
-                            &image_ctx,
+                            &mut LayoutInput {
+                                dom: dom_tree,
+                                box_tree: &box_tree,
+                                text: &mut text_ctx,
+                                image: &image_ctx,
+                            },
                         );
                     }
 

@@ -41,10 +41,10 @@ pub struct HtmlRenderer<'html> {
     pub images: Vec<ImageRenderInfo>,
 
     /// The DOM tree being rendered
-    dom_tree: &'html DocumentRoot,
+    pub dom_tree: &'html DocumentRoot,
 
     /// The layout tree being rendered
-    layout_tree: &'html LayoutTree,
+    pub layout_tree: &'html LayoutTree,
 
     /// Current scroll offset for rendering and hit testing
     scroll_offset: ScrollOffset,
@@ -88,7 +88,11 @@ impl<'html> HtmlRenderer<'html> {
         let nodes = self.layout_tree.resolve(f64::from(x), f64::from(y));
 
         for node in nodes {
-            let dom_node = &self.dom_tree[node.node_id];
+            let Some(node_id) = node.node_id else {
+                continue;
+            };
+
+            let dom_node = &self.dom_tree[node_id];
 
             if let Some(n) = dom_node.data.as_element()
                 && n.tag == Tag::Html(HtmlTag::A)

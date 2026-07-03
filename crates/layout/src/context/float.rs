@@ -1,3 +1,4 @@
+use css_style::ComputedStyle;
 use css_values::{
     display::{Clear, Float},
     text::WritingMode,
@@ -26,8 +27,11 @@ impl FloatContext {
 
     /// Add a float to the context. The rect should already have clearance applied
     /// (i.e., the y position should be the final cleared position).
-    pub fn add_float(&mut self, rect: Rect, writing_mode: WritingMode, float: Float) {
+    pub fn add_float(&mut self, rect: Rect, style: &ComputedStyle) {
+        let writing_mode = style.writing_mode;
+        let float = style.float;
         let float_box = FloatBox { rect };
+
         match float {
             Float::Left => self.left_floats.push(float_box),
             Float::Right => self.right_floats.push(float_box),

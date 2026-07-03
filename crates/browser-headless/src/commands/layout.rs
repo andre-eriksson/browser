@@ -1,4 +1,5 @@
-use layout::LayoutNode;
+use css_display::LayoutNodeId;
+use layout::LayoutTree;
 use tracing::info;
 
 use crate::HeadlessEngine;
@@ -17,7 +18,7 @@ pub fn cmd_node(engine: &mut HeadlessEngine, x: f64, y: f64) -> Result<(), Strin
     } else {
         println!("Nodes at ({x}, {y}):");
         for node in nodes {
-            print_layout_node(node, 1);
+            print_layout_node(layout, &node.layout_id, 1);
         }
     }
 
@@ -32,8 +33,9 @@ pub fn cmd_layout(engine: &mut HeadlessEngine) -> Result<(), String> {
     };
 
     println!("Layout Tree ({}x{}):", layout.content_width, layout.content_height);
-    for node in &layout.root_nodes {
-        print_layout_node(node, 0);
+
+    for node_id in &layout.root_nodes {
+        print_layout_node(layout, node_id, 0);
     }
 
     Ok(())
@@ -51,15 +53,22 @@ pub fn cmd_resize(engine: &mut HeadlessEngine, width: f64, height: f64) -> Resul
     Ok(())
 }
 
-pub fn print_layout_node(node: &LayoutNode, depth: usize) {
+pub fn print_layout_node(layout_tree: &LayoutTree, node_id: &LayoutNodeId, depth: usize) {
     let indent = "  ".repeat(depth);
+
+    let Some(Some(node)) = &layout_tree.nodes.get(node_id.index()) else {
+        println!("{}[{:?}] (node not found)", indent, node_id);
+        return;
+    };
+
     let rect = &node.dimensions;
+
     println!(
-        "{}[{}] x={:.1} y={:.1} w={:.1} h={:.1}",
-        indent, node.node_id.0, rect.x, rect.y, rect.width, rect.height
+        "{}[{:?}] x={:.1} y={:.1} w={:.1} h={:.1}",
+        indent, node.layout_id, rect.x, rect.y, rect.width, rect.height
     );
 
     for child in &node.children {
-        print_layout_node(child, depth + 1);
+        print_layout_node(layout_tree, child, depth + 1);
     }
 }

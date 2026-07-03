@@ -1,28 +1,47 @@
+use css_display::BoxNode;
 use css_style::{ComputedMaxSize, ComputedSize, ComputedStyle};
 
 use crate::{
-    Margin,
-    primitives::{MarginValue, SideOffset},
+    LayoutNode, Margin,
+    context::LayoutContext,
+    primitives::{MarginValue, SideOffset, Size},
 };
 
-pub struct PropertyResolver;
+#[derive(Debug, Clone, Default)]
+pub(crate) struct BoxModel {
+    pub margin: Margin,
+    pub padding: SideOffset,
+    pub border: SideOffset,
+}
 
-impl PropertyResolver {
-    pub(crate) fn resolve_box_model(style: &ComputedStyle, containing_width: f64) -> (Margin, SideOffset, SideOffset) {
-        let margins = Self::resolve_margin(style, containing_width);
-        let padding = Self::resolve_padding(style, containing_width);
-        let borders = Self::resolve_border(style);
+impl From<&LayoutNode> for BoxModel {
+    fn from(value: &LayoutNode) -> Self {
+        Self {
+            margin: value.margin,
+            padding: value.padding,
+            border: value.border,
+        }
+    }
+}
 
-        (margins, padding, borders)
+pub(crate) struct Geometry;
+
+impl Geometry {
+    pub(crate) fn _compute_intrinsic_sizes(_box_node: &BoxNode, _layout_ctx: &LayoutContext) -> (Size, Size) {
+        (Size::new(0.0, 0.0), Size::new(0.0, 0.0))
     }
 
-    // TODO: Support all positions
-    // pub const fn establishes_bfc(style: &ComputedStyle) -> bool {
-    //     !matches!(style.float, Float::None)
-    //         || !matches!(style.position, Position::Static | Position::Relative)
-    //         || matches!(style.display.inside(), Some(InsideDisplay::FlowRoot))
-    //     //TODO: || style.overflow != Overflow::Visible
-    // }
+    pub(crate) fn resolve_box_model(style: &ComputedStyle, containing_width: f64) -> BoxModel {
+        let margin = Self::resolve_margin(style, containing_width);
+        let padding = Self::resolve_padding(style, containing_width);
+        let border = Self::resolve_border(style);
+
+        BoxModel {
+            margin,
+            padding,
+            border,
+        }
+    }
 
     pub fn has_top_fence(style: &ComputedStyle, containing_width: f64) -> bool {
         style.padding_top.to_px(containing_width) > 0.0 || style.border_top_width > 0.0
@@ -90,7 +109,7 @@ impl PropertyResolver {
                 (MarginValue::Auto, MarginValue::Auto) => containing_width,
                 (MarginValue::Auto, MarginValue::Px(px)) => containing_width - px,
                 (MarginValue::Px(px), MarginValue::Auto) => containing_width - px,
-                (MarginValue::Px(left_px), MarginValue::Px(right_px)) => containing_width - left_px - right_px,
+                (MarginValue::Px(left_px), MarginValue::Px(right_px)) => containing_width - (left_px + right_px),
             },
             if max_width == 0.0 && style.width == ComputedSize::Auto {
                 f64::INFINITY
@@ -111,7 +130,12 @@ impl PropertyResolver {
         width.min(available_width)
     }
 
-    pub(crate) fn calculate_height(style: &ComputedStyle, children_height: f64, containing_height: f64) -> f64 {
+    pub(crate) fn calculate_height(
+        style: &ComputedStyle,
+        box_model: &BoxModel,
+        children_height: f64,
+        containing_height: f64,
+    ) -> f64 {
         let height = match &style.height {
             ComputedSize::Auto => children_height,
             ComputedSize::Px(px) => *px,
@@ -130,11 +154,8 @@ impl PropertyResolver {
                 _ => f64::INFINITY,
             };
 
-            let top = MarginValue::resolve(style.margin_top, containing_height);
-            let bottom = MarginValue::resolve(style.margin_bottom, containing_height);
-
             let available_height = f64::min(
-                match (top, bottom) {
+                match (box_model.margin.top, box_model.margin.bottom) {
                     (MarginValue::Auto, MarginValue::Auto) => containing_height,
                     (MarginValue::Auto, MarginValue::Px(px)) => containing_height - px,
                     (MarginValue::Px(px), MarginValue::Auto) => containing_height - px,

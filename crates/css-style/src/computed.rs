@@ -419,6 +419,22 @@ impl ComputedStyle {
             self.color = self.color.invert_dark_mode();
         }
     }
+
+    pub fn inherited_subset(&self) -> Self {
+        Self {
+            color: self.color,
+            cursor: self.cursor,
+            font_family: Arc::clone(&self.font_family),
+            font_size: self.font_size,
+            font_weight: self.font_weight,
+            line_height: self.line_height,
+            text_align: self.text_align,
+            whitespace: self.whitespace,
+            writing_mode: self.writing_mode,
+
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for ComputedStyle {
@@ -449,7 +465,7 @@ impl Default for ComputedStyle {
             border_top_color: Color4f::BLACK,
             border_top_style: BorderStyle::None,
             border_top_width: 0.0,
-            bottom: 0.0.into(),
+            bottom: ComputedMargin::Auto,
             clear: Clear::default(),
             color: Color4f::BLACK,
             column_gap: ComputedGap::default(),
@@ -468,8 +484,8 @@ impl Default for ComputedStyle {
             justify_content: JustifyContent::default(),
             justify_items: JustifyItems::default(),
             justify_self: JustifySelf::default(),
-            left: 0.0.into(),
-            line_height: 1.5 * 16.0,
+            left: ComputedMargin::Auto,
+            line_height: 1.2,
             margin_bottom: 0.0.into(),
             margin_left: 0.0.into(),
             margin_right: 0.0.into(),
@@ -482,10 +498,10 @@ impl Default for ComputedStyle {
             padding_right: 0.0.into(),
             padding_top: 0.0.into(),
             position: Position::Static,
-            right: 0.0.into(),
+            right: ComputedMargin::Auto,
             row_gap: ComputedGap::default(),
             text_align: TextAlign::Start,
-            top: 0.0.into(),
+            top: ComputedMargin::Auto,
             whitespace: Whitespace::Normal,
             width: ComputedSize::Auto,
             writing_mode: WritingMode::HorizontalTb,

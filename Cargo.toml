@@ -10,6 +10,7 @@ members = [
     "crates/browser-ui",
     "crates/cookies",
     "crates/css-cssom",
+    "crates/css-display",
     "crates/css-parser",
     "crates/css-selectors",
     "crates/css-style",
@@ -45,6 +46,7 @@ browser-preferences = { path = "crates/browser-preferences" }
 browser-ui          = { path = "crates/browser-ui" }
 cookies             = { path = "crates/cookies" }
 css-cssom           = { path = "crates/css-cssom" }
+css-display         = { path = "crates/css-display" }
 css-parser          = { path = "crates/css-parser" }
 css-selectors       = { path = "crates/css-selectors" }
 css-style           = { path = "crates/css-style" }
