@@ -113,6 +113,10 @@ impl LayoutTree {
             .map(|n| n.layout_id)
             .collect();
 
+        let mut path = Vec::with_capacity(ancestors.len() + 1);
+        path.push(layout_id);
+        path.extend(ancestors);
+
         let old_height = old_node.dimensions.height;
 
         // TODO: Restore old contexts
@@ -127,19 +131,9 @@ impl LayoutTree {
         let containing_block = if let Some(parent) = box_node.parent_id
             && let Some(parent_node) = &layout_tree.nodes[parent.index()]
         {
-            Rect {
-                x: 0.0,
-                y: 0.0,
-                width: parent_node.dimensions.width,
-                height: parent_node.dimensions.height,
-            }
+            parent_node.dimensions
         } else {
-            Rect {
-                x: 0.0,
-                y: 0.0,
-                width: old_node.dimensions.width,
-                height: old_node.dimensions.height,
-            }
+            old_node.dimensions
         };
 
         let (nodes, _, node_container) = match mode {
@@ -175,7 +169,7 @@ impl LayoutTree {
                     return;
                 };
 
-                (vec![node], vec![Rect::new(0.0, 0.0, size.width, size.height)], Rect::default())
+                (vec![node], vec![Rect::new(0.0, 0.0, size.width, size.height)], size)
             }
         };
 
@@ -192,13 +186,13 @@ impl LayoutTree {
             return;
         }
 
-        for ancestor_id in ancestors.iter().skip(1) {
+        for ancestor_id in path.iter().skip(1) {
             let Some(mut node) = std::mem::take(&mut layout_tree.nodes[ancestor_id.index()]) else {
                 panic!("Ancestor node not found in layout tree for layout_id: {:?}", ancestor_id);
             };
 
             let style = &*input.box_tree[ancestor_id].style;
-            let prev_id = ancestors[ancestors.iter().position(|id| id == ancestor_id).unwrap() - 1];
+            let prev_id = path[path.iter().position(|id| id == ancestor_id).unwrap() - 1];
             let changed_child_idx = node.children.iter().position(|child| *child == prev_id);
 
             if let Some(idx) = changed_child_idx {
@@ -225,6 +219,7 @@ impl LayoutTree {
         };
 
         node.dimensions.y += delta;
+
         for child_id in &node.children {
             Self::shift_y_recursively(nodes, child_id, delta);
         }

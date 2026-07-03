@@ -38,7 +38,7 @@ pub fn layout_image<'node>(
     }
 
     let node = LayoutNode::builder(*img.layout_id)
-        .dimensions(Rect::new(0.0, 0.0, img_width, img_height))
+        .dimensions(Rect::new(line.line_box.x, line.line_box.y, img_width, img_height))
         .colors(LayoutColors::from(img.style))
         .node_id(*img.node_id)
         .image_data(ImageData {
