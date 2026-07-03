@@ -12,7 +12,7 @@ use css_display::{BoxTree, LayoutNodeId};
 use css_style::ComputedStyle;
 use html_dom::{DocumentRoot, NodeId};
 
-use tracing::trace;
+use tracing::{trace, warn};
 
 /// Immutable references to the trees — passed everywhere, never mutated
 pub struct LayoutInput<'a> {
@@ -97,11 +97,13 @@ impl LayoutTree {
         input: &mut LayoutInput<'css>,
     ) {
         let Some(layout_id) = input.box_tree.dom_to_layout[node_id.index()] else {
-            panic!("Layout ID not found for node_id: {:?}", node_id);
+            warn!("Layout ID not found for node_id: {:?}", node_id);
+            return;
         };
 
         let Some(old_node) = &layout_tree.nodes[layout_id.index()] else {
-            panic!("Layout node not found for layout_id: {:?}", layout_id);
+            warn!("Layout node not found for layout_id: {:?}", layout_id);
+            return;
         };
 
         let box_node = &input.box_tree[&layout_id];
@@ -188,7 +190,8 @@ impl LayoutTree {
 
         for ancestor_id in path.iter().skip(1) {
             let Some(mut node) = std::mem::take(&mut layout_tree.nodes[ancestor_id.index()]) else {
-                panic!("Ancestor node not found in layout tree for layout_id: {:?}", ancestor_id);
+                warn!("Ancestor node not found in layout tree for layout_id: {:?}", ancestor_id);
+                continue;
             };
 
             let style = &*input.box_tree[ancestor_id].style;

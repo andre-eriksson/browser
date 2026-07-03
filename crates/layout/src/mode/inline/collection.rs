@@ -82,22 +82,22 @@ pub fn collect<'dom>(
 ) -> Result<(), ()> {
     let box_node = &input.box_tree[layout_id];
     let Some(node_id) = &box_node.node_id else {
-        debug_assert!(
-            box_node.children.len() == 1,
-            "Anonymous Inline Box, should only have a single child, instead has {}",
-            box_node.children.len()
-        );
+        for child in &box_node.children {
+            let bn = &input.box_tree[child];
 
-        let text_layout_id = input.box_tree[layout_id].children.first().unwrap();
-        let text_node_id = &input.box_tree[text_layout_id].node_id.as_ref().unwrap();
-        let text = input.dom[*text_node_id].data.as_text().unwrap();
+            let Some(text_node_id) = &bn.node_id else {
+                continue;
+            };
 
-        items.push(InlineItem::TextRun(TextRun {
-            layout_id,
-            node_id: text_node_id,
-            content: text.clone(),
-            style: parent_style,
-        }));
+            let text = input.dom[*text_node_id].data.as_text().unwrap();
+
+            items.push(InlineItem::TextRun(TextRun {
+                layout_id,
+                node_id: text_node_id,
+                content: text.clone(),
+                style: parent_style,
+            }));
+        }
 
         return Ok(());
     };
