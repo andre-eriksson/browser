@@ -283,6 +283,6 @@ mod tests {
         assert!(tree[&anonymous_id].node_id.is_none());
         assert_eq!(tree[anonymous_id].layout_id, anonymous_id);
         assert!(tree[anonymous_id].style.display.is_block());
-        assert_eq!(tree[anonymous_id].children, vec![LayoutNodeId::new(1)]);
+        assert_eq!(tree[anonymous_id].children, vec![LayoutNodeId::new(2)]);
     }
 }
