@@ -8,9 +8,8 @@ use crate::{
 };
 use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use html_escape::decode_html_entities;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType, Script};
-use io::{CookieMiddleware, DecodingMiddleware, DocumentPolicy, HttpCache, Resource};
+use io::{CookieMiddleware, DecodingMiddleware, DocumentPolicy, Entry, HttpCache, Resource};
 use network::{
     HeaderMap, SET_COOKIE,
     client::HttpClient,
@@ -148,10 +147,9 @@ impl Browser {
                                 async move {
                                     if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
                                         match Resource::load(
-                                            io::ResourceType::Absolute {
-                                                protocol: relative_url.scheme(),
-                                                location: relative_url.path(),
-                                            },
+                                            io::ResourceType::Path(Entry::absolute(
+                                                relative_url.to_file_path().unwrap().to_str().unwrap(),
+                                            )),
                                             Resource::DEFAULT_MAX_FILE_SIZE,
                                         ) {
                                             Ok(b) => Some(b),
@@ -296,11 +294,9 @@ impl Browser {
             return Ok((url, resp));
         }
 
-        let decoded_url = decode_html_entities(raw_url);
-
         let url = page_url
             .as_ref()
-            .map_or_else(|| Url::parse(&decoded_url), |u| u.join(&decoded_url))
+            .map_or_else(|| Url::parse(raw_url), |u| u.join(raw_url))
             .map_err(|e| NavigationError::Request {
                 source: RequestError::Network(NetworkError::InvalidUrl(e)),
                 url: raw_url.to_string(),
@@ -327,10 +323,7 @@ impl Browser {
                     if base.scheme() == "file" {
                         Response::from(
                             Resource::load(
-                                io::ResourceType::Absolute {
-                                    protocol: url.scheme(),
-                                    location: url.path(),
-                                },
+                                io::ResourceType::Path(Entry::absolute(url.to_file_path().unwrap().to_str().unwrap())),
                                 Resource::DEFAULT_MAX_FILE_SIZE,
                             )
                             .map_err(NavigationError::Resource)?,
@@ -343,10 +336,7 @@ impl Browser {
                 }
                 None => Response::from(
                     Resource::load(
-                        io::ResourceType::Absolute {
-                            protocol: url.scheme(),
-                            location: url.path(),
-                        },
+                        io::ResourceType::Path(Entry::absolute(url.to_file_path().unwrap().to_str().unwrap())),
                         Resource::DEFAULT_MAX_FILE_SIZE,
                     )
                     .map_err(NavigationError::Resource)?,
@@ -401,10 +391,7 @@ impl Browser {
             async move {
                 if style_url.scheme() != "http" && style_url.scheme() != "https" {
                     let res = Resource::load(
-                        io::ResourceType::Absolute {
-                            protocol: style_url.scheme(),
-                            location: style_url.path(),
-                        },
+                        io::ResourceType::Path(Entry::absolute(style_url.to_file_path().unwrap().to_str().unwrap())),
                         Resource::DEFAULT_MAX_FILE_SIZE,
                     );
 
