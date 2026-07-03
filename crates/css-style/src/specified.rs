@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use css_cssom::{CSSStyleSheet, ComponentValue, ComponentValueStream, KnownProperty, Property};
 use css_values::global::Global;
@@ -8,7 +8,7 @@ use tracing::debug;
 use crate::{
     ComputedStyle, StyleContext,
     cascade::{CascadedDeclaration, cascade, cascade_variables},
-    functions::variables::resolve_css_variables,
+    functions::variables::{ScopedVariables, resolve_css_variables},
     handler::*,
     properties::*,
     rules::Rules,
@@ -86,7 +86,7 @@ pub struct SpecifiedStyle {
 
     // === Non-CSS properties ===
     pub computed_font_size_px: f64,
-    pub variables: Arc<Vec<(Property, Vec<ComponentValue>)>>,
+    pub variables: Option<Arc<ScopedVariables>>,
 }
 
 impl SpecifiedStyle {
@@ -102,7 +102,7 @@ impl SpecifiedStyle {
     ) -> Self {
         let mut specified_style = Self::default();
 
-        let parent_variables = Arc::clone(&parent_style.variables);
+        let parent_variables = parent_style.variables.clone();
 
         let node = &dom[node_id];
 
@@ -117,25 +117,14 @@ impl SpecifiedStyle {
             &mut CascadedDeclaration::collect(node, dom, rules.generated, rules.index, &inline_declarations);
 
         let properties = cascade(declarations);
-
         let new_vars = cascade_variables(variables);
 
         if !new_vars.is_empty() {
-            let mut merged: HashMap<Property, Vec<ComponentValue>> = if parent_variables.is_empty() {
-                HashMap::with_capacity(new_vars.len())
-            } else {
-                (*parent_variables)
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect()
-            };
-
-            for (name, value) in new_vars {
-                merged.insert(name.clone(), value.clone());
-            }
-
-            specified_style.variables = Arc::new(merged.into_iter().collect());
-        } else if !parent_variables.is_empty() {
+            specified_style.variables = Some(Arc::new(ScopedVariables {
+                parent: parent_variables,
+                local: new_vars.into_iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            }));
+        } else {
             specified_style.variables = parent_variables;
         }
 
@@ -301,7 +290,7 @@ impl SpecifiedStyle {
 impl Default for SpecifiedStyle {
     fn default() -> Self {
         Self {
-            variables: Arc::new(vec![]),
+            variables: None,
             computed_font_size_px: 16.0,
 
             // Non-inherited properties

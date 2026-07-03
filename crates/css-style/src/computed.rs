@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use browser_preferences::BrowserPreferences;
-use css_cssom::{ComponentValue, Property};
 use css_values::{
     AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent, JustifyItems, JustifySelf,
     border::{BorderStyle, BorderWidth},
@@ -21,6 +20,7 @@ use crate::{
         offset::{ComputedMargin, ComputedOffset},
         position::ComputedBackgroundSize,
     },
+    functions::variables::ScopedVariables,
     into_compute,
     properties::{
         CSSProperty, PixelRepr,
@@ -115,7 +115,7 @@ pub struct ComputedStyle {
     pub width: ComputedSize,
     pub writing_mode: WritingMode,
 
-    pub variables: Arc<Vec<(Property, Vec<ComponentValue>)>>,
+    pub variables: Option<Arc<ScopedVariables>>,
 }
 
 impl ComputedStyle {
@@ -400,7 +400,7 @@ impl ComputedStyle {
             max_width: ComputedMaxSize::resolve(max_width, RelativeType::ParentWidth, &style_ctx, absolute_ctx)
                 .unwrap_or_default(),
             writing_mode: compute!(specified_style, parent, writing_mode),
-            variables: Arc::clone(&specified_style.variables),
+            variables: specified_style.variables.clone(),
         };
 
         if preferences.map(|p| p.force_dark()).unwrap_or(false) {
@@ -506,7 +506,7 @@ impl Default for ComputedStyle {
             width: ComputedSize::Auto,
             writing_mode: WritingMode::HorizontalTb,
 
-            variables: Arc::new(vec![]),
+            variables: None,
         }
     }
 }

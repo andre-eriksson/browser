@@ -1,6 +1,13 @@
 use css_cssom::{ComponentValue, CssToken, CssTokenKind, Function, Property, SimpleBlock};
+use std::sync::Arc;
 
 use crate::tree::PropertyRegistry;
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ScopedVariables {
+    pub parent: Option<Arc<ScopedVariables>>,
+    pub local: Vec<(Property, Vec<ComponentValue>)>,
+}
 
 /// Resolves CSS variables in a given value by replacing any `var()` functions with their corresponding values from the provided variables list.
 /// This function recursively resolves nested `var()` functions and handles fallback values if a variable is not found.
@@ -8,7 +15,7 @@ use crate::tree::PropertyRegistry;
 /// Returns `None` if any `var()` reference cannot be resolved (variable not found and no fallback),
 /// which signals that the entire property value is invalid at computed-value time per the CSS spec.
 pub fn resolve_css_variables(
-    variables: &[(Property, Vec<ComponentValue>)],
+    variables: &Option<Arc<ScopedVariables>>,
     property_registry: &PropertyRegistry,
     value: &[ComponentValue],
 ) -> Option<Vec<ComponentValue>> {
@@ -75,7 +82,7 @@ pub fn resolve_css_variables(
 /// If the variable is found, its value is returned. If not, the fallback values are resolved and returned.
 /// Returns `None` if the variable is not found and there are no fallback values.
 fn resolve_var_function(
-    variables: &[(Property, Vec<ComponentValue>)],
+    variables: &Option<Arc<ScopedVariables>>,
     property_registry: &PropertyRegistry,
     func: &Function,
 ) -> Option<Vec<ComponentValue>> {
@@ -129,42 +136,46 @@ fn resolve_var_function(
 /// - Falls back to initial-value if the value is invalid
 /// - Returns initial-value if no value is set and the property has one
 fn try_resolve_variable(
-    variables: &[(Property, Vec<ComponentValue>)],
+    variables: &Option<Arc<ScopedVariables>>,
     property_registry: &PropertyRegistry,
     var_name: &str,
 ) -> Option<Vec<ComponentValue>> {
     let descriptor = property_registry.descriptors.get(var_name);
 
-    for (property, vals) in variables {
-        if let Some(custom) = property.as_custom()
-            && custom != var_name
-        {
-            continue;
-        }
+    let mut current_scope = variables.as_ref().map(Arc::clone);
+    while let Some(scope) = current_scope {
+        for (property, vals) in &scope.local {
+            if let Some(custom) = property.as_custom()
+                && custom != var_name
+            {
+                continue;
+            }
 
-        if vals.is_empty() {
-            if let Some(desc) = descriptor {
+            if vals.is_empty() {
+                if let Some(desc) = descriptor {
+                    return desc.initial_value.clone();
+                }
+                return None;
+            }
+
+            let resolved = resolve_css_variables(&Some(scope.clone()), property_registry, vals)?;
+
+            if resolved.is_empty() {
+                if let Some(desc) = descriptor {
+                    return desc.initial_value.clone();
+                }
+                return None;
+            }
+
+            if let Some(desc) = descriptor
+                && !desc.syntax.validate(&resolved)
+            {
                 return desc.initial_value.clone();
             }
-            return None;
+
+            return Some(resolved);
         }
-
-        let resolved = resolve_css_variables(variables, property_registry, vals)?;
-
-        if resolved.is_empty() {
-            if let Some(desc) = descriptor {
-                return desc.initial_value.clone();
-            }
-            return None;
-        }
-
-        if let Some(desc) = descriptor
-            && !desc.syntax.validate(&resolved)
-        {
-            return desc.initial_value.clone();
-        }
-
-        return Some(resolved);
+        current_scope = scope.parent.clone();
     }
 
     if let Some(desc) = descriptor {
@@ -200,7 +211,10 @@ mod tests {
 
     #[test]
     fn test_resolve_unregistered_variable() {
-        let variables = vec![(Property::Custom("--color".to_string()), vec![make_ident("red")])];
+        let variables = Some(Arc::new(ScopedVariables {
+            parent: None,
+            local: vec![(Property::Custom("--color".to_string()), vec![make_ident("red")])],
+        }));
         let registry = PropertyRegistry::default();
 
         let value = vec![ComponentValue::Function(Function {
@@ -216,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_registered_property_uses_initial_value_when_not_set() {
-        let variables: Vec<(Property, Vec<ComponentValue>)> = vec![];
+        let variables = None;
         let mut registry = PropertyRegistry::default();
 
         registry.descriptors.insert(
@@ -237,7 +251,10 @@ mod tests {
 
     #[test]
     fn test_registered_property_validates_value() {
-        let variables = vec![(Property::Custom("--my-length".to_string()), vec![make_dimension(20.0, "px")])];
+        let variables = Some(Arc::new(ScopedVariables {
+            parent: None,
+            local: vec![(Property::Custom("--my-length".to_string()), vec![make_dimension(20.0, "px")])],
+        }));
         let mut registry = PropertyRegistry::default();
 
         registry.descriptors.insert(
@@ -258,7 +275,10 @@ mod tests {
 
     #[test]
     fn test_registered_property_falls_back_on_invalid_value() {
-        let variables = vec![(Property::Custom("--my-length".to_string()), vec![make_ident("red")])];
+        let variables = Some(Arc::new(ScopedVariables {
+            parent: None,
+            local: vec![(Property::Custom("--my-length".to_string()), vec![make_ident("red")])],
+        }));
         let mut registry = PropertyRegistry::default();
 
         registry.descriptors.insert(
@@ -277,7 +297,10 @@ mod tests {
 
     #[test]
     fn test_universal_syntax_accepts_any_value() {
-        let variables = vec![(Property::Custom("--anything".to_string()), vec![make_ident("whatever")])];
+        let variables = Some(Arc::new(ScopedVariables {
+            parent: None,
+            local: vec![(Property::Custom("--anything".to_string()), vec![make_ident("whatever")])],
+        }));
         let mut registry = PropertyRegistry::default();
 
         registry.descriptors.insert(
