@@ -460,6 +460,7 @@ impl From<Color4f<f64>> for Color4f<f32> {
 mod tests {
     use std::net::Ipv4Addr;
 
+    use css_values::{color::Alpha, numeric::Percentage};
     use url::Url;
 
     use super::*;
@@ -547,5 +548,115 @@ mod tests {
         );
 
         assert_eq!(color, Color4f::from(NamedColor::Red));
+    }
+
+    #[test]
+    fn convert_hsl_to_rgb() {
+        let hsl = ColorFunction::Hsl(Hue::new(0.0), Percentage::new(100.0), Percentage::new(50.0), Alpha::new(1.0));
+        let rgb = Color4f::from(hsl);
+        assert_eq!(rgb, Color4f::rgba(1.0, 0.0, 0.0, 1.0));
+
+        let hsl = ColorFunction::Hsl(Hue::new(79.0), Percentage::new(100.0), Percentage::new(60.0), Alpha::new(1.0));
+        let rgb = Color4f::from(hsl);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(192, 255, 51, 255), 0.01));
+
+        let hsl = ColorFunction::Hsl(Hue::new(219.0), Percentage::new(57.4), Percentage::new(72.4), Alpha::new(0.8));
+        let rgb = Color4f::from(hsl);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(144, 173, 225, 204), 0.01));
+    }
+
+    #[test]
+    fn convert_hwb_to_rgb() {
+        let hwb = ColorFunction::Hwb(Hue::new(0.0), Percentage::new(0.0), Percentage::new(0.0), Alpha::new(1.0));
+        let rgb = Color4f::from(hwb);
+        assert_eq!(rgb, Color4f::rgba(1.0, 0.0, 0.0, 1.0));
+
+        let hwb = ColorFunction::Hwb(Hue::new(90.0), Percentage::new(56.4), Percentage::new(14.8), Alpha::new(1.0));
+        let rgb = Color4f::from(hwb);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(181, 217, 144, 255), 0.01));
+
+        let hwb = ColorFunction::Hwb(Hue::new(282.0), Percentage::new(45.6), Percentage::new(6.1), Alpha::new(0.8));
+        let rgb = Color4f::from(hwb);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(202, 116, 239, 204), 0.01));
+    }
+
+    #[test]
+    fn convert_lab_to_rgb() {
+        let lab = ColorFunction::Lab(
+            ColorValue::Number(53.24),
+            ColorValue::Number(80.09),
+            ColorValue::Number(67.2),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(lab);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba(1.0, 0.0, 0.0, 1.0), 0.01));
+
+        let lab = ColorFunction::Lab(
+            ColorValue::Number(78.25),
+            ColorValue::Number(-17.71),
+            ColorValue::Number(76.47),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(lab);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(200, 200, 20, 255), 0.01));
+    }
+
+    #[test]
+    fn convert_lch_to_rgb() {
+        let lch = ColorFunction::Lch(
+            ColorValue::Number(53.23),
+            ColorValue::Number(104.58),
+            Hue::Number(40.0),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(lch);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba(1.0, 0.0, 0.0, 1.0), 0.01));
+
+        let lch =
+            ColorFunction::Lch(ColorValue::Number(100.0), ColorValue::Number(75.0), Hue::Number(40.0), Alpha::new(1.0));
+        let rgb = Color4f::from(lch);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(255, 206, 164, 255), 0.01));
+    }
+
+    #[test]
+    fn convert_oklab_to_rgb() {
+        let oklab = ColorFunction::Oklab(
+            ColorValue::Number(0.628),
+            ColorValue::Number(0.225),
+            ColorValue::Number(0.126),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(oklab);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba(1.0, 0.0, 0.0, 1.0), 0.01));
+
+        let oklab = ColorFunction::Oklab(
+            ColorValue::Number(0.804),
+            ColorValue::Number(-0.076),
+            ColorValue::Number(0.153),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(oklab);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(185, 204, 48, 255), 0.01));
+    }
+
+    #[test]
+    fn convert_oklch_to_rgb() {
+        let oklch = ColorFunction::Oklch(
+            ColorValue::Number(0.628),
+            ColorValue::Number(0.2577),
+            Hue::Number(29.23),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(oklch);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba(1.0, 0.0, 0.0, 1.0), 0.01));
+
+        let oklch = ColorFunction::Oklch(
+            ColorValue::Number(0.6528),
+            ColorValue::Number(0.1625),
+            Hue::Number(144.21),
+            Alpha::new(1.0),
+        );
+        let rgb = Color4f::from(oklch);
+        assert!(rgb.compare_with_tolerance(&Color4f::rgba_u8(69, 169, 74, 255), 0.01));
     }
 }
