@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use browser_core::{Commandable, EngineCommand};
 use iced::{Task, window, window::Id};
+use tracing::debug;
 
 use crate::{
     core::{Application, WindowType},
@@ -24,14 +25,19 @@ impl Application {
 
                 let tab_id = tab.id;
                 let browser = Arc::clone(&self.browser);
-                let Some(document) = tab.page.as_ref().map(|ctx| ctx.document.dom().clone()) else {
-                    panic!("Root element not found in the page document");
+
+                let Some(page) = &tab.page else {
+                    debug!("Failed to find page");
+                    return Task::none();
                 };
+
+                let document = page.document.dom().clone();
+                let title = page.metadata.title.clone();
 
                 Task::perform(
                     async move {
                         browser
-                            .execute(EngineCommand::GetDevtoolsPage { document })
+                            .execute(EngineCommand::GetDevtoolsPage { title, document })
                             .await
                     },
                     move |result| match result {

@@ -1,8 +1,33 @@
 body {
+    margin: 0;
+}
+
+header {
+    background: #111;
+    color: #dedede;
+    padding: 0px 10px 10px 10px;
+    border-bottom-color: white;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+    margin-bottom: 15px;
+}
+
+nav > div {
+    background: #111;
+    border: 1px solid #222;
+    padding: 0px 10px 0px 10px;
+    width: 10rem;
+}
+
+nav > div[data-active] {
+    background: #333;
+}
+
+#document_html {
     font-family: monospace;
     font-size: 14px;
-    line-height: 1.5;
     padding: 10px;
+    white-space: pre;
 
     background: light-dark(oklch(0.97 0.01 260), oklch(0.18 0.02 260));
     color: light-dark(oklch(0.3 0.02 260), oklch(0.85 0.02 260));

@@ -56,7 +56,10 @@ pub enum EngineCommand {
     },
 
     /// Get the `DevTools` page for a specific tab.
-    GetDevtoolsPage { document: DocumentRoot },
+    GetDevtoolsPage {
+        title: String,
+        document: DocumentRoot,
+    },
 
     /// Command to fetch an image resource using the browser's HTTP client, headers, and cookies.
     FetchImage {

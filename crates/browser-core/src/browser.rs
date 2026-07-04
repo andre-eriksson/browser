@@ -135,7 +135,7 @@ impl Commandable for Browser {
 
                 Ok(EngineResponse::NavigateSuccess(page, metadata, navigation_type))
             }
-            EngineCommand::GetDevtoolsPage { document } => {
+            EngineCommand::GetDevtoolsPage { title, document } => {
                 let span = tracing::debug_span!("Browser::GetDevtoolsPage");
                 let _enter = span.enter();
 
@@ -157,7 +157,8 @@ impl Commandable for Browser {
                 };
 
                 let stylesheets = vec![default_css, devtools_css];
-                let dom = parse_devtools_html(&document).map_err(|e| CoreError::DevtoolsGeneration(e.to_string()))?;
+                let dom =
+                    parse_devtools_html(&title, &document).map_err(|e| CoreError::DevtoolsGeneration(e.to_string()))?;
 
                 let devtools_page = Document::new(dom, stylesheets);
 
