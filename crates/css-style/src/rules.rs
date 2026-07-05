@@ -324,7 +324,10 @@ impl<'css> GeneratedRule<'css> {
             }
         }
 
-        false
+        media_types
+            .iter()
+            .any(|m| matches!(m, MediaType::All | MediaType::Screen))
+            ^ is_not
     }
 
     fn handle_media_block(block: &SimpleBlock, absolute_ctx: &AbsoluteContext) -> bool {
