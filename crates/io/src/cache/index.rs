@@ -14,7 +14,7 @@ use database::{Database, Table};
 use httpdate::fmt_http_date;
 use network::{HeaderMap, HeaderValue, IF_MODIFIED_SINCE, IF_NONE_MATCH};
 use rusqlite::{Connection, Result, params};
-use storage::get_cache_path;
+use storage::Directory;
 
 use crate::HttpCache;
 
@@ -168,10 +168,8 @@ pub struct IndexDatabase {
 }
 
 impl Database for IndexDatabase {
-    fn open() -> Result<Self> {
-        let path = get_cache_path()
-            .ok_or_else(|| rusqlite::Error::InvalidPath("Cache path not found".into()))?
-            .join(IDX_DATABASE);
+    fn open(dirs: Directory) -> Result<Self> {
+        let path = dirs.cache.join(IDX_DATABASE);
 
         std::fs::create_dir_all(path.parent().unwrap())
             .map_err(|_| rusqlite::Error::InvalidPath("Failed to create cache directory".into()))?;

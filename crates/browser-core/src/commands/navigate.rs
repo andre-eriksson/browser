@@ -16,6 +16,7 @@ use network::{
     errors::{NetworkError, RequestError},
     response::Response,
 };
+use storage::Directory;
 use tokio::task::JoinHandle;
 use tracing::{Instrument, debug, warn};
 use url::Url;
@@ -110,6 +111,7 @@ impl Browser {
                                 })?;
 
                             let handle = Self::spawn_style_fetch_and_parse(
+                                self.profile().dirs().into(),
                                 relative_url,
                                 &request_url,
                                 self.profile().http_cache(),
@@ -135,6 +137,7 @@ impl Browser {
                             let client_clone = client.box_clone();
                             let headers_clone = Arc::clone(&headers);
                             let http_cache = self.profile().http_cache().clone();
+                            let dirs = self.profile().dirs().into();
 
                             let cookies = if let Some(host) = request_url.host() {
                                 self.profile()
@@ -151,6 +154,7 @@ impl Browser {
                                             io::ResourceType::Path(Entry::absolute(
                                                 relative_url.to_file_path().unwrap().to_str().unwrap(),
                                             )),
+                                            dirs,
                                             Resource::DEFAULT_MAX_FILE_SIZE,
                                         ) {
                                             Ok(b) => Some(b),
@@ -285,6 +289,7 @@ impl Browser {
                         protocol: "about",
                         location: format!("{location}.html").as_str(),
                     },
+                    self.profile().dirs().into(),
                     Resource::DEFAULT_MAX_FILE_SIZE,
                 )
                 .map_err(NavigationError::Resource)?,
@@ -325,6 +330,7 @@ impl Browser {
                         Response::from(
                             Resource::load(
                                 io::ResourceType::Path(Entry::absolute(url.to_file_path().unwrap().to_str().unwrap())),
+                                self.profile().dirs().into(),
                                 Resource::DEFAULT_MAX_FILE_SIZE,
                             )
                             .map_err(NavigationError::Resource)?,
@@ -338,6 +344,7 @@ impl Browser {
                 None => Response::from(
                     Resource::load(
                         io::ResourceType::Path(Entry::absolute(url.to_file_path().unwrap().to_str().unwrap())),
+                        self.profile().dirs().into(),
                         Resource::DEFAULT_MAX_FILE_SIZE,
                     )
                     .map_err(NavigationError::Resource)?,
@@ -386,6 +393,7 @@ impl Browser {
     /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
     /// The task will handle cookies and headers appropriately, and will return `None` if fetching or parsing fails.
     fn spawn_style_fetch_and_parse(
+        dirs: Directory,
         style_url: Url,
         page_url: &Url,
         cache: &HttpCache,
@@ -403,6 +411,7 @@ impl Browser {
                 if style_url.scheme() != "http" && style_url.scheme() != "https" {
                     let res = Resource::load(
                         io::ResourceType::Path(Entry::absolute(style_url.to_file_path().unwrap().to_str().unwrap())),
+                        dirs,
                         Resource::DEFAULT_MAX_FILE_SIZE,
                     );
 

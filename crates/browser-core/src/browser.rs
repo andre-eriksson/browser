@@ -39,7 +39,7 @@ impl Browser {
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
         let stylesheet = if args.enable_ua_css {
-            match Resource::load(CACHE_USER_AGENT, Self::MAX_USER_AGENT_CSS_SIZE) {
+            match Resource::load(CACHE_USER_AGENT, profile.dirs().into(), Self::MAX_USER_AGENT_CSS_SIZE) {
                 Ok(data) => {
                     trace!("Loaded user agent stylesheet from cache");
 
@@ -64,7 +64,7 @@ impl Browser {
 
                     let serialized = to_stdvec(&parsed).unwrap();
 
-                    if Resource::write(CACHE_USER_AGENT, serialized.as_slice()).is_err() {
+                    if Resource::write(CACHE_USER_AGENT, serialized.as_slice(), profile.dirs().into()).is_err() {
                         warn!("Failed to write user agent stylesheet to cache");
                     }
 

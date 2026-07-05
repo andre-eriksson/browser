@@ -25,7 +25,6 @@ pub struct Profile {
 impl Profile {
     pub fn new(args: &BrowserArgs) -> Self {
         let config = BrowserConfig::new(args);
-        let databases = Databases::init().expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
 
         let profile_kind = if args.incognito {
             ProfileKind::Temporary
@@ -40,6 +39,8 @@ impl Profile {
                 "Profile directories are degraded. Some features may not work as expected. Please check your file system permissions and available disk space."
             )
         }
+
+        let databases = Databases::init(&dirs).expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
 
         Self {
             dirs,

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use browser_args::BrowserArgs;
 use io::{Entry, Resource, files::PREFERENCES};
 use serde::Deserialize;
+use storage::Directory;
 use tracing::warn;
 
 use crate::theme::Theme;
@@ -30,7 +31,10 @@ pub struct BrowserPreferences {
 impl Default for BrowserPreferences {
     fn default() -> Self {
         Self {
-            themes: Self::load_themes(),
+            themes: HashMap::from([
+                ("light".to_string(), Theme::light()),
+                ("dark".to_string(), Theme::dark()),
+            ]),
             theme: "light".to_string(),
             force_dark: false,
         }
@@ -48,16 +52,16 @@ impl BrowserPreferences {
     const MAX_THEME_FILES: Option<usize> = Some(100);
 
     #[must_use]
-    pub fn new(active_theme: String, force_dark: bool) -> Self {
+    pub fn new(dirs: Directory, active_theme: String, force_dark: bool) -> Self {
         Self {
-            themes: Self::load_themes(),
+            themes: Self::load_themes(dirs),
             theme: active_theme,
             force_dark,
         }
     }
 
-    pub fn load(args: &BrowserArgs) -> Self {
-        match Resource::load(PREFERENCES, Self::MAX_PREFERENCES_FILE_SIZE) {
+    pub fn load(args: &BrowserArgs, dirs: Directory) -> Self {
+        match Resource::load(PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");
@@ -68,7 +72,7 @@ impl BrowserPreferences {
                     return Self::default();
                 };
 
-                config.themes = Self::load_themes();
+                config.themes = Self::load_themes(dirs);
 
                 if config.theme.is_empty() || !config.themes.contains_key(&config.theme) {
                     warn!(
@@ -88,7 +92,7 @@ impl BrowserPreferences {
             Err(error) => {
                 warn!(%error, "Failed to load preferences, using default settings.");
 
-                Self::new("light".to_string(), args.preferences.force_dark)
+                Self::new(dirs, "light".to_string(), args.preferences.force_dark)
             }
         }
     }
@@ -113,20 +117,24 @@ impl BrowserPreferences {
         self.force_dark
     }
 
-    fn load_themes() -> HashMap<String, Theme> {
+    fn load_themes(dirs: Directory) -> HashMap<String, Theme> {
         let mut themes = HashMap::from([
             ("light".to_string(), Theme::light()),
             ("dark".to_string(), Theme::dark()),
         ]);
 
-        let theme_files =
-            match Resource::load_dir(Entry::user_data("themes/"), Self::MAX_THEME_FILES, Self::MAX_THEME_FILE_SIZE) {
-                Ok(files) => files,
-                Err(error) => {
-                    warn!(%error, "Failed to load themes from user data directory, using default themes only.");
-                    return themes;
-                }
-            };
+        let theme_files = match Resource::load_dir(
+            Entry::user_data("themes/"),
+            dirs,
+            Self::MAX_THEME_FILES,
+            Self::MAX_THEME_FILE_SIZE,
+        ) {
+            Ok(files) => files,
+            Err(error) => {
+                warn!(%error, "Failed to load themes from user data directory, using default themes only.");
+                return themes;
+            }
+        };
 
         for file in theme_files {
             if let Ok(content) = std::str::from_utf8(&file)

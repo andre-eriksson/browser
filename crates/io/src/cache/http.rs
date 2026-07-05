@@ -195,6 +195,7 @@ mod tests {
     use http_serde::http::StatusCode;
     use network::VARY;
     use serial_test::serial;
+    use storage::Directory;
 
     use super::*;
 
@@ -249,7 +250,7 @@ mod tests {
         let key = "https://example.com/resource".to_string();
         let response = Response::new(StatusCode::OK, response_headers, Some("cached_data".as_bytes().to_vec()));
 
-        let database = IndexDatabase::open().expect("Couldn't open database");
+        let database = IndexDatabase::open(Directory::try_new().unwrap()).expect("Couldn't open database");
         let cache = HttpCache::new(database);
 
         let result = cache.store(key.clone(), response, &request_header);
@@ -273,7 +274,7 @@ mod tests {
         let key = "https://example.com/resource".to_string();
         let response = Response::new(StatusCode::OK, response_headers, Some("cached_data".as_bytes().to_vec()));
 
-        let database = IndexDatabase::open().expect("Couldn't open database");
+        let database = IndexDatabase::open(Directory::try_new().unwrap()).expect("Couldn't open database");
         let cache = HttpCache::new(database);
 
         let result = cache.store(key.clone(), response, &request_header);

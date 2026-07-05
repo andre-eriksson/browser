@@ -1,6 +1,30 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use manifest::APP_NAME;
+
+#[derive(Debug, Clone)]
+pub struct Directory {
+    pub cache: Arc<PathBuf>,
+    pub config: Arc<PathBuf>,
+    pub data: Arc<PathBuf>,
+    pub temp: Arc<PathBuf>,
+}
+
+impl Directory {
+    pub fn try_new() -> Option<Self> {
+        let cache = get_cache_path()?;
+        let config = get_config_path()?;
+        let data = get_data_path()?;
+        let temp = get_temp_path(None);
+
+        Some(Self {
+            cache: Arc::new(cache),
+            config: Arc::new(config),
+            data: Arc::new(data),
+            temp: Arc::new(temp),
+        })
+    }
+}
 
 /// Get the path to the cache directory for the application.
 ///

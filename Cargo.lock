@@ -693,6 +693,7 @@ dependencies = [
  "clap",
  "io",
  "serde",
+ "storage",
  "toml",
  "tracing",
 ]
@@ -723,6 +724,7 @@ dependencies = [
  "regex",
  "renderer",
  "serde",
+ "storage",
  "thiserror 2.0.17",
  "tokio",
  "tracing",
