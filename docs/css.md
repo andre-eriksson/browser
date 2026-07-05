@@ -73,7 +73,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-bottom-right-radius
 - [ ] border-bottom-style
 - [x] border-bottom-width
-- [ ] border-bottom (shorthand)
+- [x] border-bottom (shorthand)
 - [ ] border-collapse
 - [ ] border-color (shorthand)
 - [ ] border-end-end-radius
@@ -97,14 +97,14 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-inline-width
 - [ ] border-inline (shorthand)
 - [x] border-left-color
-- [ ] border-left-style
+- [x] border-left-style
 - [x] border-left-width
-- [ ] border-left (shorthand)
+- [x] border-left (shorthand)
 - [ ] border-radius (shorthand)
 - [x] border-right-color
-- [ ] border-right-style
+- [x] border-right-style
 - [x] border-right-width
-- [ ] border-right (shorthand)
+- [x] border-right (shorthand)
 - [ ] border-spacing
 - [ ] border-start-end-radius
 - [ ] border-start-start-radius
@@ -112,11 +112,11 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [x] border-top-color
 - [ ] border-top-left-radius
 - [ ] border-top-right-radius
-- [ ] border-top-style
+- [x] border-top-style
 - [x] border-top-width
-- [ ] border-top (shorthand)
+- [x] border-top (shorthand)
 - [ ] border-width (shorthand)
-- [ ] border (shorthand)
+- [x] border (shorthand)
 
 ## B - C
 

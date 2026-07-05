@@ -79,10 +79,9 @@ impl TryFrom<&[OffsetValue]> for Offset {
 
 impl CSSParsable for Offset {
     fn parse(stream: &mut ComponentValueStream) -> Result<Self, CssValueError> {
-        stream.skip_whitespace();
         let mut offset_values = Vec::new();
 
-        while let Some(cv) = stream.next_cv() {
+        while let Some(cv) = stream.next_non_whitespace() {
             match cv {
                 ComponentValue::Function(func) if is_math_function(&func.name) => {
                     offset_values.push(OffsetValue::Calc(CalcExpression::parse(&func.name, &func.value)?));
@@ -96,6 +95,16 @@ impl CSSParsable for Offset {
                     }
                     CssTokenKind::Percentage(pct) => {
                         offset_values.push(OffsetValue::Percentage(Percentage::new(pct.to_f64())));
+                    }
+                    CssTokenKind::Number(numeric) => {
+                        if numeric.to_f64() == 0.0 {
+                            offset_values.push(OffsetValue::Length(Length::px(0.0)));
+                        } else {
+                            return Err(CssValueError::InvalidValue(format!(
+                                "Invalid numeric value for margin: {}. Only zero is allowed without a unit.",
+                                numeric.to_f64()
+                            )));
+                        }
                     }
                     _ => {}
                 },

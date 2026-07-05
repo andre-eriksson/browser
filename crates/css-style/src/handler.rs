@@ -783,27 +783,83 @@ pub fn handle_background(ctx: &mut PropertyUpdateContext, stream: &mut Component
     }
 }
 
-/// Handles the `border` shorthand property by parsing the provided component values and updating the corresponding border properties (style, width, color) in the specified style.
-pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream) {
-    fn reset_border_color(ctx: &mut PropertyUpdateContext) {
-        ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_bottom_color = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum BorderSide {
+    All,
+    Top,
+    Right,
+    Bottom,
+    Left,
+}
+
+pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream, side: BorderSide) {
+    fn reset_border_color(ctx: &mut PropertyUpdateContext, side: BorderSide) {
+        match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_bottom_color = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_color = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+            }
+        }
     }
 
-    const fn reset_border_style(ctx: &mut PropertyUpdateContext) {
-        ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+    const fn reset_border_style(ctx: &mut PropertyUpdateContext, side: BorderSide) {
+        match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+            }
+        }
     }
 
-    fn reset_border_width(ctx: &mut PropertyUpdateContext) {
-        ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_bottom_width = CSSProperty::Global(Global::Initial);
-        ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+    fn reset_border_width(ctx: &mut PropertyUpdateContext, side: BorderSide) {
+        match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_bottom_width = CSSProperty::Global(Global::Initial);
+                ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_width = CSSProperty::Global(Global::Initial);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+            }
+        }
     }
 
     if let Ok(global) = Global::parse(stream) {
@@ -816,18 +872,42 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             return;
         }
 
-        ctx.specified_style.border_top_style = CSSProperty::Global(global);
-        ctx.specified_style.border_right_style = CSSProperty::Global(global);
-        ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
-        ctx.specified_style.border_left_style = CSSProperty::Global(global);
-        ctx.specified_style.border_top_width = CSSProperty::Global(global);
-        ctx.specified_style.border_right_width = CSSProperty::Global(global);
-        ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
-        ctx.specified_style.border_left_width = CSSProperty::Global(global);
-        ctx.specified_style.border_top_color = CSSProperty::Global(global);
-        ctx.specified_style.border_right_color = CSSProperty::Global(global);
-        ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
-        ctx.specified_style.border_left_color = CSSProperty::Global(global);
+        match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                ctx.specified_style.border_top_color = CSSProperty::Global(global);
+                ctx.specified_style.border_right_color = CSSProperty::Global(global);
+                ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+                ctx.specified_style.border_left_color = CSSProperty::Global(global);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                ctx.specified_style.border_top_color = CSSProperty::Global(global);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                ctx.specified_style.border_right_color = CSSProperty::Global(global);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                ctx.specified_style.border_left_color = CSSProperty::Global(global);
+            }
+        }
         return;
     }
 
@@ -842,14 +922,13 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             break;
         }
 
-        if width.is_none() {
-            let cp = stream.checkpoint();
-            if let Ok(w) = BorderWidth::parse(stream) {
-                width = Some(w);
-                parsed_any = true;
-                continue;
-            }
-            stream.restore(cp);
+        if width.is_none()
+            && let Ok(w) = BorderWidth::parse(stream)
+        {
+            width = Some(w);
+            parsed_any = true;
+            stream.next_cv();
+            continue;
         }
 
         if style.is_none()
@@ -875,43 +954,89 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             }
         }
 
-        ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Border property".to_string()));
+        ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Invalid border value".to_string()));
         return;
     }
 
     if !parsed_any {
-        ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Border property".to_string()));
+        ctx.record_error_from_stream(
+            "border",
+            stream,
+            CssValueError::InvalidValue("No valid border value".to_string()),
+        );
         return;
     }
 
     match color {
-        Some(c) => {
-            ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
-            ctx.specified_style.border_right_color = CSSProperty::Value(c.clone());
-            ctx.specified_style.border_bottom_color = CSSProperty::Value(c.clone());
-            ctx.specified_style.border_left_color = CSSProperty::Value(c);
-        }
-        None => reset_border_color(ctx),
+        Some(c) => match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
+                ctx.specified_style.border_right_color = CSSProperty::Value(c.clone());
+                ctx.specified_style.border_bottom_color = CSSProperty::Value(c.clone());
+                ctx.specified_style.border_left_color = CSSProperty::Value(c);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_color = CSSProperty::Value(c);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_color = CSSProperty::Value(c);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_color = CSSProperty::Value(c);
+            }
+        },
+        None => reset_border_color(ctx, side),
     }
 
     match style {
-        Some(s) => {
-            ctx.specified_style.border_top_style = CSSProperty::Value(s);
-            ctx.specified_style.border_right_style = CSSProperty::Value(s);
-            ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
-            ctx.specified_style.border_left_style = CSSProperty::Value(s);
-        }
-        None => reset_border_style(ctx),
+        Some(s) => match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_style = CSSProperty::Value(s);
+                ctx.specified_style.border_right_style = CSSProperty::Value(s);
+                ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+                ctx.specified_style.border_left_style = CSSProperty::Value(s);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_style = CSSProperty::Value(s);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_style = CSSProperty::Value(s);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_style = CSSProperty::Value(s);
+            }
+        },
+        None => reset_border_style(ctx, side),
     }
 
     match width {
-        Some(w) => {
-            ctx.specified_style.border_top_width = CSSProperty::Value(w.clone());
-            ctx.specified_style.border_right_width = CSSProperty::Value(w.clone());
-            ctx.specified_style.border_bottom_width = CSSProperty::Value(w.clone());
-            ctx.specified_style.border_left_width = CSSProperty::Value(w);
-        }
-        None => reset_border_width(ctx),
+        Some(w) => match side {
+            BorderSide::All => {
+                ctx.specified_style.border_top_width = CSSProperty::Value(w.clone());
+                ctx.specified_style.border_right_width = CSSProperty::Value(w.clone());
+                ctx.specified_style.border_bottom_width = CSSProperty::Value(w.clone());
+                ctx.specified_style.border_left_width = CSSProperty::Value(w);
+            }
+            BorderSide::Top => {
+                ctx.specified_style.border_top_width = CSSProperty::Value(w);
+            }
+            BorderSide::Right => {
+                ctx.specified_style.border_right_width = CSSProperty::Value(w);
+            }
+            BorderSide::Bottom => {
+                ctx.specified_style.border_bottom_width = CSSProperty::Value(w);
+            }
+            BorderSide::Left => {
+                ctx.specified_style.border_left_width = CSSProperty::Value(w);
+            }
+        },
+        None => reset_border_width(ctx, side),
     }
 }
 
@@ -1514,7 +1639,7 @@ mod tests {
         let mut stream = ComponentValueStream::from(&values);
         let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
-        handle_border(&mut ctx, &mut stream);
+        handle_border(&mut ctx, &mut stream, BorderSide::All);
 
         assert_eq!(ctx.errors.len(), 1);
         assert_eq!(specified, before);
@@ -1531,7 +1656,7 @@ mod tests {
         let mut stream = ComponentValueStream::from(&values);
         let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
-        handle_border(&mut ctx, &mut stream);
+        handle_border(&mut ctx, &mut stream, BorderSide::All);
 
         assert!(ctx.errors.is_empty());
 
@@ -1550,7 +1675,7 @@ mod tests {
         let mut stream = ComponentValueStream::from(&values);
         let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
-        handle_border(&mut ctx, &mut stream);
+        handle_border(&mut ctx, &mut stream, BorderSide::All);
 
         assert!(ctx.errors.is_empty());
 
@@ -1572,7 +1697,7 @@ mod tests {
         let mut stream = ComponentValueStream::from(&values);
         let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
-        handle_border(&mut ctx, &mut stream);
+        handle_border(&mut ctx, &mut stream, BorderSide::All);
 
         assert_eq!(ctx.errors.len(), 1);
         assert_eq!(specified, before);

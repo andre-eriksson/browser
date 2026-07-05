@@ -122,7 +122,10 @@ impl SpecifiedStyle {
         if !new_vars.is_empty() {
             specified_style.variables = Some(Arc::new(ScopedVariables {
                 parent: parent_variables,
-                local: new_vars.into_iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+                local: new_vars
+                    .into_iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
             }));
         } else {
             specified_style.variables = parent_variables;
@@ -203,18 +206,22 @@ impl SpecifiedStyle {
                 KnownProperty::BackgroundPositionY => handle_background_position_y(ctx, &mut stream),
                 KnownProperty::BackgroundRepeat => handle_background_repeat(ctx, &mut stream),
                 KnownProperty::BackgroundSize => handle_background_size(ctx, &mut stream),
-                KnownProperty::Border => handle_border(ctx, &mut stream),
+                KnownProperty::Border => handle_border(ctx, &mut stream, BorderSide::All),
+                KnownProperty::BorderBottom => handle_border(ctx, &mut stream, BorderSide::Bottom),
                 KnownProperty::BorderBottomColor => handle_border_bottom_color(ctx, &mut stream),
                 KnownProperty::BorderBottomStyle => handle_border_bottom_style(ctx, &mut stream),
                 KnownProperty::BorderBottomWidth => handle_border_bottom_width(ctx, &mut stream),
                 KnownProperty::BorderColor => handle_border_color(ctx, &mut stream),
+                KnownProperty::BorderLeft => handle_border(ctx, &mut stream, BorderSide::Left),
                 KnownProperty::BorderLeftColor => handle_border_left_color(ctx, &mut stream),
                 KnownProperty::BorderLeftStyle => handle_border_left_style(ctx, &mut stream),
                 KnownProperty::BorderLeftWidth => handle_border_left_width(ctx, &mut stream),
+                KnownProperty::BorderRight => handle_border(ctx, &mut stream, BorderSide::Right),
                 KnownProperty::BorderRightColor => handle_border_right_color(ctx, &mut stream),
                 KnownProperty::BorderRightStyle => handle_border_right_style(ctx, &mut stream),
                 KnownProperty::BorderRightWidth => handle_border_right_width(ctx, &mut stream),
                 KnownProperty::BorderStyle => handle_border_style(ctx, &mut stream),
+                KnownProperty::BorderTop => handle_border(ctx, &mut stream, BorderSide::Top),
                 KnownProperty::BorderTopColor => handle_border_top_color(ctx, &mut stream),
                 KnownProperty::BorderTopStyle => handle_border_top_style(ctx, &mut stream),
                 KnownProperty::BorderTopWidth => handle_border_top_width(ctx, &mut stream),

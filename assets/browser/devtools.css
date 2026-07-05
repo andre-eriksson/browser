@@ -6,9 +6,7 @@ header {
     background: #111;
     color: #dedede;
     padding: 0px 10px 10px 10px;
-    border-bottom-color: white;
-    border-bottom-style: solid;
-    border-bottom-width: 1px;
+    border-bottom: 1px solid #323232;
     margin-bottom: 15px;
 }
 
