@@ -12,6 +12,9 @@ use crate::{
     mode::inline::{InlineLayoutContext, collection::TextRun, line::LineBoxBuilder},
 };
 
+// NOTE: Temporary fixed character width
+const CHARACTER_WIDTH: f64 = 10.0;
+
 struct TextInput<'text> {
     content: &'text str,
     layout_id: LayoutNodeId,
@@ -112,7 +115,8 @@ fn layout_text_segment<'node>(
     while !remaining_text.is_empty() {
         let available_width = line
             .line_box
-            .available_width(float_ctx, ctx.available_width);
+            .available_width(float_ctx, ctx.available_width)
+            - CHARACTER_WIDTH;
         let remaining_line_space = (available_width - line.line_box.width).max(0.0);
 
         if remaining_line_space < 1.0 && line.line_box.width > 0.0 {
@@ -138,11 +142,18 @@ fn layout_text_segment<'node>(
         current_fragment_buffers.push(Arc::new(measured.buffer));
 
         if let Some(r) = rest {
+            let content =
+                if !matches!(text.style.whitespace, Whitespace::Pre | Whitespace::PreWrap | Whitespace::PreLine) {
+                    r.trim()
+                } else {
+                    r
+                };
+
             flush_fragment(nodes, line, text, &mut current_fragment_buffers, current_fragment_w, current_fragment_h);
             current_fragment_w = 0.0;
             current_fragment_h = 0.0;
             line.finish_line_with_decorations(nodes, ctx, text_ctx, float_ctx, None);
-            remaining_text = r;
+            remaining_text = content;
         } else {
             break;
         }
