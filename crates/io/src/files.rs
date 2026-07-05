@@ -130,7 +130,7 @@ impl<'path> Entry<'path> {
                 )
             }
             FilePath::Absolute => Some(PathBuf::from(self.location)),
-            FilePath::Temporary => Some(get_temp_path().join(self.location)),
+            FilePath::Temporary => Some(get_temp_path(None).join(self.location)),
         }
     }
 }
@@ -181,7 +181,7 @@ mod tests {
     #[test]
     fn test_path_temporary() {
         let entry = Entry::temporary("test_temp_file");
-        let true_path = Some(get_temp_path().join("test_temp_file"));
+        let true_path = Some(get_temp_path(None).join("test_temp_file"));
 
         assert_eq!(entry.path(), true_path);
     }

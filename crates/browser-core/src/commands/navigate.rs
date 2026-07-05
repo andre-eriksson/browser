@@ -39,8 +39,8 @@ impl Browser {
         let page = Document::blank();
 
         let client = self.http_client();
-        let headers = Arc::new(self.headers().clone());
-        let cookie_jar = self.cookie_jar();
+        let headers = Arc::new(self.profile().config().headers().clone());
+        let cookie_jar = self.profile().cookie_jar();
 
         let (request_url, response) = self
             .resolve_navigation_request(url, None, &DocumentPolicy::default(), &headers, client)
@@ -112,7 +112,7 @@ impl Browser {
                             let handle = Self::spawn_style_fetch_and_parse(
                                 relative_url,
                                 &request_url,
-                                self.http_cache(),
+                                self.profile().http_cache(),
                                 client.box_clone(),
                                 Arc::clone(&headers),
                                 cookie_jar,
@@ -134,10 +134,11 @@ impl Browser {
                             let policies = DocumentPolicy::default();
                             let client_clone = client.box_clone();
                             let headers_clone = Arc::clone(&headers);
-                            let http_cache = self.http_cache().clone();
+                            let http_cache = self.profile().http_cache().clone();
 
                             let cookies = if let Some(host) = request_url.host() {
-                                self.cookie_jar()
+                                self.profile()
+                                    .cookie_jar()
                                     .get_cookies(&host, request_url.path(), true)
                             } else {
                                 vec![]
@@ -344,28 +345,38 @@ impl Browser {
             }
         } else {
             let cookies = if let Some(host) = url.host() {
-                self.cookie_jar().get_cookies(&host, url.path(), true)
+                self.profile()
+                    .cookie_jar()
+                    .get_cookies(&host, url.path(), true)
             } else {
                 vec![]
             };
 
-            Resource::from_remote(url.as_str(), self.http_cache(), client, &cookies, headers, page_url, policies)
-                .await
-                .map_err(|e| NavigationError::Request {
-                    source: e,
-                    url: url.to_string(),
-                })?
-                .response()
-                .await
-                .map_err(|e| NavigationError::Request {
-                    source: RequestError::Network(e),
-                    url: url.to_string(),
-                })?
+            Resource::from_remote(
+                url.as_str(),
+                self.profile().http_cache(),
+                client,
+                &cookies,
+                headers,
+                page_url,
+                policies,
+            )
+            .await
+            .map_err(|e| NavigationError::Request {
+                source: e,
+                url: url.to_string(),
+            })?
+            .response()
+            .await
+            .map_err(|e| NavigationError::Request {
+                source: RequestError::Network(e),
+                url: url.to_string(),
+            })?
         };
 
         for header in &resp.headers {
             if header.0 == SET_COOKIE {
-                CookieMiddleware::handle_response_cookie(self.cookie_jar(), &url, header.1);
+                CookieMiddleware::handle_response_cookie(self.profile().cookie_jar(), &url, header.1);
             }
         }
 

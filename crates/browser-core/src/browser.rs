@@ -1,17 +1,15 @@
 use std::vec;
 
-use crate::{Document, commands::parse_devtools_html, database::Databases, errors::CoreError};
+use crate::{Document, commands::parse_devtools_html, errors::CoreError, profile::Profile};
 use async_trait::async_trait;
 use browser_args::BrowserArgs;
-use browser_config::BrowserConfig;
-use cookies::CookieJar;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use io::{
-    HttpCache, Resource,
+    Resource,
     embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
     files::CACHE_USER_AGENT,
 };
-use network::{HeaderMap, client::HttpClient, clients::reqwest::ReqwestClient};
+use network::{client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};
 
@@ -22,8 +20,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Browser {
-    config: BrowserConfig,
-    databases: Databases,
+    profile: Profile,
     default_stylesheet: Option<CSSStyleSheet>,
     http_client: Box<dyn HttpClient>,
 }
@@ -37,8 +34,7 @@ impl Browser {
     /// # Panics
     /// * This function will panic if the embedded user agent CSS is not valid UTF-8, which should never happen since it's embedded in the binary.
     pub fn new(args: &BrowserArgs) -> Self {
-        let config = BrowserConfig::new(args);
-        let databases = Databases::init().expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
+        let profile = Profile::new(args);
         let http_client = Box::new(ReqwestClient::new());
         let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
 
@@ -80,32 +76,18 @@ impl Browser {
         };
 
         Self {
-            config,
-            databases,
+            profile,
             default_stylesheet: stylesheet,
             http_client,
         }
     }
 
-    pub fn config(&self) -> &BrowserConfig {
-        &self.config
-    }
-
-    #[must_use]
-    pub fn headers(&self) -> &HeaderMap {
-        self.config.headers()
+    pub fn profile(&self) -> &Profile {
+        &self.profile
     }
 
     pub const fn http_client(&self) -> &dyn HttpClient {
         &*self.http_client
-    }
-
-    pub const fn http_cache(&self) -> &HttpCache {
-        &self.databases.http_cache
-    }
-
-    pub const fn cookie_jar(&self) -> &CookieJar {
-        &self.databases.cookie_jar
     }
 }
 

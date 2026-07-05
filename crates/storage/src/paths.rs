@@ -67,17 +67,23 @@ pub fn get_data_path() -> Option<PathBuf> {
 /// # Returns
 /// * `PathBuf` - The path to the temporary directory for the application
 #[must_use]
-pub fn get_temp_path() -> PathBuf {
+pub fn get_temp_path(suffix: Option<&str>) -> PathBuf {
     let temp_dir = std::env::temp_dir();
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        temp_dir.join(APP_NAME)
+        match suffix {
+            Some(s) => temp_dir.join(format!("{}-{}", APP_NAME, s)),
+            None => temp_dir.join(APP_NAME),
+        }
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        temp_dir.join(APP_NAME.to_lowercase())
+        match suffix {
+            Some(s) => temp_dir.join(format!("{}-{}", APP_NAME.to_lowercase(), s)),
+            None => temp_dir.join(APP_NAME.to_lowercase()),
+        }
     }
 }
 

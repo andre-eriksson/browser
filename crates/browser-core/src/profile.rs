@@ -1,0 +1,66 @@
+mod database;
+mod paths;
+
+use browser_args::BrowserArgs;
+use browser_config::BrowserConfig;
+use cookies::CookieJar;
+use io::HttpCache;
+use tracing::warn;
+
+use crate::profile::{database::Databases, paths::ProfilePaths};
+
+#[derive(Debug, Clone)]
+pub enum ProfileKind {
+    Persistent { id: Option<String> },
+    Temporary,
+}
+
+#[derive(Debug)]
+pub struct Profile {
+    config: BrowserConfig,
+    databases: Databases,
+    dirs: ProfilePaths,
+}
+
+impl Profile {
+    pub fn new(args: &BrowserArgs) -> Self {
+        let config = BrowserConfig::new(args);
+        let databases = Databases::init().expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
+
+        let profile_kind = if args.incognito {
+            ProfileKind::Temporary
+        } else {
+            ProfileKind::Persistent {
+                id: args.profile.clone(),
+            }
+        };
+        let dirs = ProfilePaths::new(profile_kind);
+        if dirs.is_degraded() {
+            warn!(
+                "Profile directories are degraded. Some features may not work as expected. Please check your file system permissions and available disk space."
+            )
+        }
+
+        Self {
+            dirs,
+            config,
+            databases,
+        }
+    }
+
+    pub fn config(&self) -> &BrowserConfig {
+        &self.config
+    }
+
+    pub const fn http_cache(&self) -> &HttpCache {
+        &self.databases.http_cache
+    }
+
+    pub const fn cookie_jar(&self) -> &CookieJar {
+        &self.databases.cookie_jar
+    }
+
+    pub fn dirs(&self) -> &ProfilePaths {
+        &self.dirs
+    }
+}

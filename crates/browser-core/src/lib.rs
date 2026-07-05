@@ -1,10 +1,10 @@
 mod browser;
 mod commands;
 mod context;
-mod database;
 pub mod errors;
 mod events;
 mod navigation;
+mod profile;
 
 pub use browser::Browser;
 pub use context::collector::TabCollector;
