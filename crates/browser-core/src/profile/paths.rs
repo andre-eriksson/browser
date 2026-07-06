@@ -43,8 +43,8 @@ impl ProfilePaths {
                     is_temporary: false,
                 }
             }
-            ProfileKind::Temporary { suffix } => {
-                let suffix = suffix.unwrap_or_else(|| {
+            ProfileKind::Temporary { custom_suffix } => {
+                let suffix = custom_suffix.unwrap_or_else(|| {
                     rand::rng()
                         .sample_iter(Alphanumeric)
                         .take(6)
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_profile_paths_temporary() {
         let profile_paths = ProfilePaths::new(ProfileKind::Temporary {
-            suffix: Some("temp_suffix".to_string()),
+            custom_suffix: Some("temp_suffix".to_string()),
         });
         assert!(!profile_paths.is_degraded());
         assert!(profile_paths.is_temporary);
