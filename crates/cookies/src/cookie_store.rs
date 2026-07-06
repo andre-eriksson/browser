@@ -6,12 +6,17 @@ use std::{
 
 use database::{Database, Table};
 use rusqlite::{Connection, Result};
-use storage::get_data_path;
+use storage::Directory;
 use time::UtcDateTime;
 use tracing::debug;
 use url::Host;
 
 use crate::{Expiration, cookie::Cookie, table::CookieTable};
+
+#[cfg(not(test))]
+const COOKIE_DATABASE: &str = "cookies.db";
+#[cfg(test)]
+const COOKIE_DATABASE: &str = "tests/cookies.db";
 
 #[derive(Debug)]
 pub struct CookieDatabase {
@@ -19,10 +24,8 @@ pub struct CookieDatabase {
 }
 
 impl Database for CookieDatabase {
-    fn open() -> Result<Self> {
-        let path = get_data_path()
-            .ok_or_else(|| rusqlite::Error::InvalidPath("Data path not found".into()))?
-            .join("cookies.db");
+    fn open(dirs: Directory) -> Result<Self> {
+        let path = dirs.profile_data.join(COOKIE_DATABASE);
 
         std::fs::create_dir_all(path.parent().unwrap())
             .map_err(|_| rusqlite::Error::InvalidPath("Failed to create data directory".into()))?;

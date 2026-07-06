@@ -10,13 +10,27 @@ You can create custom themes for the browser by creating a TOML file in the them
 
 ## Location
 
-Themes are loaded from the `themes` directory in the user data folder. The location of the configuration folder depends on the operating system:
+Themes are loaded from the `themes` directory in the user data folder.
+
+### Global Themes
+
+The global themes are available to all profiles and are stored in the `themes` directory in the user data folder.
 
 | OS      | Path                                                     |
 | ------- | -------------------------------------------------------- |
 | Windows | `%APPDATA%\Browser\Data\themes\`                         |
 | Linux   | `$XDG_CONFIG_HOME/.local/share/browser/themes/`          |
 | macOS   | `$HOME/Library/Application Support/Browser/Data/themes/` |
+
+### Profile Specific Themes
+
+The profile specific themes are available only to the profile they are stored in and are stored in the `themes` directory in the user data folder for that profile. The default profile is named `default`, but you can create additional profiles by creating a new folder in the user data folder with the name of the profile you want to create.
+
+| OS      | Path                                                               |
+| ------- | ------------------------------------------------------------------ |
+| Windows | `%APPDATA%\Browser\Data\<PROFILE>\themes\`                         |
+| Linux   | `$XDG_CONFIG_HOME/.local/share/browser/<PROFILE>/themes/`          |
+| macOS   | `$HOME/Library/Application Support/Browser/Data/<PROFILE>/themes/` |
 
 ## Default Themes
 
@@ -27,7 +41,7 @@ The browser comes with two default themes: `light` and `dark`. You can use these
 
 ## Notes
 
-- You can use any system avaliable font in the theme configuration.
+- You can use any installed font that is on your system in your theme.
 
 ## See also
 

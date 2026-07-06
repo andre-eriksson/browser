@@ -202,8 +202,13 @@ impl HeadlessEngine {
         }
 
         println!("Headless browser ready. Type 'help' for commands.");
+        let is_incognito = args.incognito;
         loop {
-            print!("headless > ");
+            if is_incognito {
+                print!("headless (incognito) > ");
+            } else {
+                print!("headless > ");
+            }
             io::stdout().flush().unwrap();
 
             let mut input = String::new();

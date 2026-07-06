@@ -11,7 +11,7 @@ use database::Table;
 use network::{ETAG, EXPIRES, HeaderMap, LAST_MODIFIED};
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
-use storage::get_cache_path;
+use storage::Directory;
 
 use crate::{
     HttpCache,
@@ -58,18 +58,24 @@ impl DiskCache {
     }
 
     /// Retrieves a cached value by its key and vary, returning `None` if the entry is not found or is expired.
-    pub fn get(&self, key: [u8; 32], request_headers: &HeaderMap) -> Result<Option<DiskEntry>, CacheError> {
+    pub fn get(
+        &self,
+        dirs: &Directory,
+        key: [u8; 32],
+        request_headers: &HeaderMap,
+    ) -> Result<Option<DiskEntry>, CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
 
-        self.get_with_connection(&connection, key, request_headers)
+        self.get_with_connection(dirs, &connection, key, request_headers)
     }
 
     /// Retrieves a cached value by its key and vary header, using the provided connection, returning `None` if the entry is not
     /// found or is expired.
     fn get_with_connection(
         &self,
+        dirs: &Directory,
         connection: &Connection,
         key: [u8; 32],
         request_headers: &HeaderMap,
@@ -84,12 +90,12 @@ impl DiskCache {
             }
 
             let (header, value, content_size) = (match index.entry {
-                IndexEntry::Large => LargeFile::read(key),
+                IndexEntry::Large => LargeFile::read(dirs, key),
                 IndexEntry::Block => {
                     let offset = index.offset.ok_or(CacheError::CorruptedIndex)?;
                     let header_size = index.header_size.ok_or(CacheError::CorruptedIndex)?;
 
-                    BlockFile::read(index.file_id, offset, header_size, index.content_size)
+                    BlockFile::read(dirs, index.file_id, offset, header_size, index.content_size)
                 }
             })?;
 
@@ -115,8 +121,10 @@ impl DiskCache {
     /// If an entry with the same key already exists and has identical content (same content hash),
     /// the write is skipped to avoid duplicate storage. Otherwise, the existing entry is removed
     /// before the new one is written.
+    #[allow(clippy::too_many_arguments)]
     pub fn put(
         &self,
+        dirs: &Directory,
         key: [u8; 32],
         value: &[u8],
         response_headers: &HeaderMap,
@@ -140,7 +148,7 @@ impl DiskCache {
             .execute("BEGIN TRANSACTION", [])
             .map_err(CacheError::Database)?;
 
-        if let Ok(Some(entry)) = self.get_with_connection(&connection, key, response_headers) {
+        if let Ok(Some(entry)) = self.get_with_connection(dirs, &connection, key, response_headers) {
             let mut hasher = Sha256::new();
             hasher.update(&entry.data);
             let existing_content_hash: [u8; 32] = hasher.finalize().into();
@@ -162,11 +170,11 @@ impl DiskCache {
 
         let (entry_type, file_id, offset, header_size, content_size) =
             if value.len() > usize::try_from(MAX_BLOCK_SIZE).unwrap_or(usize::MAX) {
-                LargeFile::write(key, value, &header)?;
+                LargeFile::write(dirs, key, value, &header)?;
 
                 (IndexEntry::Large, 0u32, None, None, u32::try_from(value.len()).unwrap_or(u32::MAX))
             } else {
-                let (fid, off, hsz, csz) = BlockFile::write(value, &mut header)?;
+                let (fid, off, hsz, csz) = BlockFile::write(dirs, value, &mut header)?;
 
                 (IndexEntry::Block, fid, Some(off), Some(hsz), csz)
             };
@@ -220,11 +228,11 @@ impl DiskCache {
 
             match entry_type {
                 IndexEntry::Large => {
-                    LargeFile::delete(key).ok();
+                    LargeFile::delete(dirs, key).ok();
                 }
                 IndexEntry::Block => {
                     if let (Some(off), Some(hs)) = (offset, header_size) {
-                        BlockFile::delete(file_id, off, hs).ok();
+                        BlockFile::delete(dirs, file_id, off, hs).ok();
                     }
                 }
             }
@@ -241,14 +249,14 @@ impl DiskCache {
 
     /// Removes a cache entry by its key, deleting both the index entry and the associated data file if it exists.
     /// If the entry does not exist, this function will simply return `Ok(())`.
-    pub fn delete(&mut self, key: [u8; 32], headers: &HeaderMap) -> Result<bool, CacheError> {
+    pub fn delete(&mut self, dirs: &Directory, key: [u8; 32], headers: &HeaderMap) -> Result<bool, CacheError> {
         let Ok(connection) = self.database.connection.lock() else {
             return Err(CacheError::DatabaseLock);
         };
 
         let vary = HttpCache::extract_vary(headers);
 
-        Self::delete_with_connection(key, &vary, &connection)
+        Self::delete_with_connection(dirs, key, &vary, &connection)
     }
 
     /// Revalidates a cache entry in the index table, updating the `expires_at` and `fetched_at` fields.
@@ -285,18 +293,23 @@ impl DiskCache {
 
     /// Removes a cache entry by its key, using the provided connection, deleting both the index entry and the a
     /// ssociated data file if it exists. If the entry does not exist, this function will simply return `Ok(())`.
-    fn delete_with_connection(key: [u8; 32], vary: &[String], connection: &Connection) -> Result<bool, CacheError> {
+    fn delete_with_connection(
+        dirs: &Directory,
+        key: [u8; 32],
+        vary: &[String],
+        connection: &Connection,
+    ) -> Result<bool, CacheError> {
         let entries = IndexTable::get_by_key(connection, &key).map_err(CacheError::Database)?;
 
         for entry in entries {
             if entry.vary == vary {
                 match entry.entry {
-                    IndexEntry::Large => LargeFile::delete(key)?,
+                    IndexEntry::Large => LargeFile::delete(dirs, key)?,
                     IndexEntry::Block => {
                         let offset = entry.offset.ok_or(CacheError::CorruptedIndex)?;
                         let header_size = entry.header_size.ok_or(CacheError::CorruptedIndex)?;
 
-                        BlockFile::delete(entry.file_id, offset, header_size)?;
+                        BlockFile::delete(dirs, entry.file_id, offset, header_size)?;
                     }
                 }
 
@@ -320,10 +333,8 @@ impl DiskCache {
     #[allow(dead_code)]
     // NOTE: Will be used when a scheduler is implemented to run compaction in
     //       the background every N hours or when certain thresholds are met.
-    pub fn compact(&mut self) -> Result<(), CacheError> {
-        let Some(cache_path) = get_cache_path() else {
-            return Err(CacheError::CacheDirectoryNotFound);
-        };
+    pub fn compact(&mut self, dirs: &Directory) -> Result<(), CacheError> {
+        let cache_path = &dirs.profile_cache;
 
         let block_dir = cache_path.join(BLOCK_DIR);
         if !block_dir.exists() {

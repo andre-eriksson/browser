@@ -20,7 +20,7 @@ impl Browser {
         image_url: &str,
     ) -> Result<EngineResponse, CoreError> {
         let client = self.http_client().box_clone();
-        let headers = self.headers().clone();
+        let headers = self.profile().config().headers().clone();
 
         let decoded_url = decode_html_entities(image_url);
 

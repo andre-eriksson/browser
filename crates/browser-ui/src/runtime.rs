@@ -19,7 +19,7 @@ impl Ui {
     /// # Errors
     /// If the application fails to run, a `UiError::Runtime` is returned with the underlying error.
     pub fn run(browser: Arc<Browser>, args: BrowserArgs) -> Result<(), UiError> {
-        let preferences = Arc::new(BrowserPreferences::load(&args));
+        let preferences = Arc::new(BrowserPreferences::load(&args, browser.profile().dirs().into()));
         let args = Arc::new(args);
 
         let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);

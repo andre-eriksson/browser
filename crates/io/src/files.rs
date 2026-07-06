@@ -4,11 +4,6 @@
 //! storage location (cache, config, user data). The constants defined in this module provide a standardized
 //! way to reference specific files used by the browser, such as user agent stylesheets and user preferences.
 
-use std::path::PathBuf;
-
-use storage::{get_cache_path, get_config_path, get_data_path, get_temp_path};
-use tracing::warn;
-
 use crate::ResourceType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -24,6 +19,7 @@ pub enum FilePath {
 pub struct Entry<'path> {
     location: &'path str,
     file_path: FilePath,
+    global: bool,
 }
 
 impl<'path> Entry<'path> {
@@ -40,33 +36,43 @@ impl<'path> Entry<'path> {
         &self.file_path
     }
 
+    /// Returns whether this `Entry` is marked as global. A global entry is one that is shared across different profiles or instances of the application,
+    /// rather than being specific to a single user or session.
+    #[must_use]
+    pub const fn is_global(&self) -> bool {
+        self.global
+    }
+
     /// Creates a new `Entry` for cache files. The file will be located in the cache directory, and the provided `path`
     /// will be appended to that directory.
     #[must_use]
-    pub const fn cache(path: &'path str) -> Self {
+    pub const fn cache(path: &'path str, global: bool) -> Self {
         Self {
             location: path,
             file_path: FilePath::Cache,
+            global,
         }
     }
 
     /// Creates a new `Entry` for configuration files. The file will be located in the configuration directory, and the
     /// provided `path` will be appended to that directory.
     #[must_use]
-    pub const fn config(path: &'path str) -> Self {
+    pub const fn config(path: &'path str, global: bool) -> Self {
         Self {
             location: path,
             file_path: FilePath::Config,
+            global,
         }
     }
 
     /// Creates a new `Entry` for user data files. The file will be located in the user data directory, and the provided
     /// `path` will be appended to that directory.
     #[must_use]
-    pub const fn user_data(path: &'path str) -> Self {
+    pub const fn user_data(path: &'path str, global: bool) -> Self {
         Self {
             location: path,
             file_path: FilePath::UserData,
+            global,
         }
     }
 
@@ -76,6 +82,7 @@ impl<'path> Entry<'path> {
         Self {
             location: path,
             file_path: FilePath::Absolute,
+            global: false,
         }
     }
 
@@ -86,103 +93,14 @@ impl<'path> Entry<'path> {
         Self {
             location: path,
             file_path: FilePath::Temporary,
-        }
-    }
-
-    /// Resolves the full file path for this `Entry` based on its `FilePath` type. For cache, config, and user data entries,
-    /// this method will attempt to retrieve the corresponding base directory and append the `location` to it. If the base directory
-    /// is unavailable, it will log a warning and return `None`. For absolute entries, it will return the `location` as a `PathBuf`.
-    /// For temporary entries, it will return the path to the temporary directory with the `location` appended.
-    #[must_use]
-    pub fn path(&self) -> Option<PathBuf> {
-        match self.file_path {
-            FilePath::Cache => {
-                let cache_path = get_cache_path();
-
-                cache_path.map_or_else(
-                    || {
-                        warn!("Cache directory is unavailable");
-                        None
-                    },
-                    |path| Some(path.join(self.location)),
-                )
-            }
-            FilePath::Config => {
-                let config_path = get_config_path();
-
-                config_path.map_or_else(
-                    || {
-                        warn!("Config directory is unavailable");
-                        None
-                    },
-                    |path| Some(path.join(self.location)),
-                )
-            }
-            FilePath::UserData => {
-                let user_data_path = get_data_path();
-
-                user_data_path.map_or_else(
-                    || {
-                        warn!("User data directory is unavailable");
-                        None
-                    },
-                    |path| Some(path.join(self.location)),
-                )
-            }
-            FilePath::Absolute => Some(PathBuf::from(self.location)),
-            FilePath::Temporary => Some(get_temp_path().join(self.location)),
+            global: false,
         }
     }
 }
 
 /// The cache file name for user agent stylesheets.
 /// This file is stored in the cache directory and contains precompiled stylesheets for user agent (browser default) styles.
-pub const CACHE_USER_AGENT: ResourceType = ResourceType::Path(Entry::cache("stylesheets/useragent.bin"));
+pub const PROFILE_CACHE_USER_AGENT: ResourceType = ResourceType::Path(Entry::cache("stylesheets/useragent.bin", false));
 
 /// The user preferences file name. This file is stored in the config directory and contains user-specific settings for the browser.
-pub const PREFERENCES: ResourceType = ResourceType::Path(Entry::config("preferences.toml"));
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_path_cache() {
-        let entry = Entry::cache("test_cache_file");
-        let true_path = get_cache_path().map(|p| p.join("test_cache_file"));
-
-        assert_eq!(entry.path(), true_path);
-    }
-
-    #[test]
-    fn test_path_config() {
-        let entry = Entry::config("test_config_file");
-        let true_path = get_config_path().map(|p| p.join("test_config_file"));
-
-        assert_eq!(entry.path(), true_path);
-    }
-
-    #[test]
-    fn test_path_user_data() {
-        let entry = Entry::user_data("test_user_data_file");
-        let true_path = get_data_path().map(|p| p.join("test_user_data_file"));
-
-        assert_eq!(entry.path(), true_path);
-    }
-
-    #[test]
-    fn test_path_absolute() {
-        let entry = Entry::absolute("/absolute/path/to/file");
-        let true_path = Some(PathBuf::from("/absolute/path/to/file"));
-
-        assert_eq!(entry.path(), true_path);
-    }
-
-    #[test]
-    fn test_path_temporary() {
-        let entry = Entry::temporary("test_temp_file");
-        let true_path = Some(get_temp_path().join("test_temp_file"));
-
-        assert_eq!(entry.path(), true_path);
-    }
-}
+pub const PROFILE_PREFERENCES: ResourceType = ResourceType::Path(Entry::config("preferences.toml", false));

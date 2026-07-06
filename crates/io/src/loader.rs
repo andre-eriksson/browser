@@ -1,45 +1,75 @@
-use std::path::Path;
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
-use storage::create_paths;
+use storage::{Directory, create_paths};
 
 use crate::{
     Entry,
     embeded::{EmbededResource, EmbededType},
     errors::ResourceError,
+    files::FilePath,
     manager::ResourceType,
 };
 
 pub trait Loader {
-    fn load_asset(self) -> Result<Vec<u8>, ResourceError>;
+    fn load_asset(self, dirs: Option<Directory>) -> Result<Vec<u8>, ResourceError>;
 }
 
 pub trait Writer {
-    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), ResourceError>;
+    fn write<C: AsRef<[u8]>>(self, data: C, dirs: Directory) -> Result<(), ResourceError>;
 }
 
 impl Loader for ResourceType<'_> {
-    fn load_asset(self) -> Result<Vec<u8>, ResourceError> {
+    fn load_asset(self, dirs: Option<Directory>) -> Result<Vec<u8>, ResourceError> {
         match self {
             ResourceType::Path(entry) => {
-                let dir = entry
-                    .path()
-                    .ok_or_else(|| ResourceError::InvalidPath(entry.location().to_string()))?;
+                let dirs = dirs.ok_or_else(|| ResourceError::InvalidPath(entry.location().to_string()))?;
 
-                if !dir.is_file() {
+                let path = if entry.is_global() {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.global_cache.join(entry.location()),
+                        FilePath::Config => dirs.global_config.join(entry.location()),
+                        FilePath::UserData => dirs.global_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
+                } else {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.profile_cache.join(entry.location()),
+                        FilePath::Config => dirs.profile_config.join(entry.location()),
+                        FilePath::UserData => dirs.profile_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
+                };
+
+                let mut file = File::open(path).map_err(|e| ResourceError::Io(e.to_string()))?;
+                let metadata = file
+                    .metadata()
+                    .map_err(|e| ResourceError::Io(e.to_string()))?;
+
+                if !metadata.is_file() {
                     return Err(ResourceError::NotFound(entry.location().to_string()));
                 }
 
-                std::fs::read(dir).map_err(|_| ResourceError::NotFound(entry.location().to_string()))
+                let mut buffer = Vec::with_capacity(metadata.len() as usize);
+                file.read_to_end(&mut buffer)
+                    .map_err(|e| ResourceError::Io(e.to_string()))?;
+
+                Ok(buffer)
             }
             ResourceType::Embeded(asset) => EmbededResource::get(&asset.path())
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| ResourceError::NotFound(asset.path())),
             ResourceType::Absolute { protocol, location } => match protocol {
-                "file" => Self::load_asset(ResourceType::Path(Entry::absolute(location))),
-                "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location))),
+                "file" => Self::load_asset(ResourceType::Path(Entry::absolute(location)), dirs),
+                "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location)), dirs),
                 "about" => {
                     let adjusted_location = location.trim_start_matches("about:");
-                    Self::load_asset(ResourceType::Embeded(EmbededType::Browser(adjusted_location)))
+                    Self::load_asset(ResourceType::Embeded(EmbededType::Browser(adjusted_location)), dirs)
                 }
                 _ => Err(ResourceError::UnsupportedProtocol(protocol.to_string())),
             },
@@ -48,22 +78,36 @@ impl Loader for ResourceType<'_> {
 }
 
 impl Writer for ResourceType<'_> {
-    fn write<C: AsRef<[u8]>>(self, data: C) -> Result<(), ResourceError> {
+    fn write<C: AsRef<[u8]>>(self, data: C, dirs: Directory) -> Result<(), ResourceError> {
         match self {
             ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(ResourceError::UnsupportedOperation(
                 "Cannot create or modify embedded or absolute resources".to_string(),
             )),
-            ResourceType::Path(file) => {
-                let Some(path) = file.path() else {
-                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+            ResourceType::Path(entry) => {
+                let path = if entry.is_global() {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.global_cache.join(entry.location()),
+                        FilePath::Config => dirs.global_config.join(entry.location()),
+                        FilePath::UserData => dirs.global_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
+                } else {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.profile_cache.join(entry.location()),
+                        FilePath::Config => dirs.profile_config.join(entry.location()),
+                        FilePath::UserData => dirs.profile_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
                 };
 
-                if !is_relative_path(file.location()) {
-                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+                if !is_relative_path(entry.location()) {
+                    return Err(ResourceError::InvalidPath(entry.location().to_string()));
                 }
 
                 let Some(parent) = path.parent() else {
-                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+                    return Err(ResourceError::InvalidPath(entry.location().to_string()));
                 };
 
                 if let Err(error) = create_paths(&parent.to_path_buf()) {

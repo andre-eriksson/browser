@@ -16,6 +16,7 @@ use network::{
     errors::{NetworkError, RequestError},
     response::Response,
 };
+use storage::Directory;
 use tokio::task::JoinHandle;
 use tracing::{Instrument, debug, warn};
 use url::Url;
@@ -39,8 +40,8 @@ impl Browser {
         let page = Document::blank();
 
         let client = self.http_client();
-        let headers = Arc::new(self.headers().clone());
-        let cookie_jar = self.cookie_jar();
+        let headers = Arc::new(self.profile().config().headers().clone());
+        let cookie_jar = self.profile().cookie_jar();
 
         let (request_url, response) = self
             .resolve_navigation_request(url, None, &DocumentPolicy::default(), &headers, client)
@@ -110,9 +111,10 @@ impl Browser {
                                 })?;
 
                             let handle = Self::spawn_style_fetch_and_parse(
+                                self.profile().dirs().into(),
                                 relative_url,
                                 &request_url,
-                                self.http_cache(),
+                                self.profile().http_cache(),
                                 client.box_clone(),
                                 Arc::clone(&headers),
                                 cookie_jar,
@@ -134,10 +136,12 @@ impl Browser {
                             let policies = DocumentPolicy::default();
                             let client_clone = client.box_clone();
                             let headers_clone = Arc::clone(&headers);
-                            let http_cache = self.http_cache().clone();
+                            let http_cache = self.profile().http_cache().clone();
+                            let dirs = self.profile().dirs().into();
 
                             let cookies = if let Some(host) = request_url.host() {
-                                self.cookie_jar()
+                                self.profile()
+                                    .cookie_jar()
                                     .get_cookies(&host, request_url.path(), true)
                             } else {
                                 vec![]
@@ -150,6 +154,7 @@ impl Browser {
                                             io::ResourceType::Path(Entry::absolute(
                                                 relative_url.to_file_path().unwrap().to_str().unwrap(),
                                             )),
+                                            dirs,
                                             Resource::DEFAULT_MAX_FILE_SIZE,
                                         ) {
                                             Ok(b) => Some(b),
@@ -160,6 +165,7 @@ impl Browser {
                                         }
                                     } else {
                                         match Resource::from_remote(
+                                            dirs,
                                             relative_url.as_str(),
                                             &http_cache,
                                             client_clone.as_ref(),
@@ -284,6 +290,7 @@ impl Browser {
                         protocol: "about",
                         location: format!("{location}.html").as_str(),
                     },
+                    self.profile().dirs().into(),
                     Resource::DEFAULT_MAX_FILE_SIZE,
                 )
                 .map_err(NavigationError::Resource)?,
@@ -324,6 +331,7 @@ impl Browser {
                         Response::from(
                             Resource::load(
                                 io::ResourceType::Path(Entry::absolute(url.to_file_path().unwrap().to_str().unwrap())),
+                                self.profile().dirs().into(),
                                 Resource::DEFAULT_MAX_FILE_SIZE,
                             )
                             .map_err(NavigationError::Resource)?,
@@ -337,6 +345,7 @@ impl Browser {
                 None => Response::from(
                     Resource::load(
                         io::ResourceType::Path(Entry::absolute(url.to_file_path().unwrap().to_str().unwrap())),
+                        self.profile().dirs().into(),
                         Resource::DEFAULT_MAX_FILE_SIZE,
                     )
                     .map_err(NavigationError::Resource)?,
@@ -344,28 +353,39 @@ impl Browser {
             }
         } else {
             let cookies = if let Some(host) = url.host() {
-                self.cookie_jar().get_cookies(&host, url.path(), true)
+                self.profile()
+                    .cookie_jar()
+                    .get_cookies(&host, url.path(), true)
             } else {
                 vec![]
             };
 
-            Resource::from_remote(url.as_str(), self.http_cache(), client, &cookies, headers, page_url, policies)
-                .await
-                .map_err(|e| NavigationError::Request {
-                    source: e,
-                    url: url.to_string(),
-                })?
-                .response()
-                .await
-                .map_err(|e| NavigationError::Request {
-                    source: RequestError::Network(e),
-                    url: url.to_string(),
-                })?
+            Resource::from_remote(
+                self.profile().dirs().into(),
+                url.as_str(),
+                self.profile().http_cache(),
+                client,
+                &cookies,
+                headers,
+                page_url,
+                policies,
+            )
+            .await
+            .map_err(|e| NavigationError::Request {
+                source: e,
+                url: url.to_string(),
+            })?
+            .response()
+            .await
+            .map_err(|e| NavigationError::Request {
+                source: RequestError::Network(e),
+                url: url.to_string(),
+            })?
         };
 
         for header in &resp.headers {
             if header.0 == SET_COOKIE {
-                CookieMiddleware::handle_response_cookie(self.cookie_jar(), &url, header.1);
+                CookieMiddleware::handle_response_cookie(self.profile().cookie_jar(), &url, header.1);
             }
         }
 
@@ -375,6 +395,7 @@ impl Browser {
     /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
     /// The task will handle cookies and headers appropriately, and will return `None` if fetching or parsing fails.
     fn spawn_style_fetch_and_parse(
+        dirs: Directory,
         style_url: Url,
         page_url: &Url,
         cache: &HttpCache,
@@ -392,6 +413,7 @@ impl Browser {
                 if style_url.scheme() != "http" && style_url.scheme() != "https" {
                     let res = Resource::load(
                         io::ResourceType::Path(Entry::absolute(style_url.to_file_path().unwrap().to_str().unwrap())),
+                        dirs,
                         Resource::DEFAULT_MAX_FILE_SIZE,
                     );
 
@@ -426,6 +448,7 @@ impl Browser {
                     };
 
                     let resp = match Resource::from_remote(
+                        dirs,
                         style_url.as_str(),
                         &cache,
                         client.as_ref(),

@@ -6,19 +6,22 @@ use network::{
     request::Request,
     response::{HeaderResponse, Response},
 };
+use storage::Directory;
 use tracing::debug;
 
 use crate::{CacheEntry, HttpCache, cache::errors::CacheError};
 
 pub struct CachingResponse {
+    dirs: Directory,
     inner: Box<dyn ResponseHandle>,
     cache: HttpCache,
     cache_key: String,
 }
 
 impl CachingResponse {
-    pub fn new(inner: Box<dyn ResponseHandle>, cache: HttpCache, cache_key: String) -> Self {
+    pub fn new(dirs: Directory, inner: Box<dyn ResponseHandle>, cache: HttpCache, cache_key: String) -> Self {
         Self {
+            dirs,
             inner,
             cache,
             cache_key,
@@ -34,6 +37,7 @@ impl ResponseHandle for CachingResponse {
 
     async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
         let CachingResponse {
+            dirs,
             inner,
             cache,
             cache_key,
@@ -43,7 +47,7 @@ impl ResponseHandle for CachingResponse {
 
         // TODO: Use background worker
         if response.status_code == StatusCode::OK
-            && let Err(err) = cache.store(cache_key, response.clone(), &response.headers)
+            && let Err(err) = cache.store(&dirs, cache_key, response.clone(), &response.headers)
         {
             debug!(%err);
         }
@@ -87,18 +91,19 @@ impl ResponseHandle for CachedResponse {
 pub struct CacheMiddleware;
 
 impl CacheMiddleware {
-    pub fn lookup(request: &Request, http_cache: &HttpCache) -> Result<CacheEntry, CacheError> {
-        match http_cache.get(request.url.as_str(), &request.headers) {
+    pub fn lookup(dirs: &Directory, request: &Request, http_cache: &HttpCache) -> Result<CacheEntry, CacheError> {
+        match http_cache.get(dirs, request.url.as_str(), &request.headers) {
             Ok(entry) => Ok(entry),
             Err(e) => Err(e),
         }
     }
 
     pub fn wrap_handle(
+        dirs: Directory,
         http_cache: &HttpCache,
         cache_key: String,
         handle: Box<dyn ResponseHandle>,
     ) -> Box<dyn ResponseHandle> {
-        Box::new(CachingResponse::new(handle, http_cache.clone(), cache_key))
+        Box::new(CachingResponse::new(dirs, handle, http_cache.clone(), cache_key))
     }
 }

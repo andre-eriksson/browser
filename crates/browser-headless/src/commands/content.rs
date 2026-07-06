@@ -19,7 +19,7 @@ pub fn cmd_url(engine: &HeadlessEngine) {
 }
 
 pub fn cmd_headers(engine: &HeadlessEngine) {
-    for header in engine.browser.headers() {
+    for header in engine.browser.profile().config().headers() {
         println!("{}: {}", header.0, header.1.to_str().unwrap_or(""));
     }
 }
@@ -35,7 +35,7 @@ pub fn cmd_body(engine: &HeadlessEngine) {
 }
 
 pub fn cmd_cookies(engine: &mut HeadlessEngine, domain: &str) {
-    let cookie_jar = engine.browser.cookie_jar();
+    let cookie_jar = engine.browser.profile().cookie_jar();
 
     for cookie in cookie_jar.get_cookies_for_domain(domain) {
         println!("{cookie}");

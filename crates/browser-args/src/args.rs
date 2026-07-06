@@ -16,6 +16,12 @@ pub struct BrowserArgs {
     #[arg(short = 'u', long, help = "The initial URL to load")]
     pub url: Option<String>,
 
+    #[arg(short = 'i', long, help = "Launch the browser in incognito mode")]
+    pub incognito: bool,
+
+    #[arg(short = 'p', long, help = "The profile to use for the browser session")]
+    pub profile: Option<String>,
+
     #[command(flatten)]
     pub preferences: PreferencesArgs,
 

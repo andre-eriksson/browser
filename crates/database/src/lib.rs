@@ -1,11 +1,12 @@
 use rusqlite::{Connection, Result};
+use storage::Directory;
 
 pub trait Database: Sized {
     /// Opens a connection to the database.
     ///
     /// # Errors
     /// * If the database file cannot be opened or created
-    fn open() -> Result<Self>;
+    fn open(dirs: Directory) -> Result<Self>;
 }
 
 pub trait Table {
