@@ -20,6 +20,12 @@ impl ProfilePaths {
         match kind {
             ProfileKind::Persistent { id } => {
                 let id = id.unwrap_or_else(|| "default".to_string());
+                let id = std::path::Path::new(&id)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("default")
+                    .to_string();
                 let cache = get_cache_path().map(|p| p.join(&id));
                 let config = get_config_path().map(|p| p.join(&id));
                 let data = get_data_path().map(|p| p.join(&id));
