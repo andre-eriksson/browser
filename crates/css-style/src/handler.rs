@@ -790,10 +790,18 @@ pub(crate) enum BorderSide {
     Right,
     Bottom,
     Left,
+    Block,
+    BlockStart,
+    BlockEnd,
+    Inline,
+    InlineStart,
+    InlineEnd,
 }
 
 pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream, side: BorderSide) {
-    fn reset_border_color(ctx: &mut PropertyUpdateContext, side: BorderSide) {
+    let writing_mode = ctx.resolve_writing_mode();
+
+    fn reset_border_color(ctx: &mut PropertyUpdateContext, side: BorderSide, writing_mode: WritingMode) {
         match side {
             BorderSide::All => {
                 ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
@@ -813,10 +821,82 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             BorderSide::Left => {
                 ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_color = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_color = CSSProperty::Global(Global::Initial);
+                }
+            },
         }
     }
 
-    const fn reset_border_style(ctx: &mut PropertyUpdateContext, side: BorderSide) {
+    fn reset_border_style(ctx: &mut PropertyUpdateContext, side: BorderSide, writing_mode: WritingMode) {
         match side {
             BorderSide::All => {
                 ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
@@ -836,10 +916,82 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             BorderSide::Left => {
                 ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(Global::Initial);
+                }
+            },
         }
     }
 
-    fn reset_border_width(ctx: &mut PropertyUpdateContext, side: BorderSide) {
+    fn reset_border_width(ctx: &mut PropertyUpdateContext, side: BorderSide, writing_mode: WritingMode) {
         match side {
             BorderSide::All => {
                 ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
@@ -859,6 +1011,78 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             BorderSide::Left => {
                 ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_width = CSSProperty::Global(Global::Initial);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_width = CSSProperty::Global(Global::Initial);
+                }
+            },
         }
     }
 
@@ -907,7 +1131,118 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
                 ctx.specified_style.border_left_width = CSSProperty::Global(global);
                 ctx.specified_style.border_left_color = CSSProperty::Global(global);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_color = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(global);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(global);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(global);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_color = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_left_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_right_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_bottom_color = CSSProperty::Global(global);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_style = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_width = CSSProperty::Global(global);
+                    ctx.specified_style.border_top_color = CSSProperty::Global(global);
+                }
+            },
         }
+
         return;
     }
 
@@ -987,8 +1322,78 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             BorderSide::Left => {
                 ctx.specified_style.border_left_color = CSSProperty::Value(c);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
+                    ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_color = CSSProperty::Value(c.clone());
+                    ctx.specified_style.border_left_color = CSSProperty::Value(c);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_color = CSSProperty::Value(c);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_color = CSSProperty::Value(c);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_color = CSSProperty::Value(c.clone());
+                    ctx.specified_style.border_right_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_color = CSSProperty::Value(c.clone());
+                    ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_top_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_bottom_color = CSSProperty::Value(c);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_color = CSSProperty::Value(c);
+                }
+            },
         },
-        None => reset_border_color(ctx, side),
+        None => reset_border_color(ctx, side, writing_mode),
     }
 
     match style {
@@ -1011,8 +1416,78 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             BorderSide::Left => {
                 ctx.specified_style.border_left_style = CSSProperty::Value(s);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_style = CSSProperty::Value(s);
+                    ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_style = CSSProperty::Value(s);
+                    ctx.specified_style.border_left_style = CSSProperty::Value(s);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_style = CSSProperty::Value(s);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_style = CSSProperty::Value(s);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_style = CSSProperty::Value(s);
+                    ctx.specified_style.border_right_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_style = CSSProperty::Value(s);
+                    ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_top_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_bottom_style = CSSProperty::Value(s);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_style = CSSProperty::Value(s);
+                }
+            },
         },
-        None => reset_border_style(ctx, side),
+        None => reset_border_style(ctx, side, writing_mode),
     }
 
     match width {
@@ -1035,8 +1510,78 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             BorderSide::Left => {
                 ctx.specified_style.border_left_width = CSSProperty::Value(w);
             }
+            BorderSide::Block => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_width = CSSProperty::Value(w.clone());
+                    ctx.specified_style.border_bottom_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_width = CSSProperty::Value(w.clone());
+                    ctx.specified_style.border_left_width = CSSProperty::Value(w);
+                }
+            },
+            BorderSide::BlockStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_top_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_right_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_left_width = CSSProperty::Value(w);
+                }
+            },
+            BorderSide::BlockEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_bottom_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_left_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_right_width = CSSProperty::Value(w);
+                }
+            },
+            BorderSide::Inline => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_width = CSSProperty::Value(w.clone());
+                    ctx.specified_style.border_right_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalRl
+                | WritingMode::VerticalLr
+                | WritingMode::SidewaysRl
+                | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_width = CSSProperty::Value(w.clone());
+                    ctx.specified_style.border_bottom_width = CSSProperty::Value(w);
+                }
+            },
+            BorderSide::InlineStart => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_left_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_top_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_bottom_width = CSSProperty::Value(w);
+                }
+            },
+            BorderSide::InlineEnd => match writing_mode {
+                WritingMode::HorizontalTb => {
+                    ctx.specified_style.border_right_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalRl | WritingMode::SidewaysRl => {
+                    ctx.specified_style.border_bottom_width = CSSProperty::Value(w);
+                }
+                WritingMode::VerticalLr | WritingMode::SidewaysLr => {
+                    ctx.specified_style.border_top_width = CSSProperty::Value(w);
+                }
+            },
         },
-        None => reset_border_width(ctx, side),
+        None => reset_border_width(ctx, side, writing_mode),
     }
 }
 

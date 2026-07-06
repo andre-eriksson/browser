@@ -60,14 +60,14 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-block-end-color
 - [ ] border-block-end-style
 - [ ] border-block-end-width
-- [ ] border-block-end (shorthand)
+- [x] border-block-end (shorthand)
 - [ ] border-block-start-color
 - [ ] border-block-start-style
 - [ ] border-block-start-width
-- [ ] border-block-start (shorthand)
+- [x] border-block-start (shorthand)
 - [ ] border-block-style
 - [ ] border-block-width
-- [ ] border-block (shorthand)
+- [x] border-block (shorthand)
 - [x] border-bottom-color
 - [ ] border-bottom-left-radius
 - [ ] border-bottom-right-radius
@@ -75,7 +75,7 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [x] border-bottom-width
 - [x] border-bottom (shorthand)
 - [ ] border-collapse
-- [ ] border-color (shorthand)
+- [x] border-color (shorthand)
 - [ ] border-end-end-radius
 - [ ] border-end-start-radius
 - [ ] border-image-outset
@@ -88,14 +88,14 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-inline-end-color
 - [ ] border-inline-end-style
 - [ ] border-inline-end-width
-- [ ] border-inline-end (shorthand)
+- [x] border-inline-end (shorthand)
 - [ ] border-inline-start-color
 - [ ] border-inline-start-style
 - [ ] border-inline-start-width
-- [ ] border-inline-start (shorthand)
+- [x] border-inline-start (shorthand)
 - [ ] border-inline-style
 - [ ] border-inline-width
-- [ ] border-inline (shorthand)
+- [x] border-inline (shorthand)
 - [x] border-left-color
 - [x] border-left-style
 - [x] border-left-width
@@ -108,14 +108,14 @@ List taken from: https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Prop
 - [ ] border-spacing
 - [ ] border-start-end-radius
 - [ ] border-start-start-radius
-- [ ] border-style (shorthand)
+- [x] border-style (shorthand)
 - [x] border-top-color
 - [ ] border-top-left-radius
 - [ ] border-top-right-radius
 - [x] border-top-style
 - [x] border-top-width
 - [x] border-top (shorthand)
-- [ ] border-width (shorthand)
+- [x] border-width (shorthand)
 - [x] border (shorthand)
 
 ## B - C
