@@ -131,16 +131,26 @@ impl Resource {
     ///   If `None`, there is no size limit for individual files.
     pub fn load_dir(
         dir: Entry,
-        dirs: Directory,
+        dirs: &Directory,
         max_files: Option<usize>,
         max_file_size: Option<usize>,
     ) -> Result<Vec<Vec<u8>>, ResourceError> {
-        let path = match dir.file_path() {
-            FilePath::Absolute => PathBuf::from(dir.location()),
-            FilePath::Cache => dirs.cache.join(dir.location()),
-            FilePath::Config => dirs.config.join(dir.location()),
-            FilePath::UserData => dirs.data.join(dir.location()),
-            FilePath::Temporary => dirs.temp.join(dir.location()),
+        let path = if dir.is_global() {
+            match dir.file_path() {
+                FilePath::Absolute => PathBuf::from(dir.location()),
+                FilePath::Cache => dirs.global_cache.join(dir.location()),
+                FilePath::Config => dirs.global_config.join(dir.location()),
+                FilePath::UserData => dirs.global_data.join(dir.location()),
+                FilePath::Temporary => dirs.temp.join(dir.location()),
+            }
+        } else {
+            match dir.file_path() {
+                FilePath::Absolute => PathBuf::from(dir.location()),
+                FilePath::Cache => dirs.profile_cache.join(dir.location()),
+                FilePath::Config => dirs.profile_config.join(dir.location()),
+                FilePath::UserData => dirs.profile_data.join(dir.location()),
+                FilePath::Temporary => dirs.temp.join(dir.location()),
+            }
         };
 
         let mut result = Vec::new();

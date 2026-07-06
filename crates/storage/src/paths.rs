@@ -4,9 +4,12 @@ use manifest::APP_NAME;
 
 #[derive(Debug, Clone)]
 pub struct Directory {
-    pub cache: Arc<PathBuf>,
-    pub config: Arc<PathBuf>,
-    pub data: Arc<PathBuf>,
+    pub profile_cache: Arc<PathBuf>,
+    pub profile_config: Arc<PathBuf>,
+    pub profile_data: Arc<PathBuf>,
+    pub global_cache: Arc<PathBuf>,
+    pub global_config: Arc<PathBuf>,
+    pub global_data: Arc<PathBuf>,
     pub temp: Arc<PathBuf>,
 }
 
@@ -18,9 +21,12 @@ impl Directory {
         let temp = get_temp_path(None);
 
         Some(Self {
-            cache: Arc::new(cache),
-            config: Arc::new(config),
-            data: Arc::new(data),
+            profile_cache: Arc::new(cache.clone()),
+            profile_config: Arc::new(config.clone()),
+            profile_data: Arc::new(data.clone()),
+            global_cache: Arc::new(cache),
+            global_config: Arc::new(config),
+            global_data: Arc::new(data),
             temp: Arc::new(temp),
         })
     }

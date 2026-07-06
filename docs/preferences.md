@@ -4,13 +4,13 @@
 
 The user preferences are stored in a `preferences.toml` file in the configuration folder.
 
-The location of the configuration folder depends on the operating system:
+The location of the configuration folder depends on the operating system and the profile name. The `<PROFILE>` placeholder in the paths below should be replaced with the name of the profile you want to use (defaults to "default"):
 
-| OS      | Path                                                                |
-| ------- | ------------------------------------------------------------------- |
-| Windows | `%APPDATA%\Browser\Config\preferences.toml`                         |
-| Linux   | `$XDG_CONFIG_HOME/.config/browser/preferences.toml`                 |
-| macOS   | `$HOME/Library/Application Support/Browser/Config/preferences.toml` |
+| OS      | Path                                                                          |
+| ------- | ----------------------------------------------------------------------------- |
+| Windows | `%APPDATA%\Browser\Config\<PROFILE>\preferences.toml`                         |
+| Linux   | `$XDG_CONFIG_HOME/.config/browser/<PROFILE>/preferences.toml`                 |
+| macOS   | `$HOME/Library/Application Support/Browser/Config/<PROFILE>/preferences.toml` |
 
 ## Values
 

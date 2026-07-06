@@ -28,15 +28,25 @@ impl Loader for ResourceType<'_> {
             ResourceType::Path(entry) => {
                 let dirs = dirs.ok_or_else(|| ResourceError::InvalidPath(entry.location().to_string()))?;
 
-                let dir = match entry.file_path() {
-                    FilePath::Absolute => PathBuf::from(entry.location()),
-                    FilePath::Cache => dirs.cache.join(entry.location()),
-                    FilePath::Config => dirs.config.join(entry.location()),
-                    FilePath::UserData => dirs.data.join(entry.location()),
-                    FilePath::Temporary => dirs.temp.join(entry.location()),
+                let path = if entry.is_global() {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.global_cache.join(entry.location()),
+                        FilePath::Config => dirs.global_config.join(entry.location()),
+                        FilePath::UserData => dirs.global_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
+                } else {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.profile_cache.join(entry.location()),
+                        FilePath::Config => dirs.profile_config.join(entry.location()),
+                        FilePath::UserData => dirs.profile_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
                 };
 
-                let mut file = File::open(dir).map_err(|e| ResourceError::Io(e.to_string()))?;
+                let mut file = File::open(path).map_err(|e| ResourceError::Io(e.to_string()))?;
                 let metadata = file
                     .metadata()
                     .map_err(|e| ResourceError::Io(e.to_string()))?;
@@ -73,21 +83,31 @@ impl Writer for ResourceType<'_> {
             ResourceType::Absolute { .. } | ResourceType::Embeded(_) => Err(ResourceError::UnsupportedOperation(
                 "Cannot create or modify embedded or absolute resources".to_string(),
             )),
-            ResourceType::Path(file) => {
-                let path = match file.file_path() {
-                    FilePath::Absolute => PathBuf::from(file.location()),
-                    FilePath::Cache => dirs.cache.join(file.location()),
-                    FilePath::Config => dirs.config.join(file.location()),
-                    FilePath::UserData => dirs.data.join(file.location()),
-                    FilePath::Temporary => dirs.temp.join(file.location()),
+            ResourceType::Path(entry) => {
+                let path = if entry.is_global() {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.global_cache.join(entry.location()),
+                        FilePath::Config => dirs.global_config.join(entry.location()),
+                        FilePath::UserData => dirs.global_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
+                } else {
+                    match entry.file_path() {
+                        FilePath::Absolute => PathBuf::from(entry.location()),
+                        FilePath::Cache => dirs.profile_cache.join(entry.location()),
+                        FilePath::Config => dirs.profile_config.join(entry.location()),
+                        FilePath::UserData => dirs.profile_data.join(entry.location()),
+                        FilePath::Temporary => dirs.temp.join(entry.location()),
+                    }
                 };
 
-                if !is_relative_path(file.location()) {
-                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+                if !is_relative_path(entry.location()) {
+                    return Err(ResourceError::InvalidPath(entry.location().to_string()));
                 }
 
                 let Some(parent) = path.parent() else {
-                    return Err(ResourceError::InvalidPath(file.location().to_string()));
+                    return Err(ResourceError::InvalidPath(entry.location().to_string()));
                 };
 
                 if let Err(error) = create_paths(&parent.to_path_buf()) {

@@ -19,6 +19,7 @@ pub enum FilePath {
 pub struct Entry<'path> {
     location: &'path str,
     file_path: FilePath,
+    global: bool,
 }
 
 impl<'path> Entry<'path> {
@@ -35,33 +36,43 @@ impl<'path> Entry<'path> {
         &self.file_path
     }
 
+    /// Returns whether this `Entry` is marked as global. A global entry is one that is shared across different profiles or instances of the application,
+    /// rather than being specific to a single user or session.
+    #[must_use]
+    pub const fn is_global(&self) -> bool {
+        self.global
+    }
+
     /// Creates a new `Entry` for cache files. The file will be located in the cache directory, and the provided `path`
     /// will be appended to that directory.
     #[must_use]
-    pub const fn cache(path: &'path str) -> Self {
+    pub const fn cache(path: &'path str, global: bool) -> Self {
         Self {
             location: path,
             file_path: FilePath::Cache,
+            global,
         }
     }
 
     /// Creates a new `Entry` for configuration files. The file will be located in the configuration directory, and the
     /// provided `path` will be appended to that directory.
     #[must_use]
-    pub const fn config(path: &'path str) -> Self {
+    pub const fn config(path: &'path str, global: bool) -> Self {
         Self {
             location: path,
             file_path: FilePath::Config,
+            global,
         }
     }
 
     /// Creates a new `Entry` for user data files. The file will be located in the user data directory, and the provided
     /// `path` will be appended to that directory.
     #[must_use]
-    pub const fn user_data(path: &'path str) -> Self {
+    pub const fn user_data(path: &'path str, global: bool) -> Self {
         Self {
             location: path,
             file_path: FilePath::UserData,
+            global,
         }
     }
 
@@ -71,6 +82,7 @@ impl<'path> Entry<'path> {
         Self {
             location: path,
             file_path: FilePath::Absolute,
+            global: false,
         }
     }
 
@@ -81,13 +93,14 @@ impl<'path> Entry<'path> {
         Self {
             location: path,
             file_path: FilePath::Temporary,
+            global: false,
         }
     }
 }
 
 /// The cache file name for user agent stylesheets.
 /// This file is stored in the cache directory and contains precompiled stylesheets for user agent (browser default) styles.
-pub const CACHE_USER_AGENT: ResourceType = ResourceType::Path(Entry::cache("stylesheets/useragent.bin"));
+pub const PROFILE_CACHE_USER_AGENT: ResourceType = ResourceType::Path(Entry::cache("stylesheets/useragent.bin", false));
 
 /// The user preferences file name. This file is stored in the config directory and contains user-specific settings for the browser.
-pub const PREFERENCES: ResourceType = ResourceType::Path(Entry::config("preferences.toml"));
+pub const PROFILE_PREFERENCES: ResourceType = ResourceType::Path(Entry::config("preferences.toml", false));

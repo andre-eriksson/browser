@@ -33,7 +33,7 @@ impl LargeFile {
     /// The method returns the size of the content written or an error if the operation fails.
     pub fn write(dirs: &Directory, sha: [u8; 32], data: &[u8], header: &CacheHeader) -> Result<usize, CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
-        let cache_path = &dirs.cache;
+        let cache_path = &dirs.profile_cache;
 
         let path = cache_path
             .join(LARGE_DIR)
@@ -79,7 +79,7 @@ impl LargeFile {
     pub fn read(dirs: &Directory, sha: [u8; 32]) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
 
-        let cache_path = &dirs.cache;
+        let cache_path = &dirs.profile_cache;
 
         let path = cache_path
             .join(LARGE_DIR)
@@ -106,7 +106,7 @@ impl LargeFile {
     /// with the entry, including both the metadata and content files. If the entry does not exist, it simply returns `Ok(())`,
     /// ensuring that the method is idempotent and does not fail if the entry is already absent.
     pub fn delete(dirs: &Directory, sha: [u8; 32]) -> Result<(), CacheError> {
-        let cache_path = &dirs.cache;
+        let cache_path = &dirs.profile_cache;
         let str_sha = Self::hash_to_hex(&sha);
 
         let path = cache_path

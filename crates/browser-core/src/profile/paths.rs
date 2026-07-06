@@ -7,9 +7,12 @@ use crate::profile::ProfileKind;
 
 #[derive(Debug)]
 pub struct ProfilePaths {
-    cache: Arc<PathBuf>,
-    config: Arc<PathBuf>,
-    data: Arc<PathBuf>,
+    profile_cache: Arc<PathBuf>,
+    profile_config: Arc<PathBuf>,
+    profile_data: Arc<PathBuf>,
+    global_cache: Arc<PathBuf>,
+    global_config: Arc<PathBuf>,
+    global_data: Arc<PathBuf>,
     temp: Arc<PathBuf>,
     degraded: bool,
     is_temporary: bool,
@@ -27,18 +30,27 @@ impl ProfilePaths {
                     .unwrap_or("default")
                     .to_string();
                 let profile_name = Self::profile_name();
-                let cache = get_cache_path(vec![profile_name.clone()]).map(|p| p.join(&id));
-                let config = get_config_path(vec![profile_name.clone()]).map(|p| p.join(&id));
-                let data = get_data_path(vec![profile_name]).map(|p| p.join(&id));
-                let degraded = cache.is_none() || config.is_none() || data.is_none();
+
+                let profile_cache = get_cache_path(vec![profile_name.clone()]).map(|p| p.join(&id));
+                let profile_config = get_config_path(vec![profile_name.clone()]).map(|p| p.join(&id));
+                let profile_data = get_data_path(vec![profile_name]).map(|p| p.join(&id));
+
+                let global_cache = get_cache_path(vec![]).map(Arc::new);
+                let global_config = get_config_path(vec![]).map(Arc::new);
+                let global_data = get_data_path(vec![]).map(Arc::new);
+
+                let degraded = profile_cache.is_none() || profile_config.is_none() || profile_data.is_none();
 
                 let stable_temp = get_temp_path(None);
                 let names = Self::dir_names();
 
                 Self {
-                    cache: Arc::new(cache.unwrap_or_else(|| stable_temp.join(&id).join(names.0))),
-                    config: Arc::new(config.unwrap_or_else(|| stable_temp.join(&id).join(names.1))),
-                    data: Arc::new(data.unwrap_or_else(|| stable_temp.join(&id).join(names.2))),
+                    profile_cache: Arc::new(profile_cache.unwrap_or_else(|| stable_temp.join(&id).join(names.0))),
+                    profile_config: Arc::new(profile_config.unwrap_or_else(|| stable_temp.join(&id).join(names.1))),
+                    profile_data: Arc::new(profile_data.unwrap_or_else(|| stable_temp.join(&id).join(names.2))),
+                    global_cache: global_cache.unwrap_or_else(|| stable_temp.join("global_cache").into()),
+                    global_config: global_config.unwrap_or_else(|| stable_temp.join("global_config").into()),
+                    global_data: global_data.unwrap_or_else(|| stable_temp.join("global_data").into()),
                     temp: Arc::new(stable_temp.join(&id)),
                     degraded,
                     is_temporary: false,
@@ -57,9 +69,12 @@ impl ProfilePaths {
                 let names = Self::dir_names();
 
                 Self {
-                    cache: Arc::new(session_temp.join(names.0)),
-                    config: Arc::new(session_temp.join(names.1)),
-                    data: Arc::new(session_temp.join(names.2)),
+                    profile_cache: Arc::new(session_temp.join(names.0)),
+                    profile_config: Arc::new(session_temp.join(names.1)),
+                    profile_data: Arc::new(session_temp.join(names.2)),
+                    global_cache: Arc::new(session_temp.join("global_cache")),
+                    global_config: Arc::new(session_temp.join("global_config")),
+                    global_data: Arc::new(session_temp.join("global_data")),
                     temp: Arc::new(session_temp),
                     degraded: false,
                     is_temporary: true,
@@ -68,16 +83,16 @@ impl ProfilePaths {
         }
     }
 
-    pub fn cache(&self) -> Arc<PathBuf> {
-        Arc::clone(&self.cache)
+    pub fn profile_cache(&self) -> Arc<PathBuf> {
+        Arc::clone(&self.profile_cache)
     }
 
-    pub fn config(&self) -> Arc<PathBuf> {
-        Arc::clone(&self.config)
+    pub fn profile_config(&self) -> Arc<PathBuf> {
+        Arc::clone(&self.profile_config)
     }
 
-    pub fn data(&self) -> Arc<PathBuf> {
-        Arc::clone(&self.data)
+    pub fn profile_data(&self) -> Arc<PathBuf> {
+        Arc::clone(&self.profile_data)
     }
 
     pub fn temp(&self) -> Arc<PathBuf> {
@@ -112,9 +127,9 @@ impl ProfilePaths {
 impl Drop for ProfilePaths {
     fn drop(&mut self) {
         if self.is_temporary {
-            let _ = std::fs::remove_dir_all(&*self.cache);
-            let _ = std::fs::remove_dir_all(&*self.config);
-            let _ = std::fs::remove_dir_all(&*self.data);
+            let _ = std::fs::remove_dir_all(&*self.profile_cache);
+            let _ = std::fs::remove_dir_all(&*self.profile_config);
+            let _ = std::fs::remove_dir_all(&*self.profile_data);
             let _ = std::fs::remove_dir_all(&*self.temp);
         }
     }
@@ -123,9 +138,12 @@ impl Drop for ProfilePaths {
 impl From<&ProfilePaths> for Directory {
     fn from(value: &ProfilePaths) -> Self {
         Directory {
-            cache: Arc::clone(&value.cache),
-            config: Arc::clone(&value.config),
-            data: Arc::clone(&value.data),
+            profile_cache: Arc::clone(&value.profile_cache),
+            profile_config: Arc::clone(&value.profile_config),
+            profile_data: Arc::clone(&value.profile_data),
+            global_cache: Arc::clone(&value.global_cache),
+            global_config: Arc::clone(&value.global_config),
+            global_data: Arc::clone(&value.global_data),
             temp: Arc::clone(&value.temp),
         }
     }
@@ -142,9 +160,9 @@ mod tests {
         });
         assert!(!profile_paths.is_degraded());
         assert!(!profile_paths.is_temporary);
-        assert_eq!(*profile_paths.cache(), get_cache_path(vec![]).unwrap().join("test_profile"));
-        assert_eq!(*profile_paths.config(), get_config_path(vec![]).unwrap().join("test_profile"));
-        assert_eq!(*profile_paths.data(), get_data_path(vec![]).unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.profile_cache(), get_cache_path(vec![]).unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.profile_config(), get_config_path(vec![]).unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.profile_data(), get_data_path(vec![]).unwrap().join("test_profile"));
         assert_eq!(*profile_paths.temp(), get_temp_path(None).join("test_profile"));
     }
 
@@ -157,9 +175,9 @@ mod tests {
         assert!(profile_paths.is_temporary);
         let temp_path = get_temp_path(Some("temp_suffix"));
 
-        assert_eq!(*profile_paths.cache(), temp_path.join(ProfilePaths::dir_names().0));
-        assert_eq!(*profile_paths.config(), temp_path.join(ProfilePaths::dir_names().1));
-        assert_eq!(*profile_paths.data(), temp_path.join(ProfilePaths::dir_names().2));
+        assert_eq!(*profile_paths.profile_cache(), temp_path.join(ProfilePaths::dir_names().0));
+        assert_eq!(*profile_paths.profile_config(), temp_path.join(ProfilePaths::dir_names().1));
+        assert_eq!(*profile_paths.profile_data(), temp_path.join(ProfilePaths::dir_names().2));
         assert_eq!(*profile_paths.temp(), temp_path);
     }
 }

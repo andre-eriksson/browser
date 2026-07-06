@@ -334,7 +334,7 @@ impl DiskCache {
     // NOTE: Will be used when a scheduler is implemented to run compaction in
     //       the background every N hours or when certain thresholds are met.
     pub fn compact(&mut self, dirs: &Directory) -> Result<(), CacheError> {
-        let cache_path = &dirs.cache;
+        let cache_path = &dirs.profile_cache;
 
         let block_dir = cache_path.join(BLOCK_DIR);
         if !block_dir.exists() {

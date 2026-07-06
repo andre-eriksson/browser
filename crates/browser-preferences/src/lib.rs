@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use browser_args::BrowserArgs;
-use io::{Entry, Resource, files::PREFERENCES};
+use io::{Entry, Resource, files::PROFILE_PREFERENCES};
 use serde::Deserialize;
 use storage::Directory;
 use tracing::warn;
@@ -48,7 +48,7 @@ impl BrowserPreferences {
     }
 
     pub fn load(args: &BrowserArgs, dirs: Directory) -> Self {
-        match Resource::load(PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
+        match Resource::load(PROFILE_PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");
@@ -72,6 +72,18 @@ impl BrowserPreferences {
 
                 if args.preferences.force_dark {
                     config.force_dark = true;
+                }
+
+                if let Some(override_theme) = &args.preferences.theme {
+                    if !config.themes.contains_key(override_theme) {
+                        warn!(
+                            "Override theme \"{}\" not found in {:?}, ignoring override.",
+                            override_theme,
+                            config.themes.keys().collect::<Vec<_>>()
+                        );
+                    } else {
+                        config.theme = override_theme.clone();
+                    }
                 }
 
                 config
@@ -110,9 +122,9 @@ impl BrowserPreferences {
             ("dark".to_string(), Theme::dark()),
         ]);
 
-        let theme_files = match Resource::load_dir(
-            Entry::user_data("themes/"),
-            dirs,
+        let mut global_themes = match Resource::load_dir(
+            Entry::user_data("themes/", true),
+            &dirs,
             Self::MAX_THEME_FILES,
             Self::MAX_THEME_FILE_SIZE,
         ) {
@@ -123,7 +135,22 @@ impl BrowserPreferences {
             }
         };
 
-        for file in theme_files {
+        let profile_themes = match Resource::load_dir(
+            Entry::user_data("themes/", false),
+            &dirs,
+            Self::MAX_THEME_FILES,
+            Self::MAX_THEME_FILE_SIZE,
+        ) {
+            Ok(files) => files,
+            Err(error) => {
+                warn!(%error, "Failed to load themes from user data directory, using default themes only.");
+                return themes;
+            }
+        };
+
+        global_themes.extend(profile_themes);
+
+        for file in global_themes {
             if let Ok(content) = std::str::from_utf8(&file)
                 && let Ok(theme) = toml::from_str::<Theme>(content)
             {

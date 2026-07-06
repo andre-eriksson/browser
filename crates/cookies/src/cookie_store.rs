@@ -25,7 +25,7 @@ pub struct CookieDatabase {
 
 impl Database for CookieDatabase {
     fn open(dirs: Directory) -> Result<Self> {
-        let path = dirs.data.join(COOKIE_DATABASE);
+        let path = dirs.profile_data.join(COOKIE_DATABASE);
 
         std::fs::create_dir_all(path.parent().unwrap())
             .map_err(|_| rusqlite::Error::InvalidPath("Failed to create data directory".into()))?;
