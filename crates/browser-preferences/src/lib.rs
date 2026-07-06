@@ -28,19 +28,6 @@ pub struct BrowserPreferences {
     force_dark: bool,
 }
 
-impl Default for BrowserPreferences {
-    fn default() -> Self {
-        Self {
-            themes: HashMap::from([
-                ("light".to_string(), Theme::light()),
-                ("dark".to_string(), Theme::dark()),
-            ]),
-            theme: "light".to_string(),
-            force_dark: false,
-        }
-    }
-}
-
 impl BrowserPreferences {
     /// Maximum allowed file size for the preferences file, set to 10 KiB.
     const MAX_PREFERENCES_FILE_SIZE: Option<usize> = Some(10 * 1024);
@@ -65,11 +52,11 @@ impl BrowserPreferences {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");
-                    return Self::default();
+                    return Self::new(dirs, "light".to_string(), args.preferences.force_dark);
                 };
 
                 let Ok(mut config) = toml::from_str::<Self>(data) else {
-                    return Self::default();
+                    return Self::new(dirs, "light".to_string(), args.preferences.force_dark);
                 };
 
                 config.themes = Self::load_themes(dirs);
