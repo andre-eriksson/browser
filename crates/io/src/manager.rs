@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs::File, io::Read, path::PathBuf};
 
 use cookies::Cookie;
 use network::{
@@ -54,10 +54,10 @@ pub struct Resource;
 
 impl Resource {
     /// Default maximum file size limit for loading resources, set to 10 MiB. This limit helps prevent excessive memory usage when loading large files.
-    pub const DEFAULT_MAX_FILE_SIZE: Option<usize> = Some(10 * 1024 * 1024);
+    pub const DEFAULT_MAX_FILE_SIZE: Option<u64> = Some(10 * 1024 * 1024);
 
     /// Default maximum number of files to load from a directory, set to 100. This limit helps prevent performance issues when loading directories with a large number of files.
-    pub const DEFAULT_MAX_FILES: Option<usize> = Some(100);
+    pub const DEFAULT_MAX_FILES: Option<u64> = Some(100);
 
     /// Fetches a resource from a remote URL, applying the necessary policies and handling cookies and headers.
     #[allow(clippy::too_many_arguments)]
@@ -95,22 +95,9 @@ impl Resource {
     /// * `resource` - The resource to load, which can be an embedded asset, a file path, or an absolute URL.
     /// * `max_file_size` - An optional maximum file size limit in bytes. If the loaded asset exceeds this size, an error will be returned. If `None`, there is no size limit.
     #[instrument(fields(resource = ?resource.key()))]
-    pub fn load(
-        resource: ResourceType,
-        dirs: Directory,
-        max_file_size: Option<usize>,
-    ) -> Result<Vec<u8>, ResourceError> {
-        match resource.load_asset(Some(dirs)) {
+    pub fn load(resource: ResourceType, dirs: Directory, max_file_size: Option<u64>) -> Result<Vec<u8>, ResourceError> {
+        match resource.load_asset(Some(dirs), max_file_size) {
             Ok(data) => {
-                if let Some(max) = max_file_size
-                    && data.len() > max
-                {
-                    return Err(ResourceError::FileTooLarge {
-                        data_size: data.len() as u64,
-                        max_size: max as u64,
-                    });
-                }
-
                 trace!("OK");
                 Ok(data)
             }
@@ -133,7 +120,7 @@ impl Resource {
         dir: Entry,
         dirs: &Directory,
         max_files: Option<usize>,
-        max_file_size: Option<usize>,
+        max_file_size: Option<u64>,
     ) -> Result<Vec<Vec<u8>>, ResourceError> {
         let path = if dir.is_global() {
             match dir.file_path() {
@@ -153,30 +140,13 @@ impl Resource {
             }
         };
 
-        let mut result = Vec::new();
-        let path =
-            std::fs::read_dir(path).map_err(|_| ResourceError::NotFound("Directory doesn't exist".to_string()))?;
+        let mut paths = Vec::new();
 
-        let mut count = 0;
-        let (_, upper_bound) = path.size_hint();
-
-        if let Some(max) = max_files
-            && let Some(ub) = upper_bound
+        for entry in
+            std::fs::read_dir(path).map_err(|_| ResourceError::NotFound("Directory doesn't exist".to_string()))?
         {
-            if ub >= max {
-                return Err(ResourceError::TooManyEntries(format!(
-                    "Directory contains too many entries ({}), which exceeds the limit of {}",
-                    upper_bound.map_or(0, |ub| ub),
-                    max
-                )));
-            } else if ub >= max / 2 {
-                warn!("Directory contains a large number of entries ({}), which may impact performance", ub);
-            }
-        }
-
-        for entry in path {
             if let Some(max) = max_files
-                && count >= max
+                && paths.len() >= max
             {
                 return Err(ResourceError::TooManyEntries(format!(
                     "Directory contains too many entries, which exceeds the limit of {max}"
@@ -184,29 +154,40 @@ impl Resource {
             }
 
             let entry = entry.map_err(|_| ResourceError::NotFound("Entry doesn't exist".to_string()))?;
-            let path = entry.path();
-
-            if path.is_file()
-                && let Ok(data) = std::fs::read(&path)
-            {
-                if let Some(max) = max_file_size
-                    && data.len() > max
-                {
-                    warn!(
-                        "File {} is too large ({} bytes), which exceeds the limit of {} bytes. Skipping this file.",
-                        path.to_string_lossy(),
-                        data.len(),
-                        max
-                    );
-                    continue;
-                }
-
-                count += 1;
-                result.push(data);
-            }
+            paths.push(entry.path());
         }
 
-        Ok(result)
+        let mut files = Vec::new();
+
+        for path in paths {
+            let Ok(mut file) = File::open(path) else {
+                continue;
+            };
+
+            let Ok(metadata) = file.metadata() else {
+                continue;
+            };
+
+            if !metadata.is_file() {
+                continue;
+            }
+
+            if let Some(max) = max_file_size
+                && metadata.len() > max
+            {
+                return Err(ResourceError::FileTooLarge {
+                    data_size: metadata.len(),
+                    max_size: max,
+                });
+            }
+
+            let mut buffer = Vec::with_capacity(metadata.len() as usize);
+            file.read_to_end(&mut buffer)
+                .map_err(|e| ResourceError::Io(e.to_string()))?;
+            files.push(buffer);
+        }
+
+        Ok(files)
     }
 
     /// Writes data to a specified resource, such as cache or config files.
@@ -227,7 +208,7 @@ impl Resource {
     pub fn load_embedded(asset: EmbededType) -> Vec<u8> {
         let path = &asset.path();
 
-        if let Ok(data) = ResourceType::Embeded(asset).load_asset(None) {
+        if let Ok(data) = ResourceType::Embeded(asset).load_asset(None, None) {
             trace!("OK");
 
             return data;

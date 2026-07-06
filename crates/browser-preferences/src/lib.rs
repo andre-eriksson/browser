@@ -30,10 +30,10 @@ pub struct BrowserPreferences {
 
 impl BrowserPreferences {
     /// Maximum allowed file size for the preferences file, set to 10 KiB.
-    const MAX_PREFERENCES_FILE_SIZE: Option<usize> = Some(10 * 1024);
+    const MAX_PREFERENCES_FILE_SIZE: Option<u64> = Some(10 * 1024);
 
     /// Maximum allowed file size for theme files, set to 1 KiB.
-    const MAX_THEME_FILE_SIZE: Option<usize> = Some(1024);
+    const MAX_THEME_FILE_SIZE: Option<u64> = Some(1024);
 
     /// Maximum number of theme files to load from the themes directory, set to 100.
     const MAX_THEME_FILES: Option<usize> = Some(100);

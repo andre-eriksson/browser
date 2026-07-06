@@ -15,7 +15,7 @@ use crate::{
 };
 
 pub trait Loader {
-    fn load_asset(self, dirs: Option<Directory>) -> Result<Vec<u8>, ResourceError>;
+    fn load_asset(self, dirs: Option<Directory>, max_file_size: Option<u64>) -> Result<Vec<u8>, ResourceError>;
 }
 
 pub trait Writer {
@@ -23,7 +23,7 @@ pub trait Writer {
 }
 
 impl Loader for ResourceType<'_> {
-    fn load_asset(self, dirs: Option<Directory>) -> Result<Vec<u8>, ResourceError> {
+    fn load_asset(self, dirs: Option<Directory>, max_file_size: Option<u64>) -> Result<Vec<u8>, ResourceError> {
         match self {
             ResourceType::Path(entry) => {
                 let dirs = dirs.ok_or_else(|| ResourceError::InvalidPath(entry.location().to_string()))?;
@@ -55,6 +55,15 @@ impl Loader for ResourceType<'_> {
                     return Err(ResourceError::NotFound(entry.location().to_string()));
                 }
 
+                if let Some(max) = max_file_size
+                    && metadata.len() > max
+                {
+                    return Err(ResourceError::FileTooLarge {
+                        data_size: metadata.len(),
+                        max_size: max,
+                    });
+                }
+
                 let mut buffer = Vec::with_capacity(metadata.len() as usize);
                 file.read_to_end(&mut buffer)
                     .map_err(|e| ResourceError::Io(e.to_string()))?;
@@ -65,11 +74,15 @@ impl Loader for ResourceType<'_> {
                 .map(|file| file.data.into_owned())
                 .ok_or_else(|| ResourceError::NotFound(asset.path())),
             ResourceType::Absolute { protocol, location } => match protocol {
-                "file" => Self::load_asset(ResourceType::Path(Entry::absolute(location)), dirs),
-                "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location)), dirs),
+                "file" => Self::load_asset(ResourceType::Path(Entry::absolute(location)), dirs, max_file_size),
+                "embed" => Self::load_asset(ResourceType::Embeded(EmbededType::Root(location)), dirs, max_file_size),
                 "about" => {
                     let adjusted_location = location.trim_start_matches("about:");
-                    Self::load_asset(ResourceType::Embeded(EmbededType::Browser(adjusted_location)), dirs)
+                    Self::load_asset(
+                        ResourceType::Embeded(EmbededType::Browser(adjusted_location)),
+                        dirs,
+                        max_file_size,
+                    )
                 }
                 _ => Err(ResourceError::UnsupportedProtocol(protocol.to_string())),
             },

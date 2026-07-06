@@ -27,7 +27,7 @@ pub struct Browser {
 
 impl Browser {
     /// Maximum allowed size for the user agent stylesheet, set to 50 KiB.
-    const MAX_USER_AGENT_CSS_SIZE: Option<usize> = Some(50 * 1024);
+    const MAX_USER_AGENT_CSS_SIZE: Option<u64> = Some(50 * 1024);
 
     /// Creates a new instance of the `Browser` struct, initializing the HTTP client, cookie jar, and user agent stylesheet.
     ///
