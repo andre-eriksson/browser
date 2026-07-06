@@ -14,7 +14,7 @@ Themes are loaded from the `themes` directory in the user data folder.
 
 ### Global Themes
 
-The global themes are available to all profiles and are stored in the `themes` directory in the user data folder.
+The global themes are available to all profiles and are stored in the `themes` directory in the user data folder. Themes in the global folder will also be accessible in incognito mode.
 
 | OS      | Path                                                     |
 | ------- | -------------------------------------------------------- |

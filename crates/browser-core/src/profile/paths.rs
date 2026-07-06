@@ -65,6 +65,10 @@ impl ProfilePaths {
                         .collect()
                 });
 
+                let global_cache = get_cache_path(vec![]).map(Arc::new);
+                let global_config = get_config_path(vec![]).map(Arc::new);
+                let global_data = get_data_path(vec![]).map(Arc::new);
+
                 let session_temp = get_temp_path(Some(&suffix));
                 let names = Self::dir_names();
 
@@ -72,9 +76,9 @@ impl ProfilePaths {
                     profile_cache: Arc::new(session_temp.join(names.0)),
                     profile_config: Arc::new(session_temp.join(names.1)),
                     profile_data: Arc::new(session_temp.join(names.2)),
-                    global_cache: Arc::new(session_temp.join("global_cache")),
-                    global_config: Arc::new(session_temp.join("global_config")),
-                    global_data: Arc::new(session_temp.join("global_data")),
+                    global_cache: global_cache.unwrap_or_else(|| session_temp.join("global_cache").into()),
+                    global_config: global_config.unwrap_or_else(|| session_temp.join("global_config").into()),
+                    global_data: global_data.unwrap_or_else(|| session_temp.join("global_data").into()),
                     temp: Arc::new(session_temp),
                     degraded: false,
                     is_temporary: true,

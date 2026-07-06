@@ -39,61 +39,68 @@ impl BrowserPreferences {
     const MAX_THEME_FILES: Option<usize> = Some(100);
 
     #[must_use]
-    pub fn new(dirs: Directory, active_theme: String, force_dark: bool) -> Self {
+    pub fn new(active_theme: String, force_dark: bool) -> Self {
         Self {
-            themes: Self::load_themes(dirs),
+            themes: HashMap::from([
+                ("light".to_string(), Theme::light()),
+                ("dark".to_string(), Theme::dark()),
+            ]),
             theme: active_theme,
             force_dark,
         }
     }
 
     pub fn load(args: &BrowserArgs, dirs: Directory) -> Self {
-        match Resource::load(PROFILE_PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
+        let is_incognito = args.incognito;
+
+        let mut config = match Resource::load(PROFILE_PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");
-                    return Self::new(dirs, "light".to_string(), args.preferences.force_dark);
+                    return Self::new("light".to_string(), args.preferences.force_dark);
                 };
 
-                let Ok(mut config) = toml::from_str::<Self>(data) else {
-                    return Self::new(dirs, "light".to_string(), args.preferences.force_dark);
-                };
-
-                config.themes = Self::load_themes(dirs);
-
-                if config.theme.is_empty() || !config.themes.contains_key(&config.theme) {
-                    warn!(
-                        "Active theme \"{}\" not found in {:?}, defaulting to \"light\".",
-                        config.theme,
-                        config.themes.keys().collect::<Vec<_>>()
-                    );
-                    config.theme = "light".to_string();
+                match toml::from_str::<Self>(data) {
+                    Ok(conf) => conf,
+                    Err(_) => Self::new("light".to_string(), args.preferences.force_dark),
                 }
-
-                if args.preferences.force_dark {
-                    config.force_dark = true;
-                }
-
-                if let Some(override_theme) = &args.preferences.theme {
-                    if !config.themes.contains_key(override_theme) {
-                        warn!(
-                            "Override theme \"{}\" not found in {:?}, ignoring override.",
-                            override_theme,
-                            config.themes.keys().collect::<Vec<_>>()
-                        );
-                    } else {
-                        config.theme = override_theme.clone();
-                    }
-                }
-
-                config
             }
             Err(error) => {
-                warn!(%error, "Failed to load preferences, using default settings.");
+                if !is_incognito {
+                    warn!(%error, "Failed to load preferences, using default settings.");
+                }
+                Self::new("light".to_string(), args.preferences.force_dark)
+            }
+        };
 
-                Self::new(dirs, "light".to_string(), args.preferences.force_dark)
+        config.themes = Self::load_themes(&dirs, is_incognito);
+
+        if config.theme.is_empty() || !config.themes.contains_key(&config.theme) {
+            warn!(
+                "Active theme \"{}\" not found in {:?}, defaulting to \"light\".",
+                config.theme,
+                config.themes.keys().collect::<Vec<_>>()
+            );
+            config.theme = "light".to_string();
+        }
+
+        if args.preferences.force_dark {
+            config.force_dark = true;
+        }
+
+        if let Some(override_theme) = &args.preferences.theme {
+            if !config.themes.contains_key(override_theme) {
+                warn!(
+                    "Override theme \"{}\" not found in {:?}, ignoring override.",
+                    override_theme,
+                    config.themes.keys().collect::<Vec<_>>()
+                );
+            } else {
+                config.theme = override_theme.clone();
             }
         }
+
+        config
     }
 
     #[must_use]
@@ -116,7 +123,7 @@ impl BrowserPreferences {
         self.force_dark
     }
 
-    fn load_themes(dirs: Directory) -> HashMap<String, Theme> {
+    fn load_themes(dirs: &Directory, is_incognito: bool) -> HashMap<String, Theme> {
         let mut themes = HashMap::from([
             ("light".to_string(), Theme::light()),
             ("dark".to_string(), Theme::dark()),
@@ -124,27 +131,30 @@ impl BrowserPreferences {
 
         let mut global_themes = match Resource::load_dir(
             Entry::user_data("themes/", true),
-            &dirs,
+            dirs,
             Self::MAX_THEME_FILES,
             Self::MAX_THEME_FILE_SIZE,
         ) {
             Ok(files) => files,
             Err(error) => {
-                warn!(%error, "Failed to load themes from user data directory, using default themes only.");
-                return themes;
+                warn!(%error, "Failed to load themes from global user data directory, using default themes only.");
+                Vec::new()
             }
         };
 
         let profile_themes = match Resource::load_dir(
             Entry::user_data("themes/", false),
-            &dirs,
+            dirs,
             Self::MAX_THEME_FILES,
             Self::MAX_THEME_FILE_SIZE,
         ) {
             Ok(files) => files,
             Err(error) => {
-                warn!(%error, "Failed to load themes from user data directory, using default themes only.");
-                return themes;
+                if !is_incognito {
+                    warn!(%error, "Failed to load themes from profiled user data directory, using default themes only.");
+                }
+
+                Vec::new()
             }
         };
 
