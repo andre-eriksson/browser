@@ -43,12 +43,14 @@ impl ProfilePaths {
                     is_temporary: false,
                 }
             }
-            ProfileKind::Temporary => {
-                let suffix: String = rand::rng()
-                    .sample_iter(Alphanumeric)
-                    .take(6)
-                    .map(char::from)
-                    .collect();
+            ProfileKind::Temporary { suffix } => {
+                let suffix = suffix.unwrap_or_else(|| {
+                    rand::rng()
+                        .sample_iter(Alphanumeric)
+                        .take(6)
+                        .map(char::from)
+                        .collect()
+                });
 
                 let session_temp = get_temp_path(Some(&suffix));
                 let names = Self::dir_names();
@@ -115,5 +117,38 @@ impl From<&ProfilePaths> for Directory {
             data: Arc::clone(&value.data),
             temp: Arc::clone(&value.temp),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_profile_paths_persistent() {
+        let profile_paths = ProfilePaths::new(ProfileKind::Persistent {
+            id: Some("test_profile".to_string()),
+        });
+        assert!(!profile_paths.is_degraded());
+        assert!(!profile_paths.is_temporary);
+        assert_eq!(*profile_paths.cache(), get_cache_path().unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.config(), get_config_path().unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.data(), get_data_path().unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.temp(), get_temp_path(None).join("test_profile"));
+    }
+
+    #[test]
+    fn test_profile_paths_temporary() {
+        let profile_paths = ProfilePaths::new(ProfileKind::Temporary {
+            suffix: Some("temp_suffix".to_string()),
+        });
+        assert!(!profile_paths.is_degraded());
+        assert!(profile_paths.is_temporary);
+        let temp_path = get_temp_path(Some("temp_suffix"));
+
+        assert_eq!(*profile_paths.cache(), temp_path.join(ProfilePaths::dir_names().0));
+        assert_eq!(*profile_paths.config(), temp_path.join(ProfilePaths::dir_names().1));
+        assert_eq!(*profile_paths.data(), temp_path.join(ProfilePaths::dir_names().2));
+        assert_eq!(*profile_paths.temp(), temp_path);
     }
 }

@@ -12,7 +12,7 @@ use crate::profile::{database::Databases, paths::ProfilePaths};
 #[derive(Debug, Clone)]
 pub enum ProfileKind {
     Persistent { id: Option<String> },
-    Temporary,
+    Temporary { suffix: Option<String> },
 }
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl Profile {
         let config = BrowserConfig::new(args);
 
         let profile_kind = if args.incognito {
-            ProfileKind::Temporary
+            ProfileKind::Temporary { suffix: None }
         } else {
             ProfileKind::Persistent {
                 id: args.profile.clone(),
