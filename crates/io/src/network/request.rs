@@ -103,7 +103,7 @@ impl<'client> NetworkService<'client> {
         }
     }
 
-    #[instrument(skip(self, http_cache, page_url, policies, request), fields(method = %request.method, url = %request.url))]
+    #[instrument(skip(self, dirs, http_cache, page_url, policies, request), fields(method = %request.method, url = %request.url))]
     pub async fn fetch(
         &self,
         dirs: Directory,
