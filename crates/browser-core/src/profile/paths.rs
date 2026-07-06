@@ -102,6 +102,7 @@ impl Drop for ProfilePaths {
             let _ = std::fs::remove_dir_all(&*self.cache);
             let _ = std::fs::remove_dir_all(&*self.config);
             let _ = std::fs::remove_dir_all(&*self.data);
+            let _ = std::fs::remove_dir_all(&*self.temp);
         }
     }
 }
