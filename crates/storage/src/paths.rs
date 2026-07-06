@@ -12,9 +12,9 @@ pub struct Directory {
 
 impl Directory {
     pub fn try_new() -> Option<Self> {
-        let cache = get_cache_path()?;
-        let config = get_config_path()?;
-        let data = get_data_path()?;
+        let cache = get_cache_path(vec![])?;
+        let config = get_config_path(vec![])?;
+        let data = get_data_path(vec![])?;
         let temp = get_temp_path(None);
 
         Some(Self {
@@ -32,17 +32,27 @@ impl Directory {
 /// * `Some(PathBuf)` - The path to the cache directory if it can be determined
 /// * `None` - If the cache directory cannot be determined
 #[must_use]
-pub fn get_cache_path() -> Option<PathBuf> {
+pub fn get_cache_path(subdirs: Vec<String>) -> Option<PathBuf> {
     let base_dir = dirs::cache_dir()?;
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        Some(base_dir.join(APP_NAME).join("Cache"))
+        let mut path = base_dir.join(APP_NAME);
+        for subdir in subdirs {
+            path.push(subdir);
+        }
+
+        Some(path.join("Cache"))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        Some(base_dir.join(APP_NAME.to_lowercase()))
+        let mut path = base_dir.join(APP_NAME.to_lowercase());
+        for subdir in subdirs {
+            path.push(subdir);
+        }
+
+        Some(path)
     }
 }
 
@@ -52,17 +62,27 @@ pub fn get_cache_path() -> Option<PathBuf> {
 /// * `Some(PathBuf)` - The path to the config directory if it can be determined
 /// * `None` - If the config directory cannot be determined
 #[must_use]
-pub fn get_config_path() -> Option<PathBuf> {
+pub fn get_config_path(subdirs: Vec<String>) -> Option<PathBuf> {
     let base_dir = dirs::config_dir()?;
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        Some(base_dir.join(APP_NAME).join("Config"))
+        let mut path = base_dir.join(APP_NAME);
+        for subdir in subdirs {
+            path.push(subdir);
+        }
+
+        Some(path.join("Config"))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        Some(base_dir.join(APP_NAME.to_lowercase()))
+        let mut path = base_dir.join(APP_NAME.to_lowercase());
+        for subdir in subdirs {
+            path.push(subdir);
+        }
+
+        Some(path)
     }
 }
 
@@ -72,17 +92,27 @@ pub fn get_config_path() -> Option<PathBuf> {
 /// * `Some(PathBuf)` - The path to the data directory if it can be determined
 /// * `None` - If the data directory cannot be determined
 #[must_use]
-pub fn get_data_path() -> Option<PathBuf> {
+pub fn get_data_path(subdirs: Vec<String>) -> Option<PathBuf> {
     let base_dir = dirs::data_dir()?;
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     {
-        Some(base_dir.join(APP_NAME).join("Data"))
+        let mut path = base_dir.join(APP_NAME);
+        for subdir in subdirs {
+            path.push(subdir);
+        }
+
+        Some(path.join("Data"))
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        Some(base_dir.join(APP_NAME.to_lowercase()))
+        let mut path = base_dir.join(APP_NAME.to_lowercase());
+        for subdir in subdirs {
+            path.push(subdir);
+        }
+
+        Some(path)
     }
 }
 

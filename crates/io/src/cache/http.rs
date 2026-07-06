@@ -4,6 +4,7 @@ use network::{CACHE_CONTROL, HeaderMap, VARY, response::Response};
 use postcard::to_stdvec;
 use sha2::{Digest, Sha256};
 use std::fmt::Debug;
+use storage::Directory;
 use tracing::debug;
 
 use crate::cache::{
@@ -46,10 +47,10 @@ impl HttpCache {
     /// # Errors
     /// * If the cache lock is poisoned.
     /// * If there is an error reading from disk or deserializing the cached value.
-    pub fn get(&self, key: &str, request_headers: &HeaderMap) -> Result<CacheEntry, CacheError> {
+    pub fn get(&self, dirs: &Directory, key: &str, request_headers: &HeaderMap) -> Result<CacheEntry, CacheError> {
         let sha = Self::hash_url(key);
 
-        let Some(entry) = self.inner.get(sha, request_headers)? else {
+        let Some(entry) = self.inner.get(dirs, sha, request_headers)? else {
             return Ok(CacheEntry::Miss);
         };
 
@@ -91,8 +92,14 @@ impl HttpCache {
     /// # Errors
     /// * If there is already an entry for the key in the cache.
     /// * If there is an error writing to disk or serializing the value.
-    pub fn store(&self, key: String, response: Response, request_headers: &HeaderMap) -> Result<(), CacheError> {
-        if let Err(error) = self.store_on_disk(&key, &response, request_headers) {
+    pub fn store(
+        &self,
+        dirs: &Directory,
+        key: String,
+        response: Response,
+        request_headers: &HeaderMap,
+    ) -> Result<(), CacheError> {
+        if let Err(error) = self.store_on_disk(dirs, &key, &response, request_headers) {
             debug!(%error, "failed to store on disk");
             return Err(error);
         }
@@ -106,7 +113,13 @@ impl HttpCache {
     /// * If the `Vary` header is invalid or prevents caching.
     /// * If the `Cache-Control` header prevents caching.
     /// * If there is an error writing to disk or serializing the value.
-    fn store_on_disk(&self, key: &str, response: &Response, request_headers: &HeaderMap) -> Result<(), CacheError> {
+    fn store_on_disk(
+        &self,
+        dirs: &Directory,
+        key: &str,
+        response: &Response,
+        request_headers: &HeaderMap,
+    ) -> Result<(), CacheError> {
         let sha = Self::hash_url(key);
 
         let serialized = to_stdvec(response).map_err(CacheError::Serialization)?;
@@ -125,8 +138,15 @@ impl HttpCache {
 
         let cache_headers = CacheHeader::new(serialized.as_slice(), sha);
 
-        self.inner
-            .put(sha, serialized.as_slice(), &response.headers, request_headers, &cache_control, cache_headers)
+        self.inner.put(
+            dirs,
+            sha,
+            serialized.as_slice(),
+            &response.headers,
+            request_headers,
+            &cache_control,
+            cache_headers,
+        )
     }
 
     pub fn revalidate(&self, key: &str, request_headers: &HeaderMap) -> Result<(), CacheError> {
@@ -139,10 +159,10 @@ impl HttpCache {
     ///
     /// # Errors
     /// * If there is an error removing the entry from disk.
-    pub fn evict(&mut self, key: &str, request_headers: &HeaderMap) -> Result<bool, CacheError> {
+    pub fn evict(&mut self, dirs: &Directory, key: &str, request_headers: &HeaderMap) -> Result<bool, CacheError> {
         let sha = Self::hash_url(key);
 
-        let removed_disk = self.inner.delete(sha, request_headers)?;
+        let removed_disk = self.inner.delete(dirs, sha, request_headers)?;
         Ok(removed_disk)
     }
 
@@ -252,11 +272,12 @@ mod tests {
 
         let database = IndexDatabase::open(Directory::try_new().unwrap()).expect("Couldn't open database");
         let cache = HttpCache::new(database);
+        let dirs = Directory::try_new().unwrap();
 
-        let result = cache.store(key.clone(), response, &request_header);
+        let result = cache.store(&dirs, key.clone(), response, &request_header);
         assert!(result.is_ok());
 
-        let retrieved = cache.get(&key, &request_header);
+        let retrieved = cache.get(&dirs, &key, &request_header);
 
         assert!(retrieved.is_ok());
         assert!(matches!(retrieved.unwrap(), CacheEntry::Hit(_)));
@@ -276,15 +297,16 @@ mod tests {
 
         let database = IndexDatabase::open(Directory::try_new().unwrap()).expect("Couldn't open database");
         let cache = HttpCache::new(database);
+        let dirs = Directory::try_new().unwrap();
 
-        let result = cache.store(key.clone(), response, &request_header);
+        let result = cache.store(&dirs, key.clone(), response, &request_header);
         assert!(result.is_ok());
 
         // Attempt to retrieve with a different Accept-Encoding value
         let mut different_request_header = HeaderMap::new();
         different_request_header.insert("Accept-Encoding", "deflate".parse().unwrap());
 
-        let retrieved = cache.get(&key, &different_request_header);
+        let retrieved = cache.get(&dirs, &key, &different_request_header);
 
         assert!(retrieved.is_ok());
         assert!(matches!(retrieved.unwrap(), CacheEntry::Miss));

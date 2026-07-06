@@ -165,6 +165,7 @@ impl Browser {
                                         }
                                     } else {
                                         match Resource::from_remote(
+                                            dirs,
                                             relative_url.as_str(),
                                             &http_cache,
                                             client_clone.as_ref(),
@@ -360,6 +361,7 @@ impl Browser {
             };
 
             Resource::from_remote(
+                self.profile().dirs().into(),
                 url.as_str(),
                 self.profile().http_cache(),
                 client,
@@ -446,6 +448,7 @@ impl Browser {
                     };
 
                     let resp = match Resource::from_remote(
+                        dirs,
                         style_url.as_str(),
                         &cache,
                         client.as_ref(),

@@ -26,9 +26,10 @@ impl ProfilePaths {
                     .filter(|s| !s.is_empty())
                     .unwrap_or("default")
                     .to_string();
-                let cache = get_cache_path().map(|p| p.join(&id));
-                let config = get_config_path().map(|p| p.join(&id));
-                let data = get_data_path().map(|p| p.join(&id));
+                let profile_name = Self::profile_name();
+                let cache = get_cache_path(vec![profile_name.clone()]).map(|p| p.join(&id));
+                let config = get_config_path(vec![profile_name.clone()]).map(|p| p.join(&id));
+                let data = get_data_path(vec![profile_name]).map(|p| p.join(&id));
                 let degraded = cache.is_none() || config.is_none() || data.is_none();
 
                 let stable_temp = get_temp_path(None);
@@ -88,6 +89,16 @@ impl ProfilePaths {
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows"))]
+    fn profile_name() -> String {
+        "Profiles".to_string()
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    fn profile_name() -> String {
+        "profiles".to_string()
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     fn dir_names() -> (&'static str, &'static str, &'static str) {
         ("Cache", "Config", "Data")
     }
@@ -131,9 +142,9 @@ mod tests {
         });
         assert!(!profile_paths.is_degraded());
         assert!(!profile_paths.is_temporary);
-        assert_eq!(*profile_paths.cache(), get_cache_path().unwrap().join("test_profile"));
-        assert_eq!(*profile_paths.config(), get_config_path().unwrap().join("test_profile"));
-        assert_eq!(*profile_paths.data(), get_data_path().unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.cache(), get_cache_path(vec![]).unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.config(), get_config_path(vec![]).unwrap().join("test_profile"));
+        assert_eq!(*profile_paths.data(), get_data_path(vec![]).unwrap().join("test_profile"));
         assert_eq!(*profile_paths.temp(), get_temp_path(None).join("test_profile"));
     }
 

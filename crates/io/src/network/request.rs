@@ -7,6 +7,7 @@ use network::{
     request::{Request, RequestBuilder},
     response::HeaderResponse,
 };
+use storage::Directory;
 use tracing::{debug, instrument, trace};
 use url::Url;
 
@@ -82,6 +83,7 @@ impl<'client> NetworkService<'client> {
 
     fn maybe_wrap_cached_response(
         &self,
+        dirs: Directory,
         http_cache: &HttpCache,
         cache_key: String,
         cacheable: bool,
@@ -93,7 +95,7 @@ impl<'client> NetworkService<'client> {
 
         match result {
             RequestResult::Success(handle) => {
-                RequestResult::Success(CacheMiddleware::wrap_handle(http_cache, cache_key, handle))
+                RequestResult::Success(CacheMiddleware::wrap_handle(dirs, http_cache, cache_key, handle))
             }
             RequestResult::ClientError(handle) => RequestResult::ClientError(handle),
             RequestResult::ServerError(handle) => RequestResult::ServerError(handle),
@@ -104,6 +106,7 @@ impl<'client> NetworkService<'client> {
     #[instrument(skip(self, http_cache, page_url, policies, request), fields(method = %request.method, url = %request.url))]
     pub async fn fetch(
         &self,
+        dirs: Directory,
         http_cache: &HttpCache,
         page_url: Option<Url>,
         policies: &DocumentPolicy,
@@ -132,13 +135,13 @@ impl<'client> NetworkService<'client> {
                 true,
             );
 
-            return match self.resolve_cache(http_cache, request).await {
+            return match self.resolve_cache(&dirs, http_cache, request).await {
                 Ok(result) => result,
                 Err(request) => {
                     let cache_key = request.url.to_string();
                     let result = self.send_request(request).await;
 
-                    self.maybe_wrap_cached_response(http_cache, cache_key, true, result)
+                    self.maybe_wrap_cached_response(dirs, http_cache, cache_key, true, result)
                 }
             };
         }
@@ -147,7 +150,7 @@ impl<'client> NetworkService<'client> {
             ReferrerMiddleware::apply_referrer(current_url, &mut request, policies.referrer);
         }
 
-        match self.resolve_cache(http_cache, request).await {
+        match self.resolve_cache(&dirs, http_cache, request).await {
             Ok(result) => return result,
             Err(req) => request = req,
         };
@@ -160,7 +163,7 @@ impl<'client> NetworkService<'client> {
             let cacheable = request.method == Method::GET;
             let result = self.send_request(request).await;
 
-            return self.maybe_wrap_cached_response(http_cache, cache_key, cacheable, result);
+            return self.maybe_wrap_cached_response(dirs, http_cache, cache_key, cacheable, result);
         }
 
         let RequestResult::Success(preflight_response) = self
@@ -187,7 +190,7 @@ impl<'client> NetworkService<'client> {
         let cacheable = request.method == Method::GET;
         let result = self.send_request(request).await;
 
-        self.maybe_wrap_cached_response(http_cache, cache_key, cacheable, result)
+        self.maybe_wrap_cached_response(dirs, http_cache, cache_key, cacheable, result)
     }
 
     async fn preflight_request(
@@ -249,10 +252,11 @@ impl<'client> NetworkService<'client> {
     #[cfg(not(rust_analyzer))]
     async fn resolve_cache(
         &self,
+        dirs: &Directory,
         http_cache: &HttpCache,
         mut request: Request,
     ) -> Result<RequestResult<Box<dyn ResponseHandle>>, Request> {
-        match CacheMiddleware::lookup(&request, http_cache) {
+        match CacheMiddleware::lookup(dirs, &request, http_cache) {
             Ok(entry) => match entry {
                 CacheEntry::Hit(data) => return Ok(RequestResult::Success(Box::new(CachedResponse::new(data)))),
                 CacheEntry::RequiresRevalidation {
@@ -280,7 +284,12 @@ impl<'client> NetworkService<'client> {
 
                             return Ok(RequestResult::Success(handle));
                         } else if status == StatusCode::OK {
-                            return Ok(RequestResult::Success(CacheMiddleware::wrap_handle(http_cache, url, handle)));
+                            return Ok(RequestResult::Success(CacheMiddleware::wrap_handle(
+                                dirs.clone(),
+                                http_cache,
+                                url,
+                                handle,
+                            )));
                         }
 
                         return Ok(RequestResult::Success(handle));
