@@ -1257,13 +1257,17 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             break;
         }
 
-        if width.is_none()
-            && let Ok(w) = BorderWidth::parse(stream)
-        {
-            width = Some(w);
-            parsed_any = true;
-            stream.next_cv();
-            continue;
+        let checkpoint = stream.checkpoint();
+
+        if color.is_none() {
+            if let Ok(c) = Color::parse(stream) {
+                color = Some(c);
+                parsed_any = true;
+                stream.next_cv();
+                continue;
+            } else {
+                stream.restore(checkpoint);
+            }
         }
 
         if style.is_none()
@@ -1277,19 +1281,28 @@ pub fn handle_border(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValu
             continue;
         }
 
-        if color.is_none()
-            && let Some(cv) = stream.peek().cloned()
-        {
-            let mut one = ComponentValueStream::from(std::slice::from_ref(&cv));
-            if let Ok(c) = Color::parse(&mut one) {
-                color = Some(c);
+        if width.is_none() {
+            if let Ok(w) = BorderWidth::parse(stream) {
+                width = Some(w);
                 parsed_any = true;
                 stream.next_cv();
                 continue;
+            } else {
+                stream.restore(checkpoint);
             }
         }
 
-        ctx.record_error_from_stream("border", stream, CssValueError::InvalidValue("Invalid border value".to_string()));
+        ctx.record_error_from_stream(
+            "border",
+            stream,
+            CssValueError::InvalidValue(format!(
+                "Unexpected token: {:?}, color: {:?}, style: {:?}, width: {:?}",
+                stream.peek().unwrap(),
+                color,
+                style,
+                width
+            )),
+        );
         return;
     }
 
@@ -2203,6 +2216,7 @@ mod tests {
 
         handle_border(&mut ctx, &mut stream, BorderSide::All);
 
+        dbg!(&ctx.errors);
         assert!(ctx.errors.is_empty());
 
         assert_eq!(specified.border_top_style, CSSProperty::Value(BorderStyle::Solid));

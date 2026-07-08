@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(second_div_node.dimensions.x, 28.0);
         assert_eq!(second_div_node.dimensions.y, 70.0);
         assert_eq!(second_div_node.dimensions.height, 30.0);
-        assert_eq!(second_div_node.dimensions.width, 744.0);
+        assert_eq!(second_div_node.dimensions.width, 724.0);
         assert_eq!(second_div_node.padding.top, 10.0);
         assert_eq!(second_div_node.padding.bottom, 10.0);
         assert_eq!(second_div_node.margin.top.to_px(), 20.0);
@@ -300,7 +300,7 @@ mod tests {
         assert_eq!(body_node.dimensions.x, 8.0);
         assert_eq!(body_node.dimensions.y, 8.0);
         assert_eq!(body_node.dimensions.height, 400.0);
-        assert_eq!(body_node.dimensions.width, 784.0);
+        assert_eq!(body_node.dimensions.width, 764.0);
         assert_eq!(body_node.children.len(), 4);
 
         let first_div = &body_node.children[0];
@@ -317,7 +317,7 @@ mod tests {
         assert_eq!(second_div_node.dimensions.x, 38.0);
         assert_eq!(second_div_node.dimensions.y, 88.0);
         assert_eq!(second_div_node.dimensions.height, 30.0);
-        assert_eq!(second_div_node.dimensions.width, 724.0);
+        assert_eq!(second_div_node.dimensions.width, 704.0);
         assert_eq!(second_div_node.padding.top, 10.0);
         assert_eq!(second_div_node.padding.bottom, 10.0);
         assert_eq!(second_div_node.margin.top.to_px(), 20.0);

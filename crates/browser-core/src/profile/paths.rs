@@ -162,11 +162,31 @@ mod tests {
         let profile_paths = ProfilePaths::new(ProfileKind::Persistent {
             id: Some("test_profile".to_string()),
         });
+        let profiles_name = ProfilePaths::profile_name();
+
         assert!(!profile_paths.is_degraded());
         assert!(!profile_paths.is_temporary);
-        assert_eq!(*profile_paths.profile_cache(), get_cache_path(vec![]).unwrap().join("test_profile"));
-        assert_eq!(*profile_paths.profile_config(), get_config_path(vec![]).unwrap().join("test_profile"));
-        assert_eq!(*profile_paths.profile_data(), get_data_path(vec![]).unwrap().join("test_profile"));
+        assert_eq!(
+            *profile_paths.profile_cache(),
+            get_cache_path(vec![])
+                .unwrap()
+                .join(&profiles_name)
+                .join("test_profile")
+        );
+        assert_eq!(
+            *profile_paths.profile_config(),
+            get_config_path(vec![])
+                .unwrap()
+                .join(&profiles_name)
+                .join("test_profile")
+        );
+        assert_eq!(
+            *profile_paths.profile_data(),
+            get_data_path(vec![])
+                .unwrap()
+                .join(&profiles_name)
+                .join("test_profile")
+        );
         assert_eq!(*profile_paths.temp(), get_temp_path(None).join("test_profile"));
     }
 
