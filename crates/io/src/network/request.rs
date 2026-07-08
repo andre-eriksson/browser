@@ -40,7 +40,6 @@ pub struct NetworkService<'client> {
     browser_headers: &'client HeaderMap,
 }
 
-#[allow(unexpected_cfgs)]
 impl<'client> NetworkService<'client> {
     pub fn new(
         client: &'client dyn HttpClient,
@@ -139,7 +138,7 @@ impl<'client> NetworkService<'client> {
                 Ok(result) => result,
                 Err(request) => {
                     let cache_key = request.url.to_string();
-                    let result = self.send_request(request).await;
+                    let result = self.send_request(*request).await;
 
                     self.maybe_wrap_cached_response(dirs, http_cache, cache_key, true, result)
                 }
@@ -152,7 +151,7 @@ impl<'client> NetworkService<'client> {
 
         match self.resolve_cache(&dirs, http_cache, request).await {
             Ok(result) => return result,
-            Err(req) => request = req,
+            Err(req) => request = *req,
         };
 
         if SimpleMiddleware::is_simple_request(&request.method, &user_headers) {
@@ -248,21 +247,23 @@ impl<'client> NetworkService<'client> {
         }
     }
 
-    // NOTE: rust_analyzer is being wonky here converting CacheResponse to ResponseHandle.
-    #[cfg(not(rust_analyzer))]
     async fn resolve_cache(
         &self,
         dirs: &Directory,
         http_cache: &HttpCache,
         mut request: Request,
-    ) -> Result<RequestResult<Box<dyn ResponseHandle>>, Request> {
+    ) -> Result<RequestResult<Box<dyn ResponseHandle>>, Box<Request>> {
         match CacheMiddleware::lookup(dirs, &request, http_cache) {
             Ok(entry) => match entry {
-                CacheEntry::Hit(data) => return Ok(RequestResult::Success(Box::new(CachedResponse::new(data)))),
+                CacheEntry::Hit(data) => {
+                    trace!("Cache hit for {}", request.url);
+                    return Ok(RequestResult::Success(Box::new(CachedResponse::new(data))));
+                }
                 CacheEntry::RequiresRevalidation {
                     stale_data,
                     revalidation_headers,
                 } => {
+                    trace!("Cache requires revalidation for {}", request.url);
                     request.headers.extend(revalidation_headers);
                     let url = request.url.to_string();
 
@@ -304,6 +305,6 @@ impl<'client> NetworkService<'client> {
             }
         }
 
-        Err(request)
+        Err(Box::new(request))
     }
 }
