@@ -40,11 +40,8 @@ pub enum CoreError {
     #[error("failed to initialize database: {0}")]
     InitializeDatabase(String),
 
-    #[error("failed to get an image")]
-    Image,
-
-    #[error("the current browser doesn't support this command.")]
-    UnsupportedCommand,
+    #[error("failed to fetch an image: {0}")]
+    Image(String),
 
     #[error("failed to generate devtools HTML: {0}")]
     DevtoolsGeneration(String),

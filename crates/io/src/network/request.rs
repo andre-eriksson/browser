@@ -67,9 +67,9 @@ impl<'client> NetworkService<'client> {
                     _ => RequestResult::Success(resp),
                 }
             }
-            Err(e) => {
-                debug!("{}", e);
-                RequestResult::Failed(RequestError::Network(e))
+            Err(error) => {
+                debug!(%error);
+                RequestResult::Failed(RequestError::Network(error))
             }
         }
     }

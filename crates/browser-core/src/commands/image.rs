@@ -36,7 +36,7 @@ impl Browser {
             .is_some_and(|ext| ext.eq_ignore_ascii_case("svg"))
         {
             debug!("SVG images are not supported, skipping: {}", absolute_url);
-            return Err(CoreError::Image);
+            return Err(CoreError::Image("SVG images are not supported".to_string()));
         }
 
         let (_resolved_url, response) = self
@@ -44,12 +44,12 @@ impl Browser {
             .await?;
 
         let Some(body) = response.body else {
-            return Err(CoreError::Image);
+            return Err(CoreError::Image("Image response body is empty".to_string()));
         };
 
         let decoded_data = DecodingMiddleware::decode(&response.headers, body)
             .await
-            .map_err(|_| CoreError::Image)?;
+            .map_err(|_| CoreError::Image("Failed to decode image data".to_string()))?;
 
         let content_type = response
             .headers

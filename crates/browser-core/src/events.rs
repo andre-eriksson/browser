@@ -1,8 +1,9 @@
+use async_trait::async_trait;
+
 use crate::{
     context::page::PageMetadata,
     errors::{CoreError, NavigationError},
 };
-use async_trait::async_trait;
 use html_dom::{DocumentRoot, NodeId};
 use io::DocumentPolicy;
 use url::Url;

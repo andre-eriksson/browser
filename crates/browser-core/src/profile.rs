@@ -5,7 +5,7 @@ use browser_args::BrowserArgs;
 use browser_config::BrowserConfig;
 use cookies::CookieJar;
 use io::HttpCache;
-use tracing::warn;
+use tracing::{trace, warn};
 
 use crate::profile::{database::Databases, paths::ProfilePaths};
 
@@ -35,12 +35,17 @@ impl Profile {
                 id: args.profile.clone(),
             }
         };
+
+        trace!("Initializing profile with kind: {:?}", profile_kind);
+
         let dirs = ProfilePaths::new(profile_kind);
         if dirs.is_degraded() {
             warn!(
                 "Profile directories are degraded. Some features may not work as expected. Please check your file system permissions and available disk space."
             )
         }
+
+        trace!("Profile directories initialized: {:?}", dirs);
 
         let databases = Databases::init(&dirs).expect("Failed to initialize databases, which is required for the browser to function. Please ensure you have enough disk space and permissions to create necessary files.");
 

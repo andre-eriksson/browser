@@ -94,7 +94,7 @@ impl Resource {
     /// # Args
     /// * `resource` - The resource to load, which can be an embedded asset, a file path, or an absolute URL.
     /// * `max_file_size` - An optional maximum file size limit in bytes. If the loaded asset exceeds this size, an error will be returned. If `None`, there is no size limit.
-    #[instrument(fields(resource = ?resource.key()))]
+    #[instrument(skip(dirs), fields(resource = ?resource.key()))]
     pub fn load(resource: ResourceType, dirs: Directory, max_file_size: Option<u64>) -> Result<Vec<u8>, ResourceError> {
         match resource.load_asset(Some(dirs), max_file_size) {
             Ok(data) => {
