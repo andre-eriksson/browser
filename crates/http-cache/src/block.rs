@@ -1,0 +1,239 @@
+//! This module implements the block file storage mechanism for the cache system. Block files are designed to store
+//! multiple small cache entries together, improving space efficiency and reducing overhead compared to storing each
+//! entry as a separate file. Each block file starts with a fixed header containing magic bytes and a version number,
+//! followed by a sequence of cache entries. Each entry consists of a serialized `CacheHeader` followed by the raw
+//! content bytes. The `BlockFile` struct provides methods for writing new entries, reading existing entries, deleting
+//! entries by marking them as dead, and compacting block files to reclaim space from deleted entries. The compaction
+//! process identifies block files that are nearly full and have a high proportion of dead entries, and rewrites them
+//! with only the live entries while updating the index database accordingly.
+
+use std::{
+    fs::{self, OpenOptions},
+    io::{Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+};
+
+use serde::{Deserialize, Serialize};
+
+use storage::Directory;
+
+use crate::{errors::CacheError, header::CacheHeader};
+
+/// The magic bytes and version number at the start of each block file, used to validate the file format when reading.
+pub(crate) const MAGIC: [u8; 4] = *b"BLKC";
+/// The current version of the block file format. Increment this if any incompatible changes are made to the
+/// structure of block files, so that readers can detect unsupported formats and avoid misinterpreting data.
+/// This is separate from the header version in `CacheHeader`, which tracks the format of individual entries
+/// rather than the overall block file structure.
+pub(crate) const VERSION: u16 = 1;
+/// Directory within the cache path where block files are stored. Each block file contains multiple cache
+/// entries, allowing for more efficient storage of small resources and better space utilization compared
+/// to storing each entry
+#[cfg(not(test))]
+pub(crate) const BLOCK_DIR: &str = "resources/blocks";
+#[cfg(test)]
+pub(crate) const BLOCK_DIR: &str = "tests/resources/blocks";
+/// 20 MB - This threshold determines whether a cache entry is stored as a block or as a large file.
+/// Entries larger than this size will be stored as large files, while smaller entries will be
+/// stored in block files.
+pub const MAX_BLOCK_SIZE: u64 = 20 * 1024 * 1024;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockHeader {
+    pub magic: [u8; 4],
+    pub version: u16,
+}
+
+pub struct BlockFile;
+
+impl BlockFile {
+    /// Writes a new cache entry to a block file, selecting an appropriate file with
+    /// available space (or creating a new one), then appending the serialized header
+    /// and raw content bytes.
+    ///
+    /// Returns `(file_id, actual_offset, header_size, content_size)` — all values
+    /// are derived from the write itself.
+    pub fn write(dirs: &Directory, value: &[u8], header: &mut CacheHeader) -> Result<(u32, u32, u32, u32), CacheError> {
+        let cache_path = &dirs.profile_cache;
+
+        let block_dir = cache_path.join(BLOCK_DIR);
+        fs::create_dir_all(&block_dir)?;
+
+        let (path, file_number) = Self::find_writable_file(&block_dir, value.len())?;
+        let file_id = file_number + 1;
+
+        let block_header_bytes = postcard::to_stdvec(&BlockHeader {
+            magic: MAGIC,
+            version: VERSION,
+        })
+        .map_err(CacheError::Serialization)?;
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .map_err(CacheError::Io)?;
+
+        let file_len = usize::try_from(file.metadata().map_err(CacheError::Io)?.len()).unwrap_or(usize::MAX);
+
+        if file_len == 0 {
+            file.write_all(&block_header_bytes)?;
+        } else if file_len < block_header_bytes.len() {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        header.content_size =
+            u32::try_from(value.len()).map_err(|_| CacheError::Write("content size exceeds u32".to_string()))?;
+
+        let header_bytes = postcard::to_stdvec(&header).map_err(CacheError::Serialization)?;
+
+        let header_size =
+            u32::try_from(header_bytes.len()).map_err(|_| CacheError::Write("header size exceeds u32".to_string()))?;
+        let content_size =
+            u32::try_from(value.len()).map_err(|_| CacheError::Write("content size exceeds u32".to_string()))?;
+
+        let actual_offset = u32::try_from(file.metadata().map_err(CacheError::Io)?.len())
+            .map_err(|_| CacheError::Write("file size exceeds u32".to_string()))?;
+
+        file.write_all(&header_bytes)?;
+        file.write_all(value)?;
+        file.flush()?;
+
+        Ok((file_id, actual_offset, header_size, content_size))
+    }
+
+    /// Reads a cache entry from a block file based on the provided block ID, offset, header size, and content size.
+    /// The block ID corresponds to the file number (with an offset of +1 to allow for a zero-based file naming scheme),
+    /// and the method constructs the file path accordingly. It validates the block file header to ensure it matches
+    /// the expected magic bytes and version, then reads the specified header and content bytes from the file. The
+    /// method returns the deserialized `CacheHeader`, the content bytes as a vector, and the size of the content.
+    /// If any step fails (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
+    pub fn read(
+        dirs: &Directory,
+        block_id: u32,
+        offset: u32,
+        header_size: u32,
+        content_size: u32,
+    ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
+        let cache_path = &dirs.profile_cache;
+
+        let data_path = cache_path
+            .join(BLOCK_DIR)
+            .join(format!("{}.bin", block_id.saturating_sub(1)));
+
+        let data = fs::read(&data_path)?;
+
+        let (block_header, _): (BlockHeader, &[u8]) =
+            postcard::take_from_bytes(&data).map_err(|_| CacheError::CorruptedHeader)?;
+
+        if block_header.magic != MAGIC || block_header.version != VERSION {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        let data_len = data.len();
+        let start = offset as usize;
+        let header_size_usize = header_size as usize;
+        let content_size_usize = content_size as usize;
+
+        if start > data_len {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        let header_end = start
+            .checked_add(header_size_usize)
+            .ok_or(CacheError::CorruptedHeader)?;
+
+        if header_end > data_len {
+            return Err(CacheError::CorruptedHeader);
+        }
+
+        let data_end = header_end
+            .checked_add(content_size_usize)
+            .ok_or(CacheError::CorruptedBlock)?;
+
+        if data_end > data_len {
+            return Err(CacheError::CorruptedBlock);
+        }
+
+        let header_buf = &data[start..header_end];
+        let header: CacheHeader = postcard::from_bytes(header_buf).map_err(|_| CacheError::CorruptedHeader)?;
+
+        let data_buf = data[header_end..data_end].to_vec();
+
+        Ok((header, data_buf, content_size as usize))
+    }
+
+    /// Marks a cache entry as deleted by setting the `dead` flag in its header. This method does not physically remove
+    /// the entry from the block file, but instead updates the header to indicate that the entry is no longer valid.
+    /// The compaction process will later reclaim space from dead entries. The method takes the block ID, offset, and
+    /// header size to locate the entry within the block file, reads and deserializes the header, sets the `dead` flag
+    /// to `true`, and then writes the updated header back to the same location in the file. If any step fails
+    /// (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
+    pub fn delete(dirs: &Directory, block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
+        let cache_path = &dirs.profile_cache;
+
+        let data_path = cache_path
+            .join(BLOCK_DIR)
+            .join(format!("{}.bin", block_id.saturating_sub(1)));
+
+        let mut file = OpenOptions::new().read(true).write(true).open(&data_path)?;
+        file.seek(SeekFrom::Start(u64::from(offset)))?;
+
+        let mut header_buf = vec![0u8; header_size as usize];
+        file.read_exact(&mut header_buf)?;
+        let mut header: CacheHeader = postcard::from_bytes(&header_buf).map_err(|_| CacheError::CorruptedHeader)?;
+
+        header.dead = true;
+
+        let header_bytes = postcard::to_stdvec(&header).map_err(CacheError::Serialization)?;
+        let loaded_header_size = u32::try_from(header_bytes.len()).map_err(|_| CacheError::CorruptedHeader)?;
+
+        if loaded_header_size != header_size {
+            return Err(CacheError::Write("header size mismatch".to_string()));
+        }
+
+        file.seek(SeekFrom::Start(u64::from(offset)))?;
+        file.write_all(&header_bytes)?;
+
+        Ok(())
+    }
+
+    /// Finds the first block file that still has room for more data, or determines
+    /// the path for a brand-new file if every existing file is full.
+    ///
+    /// Returns `(path, file_number)` where `file_number` is the numeric stem of the
+    /// `.bin` file (e.g. `3` for `3.bin`).  The caller derives the persisted
+    /// `file_id` as `file_number + 1` so that `read()` can recover the filename via
+    /// `file_id.saturating_sub(1)`.
+    fn find_writable_file(block_dir: &Path, item_size: usize) -> Result<(PathBuf, u32), CacheError> {
+        if !block_dir.exists() {
+            return Ok((block_dir.join("0.bin"), 0));
+        }
+
+        let mut files: Vec<(PathBuf, u32)> = fs::read_dir(block_dir)?
+            .flatten()
+            .filter(|e| e.path().is_file() && e.path().extension().is_some_and(|ext| ext == "bin"))
+            .filter_map(|e| {
+                let path = e.path();
+                let num: u32 = path.file_stem()?.to_str()?.parse().ok()?;
+                Some((path, num))
+            })
+            .collect();
+
+        if files.is_empty() {
+            return Ok((block_dir.join("0.bin"), 0));
+        }
+
+        files.sort_by_key(|(_, num)| *num);
+
+        for (path, num) in &files {
+            let meta = fs::metadata(path).map_err(CacheError::Io)?;
+            if meta.len() + item_size as u64 <= MAX_BLOCK_SIZE {
+                return Ok((path.clone(), *num));
+            }
+        }
+
+        let next_num = files.last().map_or(0, |(_, n)| n + 1);
+        Ok((block_dir.join(format!("{next_num}.bin")), next_num))
+    }
+}

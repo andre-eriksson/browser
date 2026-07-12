@@ -1,0 +1,79 @@
+use std::sync::Arc;
+
+use http::{HeaderMap, StatusCode};
+use http_cache::{
+    errors::CacheError,
+    http::{CacheEntry, HttpCache},
+};
+use http_types::{
+    request::{Request, RequestBuilder, RequestContext},
+    response::CompleteResponse,
+};
+use storage::Directory;
+use tracing::{debug, trace};
+
+use crate::{
+    client::{HttpClient, ResponseHandle},
+    clients::cached::{CachedResponse, CachingResponse},
+    request::FetchResult,
+};
+
+pub(crate) fn lookup(
+    dirs: &Directory,
+    request_context: &RequestContext,
+    http_cache: &HttpCache,
+) -> Result<CacheEntry, CacheError> {
+    http_cache.get(dirs, request_context.url.as_str(), &request_context.headers)
+}
+
+pub(crate) async fn make_revalidation_request(
+    mut request: Request,
+    client: &dyn HttpClient,
+    dirs: &Directory,
+    http_cache: &HttpCache,
+    stale_data: CompleteResponse,
+    revalidation_headers: HeaderMap,
+) -> Result<FetchResult<Box<dyn ResponseHandle>>, String> {
+    trace!("Cache requires revalidation for {}", request.context.url);
+    let request_headers = request.context.headers.clone();
+    request.context.headers.extend(revalidation_headers);
+
+    let url = request.context.url.to_string();
+    let context = Arc::new(request.context);
+
+    let Ok(network_request) = client.send(context, request.body).await else {
+        return Err("Unable to send a revalidation request".to_string());
+    };
+
+    let req = network_request.into();
+
+    if let FetchResult::Success(handle) = req {
+        let status = handle.metadata().status_code;
+        let headers = handle.metadata().headers.clone();
+
+        if status == StatusCode::NOT_MODIFIED {
+            match http_cache.revalidate(&url, &headers) {
+                Ok(()) => {
+                    return Ok(FetchResult::Success(Box::new(CachedResponse::new(stale_data))));
+                }
+                Err(error) => {
+                    debug!(%error, "failure to revalidate the cache entry");
+                }
+            }
+
+            return Ok(FetchResult::Success(handle));
+        } else if status == StatusCode::OK {
+            return Ok(FetchResult::Success(CachingResponse::wrap_handle(
+                dirs.clone(),
+                http_cache,
+                url,
+                handle,
+                request_headers,
+            )));
+        }
+
+        return Ok(FetchResult::Success(handle));
+    }
+
+    Ok(req)
+}

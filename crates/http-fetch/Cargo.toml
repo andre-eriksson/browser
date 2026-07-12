@@ -1,0 +1,22 @@
+[package]
+name = "http-fetch"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+cookies.workspace = true
+http-cache.workspace = true
+http-policy.workspace = true
+http-types.workspace = true
+http.workspace = true
+manifest.workspace = true
+rand.workspace = true
+reqwest.workspace = true
+storage.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+url.workspace = true

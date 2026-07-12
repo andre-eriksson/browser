@@ -20,6 +20,10 @@ members = [
     "crates/html-dom",
     "crates/html-parser",
     "crates/html-tokenizer",
+    "crates/http-cache",
+    "crates/http-fetch",
+    "crates/http-policy",
+    "crates/http-types",
     "crates/io",
     "crates/layout",
     "crates/manifest",
@@ -56,6 +60,10 @@ database            = { path = "crates/database" }
 html-dom            = { path = "crates/html-dom" }
 html-parser         = { path = "crates/html-parser" }
 html-tokenizer      = { path = "crates/html-tokenizer" }
+http-cache          = { path = "crates/http-cache" }
+http-fetch          = { path = "crates/http-fetch" }
+http-policy         = { path = "crates/http-policy" }
+http-types          = { path = "crates/http-types" }
 io                  = { path = "crates/io" }
 layout              = { path = "crates/layout" }
 manifest            = { path = "crates/manifest" }
@@ -66,11 +74,13 @@ storage             = { path = "crates/storage" }
 # External dependencies
 async-trait         = "0.1.89"
 async-compression   = { version = "0.4.42", features = [ "brotli", "deflate", "gzip", "lz4", "tokio", "zstd" ]}
+bytes               = { version = "1.12.1", features = [ "serde" ] }
 bytemuck            = { version = "1.24.0", features = [ "derive" ] }
 clap                = { version = "4.5.54", features = [ "derive" ] }
 cosmic-text         = "0.15.0"
 criterion           = "0.8.1"
 dirs                = "6.0.0"
+futures             = "0.3.32"
 html-escape         = "0.2.13"
 http                = "1.3.1"
 http-serde          = "2.1.1"
@@ -94,6 +104,7 @@ sysinfo             = { version = "0.38.4", default-features = false, features =
 thiserror           = "2.0.17"
 time                = { version = "0.3.47", features = [ "parsing", "macros" ]}
 tokio               = { version = "1.51.1", features = [ "full", "tracing" ] }
+tokio-stream        = "0.1.18"
 toml                = "0.9.11"
 tracing             = "0.1.43"
 tracing-subscriber  = { version = "0.3.22", features = ["env-filter", "fmt", "registry"] }
