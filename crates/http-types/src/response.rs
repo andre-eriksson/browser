@@ -53,6 +53,18 @@ impl Response {
             body,
         })
     }
+
+    pub fn to_cacheable(&self, max_size: usize) -> Option<CompleteResponse> {
+        let body = match &self.body {
+            HttpBody::Empty => CompleteHttpBody(Bytes::new()),
+            HttpBody::Buffered(b) if b.len() <= max_size => CompleteHttpBody(b.clone()),
+            _ => return None,
+        };
+        Some(CompleteResponse {
+            head: self.head.clone(),
+            body,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

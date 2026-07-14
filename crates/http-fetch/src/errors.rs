@@ -25,6 +25,9 @@ pub enum NetworkError {
 
     #[error("Maximum redirects exceeded")]
     MaxRedirectsExceeded,
+
+    #[error("Unable to decode the HTTP request: {0}")]
+    DecodingError(String),
 }
 
 /// Errors that can occur during the processing of a network request.
@@ -38,4 +41,7 @@ pub enum FetchError {
 
     #[error(transparent)]
     Request(RequestError),
+
+    #[error("Preflight request failed")]
+    PreflightFailed,
 }

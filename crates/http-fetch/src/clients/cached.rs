@@ -50,8 +50,8 @@ impl CachingResponse {
 
 #[async_trait]
 impl ResponseHandle for CachingResponse {
-    fn metadata(&self) -> &HeaderResponse {
-        self.inner.metadata()
+    fn head(&self) -> &HeaderResponse {
+        self.inner.head()
     }
 
     async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
@@ -71,16 +71,13 @@ impl ResponseHandle for CachingResponse {
 
         match response.body {
             HttpBody::Empty | HttpBody::Buffered(_) => {
-                let resp = response
-                    .into_complete(MAX_BLOCK_SIZE as usize)
-                    .await
-                    .ok_or(NetworkError::Decode("Unable to decode the response".to_string()))?;
-
-                if let Err(err) = cache.store(&dirs, cache_key, resp.clone(), &request_headers) {
+                if let Some(complete) = response.to_cacheable(MAX_BLOCK_SIZE as usize)
+                    && let Err(err) = cache.store(&dirs, cache_key, complete, &request_headers)
+                {
                     debug!(%err);
                 }
 
-                Ok(resp.into())
+                Ok(response)
             }
             HttpBody::Streaming(stream) => {
                 let (tx, rx) = oneshot::channel();
@@ -113,14 +110,14 @@ impl ResponseHandle for CachingResponse {
 }
 
 pub struct CachedResponse {
-    metadata: HeaderResponse,
+    head: HeaderResponse,
     body: Bytes,
 }
 
 impl CachedResponse {
     pub fn new(response: CompleteResponse) -> Self {
         Self {
-            metadata: HeaderResponse {
+            head: HeaderResponse {
                 status_code: response.head.status_code,
                 headers: response.head.headers,
             },
@@ -131,16 +128,13 @@ impl CachedResponse {
 
 #[async_trait]
 impl ResponseHandle for CachedResponse {
-    fn metadata(&self) -> &HeaderResponse {
-        &self.metadata
+    fn head(&self) -> &HeaderResponse {
+        &self.head
     }
 
     async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
         Ok(Response {
-            head: HeaderResponse {
-                headers: self.metadata.headers,
-                status_code: self.metadata.status_code,
-            },
+            head: self.head,
             body: HttpBody::Buffered(self.body),
         })
     }

@@ -6,7 +6,7 @@ use http_cache::{
     http::{CacheEntry, HttpCache},
 };
 use http_types::{
-    request::{Request, RequestBuilder, RequestContext},
+    request::{Request, RequestContext},
     response::CompleteResponse,
 };
 use storage::Directory;
@@ -15,10 +15,11 @@ use tracing::{debug, trace};
 use crate::{
     client::{HttpClient, ResponseHandle},
     clients::cached::{CachedResponse, CachingResponse},
+    errors::NetworkError,
     request::FetchResult,
 };
 
-pub(crate) fn lookup(
+pub(crate) fn cache_lookup(
     dirs: &Directory,
     request_context: &RequestContext,
     http_cache: &HttpCache,
@@ -33,7 +34,7 @@ pub(crate) async fn make_revalidation_request(
     http_cache: &HttpCache,
     stale_data: CompleteResponse,
     revalidation_headers: HeaderMap,
-) -> Result<FetchResult<Box<dyn ResponseHandle>>, String> {
+) -> Result<FetchResult<Box<dyn ResponseHandle>>, NetworkError> {
     trace!("Cache requires revalidation for {}", request.context.url);
     let request_headers = request.context.headers.clone();
     request.context.headers.extend(revalidation_headers);
@@ -42,14 +43,14 @@ pub(crate) async fn make_revalidation_request(
     let context = Arc::new(request.context);
 
     let Ok(network_request) = client.send(context, request.body).await else {
-        return Err("Unable to send a revalidation request".to_string());
+        return Err(NetworkError::ConnectionRefused);
     };
 
     let req = network_request.into();
 
     if let FetchResult::Success(handle) = req {
-        let status = handle.metadata().status_code;
-        let headers = handle.metadata().headers.clone();
+        let status = handle.head().status_code;
+        let headers = handle.head().headers.clone();
 
         if status == StatusCode::NOT_MODIFIED {
             match http_cache.revalidate(&url, &headers) {

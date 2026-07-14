@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+async-compression.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 cookies.workspace = true
@@ -17,6 +18,10 @@ rand.workspace = true
 reqwest.workspace = true
 storage.workspace = true
 tokio.workspace = true
+tokio-stream.workspace = true
+tokio-util.workspace = true
+futures.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 url.workspace = true
+strum.workspace = true

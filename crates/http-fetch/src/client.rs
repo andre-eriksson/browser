@@ -11,7 +11,7 @@ use crate::errors::NetworkError;
 
 #[async_trait]
 pub trait ResponseHandle: Send + Sync {
-    fn metadata(&self) -> &HeaderResponse;
+    fn head(&self) -> &HeaderResponse;
     /// Consumes and returns the full response, buffering if necessary.
     async fn response(self: Box<Self>) -> Result<Response, NetworkError>;
 

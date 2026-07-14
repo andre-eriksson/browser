@@ -33,7 +33,7 @@ impl ReqwestClient {
                 .no_deflate()
                 .no_gzip()
                 .no_zstd()
-                .http2_max_header_list_size(65536)
+                .http2_max_header_list_size(u16::MAX as u32)
                 .build()
                 .unwrap(),
         }
@@ -48,7 +48,7 @@ pub struct ReqwestHandle {
 
 #[async_trait]
 impl ResponseHandle for ReqwestHandle {
-    fn metadata(&self) -> &HeaderResponse {
+    fn head(&self) -> &HeaderResponse {
         &self.metadata
     }
 
