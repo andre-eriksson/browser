@@ -23,7 +23,8 @@ fn main() {
         .add_directive(Directive::from_str("cookies=debug").unwrap())
         .add_directive(Directive::from_str("html=debug").unwrap())
         .add_directive(Directive::from_str("renderer=debug").unwrap())
-        .add_directive(Directive::from_str("network=debug").unwrap());
+        .add_directive(Directive::from_str("http_fetch=debug").unwrap())
+        .add_directive(Directive::from_str("http_cache=debug").unwrap());
 
     tracing_subscriber::registry()
         .with(filter)

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, StatusCode};
-use tracing::{debug, trace};
+use tracing::debug;
 
 use http_cache::{
     errors::CacheError,
@@ -36,7 +36,6 @@ pub(crate) async fn make_revalidation_request(
     stale_data: CompleteResponse,
     revalidation_headers: HeaderMap,
 ) -> Result<FetchResult<Box<dyn ResponseHandle>>, NetworkError> {
-    trace!("Cache requires revalidation for {}", request.context.url);
     let request_headers = request.context.headers.clone();
     request.context.headers.extend(revalidation_headers);
 

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, header::SET_COOKIE};
-use tracing::{debug, trace};
+use tracing::{debug, instrument, trace};
 use url::Url;
 
 use cookies::CookieJar;
@@ -29,6 +29,9 @@ use crate::{
     headers::add_forbidden_headers,
 };
 
+const STATUS_CODE: &str = "status_code";
+const CACHE: &str = "cache";
+
 pub enum FetchResult<T> {
     Success(T),
     ClientError(T),
@@ -39,7 +42,7 @@ pub enum FetchResult<T> {
 impl From<Box<dyn ResponseHandle>> for FetchResult<Box<dyn ResponseHandle>> {
     fn from(response: Box<dyn ResponseHandle>) -> Self {
         let status_code = response.head().status_code;
-        // debug!({ STATUS_CODE } = status_code.to_string());
+        debug!({ STATUS_CODE } = status_code.to_string(), { CACHE } = "miss");
 
         match status_code {
             _ if status_code.is_client_error() => FetchResult::ClientError(response),
@@ -49,6 +52,7 @@ impl From<Box<dyn ResponseHandle>> for FetchResult<Box<dyn ResponseHandle>> {
     }
 }
 
+#[instrument(skip_all, fields(url = %request.context.url, method = %request.context.method))]
 pub async fn fetch(
     current_url: Option<&Url>,
     mut request: Request,
@@ -63,10 +67,10 @@ pub async fn fetch(
 
     add_headers(current_url, &mut request, browser_headers);
 
-    let cache_result = cache_lookup(dirs, &request.context, http_cache);
-    match cache_result {
+    match cache_lookup(dirs, &request.context, http_cache) {
         Ok(entry) => match entry {
             CacheEntry::Hit(data) => {
+                debug!({ STATUS_CODE } = data.head.status_code.to_string(), { CACHE } = "hit");
                 let cached_response = Box::new(CachedResponse::new(data));
                 return FetchResult::Success(DecodeResponse::wrap_handle(cached_response));
             }
@@ -74,6 +78,7 @@ pub async fn fetch(
                 stale_data,
                 revalidation_headers,
             } => {
+                trace!("Cache requires revalidation for {}", request.context.url);
                 return match make_revalidation_request(
                     request,
                     client,
@@ -93,6 +98,7 @@ pub async fn fetch(
             }
         },
         Err(error) => {
+            dbg!(&error);
             debug!(%error);
         }
     }
@@ -166,12 +172,7 @@ async fn handle_preflight(
 ) -> Result<(), FetchResult<Box<dyn ResponseHandle>>> {
     let current_url = current_url.as_ref().unwrap();
     let preflight_request =
-        make_preflight_request(
-            current_url,
-            &request_context.headers,
-            &request_context.url,
-            &request_context.method,
-        );
+        make_preflight_request(current_url, &request_context.headers, &request_context.url, &request_context.method);
 
     let preflight_context = Arc::new(preflight_request.context);
     let preflight_body = preflight_request.body;

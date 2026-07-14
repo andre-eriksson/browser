@@ -69,9 +69,7 @@ impl Response {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompleteResponse {
-    #[serde(flatten)]
     pub head: HeaderResponse,
-
     pub body: CompleteHttpBody,
 }
 
