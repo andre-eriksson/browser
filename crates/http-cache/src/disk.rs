@@ -7,13 +7,14 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use database::Table;
 use http::{
     HeaderMap,
     header::{ETAG, EXPIRES, LAST_MODIFIED},
 };
 use rusqlite::Connection;
 use sha2::{Digest, Sha256};
+
+use database::Table;
 use storage::Directory;
 
 use crate::{

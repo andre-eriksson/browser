@@ -1,6 +1,7 @@
 use http::{HeaderValue, header::REFERER};
-use http_types::{properties::Referrer, request::Request};
 use url::Url;
+
+use http_types::{properties::Referrer, request::Request};
 
 /// Applies the appropriate Referrer header to the request based on the current URL and referrer policy.
 ///

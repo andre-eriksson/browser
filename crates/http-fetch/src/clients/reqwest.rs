@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
-use crate::errors::NetworkError;
 use async_trait::async_trait;
+
 use http_types::{
     body::HttpBody,
     request::RequestContext,
     response::{HeaderResponse, Response},
 };
 
-use crate::client::{HttpClient, ResponseHandle};
+use crate::{
+    client::{HttpClient, ResponseHandle},
+    errors::NetworkError,
+};
 
 /// An HTTP client implementation using the `reqwest` library.
 #[derive(Debug, Default)]

@@ -1,6 +1,7 @@
+use thiserror::Error;
+
 use http_policy::errors::PolicyError;
 use http_types::errors::RequestError;
-use thiserror::Error;
 
 /// Errors related to network operations, preventing successful completion of a network request.
 #[derive(Error, Debug)]

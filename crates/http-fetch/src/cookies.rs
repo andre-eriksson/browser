@@ -1,8 +1,9 @@
-use cookies::{Cookie, CookieJar};
 use http::{HeaderValue, header::COOKIE};
-use http_types::request::Request;
 use tracing::{debug, trace, trace_span, warn};
 use url::Url;
+
+use cookies::{Cookie, CookieJar};
+use http_types::request::Request;
 
 const REQUEST_COOKIE: &str = "request_cookie";
 const RESPONSE_COOKIE: &str = "response_cookie";

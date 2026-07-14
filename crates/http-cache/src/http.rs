@@ -1,15 +1,16 @@
 //! In-memory cache implementation for resources, with support for disk persistence and Vary header handling.
+use std::fmt::Debug;
 
 use http::{
     HeaderMap,
     header::{CACHE_CONTROL, VARY},
 };
-use http_types::response::CompleteResponse;
 use postcard::to_stdvec;
 use sha2::{Digest, Sha256};
-use std::fmt::Debug;
-use storage::Directory;
 use tracing::debug;
+
+use http_types::response::CompleteResponse;
+use storage::Directory;
 
 use crate::{
     disk::DiskCache,

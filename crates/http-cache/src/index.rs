@@ -10,13 +10,14 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use database::{Database, Table};
 use http::{
     HeaderMap, HeaderValue,
     header::{IF_MODIFIED_SINCE, IF_NONE_MATCH},
 };
 use httpdate::fmt_http_date;
 use rusqlite::{Connection, Result, params};
+
+use database::{Database, Table};
 use storage::Directory;
 
 use crate::http::HttpCache;

@@ -10,12 +10,13 @@ use http::{
         ACCESS_CONTROL_ALLOW_ORIGIN, ACCESS_CONTROL_REQUEST_HEADERS, ACCESS_CONTROL_REQUEST_METHOD, ORIGIN,
     },
 };
+use url::{Origin, Url};
+
 use http_types::{
     properties::Credentials,
     request::{Request, RequestBuilder},
     response::HeaderResponse,
 };
-use url::{Origin, Url};
 
 use crate::{
     errors::CorsError,

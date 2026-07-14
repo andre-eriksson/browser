@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use cookies::CookieJar;
 use http::{HeaderMap, header::SET_COOKIE};
+use tracing::{debug, trace};
+use url::Url;
+
+use cookies::CookieJar;
 use http_cache::http::{CacheEntry, HttpCache};
 use http_policy::{
     cors::{is_cross_origin_request_allowed, make_preflight_request, needs_preflight},
@@ -10,8 +13,6 @@ use http_policy::{
 };
 use http_types::{properties::Credentials, request::Request};
 use storage::Directory;
-use tracing::{debug, trace};
-use url::Url;
 
 use crate::{
     cache::{cache_lookup, make_revalidation_request},

@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
 use http::{HeaderMap, StatusCode};
+use tracing::{debug, trace};
+
 use http_cache::{
     errors::CacheError,
     http::{CacheEntry, HttpCache},
@@ -10,7 +12,6 @@ use http_types::{
     response::CompleteResponse,
 };
 use storage::Directory;
-use tracing::{debug, trace};
 
 use crate::{
     client::{HttpClient, ResponseHandle},

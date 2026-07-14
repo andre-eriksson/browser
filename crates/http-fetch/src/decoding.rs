@@ -4,11 +4,12 @@ use async_compression::tokio::bufread::{BrotliDecoder, GzipDecoder, ZlibDecoder,
 use bytes::Bytes;
 use futures::TryStreamExt;
 use http::{HeaderMap, header::CONTENT_ENCODING};
-use http_types::body::BodyStream;
 use strum::EnumString;
 use tokio::io::{AsyncRead, AsyncReadExt, BufReader};
 use tokio_util::io::{ReaderStream, StreamReader};
 use tracing::trace;
+
+use http_types::body::BodyStream;
 
 use crate::errors::NetworkError;
 

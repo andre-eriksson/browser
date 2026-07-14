@@ -1,14 +1,15 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use http::{HeaderMap, StatusCode};
+use tokio::sync::oneshot;
+use tracing::debug;
+
 use http_cache::{block::MAX_BLOCK_SIZE, http::HttpCache};
 use http_types::{
     body::{CompleteHttpBody, HttpBody, TeeStream},
     response::{CompleteResponse, HeaderResponse, Response},
 };
 use storage::Directory;
-use tokio::sync::oneshot;
-use tracing::debug;
 
 use crate::{client::ResponseHandle, errors::NetworkError};
 
