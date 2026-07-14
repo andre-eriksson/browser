@@ -1,5 +1,6 @@
 use html_dom::NodeId;
 use html_escape::decode_html_entities;
+use http::header::CONTENT_TYPE;
 use http_cache::block::MAX_BLOCK_SIZE;
 use http_fetch::{
     errors::{FetchError, NetworkError},
@@ -9,7 +10,6 @@ use http_types::{
     properties::{Destination, RequestMode},
     request::Request,
 };
-use network::CONTENT_TYPE;
 use tracing::debug;
 use url::Url;
 

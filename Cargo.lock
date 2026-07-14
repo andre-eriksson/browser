@@ -631,8 +631,8 @@ name = "browser-config"
 version = "0.1.0"
 dependencies = [
  "browser-args",
+ "http",
  "manifest",
- "network",
  "sys-locale",
  "tracing",
 ]
@@ -657,7 +657,6 @@ dependencies = [
  "http-types",
  "io",
  "manifest",
- "network",
  "postcard",
  "rand 0.10.1",
  "serde",
@@ -724,7 +723,6 @@ dependencies = [
  "io",
  "layout",
  "manifest",
- "network",
  "postcard",
  "regex",
  "renderer",
@@ -2843,7 +2841,6 @@ dependencies = [
  "http-serde",
  "httpdate",
  "manifest",
- "network",
  "postcard",
  "rand 0.10.1",
  "rusqlite",
@@ -3377,21 +3374,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys",
-]
-
-[[package]]
-name = "network"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "http",
- "http-serde",
- "reqwest",
- "serde",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "url",
 ]
 
 [[package]]

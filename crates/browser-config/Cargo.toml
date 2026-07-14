@@ -7,6 +7,6 @@ license.workspace = true
 [dependencies]
 browser-args.workspace = true
 manifest.workspace = true
-network.workspace = true
 sys-locale.workspace = true
 tracing.workspace = true
+http.workspace = true

@@ -17,7 +17,6 @@ html-dom.workspace = true
 html-escape.workspace = true
 html-parser.workspace = true
 io.workspace = true
-network.workspace = true
 postcard.workspace = true
 rand.workspace = true
 serde.workspace = true

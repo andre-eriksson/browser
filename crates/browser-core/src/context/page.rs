@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use css_cssom::CSSStyleSheet;
 use html_dom::{DocumentRoot, NodeId};
-use io::DocumentPolicy;
 use url::Url;
 
 /// Represents the favicon of a web page, including its size, content type, and binary data.
@@ -18,7 +17,6 @@ pub struct PageMetadata {
     pub url: Url,
     pub title: String,
     pub favicon: Option<Favicon>,
-    pub policies: DocumentPolicy,
 }
 
 /// Represents a web page loaded in a tab.

@@ -19,7 +19,7 @@ use http_types::{
     properties::{Destination, RequestMode},
     request::Request,
 };
-use io::{DocumentPolicy, Entry, Resource};
+use io::{Entry, Resource};
 use storage::Directory;
 
 use crate::{
@@ -303,7 +303,6 @@ impl Browser {
                 .clone()
                 .unwrap_or_else(|| "Untitled".to_string()),
             favicon: None,
-            policies: DocumentPolicy::default(),
         };
 
         if let Some(favicon_handle) = favicon_handle {

@@ -1,17 +1,9 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
-use cookies::Cookie;
-use network::{
-    HeaderMap,
-    client::{HttpClient, ResponseHandle},
-    errors::{NetworkError, RequestError},
-    request::RequestBuilder,
-};
 use storage::Directory;
 use tracing::{instrument, trace, warn};
-use url::Url;
 
-use crate::{DocumentPolicy, HttpCache, RequestResult, files::FilePath, network::request::NetworkService};
+use crate::files::FilePath;
 
 use crate::{
     Entry,
@@ -58,36 +50,6 @@ impl Resource {
 
     /// Default maximum number of files to load from a directory, set to 100. This limit helps prevent performance issues when loading directories with a large number of files.
     pub const DEFAULT_MAX_FILES: Option<u64> = Some(100);
-
-    /// Fetches a resource from a remote URL, applying the necessary policies and handling cookies and headers.
-    #[allow(clippy::too_many_arguments)]
-    pub async fn from_remote<'app>(
-        dirs: Directory,
-        url: &'app str,
-        cache: &HttpCache,
-        client: &'app dyn HttpClient,
-        cookies: &'app [Cookie],
-        browser_headers: &'app HeaderMap,
-        page_url: Option<Url>,
-        policies: &'app DocumentPolicy,
-    ) -> Result<Box<dyn ResponseHandle>, RequestError> {
-        let url = page_url
-            .as_ref()
-            .map_or_else(|| Url::parse(url), |u| u.join(url))
-            .map_err(|error| RequestError::Network(NetworkError::InvalidUrl(error)))?;
-
-        let request = RequestBuilder::from(url).build();
-        let service = NetworkService::new(client, cookies, browser_headers);
-        let header_response = match service
-            .fetch(dirs, cache, page_url.clone(), policies, request)
-            .await
-        {
-            RequestResult::Failed(err) => return Err(err),
-            RequestResult::ClientError(resp) | RequestResult::ServerError(resp) | RequestResult::Success(resp) => resp,
-        };
-
-        Ok(header_response)
-    }
 
     /// Loads an asset from the specified resource type, handling both embedded and filesystem resources.
     ///

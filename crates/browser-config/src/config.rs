@@ -1,5 +1,5 @@
 use browser_args::BrowserArgs;
-use network::HeaderMap;
+use http::HeaderMap;
 
 use crate::header::Headers;
 

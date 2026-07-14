@@ -13,7 +13,6 @@ dirs.workspace = true
 httpdate.workspace = true
 http-serde.workspace = true
 manifest.workspace = true
-network.workspace = true
 postcard.workspace = true
 rand.workspace = true
 rusqlite.workspace = true

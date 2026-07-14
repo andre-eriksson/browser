@@ -27,7 +27,6 @@ members = [
     "crates/io",
     "crates/layout",
     "crates/manifest",
-    "crates/network",
     "crates/renderer",
     "crates/storage",
     "fuzz",
@@ -67,7 +66,6 @@ http-types          = { path = "crates/http-types" }
 io                  = { path = "crates/io" }
 layout              = { path = "crates/layout" }
 manifest            = { path = "crates/manifest" }
-network             = { path = "crates/network" }
 renderer            = { path = "crates/renderer" }
 storage             = { path = "crates/storage" }
 

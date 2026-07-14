@@ -22,7 +22,6 @@ image.workspace = true
 io.workspace = true
 layout.workspace = true
 manifest.workspace = true
-network.workspace = true
 postcard.workspace = true
 regex.workspace = true
 renderer.workspace = true
