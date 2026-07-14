@@ -4,12 +4,12 @@ use crate::{Document, commands::parse_devtools_html, errors::CoreError, profile:
 use async_trait::async_trait;
 use browser_args::BrowserArgs;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use http_fetch::{client::HttpClient, clients::reqwest::ReqwestClient};
 use io::{
     Resource,
     embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
     files::PROFILE_CACHE_USER_AGENT,
 };
-use network::{client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};
 
@@ -150,12 +150,11 @@ impl Commandable for Browser {
             EngineCommand::FetchImage {
                 node_ids,
                 request_url,
-                request_policies,
                 image_url,
             } => {
                 let span = tracing::debug_span!("Browser::FetchImage");
 
-                self.load_image(node_ids, request_url, request_policies, &image_url)
+                self.load_image(node_ids, request_url, &image_url)
                     .instrument(span)
                     .await
             }

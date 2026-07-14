@@ -4,7 +4,7 @@ mod paths;
 use browser_args::BrowserArgs;
 use browser_config::BrowserConfig;
 use cookies::CookieJar;
-use io::HttpCache;
+use http_cache::http::HttpCache;
 use tracing::{trace, warn};
 
 use crate::profile::{database::Databases, paths::ProfilePaths};

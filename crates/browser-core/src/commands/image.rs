@@ -1,7 +1,15 @@
 use html_dom::NodeId;
 use html_escape::decode_html_entities;
-use io::{DecodingMiddleware, DocumentPolicy};
-use network::errors::{NetworkError, RequestError};
+use http_cache::block::MAX_BLOCK_SIZE;
+use http_fetch::{
+    errors::{FetchError, NetworkError},
+    request::{FetchResult, fetch},
+};
+use http_types::{
+    properties::{Destination, RequestMode},
+    request::Request,
+};
+use network::CONTENT_TYPE;
 use tracing::debug;
 use url::Url;
 
@@ -16,7 +24,6 @@ impl Browser {
         &self,
         node_ids: Vec<NodeId>,
         request_url: Url,
-        policies: DocumentPolicy,
         image_url: &str,
     ) -> Result<EngineResponse, CoreError> {
         let client = self.http_client().box_clone();
@@ -27,7 +34,7 @@ impl Browser {
         let absolute_url = request_url
             .join(&decoded_url)
             .map_err(|error| NavigationError::Request {
-                source: RequestError::Network(NetworkError::InvalidUrl(error)),
+                source: FetchError::Network(NetworkError::InvalidUrl(error)),
                 url: image_url.to_string(),
             })?;
 
@@ -39,21 +46,61 @@ impl Browser {
             return Err(CoreError::Image("SVG images are not supported".to_string()));
         }
 
-        let (_resolved_url, response) = self
-            .resolve_request(absolute_url, Some(request_url), &policies, &headers, client.as_ref())
-            .await?;
+        let image_request = Request::builder_url(absolute_url)
+            .destination(Destination::Image)
+            .request_mode(RequestMode::Cors)
+            .build();
 
-        let Some(body) = response.body else {
-            return Err(CoreError::Image("Image response body is empty".to_string()));
+        let response_result = fetch(
+            Some(&request_url),
+            image_request,
+            client.as_ref(),
+            &headers,
+            &self.profile().dirs().into(),
+            self.profile().cookie_jar(),
+            self.profile().http_cache(),
+        )
+        .await;
+
+        let response_handle = match response_result {
+            FetchResult::Success(handle) => handle,
+            FetchResult::Failed(error) => {
+                debug!(%error, "Failed to fetch image: {}", image_url);
+                return Err(CoreError::Image(format!("Failed to fetch image: {}", error)));
+            }
+            FetchResult::ClientError(err_resp_handle) | FetchResult::ServerError(err_resp_handle) => {
+                let status_code = err_resp_handle.head().status_code;
+
+                debug!(
+                    status = %status_code,
+                    "Failed to fetch image: {}",
+                    image_url
+                );
+
+                return Err(CoreError::Image(format!(
+                    "Failed to fetch image: {} (status code: {})",
+                    image_url, status_code
+                )));
+            }
         };
 
-        let decoded_data = DecodingMiddleware::decode(&response.headers, body)
-            .await
-            .map_err(|_| CoreError::Image("Failed to decode image data".to_string()))?;
+        let response = match response_handle.response().await {
+            Ok(resp) => resp,
+            Err(error) => {
+                debug!(%error, "Failed to read image response: {}", image_url);
+                return Err(CoreError::Image(format!("Failed to read image response: {}", error)));
+            }
+        };
+
+        let Some(body) = response.body.into_complete(MAX_BLOCK_SIZE as usize).await else {
+            debug!("Image body is too large or failed to read: {}", image_url);
+            return Err(CoreError::Image("Image body is too large or failed to read".to_string()));
+        };
 
         let content_type = response
+            .head
             .headers
-            .get("Content-Type")
+            .get(CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .unwrap_or("application/octet-stream")
             .to_string();
@@ -62,7 +109,7 @@ impl Browser {
             node_ids,
             content_type,
             url: image_url.to_string(),
-            data: decoded_data,
+            data: body.0.into(),
         })
     }
 }

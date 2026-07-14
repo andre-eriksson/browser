@@ -32,6 +32,16 @@ pub struct Request {
     pub body: HttpBody,
 }
 
+impl Request {
+    pub fn builder(url: &str) -> RequestBuilder {
+        RequestBuilder::new(url)
+    }
+
+    pub fn builder_url(url: Url) -> RequestBuilder {
+        RequestBuilder::new_url(url)
+    }
+}
+
 /// Builder for constructing HTTP requests.
 pub struct RequestBuilder {
     context: RequestContext,
@@ -51,6 +61,10 @@ impl RequestBuilder {
     #[must_use]
     pub fn new(url: &str) -> Self {
         Self::try_new(url).unwrap()
+    }
+
+    pub fn new_url(url: Url) -> Self {
+        Self::from(url)
     }
 
     /// Tries to create a new `RequestBuilder` with a URL relative to the current URL in the session.

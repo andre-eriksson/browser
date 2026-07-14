@@ -11,7 +11,10 @@ use http_policy::{
     errors::PolicyError,
     referrer::apply_referrer,
 };
-use http_types::{properties::Credentials, request::Request};
+use http_types::{
+    properties::Credentials,
+    request::{Request, RequestContext},
+};
 use storage::Directory;
 
 use crate::{
@@ -94,7 +97,7 @@ pub async fn fetch(
         }
     }
 
-    if needs_preflight && let Err(error) = handle_preflight(current_url, client, &request).await {
+    if needs_preflight && let Err(error) = handle_preflight(current_url, client, &request.context).await {
         return error;
     }
 
@@ -159,11 +162,16 @@ fn add_headers(current_url: Option<&Url>, request: &mut Request, browser_headers
 async fn handle_preflight(
     current_url: Option<&Url>,
     client: &dyn HttpClient,
-    request: &Request,
+    request_context: &RequestContext,
 ) -> Result<(), FetchResult<Box<dyn ResponseHandle>>> {
     let current_url = current_url.as_ref().unwrap();
     let preflight_request =
-        make_preflight_request(current_url, &request.context.headers, &request.context.url, &request.context.method);
+        make_preflight_request(
+            current_url,
+            &request_context.headers,
+            &request_context.url,
+            &request_context.method,
+        );
 
     let preflight_context = Arc::new(preflight_request.context);
     let preflight_body = preflight_request.body;
@@ -178,10 +186,10 @@ async fn handle_preflight(
 
                     if let Err(cors_error) = is_cross_origin_request_allowed(
                         &current_url.origin(),
-                        &request.context.credentials,
-                        &request.context.url,
-                        &request.context.method,
-                        &request.context.headers,
+                        &request_context.credentials,
+                        &request_context.url,
+                        &request_context.method,
+                        &request_context.headers,
                         resp,
                     ) {
                         return Err(FetchResult::Failed(FetchError::Policy(PolicyError::Cors(cors_error))));

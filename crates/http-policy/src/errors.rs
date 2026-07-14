@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum PolicyError {
     #[error(transparent)]
     Cors(CorsError),
@@ -8,7 +8,7 @@ pub enum PolicyError {
     // Other(String),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum CorsError {
     #[error("Invalid preflight response {0}")]
     InvalidPreflightResponse(String),

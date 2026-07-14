@@ -5,7 +5,6 @@ use crate::{
     errors::{CoreError, NavigationError},
 };
 use html_dom::{DocumentRoot, NodeId};
-use io::DocumentPolicy;
 use url::Url;
 
 use crate::context::page::Document;
@@ -66,7 +65,6 @@ pub enum EngineCommand {
     FetchImage {
         node_ids: Vec<NodeId>,
         request_url: Url,
-        request_policies: DocumentPolicy,
         image_url: String,
     },
 }

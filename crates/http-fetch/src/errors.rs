@@ -1,10 +1,11 @@
+use http::StatusCode;
 use thiserror::Error;
 
 use http_policy::errors::PolicyError;
 use http_types::errors::RequestError;
 
 /// Errors related to network operations, preventing successful completion of a network request.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum NetworkError {
     #[error("Connection timed out")]
     Timeout,
@@ -29,10 +30,13 @@ pub enum NetworkError {
 
     #[error("Unable to decode the HTTP request: {0}")]
     DecodingError(String),
+
+    #[error("HTTP error: {0}")]
+    HttpStatus(StatusCode),
 }
 
 /// Errors that can occur during the processing of a network request.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum FetchError {
     #[error("Network request failed: {0}")]
     Network(#[from] NetworkError),

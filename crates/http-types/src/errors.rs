@@ -13,4 +13,7 @@ pub enum RequestError {
 
     #[error("Maximum redirects exceeded")]
     MaxRedirectsExceeded,
+
+    #[error("Unable to proccess the body of the request: {0}")]
+    InvalidBody(String),
 }
