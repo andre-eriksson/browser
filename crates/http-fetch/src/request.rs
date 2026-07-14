@@ -48,10 +48,10 @@ impl From<Box<dyn ResponseHandle>> for FetchResult<Box<dyn ResponseHandle>> {
 
 pub async fn fetch(
     current_url: Option<&Url>,
-    dirs: &Directory,
     mut request: Request,
     client: &dyn HttpClient,
     browser_headers: &HeaderMap,
+    dirs: &Directory,
     cookie_jar: &CookieJar,
     http_cache: &HttpCache,
 ) -> FetchResult<Box<dyn ResponseHandle>> {
