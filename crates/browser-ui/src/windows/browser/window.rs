@@ -8,7 +8,7 @@ use iced::{
     widget::{Column, container},
     window::{self, Id, Position, Settings, settings::PlatformSpecific},
 };
-use io::{Resource, embeded::WINDOW_ICON};
+use io::embeded::WINDOW_ICON;
 use layout::{Rect, TextContext};
 use manifest::{APP_ID, APP_NAME};
 
@@ -125,7 +125,7 @@ impl ApplicationWindow for BrowserWindow {
     }
 
     fn settings() -> iced::window::Settings {
-        let icon = Resource::load_embedded(WINDOW_ICON);
+        let icon = WINDOW_ICON.load();
 
         let browser_icon = load_icon(&icon);
 

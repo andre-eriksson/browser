@@ -7,10 +7,7 @@ use iced::{
     widget::{Button, button, svg},
     window::Id,
 };
-use io::{
-    Resource,
-    embeded::{LEFT_CHEVRON_ICON, REFRESH_ICON, RIGHT_CHEVRON_ICON},
-};
+use io::embeded::{LEFT_CHEVRON_ICON, REFRESH_ICON, RIGHT_CHEVRON_ICON};
 
 use crate::{
     core::Tab,
@@ -21,7 +18,7 @@ pub struct BackButton;
 
 impl BackButton {
     pub fn render<'app>(window_id: Id, theme: &'app Theme, current_tab: Option<&'app Tab>) -> Button<'app, Event> {
-        let left_chevron_icon = Resource::load_embedded(LEFT_CHEVRON_ICON);
+        let left_chevron_icon = LEFT_CHEVRON_ICON.load();
 
         button(
             svg(iced::widget::svg::Handle::from_memory(left_chevron_icon))
@@ -57,7 +54,7 @@ pub struct ForwardButton;
 
 impl ForwardButton {
     pub fn render<'app>(window_id: Id, theme: &'app Theme, current_tab: Option<&'app Tab>) -> Button<'app, Event> {
-        let right_chevron_icon = Resource::load_embedded(RIGHT_CHEVRON_ICON);
+        let right_chevron_icon = RIGHT_CHEVRON_ICON.load();
 
         button(
             svg(iced::widget::svg::Handle::from_memory(right_chevron_icon))
@@ -93,7 +90,7 @@ pub struct RefreshButton;
 
 impl RefreshButton {
     pub fn render(window_id: Id, theme: &Theme) -> Button<'_, Event> {
-        let refresh_icon = Resource::load_embedded(REFRESH_ICON);
+        let refresh_icon = REFRESH_ICON.load();
 
         button(
             svg(iced::widget::svg::Handle::from_memory(refresh_icon))

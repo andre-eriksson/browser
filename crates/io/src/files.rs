@@ -4,7 +4,19 @@
 //! storage location (cache, config, user data). The constants defined in this module provide a standardized
 //! way to reference specific files used by the browser, such as user agent stylesheets and user preferences.
 
-use crate::ResourceType;
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
+
+use bytes::Bytes;
+use storage::{Directory, create_paths};
+
+use crate::{
+    errors::ResourceError,
+    loader::{Loadable, Writable},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FilePath {
@@ -98,9 +110,136 @@ impl<'path> Entry<'path> {
     }
 }
 
+impl Loadable for Entry<'_> {
+    type Output = Bytes;
+
+    fn load_asset(
+        self,
+        dirs: &Directory,
+        max_file_size: Option<u64>,
+    ) -> Result<Self::Output, crate::errors::ResourceError> {
+        let path = if self.is_global() {
+            match self.file_path() {
+                FilePath::Absolute => PathBuf::from(self.location()),
+                FilePath::Cache => dirs.global_cache.join(self.location()),
+                FilePath::Config => dirs.global_config.join(self.location()),
+                FilePath::UserData => dirs.global_data.join(self.location()),
+                FilePath::Temporary => dirs.temp.join(self.location()),
+            }
+        } else {
+            match self.file_path() {
+                FilePath::Absolute => PathBuf::from(self.location()),
+                FilePath::Cache => dirs.profile_cache.join(self.location()),
+                FilePath::Config => dirs.profile_config.join(self.location()),
+                FilePath::UserData => dirs.profile_data.join(self.location()),
+                FilePath::Temporary => dirs.temp.join(self.location()),
+            }
+        };
+
+        let mut file = File::open(&path).map_err(|e| ResourceError::Io(e.to_string()))?;
+        let metadata = file
+            .metadata()
+            .map_err(|e| ResourceError::Io(e.to_string()))?;
+
+        if !metadata.is_file() {
+            return Err(ResourceError::NotFound(path.display().to_string()));
+        }
+
+        if let Some(max) = max_file_size
+            && metadata.len() > max
+        {
+            return Err(ResourceError::FileTooLarge {
+                data_size: metadata.len(),
+                max_size: max,
+            });
+        }
+
+        let mut buffer = Vec::with_capacity(metadata.len() as usize);
+        file.read_to_end(&mut buffer)
+            .map_err(|e| ResourceError::Io(e.to_string()))?;
+
+        Ok(buffer.into())
+    }
+}
+
+impl Writable for Entry<'_> {
+    fn write_asset<C: AsRef<[u8]>>(self, data: C, dirs: &Directory) -> Result<(), ResourceError> {
+        let path = if self.is_global() {
+            match self.file_path() {
+                FilePath::Absolute => PathBuf::from(self.location()),
+                FilePath::Cache => dirs.global_cache.join(self.location()),
+                FilePath::Config => dirs.global_config.join(self.location()),
+                FilePath::UserData => dirs.global_data.join(self.location()),
+                FilePath::Temporary => dirs.temp.join(self.location()),
+            }
+        } else {
+            match self.file_path() {
+                FilePath::Absolute => PathBuf::from(self.location()),
+                FilePath::Cache => dirs.profile_cache.join(self.location()),
+                FilePath::Config => dirs.profile_config.join(self.location()),
+                FilePath::UserData => dirs.profile_data.join(self.location()),
+                FilePath::Temporary => dirs.temp.join(self.location()),
+            }
+        };
+
+        if !is_relative_path(self.location()) {
+            return Err(ResourceError::InvalidPath(self.location().to_string()));
+        }
+
+        let Some(parent) = path.parent() else {
+            return Err(ResourceError::InvalidPath(self.location().to_string()));
+        };
+
+        if let Err(error) = create_paths(&parent.to_path_buf()) {
+            return Err(ResourceError::Io(error.to_string()));
+        }
+
+        std::fs::write(path, data).map_err(|error| ResourceError::Io(error.to_string()))
+    }
+}
+
+/// Validates that a given path is a relative path that does not contain any components that
+/// could lead to directory traversal (like `..`) or absolute paths.
+/// Returns `true` if the path is a valid relative path, and `false` otherwise.
+fn is_relative_path(path: &str) -> bool {
+    let path = Path::new(path);
+
+    if path.is_absolute() {
+        return false;
+    }
+
+    let mut component_count = 0;
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(_) | std::path::Component::CurDir => {
+                component_count += 1;
+            }
+            _ => return false,
+        }
+    }
+
+    component_count > 0
+}
+
 /// The cache file name for user agent stylesheets.
 /// This file is stored in the cache directory and contains precompiled stylesheets for user agent (browser default) styles.
-pub const PROFILE_CACHE_USER_AGENT: ResourceType = ResourceType::Path(Entry::cache("stylesheets/useragent.bin", false));
+pub const PROFILE_CACHE_USER_AGENT: Entry = Entry::cache("stylesheets/useragent.bin", false);
 
 /// The user preferences file name. This file is stored in the config directory and contains user-specific settings for the browser.
-pub const PROFILE_PREFERENCES: ResourceType = ResourceType::Path(Entry::config("preferences.toml", false));
+pub const PROFILE_PREFERENCES: Entry = Entry::config("preferences.toml", false);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_relative_path() {
+        assert!(is_relative_path("valid/path"));
+        assert!(is_relative_path("another/valid/path"));
+        assert!(!is_relative_path("../invalid/path"));
+        assert!(!is_relative_path("/absolute/path"));
+        assert!(!is_relative_path("invalid/../path"));
+        assert!(!is_relative_path(""));
+        assert!(is_relative_path("."));
+    }
+}

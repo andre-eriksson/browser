@@ -1,47 +1,12 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
 use storage::Directory;
-use tracing::{instrument, trace, warn};
 
 use crate::files::FilePath;
 
-use crate::{
-    Entry,
-    embeded::EmbededType,
-    errors::ResourceError,
-    loader::{Loader, Writer},
-};
+use crate::{Entry, errors::ResourceError};
 
-/// `AssetType` represents the type of asset being managed by the `AssetManager`.
-/// It can be an icon, font, or image.
-#[derive(Debug, Clone)]
-pub enum ResourceType<'resource> {
-    /// Represents resources that are embedded within the application, such as icons, fonts, images, shaders, browser assets, and root assets.
-    Embeded(EmbededType<'resource>),
-
-    /// Any resource that can be accessed via a file path, such as "assets/image.png" or "/usr/local/data/file.txt".
-    Path(Entry<'resource>),
-
-    /// Load any resource from an absolute path, given a protocol such as "file://", "http://", or "https://".
-    /// The location field specifies the path or URL to the resource.
-    Absolute {
-        protocol: &'resource str,
-        location: &'resource str,
-    },
-}
-
-impl ResourceType<'_> {
-    #[must_use]
-    pub fn key(&self) -> String {
-        match self {
-            ResourceType::Embeded(embeded) => embeded.path(),
-            ResourceType::Path(file) => file.location().to_string(),
-            ResourceType::Absolute { location, .. } => location.to_string(),
-        }
-    }
-}
-
-/// `AssetManager` is responsible for managing and loading assets from various backends.
+/// `Resource` is responsible for managing and loading assets from various backends.
 pub struct Resource;
 
 impl Resource {
@@ -50,25 +15,6 @@ impl Resource {
 
     /// Default maximum number of files to load from a directory, set to 100. This limit helps prevent performance issues when loading directories with a large number of files.
     pub const DEFAULT_MAX_FILES: Option<u64> = Some(100);
-
-    /// Loads an asset from the specified resource type, handling both embedded and filesystem resources.
-    ///
-    /// # Args
-    /// * `resource` - The resource to load, which can be an embedded asset, a file path, or an absolute URL.
-    /// * `max_file_size` - An optional maximum file size limit in bytes. If the loaded asset exceeds this size, an error will be returned. If `None`, there is no size limit.
-    #[instrument(skip(dirs), fields(resource = ?resource.key()))]
-    pub fn load(resource: ResourceType, dirs: Directory, max_file_size: Option<u64>) -> Result<Vec<u8>, ResourceError> {
-        match resource.load_asset(Some(dirs), max_file_size) {
-            Ok(data) => {
-                trace!("OK");
-                Ok(data)
-            }
-            Err(error) => {
-                trace!(%error);
-                Err(error)
-            }
-        }
-    }
 
     /// Loads all files from a specified directory resource, returning their contents as a vector of byte vectors.
     ///
@@ -150,32 +96,5 @@ impl Resource {
         }
 
         Ok(files)
-    }
-
-    /// Writes data to a specified resource, such as cache or config files.
-    /// This operation is not supported for embedded or absolute resources.
-    pub fn write<C>(resource: ResourceType, data: C, dirs: Directory) -> Result<(), ResourceError>
-    where
-        C: AsRef<[u8]>,
-    {
-        resource.write(data, dirs)
-    }
-
-    /// Loads an embedded asset directly, which is useful for resources that are compiled into the application binary,
-    /// such as icons, fonts, and shaders.
-    ///
-    /// # Panics
-    /// If the embedded asset cannot be found, which should not happen if the asset is correctly included in the build.
-    #[instrument(fields(?asset))]
-    pub fn load_embedded(asset: EmbededType) -> Vec<u8> {
-        let path = &asset.path();
-
-        if let Ok(data) = ResourceType::Embeded(asset).load_asset(None, None) {
-            trace!("OK");
-
-            return data;
-        }
-
-        panic!("Embedded asset not found: {}", path);
     }
 }

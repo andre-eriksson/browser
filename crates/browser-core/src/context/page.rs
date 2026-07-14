@@ -29,10 +29,10 @@ pub struct Document {
 
 impl Document {
     #[must_use]
-    pub fn new(dom: DocumentRoot, stylesheets: Vec<CSSStyleSheet>) -> Self {
+    pub fn new(dom: DocumentRoot, images: HashMap<String, Vec<NodeId>>, stylesheets: Vec<CSSStyleSheet>) -> Self {
         Self {
             dom,
-            images: HashMap::new(),
+            images,
             stylesheets,
         }
     }
@@ -45,20 +45,6 @@ impl Document {
             images: HashMap::new(),
             stylesheets: Vec::new(),
         }
-    }
-
-    /// Loads the page with the given title, document URL, document root, stylesheets, and policies.
-    #[must_use]
-    pub fn load(
-        mut self,
-        dom: DocumentRoot,
-        images: HashMap<String, Vec<NodeId>>,
-        stylesheets: Vec<CSSStyleSheet>,
-    ) -> Self {
-        self.dom = dom;
-        self.images = images;
-        self.stylesheets = stylesheets;
-        self
     }
 
     #[must_use]

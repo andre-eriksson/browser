@@ -8,7 +8,7 @@ use iced::{
     widget::{Button, MouseArea, Row, button, image, mouse_area, svg, text},
     window::Id,
 };
-use io::{Resource, embeded::PLUS_ICON};
+use io::embeded::PLUS_ICON;
 
 use crate::{
     core::{Tab, TabId},
@@ -121,7 +121,7 @@ pub struct NewTabButton;
 
 impl NewTabButton {
     pub fn render(window_id: Id, theme: &Theme) -> Button<'_, Event> {
-        let plus_icon = Resource::load_embedded(PLUS_ICON);
+        let plus_icon = PLUS_ICON.load();
 
         button(
             svg(iced::widget::svg::Handle::from_memory(plus_icon))

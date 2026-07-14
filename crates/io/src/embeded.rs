@@ -4,6 +4,8 @@
 //! is used to include files from the specified folder, allowing for easy access
 //! to assets such as icons, fonts, shaders, and browser-related files.
 
+use std::borrow::Cow;
+
 use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
@@ -37,6 +39,14 @@ impl EmbededType<'_> {
             EmbededType::Browser(name) => format!("browser/{name}"),
             EmbededType::Root(name) => name.to_string(),
         }
+    }
+
+    pub fn load(self) -> Cow<'static, [u8]> {
+        let resource = EmbededResource::get(&self.path()).unwrap_or_else(|| {
+            panic!("Embedded asset not found: {}", self.path());
+        });
+
+        resource.data
     }
 }
 

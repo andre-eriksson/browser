@@ -42,7 +42,7 @@ pub enum FetchResult<T> {
 impl From<Box<dyn ResponseHandle>> for FetchResult<Box<dyn ResponseHandle>> {
     fn from(response: Box<dyn ResponseHandle>) -> Self {
         let status_code = response.head().status_code;
-        debug!({ STATUS_CODE } = status_code.to_string(), { CACHE } = "miss");
+        debug!({ STATUS_CODE } = status_code.as_u16(), { CACHE } = "miss");
 
         match status_code {
             _ if status_code.is_client_error() => FetchResult::ClientError(response),
@@ -70,7 +70,7 @@ pub async fn fetch(
     match cache_lookup(dirs, &request.context, http_cache) {
         Ok(entry) => match entry {
             CacheEntry::Hit(data) => {
-                debug!({ STATUS_CODE } = data.head.status_code.to_string(), { CACHE } = "hit");
+                debug!({ STATUS_CODE } = data.head.status_code.as_u16(), { CACHE } = "hit");
                 let cached_response = Box::new(CachedResponse::new(data));
                 return FetchResult::Success(DecodeResponse::wrap_handle(cached_response));
             }

@@ -5,23 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-async-compression.workspace = true
 async-trait.workspace = true
-cookies.workspace = true
-database.workspace = true
+bytes.workspace = true
 dirs.workspace = true
-httpdate.workspace = true
-http-serde.workspace = true
-manifest.workspace = true
-postcard.workspace = true
-rand.workspace = true
-rusqlite.workspace = true
+http-types.workspace = true
 rust-embed.workspace = true
 serde.workspace = true
-sha2.workspace = true
 storage.workspace = true
 strum.workspace = true
-sysinfo.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

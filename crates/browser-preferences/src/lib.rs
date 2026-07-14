@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use browser_args::BrowserArgs;
-use io::{Entry, Resource, files::PROFILE_PREFERENCES};
+use io::{Entry, Loadable, Resource, files::PROFILE_PREFERENCES};
 use serde::Deserialize;
 use storage::Directory;
 use tracing::warn;
@@ -53,7 +53,7 @@ impl BrowserPreferences {
     pub fn load(args: &BrowserArgs, dirs: Directory) -> Self {
         let is_incognito = args.incognito;
 
-        let mut config = match Resource::load(PROFILE_PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
+        let mut config = match PROFILE_PREFERENCES.load_asset(&dirs, Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");

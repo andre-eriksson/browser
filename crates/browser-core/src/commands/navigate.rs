@@ -11,6 +11,7 @@ use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType, Sc
 use http_cache::{block::MAX_BLOCK_SIZE, http::HttpCache};
 use http_fetch::{
     client::HttpClient,
+    clients::raw::RawClient,
     errors::{FetchError, NetworkError},
     request::{FetchResult, fetch},
 };
@@ -19,7 +20,7 @@ use http_types::{
     properties::{Destination, RequestMode},
     request::Request,
 };
-use io::{Entry, Resource};
+use io::Loadable;
 use storage::Directory;
 
 use crate::{
@@ -31,12 +32,6 @@ use crate::{
 
 use crate::context::{collector::TabCollector, page::Document};
 
-/// A list of allowed "about:" URLs that the browser can load.
-/// This is a security measure to prevent loading potentially harmful or
-/// unintended content through "about:" URLs. Only the URLs specified in
-/// this list will be allowed to be loaded by the browser.
-const ALLOWED_ABOUT_URLS: &[&str] = &["blank"];
-
 impl Browser {
     /// Navigates the specified tab to the given URL, fetching and parsing the content.
     /// Executes any scripts and processes stylesheets found during parsing.
@@ -45,8 +40,6 @@ impl Browser {
         url: &str,
         mut stylesheets: Vec<CSSStyleSheet>,
     ) -> Result<(Document, PageMetadata), NavigationError> {
-        let page = Document::blank();
-
         let client = self.http_client();
         let headers = Arc::new(self.profile().config().headers().clone());
         let cookie_jar = self.profile().cookie_jar();
@@ -58,16 +51,27 @@ impl Browser {
 
         let request_url = navigation_request.context.url.clone();
 
-        let response_result = fetch(
-            None,
-            navigation_request,
-            client,
-            &headers,
-            &self.profile().dirs().into(),
-            cookie_jar,
-            self.profile().http_cache(),
-        )
-        .await;
+        let response_result = if navigation_request.context.url.scheme() != "http"
+            && navigation_request.context.url.scheme() != "https"
+        {
+            match navigation_request.load_asset(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
+                Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
+                Err(error) => {
+                    return Err(NavigationError::Resource(error));
+                }
+            }
+        } else {
+            fetch(
+                None,
+                navigation_request,
+                client,
+                &headers,
+                &self.profile().dirs().into(),
+                cookie_jar,
+                self.profile().http_cache(),
+            )
+            .await
+        };
 
         let response_handle = match response_result {
             FetchResult::Success(response) => response,
@@ -94,10 +98,6 @@ impl Browser {
                 });
             }
         };
-
-        // let (request_url, response) = self
-        //     .resolve_navigation_request(url, None, &DocumentPolicy::default(), &headers, client)
-        //     .await?;
 
         // TODO: Use stream!
         let Some(body) = response.body.into_complete(MAX_BLOCK_SIZE as usize).await else {
@@ -192,72 +192,68 @@ impl Browser {
                                 let client_clone = client.box_clone();
                                 let headers_clone = Arc::clone(&headers);
                                 let http_cache = self.profile().http_cache().clone();
-                                let dirs = self.profile().dirs().into();
+                                let dirs = Directory::from(self.profile().dirs()).clone();
                                 let cookie_jar = cookie_jar.clone();
 
                                 let handle = tokio::spawn(
                                     async move {
-                                        if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
-                                            match Resource::load(
-                                                io::ResourceType::Path(Entry::absolute(
-                                                    relative_url.to_file_path().unwrap().to_str().unwrap(),
-                                                )),
-                                                dirs,
-                                                Resource::DEFAULT_MAX_FILE_SIZE,
-                                            ) {
-                                                Ok(b) => Some(b),
-                                                Err(error) => {
-                                                    debug!(%error, "Failed to load favicon {}", relative_url);
-                                                    None
-                                                }
-                                            }
-                                        } else {
-                                            let request = Request::builder(relative_url.as_str())
-                                                .destination(Destination::Image)
-                                                .request_mode(RequestMode::Cors)
-                                                .build();
+                                        let request = Request::builder(relative_url.as_str())
+                                            .destination(Destination::Image)
+                                            .request_mode(RequestMode::Cors)
+                                            .build();
 
-                                            match fetch(
-                                                Some(&page_url),
-                                                request,
-                                                client_clone.as_ref(),
-                                                &headers_clone,
-                                                &dirs,
-                                                &cookie_jar,
-                                                &http_cache,
-                                            )
-                                            .await
-                                            {
-                                                FetchResult::Success(response_handle) => {
-                                                    match response_handle.response().await {
-                                                        Ok(response) => {
-                                                            if let Some(body) =
-                                                                response.body.into_complete(2 * 1024 * 1024).await
-                                                            {
-                                                                Some(body.0.into())
-                                                            } else {
-                                                                debug!("Empty body for favicon {}", relative_url);
-                                                                None
-                                                            }
-                                                        }
-                                                        Err(error) => {
-                                                            debug!(%error, "Failed to fetch favicon {}", relative_url);
+                                        let response_result =
+                                            if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
+                                                match request.load_asset(&dirs, Some(MAX_BLOCK_SIZE)) {
+                                                    Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
+                                                    Err(error) => {
+                                                        debug!(%error, "Failed to load favicon {}", relative_url);
+                                                        return None;
+                                                    }
+                                                }
+                                            } else {
+                                                fetch(
+                                                    Some(&page_url),
+                                                    request,
+                                                    client_clone.as_ref(),
+                                                    &headers_clone,
+                                                    &dirs,
+                                                    &cookie_jar,
+                                                    &http_cache,
+                                                )
+                                                .await
+                                            };
+
+                                        match response_result {
+                                            FetchResult::Success(response_handle) => {
+                                                match response_handle.response().await {
+                                                    Ok(response) => {
+                                                        if let Some(body) =
+                                                            response.body.into_complete(2 * 1024 * 1024).await
+                                                        {
+                                                            Some(body.0.into())
+                                                        } else {
+                                                            debug!("Empty body for favicon {}", relative_url);
                                                             None
                                                         }
                                                     }
+                                                    Err(error) => {
+                                                        debug!(%error, "Failed to fetch favicon {}", relative_url);
+                                                        None
+                                                    }
                                                 }
-                                                FetchResult::Failed(error) => {
-                                                    debug!(%error, "Failed to fetch favicon {}", relative_url);
-                                                    None
-                                                }
-                                                FetchResult::ClientError(resp) | FetchResult::ServerError(resp) => {
-                                                    debug!(
-                                                        "Failed to fetch favicon {}: status code {}",
-                                                        relative_url,
-                                                        resp.head().status_code
-                                                    );
-                                                    None
-                                                }
+                                            }
+                                            FetchResult::Failed(error) => {
+                                                debug!(%error, "Failed to fetch favicon {}", relative_url);
+                                                None
+                                            }
+                                            FetchResult::ClientError(resp) | FetchResult::ServerError(resp) => {
+                                                debug!(
+                                                    "Failed to fetch favicon {}: status code {}",
+                                                    relative_url,
+                                                    resp.head().status_code
+                                                );
+                                                None
                                             }
                                         }
                                     }
@@ -300,7 +296,6 @@ impl Browser {
             url: request_url,
             title: result_metadata
                 .title
-                .clone()
                 .unwrap_or_else(|| "Untitled".to_string()),
             favicon: None,
         };
@@ -318,7 +313,7 @@ impl Browser {
             }
         }
 
-        Ok((page.load(result.dom_tree, result_metadata.images, stylesheets), page_metadata))
+        Ok((Document::new(result.dom_tree, result_metadata.images, stylesheets), page_metadata))
     }
 
     /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
@@ -338,94 +333,67 @@ impl Browser {
 
         tokio::spawn(
             async move {
-                if style_url.scheme() != "http" && style_url.scheme() != "https" {
-                    let res = Resource::load(
-                        io::ResourceType::Path(Entry::absolute(style_url.to_file_path().unwrap().to_str().unwrap())),
-                        dirs,
-                        Resource::DEFAULT_MAX_FILE_SIZE,
-                    );
+                let request = Request::builder(style_url.as_str())
+                    .request_mode(RequestMode::Cors)
+                    .destination(Destination::Style)
+                    .build();
 
-                    let body = match res {
-                        Ok(b) => b,
+                let response_result = if style_url.scheme() != "http" && style_url.scheme() != "https" {
+                    match request.load_asset(&dirs, Some(MAX_BLOCK_SIZE)) {
+                        Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
                         Err(error) => {
                             debug!(%error, "Failed to load stylesheet {}", style_url);
                             return None;
                         }
-                    };
-
-                    let stylesheet_url = style_url.clone();
-                    let current_span = tracing::Span::current();
-                    match tokio::task::spawn_blocking(move || {
-                        let _span = current_span.enter();
-                        let css_str = String::from_utf8_lossy(&body);
-                        CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
-                    })
-                    .await
-                    {
-                        Ok(stylesheet) => Some(stylesheet),
-                        Err(error) => {
-                            warn!(%error, "CSS parse task panicked for {}", stylesheet_url);
-                            None
-                        }
                     }
                 } else {
-                    let request = Request::builder(style_url.as_str())
-                        .request_mode(RequestMode::Cors)
-                        .destination(Destination::Style)
-                        .build();
+                    fetch(Some(&page_url), request, client.as_ref(), &headers, &dirs, &cookie_jar, &cache).await
+                };
 
-                    let response_result =
-                        fetch(Some(&page_url), request, client.as_ref(), &headers, &dirs, &cookie_jar, &cache).await;
+                let response_handle = match response_result {
+                    FetchResult::Success(response) => response,
+                    FetchResult::ClientError(response) | FetchResult::ServerError(response) => {
+                        debug!("Failed to fetch stylesheet {}: status code {}", style_url, response.head().status_code);
+                        return None;
+                    }
+                    FetchResult::Failed(error) => {
+                        debug!(%error, "Failed to fetch stylesheet {}", style_url);
+                        return None;
+                    }
+                };
 
-                    let response_handle = match response_result {
-                        FetchResult::Success(response) => response,
-                        FetchResult::ClientError(response) | FetchResult::ServerError(response) => {
-                            debug!(
-                                "Failed to fetch stylesheet {}: status code {}",
-                                style_url,
-                                response.head().status_code
-                            );
-                            return None;
-                        }
-                        FetchResult::Failed(error) => {
-                            debug!(%error, "Failed to fetch stylesheet {}", style_url);
-                            return None;
-                        }
-                    };
+                let response = match response_handle.response().await {
+                    Ok(resp) => resp,
+                    Err(error) => {
+                        debug!(%error, "Failed to read body for stylesheet {}", style_url);
+                        return None;
+                    }
+                };
 
-                    let response = match response_handle.response().await {
-                        Ok(resp) => resp,
-                        Err(error) => {
-                            debug!(%error, "Failed to read body for stylesheet {}", style_url);
-                            return None;
-                        }
-                    };
+                let body = match response.body.into_complete(MAX_BLOCK_SIZE as usize).await {
+                    Some(b) => b,
+                    None => {
+                        debug!("Empty body for stylesheet {}", style_url);
+                        return None;
+                    }
+                };
 
-                    let body = match response.body.into_complete(MAX_BLOCK_SIZE as usize).await {
-                        Some(b) => b,
-                        None => {
-                            debug!("Empty body for stylesheet {}", style_url);
-                            return None;
-                        }
-                    };
+                let body_bytes = body.0.to_vec();
 
-                    let body_bytes = body.0.to_vec();
+                let stylesheet_url = style_url.clone();
+                let current_span = tracing::Span::current();
+                match tokio::task::spawn_blocking(move || {
+                    let _span = current_span.enter();
 
-                    let stylesheet_url = style_url.clone();
-                    let current_span = tracing::Span::current();
-                    match tokio::task::spawn_blocking(move || {
-                        let _span = current_span.enter();
-
-                        let css_str = String::from_utf8_lossy(&body_bytes);
-                        CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
-                    })
-                    .await
-                    {
-                        Ok(stylesheet) => Some(stylesheet),
-                        Err(error) => {
-                            warn!(%error, "CSS parse task panicked for {}", stylesheet_url);
-                            None
-                        }
+                    let css_str = String::from_utf8_lossy(&body_bytes);
+                    CSSStyleSheet::from_css(&css_str, StylesheetOrigin::Author, true)
+                })
+                .await
+                {
+                    Ok(stylesheet) => Some(stylesheet),
+                    Err(error) => {
+                        warn!(%error, "CSS parse task panicked for {}", stylesheet_url);
+                        None
                     }
                 }
             }

@@ -20,7 +20,7 @@ use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use html_dom::DocumentRoot;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, Script};
-use io::{Resource, embeded::DEFAULT_CSS};
+use io::embeded::DEFAULT_CSS;
 use layout::{ImageContext, LayoutInput, LayoutTree, Rect, TextContext};
 use url::Url;
 
@@ -57,7 +57,7 @@ fn absolute_context(viewport: Rect) -> AbsoluteContext<'static> {
 }
 
 fn load_user_agent_stylesheet() -> CSSStyleSheet {
-    let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
+    let user_agent_css = DEFAULT_CSS.load();
     let css = std::str::from_utf8(&user_agent_css).expect("embedded user agent CSS must be UTF-8");
     CSSStyleSheet::from_css(css, StylesheetOrigin::UserAgent, true)
 }

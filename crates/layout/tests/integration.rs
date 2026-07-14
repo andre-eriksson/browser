@@ -16,7 +16,7 @@ mod tests {
     use css_style::{AbsoluteContext, StyleTree};
     use css_values::color::Color;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
-    use io::{Resource, embeded::DEFAULT_CSS};
+    use io::embeded::DEFAULT_CSS;
     use layout::{ImageContext, LayoutImage, LayoutInput, LayoutTree, NodeId, Rect, TextContext};
 
     fn load_fixture(html: &str) -> String {
@@ -46,7 +46,7 @@ mod tests {
     /// running layout.  This is the building block for the other macros.
     macro_rules! process_html_raw {
         ($path:literal, $user_agent_css:expr) => {{
-            let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
+            let user_agent_css = DEFAULT_CSS.load();
             let html = load_fixture($path);
 
             let mut stylesheets = if $user_agent_css {
