@@ -11,11 +11,11 @@ use std::{
 };
 
 use bytes::Bytes;
-use storage::{AppPaths, create_paths};
 
 use crate::{
     errors::ResourceError,
-    loader::{Loadable, Writable},
+    paths::{AppPaths, create_paths},
+    traits::{Readable, Writable},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -193,14 +193,10 @@ impl<'path> AppDirectory<'path> {
 
 pub struct AppFile<'path>(pub Entry<'path>);
 
-impl Loadable for AppFile<'_> {
+impl Readable for AppFile<'_> {
     type Output = Bytes;
 
-    fn load_asset(
-        self,
-        paths: &AppPaths,
-        max_file_size: Option<u64>,
-    ) -> Result<Self::Output, crate::errors::ResourceError> {
+    fn read(self, paths: &AppPaths, max_file_size: Option<u64>) -> Result<Self::Output, crate::errors::ResourceError> {
         let entry = self.0;
 
         let path = if entry.is_global() {
@@ -248,7 +244,7 @@ impl Loadable for AppFile<'_> {
 }
 
 impl Writable for AppFile<'_> {
-    fn write_asset<C: AsRef<[u8]>>(self, data: C, paths: &AppPaths) -> Result<(), ResourceError> {
+    fn write<C: AsRef<[u8]>>(self, data: C, paths: &AppPaths) -> Result<(), ResourceError> {
         let entry = self.0;
 
         let path = if entry.is_global() {

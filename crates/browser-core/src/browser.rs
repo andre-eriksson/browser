@@ -6,7 +6,7 @@ use browser_args::BrowserArgs;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use http_fetch::{client::HttpClient, clients::reqwest::ReqwestClient};
 use io::{
-    Loadable, Writable,
+    Readable, Writable,
     embedded::{DEFAULT_CSS, DEVTOOLS_CSS},
     entries::PROFILE_CACHE_USER_AGENT,
 };
@@ -40,7 +40,7 @@ impl Browser {
         let user_agent_css = DEFAULT_CSS.load();
 
         let stylesheet = if args.enable_ua_css {
-            match PROFILE_CACHE_USER_AGENT.load_asset(&profile.dirs().into(), Self::MAX_USER_AGENT_CSS_SIZE) {
+            match PROFILE_CACHE_USER_AGENT.read(&profile.dirs().into(), Self::MAX_USER_AGENT_CSS_SIZE) {
                 Ok(data) => {
                     trace!("Loaded user agent stylesheet from cache");
                     let data: &[u8] = &data;
@@ -67,7 +67,7 @@ impl Browser {
                     let serialized = to_stdvec(&parsed).unwrap();
 
                     if PROFILE_CACHE_USER_AGENT
-                        .write_asset(serialized.as_slice(), &profile.dirs().into())
+                        .write(serialized.as_slice(), &profile.dirs().into())
                         .is_err()
                     {
                         warn!("Failed to write user agent stylesheet to cache");

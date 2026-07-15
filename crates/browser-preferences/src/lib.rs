@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use browser_args::BrowserArgs;
 use io::{
-    Loadable,
+    Readable,
     entries::{GLOBAL_THEMES_DIRECTORY, PROFILE_PREFERENCES, PROFILE_THEMES_DIRECTORY},
+    paths::AppPaths,
 };
 use serde::Deserialize;
-use storage::AppPaths;
 use tracing::warn;
 
 use crate::theme::Theme;
@@ -56,7 +56,7 @@ impl BrowserPreferences {
     pub fn load(args: &BrowserArgs, paths: AppPaths) -> Self {
         let is_incognito = args.incognito;
 
-        let mut config = match PROFILE_PREFERENCES.load_asset(&paths, Self::MAX_PREFERENCES_FILE_SIZE) {
+        let mut config = match PROFILE_PREFERENCES.read(&paths, Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");

@@ -15,7 +15,7 @@ use http_types::{
     properties::Credentials,
     request::{Request, RequestContext},
 };
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{
     cache::{cache_lookup, make_revalidation_request},

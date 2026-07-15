@@ -1,8 +1,8 @@
 use bytes::Bytes;
-use http_types::request::Request;
-use storage::AppPaths;
 
-use crate::{Entry, embed::EmbeddedType, entry::AppFile, errors::ResourceError, loader::Loadable};
+use http_types::request::Request;
+
+use crate::{Entry, embed::EmbeddedType, entry::AppFile, errors::ResourceError, paths::AppPaths, traits::Readable};
 
 /// A list of allowed "about:" URLs that the browser can load.
 /// This is a security measure to prevent loading potentially harmful or
@@ -10,9 +10,9 @@ use crate::{Entry, embed::EmbeddedType, entry::AppFile, errors::ResourceError, l
 /// this list will be allowed to be loaded by the browser.
 const ALLOWED_ABOUT_URLS: &[&str] = &["blank"];
 
-impl Loadable for Request {
+impl Readable for Request {
     type Output = Bytes;
-    fn load_asset(self, paths: &AppPaths, max_file_size: Option<u64>) -> Result<Self::Output, ResourceError> {
+    fn read(self, paths: &AppPaths, max_file_size: Option<u64>) -> Result<Self::Output, ResourceError> {
         let scheme = self.context.url.scheme();
 
         if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
@@ -26,7 +26,7 @@ impl Loadable for Request {
             "file" => {
                 let entry = AppFile(Entry::absolute(path));
 
-                entry.load_asset(paths, max_file_size)
+                entry.read(paths, max_file_size)
             }
             "about" => {
                 let url = self.context.url.path();

@@ -20,8 +20,7 @@ use http_types::{
     properties::{Destination, RequestMode},
     request::Request,
 };
-use io::Loadable;
-use storage::AppPaths;
+use io::{Readable, paths::AppPaths};
 
 use crate::{
     Browser,
@@ -54,7 +53,7 @@ impl Browser {
         let response_result = if navigation_request.context.url.scheme() != "http"
             && navigation_request.context.url.scheme() != "https"
         {
-            match navigation_request.load_asset(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
+            match navigation_request.read(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
                 Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
                 Err(error) => {
                     return Err(NavigationError::Resource(error));
@@ -204,7 +203,7 @@ impl Browser {
 
                                         let response_result =
                                             if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
-                                                match request.load_asset(&dirs, Some(MAX_BLOCK_SIZE)) {
+                                                match request.read(&dirs, Some(MAX_BLOCK_SIZE)) {
                                                     Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
                                                     Err(error) => {
                                                         debug!(%error, "Failed to load favicon {}", relative_url);
@@ -339,7 +338,7 @@ impl Browser {
                     .build();
 
                 let response_result = if style_url.scheme() != "http" && style_url.scheme() != "https" {
-                    match request.load_asset(&paths, Some(MAX_BLOCK_SIZE)) {
+                    match request.read(&paths, Some(MAX_BLOCK_SIZE)) {
                         Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
                         Err(error) => {
                             debug!(%error, "Failed to load stylesheet {}", style_url);

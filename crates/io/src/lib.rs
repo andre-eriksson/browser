@@ -4,9 +4,8 @@ pub mod entries;
 pub mod entry;
 pub mod errors;
 pub mod http;
-mod loader;
-mod manager;
+pub mod paths;
+mod traits;
 
 pub use entry::Entry;
-pub use loader::{Loadable, Writable};
-pub use manager::Resource;
+pub use traits::{Readable, Writable};

@@ -26,7 +26,6 @@ postcard.workspace = true
 regex.workspace = true
 renderer.workspace = true
 serde.workspace = true
-storage.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

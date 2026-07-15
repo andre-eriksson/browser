@@ -11,7 +11,7 @@ use http_types::{
     request::{Request, RequestContext},
     response::CompleteResponse,
 };
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{
     client::{HttpClient, ResponseHandle},

@@ -1,5 +1,6 @@
 use rusqlite::{Connection, Result};
-use storage::AppPaths;
+
+use io::paths::AppPaths;
 
 pub trait Database: Sized {
     /// Opens a connection to the database.

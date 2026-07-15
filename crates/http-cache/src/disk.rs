@@ -15,7 +15,7 @@ use rusqlite::Connection;
 use sha2::{Digest, Sha256};
 
 use database::Table;
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{
     block::{BLOCK_DIR, BlockFile, BlockHeader, MAGIC, MAX_BLOCK_SIZE, VERSION},

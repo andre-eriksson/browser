@@ -23,7 +23,6 @@ pub enum EmbeddedType<'path> {
 
 impl EmbeddedType<'_> {
     /// Returns the path of the embedded resource based on its type and name.
-    #[must_use]
     pub fn path(&self) -> String {
         match self {
             EmbeddedType::Icon(name) => format!("icon/{name}"),
@@ -35,6 +34,14 @@ impl EmbeddedType<'_> {
         }
     }
 
+    /// Loads the embedded resource data as a `Cow<'static, [u8]>`.
+    ///
+    /// # Panics
+    /// If the embedded resource is not found, could be due to:
+    /// * The resource not being included in the build (check the `assets` folder and `Cargo.toml`).
+    /// * You misspelled the resource name or path.
+    /// * The resource was removed or renamed in the `assets` folder.
+    /// * You might've used the wrong variant of `EmbeddedType` for the resource.
     pub fn load(self) -> Cow<'static, [u8]> {
         let resource = EmbededResource::get(&self.path()).unwrap_or_else(|| {
             panic!("Embedded asset not found: {}", self.path());

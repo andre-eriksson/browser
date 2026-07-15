@@ -6,7 +6,7 @@ use std::{
     io::{BufWriter, Write},
 };
 
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{errors::CacheError, header::CacheHeader};
 

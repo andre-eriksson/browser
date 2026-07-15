@@ -15,7 +15,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{errors::CacheError, header::CacheHeader};
 

@@ -28,7 +28,6 @@ members = [
     "crates/layout",
     "crates/manifest",
     "crates/renderer",
-    "crates/storage",
     "fuzz",
 ]
 default-members = [
@@ -67,7 +66,6 @@ io                  = { path = "crates/io" }
 layout              = { path = "crates/layout" }
 manifest            = { path = "crates/manifest" }
 renderer            = { path = "crates/renderer" }
-storage             = { path = "crates/storage" }
 
 # External dependencies
 async-trait         = "0.1.89"

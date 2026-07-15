@@ -6,4 +6,4 @@ license.workspace = true
 
 [dependencies]
 rusqlite.workspace = true
-storage.workspace = true
+io.workspace = true

@@ -18,7 +18,7 @@ use httpdate::fmt_http_date;
 use rusqlite::{Connection, Result, params};
 
 use database::{Database, Table};
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::http::HttpCache;
 

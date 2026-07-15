@@ -9,7 +9,7 @@ use http_types::{
     body::{CompleteHttpBody, HttpBody, TeeStream},
     response::{CompleteResponse, HeaderResponse, Response},
 };
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{client::ResponseHandle, errors::NetworkError};
 

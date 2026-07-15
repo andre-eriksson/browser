@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use tracing::debug;
 
 use http_types::response::CompleteResponse;
-use storage::AppPaths;
+use io::paths::AppPaths;
 
 use crate::{
     disk::DiskCache,
@@ -220,7 +220,6 @@ mod tests {
     use database::Database;
     use http_serde::http::StatusCode;
     use serial_test::serial;
-    use storage::AppPaths;
 
     use super::*;
 

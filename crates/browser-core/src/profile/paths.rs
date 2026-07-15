@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
+use io::paths::{AppPaths, get_cache_path, get_config_path, get_data_path, get_temp_path};
 use rand::{RngExt, distr::Alphanumeric};
-use storage::{AppPaths, get_cache_path, get_config_path, get_data_path, get_temp_path};
 
 use crate::profile::ProfileKind;
 

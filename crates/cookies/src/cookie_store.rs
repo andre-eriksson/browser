@@ -5,8 +5,8 @@ use std::{
 };
 
 use database::{Database, Table};
+use io::paths::AppPaths;
 use rusqlite::{Connection, Result};
-use storage::AppPaths;
 use time::UtcDateTime;
 use tracing::debug;
 use url::Host;
