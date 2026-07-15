@@ -2216,7 +2216,6 @@ mod tests {
 
         handle_border(&mut ctx, &mut stream, BorderSide::All);
 
-        dbg!(&ctx.errors);
         assert!(ctx.errors.is_empty());
 
         assert_eq!(specified.border_top_style, CSSProperty::Value(BorderStyle::Solid));

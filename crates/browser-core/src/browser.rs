@@ -21,7 +21,6 @@ use crate::{
 #[derive(Debug)]
 pub struct Browser {
     profile: Profile,
-    // resource_schemes: HashMap<String, Arc<dyn SchemeHandler>>,
     default_stylesheet: Option<CSSStyleSheet>,
     http_client: Box<dyn HttpClient>,
 }

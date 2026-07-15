@@ -95,7 +95,6 @@ pub async fn fetch(
             }
         },
         Err(error) => {
-            dbg!(&error);
             debug!(%error);
         }
     }
