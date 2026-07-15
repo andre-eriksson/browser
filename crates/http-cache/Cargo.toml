@@ -5,19 +5,18 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
-bytes.workspace = true
-serde.workspace = true
-sha2.workspace = true
 database.workspace = true
+http-types.workspace = true
 http.workspace = true
-url.workspace = true
-thiserror.workspace = true
+httpdate.workspace = true
+io.workspace = true
 postcard.workspace = true
 rusqlite.workspace = true
-httpdate.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
-http-types.workspace = true
-io.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 serial_test.workspace = true

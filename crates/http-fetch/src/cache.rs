@@ -15,7 +15,7 @@ use io::paths::AppPaths;
 
 use crate::{
     client::{HttpClient, ResponseHandle},
-    clients::cached::{CachedResponse, CachingResponse},
+    clients::{CachedResponse, CachingResponse},
     errors::NetworkError,
     request::FetchResult,
 };

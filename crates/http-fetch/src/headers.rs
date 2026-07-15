@@ -5,7 +5,7 @@ use url::Url;
 use http_types::request::Request;
 use manifest::{APP_MAJOR_VERSION, APP_NAME};
 
-pub fn add_forbidden_headers(request: &mut Request, current_url: Option<&Url>) {
+pub(crate) fn add_forbidden_headers(request: &mut Request, current_url: Option<&Url>) {
     add_secure_low_entropy_headers(&mut request.context.headers);
     add_forbidden_fetch_headers(request, current_url);
 
@@ -45,7 +45,7 @@ pub fn add_forbidden_headers(request: &mut Request, current_url: Option<&Url>) {
     //headers.insert(HeaderName::from_bytes(b"sec-ch-ua-wow64").unwrap(), HeaderValue::from_str("?0").unwrap());
 }
 
-pub fn add_forbidden_fetch_headers(request: &mut Request, current_url: Option<&Url>) {
+pub(crate) fn add_forbidden_fetch_headers(request: &mut Request, current_url: Option<&Url>) {
     request.context.headers.insert(
         HeaderName::from_bytes(b"sec-fetch-dest").unwrap(),
         HeaderValue::from_str(request.context.destination.as_ref()).unwrap(),

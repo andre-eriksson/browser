@@ -13,6 +13,7 @@ use io::paths::AppPaths;
 
 use crate::{client::ResponseHandle, errors::NetworkError};
 
+/// A response handle that wraps another response handle and caches the response if it is cacheable.
 pub struct CachingResponse {
     paths: AppPaths,
     inner: Box<dyn ResponseHandle>,
@@ -110,6 +111,7 @@ impl ResponseHandle for CachingResponse {
     }
 }
 
+/// A response handle that wraps a complete response and returns it as a cached response.
 pub struct CachedResponse {
     head: HeaderResponse,
     body: Bytes,
@@ -118,10 +120,7 @@ pub struct CachedResponse {
 impl CachedResponse {
     pub fn new(response: CompleteResponse) -> Self {
         Self {
-            head: HeaderResponse {
-                status_code: response.head.status_code,
-                headers: response.head.headers,
-            },
+            head: response.head,
             body: response.body.0,
         }
     }

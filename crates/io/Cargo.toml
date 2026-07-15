@@ -1,22 +1,13 @@
 [package]
 name = "io"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-async-trait.workspace = true
 bytes.workspace = true
 dirs.workspace = true
 http-types.workspace = true
-rust-embed.workspace = true
-serde.workspace = true
-strum.workspace = true
-thiserror.workspace = true
 manifest.workspace = true
-tokio.workspace = true
-tracing.workspace = true
-url.workspace = true
-
-[dev-dependencies]
-serial_test.workspace = true
+rust-embed.workspace = true
+thiserror.workspace = true

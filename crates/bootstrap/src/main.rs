@@ -17,7 +17,6 @@ use tracing_subscriber::{
 fn main() {
     let filter = EnvFilter::new("warn")
         .add_directive(Directive::from_str("browser=debug").unwrap())
-        .add_directive(Directive::from_str("io=debug").unwrap())
         .add_directive(Directive::from_str("layout=debug").unwrap())
         .add_directive(Directive::from_str("css=debug").unwrap())
         .add_directive(Directive::from_str("cookies=debug").unwrap())

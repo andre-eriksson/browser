@@ -2314,7 +2314,6 @@ dependencies = [
 name = "http-cache"
 version = "0.1.0"
 dependencies = [
- "bytes",
  "database",
  "http",
  "http-serde",
@@ -2830,19 +2829,12 @@ dependencies = [
 name = "io"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "bytes",
  "dirs",
  "http-types",
  "manifest",
  "rust-embed",
- "serde",
- "serial_test",
- "strum",
  "thiserror 2.0.17",
- "tokio",
- "tracing",
- "url",
 ]
 
 [[package]]

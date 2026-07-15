@@ -4,7 +4,7 @@ use crate::{Document, commands::parse_devtools_html, errors::CoreError, profile:
 use async_trait::async_trait;
 use browser_args::BrowserArgs;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
-use http_fetch::{client::HttpClient, clients::reqwest::ReqwestClient};
+use http_fetch::{client::HttpClient, clients::ReqwestClient};
 use io::{
     Readable, Writable,
     embedded::{DEFAULT_CSS, DEVTOOLS_CSS},

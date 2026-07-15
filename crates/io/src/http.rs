@@ -17,7 +17,7 @@ impl Readable for Request {
 
         if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
             return Err(ResourceError::UnsupportedProtocol(
-                "Use the async `fetch` function instead to load network".to_string(),
+                "Use the async `fetch` function to load from the internet.".to_string(),
             ));
         }
         let path = self.context.url.path();

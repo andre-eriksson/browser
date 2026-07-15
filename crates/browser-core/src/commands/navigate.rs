@@ -11,7 +11,7 @@ use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType, Sc
 use http_cache::{block::MAX_BLOCK_SIZE, http::HttpCache};
 use http_fetch::{
     client::HttpClient,
-    clients::raw::RawClient,
+    clients::RawClient,
     errors::{FetchError, NetworkError},
     request::{FetchResult, fetch},
 };

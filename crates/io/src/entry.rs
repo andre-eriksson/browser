@@ -196,7 +196,7 @@ pub struct AppFile<'path>(pub Entry<'path>);
 impl Readable for AppFile<'_> {
     type Output = Bytes;
 
-    fn read(self, paths: &AppPaths, max_file_size: Option<u64>) -> Result<Self::Output, crate::errors::ResourceError> {
+    fn read(self, paths: &AppPaths, max_file_size: Option<u64>) -> Result<Self::Output, ResourceError> {
         let entry = self.0;
 
         let path = if entry.is_global() {

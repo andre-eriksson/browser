@@ -22,7 +22,7 @@ pub enum Encoding {
     Zstd,
 }
 
-pub fn get_encoding_order(headers: &HeaderMap) -> Result<Vec<Encoding>, NetworkError> {
+pub(crate) fn get_encoding_order(headers: &HeaderMap) -> Result<Vec<Encoding>, NetworkError> {
     if let Some(encoder_value) = headers.get(CONTENT_ENCODING) {
         Ok(encoder_value
             .to_str()
@@ -39,7 +39,7 @@ pub fn get_encoding_order(headers: &HeaderMap) -> Result<Vec<Encoding>, NetworkE
     }
 }
 
-pub fn decode_stream(encoder_order: &[Encoding], mut stream: BodyStream) -> BodyStream {
+pub(crate) fn decode_stream(encoder_order: &[Encoding], mut stream: BodyStream) -> BodyStream {
     fn wrap_reader<R>(reader: R) -> BodyStream
     where
         R: AsyncRead + Send + 'static,
@@ -60,7 +60,7 @@ pub fn decode_stream(encoder_order: &[Encoding], mut stream: BodyStream) -> Body
     stream
 }
 
-pub async fn decode(encoder_order: &[Encoding], mut data: Bytes) -> Result<Bytes, NetworkError> {
+pub(crate) async fn decode(encoder_order: &[Encoding], mut data: Bytes) -> Result<Bytes, NetworkError> {
     for encoder in encoder_order {
         data = match encoder {
             Encoding::Br => decode_br(data).await?,

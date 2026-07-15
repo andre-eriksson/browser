@@ -20,10 +20,7 @@ use io::paths::AppPaths;
 use crate::{
     cache::{cache_lookup, make_revalidation_request},
     client::{HttpClient, ResponseHandle},
-    clients::{
-        cached::{CachedResponse, CachingResponse},
-        decode::DecodeResponse,
-    },
+    clients::{CachedResponse, CachingResponse, DecodeResponse},
     cookies::{apply_cookies, handle_response_cookie},
     errors::FetchError,
     headers::add_forbidden_headers,
