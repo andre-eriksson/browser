@@ -26,12 +26,13 @@ Supported CSS properties can be found: [./docs/CSS.md](./docs/CSS.md).
 
 ## Architecture
 
-The browser is composed of 7 subsystems, each responsible for a specific aspect of the browser's functionality.
+The browser is composed of 8 subsystems, each responsible for a specific aspect of the browser's functionality.
 
 ### Subsystems
 
-- [**IO Subsystem**](./crates/io): Responsible for handling all input/output operations, including file system access and network communication.
-  - [**HTTP Client**](./crates/network): Responsible for making HTTP requests and handling responses.
+- [**File IO**](./crates/io): Responsible for handling all file based input/output operations.
+- [**HTTP Fetch**](./crates/http-fetch): Responsible for making HTTP requests and handling responses.
+  - [**HTTP Cache**](./crates/http-cache): The HTTP cache is an on-disk cache that stores HTTP responses for future use.
 - [**HTML Parser**](./crates/html-parser): Parses HTML documents and builds the DOM tree.
   - [**Tokenizer**](./crates/html-tokenizer): Breaks HTML into tokens.
   - [**DOM Builder**](./crates/html-dom): Builds the DOM tree from tokens.
@@ -44,8 +45,8 @@ The browser is composed of 7 subsystems, each responsible for a specific aspect 
 - [**Rendering Engine**](./crates/renderer): Renders the layout tree to the screen via the GPU using `wgpu`.
 - [**Browser Core**](./crates/browser-core): Manages the overall browser state, including tabs, navigation, and communication between subsystems.
 - **Interface Layer**: The browser currently has two interfaces, a graphical user interface and a headless mode, these are built on top of the browser core.
-  - [**UI**](./crates/browser-ui): Provides a graphical user interface for the browser, built using Iced, a Rust GUI library.
-  - [**Headless**](./crates/browser-headless): Provides a headless (terminal) mode for the browser, allowing it to run without a graphical interface.
+  - [**UI**](./crates/browser-ui): Provides a graphical user interface for the browser, built using **Iced**.
+  - [**REPL**](./crates/browser-headless): Provides a REPL (terminal) mode for the browser, allowing it to run without a graphical interface.
 
 ## Planned Features
 
@@ -121,10 +122,10 @@ Rust crates dependencies are chosen based on the following criteria:
 - Development and testing tools that do not impact the core functionality of the browser (e.g., `tracing` for logging).
 - Libraries that would force me to work extensively on other aspects that isn't browser related (e.g., `serde` for serialization/deserialization).
 - Temporary dependencies that facilitate developer velocity, these fall into two sub-categories:
-  - Dependencies that will be replaced by a lower-level dependency eventually (e.g., `reqwest` for HTTP requests, which could eventually be replaced by `curl`/`libcurl`).
+  - Dependencies that will be replaced by a lower-level dependency eventually (e.g., `reqwest` for HTTP requests, which could _eventually_ be replaced by `curl`/`libcurl`).
   - Dependencies that come from another dependency but are used for convenience and can be removed when that dependency is removed (e.g., `cosmic-text` for text shaping, which is a dependency of `iced`).
 
-To generate the most up-to-date list, run the [gen_third_party.py](./tools/gen_third_party.py) script and/or refer to the [Cargo.toml](./Cargo.toml) file and each individual subsystem crate's Cargo.toml, e.g., [crates/errors/Cargo.toml](./crates/errors/Cargo.toml).
+To generate the most up-to-date list, run the [gen_third_party.py](./tools/gen_third_party.py) script and/or refer to the [Cargo.toml](./Cargo.toml) file and each individual subsystem crate's Cargo.toml, e.g., [crates/layout/Cargo.toml](./crates/layout/Cargo.toml).
 
 ### External
 
