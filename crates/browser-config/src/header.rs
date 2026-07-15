@@ -1,9 +1,10 @@
 use std::fmt::Write;
 
-use manifest::{APP_NAME, APP_VERSION};
-use network::{
-    ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, HeaderMap, HeaderValue, USER_AGENT,
+use http::{
+    HeaderMap, HeaderValue,
+    header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, CACHE_CONTROL, CONNECTION, USER_AGENT},
 };
+use manifest::{APP_NAME, APP_VERSION};
 use sys_locale::get_locales;
 use tracing::error;
 

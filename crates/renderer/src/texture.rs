@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use io::{Resource, embeded::TEXTURE_SHADER};
+use io::embedded::TEXTURE_SHADER;
 use layout::{Color4f, Rect};
 use tracing::debug;
 use wgpu::RenderPipeline;
@@ -33,7 +33,7 @@ impl TexturePipeline {
     pub const MAX_QUADS: usize = 10_000;
 
     fn start_pipeline(device: &wgpu::Device, label: &str) -> (Globals2D, wgpu::ShaderModule) {
-        let shader_bytes = Resource::load_embedded(TEXTURE_SHADER);
+        let shader_bytes = TEXTURE_SHADER.load();
         let shader = std::str::from_utf8(&shader_bytes).expect("Shader is not valid UTF-8");
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {

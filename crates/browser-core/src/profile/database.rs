@@ -1,6 +1,6 @@
 use cookies::{CookieDatabase, CookieJar};
 use database::Database;
-use io::{HttpCache, IndexDatabase};
+use http_cache::{http::HttpCache, index::IndexDatabase};
 
 use crate::{errors::CoreError, profile::paths::ProfilePaths};
 

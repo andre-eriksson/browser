@@ -3,7 +3,7 @@ use iced::{
     widget::{container, text},
     window::{self, Id, Position, Settings, settings::PlatformSpecific},
 };
-use io::{Resource, embeded::DEVTOOLS_ICON};
+use io::embedded::DEVTOOLS_ICON;
 use layout::Rect;
 use manifest::{DEVTOOLS_ID, DEVTOOLS_NAME};
 
@@ -97,7 +97,7 @@ impl ApplicationWindow for DevtoolsWindow {
     }
 
     fn settings() -> iced::window::Settings {
-        let icon = Resource::load_embedded(DEVTOOLS_ICON);
+        let icon = DEVTOOLS_ICON.load();
 
         let devtools_icon = load_icon(&icon);
 

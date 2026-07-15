@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use browser_args::BrowserArgs;
-use io::{Entry, Resource, files::PROFILE_PREFERENCES};
+use io::{
+    Readable,
+    entries::{GLOBAL_THEMES_DIRECTORY, PROFILE_PREFERENCES, PROFILE_THEMES_DIRECTORY},
+    paths::AppPaths,
+};
 use serde::Deserialize;
-use storage::Directory;
 use tracing::warn;
 
 use crate::theme::Theme;
@@ -50,10 +53,10 @@ impl BrowserPreferences {
         }
     }
 
-    pub fn load(args: &BrowserArgs, dirs: Directory) -> Self {
+    pub fn load(args: &BrowserArgs, paths: AppPaths) -> Self {
         let is_incognito = args.incognito;
 
-        let mut config = match Resource::load(PROFILE_PREFERENCES, dirs.clone(), Self::MAX_PREFERENCES_FILE_SIZE) {
+        let mut config = match PROFILE_PREFERENCES.read(&paths, Self::MAX_PREFERENCES_FILE_SIZE) {
             Ok(data) => {
                 let Ok(data) = std::str::from_utf8(&data) else {
                     warn!("Failed to parse preferences file as UTF-8, using default settings.");
@@ -73,7 +76,7 @@ impl BrowserPreferences {
             }
         };
 
-        config.themes = Self::load_themes(&dirs, is_incognito);
+        config.themes = Self::load_themes(&paths, is_incognito);
 
         if config.theme.is_empty() || !config.themes.contains_key(&config.theme) {
             warn!(
@@ -123,28 +126,23 @@ impl BrowserPreferences {
         self.force_dark
     }
 
-    fn load_themes(dirs: &Directory, is_incognito: bool) -> HashMap<String, Theme> {
+    fn load_themes(paths: &AppPaths, is_incognito: bool) -> HashMap<String, Theme> {
         let mut themes = HashMap::from([
             ("light".to_string(), Theme::light()),
             ("dark".to_string(), Theme::dark()),
         ]);
 
-        let mut global_themes = match Resource::load_dir(
-            Entry::user_data("themes/", true),
-            dirs,
-            Self::MAX_THEME_FILES,
-            Self::MAX_THEME_FILE_SIZE,
-        ) {
-            Ok(files) => files,
-            Err(error) => {
-                warn!(%error, "Failed to load themes from global user data directory, using default themes only.");
-                Vec::new()
-            }
-        };
+        let mut global_themes =
+            match GLOBAL_THEMES_DIRECTORY.load_dir(paths, Self::MAX_THEME_FILES, Self::MAX_THEME_FILE_SIZE) {
+                Ok(files) => files,
+                Err(error) => {
+                    warn!(%error, "Failed to load themes from global user data directory, using default themes only.");
+                    Vec::new()
+                }
+            };
 
-        let profile_themes = match Resource::load_dir(
-            Entry::user_data("themes/", false),
-            dirs,
+        let profile_themes = match PROFILE_THEMES_DIRECTORY.load_dir(
+            paths,
             Self::MAX_THEME_FILES,
             Self::MAX_THEME_FILE_SIZE,
         ) {

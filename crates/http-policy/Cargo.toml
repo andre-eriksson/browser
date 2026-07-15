@@ -1,0 +1,11 @@
+[package]
+name = "http-policy"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+http-types.workspace = true
+http.workspace = true
+thiserror.workspace = true
+url.workspace = true

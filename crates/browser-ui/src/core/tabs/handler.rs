@@ -6,7 +6,6 @@ use browser_core::{
 use css_display::BoxTree;
 use iced::Task;
 use image::ImageFormat;
-use io::{DocumentPolicy, ReferrerPolicy};
 use layout::{LayoutImage, LayoutInput, LayoutTree, NodeId, Rect};
 use regex::Regex;
 use tracing::{debug, error};
@@ -362,9 +361,6 @@ impl Tab {
                                 .execute(EngineCommand::FetchImage {
                                     node_ids,
                                     request_url,
-                                    request_policies: DocumentPolicy {
-                                        referrer: ReferrerPolicy::SameOrigin,
-                                    },
                                     image_url: src,
                                 })
                                 .await

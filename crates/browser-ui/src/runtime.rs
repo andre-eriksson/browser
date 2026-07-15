@@ -1,13 +1,10 @@
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 
 use browser_args::BrowserArgs;
 use browser_core::Browser;
 use browser_preferences::BrowserPreferences;
 use iced::{Font, Pixels, Settings};
-use io::{
-    Resource,
-    embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR},
-};
+use io::embedded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR};
 
 use crate::{core::Application, errors::UiError};
 
@@ -22,8 +19,8 @@ impl Ui {
         let preferences = Arc::new(BrowserPreferences::load(&args, browser.profile().dirs().into()));
         let args = Arc::new(args);
 
-        let default_font = Resource::load_embedded(OPEN_SANS_REGULAR);
-        let monospace_font = Resource::load_embedded(ROBOTO_MONO_REGULAR);
+        let default_font = OPEN_SANS_REGULAR.load();
+        let monospace_font = ROBOTO_MONO_REGULAR.load();
         let (default_font_name, default_text_size) = {
             let theme = preferences.theme();
 
@@ -37,7 +34,7 @@ impl Ui {
         )
         .subscription(Application::subscriptions)
         .settings(Settings {
-            fonts: vec![Cow::Owned(default_font), Cow::Owned(monospace_font)],
+            fonts: vec![default_font, monospace_font],
             default_font: Font::with_name(default_font_name),
             default_text_size: Pixels(default_text_size),
             ..Default::default()

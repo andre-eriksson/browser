@@ -1,0 +1,23 @@
+[package]
+name = "http-cache"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+database.workspace = true
+http-types.workspace = true
+http.workspace = true
+httpdate.workspace = true
+io.workspace = true
+postcard.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+serial_test.workspace = true
+http-serde.workspace = true

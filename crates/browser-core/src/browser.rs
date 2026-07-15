@@ -1,15 +1,15 @@
-use std::vec;
+use std::{collections::HashMap, vec};
 
 use crate::{Document, commands::parse_devtools_html, errors::CoreError, profile::Profile};
 use async_trait::async_trait;
 use browser_args::BrowserArgs;
 use css_cssom::{CSSStyleSheet, StylesheetOrigin};
+use http_fetch::{client::HttpClient, clients::ReqwestClient};
 use io::{
-    Resource,
-    embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
-    files::PROFILE_CACHE_USER_AGENT,
+    Readable, Writable,
+    embedded::{DEFAULT_CSS, DEVTOOLS_CSS},
+    entries::PROFILE_CACHE_USER_AGENT,
 };
-use network::{client::HttpClient, clients::reqwest::ReqwestClient};
 use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};
 
@@ -21,6 +21,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Browser {
     profile: Profile,
+    // resource_schemes: HashMap<String, Arc<dyn SchemeHandler>>,
     default_stylesheet: Option<CSSStyleSheet>,
     http_client: Box<dyn HttpClient>,
 }
@@ -36,14 +37,15 @@ impl Browser {
     pub fn new(args: &BrowserArgs) -> Self {
         let profile = Profile::new(args);
         let http_client = Box::new(ReqwestClient::new());
-        let user_agent_css = Resource::load_embedded(DEFAULT_CSS);
+        let user_agent_css = DEFAULT_CSS.load();
 
         let stylesheet = if args.enable_ua_css {
-            match Resource::load(PROFILE_CACHE_USER_AGENT, profile.dirs().into(), Self::MAX_USER_AGENT_CSS_SIZE) {
+            match PROFILE_CACHE_USER_AGENT.read(&profile.dirs().into(), Self::MAX_USER_AGENT_CSS_SIZE) {
                 Ok(data) => {
                     trace!("Loaded user agent stylesheet from cache");
+                    let data: &[u8] = &data;
 
-                    let out: CSSStyleSheet = from_bytes(data.as_slice()).unwrap_or_else(|_| {
+                    let out: CSSStyleSheet = from_bytes(data).unwrap_or_else(|_| {
                         CSSStyleSheet::from_css(
                             std::str::from_utf8(&user_agent_css).unwrap_or_default(),
                             StylesheetOrigin::UserAgent,
@@ -64,7 +66,9 @@ impl Browser {
 
                     let serialized = to_stdvec(&parsed).unwrap();
 
-                    if Resource::write(PROFILE_CACHE_USER_AGENT, serialized.as_slice(), profile.dirs().into()).is_err()
+                    if PROFILE_CACHE_USER_AGENT
+                        .write(serialized.as_slice(), &profile.dirs().into())
+                        .is_err()
                     {
                         warn!("Failed to write user agent stylesheet to cache");
                     }
@@ -123,17 +127,17 @@ impl Commandable for Browser {
                 let _enter = span.enter();
 
                 let default_css = {
-                    let css_resource = Resource::load_embedded(DEFAULT_CSS);
+                    let css_resource = DEFAULT_CSS.load();
                     CSSStyleSheet::from_css(
-                        str::from_utf8(css_resource.as_slice()).expect("Embedded default CSS should be valid UTF-8"),
+                        str::from_utf8(&css_resource).expect("Embedded default CSS should be valid UTF-8"),
                         StylesheetOrigin::UserAgent,
                         false,
                     )
                 };
                 let devtools_css = {
-                    let css_resource = Resource::load_embedded(DEVTOOLS_CSS);
+                    let css_resource = DEVTOOLS_CSS.load();
                     CSSStyleSheet::from_css(
-                        str::from_utf8(css_resource.as_slice()).expect("Embedded DevTools CSS should be valid UTF-8"),
+                        str::from_utf8(&css_resource).expect("Embedded DevTools CSS should be valid UTF-8"),
                         StylesheetOrigin::Author,
                         false,
                     )
@@ -143,19 +147,18 @@ impl Commandable for Browser {
                 let dom =
                     parse_devtools_html(&title, &document).map_err(|e| CoreError::DevtoolsGeneration(e.to_string()))?;
 
-                let devtools_page = Document::new(dom, stylesheets);
+                let devtools_page = Document::new(dom, HashMap::new(), stylesheets);
 
                 Ok(EngineResponse::DevtoolsPageReady(devtools_page))
             }
             EngineCommand::FetchImage {
                 node_ids,
                 request_url,
-                request_policies,
                 image_url,
             } => {
                 let span = tracing::debug_span!("Browser::FetchImage");
 
-                self.load_image(node_ids, request_url, request_policies, &image_url)
+                self.load_image(node_ids, request_url, &image_url)
                     .instrument(span)
                     .await
             }

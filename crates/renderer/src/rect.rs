@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use io::{Resource, embeded::SOLID_SHADER};
+use io::embedded::SOLID_SHADER;
 use layout::{Color4f, Rect};
 use tracing::debug;
 use wgpu::{Device, Queue, RenderPipeline, TextureFormat};
@@ -52,7 +52,7 @@ impl RectPipeline {
     /// * If the embedded shader resource is not valid UTF-8 (should never happen)
     #[must_use]
     pub fn new(device: &Device, format: TextureFormat) -> Self {
-        let shader_bytes = Resource::load_embedded(SOLID_SHADER);
+        let shader_bytes = SOLID_SHADER.load();
         let shader = std::str::from_utf8(&shader_bytes).expect("Shader is not valid UTF-8");
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {

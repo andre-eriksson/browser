@@ -1,6 +1,6 @@
 use html_parser::errors::HtmlParsingError;
+use http_fetch::errors::FetchError;
 use io::errors::{MiddlewareError, ResourceError};
-use network::errors::RequestError;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
@@ -19,7 +19,7 @@ pub enum NavigationError {
     Request {
         url: String,
         #[source]
-        source: RequestError,
+        source: FetchError,
     },
 
     #[error(transparent)]

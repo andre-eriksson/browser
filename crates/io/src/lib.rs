@@ -1,18 +1,11 @@
-mod cache;
-pub mod embeded;
+pub mod embed;
+pub mod embedded;
+pub mod entries;
+pub mod entry;
 pub mod errors;
-pub mod files;
-mod loader;
-mod logging;
-mod manager;
-mod network;
+pub mod http;
+pub mod paths;
+mod traits;
 
-pub use network::{
-    middleware::cookies::CookieMiddleware, middleware::decoding::DecodingMiddleware, policy::DocumentPolicy,
-    policy::referrer::ReferrerPolicy, request::RequestResult,
-};
-
-pub use cache::http::{CacheEntry, HttpCache};
-pub use cache::index::{IndexDatabase, IndexTable};
-pub use files::Entry;
-pub use manager::{Resource, ResourceType};
+pub use entry::Entry;
+pub use traits::{Readable, Writable};

@@ -122,7 +122,6 @@ impl Default for History {
 
 #[cfg(test)]
 mod tests {
-    use io::DocumentPolicy;
     use url::Url;
 
     use super::*;
@@ -132,7 +131,6 @@ mod tests {
             url: Url::parse(&format!("http://example.com/page{index}")).unwrap(),
             title: format!("Page {index}"),
             favicon: None,
-            policies: DocumentPolicy::default(),
         }
     }
 
