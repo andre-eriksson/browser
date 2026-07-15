@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use tracing::debug;
 
 use http_types::response::CompleteResponse;
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{
     disk::DiskCache,
@@ -52,10 +52,10 @@ impl HttpCache {
     /// # Errors
     /// * If the cache lock is poisoned.
     /// * If there is an error reading from disk or deserializing the cached value.
-    pub fn get(&self, dirs: &Directory, key: &str, request_headers: &HeaderMap) -> Result<CacheEntry, CacheError> {
+    pub fn get(&self, paths: &AppPaths, key: &str, request_headers: &HeaderMap) -> Result<CacheEntry, CacheError> {
         let sha = Self::hash_url(key);
 
-        let Some(entry) = self.inner.get(dirs, sha, request_headers)? else {
+        let Some(entry) = self.inner.get(paths, sha, request_headers)? else {
             return Ok(CacheEntry::Miss);
         };
 
@@ -99,12 +99,12 @@ impl HttpCache {
     /// * If there is an error writing to disk or serializing the value.
     pub fn store(
         &self,
-        dirs: &Directory,
+        paths: &AppPaths,
         key: String,
         response: CompleteResponse,
         request_headers: &HeaderMap,
     ) -> Result<(), CacheError> {
-        if let Err(error) = self.store_on_disk(dirs, &key, &response, request_headers) {
+        if let Err(error) = self.store_on_disk(paths, &key, &response, request_headers) {
             debug!(%error, "failed to store on disk");
             return Err(error);
         }
@@ -120,7 +120,7 @@ impl HttpCache {
     /// * If there is an error writing to disk or serializing the value.
     fn store_on_disk(
         &self,
-        dirs: &Directory,
+        paths: &AppPaths,
         key: &str,
         response: &CompleteResponse,
         request_headers: &HeaderMap,
@@ -145,7 +145,7 @@ impl HttpCache {
         let cache_headers = CacheHeader::new(serialized.as_slice(), sha);
 
         self.inner.put(
-            dirs,
+            paths,
             sha,
             serialized.as_slice(),
             &response.head.headers,
@@ -165,10 +165,10 @@ impl HttpCache {
     ///
     /// # Errors
     /// * If there is an error removing the entry from disk.
-    pub fn evict(&mut self, dirs: &Directory, key: &str, request_headers: &HeaderMap) -> Result<bool, CacheError> {
+    pub fn evict(&mut self, paths: &AppPaths, key: &str, request_headers: &HeaderMap) -> Result<bool, CacheError> {
         let sha = Self::hash_url(key);
 
-        let removed_disk = self.inner.delete(dirs, sha, request_headers)?;
+        let removed_disk = self.inner.delete(paths, sha, request_headers)?;
         Ok(removed_disk)
     }
 
@@ -220,7 +220,7 @@ mod tests {
     use database::Database;
     use http_serde::http::StatusCode;
     use serial_test::serial;
-    use storage::Directory;
+    use storage::AppPaths;
 
     use super::*;
 
@@ -275,9 +275,9 @@ mod tests {
         let key = "https://example.com/resource".to_string();
         let response = CompleteResponse::new(StatusCode::OK, response_headers, "cached_data".into());
 
-        let database = IndexDatabase::open(Directory::try_new().unwrap()).expect("Couldn't open database");
+        let database = IndexDatabase::open(AppPaths::try_new().unwrap()).expect("Couldn't open database");
         let cache = HttpCache::new(database);
-        let dirs = Directory::try_new().unwrap();
+        let dirs = AppPaths::try_new().unwrap();
 
         let result = cache.store(&dirs, key.clone(), response, &request_header);
         assert!(result.is_ok());
@@ -300,9 +300,9 @@ mod tests {
         let key = "https://example.com/resource".to_string();
         let response = CompleteResponse::new(StatusCode::OK, response_headers, "cached_data".into());
 
-        let database = IndexDatabase::open(Directory::try_new().unwrap()).expect("Couldn't open database");
+        let database = IndexDatabase::open(AppPaths::try_new().unwrap()).expect("Couldn't open database");
         let cache = HttpCache::new(database);
-        let dirs = Directory::try_new().unwrap();
+        let dirs = AppPaths::try_new().unwrap();
 
         let result = cache.store(&dirs, key.clone(), response, &request_header);
         assert!(result.is_ok());

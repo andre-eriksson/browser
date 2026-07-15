@@ -7,7 +7,7 @@ use iced::{
     widget::{Button, button, svg},
     window::Id,
 };
-use io::embeded::{LEFT_CHEVRON_ICON, REFRESH_ICON, RIGHT_CHEVRON_ICON};
+use io::embedded::{LEFT_CHEVRON_ICON, REFRESH_ICON, RIGHT_CHEVRON_ICON};
 
 use crate::{
     core::Tab,

@@ -21,7 +21,7 @@ use http_types::{
     request::Request,
 };
 use io::Loadable;
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{
     Browser,
@@ -192,7 +192,7 @@ impl Browser {
                                 let client_clone = client.box_clone();
                                 let headers_clone = Arc::clone(&headers);
                                 let http_cache = self.profile().http_cache().clone();
-                                let dirs = Directory::from(self.profile().dirs()).clone();
+                                let dirs = AppPaths::from(self.profile().dirs()).clone();
                                 let cookie_jar = cookie_jar.clone();
 
                                 let handle = tokio::spawn(
@@ -319,7 +319,7 @@ impl Browser {
     /// Spawns a task to fetch and parse a stylesheet from the given URL, returning a handle to the resulting stylesheet.
     /// The task will handle cookies and headers appropriately, and will return `None` if fetching or parsing fails.
     fn spawn_style_fetch_and_parse(
-        dirs: Directory,
+        paths: AppPaths,
         style_url: Url,
         page_url: &Url,
         cache: &HttpCache,
@@ -339,7 +339,7 @@ impl Browser {
                     .build();
 
                 let response_result = if style_url.scheme() != "http" && style_url.scheme() != "https" {
-                    match request.load_asset(&dirs, Some(MAX_BLOCK_SIZE)) {
+                    match request.load_asset(&paths, Some(MAX_BLOCK_SIZE)) {
                         Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
                         Err(error) => {
                             debug!(%error, "Failed to load stylesheet {}", style_url);
@@ -347,7 +347,7 @@ impl Browser {
                         }
                     }
                 } else {
-                    fetch(Some(&page_url), request, client.as_ref(), &headers, &dirs, &cookie_jar, &cache).await
+                    fetch(Some(&page_url), request, client.as_ref(), &headers, &paths, &cookie_jar, &cache).await
                 };
 
                 let response_handle = match response_result {

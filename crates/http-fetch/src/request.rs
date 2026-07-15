@@ -15,7 +15,7 @@ use http_types::{
     properties::Credentials,
     request::{Request, RequestContext},
 };
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{
     cache::{cache_lookup, make_revalidation_request},
@@ -58,7 +58,7 @@ pub async fn fetch(
     mut request: Request,
     client: &dyn HttpClient,
     browser_headers: &HeaderMap,
-    dirs: &Directory,
+    paths: &AppPaths,
     cookie_jar: &CookieJar,
     http_cache: &HttpCache,
 ) -> FetchResult<Box<dyn ResponseHandle>> {
@@ -67,7 +67,7 @@ pub async fn fetch(
 
     add_headers(current_url, &mut request, browser_headers);
 
-    match cache_lookup(dirs, &request.context, http_cache) {
+    match cache_lookup(paths, &request.context, http_cache) {
         Ok(entry) => match entry {
             CacheEntry::Hit(data) => {
                 debug!({ STATUS_CODE } = data.head.status_code.as_u16(), { CACHE } = "hit");
@@ -82,7 +82,7 @@ pub async fn fetch(
                 return match make_revalidation_request(
                     request,
                     client,
-                    dirs,
+                    paths,
                     http_cache,
                     stale_data,
                     revalidation_headers,
@@ -140,7 +140,7 @@ pub async fn fetch(
     let cache_key = request_context.url.to_string();
     let final_handle = if response_head.status_code.is_success() {
         CachingResponse::wrap_handle(
-            dirs.clone(),
+            paths.clone(),
             http_cache,
             cache_key,
             response_handle,

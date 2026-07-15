@@ -6,7 +6,7 @@ use std::{
     io::{BufWriter, Write},
 };
 
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{errors::CacheError, header::CacheHeader};
 
@@ -31,9 +31,9 @@ impl LargeFile {
     /// Writes a large cache entry to the filesystem, creating a directory structure based on the SHA-256 hash of the
     /// entry's URL. It stores the cache header metadata in a separate file and the actual content in another file.
     /// The method returns the size of the content written or an error if the operation fails.
-    pub fn write(dirs: &Directory, sha: [u8; 32], data: &[u8], header: &CacheHeader) -> Result<usize, CacheError> {
+    pub fn write(paths: &AppPaths, sha: [u8; 32], data: &[u8], header: &CacheHeader) -> Result<usize, CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
-        let cache_path = &dirs.profile_cache;
+        let cache_path = &paths.profile_cache;
 
         let path = cache_path
             .join(LARGE_DIR)
@@ -76,10 +76,10 @@ impl LargeFile {
     /// Reads a large cache entry from the filesystem based on its SHA-256 hash. It retrieves both the cache header metadata
     /// and the actual content data, returning them along with the size of the content. If the entry is not found or if
     /// there are any issues during reading, it returns an appropriate error.
-    pub fn read(dirs: &Directory, sha: [u8; 32]) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
+    pub fn read(paths: &AppPaths, sha: [u8; 32]) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
         let str_sha = Self::hash_to_hex(&sha);
 
-        let cache_path = &dirs.profile_cache;
+        let cache_path = &paths.profile_cache;
 
         let path = cache_path
             .join(LARGE_DIR)
@@ -105,8 +105,8 @@ impl LargeFile {
     /// Deletes a large cache entry from the filesystem based on its SHA-256 hash. It removes the entire directory associated
     /// with the entry, including both the metadata and content files. If the entry does not exist, it simply returns `Ok(())`,
     /// ensuring that the method is idempotent and does not fail if the entry is already absent.
-    pub fn delete(dirs: &Directory, sha: [u8; 32]) -> Result<(), CacheError> {
-        let cache_path = &dirs.profile_cache;
+    pub fn delete(paths: &AppPaths, sha: [u8; 32]) -> Result<(), CacheError> {
+        let cache_path = &paths.profile_cache;
         let str_sha = Self::hash_to_hex(&sha);
 
         let path = cache_path

@@ -6,7 +6,7 @@ use std::{
 
 use database::{Database, Table};
 use rusqlite::{Connection, Result};
-use storage::Directory;
+use storage::AppPaths;
 use time::UtcDateTime;
 use tracing::debug;
 use url::Host;
@@ -24,8 +24,8 @@ pub struct CookieDatabase {
 }
 
 impl Database for CookieDatabase {
-    fn open(dirs: Directory) -> Result<Self> {
-        let path = dirs.profile_data.join(COOKIE_DATABASE);
+    fn open(paths: AppPaths) -> Result<Self> {
+        let path = paths.profile_data.join(COOKIE_DATABASE);
 
         std::fs::create_dir_all(path.parent().unwrap())
             .map_err(|_| rusqlite::Error::InvalidPath("Failed to create data directory".into()))?;

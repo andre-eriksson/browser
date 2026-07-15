@@ -16,7 +16,7 @@ mod tests {
     use css_style::{AbsoluteContext, StyleTree};
     use css_values::color::Color;
     use html_parser::{BlockedReason, HtmlStreamParser, ParserState};
-    use io::embeded::DEFAULT_CSS;
+    use io::embedded::DEFAULT_CSS;
     use layout::{ImageContext, LayoutImage, LayoutInput, LayoutTree, NodeId, Rect, TextContext};
 
     fn load_fixture(html: &str) -> String {

@@ -8,7 +8,7 @@ use iced::{
     widget::{Column, container},
     window::{self, Id, Position, Settings, settings::PlatformSpecific},
 };
-use io::embeded::WINDOW_ICON;
+use io::embedded::WINDOW_ICON;
 use layout::{Rect, TextContext};
 use manifest::{APP_ID, APP_NAME};
 

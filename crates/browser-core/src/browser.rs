@@ -7,8 +7,8 @@ use css_cssom::{CSSStyleSheet, StylesheetOrigin};
 use http_fetch::{client::HttpClient, clients::reqwest::ReqwestClient};
 use io::{
     Loadable, Writable,
-    embeded::{DEFAULT_CSS, DEVTOOLS_CSS},
-    files::PROFILE_CACHE_USER_AGENT,
+    embedded::{DEFAULT_CSS, DEVTOOLS_CSS},
+    entries::PROFILE_CACHE_USER_AGENT,
 };
 use postcard::{from_bytes, to_stdvec};
 use tracing::{Instrument, instrument, trace, warn};

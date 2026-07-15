@@ -1,8 +1,8 @@
 use bytes::Bytes;
 use http_types::request::Request;
-use storage::Directory;
+use storage::AppPaths;
 
-use crate::{Entry, embeded::EmbededType, errors::ResourceError, loader::Loadable};
+use crate::{Entry, embed::EmbeddedType, entry::AppFile, errors::ResourceError, loader::Loadable};
 
 /// A list of allowed "about:" URLs that the browser can load.
 /// This is a security measure to prevent loading potentially harmful or
@@ -12,7 +12,7 @@ const ALLOWED_ABOUT_URLS: &[&str] = &["blank"];
 
 impl Loadable for Request {
     type Output = Bytes;
-    fn load_asset(self, dirs: &Directory, max_file_size: Option<u64>) -> Result<Self::Output, ResourceError> {
+    fn load_asset(self, paths: &AppPaths, max_file_size: Option<u64>) -> Result<Self::Output, ResourceError> {
         let scheme = self.context.url.scheme();
 
         if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
@@ -24,14 +24,14 @@ impl Loadable for Request {
 
         match scheme {
             "file" => {
-                let entry = Entry::absolute(path);
+                let entry = AppFile(Entry::absolute(path));
 
-                entry.load_asset(dirs, max_file_size)
+                entry.load_asset(paths, max_file_size)
             }
             "about" => {
                 let url = self.context.url.path();
                 if ALLOWED_ABOUT_URLS.contains(&url) {
-                    let data = EmbededType::Browser(path).load();
+                    let data = EmbeddedType::Browser(path).load();
 
                     Ok(data.into_owned().into())
                 } else {

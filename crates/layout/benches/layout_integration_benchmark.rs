@@ -20,7 +20,7 @@ use css_style::{AbsoluteContext, StyleTree};
 use css_values::color::Color;
 use html_dom::DocumentRoot;
 use html_parser::{BlockedReason, HtmlStreamParser, ParserState, Script};
-use io::embeded::DEFAULT_CSS;
+use io::embedded::DEFAULT_CSS;
 use layout::{ImageContext, LayoutInput, LayoutTree, Rect, TextContext};
 use url::Url;
 

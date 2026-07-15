@@ -4,4 +4,4 @@
 
 mod paths;
 
-pub use paths::{Directory, create_paths, get_cache_path, get_config_path, get_data_path, get_temp_path};
+pub use paths::{AppPaths, create_paths, get_cache_path, get_config_path, get_data_path, get_temp_path};

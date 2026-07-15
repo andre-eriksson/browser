@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use rand::{RngExt, distr::Alphanumeric};
-use storage::{Directory, get_cache_path, get_config_path, get_data_path, get_temp_path};
+use storage::{AppPaths, get_cache_path, get_config_path, get_data_path, get_temp_path};
 
 use crate::profile::ProfileKind;
 
@@ -139,9 +139,9 @@ impl Drop for ProfilePaths {
     }
 }
 
-impl From<&ProfilePaths> for Directory {
+impl From<&ProfilePaths> for AppPaths {
     fn from(value: &ProfilePaths) -> Self {
-        Directory {
+        AppPaths {
             profile_cache: Arc::clone(&value.profile_cache),
             profile_config: Arc::clone(&value.profile_config),
             profile_data: Arc::clone(&value.profile_data),

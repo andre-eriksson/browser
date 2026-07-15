@@ -1,5 +1,5 @@
 use bytemuck::{Pod, Zeroable};
-use io::embeded::SOLID_SHADER;
+use io::embedded::SOLID_SHADER;
 use layout::{Color4f, Rect};
 use tracing::debug;
 use wgpu::{Device, Queue, RenderPipeline, TextureFormat};

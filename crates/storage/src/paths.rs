@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use manifest::APP_NAME;
 
 #[derive(Debug, Clone)]
-pub struct Directory {
+pub struct AppPaths {
     pub profile_cache: Arc<PathBuf>,
     pub profile_config: Arc<PathBuf>,
     pub profile_data: Arc<PathBuf>,
@@ -13,7 +13,7 @@ pub struct Directory {
     pub temp: Arc<PathBuf>,
 }
 
-impl Directory {
+impl AppPaths {
     pub fn try_new() -> Option<Self> {
         let cache = get_cache_path(vec![])?;
         let config = get_config_path(vec![])?;

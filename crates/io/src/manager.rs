@@ -1,8 +1,8 @@
 use std::{fs::File, io::Read, path::PathBuf};
 
-use storage::Directory;
+use storage::AppPaths;
 
-use crate::files::FilePath;
+use crate::entry::EntryCategory;
 
 use crate::{Entry, errors::ResourceError};
 
@@ -26,25 +26,25 @@ impl Resource {
     ///   If `None`, there is no size limit for individual files.
     pub fn load_dir(
         dir: Entry,
-        dirs: &Directory,
+        paths: &AppPaths,
         max_files: Option<usize>,
         max_file_size: Option<u64>,
     ) -> Result<Vec<Vec<u8>>, ResourceError> {
         let path = if dir.is_global() {
             match dir.file_path() {
-                FilePath::Absolute => PathBuf::from(dir.location()),
-                FilePath::Cache => dirs.global_cache.join(dir.location()),
-                FilePath::Config => dirs.global_config.join(dir.location()),
-                FilePath::UserData => dirs.global_data.join(dir.location()),
-                FilePath::Temporary => dirs.temp.join(dir.location()),
+                EntryCategory::Absolute => PathBuf::from(dir.path()),
+                EntryCategory::Cache => paths.global_cache.join(dir.path()),
+                EntryCategory::Config => paths.global_config.join(dir.path()),
+                EntryCategory::UserData => paths.global_data.join(dir.path()),
+                EntryCategory::Temporary => paths.temp.join(dir.path()),
             }
         } else {
             match dir.file_path() {
-                FilePath::Absolute => PathBuf::from(dir.location()),
-                FilePath::Cache => dirs.profile_cache.join(dir.location()),
-                FilePath::Config => dirs.profile_config.join(dir.location()),
-                FilePath::UserData => dirs.profile_data.join(dir.location()),
-                FilePath::Temporary => dirs.temp.join(dir.location()),
+                EntryCategory::Absolute => PathBuf::from(dir.path()),
+                EntryCategory::Cache => paths.profile_cache.join(dir.path()),
+                EntryCategory::Config => paths.profile_config.join(dir.path()),
+                EntryCategory::UserData => paths.profile_data.join(dir.path()),
+                EntryCategory::Temporary => paths.temp.join(dir.path()),
             }
         };
 

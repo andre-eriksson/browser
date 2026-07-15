@@ -1,12 +1,12 @@
 use rusqlite::{Connection, Result};
-use storage::Directory;
+use storage::AppPaths;
 
 pub trait Database: Sized {
     /// Opens a connection to the database.
     ///
     /// # Errors
     /// * If the database file cannot be opened or created
-    fn open(dirs: Directory) -> Result<Self>;
+    fn open(paths: AppPaths) -> Result<Self>;
 }
 
 pub trait Table {

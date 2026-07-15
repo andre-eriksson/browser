@@ -9,12 +9,12 @@ use http_types::{
     body::{CompleteHttpBody, HttpBody, TeeStream},
     response::{CompleteResponse, HeaderResponse, Response},
 };
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{client::ResponseHandle, errors::NetworkError};
 
 pub struct CachingResponse {
-    dirs: Directory,
+    paths: AppPaths,
     inner: Box<dyn ResponseHandle>,
     cache: HttpCache,
     cache_key: String,
@@ -23,14 +23,14 @@ pub struct CachingResponse {
 
 impl CachingResponse {
     pub fn new(
-        dirs: Directory,
+        paths: AppPaths,
         inner: Box<dyn ResponseHandle>,
         cache: HttpCache,
         cache_key: String,
         request_headers: HeaderMap,
     ) -> Self {
         Self {
-            dirs,
+            paths,
             inner,
             cache,
             cache_key,
@@ -39,13 +39,13 @@ impl CachingResponse {
     }
 
     pub fn wrap_handle(
-        dirs: Directory,
+        paths: AppPaths,
         http_cache: &HttpCache,
         cache_key: String,
         handle: Box<dyn ResponseHandle>,
         request_headers: HeaderMap,
     ) -> Box<dyn ResponseHandle> {
-        Box::new(CachingResponse::new(dirs, handle, http_cache.clone(), cache_key, request_headers))
+        Box::new(CachingResponse::new(paths, handle, http_cache.clone(), cache_key, request_headers))
     }
 }
 
@@ -57,7 +57,7 @@ impl ResponseHandle for CachingResponse {
 
     async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
         let CachingResponse {
-            dirs,
+            paths,
             inner,
             cache,
             cache_key,
@@ -73,7 +73,7 @@ impl ResponseHandle for CachingResponse {
         match response.body {
             HttpBody::Empty | HttpBody::Buffered(_) => {
                 if let Some(complete) = response.to_cacheable(MAX_BLOCK_SIZE as usize)
-                    && let Err(err) = cache.store(&dirs, cache_key, complete, &request_headers)
+                    && let Err(err) = cache.store(&paths, cache_key, complete, &request_headers)
                 {
                     debug!(%err);
                 }
@@ -98,7 +98,7 @@ impl ResponseHandle for CachingResponse {
                             body: CompleteHttpBody(bytes),
                         };
 
-                        if let Err(err) = cache.store(&dirs, cache_key, cached, &request_headers) {
+                        if let Err(err) = cache.store(&paths, cache_key, cached, &request_headers) {
                             debug!(%err);
                         }
                     }

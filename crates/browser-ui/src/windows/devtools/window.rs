@@ -3,7 +3,7 @@ use iced::{
     widget::{container, text},
     window::{self, Id, Position, Settings, settings::PlatformSpecific},
 };
-use io::embeded::DEVTOOLS_ICON;
+use io::embedded::DEVTOOLS_ICON;
 use layout::Rect;
 use manifest::{DEVTOOLS_ID, DEVTOOLS_NAME};
 

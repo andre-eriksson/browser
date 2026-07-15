@@ -8,7 +8,7 @@ use iced::{
     widget::{Button, MouseArea, Row, button, image, mouse_area, svg, text},
     window::Id,
 };
-use io::embeded::PLUS_ICON;
+use io::embedded::PLUS_ICON;
 
 use crate::{
     core::{Tab, TabId},

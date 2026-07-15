@@ -11,7 +11,7 @@ use http_types::{
     request::{Request, RequestContext},
     response::CompleteResponse,
 };
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{
     client::{HttpClient, ResponseHandle},
@@ -21,17 +21,17 @@ use crate::{
 };
 
 pub(crate) fn cache_lookup(
-    dirs: &Directory,
+    paths: &AppPaths,
     request_context: &RequestContext,
     http_cache: &HttpCache,
 ) -> Result<CacheEntry, CacheError> {
-    http_cache.get(dirs, request_context.url.as_str(), &request_context.headers)
+    http_cache.get(paths, request_context.url.as_str(), &request_context.headers)
 }
 
 pub(crate) async fn make_revalidation_request(
     mut request: Request,
     client: &dyn HttpClient,
-    dirs: &Directory,
+    paths: &AppPaths,
     http_cache: &HttpCache,
     stale_data: CompleteResponse,
     revalidation_headers: HeaderMap,
@@ -65,7 +65,7 @@ pub(crate) async fn make_revalidation_request(
             return Ok(FetchResult::Success(handle));
         } else if status == StatusCode::OK {
             return Ok(FetchResult::Success(CachingResponse::wrap_handle(
-                dirs.clone(),
+                paths.clone(),
                 http_cache,
                 url,
                 handle,

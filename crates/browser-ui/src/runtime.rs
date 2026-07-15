@@ -4,7 +4,7 @@ use browser_args::BrowserArgs;
 use browser_core::Browser;
 use browser_preferences::BrowserPreferences;
 use iced::{Font, Pixels, Settings};
-use io::embeded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR};
+use io::embedded::{OPEN_SANS_REGULAR, ROBOTO_MONO_REGULAR};
 
 use crate::{core::Application, errors::UiError};
 

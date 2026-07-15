@@ -15,7 +15,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use storage::Directory;
+use storage::AppPaths;
 
 use crate::{errors::CacheError, header::CacheHeader};
 
@@ -53,8 +53,8 @@ impl BlockFile {
     ///
     /// Returns `(file_id, actual_offset, header_size, content_size)` — all values
     /// are derived from the write itself.
-    pub fn write(dirs: &Directory, value: &[u8], header: &mut CacheHeader) -> Result<(u32, u32, u32, u32), CacheError> {
-        let cache_path = &dirs.profile_cache;
+    pub fn write(paths: &AppPaths, value: &[u8], header: &mut CacheHeader) -> Result<(u32, u32, u32, u32), CacheError> {
+        let cache_path = &paths.profile_cache;
 
         let block_dir = cache_path.join(BLOCK_DIR);
         fs::create_dir_all(&block_dir)?;
@@ -109,13 +109,13 @@ impl BlockFile {
     /// method returns the deserialized `CacheHeader`, the content bytes as a vector, and the size of the content.
     /// If any step fails (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
     pub fn read(
-        dirs: &Directory,
+        paths: &AppPaths,
         block_id: u32,
         offset: u32,
         header_size: u32,
         content_size: u32,
     ) -> Result<(CacheHeader, Vec<u8>, usize), CacheError> {
-        let cache_path = &dirs.profile_cache;
+        let cache_path = &paths.profile_cache;
 
         let data_path = cache_path
             .join(BLOCK_DIR)
@@ -169,8 +169,8 @@ impl BlockFile {
     /// header size to locate the entry within the block file, reads and deserializes the header, sets the `dead` flag
     /// to `true`, and then writes the updated header back to the same location in the file. If any step fails
     /// (e.g. file not found, corrupted block/header, I/O error), it returns an appropriate error.
-    pub fn delete(dirs: &Directory, block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
-        let cache_path = &dirs.profile_cache;
+    pub fn delete(paths: &AppPaths, block_id: u32, offset: u32, header_size: u32) -> Result<(), CacheError> {
+        let cache_path = &paths.profile_cache;
 
         let data_path = cache_path
             .join(BLOCK_DIR)
