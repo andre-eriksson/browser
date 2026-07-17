@@ -14,6 +14,7 @@ mod tree;
 pub use context::{ImageContext, ImageData, LayoutImage, TextContext};
 pub use css_style::{Color4f, Position};
 pub use engine::LayoutInput;
+pub(crate) use engine::LayoutState;
 pub use html_dom::NodeId;
 pub use node::LayoutNode;
 pub use primitives::{LayoutColors, Margin, Rect};

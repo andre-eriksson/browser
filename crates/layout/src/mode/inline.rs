@@ -4,10 +4,10 @@ use html_dom::NodeId;
 use tracing::{Level, enabled, trace};
 
 use crate::{
-    LayoutInput, LayoutNode, Margin, Rect,
-    context::{FloatContext, Geometry, LayoutContext, PositionContext},
+    LayoutInput, LayoutNode, LayoutState, Margin, Rect,
+    context::{Geometry, LayoutContext},
     mode::{
-        block::{BlockContext, BlockLayout},
+        block::{BlockFlowState, BlockLayout},
         inline::{
             collection::{InlineItem, collect},
             image::layout_image,
@@ -100,12 +100,12 @@ impl InlineLayout {
         containing_rect: Rect,
         input: &mut LayoutInput<'dom>,
         parent_style: &'dom ComputedStyle,
-        nodes: &'dom [LayoutNodeId],
+        child_ids: &'dom [LayoutNodeId],
     ) -> Vec<InlineItem<'dom>> {
-        let mut raw_items = Vec::with_capacity(nodes.len() * 2);
+        let mut raw_items = Vec::with_capacity(child_ids.len() * 2);
 
-        for node in nodes {
-            if collect(containing_rect, input, parent_style, node, &mut raw_items).is_err() {
+        for child_id in child_ids {
+            if collect(containing_rect, input, parent_style, child_id, &mut raw_items).is_err() {
                 break;
             }
         }
@@ -120,13 +120,10 @@ impl InlineLayout {
     /// flat list of `InlineItem`s, then measure and position those items into
     /// one or more `LineBox`es according to the available width and text alignment,
     /// finally returning the positioned `LayoutNode`s and total height of the laid-out lines.
-    pub fn layout(
-        nodes: &mut Vec<Option<LayoutNode>>,
-        input: &mut LayoutInput<'_>,
-        items: &[InlineItem],
-        position_ctx: &mut PositionContext,
+    pub fn layout<'input>(
+        state: &mut LayoutState<'_, 'input>,
+        items: &[InlineItem<'input>],
         inline_ctx: InlineContext,
-        float_ctx: &mut FloatContext,
     ) -> (Vec<LayoutNodeId>, Vec<Rect>, Rect) {
         let mut node_container = inline_ctx.containing_block;
         let mut node_dimensions = Vec::with_capacity(items.len());
@@ -151,7 +148,14 @@ impl InlineLayout {
 
             match item {
                 InlineItem::TextRun(text) => {
-                    layout_text(nodes, &mut inline_layout_ctx, float_ctx, input.text, &mut line, text);
+                    layout_text(
+                        state.nodes,
+                        &mut inline_layout_ctx,
+                        state.float_ctx,
+                        state.input.text,
+                        &mut line,
+                        text,
+                    );
                 }
                 InlineItem::InlineBoxStart {
                     layout_id,
@@ -160,7 +164,7 @@ impl InlineLayout {
                 } => {
                     line.open_inline_box(
                         &mut inline_layout_ctx.inline_box_stack,
-                        input.text,
+                        state.input.text,
                         **layout_id,
                         *node_id,
                         style,
@@ -171,31 +175,21 @@ impl InlineLayout {
                 }
                 InlineItem::InlineFlowRoot { layout_id, style } => {
                     let box_model = Geometry::resolve_box_model(style, inline_layout_ctx.available_width);
-                    let mut ctx = LayoutContext::new(Rect::new(
+                    let mut flow = BlockFlowState::new(LayoutContext::new(Rect::new(
                         inline_ctx.containing_block.x,
                         inline_ctx.containing_block.y,
                         inline_ctx.containing_block.width,
                         inline_ctx.containing_block.height,
-                    ));
-                    let mut block_ctx = BlockContext::default();
+                    )));
 
-                    if let Some((id, _)) = BlockLayout::layout(
-                        nodes,
-                        layout_id,
-                        style,
-                        input,
-                        &mut ctx,
-                        position_ctx,
-                        &mut block_ctx,
-                        float_ctx,
-                    ) {
-                        let Some(mut layout_node) = std::mem::take(&mut nodes[id.index()]) else {
+                    if let Some((id, _)) = BlockLayout::layout(layout_id, style, &mut flow, state) {
+                        let Some(mut layout_node) = std::mem::take(&mut state.nodes[id.index()]) else {
                             continue;
                         };
 
                         if style.width == ComputedSize::Auto {
                             layout_node.dimensions.width = InlineLayout::auto_inline_flow_root_width(
-                                nodes,
+                                state.nodes,
                                 &layout_node,
                                 box_model.padding,
                                 box_model.border,
@@ -208,19 +202,19 @@ impl InlineLayout {
                             + box_model.margin.right.to_px();
                         let available_line_width = line
                             .line_box
-                            .available_width(float_ctx, inline_layout_ctx.available_width);
+                            .available_width(state.float_ctx, inline_layout_ctx.available_width);
 
                         let alignment = &style.text_align;
                         let writing_mode = &style.writing_mode;
-                        input.text.last_text_align = *alignment;
-                        input.text.last_writing_mode = *writing_mode;
+                        state.input.text.last_text_align = *alignment;
+                        state.input.text.last_writing_mode = *writing_mode;
 
                         if line.line_box.width + total_width > available_line_width && line.line_box.width > 0.0 {
                             line.finish_line_with_decorations(
-                                nodes,
+                                state.nodes,
                                 &mut inline_layout_ctx,
-                                input.text,
-                                float_ctx,
+                                state.input.text,
+                                state.float_ctx,
                                 None,
                             );
                         }
@@ -232,19 +226,19 @@ impl InlineLayout {
                         layout_node.margin = box_model.margin;
                         line.line_box.add_ascent(ascent);
 
-                        nodes[id.index()] = Some(layout_node);
+                        state.nodes[id.index()] = Some(layout_node);
                         inline_layout_ctx.ids.push(id);
                     }
                 }
                 InlineItem::Image(img) => {
-                    layout_image(nodes, &mut inline_layout_ctx, input, img, &mut line, float_ctx);
+                    layout_image(state.nodes, &mut inline_layout_ctx, state.input, img, &mut line, state.float_ctx);
                 }
                 InlineItem::Break { line_height_px } => {
                     line.finish_line_with_decorations(
-                        nodes,
+                        state.nodes,
                         &mut inline_layout_ctx,
-                        input.text,
-                        float_ctx,
+                        state.input.text,
+                        state.float_ctx,
                         Some(*line_height_px),
                     );
 
@@ -260,15 +254,15 @@ impl InlineLayout {
         line.close_active_decorations(&mut inline_layout_ctx.inline_box_stack);
 
         let line_result = line.line_box.finish(
-            nodes,
-            float_ctx,
+            state.nodes,
+            state.float_ctx,
             inline_ctx.containing_block.x,
             inline_ctx.containing_block.width,
-            input.text.last_text_align,
-            input.text.last_writing_mode,
+            state.input.text.last_text_align,
+            state.input.text.last_writing_mode,
         );
 
-        Self::finalize_fragment_positions(nodes, &inline_layout_ctx.ids);
+        Self::finalize_fragment_positions(state.nodes, &inline_layout_ctx.ids);
 
         node_dimensions.extend(line_result.node_dimensions);
 

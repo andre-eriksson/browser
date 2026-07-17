@@ -4,9 +4,8 @@ use css_values::display::Float;
 use tracing::{Level, enabled, trace};
 
 use crate::{
-    LayoutColors, LayoutNode, Rect,
-    context::{BoxModel, FloatContext, FormattingContext, Geometry, LayoutContext, PositionContext},
-    engine::LayoutInput,
+    LayoutColors, LayoutNode, LayoutState, Rect,
+    context::{BoxModel, FormattingContext, Geometry, LayoutContext},
     mode::{
         LayoutMode,
         inline::{InlineContext, InlineLayout},
@@ -42,16 +41,25 @@ impl MarginCollapsing {
 }
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct BlockContext {
+pub struct MarginCollapseState {
     pub top_collapsed: bool,
     pub bottom_collapsed: bool,
     pub collapsed_margin: MarginCollapsing,
 }
 
 #[derive(Debug)]
-struct BlockChildContext {
+pub(crate) struct BlockFlowState {
     pub layout_ctx: LayoutContext,
-    pub block_ctx: BlockContext,
+    pub margin_state: MarginCollapseState,
+}
+
+impl BlockFlowState {
+    pub(crate) fn new(layout_ctx: LayoutContext) -> Self {
+        Self {
+            layout_ctx,
+            margin_state: MarginCollapseState::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -70,114 +78,112 @@ impl BlockLayout {
     /// Lays out the node as a block
     ///
     /// <https://www.w3.org/TR/CSS2/box.html#collapsing-margins>
-    #[allow(clippy::too_many_arguments)]
-    pub fn layout(
-        nodes: &mut Vec<Option<LayoutNode>>,
-        layout_id: &LayoutNodeId,
-        parent_style: &ComputedStyle,
-        input: &mut LayoutInput<'_>,
-        ctx: &mut LayoutContext,
-        position_ctx: &mut PositionContext,
-        current_block: &mut BlockContext,
-        float_ctx: &mut FloatContext,
+    pub fn layout<'a, 'input>(
+        layout_id: &'a LayoutNodeId,
+        parent_style: &'a ComputedStyle,
+        flow: &mut BlockFlowState,
+        state: &mut LayoutState<'_, 'input>,
     ) -> Option<(LayoutNodeId, Rect)> {
-        let box_node = &input.box_tree[layout_id];
+        let box_node = &state.input.box_tree[layout_id];
         let style = &*box_node.style;
 
         if enabled!(Level::TRACE)
             && let Some(node_id) = box_node.node_id
-            && let Some(element) = &input.dom[node_id].data.as_element()
+            && let Some(element) = &state.input.dom[node_id].data.as_element()
         {
             trace!(%element.tag, "↓ Top-down")
         }
 
-        if style.position.is_out_of_flow() && !ctx.is_deferred() {
+        if style.position.is_out_of_flow() && !flow.layout_ctx.is_deferred() {
             let containing_block = if style.position == Position::Fixed {
-                Some(ctx.containing_block())
+                Some(flow.layout_ctx.containing_block())
             } else {
                 None
             };
 
-            position_ctx.defer(layout_id, containing_block, *current_block);
+            state
+                .position_ctx
+                .defer(layout_id, containing_block, flow.margin_state);
 
             return None;
         }
 
-        let box_model = Geometry::resolve_box_model(style, ctx.containing_block().width);
-        let establishes_bfc = FormattingContext::establishes_bfc(box_node, parent_style, style, input.dom);
+        let box_model = Geometry::resolve_box_model(style, flow.layout_ctx.containing_block().width);
+        let establishes_bfc = FormattingContext::establishes_bfc(box_node, parent_style, style, state.input.dom);
 
-        let width = Self::calculate_width(style, &box_model, ctx.containing_block().width);
+        let width = Self::calculate_width(style, &box_model, flow.layout_ctx.containing_block().width);
 
-        let x = Self::calculate_x(style, ctx, &box_model, width);
-        ctx.cursor().x = x;
+        let x = Self::calculate_x(style, &flow.layout_ctx, &box_model, width);
+        flow.layout_ctx.cursor().x = x;
 
-        let has_top_fence = Geometry::has_top_fence(style, ctx.containing_block().width);
-        let has_bottom_fence = Geometry::has_bottom_fence(style, ctx.containing_block().width);
+        let has_top_fence = Geometry::has_top_fence(style, flow.layout_ctx.containing_block().width);
+        let has_bottom_fence = Geometry::has_bottom_fence(style, flow.layout_ctx.containing_block().width);
 
         let has_block_child = box_node
             .children
             .iter()
-            .any(|child| matches!(LayoutMode::new(&input.box_tree[child]), LayoutMode::Block));
+            .any(|child| matches!(LayoutMode::new(&state.input.box_tree[child]), LayoutMode::Block));
 
         let collapsed_top =
-            Self::calculate_top_margin(style, has_block_child, has_top_fence, current_block, &box_model);
-        ctx.cursor().y += collapsed_top;
+            Self::calculate_top_margin(style, has_block_child, has_top_fence, &mut flow.margin_state, &box_model);
+        flow.layout_ctx.cursor().y += collapsed_top;
 
         let avaliable_child_height =
-            Geometry::calculate_height(style, &box_model, f64::INFINITY, ctx.containing_block().height);
+            Geometry::calculate_height(style, &box_model, f64::INFINITY, flow.layout_ctx.containing_block().height);
 
         if style.position == Position::Static {
-            ctx.set_positioned_containing_block(ctx.positioned_containing_block());
+            flow.layout_ctx
+                .set_positioned_containing_block(flow.layout_ctx.positioned_containing_block());
         } else {
-            let nearest_positioned_ancestor = ctx.positioned_containing_block();
+            let nearest_positioned_ancestor = flow.layout_ctx.positioned_containing_block();
             let rect = Rect::new(nearest_positioned_ancestor.x, nearest_positioned_ancestor.y, width, 0.0);
 
-            position_ctx.push_parent(layout_id, rect);
-            ctx.set_positioned_containing_block(rect);
+            state.position_ctx.push_parent(layout_id, rect);
+            flow.layout_ctx.set_positioned_containing_block(rect);
         }
 
-        let child_start_y = ctx.containing_block().y + ctx.cursor().y;
-        let mut child_ctx = BlockChildContext {
-            layout_ctx: ctx.child_context(
+        let child_start_y = flow.layout_ctx.containing_block().y + flow.layout_ctx.cursor().y;
+        let mut child_flow = BlockFlowState {
+            layout_ctx: flow.layout_ctx.child_context(
                 Rect {
                     x: x + box_model.padding.left + box_model.border.left,
                     y: child_start_y + box_model.padding.top + box_model.border.top,
                     width,
                     height: avaliable_child_height,
                 },
-                ctx.is_deferred(),
+                flow.layout_ctx.is_deferred(),
             ),
-            block_ctx: *current_block,
+            margin_state: flow.margin_state,
         };
 
-        let child_layout_result =
-            Self::layout_children(nodes, &box_node.children, style, input, position_ctx, &mut child_ctx, float_ctx);
+        let child_layout_result = Self::layout_children(&box_node.children, style, &mut child_flow, state);
 
         if enabled!(Level::TRACE)
             && let Some(node_id) = box_node.node_id
-            && let Some(element) = &input.dom[node_id].data.as_element()
+            && let Some(element) = &state.input.dom[node_id].data.as_element()
         {
             trace!(%element.tag, "↑ Bottom-up")
         }
 
-        let node_y = if style.height.is_auto() && has_block_child && !current_block.top_collapsed && !establishes_bfc {
-            child_layout_result.node_container.y
-        } else {
-            Self::calculate_y(style, ctx)
-        };
+        let node_y =
+            if style.height.is_auto() && has_block_child && !flow.margin_state.top_collapsed && !establishes_bfc {
+                child_layout_result.node_container.y
+            } else {
+                Self::calculate_y(style, &flow.layout_ctx)
+            };
 
         let collapsed_bottom = Self::calculate_bottom_margin(
             establishes_bfc,
             has_bottom_fence,
-            &mut child_ctx.block_ctx,
-            current_block,
+            &mut child_flow.margin_state,
+            &mut flow.margin_state,
             &box_model,
         );
 
         let raw_height = if style.height.is_auto() {
             // TODO: MIN-HEIGHT
 
-            if current_block.bottom_collapsed || establishes_bfc {
+            if flow.margin_state.bottom_collapsed || establishes_bfc {
                 child_layout_result.node_container.height + collapsed_bottom + child_layout_result.node_container.y
                     - (box_model.padding.top + box_model.border.top + node_y)
             } else {
@@ -188,21 +194,23 @@ impl BlockLayout {
                 style,
                 &box_model,
                 child_layout_result.node_container.height,
-                ctx.containing_block().height,
+                flow.layout_ctx.containing_block().height,
             )
         }
         .max(0.0);
 
         if matches!(style.float, Float::None) {
-            ctx.cursor().y += raw_height;
+            flow.layout_ctx.cursor().y += raw_height;
         }
 
-        let y_adj = float_ctx.clear_y(style.clear, style.writing_mode, node_y);
-        ctx.cursor().y += y_adj - node_y;
+        let y_adj = state
+            .float_ctx
+            .clear_y(style.clear, style.writing_mode, node_y);
+        flow.layout_ctx.cursor().y += y_adj - node_y;
 
-        let node_dimensions = Rect::new(ctx.cursor().x, y_adj, width, raw_height);
+        let node_dimensions = Rect::new(flow.layout_ctx.cursor().x, y_adj, width, raw_height);
 
-        float_ctx.add_float(node_dimensions, style);
+        state.float_ctx.add_float(node_dimensions, style);
 
         let colors = LayoutColors::from(style);
         let node = LayoutNode::builder(*layout_id)
@@ -218,28 +226,25 @@ impl BlockLayout {
             .position(style.position)
             .build();
 
-        nodes[layout_id.index()] = Some(node);
+        state.nodes[layout_id.index()] = Some(node);
 
         let final_dimension_with_padding = Rect::new(
-            ctx.cursor().x,
+            flow.layout_ctx.cursor().x,
             y_adj,
             width + box_model.padding.horizontal() + box_model.border.horizontal(),
             raw_height + box_model.padding.vertical() + box_model.border.vertical(),
         );
 
-        ctx.cursor().y += box_model.padding.vertical() + box_model.border.vertical();
+        flow.layout_ctx.cursor().y += box_model.padding.vertical() + box_model.border.vertical();
 
         Some((*layout_id, final_dimension_with_padding))
     }
 
-    fn layout_children<'a>(
-        nodes: &mut Vec<Option<LayoutNode>>,
-        children: &'a [LayoutNodeId],
-        parent_style: &'a ComputedStyle,
-        input: &mut LayoutInput<'a>,
-        position_ctx: &mut PositionContext,
-        child_ctx: &mut BlockChildContext,
-        float_ctx: &mut FloatContext,
+    fn layout_children<'input>(
+        children: &'input [LayoutNodeId],
+        parent_style: &'input ComputedStyle,
+        child_flow: &mut BlockFlowState,
+        state: &mut LayoutState<'_, 'input>,
     ) -> ChildLayoutResult {
         let mut node_dimensions = Vec::with_capacity(children.len());
         let mut node_ids = Vec::with_capacity(children.len());
@@ -253,19 +258,18 @@ impl BlockLayout {
             };
         }
 
-        match LayoutMode::new(&input.box_tree[&children[0]]) {
+        match LayoutMode::new(&state.input.box_tree[&children[0]]) {
             LayoutMode::Inline => {
                 let inline_items = InlineLayout::collect_inline_items_from_nodes(
-                    child_ctx.layout_ctx.containing_block(),
-                    input,
+                    child_flow.layout_ctx.containing_block(),
+                    state.input,
                     parent_style,
                     children,
                 );
 
-                let inline_ctx = InlineContext::new(child_ctx.layout_ctx.containing_block());
+                let inline_ctx = InlineContext::new(child_flow.layout_ctx.containing_block());
 
-                let (ids, nodes_size, container) =
-                    InlineLayout::layout(nodes, input, &inline_items, position_ctx, inline_ctx, float_ctx);
+                let (ids, nodes_size, container) = InlineLayout::layout(state, &inline_items, inline_ctx);
 
                 node_ids.extend(ids);
                 node_dimensions.extend(nodes_size);
@@ -279,16 +283,7 @@ impl BlockLayout {
             _ => {
                 // TODO: Handle Flex and Grid.
                 for child_id in children {
-                    if let Some((node_id, node_size)) = BlockLayout::layout(
-                        nodes,
-                        child_id,
-                        parent_style,
-                        input,
-                        &mut child_ctx.layout_ctx,
-                        position_ctx,
-                        &mut child_ctx.block_ctx,
-                        float_ctx,
-                    ) {
+                    if let Some((node_id, node_size)) = BlockLayout::layout(child_id, parent_style, child_flow, state) {
                         node_ids.push(node_id);
                         node_dimensions.push(node_size);
 
@@ -418,7 +413,7 @@ impl BlockLayout {
         style: &ComputedStyle,
         has_block_children: bool,
         has_top_fence: bool,
-        current_block: &mut BlockContext,
+        current_block: &mut MarginCollapseState,
         box_model: &BoxModel,
     ) -> f64 {
         current_block
@@ -448,8 +443,8 @@ impl BlockLayout {
     fn calculate_bottom_margin(
         is_bfc: bool,
         has_bottom_fence: bool,
-        child_block: &mut BlockContext,
-        current_block: &mut BlockContext,
+        child_block: &mut MarginCollapseState,
+        current_block: &mut MarginCollapseState,
         box_model: &BoxModel,
     ) -> f64 {
         let collapses_with_child = !is_bfc && !has_bottom_fence;
@@ -481,8 +476,8 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use crate::{
-        Margin, TextContext,
-        context::{FloatContext, ImageContext},
+        LayoutInput, Margin, TextContext,
+        context::{FloatContext, ImageContext, PositionContext},
         primitives::SideOffset,
     };
     use css_display::{BoxNode, BoxTree};
@@ -703,7 +698,7 @@ mod tests {
     fn test_layout_empty() {
         let img_ctx = ImageContext::new();
         let mut float_ctx = FloatContext::new();
-        let mut ctx = LayoutContext::new(viewport());
+        let mut flow = BlockFlowState::new(LayoutContext::new(viewport()));
         let mut position_ctx = PositionContext::new(viewport());
 
         let mut text_ctx = TextContext::default();
@@ -731,20 +726,11 @@ mod tests {
             text: &mut text_ctx,
             image: &img_ctx,
         };
-        let mut block_ctx = BlockContext::default();
-
         let mut nodes = vec![None; input.box_tree.nodes.len()];
-
-        let layout_node = BlockLayout::layout(
-            &mut nodes,
-            &LayoutNodeId::new(0),
-            &ComputedStyle::default(),
-            &mut input,
-            &mut ctx,
-            &mut position_ctx,
-            &mut block_ctx,
-            &mut float_ctx,
-        );
+        let layout_node = {
+            let mut state = LayoutState::new(&mut nodes, &mut input, &mut position_ctx, &mut float_ctx);
+            BlockLayout::layout(&LayoutNodeId::new(0), &ComputedStyle::default(), &mut flow, &mut state)
+        };
 
         let (layout_node_id, _) = layout_node.unwrap();
         let layout_node = &nodes[layout_node_id.index()].clone().unwrap();

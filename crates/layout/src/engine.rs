@@ -3,7 +3,7 @@ use crate::{
     context::{FloatContext, ImageContext, LayoutContext, PositionContext, TextContext},
     mode::{
         LayoutMode,
-        block::{BlockContext, BlockLayout},
+        block::{BlockFlowState, BlockLayout},
         inline::{InlineContext, InlineLayout},
     },
     primitives::Rect,
@@ -22,6 +22,30 @@ pub struct LayoutInput<'a> {
     pub image: &'a ImageContext,
 }
 
+/// Mutable state shared across layout modes during a single layout pass.
+pub(crate) struct LayoutState<'a, 'input> {
+    pub nodes: &'a mut Vec<Option<LayoutNode>>,
+    pub input: &'a mut LayoutInput<'input>,
+    pub position_ctx: &'a mut PositionContext,
+    pub float_ctx: &'a mut FloatContext,
+}
+
+impl<'a, 'input> LayoutState<'a, 'input> {
+    pub(crate) fn new(
+        nodes: &'a mut Vec<Option<LayoutNode>>,
+        input: &'a mut LayoutInput<'input>,
+        position_ctx: &'a mut PositionContext,
+        float_ctx: &'a mut FloatContext,
+    ) -> Self {
+        Self {
+            nodes,
+            input,
+            position_ctx,
+            float_ctx,
+        }
+    }
+}
+
 impl LayoutTree {
     const EPSILON: f64 = 0.1;
 
@@ -38,25 +62,20 @@ impl LayoutTree {
         let mut position_ctx = PositionContext::new(viewport);
         let mut float_ctx = FloatContext::new();
 
-        let mut ctx = LayoutContext::new(viewport);
+        let mut root_flow = BlockFlowState::new(LayoutContext::new(viewport));
         let mut total_height = 0.0f64;
         let mut max_width = 0.0f64;
-        let mut root_nodes = Vec::with_capacity(input.box_tree.root_nodes.len());
+        let root_layout_ids = input.box_tree.root_nodes.clone();
+        let mut root_nodes = Vec::with_capacity(root_layout_ids.len());
         let mut nodes = vec![None; input.box_tree.nodes.len()];
 
-        for layout_id in &input.box_tree.root_nodes {
-            let mut block_ctx = BlockContext::default();
+        let mut state = LayoutState::new(&mut nodes, input, &mut position_ctx, &mut float_ctx);
+        let root_style = ComputedStyle::default();
 
-            let Some((id, size)) = BlockLayout::layout(
-                &mut nodes,
-                layout_id,
-                &ComputedStyle::default(),
-                input,
-                &mut ctx,
-                &mut position_ctx,
-                &mut block_ctx,
-                &mut float_ctx,
-            ) else {
+        for layout_id in &root_layout_ids {
+            root_flow.margin_state = Default::default();
+
+            let Some((id, size)) = BlockLayout::layout(layout_id, &root_style, &mut root_flow, &mut state) else {
                 continue;
             };
 
@@ -125,7 +144,7 @@ impl LayoutTree {
         let mut position_ctx = PositionContext::new(viewport);
         let mut float_ctx = FloatContext::new();
 
-        let mut ctx = LayoutContext::new(old_node.dimensions);
+        let mut flow = BlockFlowState::new(LayoutContext::new(old_node.dimensions));
 
         let style = &*box_node.style;
         let mode = LayoutMode::new(box_node);
@@ -145,29 +164,16 @@ impl LayoutTree {
 
                 let inline_ctx = InlineContext::new(containing_block);
 
-                InlineLayout::layout(
-                    &mut layout_tree.nodes,
-                    input,
-                    &inline_items,
-                    &mut position_ctx,
-                    inline_ctx,
-                    &mut float_ctx,
-                )
+                let mut state = LayoutState::new(&mut layout_tree.nodes, input, &mut position_ctx, &mut float_ctx);
+                InlineLayout::layout(&mut state, &inline_items, inline_ctx)
             }
             _ => {
-                // FIXME: Should retain the old block context for the node being relayouted, so that it doesn't lose track of deferred positioned children.
-                let mut block_ctx = BlockContext::default();
+                // FIXME: Should retain the old margin collapse state for the node being relayouted, so that it doesn't lose track of deferred positioned children.
+                let mut state = LayoutState::new(&mut layout_tree.nodes, input, &mut position_ctx, &mut float_ctx);
+                let root_style = ComputedStyle::default();
 
-                let Some((node, size)) = BlockLayout::layout(
-                    &mut layout_tree.nodes,
-                    &box_node.layout_id,
-                    &ComputedStyle::default(),
-                    input,
-                    &mut ctx,
-                    &mut position_ctx,
-                    &mut block_ctx,
-                    &mut float_ctx,
-                ) else {
+                let Some((node, size)) = BlockLayout::layout(&box_node.layout_id, &root_style, &mut flow, &mut state)
+                else {
                     return;
                 };
 
