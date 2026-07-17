@@ -2,7 +2,7 @@ use crate::{
     LayoutState, LayoutTree, Rect,
     context::{BoxModel, FloatContext, LayoutContext, layout::Cursor},
     engine::LayoutInput,
-    mode::block::{BlockFlowState, BlockLayout, MarginCollapseState},
+    mode::block::{BlockFlowState, BlockLayout, margin::MarginCollapseState},
 };
 use css_display::LayoutNodeId;
 use css_style::ComputedStyle;

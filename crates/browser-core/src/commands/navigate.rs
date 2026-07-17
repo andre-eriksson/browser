@@ -270,6 +270,14 @@ impl Browser {
 
                             // TODO: Process SVG content
                         }
+                        BlockedReason::MathML { data } => {
+                            let _mathml_content = data.map_err(|e| NavigationError::Parsing {
+                                url: url.to_string(),
+                                source: e,
+                            })?;
+
+                            // TODO: Process MathML content
+                        }
                     }
                 }
                 ParserState::Completed(build_result) => {

@@ -167,4 +167,13 @@ pub enum TokenState {
     ///    <circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red" />
     /// </svg>
     SvgData,
+
+    /// Represents the state of being inside a Math tag
+    ///
+    /// # Example
+    /// ```html
+    /// <math>
+    ///     <mi>x</mi>
+    /// </math>
+    MathData,
 }

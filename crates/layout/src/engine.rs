@@ -63,7 +63,7 @@ impl LayoutTree {
         let mut float_ctx = FloatContext::new();
 
         let mut root_flow = BlockFlowState::new(LayoutContext::new(viewport));
-        let mut total_height = 0.0f64;
+        let mut content_height = 0.0f64;
         let mut max_width = 0.0f64;
         let root_layout_ids = input.box_tree.root_nodes.clone();
         let mut root_nodes = Vec::with_capacity(root_layout_ids.len());
@@ -73,13 +73,13 @@ impl LayoutTree {
         let root_style = ComputedStyle::default();
 
         for layout_id in &root_layout_ids {
-            root_flow.margin_state = Default::default();
-
             let Some((id, size)) = BlockLayout::layout(layout_id, &root_style, &mut root_flow, &mut state) else {
                 continue;
             };
 
-            total_height += size.height;
+            content_height = content_height
+                .max(size.y + size.height)
+                .max(root_flow.layout_ctx.cursor_ref().y);
             max_width = max_width.max(size.width);
 
             root_nodes.push(id);
@@ -88,7 +88,7 @@ impl LayoutTree {
         let mut tree = Self {
             root_nodes,
             nodes,
-            content_height: total_height,
+            content_height,
             content_width: max_width,
         };
 

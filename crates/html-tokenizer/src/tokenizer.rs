@@ -117,6 +117,20 @@ impl HtmlTokenizer {
                 state.state = TokenState::Data;
                 Self::process_char(state, ch, tokens);
             }
+            TokenState::MathData => {
+                Self::emit_token(
+                    tokens,
+                    Token {
+                        kind: TokenKind::EndTag,
+                        attributes: None,
+                        data: "math".to_string(),
+                    },
+                );
+
+                state.temporary_buffer.clear();
+                state.state = TokenState::Data;
+                Self::process_char(state, ch, tokens);
+            }
         }
     }
 

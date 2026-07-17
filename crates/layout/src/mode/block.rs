@@ -8,44 +8,12 @@ use crate::{
     context::{BoxModel, FormattingContext, Geometry, LayoutContext},
     mode::{
         LayoutMode,
+        block::margin::{MarginCollapseState, calculate_bottom_margin, calculate_top_margin},
         inline::{InlineContext, InlineLayout},
     },
 };
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct MarginCollapsing {
-    pub max_positive: f64,
-    pub max_negative: f64,
-}
-
-impl MarginCollapsing {
-    fn add(&mut self, margin: f64) {
-        if margin >= 0.0 {
-            self.max_positive = self.max_positive.max(margin);
-        } else {
-            self.max_negative = self.max_negative.min(margin);
-        }
-    }
-
-    fn add_collapsed(&mut self, other: &MarginCollapsing) {
-        self.add(other.max_positive);
-        self.add(other.max_negative);
-    }
-
-    fn flush(&mut self) -> f64 {
-        let collapsed = self.max_positive + self.max_negative;
-        self.max_positive = 0.0;
-        self.max_negative = 0.0;
-        collapsed
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct MarginCollapseState {
-    pub top_collapsed: bool,
-    pub bottom_collapsed: bool,
-    pub collapsed_margin: MarginCollapsing,
-}
+pub(crate) mod margin;
 
 #[derive(Debug)]
 pub(crate) struct BlockFlowState {
@@ -124,8 +92,7 @@ impl BlockLayout {
             .iter()
             .any(|child| matches!(LayoutMode::new(&state.input.box_tree[child]), LayoutMode::Block));
 
-        let collapsed_top =
-            Self::calculate_top_margin(style, has_block_child, has_top_fence, &mut flow.margin_state, &box_model);
+        let collapsed_top = calculate_top_margin(has_block_child, has_top_fence, &mut flow.margin_state, &box_model);
         flow.layout_ctx.cursor().y += collapsed_top;
 
         let avaliable_child_height =
@@ -172,7 +139,7 @@ impl BlockLayout {
                 Self::calculate_y(style, &flow.layout_ctx)
             };
 
-        let collapsed_bottom = Self::calculate_bottom_margin(
+        let collapsed_bottom = calculate_bottom_margin(
             establishes_bfc,
             has_bottom_fence,
             &mut child_flow.margin_state,
@@ -407,67 +374,6 @@ impl BlockLayout {
         } else {
             Geometry::calculate_height(style, box_model, child_height, containing_block_height).max(0.0)
         }
-    }
-
-    fn calculate_top_margin(
-        style: &ComputedStyle,
-        has_block_children: bool,
-        has_top_fence: bool,
-        current_block: &mut MarginCollapseState,
-        box_model: &BoxModel,
-    ) -> f64 {
-        current_block
-            .collapsed_margin
-            .add(box_model.margin.top.to_px());
-
-        if has_top_fence || style.height.is_defined() || !has_block_children {
-            current_block.top_collapsed = true;
-            return current_block.collapsed_margin.flush();
-        }
-
-        0.0
-    }
-
-    /// Applies bottom margin changes
-    ///
-    /// * The bottom margin of an in-flow block-level element always collapses with the top margin of its next in-flow
-    ///   block-level sibling, unless that sibling has clearance.
-    ///
-    /// * The bottom margin of an in-flow block box with a 'height' of 'auto' and a 'min-height' of zero collapses
-    ///   with its last in-flow block-level child's bottom margin if the box has no bottom padding and no bottom
-    ///   border and the child's bottom margin does not collapse with a top margin that has clearance.
-    ///
-    /// * A box's own margins collapse if the 'min-height' property is zero, and it has neither top or bottom borders
-    ///   nor top or bottom padding, and it has a 'height' of either 0 or 'auto', and it does not contain a line box,
-    ///   and all of its in-flow children's margins (if any) collapse.
-    fn calculate_bottom_margin(
-        is_bfc: bool,
-        has_bottom_fence: bool,
-        child_block: &mut MarginCollapseState,
-        current_block: &mut MarginCollapseState,
-        box_model: &BoxModel,
-    ) -> f64 {
-        let collapses_with_child = !is_bfc && !has_bottom_fence;
-
-        if collapses_with_child {
-            child_block
-                .collapsed_margin
-                .add(box_model.margin.bottom.to_px());
-            current_block
-                .collapsed_margin
-                .add_collapsed(&child_block.collapsed_margin);
-        } else {
-            current_block
-                .collapsed_margin
-                .add(box_model.margin.bottom.to_px());
-        }
-
-        if has_bottom_fence || is_bfc {
-            current_block.bottom_collapsed = true;
-            return child_block.collapsed_margin.flush();
-        }
-
-        0.0
     }
 }
 

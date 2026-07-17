@@ -64,6 +64,7 @@ impl<C: Collector + Default> DomTreeBuilder<C> {
     /// # Arguments
     /// * `tokens` - A vector of `Token` instances representing the HTML content to be processed.
     pub fn build_from_tokens(&mut self, tokens: Vec<Token>) {
+        dbg!(&tokens);
         for token in tokens {
             match token.kind {
                 TokenKind::StartTag => {

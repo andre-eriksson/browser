@@ -19,6 +19,7 @@ fuzz_target!(|data: &[u8]| {
                     BlockedReason::WaitingForScript { .. } => {}
                     BlockedReason::WaitingForStyle { .. } => {}
                     BlockedReason::SVGContent { .. } => {}
+                    BlockedReason::MathML { .. } => {}
                     BlockedReason::WaitingForResource(_, _, _) => {}
                 },
                 ParserState::Completed(_) => {

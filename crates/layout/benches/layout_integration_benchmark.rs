@@ -134,6 +134,9 @@ fn parse_html_and_collect_styles(
                 BlockedReason::SVGContent { data } => {
                     data.expect("failed to extract SVG content");
                 }
+                BlockedReason::MathML { data } => {
+                    data.expect("failed to extract MathML content");
+                }
             },
             ParserState::Completed(result) => break result,
         }

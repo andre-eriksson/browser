@@ -23,6 +23,7 @@ pub(crate) enum BlockingCause {
     Script,
     Style,
     Svg,
+    Math,
     Stylesheet {
         href: String,
     },
@@ -40,6 +41,7 @@ impl BlockingCause {
             TokenState::ScriptData => Some(BlockingCause::Script),
             TokenState::StyleData => Some(BlockingCause::Style),
             TokenState::SvgData => Some(BlockingCause::Svg),
+            TokenState::MathData => Some(BlockingCause::Math),
             TokenState::Data => {
                 let attr = last_token?.attributes.as_ref()?;
                 let rel = attr.get("rel")?.trim();
@@ -101,6 +103,11 @@ pub enum BlockedReason {
 
     /// The parser is waiting for SVG parsing to complete.
     SVGContent {
+        data: Result<String, HtmlParsingError>,
+    },
+
+    /// The parser is waiting for MathML parsing to complete.
+    MathML {
         data: Result<String, HtmlParsingError>,
     },
 }

@@ -290,6 +290,11 @@ impl<R: BufRead, C: Collector + Default> HtmlStreamParser<R, C> {
                     let data = self.extract_content_until_end_tag("</svg>");
                     BlockedReason::SVGContent { data }
                 }
+                BlockingCause::Math => {
+                    trace!("Blocking parser for Math content at token: {:?}", last_token);
+                    let data = self.extract_content_until_end_tag("</math>");
+                    BlockedReason::MathML { data }
+                }
                 BlockingCause::Stylesheet { href } => {
                     trace!("Blocking parser for stylesheet resource at token: {:?}", last_token);
 
