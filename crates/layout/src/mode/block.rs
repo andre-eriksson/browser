@@ -119,7 +119,8 @@ impl BlockLayout {
             .iter()
             .any(|child| matches!(LayoutMode::new(&input.box_tree[child]), LayoutMode::Block));
 
-        let collapsed_top = Self::apply_top_margin(style, has_block_child, has_top_fence, current_block, &box_model);
+        let collapsed_top =
+            Self::calculate_top_margin(style, has_block_child, has_top_fence, current_block, &box_model);
         ctx.cursor().y += collapsed_top;
 
         let avaliable_child_height =
@@ -165,7 +166,7 @@ impl BlockLayout {
             Self::calculate_y(style, ctx)
         };
 
-        let collapsed_bottom = Self::apply_bottom_margin(
+        let collapsed_bottom = Self::calculate_bottom_margin(
             establishes_bfc,
             has_bottom_fence,
             &mut child_ctx.block_ctx,
@@ -413,7 +414,7 @@ impl BlockLayout {
         }
     }
 
-    fn apply_top_margin(
+    fn calculate_top_margin(
         style: &ComputedStyle,
         has_block_children: bool,
         has_top_fence: bool,
@@ -444,7 +445,7 @@ impl BlockLayout {
     /// * A box's own margins collapse if the 'min-height' property is zero, and it has neither top or bottom borders
     ///   nor top or bottom padding, and it has a 'height' of either 0 or 'auto', and it does not contain a line box,
     ///   and all of its in-flow children's margins (if any) collapse.
-    fn apply_bottom_margin(
+    fn calculate_bottom_margin(
         is_bfc: bool,
         has_bottom_fence: bool,
         child_block: &mut BlockContext,
