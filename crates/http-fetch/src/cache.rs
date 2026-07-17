@@ -17,7 +17,6 @@ use crate::{
     client::{HttpClient, ResponseHandle},
     clients::{CachedResponse, CachingResponse},
     errors::NetworkError,
-    request::FetchResult,
 };
 
 pub(crate) fn cache_lookup(
@@ -35,7 +34,7 @@ pub(crate) async fn make_revalidation_request(
     http_cache: &HttpCache,
     stale_data: CompleteResponse,
     revalidation_headers: HeaderMap,
-) -> Result<FetchResult<Box<dyn ResponseHandle>>, NetworkError> {
+) -> Result<Box<dyn ResponseHandle>, NetworkError> {
     let request_headers = request.context.headers.clone();
     request.context.headers.extend(revalidation_headers);
 
@@ -46,35 +45,22 @@ pub(crate) async fn make_revalidation_request(
         return Err(NetworkError::ConnectionRefused);
     };
 
-    let req = network_request.into();
+    let status = network_request.head().status_code;
 
-    if let FetchResult::Success(handle) = req {
-        let status = handle.head().status_code;
-        let headers = handle.head().headers.clone();
-
-        if status == StatusCode::NOT_MODIFIED {
-            match http_cache.revalidate(&url, &headers) {
-                Ok(()) => {
-                    return Ok(FetchResult::Success(Box::new(CachedResponse::new(stale_data))));
-                }
-                Err(error) => {
-                    debug!(%error, "failure to revalidate the cache entry");
-                }
+    if status == StatusCode::NOT_MODIFIED {
+        match http_cache.revalidate(&url, &network_request.head().headers) {
+            Ok(()) => {
+                return Ok(Box::new(CachedResponse::new(stale_data)));
             }
-
-            return Ok(FetchResult::Success(handle));
-        } else if status == StatusCode::OK {
-            return Ok(FetchResult::Success(CachingResponse::wrap_handle(
-                paths.clone(),
-                http_cache,
-                url,
-                handle,
-                request_headers,
-            )));
+            Err(error) => {
+                debug!(%error, "failure to revalidate the cache entry");
+            }
         }
 
-        return Ok(FetchResult::Success(handle));
+        return Ok(network_request);
+    } else if status == StatusCode::OK {
+        return Ok(CachingResponse::wrap_handle(paths.clone(), http_cache, url, network_request, request_headers));
     }
 
-    Ok(req)
+    Ok(network_request)
 }

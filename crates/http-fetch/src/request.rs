@@ -29,26 +29,6 @@ use crate::{
 const STATUS_CODE: &str = "status_code";
 const CACHE: &str = "cache";
 
-pub enum FetchResult<T> {
-    Success(T),
-    ClientError(T),
-    ServerError(T),
-    Failed(FetchError),
-}
-
-impl From<Box<dyn ResponseHandle>> for FetchResult<Box<dyn ResponseHandle>> {
-    fn from(response: Box<dyn ResponseHandle>) -> Self {
-        let status_code = response.head().status_code;
-        debug!({ STATUS_CODE } = status_code.as_u16(), { CACHE } = "miss");
-
-        match status_code {
-            _ if status_code.is_client_error() => FetchResult::ClientError(response),
-            _ if status_code.is_server_error() => FetchResult::ServerError(response),
-            _ => FetchResult::Success(response),
-        }
-    }
-}
-
 #[instrument(skip_all, fields(url = %request.context.url, method = %request.context.method))]
 pub async fn fetch(
     current_url: Option<&Url>,
@@ -58,7 +38,7 @@ pub async fn fetch(
     paths: &AppPaths,
     cookie_jar: &CookieJar,
     http_cache: &HttpCache,
-) -> FetchResult<Box<dyn ResponseHandle>> {
+) -> Result<Box<dyn ResponseHandle>, FetchError> {
     let needs_preflight =
         needs_preflight(current_url, &request.context.url, &request.context.headers, &request.context.method);
 
@@ -69,26 +49,16 @@ pub async fn fetch(
             CacheEntry::Hit(data) => {
                 debug!({ STATUS_CODE } = data.head.status_code.as_u16(), { CACHE } = "hit");
                 let cached_response = Box::new(CachedResponse::new(data));
-                return FetchResult::Success(DecodeResponse::wrap_handle(cached_response));
+                return Ok(DecodeResponse::wrap_handle(cached_response));
             }
             CacheEntry::RequiresRevalidation {
                 stale_data,
                 revalidation_headers,
             } => {
                 trace!("Cache requires revalidation for {}", request.context.url);
-                return match make_revalidation_request(
-                    request,
-                    client,
-                    paths,
-                    http_cache,
-                    stale_data,
-                    revalidation_headers,
-                )
-                .await
-                {
-                    Ok(res) => res,
-                    Err(error) => FetchResult::Failed(FetchError::Network(error)),
-                };
+                return make_revalidation_request(request, client, paths, http_cache, stale_data, revalidation_headers)
+                    .await
+                    .map_err(FetchError::Network);
             }
             CacheEntry::Miss => {
                 trace!("Cache Miss");
@@ -100,7 +70,7 @@ pub async fn fetch(
     }
 
     if needs_preflight && let Err(error) = handle_preflight(current_url, client, &request.context).await {
-        return error;
+        return Err(error);
     }
 
     if !matches!(request.context.credentials, Credentials::Omit)
@@ -121,7 +91,7 @@ pub async fn fetch(
         Ok(handle) => handle,
         Err(error) => {
             debug!(%error);
-            return FetchResult::Failed(FetchError::Network(error));
+            return Err(FetchError::Network(error));
         }
     };
 
@@ -148,7 +118,7 @@ pub async fn fetch(
 
     let decode_handle = DecodeResponse::wrap_handle(final_handle);
 
-    decode_handle.into()
+    Ok(decode_handle)
 }
 
 fn add_headers(current_url: Option<&Url>, request: &mut Request, browser_headers: &HeaderMap) {
@@ -165,7 +135,7 @@ async fn handle_preflight(
     current_url: Option<&Url>,
     client: &dyn HttpClient,
     request_context: &RequestContext,
-) -> Result<(), FetchResult<Box<dyn ResponseHandle>>> {
+) -> Result<Box<dyn ResponseHandle>, FetchError> {
     let current_url = current_url.as_ref().unwrap();
     let preflight_request =
         make_preflight_request(current_url, &request_context.headers, &request_context.url, &request_context.method);
@@ -174,36 +144,29 @@ async fn handle_preflight(
     let preflight_body = preflight_request.body;
 
     let preflight_result = client.send(preflight_context, preflight_body).await;
-    match preflight_result {
+    let preflight_response = match preflight_result {
         Ok(res) => {
-            let fetch_result = res.into();
-            match fetch_result {
-                FetchResult::Success(data) => {
-                    let resp = data.head();
+            let status_code = res.head().status_code;
 
-                    if let Err(cors_error) = is_cross_origin_request_allowed(
-                        &current_url.origin(),
-                        &request_context.credentials,
-                        &request_context.url,
-                        &request_context.method,
-                        &request_context.headers,
-                        resp,
-                    ) {
-                        return Err(FetchResult::Failed(FetchError::Policy(PolicyError::Cors(cors_error))));
-                    }
+            if status_code.is_success() {
+                if let Err(cors_error) = is_cross_origin_request_allowed(
+                    &current_url.origin(),
+                    &request_context.credentials,
+                    &request_context.url,
+                    &request_context.method,
+                    &request_context.headers,
+                    res.head(),
+                ) {
+                    return Err(FetchError::Policy(PolicyError::Cors(cors_error)));
                 }
-                FetchResult::ClientError(e) | FetchResult::ServerError(e) => {
-                    let resp = e.head();
-                    debug!(%resp.status_code);
-                    return Err(FetchResult::Failed(FetchError::PreflightFailed));
-                }
-                FetchResult::Failed(error) => {
-                    return Err(FetchResult::Failed(error));
-                }
+            } else {
+                return Err(FetchError::PreflightFailed);
             }
-        }
-        Err(error) => return Err(FetchResult::Failed(FetchError::Network(error))),
-    }
 
-    Ok(())
+            res
+        }
+        Err(error) => return Err(FetchError::Network(error)),
+    };
+
+    Ok(preflight_response)
 }

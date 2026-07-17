@@ -13,7 +13,7 @@ use http_fetch::{
     client::HttpClient,
     clients::RawClient,
     errors::{FetchError, NetworkError},
-    request::{FetchResult, fetch},
+    request::fetch,
 };
 use http_types::{
     errors::RequestError,
@@ -50,17 +50,17 @@ impl Browser {
 
         let request_url = navigation_request.context.url.clone();
 
-        let response_result = if navigation_request.context.url.scheme() != "http"
+        let response_handle = if navigation_request.context.url.scheme() != "http"
             && navigation_request.context.url.scheme() != "https"
         {
             match navigation_request.read(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
-                Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
+                Ok(data) => RawClient::wrap_handle(data),
                 Err(error) => {
                     return Err(NavigationError::Resource(error));
                 }
             }
         } else {
-            fetch(
+            match fetch(
                 None,
                 navigation_request,
                 client,
@@ -70,23 +70,23 @@ impl Browser {
                 self.profile().http_cache(),
             )
             .await
+            {
+                Ok(response_handle) => response_handle,
+                Err(error) => {
+                    return Err(NavigationError::Request {
+                        source: error,
+                        url: url.to_string(),
+                    });
+                }
+            }
         };
 
-        let response_handle = match response_result {
-            FetchResult::Success(response) => response,
-            FetchResult::ClientError(response) | FetchResult::ServerError(response) => {
-                return Err(NavigationError::Request {
-                    source: FetchError::Network(NetworkError::HttpStatus(response.head().status_code)),
-                    url: url.to_string(),
-                });
-            }
-            FetchResult::Failed(error) => {
-                return Err(NavigationError::Request {
-                    source: error,
-                    url: url.to_string(),
-                });
-            }
-        };
+        if !response_handle.head().status_code.is_success() {
+            return Err(NavigationError::Request {
+                source: FetchError::Network(NetworkError::HttpStatus(response_handle.head().status_code)),
+                url: url.to_string(),
+            });
+        }
 
         let response = match response_handle.response().await {
             Ok(resp) => resp,
@@ -201,17 +201,17 @@ impl Browser {
                                             .request_mode(RequestMode::Cors)
                                             .build();
 
-                                        let response_result =
+                                        let response_handle =
                                             if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
                                                 match request.read(&dirs, Some(MAX_BLOCK_SIZE)) {
-                                                    Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
+                                                    Ok(data) => RawClient::wrap_handle(data),
                                                     Err(error) => {
                                                         debug!(%error, "Failed to load favicon {}", relative_url);
                                                         return None;
                                                     }
                                                 }
                                             } else {
-                                                fetch(
+                                                match fetch(
                                                     Some(&page_url),
                                                     request,
                                                     client_clone.as_ref(),
@@ -221,37 +221,37 @@ impl Browser {
                                                     &http_cache,
                                                 )
                                                 .await
-                                            };
-
-                                        match response_result {
-                                            FetchResult::Success(response_handle) => {
-                                                match response_handle.response().await {
-                                                    Ok(response) => {
-                                                        if let Some(body) =
-                                                            response.body.into_complete(2 * 1024 * 1024).await
-                                                        {
-                                                            Some(body.0.into())
-                                                        } else {
-                                                            debug!("Empty body for favicon {}", relative_url);
-                                                            None
-                                                        }
-                                                    }
+                                                {
+                                                    Ok(response_handle) => response_handle,
                                                     Err(error) => {
                                                         debug!(%error, "Failed to fetch favicon {}", relative_url);
-                                                        None
+                                                        return None;
                                                     }
                                                 }
+                                            };
+
+                                        if !response_handle.head().status_code.is_success() {
+                                            debug!(
+                                                "Failed to fetch favicon {}: status code {}",
+                                                relative_url,
+                                                response_handle.head().status_code
+                                            );
+                                            return None;
+                                        }
+
+                                        match response_handle.response().await {
+                                            Ok(response) => {
+                                                if let Some(complete_response) =
+                                                    response.into_complete(2 * 1024 * 1024).await
+                                                {
+                                                    Some(complete_response.body.0.into())
+                                                } else {
+                                                    debug!("Empty body for favicon {}", relative_url);
+                                                    None
+                                                }
                                             }
-                                            FetchResult::Failed(error) => {
-                                                debug!(%error, "Failed to fetch favicon {}", relative_url);
-                                                None
-                                            }
-                                            FetchResult::ClientError(resp) | FetchResult::ServerError(resp) => {
-                                                debug!(
-                                                    "Failed to fetch favicon {}: status code {}",
-                                                    relative_url,
-                                                    resp.head().status_code
-                                                );
+                                            Err(network_error) => {
+                                                debug!("Failed to fetch favicon {}: {}", relative_url, network_error);
                                                 None
                                             }
                                         }
@@ -337,29 +337,33 @@ impl Browser {
                     .destination(Destination::Style)
                     .build();
 
-                let response_result = if style_url.scheme() != "http" && style_url.scheme() != "https" {
+                let response_handle = if style_url.scheme() != "http" && style_url.scheme() != "https" {
                     match request.read(&paths, Some(MAX_BLOCK_SIZE)) {
-                        Ok(data) => FetchResult::Success(RawClient::wrap_handle(data)),
+                        Ok(data) => RawClient::wrap_handle(data),
                         Err(error) => {
                             debug!(%error, "Failed to load stylesheet {}", style_url);
                             return None;
                         }
                     }
                 } else {
-                    fetch(Some(&page_url), request, client.as_ref(), &headers, &paths, &cookie_jar, &cache).await
+                    match fetch(Some(&page_url), request, client.as_ref(), &headers, &paths, &cookie_jar, &cache).await
+                    {
+                        Ok(response) => response,
+                        Err(error) => {
+                            debug!(%error, "Failed to fetch stylesheet {}", style_url);
+                            return None;
+                        }
+                    }
                 };
 
-                let response_handle = match response_result {
-                    FetchResult::Success(response) => response,
-                    FetchResult::ClientError(response) | FetchResult::ServerError(response) => {
-                        debug!("Failed to fetch stylesheet {}: status code {}", style_url, response.head().status_code);
-                        return None;
-                    }
-                    FetchResult::Failed(error) => {
-                        debug!(%error, "Failed to fetch stylesheet {}", style_url);
-                        return None;
-                    }
-                };
+                if !response_handle.head().status_code.is_success() {
+                    debug!(
+                        "Failed to fetch stylesheet {}: status code {}",
+                        style_url,
+                        response_handle.head().status_code
+                    );
+                    return None;
+                }
 
                 let response = match response_handle.response().await {
                     Ok(resp) => resp,

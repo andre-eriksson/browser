@@ -4,7 +4,7 @@ use http::header::CONTENT_TYPE;
 use http_cache::block::MAX_BLOCK_SIZE;
 use http_fetch::{
     errors::{FetchError, NetworkError},
-    request::{FetchResult, fetch},
+    request::fetch,
 };
 use http_types::{
     properties::{Destination, RequestMode},
@@ -51,7 +51,7 @@ impl Browser {
             .request_mode(RequestMode::Cors)
             .build();
 
-        let response_result = fetch(
+        let response_handle = match fetch(
             Some(&request_url),
             image_request,
             client.as_ref(),
@@ -60,29 +60,17 @@ impl Browser {
             self.profile().cookie_jar(),
             self.profile().http_cache(),
         )
-        .await;
-
-        let response_handle = match response_result {
-            FetchResult::Success(handle) => handle,
-            FetchResult::Failed(error) => {
-                debug!(%error, "Failed to fetch image: {}", image_url);
-                return Err(CoreError::Image(format!("Failed to fetch image: {}", error)));
-            }
-            FetchResult::ClientError(err_resp_handle) | FetchResult::ServerError(err_resp_handle) => {
-                let status_code = err_resp_handle.head().status_code;
-
-                debug!(
-                    status = %status_code,
-                    "Failed to fetch image: {}",
-                    image_url
-                );
-
-                return Err(CoreError::Image(format!(
-                    "Failed to fetch image: {} (status code: {})",
-                    image_url, status_code
-                )));
+        .await
+        {
+            Ok(handle) => handle,
+            Err(error) => {
+                return Err(CoreError::Image(error.to_string()));
             }
         };
+
+        if !response_handle.head().status_code.is_success() {
+            return Err(CoreError::Image(format!("Status Code: {}", response_handle.head().status_code.as_u16())));
+        }
 
         let response = match response_handle.response().await {
             Ok(resp) => resp,
