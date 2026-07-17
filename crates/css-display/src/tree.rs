@@ -27,16 +27,27 @@ impl<'node> BoxTree<'node> {
         let mut dom_to_layout = vec![None; dom.nodes.len()];
 
         for node_id in &dom.root_nodes {
-            if let Some(id) = Self::build_box_node(None, node_id, dom, style_tree, &mut nodes, &mut dom_to_layout) {
-                root_nodes.push(id);
-
-                if dom.get_node(node_id).is_some() {
-                    dom_to_layout[node_id.index()] = Some(id);
-                }
-            }
+            let nodes = Self::build_box_node(None, node_id, dom, style_tree, &mut nodes, &mut dom_to_layout);
+            root_nodes.extend(nodes);
         }
 
+        debug_assert!(!root_nodes.is_empty());
+        debug_assert_eq!(dom_to_layout.len(), dom.nodes.len());
         debug_assert!(nodes.is_sorted_by(|a, b| a.layout_id.index() < b.layout_id.index()));
+
+        if cfg!(debug_assertions) {
+            for (index, dom_node) in dom_to_layout.iter().enumerate() {
+                let Some(layout_node_id) = dom_node else {
+                    continue;
+                };
+
+                let layout_node = &nodes[layout_node_id.index()];
+
+                debug_assert_eq!(dom.nodes[index].id, layout_node.node_id.unwrap());
+            }
+
+            Self::assert_continuous_tree(&root_nodes, &nodes);
+        }
 
         Self {
             root_nodes,
@@ -83,19 +94,25 @@ impl<'node> BoxTree<'node> {
         style_tree: &'node StyleTree,
         nodes: &mut Vec<BoxNode<'node>>,
         dom_to_layout: &mut [Option<LayoutNodeId>],
-    ) -> Option<LayoutNodeId> {
+    ) -> Vec<LayoutNodeId> {
         let style = &style_tree[node_id];
 
         if style.display.is_none() {
-            return None;
+            return Vec::new();
         }
 
-        let layout_id = LayoutNodeId::new(nodes.len());
-
-        nodes.push(BoxNode::new(parent_id, layout_id, node_id, style, Vec::new()));
-        dom_to_layout[node_id.index()] = Some(layout_id);
-
         let cfc = Self::infer_child_context(&dom[node_id].children, dom, style_tree);
+        let collapses =
+            style.display.is_inline() && matches!(cfc, ChildFormattingContext::Block) && parent_id.is_some();
+
+        let (layout_id, has_own_box) = if collapses {
+            (parent_id.unwrap(), false)
+        } else {
+            let id = LayoutNodeId::new(nodes.len());
+            nodes.push(BoxNode::new(parent_id, id, node_id, style, Vec::new()));
+            dom_to_layout[node_id.index()] = Some(id);
+            (id, true)
+        };
 
         let mut layout_children: Vec<LayoutNodeId> = Vec::new();
         let mut anon_children: Vec<LayoutNodeId> = Vec::new();
@@ -119,27 +136,32 @@ impl<'node> BoxTree<'node> {
                 if current_anon_id.is_none() {
                     let anon_id = LayoutNodeId::new(nodes.len());
                     nodes.push(BoxNode::new_anonymous_node(Some(layout_id), anon_id, style, Vec::new(), cfc));
-
                     layout_children.push(anon_id);
                     current_anon_id = Some(anon_id);
                 }
 
                 let anon_id = current_anon_id.unwrap();
-                if let Some(child_layout_id) =
-                    Self::build_box_node(Some(anon_id), child_id, dom, style_tree, nodes, dom_to_layout)
-                {
-                    anon_children.push(child_layout_id);
-                }
+                anon_children.extend(Self::build_box_node(
+                    Some(anon_id),
+                    child_id,
+                    dom,
+                    style_tree,
+                    nodes,
+                    dom_to_layout,
+                ));
             } else {
                 if let Some(anon_id) = current_anon_id.take() {
                     nodes[anon_id.index()].children = std::mem::take(&mut anon_children);
                 }
 
-                if let Some(child_layout_id) =
-                    Self::build_box_node(Some(layout_id), child_id, dom, style_tree, nodes, dom_to_layout)
-                {
-                    layout_children.push(child_layout_id);
-                }
+                layout_children.extend(Self::build_box_node(
+                    Some(layout_id),
+                    child_id,
+                    dom,
+                    style_tree,
+                    nodes,
+                    dom_to_layout,
+                ));
             }
         }
 
@@ -147,8 +169,29 @@ impl<'node> BoxTree<'node> {
             nodes[anon_id.index()].children = std::mem::take(&mut anon_children);
         }
 
-        nodes[layout_id.index()].children = layout_children;
-        Some(layout_id)
+        if has_own_box {
+            nodes[layout_id.index()].children = layout_children;
+            vec![layout_id]
+        } else {
+            dom_to_layout[node_id.index()] = None;
+            layout_children
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn assert_continuous_tree(root_nodes: &[LayoutNodeId], nodes: &[BoxNode]) {
+        for node_id in root_nodes {
+            Self::assert_continuous_tree_recurse(nodes, None, *node_id);
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    fn assert_continuous_tree_recurse(nodes: &[BoxNode], parent_id: Option<LayoutNodeId>, node_id: LayoutNodeId) {
+        let node = &nodes[node_id.index()];
+        assert_eq!(node.parent_id, parent_id);
+        for child_id in &node.children {
+            Self::assert_continuous_tree_recurse(nodes, Some(node_id), *child_id);
+        }
     }
 
     /// CSS2.1 §9.2.2.1
