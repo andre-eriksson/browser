@@ -4,7 +4,7 @@ use browser_preferences::theme::ThemeCategory;
 use css_cssom::ComponentValueStream;
 use css_values::{
     AlignContent, AlignItems, AlignSelf, CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap, JustifyContent,
-    JustifyItems, JustifySelf,
+    JustifyItems, JustifySelf, OverflowAnchor, OverflowBlock, OverflowWrap,
     border::{BorderStyle, BorderWidth},
     color::Color,
     cursor::Cursor,
@@ -243,6 +243,9 @@ pub type MaxSizeProperty = CSSProperty<MaxSize>;
 pub type ClearProperty = CSSProperty<Clear>;
 pub type DisplayProperty = CSSProperty<Display>;
 pub type FloatProperty = CSSProperty<Float>;
+pub type OverflowAnchorProperty = CSSProperty<OverflowAnchor>;
+pub type OverflowProperty = CSSProperty<OverflowBlock>;
+pub type OverflowWrapProperty = CSSProperty<OverflowWrap>;
 
 // Flex & Grid
 pub type AlignContentProperty = CSSProperty<AlignContent>;

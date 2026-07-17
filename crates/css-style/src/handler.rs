@@ -1,6 +1,6 @@
 use css_cssom::{ComponentValue, ComponentValueStream, CssTokenKind, HashType};
 use css_values::{
-    CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap,
+    CSSParsable, FlexBasis, FlexDirection, FlexWrap, Gap, OverflowBlock,
     background::{Attachment, BgClip, RepeatStyle, Size, VisualBox, WidthHeightSize},
     border::{BorderStyle, BorderWidth},
     calc::CalcKind,
@@ -300,6 +300,10 @@ simple_property_handler!(handle_margin_top, margin_top, "margin-top");
 simple_property_handler!(handle_max_height, max_height, "max-height");
 simple_property_handler!(handle_max_width, max_width, "max-width");
 simple_property_handler!(handle_order, order, "order");
+simple_property_handler!(handle_overflow_anchor, overflow_anchor, "overflow-anchor");
+simple_property_handler!(handle_overflow_wrap, overflow_wrap, "overflow-wrap");
+simple_property_handler!(handle_overflow_x, overflow_x, "overflow-x");
+simple_property_handler!(handle_overflow_y, overflow_y, "overflow-y");
 simple_property_handler!(handle_padding_bottom, padding_bottom, "padding-bottom");
 simple_property_handler!(handle_padding_left, padding_left, "padding-left");
 simple_property_handler!(handle_padding_right, padding_right, "padding-right");
@@ -2154,6 +2158,95 @@ pub fn handle_gap(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueSt
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OverflowSide {
+    Block,
+    Inline,
+    All,
+}
+
+/// Handles the `overflow` property, which can be a global value or a length value.
+///
+/// # Specification
+///
+/// overflow =
+///   <'overflow-block'>{1,2}
+///
+/// # Examples
+///
+/// ```css
+/// overflow: hidden visible;
+/// ```
+pub fn handle_overflow(ctx: &mut PropertyUpdateContext, stream: &mut ComponentValueStream, side: OverflowSide) {
+    let writing_mode = ctx.resolve_writing_mode();
+
+    let mut first_overflow = None;
+    let mut second_overflow = None;
+
+    if let Ok(global) = Global::parse(stream) {
+        stream.next_cv();
+        first_overflow = Some(CSSProperty::Global(global));
+    } else {
+        if let Ok(overflow_block) = OverflowBlock::parse(stream) {
+            first_overflow = Some(CSSProperty::Value(overflow_block));
+        }
+    }
+
+    if !stream.has_remaining_tokens() {
+        second_overflow = first_overflow;
+    } else {
+        if let Ok(global) = Global::parse(stream) {
+            stream.next_cv();
+            second_overflow = Some(CSSProperty::Global(global));
+        } else {
+            if let Ok(overflow_block) = OverflowBlock::parse(stream) {
+                second_overflow = Some(CSSProperty::Value(overflow_block));
+            }
+        }
+    }
+
+    if stream.has_remaining_tokens() {
+        ctx.record_error_from_stream("overflow", stream, CssValueError::UnexpectedRemainingInput);
+        return;
+    }
+
+    if let Some(first_overflow) = first_overflow {
+        match (side, writing_mode) {
+            (
+                OverflowSide::Block,
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl | WritingMode::VerticalLr | WritingMode::VerticalRl,
+            ) => ctx.specified_style.overflow_x = first_overflow,
+            (OverflowSide::Block, WritingMode::HorizontalTb) => ctx.specified_style.overflow_y = first_overflow,
+            (
+                OverflowSide::Inline,
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl | WritingMode::VerticalLr | WritingMode::VerticalRl,
+            ) => ctx.specified_style.overflow_y = first_overflow,
+            (OverflowSide::Inline, WritingMode::HorizontalTb) => ctx.specified_style.overflow_x = first_overflow,
+            (_, _) => {
+                ctx.specified_style.overflow_x = first_overflow;
+            }
+        }
+    }
+
+    if let Some(second_overflow) = second_overflow {
+        match (side, writing_mode) {
+            (
+                OverflowSide::Block,
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl | WritingMode::VerticalLr | WritingMode::VerticalRl,
+            ) => ctx.specified_style.overflow_x = second_overflow,
+            (OverflowSide::Block, WritingMode::HorizontalTb) => ctx.specified_style.overflow_y = second_overflow,
+            (
+                OverflowSide::Inline,
+                WritingMode::SidewaysLr | WritingMode::SidewaysRl | WritingMode::VerticalLr | WritingMode::VerticalRl,
+            ) => ctx.specified_style.overflow_y = second_overflow,
+            (OverflowSide::Inline, WritingMode::HorizontalTb) => ctx.specified_style.overflow_x = second_overflow,
+            (_, _) => {
+                ctx.specified_style.overflow_y = second_overflow;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::Ipv4Addr;
@@ -2587,6 +2680,74 @@ mod tests {
         let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
 
         handle_gap(&mut ctx, &mut stream);
+
+        assert!(!ctx.errors.is_empty());
+    }
+
+    #[test]
+    fn test_overflow_invalid() {
+        let abs = absoulte_ctx();
+        let style_ctx = style_ctx();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("overflow: invalid-overflow;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
+
+        handle_overflow(&mut ctx, &mut stream, OverflowSide::All);
+
+        assert!(!ctx.errors.is_empty());
+    }
+
+    #[test]
+    fn test_overflow_valid() {
+        let abs = absoulte_ctx();
+        let style_ctx = style_ctx();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("overflow: auto;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
+
+        handle_overflow(&mut ctx, &mut stream, OverflowSide::All);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.overflow_x, CSSProperty::Value(OverflowBlock::Auto));
+        assert_eq!(specified.overflow_y, CSSProperty::Value(OverflowBlock::Auto));
+    }
+
+    #[test]
+    fn test_overflow_double_value() {
+        let abs = absoulte_ctx();
+        let style_ctx = style_ctx();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("overflow: auto hidden;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
+
+        handle_overflow(&mut ctx, &mut stream, OverflowSide::All);
+
+        assert!(ctx.errors.is_empty());
+        assert_eq!(specified.overflow_x, CSSProperty::Value(OverflowBlock::Auto));
+        assert_eq!(specified.overflow_y, CSSProperty::Value(OverflowBlock::Hidden));
+    }
+
+    #[test]
+    fn test_overflow_too_many_values() {
+        let abs = absoulte_ctx();
+        let style_ctx = style_ctx();
+        let mut specified = SpecifiedStyle::default();
+
+        let decls = CSSStyleSheet::from_inline("overflow: auto hidden scroll;");
+        let values = decls[0].original_values.clone();
+        let mut stream = ComponentValueStream::from(&values);
+        let mut ctx = PropertyUpdateContext::new(&abs, &style_ctx, &mut specified);
+
+        handle_overflow(&mut ctx, &mut stream, OverflowSide::All);
 
         assert!(!ctx.errors.is_empty());
     }

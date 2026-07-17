@@ -3,6 +3,7 @@ use std::sync::Arc;
 use browser_preferences::BrowserPreferences;
 use css_values::{
     AlignContent, AlignItems, AlignSelf, FlexDirection, FlexWrap, JustifyContent, JustifyItems, JustifySelf,
+    OverflowAnchor, OverflowBlock, OverflowWrap,
     border::{BorderStyle, BorderWidth},
     color::{Color, base::ColorBase, named::NamedColor},
     cursor::Cursor,
@@ -16,7 +17,7 @@ use crate::{
     clone_compute, compute, compute_px,
     computed::{
         image::ComputedBackgroundImage,
-        layout::{ComputedFlexBasis, ComputedGap},
+        layout::{ComputedFlexBasis, ComputedGap, compute_overflow},
         offset::{ComputedMargin, ComputedOffset},
         position::ComputedBackgroundSize,
     },
@@ -102,6 +103,10 @@ pub struct ComputedStyle {
     pub max_height: ComputedMaxSize,
     pub max_width: ComputedMaxSize,
     pub order: i64,
+    pub overflow_anchor: OverflowAnchor,
+    pub overflow_wrap: OverflowWrap,
+    pub overflow_x: OverflowBlock,
+    pub overflow_y: OverflowBlock,
     pub padding_bottom: ComputedOffset,
     pub padding_left: ComputedOffset,
     pub padding_right: ComputedOffset,
@@ -171,6 +176,7 @@ impl ComputedStyle {
                 0
             }
         };
+        let (overflow_x, overflow_y) = compute_overflow(specified_style.overflow_x, specified_style.overflow_y);
 
         let font_size = specified_style
             .font_size
@@ -353,6 +359,10 @@ impl ComputedStyle {
             )
             .unwrap_or_default(),
             order,
+            overflow_anchor: compute!(specified_style, parent, overflow_anchor),
+            overflow_wrap: compute!(specified_style, parent, overflow_wrap),
+            overflow_x,
+            overflow_y,
             padding_top: ComputedOffset::resolve(
                 padding_top,
                 Some(RelativeType::ParentWidth),
@@ -493,6 +503,10 @@ impl Default for ComputedStyle {
             max_height: ComputedMaxSize::None,
             max_width: ComputedMaxSize::None,
             order: 0,
+            overflow_anchor: OverflowAnchor::default(),
+            overflow_wrap: OverflowWrap::default(),
+            overflow_x: OverflowBlock::default(),
+            overflow_y: OverflowBlock::default(),
             padding_bottom: 0.0.into(),
             padding_left: 0.0.into(),
             padding_right: 0.0.into(),
