@@ -63,10 +63,13 @@ pub fn print_layout_node(layout_tree: &LayoutTree, node_id: &LayoutNodeId, depth
 
     let rect = &node.dimensions;
 
-    println!(
-        "{}[{:?}] x={:.1} y={:.1} w={:.1} h={:.1}",
-        indent, node.layout_id, rect.x, rect.y, rect.width, rect.height
-    );
+    if let Some(node_id) = node.node_id {
+        print!("{}[{:?}] (node_id: {}) ", indent, node.layout_id, node_id);
+    } else {
+        print!("{}[{:?}] ", indent, node.layout_id);
+    }
+
+    println!("x={:.1} y={:.1} w={:.1} h={:.1}", rect.x, rect.y, rect.width, rect.height);
 
     for child in &node.children {
         print_layout_node(layout_tree, child, depth + 1);
