@@ -332,16 +332,18 @@ impl Browser {
 
         tokio::spawn(
             async move {
-                let request = Request::builder(style_url.as_str())
+                let is_http = style_url.scheme() == "http" || style_url.scheme() == "https";
+
+                let request = Request::builder_url(style_url)
                     .request_mode(RequestMode::Cors)
                     .destination(Destination::Style)
                     .build();
 
-                let response_handle = if style_url.scheme() != "http" && style_url.scheme() != "https" {
+                let response_handle = if !is_http {
                     match request.read(&paths, Some(MAX_BLOCK_SIZE)) {
                         Ok(data) => RawClient::wrap_handle(data),
                         Err(error) => {
-                            debug!(%error, "Failed to load stylesheet {}", style_url);
+                            debug!(%error, "Failed to load stylesheet locally");
                             return None;
                         }
                     }
@@ -350,25 +352,21 @@ impl Browser {
                     {
                         Ok(response) => response,
                         Err(error) => {
-                            debug!(%error, "Failed to fetch stylesheet {}", style_url);
+                            debug!(%error, "Failed to fetch stylesheet");
                             return None;
                         }
                     }
                 };
 
                 if !response_handle.head().status_code.is_success() {
-                    debug!(
-                        "Failed to fetch stylesheet {}: status code {}",
-                        style_url,
-                        response_handle.head().status_code
-                    );
+                    debug!("Failed to fetch stylesheet: status code {}", response_handle.head().status_code);
                     return None;
                 }
 
                 let response = match response_handle.response().await {
                     Ok(resp) => resp,
                     Err(error) => {
-                        debug!(%error, "Failed to read body for stylesheet {}", style_url);
+                        debug!(%error, "Failed to read body for stylesheet");
                         return None;
                     }
                 };
@@ -376,14 +374,13 @@ impl Browser {
                 let body = match response.body.into_complete(MAX_BLOCK_SIZE as usize).await {
                     Some(b) => b,
                     None => {
-                        debug!("Empty body for stylesheet {}", style_url);
+                        debug!("Empty body for stylesheet");
                         return None;
                     }
                 };
 
                 let body_bytes = body.0.to_vec();
 
-                let stylesheet_url = style_url.clone();
                 let current_span = tracing::Span::current();
                 match tokio::task::spawn_blocking(move || {
                     let _span = current_span.enter();
@@ -395,7 +392,7 @@ impl Browser {
                 {
                     Ok(stylesheet) => Some(stylesheet),
                     Err(error) => {
-                        warn!(%error, "CSS parse task panicked for {}", stylesheet_url);
+                        warn!(%error, "CSS parse task panicked for");
                         None
                     }
                 }

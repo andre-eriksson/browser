@@ -3,6 +3,7 @@ use html_escape::decode_html_entities;
 use http::header::CONTENT_TYPE;
 use http_cache::block::MAX_BLOCK_SIZE;
 use http_fetch::{
+    clients::RawClient,
     errors::{FetchError, NetworkError},
     request::fetch,
 };
@@ -10,6 +11,7 @@ use http_types::{
     properties::{Destination, RequestMode},
     request::Request,
 };
+use io::Readable;
 use tracing::debug;
 use url::Url;
 
@@ -46,25 +48,37 @@ impl Browser {
             return Err(CoreError::Image("SVG images are not supported".to_string()));
         }
 
+        let is_http = absolute_url.scheme() == "http" || absolute_url.scheme() == "https";
+
         let image_request = Request::builder_url(absolute_url)
             .destination(Destination::Image)
             .request_mode(RequestMode::Cors)
             .build();
 
-        let response_handle = match fetch(
-            Some(&request_url),
-            image_request,
-            client.as_ref(),
-            &headers,
-            &self.profile().dirs().into(),
-            self.profile().cookie_jar(),
-            self.profile().http_cache(),
-        )
-        .await
-        {
-            Ok(handle) => handle,
-            Err(error) => {
-                return Err(CoreError::Image(error.to_string()));
+        let response_handle = if !is_http {
+            match image_request.read(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
+                Ok(data) => RawClient::wrap_handle(data),
+                Err(error) => {
+                    debug!(%error, "Failed to load image");
+                    return Err(CoreError::Image(error.to_string()));
+                }
+            }
+        } else {
+            match fetch(
+                Some(&request_url),
+                image_request,
+                client.as_ref(),
+                &headers,
+                &self.profile().dirs().into(),
+                self.profile().cookie_jar(),
+                self.profile().http_cache(),
+            )
+            .await
+            {
+                Ok(handle) => handle,
+                Err(error) => {
+                    return Err(CoreError::Image(error.to_string()));
+                }
             }
         };
 
