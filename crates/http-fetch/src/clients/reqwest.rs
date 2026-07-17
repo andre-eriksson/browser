@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use http::Method;
 use http_types::{
     body::HttpBody,
     request::RequestContext,
     response::{HeaderResponse, Response},
 };
+use reqwest::redirect::Policy;
 
 use crate::{
     client::{HttpClient, ResponseHandle},
@@ -18,6 +20,8 @@ use crate::{
 pub struct ReqwestClient {
     /// The underlying reqwest client.
     client: reqwest::Client,
+    /// The preflight client used for OPTIONS requests.
+    preflight_client: reqwest::Client,
 }
 
 impl ReqwestClient {
@@ -32,6 +36,15 @@ impl ReqwestClient {
     pub fn new() -> Self {
         Self {
             client: reqwest::Client::builder()
+                .no_brotli()
+                .no_deflate()
+                .no_gzip()
+                .no_zstd()
+                .http2_max_header_list_size(u16::MAX as u32)
+                .build()
+                .unwrap(),
+            preflight_client: reqwest::Client::builder()
+                .redirect(Policy::none())
                 .no_brotli()
                 .no_deflate()
                 .no_gzip()
@@ -90,23 +103,25 @@ impl HttpClient for ReqwestClient {
         context: Arc<RequestContext>,
         body: HttpBody,
     ) -> Result<Box<dyn ResponseHandle>, NetworkError> {
-        let mut req = self
-            .client
-            .request(context.method.clone(), context.url.clone());
+        let mut request = if context.method == Method::OPTIONS {
+            self.preflight_client
+                .request(context.method.clone(), context.url.clone())
+        } else {
+            self.client
+                .request(context.method.clone(), context.url.clone())
+        };
 
         for (key, value) in &context.headers {
-            req = req.header(key, value);
+            request = request.header(key, value);
         }
 
         match body {
             HttpBody::Empty => {}
-            HttpBody::Buffered(bytes) => req = req.body(bytes),
+            HttpBody::Buffered(bytes) => request = request.body(bytes),
             HttpBody::Streaming(_) => unimplemented!("Stream body requests aren't supported in the reqwest client"),
         }
 
-        let response = req.send().await;
-
-        let response = match response {
+        let response = match request.send().await {
             Ok(resp) => resp,
             Err(err) => {
                 return match err {
@@ -140,6 +155,7 @@ impl HttpClient for ReqwestClient {
     fn box_clone(&self) -> Box<dyn HttpClient> {
         Box::new(Self {
             client: self.client.clone(),
+            preflight_client: self.preflight_client.clone(),
         })
     }
 }
