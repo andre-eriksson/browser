@@ -3,8 +3,8 @@ use html_escape::decode_html_entities;
 use http::header::CONTENT_TYPE;
 use http_cache::block::MAX_BLOCK_SIZE;
 use http_fetch::{
-    clients::RawClient,
     errors::{FetchError, NetworkError},
+    handles::LocalHandle,
     request::fetch,
 };
 use http_types::{
@@ -57,7 +57,7 @@ impl Browser {
 
         let response_handle = if !is_http {
             match image_request.read(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
-                Ok(data) => RawClient::wrap_handle(data),
+                Ok(data) => LocalHandle::from(data).into(),
                 Err(error) => {
                     debug!(%error, "Failed to load image");
                     return Err(CoreError::Image(error.to_string()));

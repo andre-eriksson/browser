@@ -2,28 +2,9 @@ use std::{fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 
-use http_types::{
-    body::{BodyStream, HttpBody},
-    request::RequestContext,
-    response::{HeaderResponse, Response},
-};
+use http_types::{body::HttpBody, request::RequestContext};
 
-use crate::errors::NetworkError;
-
-#[async_trait]
-pub trait ResponseHandle: Send + Sync {
-    fn head(&self) -> &HeaderResponse;
-    /// Consumes and returns the full response, buffering if necessary.
-    async fn response(self: Box<Self>) -> Result<Response, NetworkError>;
-
-    /// Consumes and returns the body as a stream. Default buffers eagerly
-    /// via `response()`; real streaming clients can override this later
-    /// without changing the trait surface.
-    async fn body_stream(self: Box<Self>) -> Result<BodyStream, NetworkError> {
-        let resp = self.response().await?;
-        Ok(resp.body.into_stream())
-    }
-}
+use crate::{errors::NetworkError, handle::ResponseHandle};
 
 /// An asynchronous HTTP client trait.
 ///

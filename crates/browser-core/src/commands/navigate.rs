@@ -11,8 +11,8 @@ use html_parser::{BlockedReason, HtmlStreamParser, ParserState, ResourceType, Sc
 use http_cache::{block::MAX_BLOCK_SIZE, http::HttpCache};
 use http_fetch::{
     client::HttpClient,
-    clients::RawClient,
     errors::{FetchError, NetworkError},
+    handles::LocalHandle,
     request::fetch,
 };
 use http_types::{
@@ -54,7 +54,7 @@ impl Browser {
             && navigation_request.context.url.scheme() != "https"
         {
             match navigation_request.read(&self.profile().dirs().into(), Some(MAX_BLOCK_SIZE)) {
-                Ok(data) => RawClient::wrap_handle(data),
+                Ok(data) => LocalHandle::from(data).into(),
                 Err(error) => {
                     return Err(NavigationError::Resource(error));
                 }
@@ -204,7 +204,7 @@ impl Browser {
                                         let response_handle =
                                             if relative_url.scheme() != "http" && relative_url.scheme() != "https" {
                                                 match request.read(&dirs, Some(MAX_BLOCK_SIZE)) {
-                                                    Ok(data) => RawClient::wrap_handle(data),
+                                                    Ok(data) => LocalHandle::from(data).into(),
                                                     Err(error) => {
                                                         debug!(%error, "Failed to load favicon {}", relative_url);
                                                         return None;
@@ -341,7 +341,7 @@ impl Browser {
 
                 let response_handle = if !is_http {
                     match request.read(&paths, Some(MAX_BLOCK_SIZE)) {
-                        Ok(data) => RawClient::wrap_handle(data),
+                        Ok(data) => LocalHandle::from(data).into(),
                         Err(error) => {
                             debug!(%error, "Failed to load stylesheet locally");
                             return None;

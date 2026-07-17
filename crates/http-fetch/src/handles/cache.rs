@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use bytes::Bytes;
 use http::{HeaderMap, StatusCode};
 use tokio::sync::oneshot;
 use tracing::debug;
@@ -11,10 +10,10 @@ use http_types::{
 };
 use io::paths::AppPaths;
 
-use crate::{client::ResponseHandle, errors::NetworkError};
+use crate::{errors::NetworkError, handle::ResponseHandle};
 
 /// A response handle that wraps another response handle and caches the response if it is cacheable.
-pub struct CachingResponse {
+pub struct CacheHandle {
     paths: AppPaths,
     inner: Box<dyn ResponseHandle>,
     cache: HttpCache,
@@ -22,7 +21,7 @@ pub struct CachingResponse {
     request_headers: HeaderMap,
 }
 
-impl CachingResponse {
+impl CacheHandle {
     pub fn new(
         paths: AppPaths,
         inner: Box<dyn ResponseHandle>,
@@ -46,18 +45,18 @@ impl CachingResponse {
         handle: Box<dyn ResponseHandle>,
         request_headers: HeaderMap,
     ) -> Box<dyn ResponseHandle> {
-        Box::new(CachingResponse::new(paths, handle, http_cache.clone(), cache_key, request_headers))
+        Box::new(CacheHandle::new(paths, handle, http_cache.clone(), cache_key, request_headers))
     }
 }
 
 #[async_trait]
-impl ResponseHandle for CachingResponse {
+impl ResponseHandle for CacheHandle {
     fn head(&self) -> &HeaderResponse {
         self.inner.head()
     }
 
     async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
-        let CachingResponse {
+        let CacheHandle {
             paths,
             inner,
             cache,
@@ -108,34 +107,5 @@ impl ResponseHandle for CachingResponse {
                 Ok(response)
             }
         }
-    }
-}
-
-/// A response handle that wraps a complete response and returns it as a cached response.
-pub struct CachedResponse {
-    head: HeaderResponse,
-    body: Bytes,
-}
-
-impl CachedResponse {
-    pub fn new(response: CompleteResponse) -> Self {
-        Self {
-            head: response.head,
-            body: response.body.0,
-        }
-    }
-}
-
-#[async_trait]
-impl ResponseHandle for CachedResponse {
-    fn head(&self) -> &HeaderResponse {
-        &self.head
-    }
-
-    async fn response(self: Box<Self>) -> Result<Response, NetworkError> {
-        Ok(Response {
-            head: self.head,
-            body: HttpBody::Buffered(self.body),
-        })
     }
 }

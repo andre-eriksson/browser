@@ -6,23 +6,23 @@ use http_types::{
 };
 
 use crate::{
-    client::ResponseHandle,
-    decoding::{decode, decode_stream, get_encoding_order},
     errors::NetworkError,
+    handle::ResponseHandle,
+    middleware::{decode, decode_stream, get_encoding_order},
 };
 
-pub struct DecodeResponse {
+pub struct DecodeHandle {
     inner: Box<dyn ResponseHandle>,
 }
 
-impl DecodeResponse {
+impl DecodeHandle {
     pub fn wrap_handle(inner: Box<dyn ResponseHandle>) -> Box<dyn ResponseHandle> {
         Box::new(Self { inner })
     }
 }
 
 #[async_trait]
-impl ResponseHandle for DecodeResponse {
+impl ResponseHandle for DecodeHandle {
     fn head(&self) -> &HeaderResponse {
         self.inner.head()
     }

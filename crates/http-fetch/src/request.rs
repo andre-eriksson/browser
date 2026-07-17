@@ -19,11 +19,11 @@ use io::paths::AppPaths;
 
 use crate::{
     cache::{cache_lookup, make_revalidation_request},
-    client::{HttpClient, ResponseHandle},
-    clients::{CachedResponse, CachingResponse, DecodeResponse},
-    cookies::{apply_cookies, handle_response_cookie},
+    client::HttpClient,
     errors::FetchError,
-    headers::add_forbidden_headers,
+    handle::ResponseHandle,
+    handles::{CacheHandle, DecodeHandle, LocalHandle},
+    middleware::{add_forbidden_headers, apply_cookies, handle_response_cookie},
 };
 
 const STATUS_CODE: &str = "status_code";
@@ -48,8 +48,7 @@ pub async fn fetch(
         Ok(entry) => match entry {
             CacheEntry::Hit(data) => {
                 debug!({ STATUS_CODE } = data.head.status_code.as_u16(), { CACHE } = "hit");
-                let cached_response = Box::new(CachedResponse::new(data));
-                return Ok(DecodeResponse::wrap_handle(cached_response));
+                return Ok(DecodeHandle::wrap_handle(LocalHandle::new(data).into()));
             }
             CacheEntry::RequiresRevalidation {
                 stale_data,
@@ -105,18 +104,12 @@ pub async fn fetch(
 
     let cache_key = request_context.url.to_string();
     let final_handle = if response_head.status_code.is_success() {
-        CachingResponse::wrap_handle(
-            paths.clone(),
-            http_cache,
-            cache_key,
-            response_handle,
-            request_context.headers.clone(),
-        )
+        CacheHandle::wrap_handle(paths.clone(), http_cache, cache_key, response_handle, request_context.headers.clone())
     } else {
         response_handle
     };
 
-    let decode_handle = DecodeResponse::wrap_handle(final_handle);
+    let decode_handle = DecodeHandle::wrap_handle(final_handle);
 
     Ok(decode_handle)
 }

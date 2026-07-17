@@ -14,9 +14,10 @@ use http_types::{
 use io::paths::AppPaths;
 
 use crate::{
-    client::{HttpClient, ResponseHandle},
-    clients::{CachedResponse, CachingResponse},
+    client::HttpClient,
     errors::NetworkError,
+    handle::ResponseHandle,
+    handles::{CacheHandle, LocalHandle},
 };
 
 pub(crate) fn cache_lookup(
@@ -50,7 +51,7 @@ pub(crate) async fn make_revalidation_request(
     if status == StatusCode::NOT_MODIFIED {
         match http_cache.revalidate(&url, &network_request.head().headers) {
             Ok(()) => {
-                return Ok(Box::new(CachedResponse::new(stale_data)));
+                return Ok(LocalHandle::new(stale_data).into());
             }
             Err(error) => {
                 debug!(%error, "failure to revalidate the cache entry");
@@ -59,7 +60,7 @@ pub(crate) async fn make_revalidation_request(
 
         return Ok(network_request);
     } else if status == StatusCode::OK {
-        return Ok(CachingResponse::wrap_handle(paths.clone(), http_cache, url, network_request, request_headers));
+        return Ok(CacheHandle::wrap_handle(paths.clone(), http_cache, url, network_request, request_headers));
     }
 
     Ok(network_request)

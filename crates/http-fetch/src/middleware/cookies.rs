@@ -10,7 +10,7 @@ const RESPONSE_COOKIE: &str = "response_cookie";
 const COOKIE_NAME: &str = "cookie_name";
 const COOKIE_VALUE: &str = "cookie_value";
 
-pub(crate) fn apply_cookies(request: &mut Request, cookies: &[Cookie]) {
+pub fn apply_cookies(request: &mut Request, cookies: &[Cookie]) {
     trace!("Applying {} cookies to request", cookies.len());
 
     if cookies.is_empty() {
@@ -49,7 +49,7 @@ pub(crate) fn apply_cookies(request: &mut Request, cookies: &[Cookie]) {
     }
 }
 
-pub(crate) fn handle_response_cookie(cookie_jar: &CookieJar, request_url: &Url, header_value: &HeaderValue) {
+pub fn handle_response_cookie(cookie_jar: &CookieJar, request_url: &Url, header_value: &HeaderValue) {
     let Some(host) = request_url.host() else {
         debug!("Request URL does not have a valid domain host");
         return;
